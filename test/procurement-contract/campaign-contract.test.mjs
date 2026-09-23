@@ -63,11 +63,59 @@ test("la ficha Gas Quarterly incorpora lo confirmado y deja el resto faltante ex
     assert.ok(entry.reason.includes("operations/audit/IMP-02/campaign-contract.json"), factId);
   }
 
-  for (const factId of ["campaign.identity.campaignId", "campaign.identity.productContract", "campaign.identity.hubMarket", "campaign.obligation.deliveryPeriod", "campaign.calendar.deadline", "campaign.coverage.fillToObligationAssignment"]) {
+  for (const factId of ["campaign.identity.campaignId", "campaign.identity.productContract", "campaign.obligation.deliveryPeriod", "campaign.calendar.deadline", "campaign.coverage.fillToObligationAssignment"]) {
     const entry = fact(ficha, factId);
     assert.equal(entry.availability, "UNAVAILABLE", factId);
     assert.ok(entry.reason && entry.reason.length > 0, factId);
   }
+});
+
+// §25.1/§25.2: la ficha reconcilia con el paquete verificado del cliente los
+// parámetros que documenta a nivel del caso Fundamental: hub/market
+// NATGAS / THE Quarterly y la estructura 3-1-3. Verificación del paquete:
+// OFICINA_INTAKE_VERIFICATION.json (ESTADO_INPUTS.csv; gas_quarterly.md;
+// 01_shared_campaign_rules.md §1). Permanecen falsos criterionMet y
+// campaignIdentified: el paquete no aporta Campaign ID, maturity ni ownership.
+test("la ficha documenta el hub/market y la pausa 3-1-3 con provenance del paquete del cliente", () => {
+  const ficha = createGasQuarterlyFicha();
+  const hub = fact(ficha, "campaign.identity.hubMarket");
+  assert.equal(hub.availability, "AVAILABLE_NOW");
+  assert.ok(hub.value.includes("NATGAS / THE Quarterly"));
+  assert.ok(hub.value.includes("THE"));
+  assert.equal(hub.source.authority.includes("Fundamental (cliente)"), true);
+  assert.ok(hub.source.locator.includes("ESTADO_INPUTS.csv"));
+  assert.ok(hub.source.locator.includes("01_campaigns/gas_quarterly.md"));
+  const pause = fact(ficha, "campaign.calendar.pauseExclusion");
+  assert.equal(pause.availability, "AVAILABLE_NOW");
+  assert.ok(pause.value.includes("3-1-3"));
+  assert.ok(pause.source.locator.includes("01_shared_campaign_rules.md"));
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.campaignIdentified, false);
+  const criterion = evaluateImp02Acceptance(ficha);
+  assert.equal(criterion.criterionMet, false);
+  // El paquete identifica el hub pero no la campaña: el criterio no cambia.
+  assert.deepEqual(criterion.auditedContract.blockedBy.includes("campaign.identity"), true);
+});
+
+test("el hub/market y la pausa 3-1-3 citan el paquete del cliente, no la confirmación del owner", () => {
+  const ficha = createGasQuarterlyFicha();
+  for (const factId of ["campaign.identity.hubMarket", "campaign.calendar.pauseExclusion"]) {
+    const entry = fact(ficha, factId);
+    assert.ok(entry.source.authority.includes("Fundamental"), factId);
+    assert.ok(!entry.source.authority.includes("Bru (owner)"), factId);
+    assert.ok(entry.source.locator.length > 0, factId);
+    assert.equal(entry.reason, null, factId);
+  }
+});
+
+// Regresión del hallazgo IMP-02-CLIENT-FACTS-006: la ficha declaraba
+// UNAVAILABLE el hub/market y la estructura de pausa que el paquete ya
+// documenta; esas razones de ausencia contradictorias ya no aparecen.
+test("la ficha ya no afirma ausencia del hub/market ni de la estructura 3-1-3", () => {
+  const ficha = createGasQuarterlyFicha();
+  assert.ok(!JSON.stringify(ficha).includes("No hay mercado/hub aplicable confirmado"));
+  assert.ok(!JSON.stringify(ficha).includes("Falta la estructura de pausa/mes excluido"));
 });
 
 test("la ficha cubre todas las facts obligatorias del contrato de campaña", () => {
@@ -115,10 +163,10 @@ test("una fact UNAVAILABLE con valor se rechaza como fabricada", () => {
 
 test("una fact UNAVAILABLE sin razón se rechaza", () => {
   const ficha = createGasQuarterlyFicha();
-  fact(ficha, "campaign.identity.hubMarket").reason = "";
+  fact(ficha, "campaign.calendar.deadline").reason = "";
   const outcome = validateCampaignContract(ficha);
   assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((error) => error.code === "MISSING_NOT_DOCUMENTED" && error.factId === "campaign.identity.hubMarket"));
+  assert.ok(outcome.errors.some((error) => error.code === "MISSING_NOT_DOCUMENTED" && error.factId === "campaign.calendar.deadline"));
 });
 
 test("una fact con availability no declarada se rechaza", () => {

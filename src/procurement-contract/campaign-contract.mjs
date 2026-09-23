@@ -35,6 +35,29 @@ export const CONFIRMED_OBLIGATIONS = [
   { product: "Power", mission: "Quarterly", quantity: 20, unit: "MW", source: OWNER_CONFIRMATION },
 ];
 
+// §25.1/§25.2 IMP-02: reconciliar la ficha con el material auditado. El
+// paquete completo del cliente (ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23, 15
+// archivos verificados, manifest en OFICINA_INTAKE_VERIFICATION.json) registra
+// a nivel del caso Fundamental los parámetros del Gas Quarterly. Son
+// parámetros del mandato vigente, no el registro de una campaña concreta:
+// no sostienen Campaign ID, maturity ni ownership.
+const CLIENT_PACKAGE_CONFIRMATION = {
+  authority: "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+};
+
+export const CLIENT_PACKAGE_SOURCES = {
+  hubMarket: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Product mapping — Gas Quarterly\"; 01_campaigns/gas_quarterly.md \"Relevant EEX product class\"",
+    quote: "NATGAS / THE Quarterly EEX futures",
+  },
+  pauseExclusion: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Quarterly calendar rule\"; 01_campaigns/gas_quarterly.md \"Trading-window convention\"; 01_campaigns/01_shared_campaign_rules.md §1",
+    quote: "3-1-3: three calendar months trading, one calendar month gap, three calendar months delivery",
+  },
+};
+
 export function confirmedQuantityFor(product, mission) {
   const match = CONFIRMED_OBLIGATIONS.find((entry) => entry.product === product && entry.mission === mission);
   return match ? { quantity: match.quantity, unit: match.unit, source: match.source } : null;
@@ -730,7 +753,7 @@ export function createGasQuarterlyFicha() {
   const confirmed = confirmedQuantityFor("Gas", "Quarterly");
   const facts = [
     missingFact("campaign.identity.campaignId", "No se encontró un Campaign ID real en el alcance inspeccionado (AUDIT_INPUTS §5); su existencia no se afirma ni se niega. §4.1 declara la identidad AUDIT-DEPENDENT.", "Obtener el registro de campaña firmado que contenga el Campaign ID."),
-    missingFact("campaign.identity.productContract", "El producto/contrato exacto no está confirmado; la residencia del cliente no identifica el producto de Gas (§4.1).", "Solicitar el contrato/producto exacto al responsable del mandato."),
+    missingFact("campaign.identity.productContract", "El contrato exacto de la campaña identificada (su maturity) sigue sin registro auditado (§4.1); el paquete del cliente confirma a nivel del mandato vigente la clase de producto NATGAS / THE Quarterly EEX futures, que es lo que documenta el hub/market de esta ficha, no el contrato de la campaña.", "Obtener el registro de campaña firmado con su contrato/maturity exacto."),
     // §4.1 línea 280: la fila Identidad (incluidos Power/Gas y
     // Monthly/Quarterly) es AUDIT-DEPENDENT; conocer la cantidad no confirma
     // producto ni Mission de una campaña real. Coincide con el artefacto
@@ -747,7 +770,20 @@ export function createGasQuarterlyFicha() {
       "La identidad de campaña es AUDIT-DEPENDENT (§4.1): la tabla §4.1 confirma cantidades por combinación producto/Mission, no la Mission de una campaña real. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING (§4.1 línea 280).",
       "Confirmar la Mission de la campaña real desde el mandato firmado.",
     ),
-    missingFact("campaign.identity.hubMarket", "No hay mercado/hub aplicable confirmado (§4.1).", "Recuperar el mercado/hub y la liquidación del mandato firmado."),
+    // §25.1/§25.2: el paquete verificado del cliente documenta el hub/market
+    // del caso Fundamental (NATGAS / THE Quarterly) y la estructura trimestral
+    // 3-1-3; la ficha ya no los declara ausentes. Son parámetros del mandato
+    // vigente, no el registro de una campaña concreta: no identifican
+    // Campaign ID, maturity, calendario real ni ownership.
+    {
+      factId: "campaign.identity.hubMarket",
+      section: "Identidad",
+      availability: "AVAILABLE_NOW",
+      value: "NATGAS / THE Quarterly (Trading Hub Europe, vía futuros EEX)",
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.hubMarket,
+      reason: null,
+    },
     {
       factId: "campaign.obligation.totalVolumeKnown",
       section: "Obligación",
@@ -779,7 +815,15 @@ export function createGasQuarterlyFicha() {
     missingFact("campaign.calendar.openClose", "Faltan apertura/cierre de campaña (§4.1).", "Recuperar el calendario de procurement real."),
     missingFact("campaign.calendar.decisionOpportunities", "No hay oportunidades de decisión válidas auditadas (§13.4).", "Instanciar oportunidades desde el Procurement Contract auditado."),
     missingFact("campaign.calendar.deadline", "No se encontró el deadline en el alcance inspeccionado (AUDIT_INPUTS §5); no se infiere (§4.1/§4.2).", "Recuperar el deadline contractual."),
-    missingFact("campaign.calendar.pauseExclusion", "Falta la estructura de pausa/mes excluido (§13.4).", "Recuperar pausa/exclusión documentada."),
+    {
+      factId: "campaign.calendar.pauseExclusion",
+      section: "Calendario",
+      availability: "AVAILABLE_NOW",
+      value: "3-1-3: tres meses de trading, un mes de pausa (gap), tres meses de delivery (§13.4)",
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.pauseExclusion,
+      reason: null,
+    },
     missingFact("campaign.feasibility.lots", "Faltan lotes reales; no se asumen (§4.1/§5.6).", "Auditar lotes y redondeos reales."),
     missingFact("campaign.feasibility.rounding", "Falta el redondeo real; no se asume (§4.1/§5.6).", "Auditar redondeo real."),
     missingFact("campaign.feasibility.terminalCoverageRule", "No se ha verificado una terminal rule: AUDIT_INPUTS §5 la registra como no encontrada en el alcance inspeccionado; su existencia no se afirma ni se niega (§14.5: auditar la regla real sigue pendiente). Mientras no esté verificada, un residual al deadline queda COVERAGE_INCOMPLETE y no se fabrica fill de cierre (§4.3/§14.5).", "Recuperar la terminal rule versionada del contrato."),
