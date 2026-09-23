@@ -1,0 +1,248 @@
+{
+  "artifactKind": "IMP-02_GAS_QUARTERLY_CAMPAIGN_FICHA",
+  "schemaVersion": "1.1",
+  "spec": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
+    "version": "1.1.1",
+    "sha256": "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3"
+  },
+  "product": "Gas",
+  "mission": "Quarterly",
+  "guards": {
+    "totalObligationIsPerBuySizing": false,
+    "benchmarkWindowIsExecutionPermission": false,
+    "unknownTerminalRuleFabricatesCloseOutFill": false,
+    "assumedMwToMwhConversion": false
+  },
+  "facts": [
+    {
+      "factId": "campaign.identity.campaignId",
+      "section": "Identidad",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No existe un Campaign ID real en el material auditado (§4.1 declara la identidad AUDIT-DEPENDENT).",
+      "nextRetrievalAction": "Obtener el registro de campaña firmado que contenga el Campaign ID."
+    },
+    {
+      "factId": "campaign.identity.productContract",
+      "section": "Identidad",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "El producto/contrato exacto no está confirmado; la residencia del cliente no identifica el producto de Gas (§4.1).",
+      "nextRetrievalAction": "Solicitar el contrato/producto exacto al responsable del mandato."
+    },
+    {
+      "factId": "campaign.identity.productFamily",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "Gas",
+      "unit": null,
+      "source": {
+        "authority": "Bru (owner)",
+        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
+        "quote": "Confirmación de Bru, 2026-09-22"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.identity.mission",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "Quarterly",
+      "unit": null,
+      "source": {
+        "authority": "Bru (owner)",
+        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
+        "quote": "Confirmación de Bru, 2026-09-22"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.identity.hubMarket",
+      "section": "Identidad",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No hay mercado/hub aplicable confirmado (§4.1).",
+      "nextRetrievalAction": "Recuperar el mercado/hub y la liquidación del mandato firmado."
+    },
+    {
+      "factId": "campaign.obligation.totalVolumeKnown",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": 60,
+      "unit": "MW",
+      "source": {
+        "authority": "Bru (owner)",
+        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
+        "quote": "Confirmación de Bru, 2026-09-22"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.unit",
+      "section": "Obligación",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "MW es la unidad comunicada, no una unidad ejecutable completa; no se convierte a MWh sin horas/perfil (§4.1).",
+      "nextRetrievalAction": "Obtener la unidad contractual y el perfil de entrega."
+    },
+    {
+      "factId": "campaign.obligation.deliveryPeriod",
+      "section": "Obligación",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Falta el periodo/horas/perfil de entrega (§4.1).",
+      "nextRetrievalAction": "Recuperar periodo, horas y perfil de entrega del mandato."
+    },
+    {
+      "factId": "campaign.obligation.validity",
+      "section": "Obligación",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Falta la vigencia de la obligación (§4.1).",
+      "nextRetrievalAction": "Recuperar vigencia y enmiendas/cancelaciones del contrato."
+    },
+    {
+      "factId": "campaign.obligation.campaignLink",
+      "section": "Obligación",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "La cantidad confirmada no identifica la campaña a la que pertenece (§4.1).",
+      "nextRetrievalAction": "Vincular la cantidad a una campaña real."
+    },
+    {
+      "factId": "campaign.obligation.amendments",
+      "section": "Obligación",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No hay enmiendas/cancelaciones reales verificadas; su ausencia no se afirma como 'ninguna' (§4.3).",
+      "nextRetrievalAction": "Recuperar enmiendas/cancelaciones versionadas."
+    },
+    {
+      "factId": "campaign.calendar.openClose",
+      "section": "Calendario",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Faltan apertura/cierre de campaña (§4.1).",
+      "nextRetrievalAction": "Recuperar el calendario de procurement real."
+    },
+    {
+      "factId": "campaign.calendar.decisionOpportunities",
+      "section": "Calendario",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No hay oportunidades de decisión válidas auditadas (§13.4).",
+      "nextRetrievalAction": "Instanciar oportunidades desde el Procurement Contract auditado."
+    },
+    {
+      "factId": "campaign.calendar.deadline",
+      "section": "Calendario",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No hay deadline real; no se infiere (§4.1/§4.2).",
+      "nextRetrievalAction": "Recuperar el deadline contractual."
+    },
+    {
+      "factId": "campaign.calendar.pauseExclusion",
+      "section": "Calendario",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Falta la estructura de pausa/mes excluido (§13.4).",
+      "nextRetrievalAction": "Recuperar pausa/exclusión documentada."
+    },
+    {
+      "factId": "campaign.feasibility.lots",
+      "section": "Factibilidad",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Faltan lotes reales; no se asumen (§4.1/§5.6).",
+      "nextRetrievalAction": "Auditar lotes y redondeos reales."
+    },
+    {
+      "factId": "campaign.feasibility.rounding",
+      "section": "Factibilidad",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Falta el redondeo real; no se asume (§4.1/§5.6).",
+      "nextRetrievalAction": "Auditar redondeo real."
+    },
+    {
+      "factId": "campaign.feasibility.terminalCoverageRule",
+      "section": "Factibilidad",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No existe terminal rule válida; sin ella el residual da COVERAGE_INCOMPLETE y no se fabrica fill de cierre (§4.3).",
+      "nextRetrievalAction": "Recuperar la terminal rule versionada del contrato."
+    },
+    {
+      "factId": "campaign.execution.contract",
+      "section": "Ejecución",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Falta el contrato de ejecución (fills, latencia, fees, slippage) real (§4.1/§5.6).",
+      "nextRetrievalAction": "Auditar el execution contract aplicable."
+    },
+    {
+      "factId": "campaign.coverage.executedVolume",
+      "section": "Estado de cobertura",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No hay execution ledger real para la campaña (§4.3).",
+      "nextRetrievalAction": "Producir el ledger de ejecución cuando existan fills."
+    },
+    {
+      "factId": "campaign.coverage.remainingVolume",
+      "section": "Estado de cobertura",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "El volumen restante no es computable sin obligación de apertura y volumen ejecutado (§4.3).",
+      "nextRetrievalAction": "Derivar el restante sólo tras materializar apertura y ejecutado."
+    },
+    {
+      "factId": "campaign.coverage.fillToObligationAssignment",
+      "section": "Estado de cobertura",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
+      "nextRetrievalAction": "Asignar cada fill/cobertura a lo sumo a una obligación."
+    }
+  ]
+}
