@@ -9,7 +9,7 @@ import {
   selectMinimumTooling,
   validateToolingSelection,
 } from "../../src/tooling-selection/decision.mjs";
-import { makeAssessment, makeReconciliation, SELECTION_EVIDENCE } from "./fixtures.mjs";
+import { makeAssessment, makeReconciliationEvidence, SELECTION_EVIDENCE } from "./fixtures.mjs";
 
 const BENCHMARK = ["benchmark.calculate", "reference.proxy"];
 
@@ -96,7 +96,7 @@ test("selectMinimumTooling exige reconciliación y no concede autoridad producti
   const withReconciliation = selectMinimumTooling({
     requiredCapabilities: BENCHMARK,
     assessments: [assessment],
-    reconciliation: makeReconciliation("SYN-TOOL-A"),
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
     evidenceRefs: SELECTION_EVIDENCE,
   });
   assert.equal(withReconciliation.ok, true);
@@ -115,7 +115,7 @@ test("EXTEND no puede reimplementar capacidades existentes", () => {
     selectionBasis: SELECTION_BASIS.AUDIT,
     targetComponentId: "SYN-TOOL-A",
     additions: BENCHMARK,
-    reconciliation: makeReconciliation("SYN-TOOL-A"),
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
     evidenceRefs: SELECTION_EVIDENCE,
     grantsProductionAuthority: false,
   };
@@ -132,7 +132,7 @@ test("una selección por preferencia tecnológica se rechaza", () => {
     selectionBasis: SELECTION_BASIS.PREFERENCE,
     targetComponentId: "SYN-TOOL-A",
     additions: [],
-    reconciliation: makeReconciliation("SYN-TOOL-A"),
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
     evidenceRefs: SELECTION_EVIDENCE,
     grantsProductionAuthority: false,
   };

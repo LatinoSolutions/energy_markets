@@ -3,9 +3,11 @@
 // casi suficiente; construir un engine completo sólo si la auditoría demuestra
 // necesidad. Esta decisión de tooling no concede autoridad de producción"),
 // §20.1 y §25.1 IMP-04 (MUST NOT CHANGE: P4.5; no elección por preferencia
-// tecnológica ni exposición de IP implícita). El módulo no conoce herramientas
-// reales: deriva la decisión de assessments auditados y falla explícitamente
-// cuando la evidencia no alcanza para elegir.
+// tecnológica ni exposición de IP implícita). Este módulo materializa el
+// framework audit-first: deriva la decisión de assessments auditados y falla
+// explícitamente cuando la evidencia no alcanza para elegir. Las assessments de
+// herramientas reales del entorno viven en ./real-tooling.mjs (entregable
+// DEP-10); aquí sólo se consume su contrato.
 
 import {
   validateEvidenceRef,
@@ -13,6 +15,7 @@ import {
   isCapabilityAssessmentUsable,
   validateCapabilityAssessment,
 } from "./capability.mjs";
+import { reconcileKeyOutputs } from "./reconciliation.mjs";
 
 export const TOOLING_DECISION = Object.freeze({
   REUSE: "REUSE",
@@ -150,50 +153,48 @@ export function deriveToolingDecision({ requiredCapabilities = [], assessments =
 }
 
 // §25.1 IMP-04 / DEP-10: la reconciliación que sostiene una selección debe ser
-// verificable, no declarada. Se exige: componentes producidos por
-// `reconcileKeyOutputs` (comparaciones contra fixtures permitidos con cómputo
-// independiente), cobertura de TODAS las salidas clave declaradas por la
-// interfaz real del componente evaluado, sin divergencias y sin rechazo.
-// Un objeto `{componentId, reconciled: true}` sin comparaciones es fabricado
-// y no sostiene la decisión.
+// verificable, no declarada. No se acepta un resultado con `reconciled: true`
+// (ni comparaciones escritas a mano): la evidencia debe aportar las salidas
+// reales del componente y los fixtures permitidos, y aquí se recalcula con
+// `reconcileKeyOutputs`. Eso exige fixtures `permitted` con
+// `independentComputation`, cobertura de TODAS las salidas clave declaradas por
+// la interfaz real del componente evaluado y coincidencia observado/esperado.
+// Un objeto `{componentId, reconciled: true, comparisons:[{outputId,
+// agreed:true}]}` sin valores ni procedencia es fabricado y no sostiene la
+// decisión.
 function validateReconciliation(reconciliation, targetAssessment) {
   const errors = [];
   if (!reconciliation || typeof reconciliation !== "object" || Array.isArray(reconciliation)) {
     return { ok: false, errors: [{ field: "reconciliation", code: "MISSING_RECONCILIATION", message: "Reutilizar/extender exige reconciliar de forma independiente las salidas clave del componente evaluado." }] };
   }
-  if (reconciliation.reconciled !== true) {
-    errors.push({ field: "reconciliation.reconciled", code: "NOT_RECONCILED", message: "Las salidas clave del componente evaluado no están reconciliadas independientemente." });
-  }
-  if (reconciliation.rejected === true) {
-    errors.push({ field: "reconciliation.rejected", code: "RECONCILIATION_REJECTED", message: "La reconciliación fue rechazada y no puede sostener la decisión.", reason: reconciliation.reason ?? null });
-  }
   if (targetAssessment !== null && reconciliation.componentId !== targetAssessment.componentId) {
     errors.push({ field: "reconciliation.componentId", code: "RECONCILIATION_COMPONENT_MISMATCH", message: "La reconciliación no corresponde al componente evaluado." });
   }
-  const comparisons = reconciliation.comparisons;
-  if (!Array.isArray(comparisons) || comparisons.length === 0) {
-    errors.push({ field: "reconciliation.comparisons", code: "RECONCILIATION_WITHOUT_COMPARISONS", message: "Una reconciliación sin comparaciones observado/esperado es fabricada: no sostiene la decisión." });
+  const outputs = reconciliation.outputs;
+  const fixtures = reconciliation.fixtures;
+  if (!Array.isArray(outputs) || outputs.length === 0 || !Array.isArray(fixtures) || fixtures.length === 0) {
+    errors.push({
+      field: "reconciliation",
+      code: "RECONCILIATION_NOT_VERIFIABLE",
+      message: "La reconciliación debe aportar las salidas reales del componente y los fixtures permitidos con los que recalcularse; un resultado declarado no es verificable.",
+    });
     return { ok: false, errors };
   }
-  for (const comparison of comparisons) {
-    if (!comparison || typeof comparison !== "object" || Array.isArray(comparison)) {
-      errors.push({ field: "reconciliation.comparisons", code: "INVALID_COMPARISON", message: "Cada comparación debe registrar observado, esperado y resultado." });
-      continue;
-    }
-    if (comparison.agreed !== true) {
-      errors.push({ field: "reconciliation.comparisons", code: "COMPARISON_NOT_AGREED", message: "Toda comparación debe haber coincidido para reconciliar.", outputId: comparison.outputId ?? null });
-    }
-  }
-  if (Array.isArray(reconciliation.mismatches) && reconciliation.mismatches.length > 0) {
-    errors.push({ field: "reconciliation.mismatches", code: "RECONCILIATION_MISMATCHES", message: "La reconciliación registra divergencias y no puede sostener la decisión." });
-  }
   const keyOutputs = targetAssessment?.interfaceContract?.outputs ?? null;
-  if (Array.isArray(keyOutputs) && keyOutputs.length > 0) {
-    const covered = new Set(comparisons.filter((comparison) => comparison?.agreed === true).map((comparison) => comparison?.outputId));
-    const uncovered = keyOutputs.filter((outputId) => !covered.has(outputId));
-    if (uncovered.length > 0) {
-      errors.push({ field: "reconciliation.comparisons", code: "KEY_OUTPUTS_NOT_COVERED", message: "Las comparaciones no cubren todas las salidas clave declaradas por la interfaz del componente evaluado.", uncoveredKeyOutputs: uncovered });
-    }
+  const recomputed = reconcileKeyOutputs({
+    componentId: reconciliation.componentId,
+    outputs,
+    fixtures,
+    keyOutputs,
+  });
+  if (recomputed.reconciled !== true) {
+    errors.push({
+      field: "reconciliation",
+      code: recomputed.code ?? "NOT_RECONCILED",
+      message: recomputed.message ?? "Las salidas clave del componente evaluado no se reconcilian contra los fixtures permitidos.",
+      mismatches: recomputed.mismatches ?? null,
+      uncoveredKeyOutputs: recomputed.uncoveredKeyOutputs ?? null,
+    });
   }
   return { ok: errors.length === 0, errors };
 }

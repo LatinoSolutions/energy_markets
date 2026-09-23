@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
-import { makeAssessment, makeFixtures, makeOutputs, makeReconciliation, SELECTION_EVIDENCE } from "./fixtures.mjs";
+import { makeAssessment, makeFixtures, makeReconciliationEvidence, SELECTION_EVIDENCE } from "./fixtures.mjs";
 
 // Acceptance de IMP-04 §25.1: "Salidas clave pueden reconciliarse
 // independientemente; nueva plataforma sólo si audit demuestra necesidad".
@@ -13,18 +13,21 @@ import { makeAssessment, makeFixtures, makeOutputs, makeReconciliation, SELECTIO
 
 test("acceptance: las salidas clave se reconcilian de forma independiente antes de reutilizar", () => {
   const assessment = makeAssessment();
-  const reconciliation = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs(),
-    fixtures: makeFixtures(),
+  const evidence = makeReconciliationEvidence("SYN-TOOL-A");
+  // La reconciliación se recalcula desde la evidencia cruda; el validador no
+  // acepta un resultado declarado.
+  const recomputed = reconcileKeyOutputs({
+    componentId: evidence.componentId,
+    outputs: evidence.outputs,
+    fixtures: evidence.fixtures,
     keyOutputs: assessment.interfaceContract.outputs,
   });
-  assert.equal(reconciliation.reconciled, true);
+  assert.equal(recomputed.reconciled, true);
 
   const result = selectMinimumTooling({
     requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
     assessments: [assessment],
-    reconciliation,
+    reconciliation: evidence,
     evidenceRefs: SELECTION_EVIDENCE,
   });
   assert.equal(result.ok, true);
@@ -54,7 +57,7 @@ test("acceptance: una plataforma nueva sólo procede si la auditoría demuestra 
   assert.equal(accepted.selection.targetAssessment, null);
 });
 
-test("acceptance: una reconciliación fabricada sin comparaciones no sostiene la selección", () => {
+test("acceptance: una reconciliación declarada (sin salidas ni fixtures) no sostiene la selección", () => {
   const assessment = makeAssessment();
   const fabricated = { componentId: "SYN-TOOL-A", reconciled: true, rejected: false };
   const result = selectMinimumTooling({
@@ -64,7 +67,26 @@ test("acceptance: una reconciliación fabricada sin comparaciones no sostiene la
     evidenceRefs: SELECTION_EVIDENCE,
   });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((error) => error.code === "RECONCILIATION_WITHOUT_COMPARISONS"));
+  assert.ok(result.errors.some((error) => error.code === "RECONCILIATION_NOT_VERIFIABLE"));
+});
+
+test("acceptance: comparaciones escritas a mano (con observado/esperado) siguen sin ser verificables", () => {
+  const assessment = makeAssessment();
+  const fabricated = {
+    componentId: "SYN-TOOL-A",
+    reconciled: true,
+    rejected: false,
+    comparisons: [{ outputId: "SYN-output-B", observed: 105, expected: 105, agreed: true, tolerance: 0 }],
+    mismatches: [],
+  };
+  const result = selectMinimumTooling({
+    requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
+    assessments: [assessment],
+    reconciliation: fabricated,
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.code === "RECONCILIATION_NOT_VERIFIABLE"));
 });
 
 test("acceptance: una reconciliación que no cubre las salidas clave declaradas se rechaza", () => {
@@ -72,7 +94,7 @@ test("acceptance: una reconciliación que no cubre las salidas clave declaradas 
     interfaceContract: { inputs: ["SYN-input-price"], outputs: ["SYN-output-B", "SYN-output-C"] },
   });
   // Fixture de un subconjunto arbitrario: cubre una salida, no la otra.
-  const partialReconciliation = makeReconciliation("SYN-TOOL-A");
+  const partialReconciliation = makeReconciliationEvidence("SYN-TOOL-A");
   const result = selectMinimumTooling({
     requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
     assessments: [assessment],
@@ -85,9 +107,8 @@ test("acceptance: una reconciliación que no cubre las salidas clave declaradas 
 
 test("acceptance: una comparación no coincidente en la reconciliación impide la selección", () => {
   const assessment = makeAssessment();
-  const divergent = makeReconciliation("SYN-TOOL-A", {
-    comparisons: [{ outputId: "SYN-output-B", observed: 104, expected: 105, agreed: false, tolerance: 0 }],
-    mismatches: [{ outputId: "SYN-output-B", reason: "VALUE_MISMATCH" }],
+  const divergent = makeReconciliationEvidence("SYN-TOOL-A", {
+    fixtures: makeFixtures({ expectedValue: 104 }),
   });
   const result = selectMinimumTooling({
     requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
@@ -96,17 +117,33 @@ test("acceptance: una comparación no coincidente en la reconciliación impide l
     evidenceRefs: SELECTION_EVIDENCE,
   });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((error) => error.code === "COMPARISON_NOT_AGREED"));
+  assert.ok(result.errors.some((error) => error.code === "NOT_RECONCILED"));
+});
+
+test("acceptance: un fixture no permitido o sin cómputo independiente no reconcilia", () => {
+  const assessment = makeAssessment();
+  const notPermitted = selectMinimumTooling({
+    requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
+    assessments: [assessment],
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A", { fixtures: makeFixtures({ permitted: false }) }),
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(notPermitted.ok, false);
+  assert.ok(notPermitted.errors.some((error) => error.code === "FIXTURE_NOT_PERMITTED"));
+
+  const notIndependent = selectMinimumTooling({
+    requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
+    assessments: [assessment],
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A", { fixtures: makeFixtures({ independentComputation: "" }) }),
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(notIndependent.ok, false);
+  assert.ok(notIndependent.errors.some((error) => error.code === "FIXTURE_NOT_INDEPENDENT"));
 });
 
 test("acceptance: evidenceRefs inválidos (incluido [null]) no aprueban la selección", () => {
   const assessment = makeAssessment();
-  const reconciliation = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs(),
-    fixtures: makeFixtures(),
-    keyOutputs: assessment.interfaceContract.outputs,
-  });
+  const reconciliation = makeReconciliationEvidence("SYN-TOOL-A");
   const base = {
     requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
     assessments: [assessment],

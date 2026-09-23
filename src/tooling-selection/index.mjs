@@ -2,8 +2,9 @@
 // (IMP-04). Fuente: SPEC v1.1 §§6.4 y 20.1, y §25.1/§25.2.2 IMP-04. El módulo
 // materializa el capability assessment, la decisión auditada
 // reutilizar/extender/construir y la reconciliación independiente de salidas
-// clave con fixtures permitidos. No ejecuta herramientas, no atribuye edge y
-// no concede autoridad de producción.
+// clave con fixtures permitidos. `real-tooling.mjs` aporta el entregable DEP-10
+// sobre herramientas reales. No atribuye edge y no concede autoridad de
+// producción.
 
 export {
   IP_EXPOSURE,
@@ -24,3 +25,11 @@ export {
 } from "./decision.mjs";
 
 export { reconcileKeyOutputs } from "./reconciliation.mjs";
+
+export {
+  REAL_BENCHMARK_COMPONENT_ID,
+  REAL_REQUIRED_CAPABILITIES,
+  REAL_SELECTION_EVIDENCE,
+  REAL_TOOLING_ASSESSMENTS,
+  buildRealToolingReconciliation,
+} from "./real-tooling.mjs";

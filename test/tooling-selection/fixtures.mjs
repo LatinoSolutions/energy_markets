@@ -22,16 +22,15 @@ export function makeAssessment(overrides = {}) {
   return { ...base, ...overrides };
 }
 
-export function makeReconciliation(componentId, overrides = {}) {
+// La reconciliación se aporta como evidencia cruda (salidas reales del
+// componente + fixtures permitidos), no como resultado declarado: el validador
+// recalcula con `reconcileKeyOutputs` y no confía en `agreed:true` escrito a
+// mano.
+export function makeReconciliationEvidence(componentId, overrides = {}) {
   return {
     componentId,
-    reconciled: true,
-    rejected: false,
-    comparisons: [{ outputId: "SYN-output-B", observed: 105, expected: 105, agreed: true, tolerance: 0 }],
-    mismatches: [],
-    edgeAttributed: false,
-    productionAuthority: false,
-    requiresPermittedFixtures: true,
+    outputs: makeOutputs(),
+    fixtures: makeFixtures(),
     ...overrides,
   };
 }
