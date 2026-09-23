@@ -49,8 +49,11 @@ capacidad.
 
 ## Estado de reconciliación oficial (fail-closed, P-007 + DEP-06/07/08/09)
 
-- La respuesta del cliente verificada (P-007,
-  `ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23/full-package/03_sources_benchmark_access/sources_benchmark_access.md`)
+- La respuesta del cliente verificada (P-007, 23-sep-2026,
+  `ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23/full-package/03_sources_benchmark_access/sources_benchmark_access.md`,
+  SHA-256 `bc693deff46332ab89be945d3a5e10511a46c02cce0c820434aa666f1d30a615`,
+  incluido en el manifest de `OFICINA_INTAKE_VERIFICATION.json`, verificado
+  byte-a-byte 2026-09-23T15:40Z)
   NO entrega feed/endpoint/formato/entitlement oficial de settlement ni
   override Fundamental: instruye usar el benchmark EEX del research team
   existente y resolver/versionar los edge cases (incluido 0.01) dentro de la
