@@ -1,5 +1,5 @@
 // Capability assessment de la herramienta/entorno evaluada (IMP-04). Fuente:
-// SPEC v1.1 §6.4 (auditar productos/series/permisos de uso y capacidades del
+// SPEC v1.1.1 §6.4 (auditar productos/series/permisos de uso y capacidades del
 // backtesting existente; la elección técnica sigue esa evidencia), §20.1 B02
 // (capability assessment audit-first) y §24 DEP-10 (capacidades, interfaces,
 // derechos; "datos legibles no prueban derechos"). Los IDs de capacidad son
@@ -174,6 +174,12 @@ export function validateCapabilityAssessment(assessment) {
   if (typeof assessment.minimallyExtendable !== "boolean") {
     errors.push({ field: "minimallyExtendable", code: "MISSING_REQUIRED", message: "La auditoría debe declarar explícitamente si el componente es casi suficiente (extensible al mínimo)." });
   }
+  // §6.4 "añadir únicamente lo que falta si es casi suficiente": el juicio
+  // "casi suficiente" es de auditoría y debe quedar fundamentado, no sólo
+  // declarado con un booleano.
+  if (assessment.minimallyExtendable === true && !isNonEmptyString(assessment.extensionRationale)) {
+    errors.push({ field: "extensionRationale", code: "MISSING_EXTENSION_RATIONALE", message: "Declarar el componente casi suficiente exige justificar por qué lo que falta es una extensión mínima." });
+  }
   if (!Array.isArray(assessment.limitations)) {
     errors.push({ field: "limitations", code: "MISSING_REQUIRED", message: "Las limitaciones/desconocidos deben listarse explícitamente (lista, aunque sea vacía)." });
   }
@@ -185,16 +191,23 @@ export function validateCapabilityAssessment(assessment) {
 }
 
 // Un componente es *usable* sólo si se permite su uso y no expone IP de forma
-// implícita/desconocida. `unknown` nunca se degrada a permiso.
+// implícita/desconocida. `unknown` nunca se degrada a permiso, y tampoco a
+// "no existe": `rightsUnresolved` distingue lo pendiente de auditar (unknown)
+// de lo auditado como no utilizable (denied / implicit), para que la
+// decisión no construya lo que quizá ya existe (review IMP-04 2026-09-23).
 export function isCapabilityAssessmentUsable(assessment) {
   const reasons = [];
-  if (assessment?.usageRights?.status !== RIGHTS_STATUS.PERMITTED) {
+  const rightsStatus = assessment?.usageRights?.status;
+  const ipAssessment = assessment?.ipExposure?.assessment;
+  if (rightsStatus !== RIGHTS_STATUS.PERMITTED) {
     reasons.push("usageRights no está permitido con evidencia.");
   }
-  if (assessment?.ipExposure?.assessment !== IP_EXPOSURE.NONE) {
+  if (ipAssessment !== IP_EXPOSURE.NONE) {
     reasons.push("ipExposure no declara exposición nula.");
   }
-  return { usable: reasons.length === 0, reasons };
+  const definitivelyExcluded = rightsStatus === RIGHTS_STATUS.DENIED || ipAssessment === IP_EXPOSURE.IMPLICIT;
+  const rightsUnresolved = reasons.length > 0 && !definitivelyExcluded;
+  return { usable: reasons.length === 0, reasons, rightsUnresolved };
 }
 
 // Cobertura factual de capacidades requeridas por el consumidor. Es una

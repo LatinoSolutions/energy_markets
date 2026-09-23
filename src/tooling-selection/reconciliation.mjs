@@ -1,10 +1,17 @@
 // Reconciliación independiente de salidas clave del componente evaluado con
-// fixtures permitidos (PRODUCES_EVIDENCE de IMP-04). Fuente: SPEC v1.1 §6.4
+// fixtures permitidos (PRODUCES_EVIDENCE de IMP-04). Fuente: SPEC v1.1.1 §6.4
 // ("Todo motor externo debe producir outputs clave reconciliables de forma
 // independiente antes de atribuir edge") y §25.2.2 IMP-04. Un fixture sólo
 // vale si está permitido por derechos y su valor esperado se inspeccionó o
 // calculó de forma independiente ANTES de automatizar (§14.8/§19.3.1). Esta
 // función no ejecuta el componente, no atribuye edge y no concede autoridad.
+//
+// Comparación EXACTA, sin tolerancia: SPEC v1.1.1 §14.8 ("reconcilian
+// exactamente"), §19.3.1 ("La conversión y la reconciliación exacta ... forman
+// parte de estas comprobaciones") y §19.3 ("No se añaden epsilons ni valores
+// numéricos artificiales"). Cualquier cota > 0 aprobaba divergencias de hasta
+// casi el 100 % (review IMP-04 2026-09-23: esperado 1000000, tolerancia 999999,
+// observado 1). Un margen distinto de 0 requeriría §20.2.12.
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -18,20 +25,25 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function arraysAgree(left, right) {
-  return Array.isArray(left) && Array.isArray(right)
-    && left.length === right.length
-    && left.every((item, index) => isFiniteNumber(item) && isFiniteNumber(right[index])
-      ? item === right[index]
-      : item === right[index]);
+// undefined, null, NaN, ±Infinity, "" y listas vacías no son valores: con `===`
+// undefined===undefined reconciliaba sin que el componente produjera nada
+// (review IMP-04 2026-09-23).
+function isReconcilableScalar(value) {
+  return isFiniteNumber(value) || isNonEmptyString(value) || typeof value === "boolean";
 }
 
-function valuesAgree(observed, expected, tolerance) {
-  if (isFiniteNumber(observed) && isFiniteNumber(expected)) {
-    return Math.abs(observed - expected) <= tolerance;
+function isReconcilableValue(value) {
+  if (Array.isArray(value)) {
+    return value.length > 0 && value.every(isReconcilableScalar);
   }
-  if (Array.isArray(observed) || Array.isArray(expected)) {
-    return arraysAgree(observed, expected);
+  return isReconcilableScalar(value);
+}
+
+function valuesAgree(observed, expected) {
+  if (Array.isArray(expected)) {
+    return Array.isArray(observed)
+      && observed.length === expected.length
+      && expected.every((item, index) => observed[index] === item);
   }
   return observed === expected;
 }
@@ -49,12 +61,30 @@ function fail(code, message, details = {}) {
   };
 }
 
+function validateFixture(fixture) {
+  const outputId = fixture?.outputId ?? "(sin id)";
+  if (!isNonEmptyString(fixture?.outputId)) {
+    return fail("INVALID_FIXTURE", "Cada fixture debe identificar la salida que reconcilia.");
+  }
+  if (fixture.permitted !== true) {
+    return fail("FIXTURE_NOT_PERMITTED", `El fixture "${outputId}" no está permitido por derechos.`);
+  }
+  if (!isNonEmptyString(fixture.independentComputation)) {
+    return fail("FIXTURE_NOT_INDEPENDENT", `El fixture "${outputId}" no declara cómputo/inspección independiente previa.`);
+  }
+  if (fixture.tolerance !== undefined && fixture.tolerance !== 0) {
+    return fail("INVALID_TOLERANCE", `El fixture "${outputId}" declara tolerancia ${String(fixture.tolerance)}: la reconciliación es exacta (SPEC §14.8, §19.3.1).`, { outputId, tolerance: fixture.tolerance });
+  }
+  if (!isReconcilableValue(fixture.expectedValue)) {
+    return fail("INVALID_EXPECTED_VALUE", `El fixture "${outputId}" no declara un valor esperado reconciliable (número finito, texto, booleano o lista no vacía de ellos).`, { outputId });
+  }
+  return null;
+}
+
 // `outputs`: [{ outputId, value }] tal como los produjo el componente.
-// `fixtures`: [{ outputId, expectedValue, permitted, independentComputation,
-//   tolerance? }]. `permitted` y `independentComputation` son condiciones
-// duras: sin ellas el fixture no es utilizable.
+// `fixtures`: [{ outputId, expectedValue, permitted, independentComputation }].
 // `keyOutputs`: salidas clave declaradas por la interfaz real del componente
-// (§25.1 IMP-04: "interfaces reales"). Exigir su cobertura impide que un
+// (§25.1 IMP-04: "interfaces reales"); exigir su cobertura impide que un
 // subconjunto arbitrario de fixtures produzca `reconciled: true`.
 export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures = [], keyOutputs = null } = {}) {
   if (!isNonEmptyString(componentId)) {
@@ -70,71 +100,55 @@ export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures
     return fail("INVALID_KEY_OUTPUTS", "Las salidas clave declaradas por la interfaz deben ser una lista no vacía de identificadores.");
   }
 
+  const fixtureIds = new Set();
   for (const fixture of fixtures) {
-    if (fixture?.permitted !== true) {
-      return fail("FIXTURE_NOT_PERMITTED", `El fixture "${fixture?.outputId ?? "(sin id)"}" no está permitido por derechos.`);
+    const rejection = validateFixture(fixture);
+    if (rejection) {
+      return rejection;
     }
-    if (!isNonEmptyString(fixture?.independentComputation)) {
-      return fail("FIXTURE_NOT_INDEPENDENT", `El fixture "${fixture?.outputId ?? "(sin id)"}" no declara cómputo/inspección independiente previa.`);
+    if (fixtureIds.has(fixture.outputId)) {
+      return fail("DUPLICATE_FIXTURES", `Hay más de un fixture para "${fixture.outputId}": el esperado debe ser único.`, { outputId: fixture.outputId });
     }
-    if (fixture.tolerance !== undefined && (!isFiniteNumber(fixture.tolerance) || fixture.tolerance < 0)) {
-      return fail("INVALID_TOLERANCE", `El fixture "${fixture.outputId}" declara una tolerancia negativa, no finita o de tipo inválido.`);
-    }
-    // Una tolerancia sólo tiene sentido si acota una discrepancia menor que la
-    // propia magnitud esperada: una cota >= |esperado| aprobaría cualquier
-    // divergencia hasta el 100% (repaso del audit 2026-09-23: observado 102,
-    // esperado 1000000 y tolerancia 1000000 producían REUSE). Cuando el valor
-    // esperado es 0 no hay magnitud que acotar y la comparación es exacta;
-    // una tolerancia positiva lo permitiría todo (review IMP-04 2026-09-23:
-    // esperado 0 y tolerancia 100 reconciliaban un observado de 100).
-    if (fixture.tolerance !== undefined && isFiniteNumber(fixture.expectedValue)) {
-      const exceedsExpectedMagnitude = fixture.expectedValue !== 0
-        ? fixture.tolerance >= Math.abs(fixture.expectedValue)
-        : fixture.tolerance > 0;
-      if (exceedsExpectedMagnitude) {
-        const message = fixture.expectedValue === 0
-          ? `El fixture "${fixture.outputId}" espera 0: no hay magnitud que acotar y la comparación es exacta; una tolerancia positiva no es válida.`
-          : `El fixture "${fixture.outputId}" declara una tolerancia que iguala o supera la magnitud del valor esperado; aprobaría una discrepancia total.`;
-        return fail("INVALID_TOLERANCE", message, { outputId: fixture.outputId, expectedValue: fixture.expectedValue, tolerance: fixture.tolerance });
-      }
-    }
+    fixtureIds.add(fixture.outputId);
   }
 
-  // Review IMP-04 2026-09-23: con `Map(outputs.map(...))` las salidas
-  // duplicadas con el mismo outputId se reducían a la última y contradicciones
-  // (p. ej. B=999 y B=102) reconciliaban. Cada salida clave se produce una vez:
-  // un outputId repetido es ambigüedad de procedencia y se rechaza.
+  // Cada salida clave se produce una vez: un outputId repetido (p. ej. B=999 y
+  // B=102) es ambigüedad de procedencia y no se reduce a la última.
   const observedById = new Map();
   for (const output of outputs) {
-    if (observedById.has(output?.outputId)) {
-      return fail("DUPLICATE_COMPONENT_OUTPUTS", `La salida "${output?.outputId ?? "(sin id)"}" del componente aparece más de una vez; versiones duplicadas o contradictorias no se reducen a la última.`, { outputId: output?.outputId ?? null });
+    if (!isNonEmptyString(output?.outputId)) {
+      return fail("INVALID_COMPONENT_OUTPUT", "Cada salida del componente debe identificarse con outputId.");
     }
-    observedById.set(output?.outputId, output?.value);
+    if (observedById.has(output.outputId)) {
+      return fail("DUPLICATE_COMPONENT_OUTPUTS", `La salida "${output.outputId}" del componente aparece más de una vez; versiones duplicadas o contradictorias no se reducen a la última.`, { outputId: output.outputId });
+    }
+    observedById.set(output.outputId, output.value);
   }
-  const comparisons = [];
-  const mismatches = [];
 
-  // §25.1 IMP-04: cada salida clave declarada por la interfaz del componente
-  // debe estar cubierta por un fixture permitido. Un subconjunto arbitrario no
-  // reconcilia "las salidas clave": reconcilia lo que conviene.
   if (keyOutputs !== null) {
-    const fixtureIds = new Set(fixtures.map((fixture) => fixture?.outputId));
     const uncovered = keyOutputs.filter((outputId) => !fixtureIds.has(outputId));
     if (uncovered.length > 0) {
       return fail("KEY_OUTPUTS_NOT_COVERED", "Los fixtures aportados no cubren todas las salidas clave declaradas por la interfaz del componente.", { uncoveredKeyOutputs: uncovered });
     }
   }
 
+  const comparisons = [];
+  const mismatches = [];
   for (const fixture of fixtures) {
-    const tolerance = fixture.tolerance ?? 0;
+    const expected = fixture.expectedValue;
     if (!observedById.has(fixture.outputId)) {
       mismatches.push({ outputId: fixture.outputId, reason: "MISSING_COMPONENT_OUTPUT" });
-      comparisons.push({ outputId: fixture.outputId, observed: null, expected: fixture.expectedValue, agreed: false, tolerance });
+      comparisons.push({ outputId: fixture.outputId, observed: null, expected, agreed: false });
       continue;
     }
     const observed = observedById.get(fixture.outputId);
-    const agreed = valuesAgree(observed, fixture.expectedValue, tolerance);
-    comparisons.push({ outputId: fixture.outputId, observed, expected: fixture.expectedValue, agreed, tolerance });
+    if (!isReconcilableValue(observed)) {
+      mismatches.push({ outputId: fixture.outputId, reason: "INVALID_OBSERVED_VALUE" });
+      comparisons.push({ outputId: fixture.outputId, observed: null, expected, agreed: false });
+      continue;
+    }
+    const agreed = valuesAgree(observed, expected);
+    comparisons.push({ outputId: fixture.outputId, observed, expected, agreed });
     if (!agreed) {
       mismatches.push({ outputId: fixture.outputId, reason: "VALUE_MISMATCH" });
     }

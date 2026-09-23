@@ -35,8 +35,46 @@ test("acceptance: las salidas clave se reconcilian de forma independiente antes 
   // Entregable IMP-04: el record incluye el capability assessment auditado
   // del componente elegido y la decisión fundamentada.
   assert.deepEqual(result.selection.targetAssessment, assessment);
-  assert.equal(typeof result.selection.rationale, "string");
-  assert.ok(result.selection.rationale.length > 0);
+  // La decisión está fundamentada en la traza de cobertura, no en un texto
+  // libre (review IMP-04 2026-09-23: sólo se comprobaba texto no vacío).
+  assert.deepEqual(result.selection.auditTrace, [{
+    componentId: "SYN-TOOL-A",
+    usable: true,
+    rightsUnresolved: false,
+    usabilityReasons: [],
+    covered: ["benchmark.calculate", "reference.proxy"],
+    missing: [],
+    sufficient: true,
+    minimallyExtendable: false,
+  }]);
+  assert.equal(
+    result.selection.rationale,
+    "Auditoría de [SYN-TOOL-A]: SYN-TOOL-A es el único componente usable que cubre [benchmark.calculate, reference.proxy].",
+  );
+});
+
+test("acceptance: una plataforma nueva no procede sin componentes auditados, aunque la necesidad se autodeclare", () => {
+  const result = selectMinimumTooling({
+    requiredCapabilities: ["benchmark.calculate"],
+    assessments: [],
+    buildNecessity: { demonstrated: true, rationale: "Autodeclarada.", evidenceRefs: [{ kind: "audit", ref: "SYN-NEC-1" }] },
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "NO_COMPONENTS_AUDITED");
+});
+
+test("acceptance: una plataforma nueva no procede si un componente con derechos pendientes ya cubre lo requerido", () => {
+  const unresolved = makeAssessment({ usageRights: { status: "unknown", evidenceRef: "SYN-RIGHTS-PENDING" } });
+  const result = selectMinimumTooling({
+    requiredCapabilities: ["benchmark.calculate", "reference.proxy"],
+    assessments: [unresolved],
+    buildNecessity: { demonstrated: true, rationale: "Autodeclarada.", evidenceRefs: [{ kind: "audit", ref: "SYN-NEC-1" }] },
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
+  assert.deepEqual(result.candidateComponentIds, ["SYN-TOOL-A"]);
 });
 
 test("acceptance: una plataforma nueva sólo procede si la auditoría demuestra necesidad", () => {
@@ -55,6 +93,8 @@ test("acceptance: una plataforma nueva sólo procede si la auditoría demuestra 
   assert.equal(accepted.ok, true);
   assert.equal(accepted.selection.decision, TOOLING_DECISION.BUILD);
   assert.equal(accepted.selection.targetAssessment, null);
+  assert.ok(accepted.selection.rationale.includes("Synthetic audit: no usable component covers it."));
+  assert.deepEqual(accepted.selection.auditTrace.map((entry) => [entry.componentId, entry.covered]), [["SYN-TOOL-A", []]]);
 });
 
 test("acceptance: una reconciliación declarada (sin salidas ni fixtures) no sostiene la selección", () => {

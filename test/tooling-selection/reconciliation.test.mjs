@@ -23,80 +23,113 @@ test("una divergencia impide la reconciliación", () => {
   assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
 });
 
-test("acepta tolerancia declarada sin inventar equivalencia exacta", () => {
-  const result = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 105.05 }),
-    fixtures: makeFixtures({ expectedValue: 105, tolerance: 0.1 }),
+// SPEC v1.1.1 §14.8 ("reconcilian exactamente"), §19.3.1 ("reconciliación
+// exacta") y §19.3 ("No se añaden epsilons"): no hay tolerancia. Casos de las
+// revisiones IMP-04 2026-09-23: (102 vs 1000000, tol 1000000), (1 vs 1000000,
+// tol 999999), (100 vs 0, tol 100) reconciliaban.
+for (const [observed, expected, tolerance] of [
+  [105.05, 105, 0.1],
+  [102, 1000000, 1000000],
+  [1, 1000000, 999999],
+  [102, 1000000, 999000],
+  [1000010, 1000000, 15],
+  [100, 0, 100],
+  [105, 105, -1],
+  [105, 105, "0"],
+]) {
+  test(`una tolerancia ${JSON.stringify(tolerance)} se rechaza: la reconciliación es exacta (observado ${observed}, esperado ${expected})`, () => {
+    const result = reconcileKeyOutputs({
+      componentId: "SYN-TOOL-A",
+      outputs: makeOutputs({ value: observed }),
+      fixtures: makeFixtures({ expectedValue: expected, tolerance }),
+    });
+    assert.equal(result.reconciled, false);
+    assert.equal(result.rejected, true);
+    assert.equal(result.code, "INVALID_TOLERANCE");
+    assert.equal(result.outputId, "SYN-output-B");
   });
-  assert.equal(result.reconciled, true);
-});
+}
 
-// Reproducción del audit 2026-09-23: observado 102, esperado 1000000 y
-// tolerancia 1000000 producían reconciled:true. Una cota >= |esperado|
-// aprueba una discrepancia total y se rechaza.
-test("una tolerancia que iguala o supera la magnitud esperada se rechaza", () => {
-  const result = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 102 }),
-    fixtures: makeFixtures({ expectedValue: 1000000, tolerance: 1000000 }),
-  });
-  assert.equal(result.reconciled, false);
-  assert.equal(result.rejected, true);
-  assert.equal(result.code, "INVALID_TOLERANCE");
-  assert.equal(result.outputId, "SYN-output-B");
-});
-
-test("una tolerancia inmediatamente inferior a la magnitud esperada compara sin aprobar de más", () => {
-  const result = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 102 }),
-    fixtures: makeFixtures({ expectedValue: 1000000, tolerance: 999000 }),
-  });
-  assert.equal(result.reconciled, false);
-  assert.equal(result.rejected, false);
-  assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
-});
-
-test("una discrepancia dentro de una cota legítima sigue reconciliando", () => {
-  const result = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 1000010 }),
-    fixtures: makeFixtures({ expectedValue: 1000000, tolerance: 15 }),
-  });
-  assert.equal(result.reconciled, true);
-});
-
-// Reproducción del review IMP-04 2026-09-23: esperado 0 con tolerancia 100
-// reconciliaba un observado de 100 pese a que con esperado 0 la comparación
-// debe ser exacta (no hay magnitud que acotar).
-test("un esperado 0 no admite tolerancia positiva: la comparación es exacta", () => {
-  const result = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 100 }),
-    fixtures: makeFixtures({ expectedValue: 0, tolerance: 100 }),
-  });
-  assert.equal(result.reconciled, false);
-  assert.equal(result.rejected, true);
-  assert.equal(result.code, "INVALID_TOLERANCE");
-  assert.equal(result.outputId, "SYN-output-B");
-});
-
-test("un esperado 0 compara exacto sin tolerancia declarada", () => {
+test("tolerancia 0 explícita equivale a comparación exacta", () => {
   const exact = reconcileKeyOutputs({
     componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 0 }),
-    fixtures: makeFixtures({ expectedValue: 0 }),
+    outputs: makeOutputs({ value: 105 }),
+    fixtures: makeFixtures({ expectedValue: 105, tolerance: 0 }),
   });
   assert.equal(exact.reconciled, true);
+});
 
-  const divergent = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 0.5 }),
-    fixtures: makeFixtures({ expectedValue: 0 }),
+test("sin tolerancia, cualquier desvío por pequeño que sea no reconcilia", () => {
+  for (const [observed, expected] of [[1000010, 1000000], [1, 1000000], [105.05, 105], [0.5, 0], [100, 0]]) {
+    const result = reconcileKeyOutputs({
+      componentId: "SYN-TOOL-A",
+      outputs: makeOutputs({ value: observed }),
+      fixtures: makeFixtures({ expectedValue: expected }),
+    });
+    assert.equal(result.reconciled, false, `${observed} vs ${expected}`);
+    assert.equal(result.rejected, false);
+    assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
+  }
+  const zero = reconcileKeyOutputs({ componentId: "SYN-TOOL-A", outputs: makeOutputs({ value: 0 }), fixtures: makeFixtures({ expectedValue: 0 }) });
+  assert.equal(zero.reconciled, true);
+});
+
+// Review IMP-04 2026-09-23: con `===`, undefined/undefined, null/null e
+// Infinity/Infinity reconciliaban. Un valor vacío no es evidencia.
+for (const empty of [undefined, null, Infinity, -Infinity, NaN, "", "   ", [], [undefined], [null], [Infinity], {}]) {
+  test(`un esperado vacío o no reconciliable (${String(JSON.stringify(empty) ?? empty)}) se rechaza aunque el observado sea igual`, () => {
+    const result = reconcileKeyOutputs({
+      componentId: "SYN-TOOL-A",
+      outputs: makeOutputs({ value: empty }),
+      fixtures: makeFixtures({ expectedValue: empty }),
+    });
+    assert.equal(result.reconciled, false);
+    assert.equal(result.rejected, true);
+    assert.equal(result.code, "INVALID_EXPECTED_VALUE");
   });
-  assert.equal(divergent.reconciled, false);
-  assert.ok(divergent.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
+}
+
+test("un observado vacío o no finito no reconcilia contra un esperado válido", () => {
+  for (const empty of [undefined, null, Infinity, NaN, "", []]) {
+    const result = reconcileKeyOutputs({
+      componentId: "SYN-TOOL-A",
+      outputs: makeOutputs({ value: empty }),
+      fixtures: makeFixtures({ expectedValue: 105 }),
+    });
+    assert.equal(result.reconciled, false);
+    assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "INVALID_OBSERVED_VALUE"));
+  }
+  const withoutValue = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: [{ outputId: "SYN-output-B" }],
+    fixtures: makeFixtures({ expectedValue: 105 }),
+  });
+  assert.equal(withoutValue.reconciled, false);
+});
+
+test("booleanos y textos se comparan exactamente", () => {
+  const flag = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: false }),
+    fixtures: makeFixtures({ expectedValue: false }),
+  });
+  assert.equal(flag.reconciled, true);
+  const text = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: "official" }),
+    fixtures: makeFixtures({ expectedValue: "proxy" }),
+  });
+  assert.equal(text.reconciled, false);
+});
+
+test("dos fixtures para la misma salida se rechazan: el esperado es único", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 105 }),
+    fixtures: [...makeFixtures({ expectedValue: 105 }), ...makeFixtures({ expectedValue: 999 })],
+  });
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "DUPLICATE_FIXTURES");
 });
 
 // Reproducción del review IMP-04 2026-09-23: dos salidas con el mismo
@@ -129,16 +162,6 @@ test("salidas duplicadas aunque coincidentes se rechazan: la salida clave se pro
   assert.equal(result.reconciled, false);
   assert.equal(result.rejected, true);
   assert.equal(result.code, "DUPLICATE_COMPONENT_OUTPUTS");
-});
-
-test("una tolerancia negativa se rechaza explícitamente", () => {
-  const result = reconcileKeyOutputs({
-    componentId: "SYN-TOOL-A",
-    outputs: makeOutputs({ value: 105 }),
-    fixtures: makeFixtures({ tolerance: -1 }),
-  });
-  assert.equal(result.rejected, true);
-  assert.equal(result.code, "INVALID_TOLERANCE");
 });
 
 test("valores esperados de lista se comparan elemento a elemento", () => {

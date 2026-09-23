@@ -20,6 +20,7 @@ export function makeAssessment(overrides = {}) {
     usageRights: { status: "permitted", evidenceRef: "SYN-RIGHTS-1" },
     ipExposure: { assessment: "none", rationale: "Synthetic declaration; no proprietary model." },
     minimallyExtendable: false,
+    extensionRationale: "SYN-extension-rationale",
     limitations: [],
     evidenceRefs: [{ kind: "audit", ref: "SYN-AUDIT-1" }],
   };

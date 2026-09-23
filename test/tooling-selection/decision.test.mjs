@@ -29,10 +29,12 @@ test("EXTEND sólo añade lo que falta y exige declaración de casi suficiente",
   assert.equal(derived.decision, TOOLING_DECISION.EXTEND);
   assert.deepEqual(derived.additions, ["intraday.audit"]);
 
+  // Un componente usable no extensible que ya cubre parte de lo requerido no
+  // habilita construir todo de nuevo.
   const notExtendable = makeAssessment({ minimallyExtendable: false });
   const blocked = deriveToolingDecision({ requiredCapabilities: [...BENCHMARK, "intraday.audit"], assessments: [notExtendable] });
   assert.equal(blocked.ok, false);
-  assert.equal(blocked.code, "MISSING_NECESSITY");
+  assert.equal(blocked.code, "EXISTING_COVERAGE_NOT_RESOLVED");
 });
 
 test("BUILD sólo con necesidad demostrada por la auditoría", () => {
@@ -159,7 +161,9 @@ test("EXTEND con additions duplicadas no sustituye a la capacidad que falta", ()
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "ADDITIONS_NOT_MINIMAL"));
 
-  const exact = validateToolingSelection({ ...selection, additions: ["missing.B", "missing.A"] }, { requiredCapabilities: required, assessments: [extendable] });
+  const derived = selectMinimumTooling({ requiredCapabilities: required, assessments: [extendable], reconciliation: makeReconciliationEvidence("SYN-TOOL-A"), evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(derived.ok, true, JSON.stringify(derived));
+  const exact = validateToolingSelection({ ...derived.selection, additions: ["missing.B", "missing.A"] }, { requiredCapabilities: required, assessments: [extendable] });
   assert.equal(exact.ok, true, JSON.stringify(exact));
 });
 
@@ -197,10 +201,11 @@ test("EXTEND se rechaza cuando otro componente usable ya cubre todas las capacid
   assert.ok(rejection);
   assert.deepEqual(rejection.candidateComponentIds, ["SYN-TOOL-B"]);
 
-  const withoutSufficient = validateToolingSelection(
-    selection,
-    { requiredCapabilities: required, assessments: [extendable, makeAssessment({ componentId: "SYN-TOOL-B", declaredCapabilities: ["other.capability"] })] },
-  );
+  const unrelatedAssessments = [extendable, makeAssessment({ componentId: "SYN-TOOL-B", declaredCapabilities: ["other.capability"] })];
+  const derived = selectMinimumTooling({ requiredCapabilities: required, assessments: unrelatedAssessments, reconciliation: makeReconciliationEvidence("SYN-TOOL-A"), evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(derived.ok, true, JSON.stringify(derived));
+  assert.equal(derived.selection.decision, TOOLING_DECISION.EXTEND);
+  const withoutSufficient = validateToolingSelection(derived.selection, { requiredCapabilities: required, assessments: unrelatedAssessments });
   assert.equal(withoutSufficient.ok, true, JSON.stringify(withoutSufficient));
 });
 
@@ -219,4 +224,186 @@ test("EXTEND del propio componente suficiente se rechaza: REUSE es la decisión 
   const outcome = validateToolingSelection(selection, { requiredCapabilities: BENCHMARK, assessments: [sufficient] });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "REUSE_AVAILABLE"));
+});
+
+const NECESSITY = { demonstrated: true, rationale: "Synthetic.", evidenceRefs: [{ kind: "audit", ref: "SYN-NEC-1" }] };
+
+function buildSelection(overrides = {}) {
+  return {
+    requiredCapabilities: BENCHMARK,
+    decision: TOOLING_DECISION.BUILD,
+    selectionBasis: SELECTION_BASIS.AUDIT,
+    targetComponentId: null,
+    additions: [...BENCHMARK],
+    buildNecessity: NECESSITY,
+    reconciliation: null,
+    evidenceRefs: SELECTION_EVIDENCE,
+    grantsProductionAuthority: false,
+    ...overrides,
+  };
+}
+
+function reuseSelection(overrides = {}) {
+  return {
+    requiredCapabilities: BENCHMARK,
+    decision: TOOLING_DECISION.REUSE,
+    selectionBasis: SELECTION_BASIS.AUDIT,
+    targetComponentId: "SYN-TOOL-A",
+    additions: [],
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
+    evidenceRefs: SELECTION_EVIDENCE,
+    grantsProductionAuthority: false,
+    ...overrides,
+  };
+}
+
+// Review IMP-04 2026-09-23 punto 4: `assessments: []` + `demonstrated: true`
+// daba BUILD ok.
+test("BUILD sin componentes auditados se rechaza en derivación y en validación", () => {
+  const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [], buildNecessity: NECESSITY });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "NO_COMPONENTS_AUDITED");
+
+  const validated = validateToolingSelection(buildSelection(), { requiredCapabilities: BENCHMARK, assessments: [] });
+  assert.equal(validated.ok, false);
+  assert.ok(validated.errors.some((error) => error.code === "NO_COMPONENTS_AUDITED"));
+});
+
+// Review IMP-04 2026-09-23 punto 4: un componente que cubre todo pero con
+// derechos `unknown` terminaba en BUILD.
+test("derechos o IP unknown en un componente que cubre lo requerido bloquean BUILD", () => {
+  for (const overrides of [
+    { usageRights: { status: "unknown", evidenceRef: "SYN-RIGHTS-PENDING" } },
+    { ipExposure: { assessment: "unknown", rationale: "Synthetic pending." } },
+  ]) {
+    const pending = makeAssessment(overrides);
+    const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [pending], buildNecessity: NECESSITY });
+    assert.equal(derived.ok, false);
+    assert.equal(derived.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
+    assert.deepEqual(derived.blockedCapabilities, BENCHMARK);
+
+    const validated = validateToolingSelection(buildSelection(), { requiredCapabilities: BENCHMARK, assessments: [pending] });
+    assert.equal(validated.ok, false);
+    assert.ok(validated.errors.some((error) => error.code === "BLOCKED_PENDING_RIGHTS_AUDIT"));
+  }
+});
+
+test("derechos denegados o IP implícita auditados no bloquean un BUILD con necesidad", () => {
+  for (const overrides of [
+    { usageRights: { status: "denied", evidenceRef: "SYN-RIGHTS-DENIED" } },
+    { ipExposure: { assessment: "implicit", rationale: "Synthetic exposure." } },
+  ]) {
+    const excluded = makeAssessment(overrides);
+    const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [excluded], buildNecessity: NECESSITY });
+    assert.equal(derived.ok, true, JSON.stringify(derived));
+    assert.equal(derived.decision, TOOLING_DECISION.BUILD);
+  }
+});
+
+test("EXTEND se bloquea si un componente con derechos pendientes ya cubre lo que se añadiría", () => {
+  const extendable = makeAssessment({ minimallyExtendable: true });
+  const pending = makeAssessment({
+    componentId: "SYN-TOOL-P",
+    declaredCapabilities: ["intraday.audit"],
+    usageRights: { status: "unknown", evidenceRef: "SYN-RIGHTS-PENDING" },
+  });
+  const required = [...BENCHMARK, "intraday.audit"];
+  const derived = deriveToolingDecision({ requiredCapabilities: required, assessments: [extendable, pending] });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
+  assert.deepEqual(derived.candidateComponentIds, ["SYN-TOOL-P"]);
+  assert.deepEqual(derived.blockedCapabilities, ["intraday.audit"]);
+});
+
+// Review IMP-04 2026-09-23 punto 5: REUSE elegido a mano entre varios
+// suficientes era aceptado por la API pública.
+test("validateToolingSelection rechaza REUSE elegido a mano entre varios suficientes", () => {
+  const a = makeAssessment();
+  const b = makeAssessment({ componentId: "SYN-TOOL-B" });
+  const outcome = validateToolingSelection(reuseSelection(), { requiredCapabilities: BENCHMARK, assessments: [a, b] });
+  assert.equal(outcome.ok, false);
+  const ambiguity = outcome.errors.find((error) => error.code === "MULTIPLE_SUFFICIENT");
+  assert.ok(ambiguity, JSON.stringify(outcome));
+  assert.deepEqual(ambiguity.candidateComponentIds, ["SYN-TOOL-A", "SYN-TOOL-B"]);
+});
+
+// Review IMP-04 2026-09-23 punto 5: el assessment del componente elegido no se
+// validaba (versión, evidencia de derechos, evidenceRefs).
+test("validateToolingSelection exige el contrato completo del assessment elegido", () => {
+  for (const [field, overrides] of [
+    ["componentVersion", { componentVersion: undefined }],
+    ["evidenceRefs", { evidenceRefs: [] }],
+    ["evidenceRefs", { evidenceRefs: [null] }],
+    ["usageRights.evidenceRef", { usageRights: { status: "permitted", evidenceRef: "" } }],
+    ["extensionRationale", { minimallyExtendable: true, extensionRationale: undefined }],
+  ]) {
+    const broken = makeAssessment(overrides);
+    const outcome = validateToolingSelection(reuseSelection(), { requiredCapabilities: BENCHMARK, assessments: [broken] });
+    assert.equal(outcome.ok, false, field);
+    const invalid = outcome.errors.find((error) => error.code === "INVALID_ASSESSMENT");
+    assert.ok(invalid, `${field}: ${JSON.stringify(outcome)}`);
+    assert.equal(invalid.componentId, "SYN-TOOL-A");
+  }
+  const valid = selectMinimumTooling({ requiredCapabilities: BENCHMARK, assessments: [makeAssessment()], reconciliation: makeReconciliationEvidence("SYN-TOOL-A"), evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(validateToolingSelection(valid.selection, { requiredCapabilities: BENCHMARK, assessments: [makeAssessment()] }).ok, true);
+});
+
+// Validación adversarial IMP-04 2026-09-23: un REUSE válido con los campos
+// descriptivos del record falseados pasaba.
+test("validateToolingSelection rechaza un record cuyos campos contradicen la auditoría", () => {
+  const assessment = makeAssessment();
+  const valid = selectMinimumTooling({ requiredCapabilities: BENCHMARK, assessments: [assessment], reconciliation: makeReconciliationEvidence("SYN-TOOL-A"), evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(valid.ok, true);
+  for (const [field, value] of [
+    ["requiredCapabilities", ["only.one"]],
+    ["targetAssessment", { ...assessment, usageRights: { status: "unknown", evidenceRef: "X" } }],
+    ["targetAssessment", undefined],
+    ["auditTrace", []],
+    ["rationale", "elegido por preferencia"],
+    ["authority", "PRODUCTION"],
+  ]) {
+    const outcome = validateToolingSelection({ ...valid.selection, [field]: value }, { requiredCapabilities: BENCHMARK, assessments: [assessment] });
+    assert.equal(outcome.ok, false, field);
+    assert.ok(outcome.errors.some((error) => error.code === "RECORD_CONTRADICTS_AUDIT" && error.field === field), `${field}: ${JSON.stringify(outcome.errors)}`);
+  }
+});
+
+// Validación adversarial IMP-04 2026-09-23: X cubre una capacidad, Y la otra,
+// ninguno extensible → BUILD reconstruía ambas.
+test("BUILD no reimplementa capacidades que componentes usables ya cubren por separado", () => {
+  const x = makeAssessment({ componentId: "X", declaredCapabilities: ["benchmark.calculate"] });
+  const y = makeAssessment({ componentId: "Y", declaredCapabilities: ["reference.proxy"] });
+  const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [x, y], buildNecessity: NECESSITY });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "EXISTING_COVERAGE_NOT_RESOLVED");
+  assert.deepEqual(derived.candidateComponentIds, ["X", "Y"]);
+  assert.deepEqual(derived.coveredCapabilities, BENCHMARK);
+});
+
+test("EXTEND no añade una capacidad que otro componente usable ya cubre", () => {
+  const extendable = makeAssessment({ minimallyExtendable: true });
+  const other = makeAssessment({ componentId: "SYN-TOOL-C", declaredCapabilities: ["intraday.audit"] });
+  const derived = deriveToolingDecision({ requiredCapabilities: [...BENCHMARK, "intraday.audit"], assessments: [extendable, other] });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "EXISTING_COVERAGE_NOT_RESOLVED");
+  assert.deepEqual(derived.candidateComponentIds, ["SYN-TOOL-C"]);
+});
+
+test("validateToolingSelection rechaza una selección que no coincide con la derivada del audit", () => {
+  const sufficient = makeAssessment();
+  const other = makeAssessment({ componentId: "SYN-TOOL-B", declaredCapabilities: ["other.capability"] });
+  const outcome = validateToolingSelection(
+    reuseSelection({ targetComponentId: "SYN-TOOL-B", reconciliation: makeReconciliationEvidence("SYN-TOOL-B") }),
+    { requiredCapabilities: BENCHMARK, assessments: [sufficient, other] },
+  );
+  assert.equal(outcome.ok, false);
+  const mismatch = outcome.errors.find((error) => error.code === "DECISION_NOT_DERIVED_FROM_AUDIT");
+  assert.ok(mismatch, JSON.stringify(outcome));
+  assert.deepEqual(mismatch.expected, { decision: TOOLING_DECISION.REUSE, targetComponentId: "SYN-TOOL-A", additions: [] });
+});
+
+test("un mismo componente auditado dos veces se rechaza", () => {
+  const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [makeAssessment(), makeAssessment()] });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "DUPLICATE_ASSESSMENTS");
 });
