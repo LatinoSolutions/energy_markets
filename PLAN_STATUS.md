@@ -32,7 +32,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-14 | aceptado | IMP-01, IMP-05, IMP-06, IMP-07, IMP-12 | Materializar run receipts y reproducibilidad. |  |
 | IMP-15 | pendiente | IMP-05, IMP-07, IMP-08, IMP-13, IMP-14 | Cerrar instrumento P6 y campaña manual end-to-end. | |
 | IMP-16 | pendiente | IMP-09, IMP-11, IMP-15 | Confirmar reserva OOS intacta, congelar bundle P5 completo y ejecutar A0/A1. | |
-| IMP-17 | pendiente | IMP-01, IMP-12, IMP-14 | Materializar Experience con provenance y atribución. | |
+| IMP-17 | aceptado | IMP-01, IMP-12, IMP-14 | Materializar Experience con provenance y atribución. |  |
 | IMP-18 | pendiente | IMP-16, IMP-17 | Implementar captura Shadow y verificar non-interference. | |
 | IMP-19 | pendiente | IMP-15, IMP-16, IMP-17 | Implementar ciclo offline y evaluar Value/Policy Learning. | §25.2.2: IMP-16 y/o IMP-18 según procedencia; aquí se exige IMP-16. |
 | IMP-20 | pendiente | IMP-16 | Diseñar después experimentos de S2–S5 y Z/drivers admitidos. | |
