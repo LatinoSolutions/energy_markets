@@ -92,6 +92,20 @@ export function withWindowOverlap(campaigns, leftMaturity, rightMaturity) {
   return mutated;
 }
 
+// Anida la ventana de procurement de `innerMaturity` dentro de la de
+// `outerMaturity`. Las dos pueden ser campañas selladas no adyacentes: sirve
+// para probar que la detección cubre cualquier par y no sólo vecinos.
+export function withNestedWindowOverlap(campaigns, outerMaturity, innerMaturity) {
+  const mutated = campaigns.map((campaign) => ({ ...campaign }));
+  const outer = mutated.find((campaign) => campaign.maturity === outerMaturity);
+  const inner = mutated.find((campaign) => campaign.maturity === innerMaturity);
+  if (outer && inner) {
+    inner.windowStart = outer.windowStart;
+    inner.deadline = outer.deadline;
+  }
+  return mutated;
+}
+
 export function realDurationResolution(overlaps, action, overrides = {}) {
   return overlaps.map((detected) => ({
     kind: detected.kind,

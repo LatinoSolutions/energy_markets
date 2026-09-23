@@ -16,6 +16,7 @@ import {
   gasQuarterlyRegister,
   realDurationResolution,
   validReservationInput,
+  withNestedWindowOverlap,
   withWindowOverlap,
 } from "./fixtures.mjs";
 
@@ -66,6 +67,15 @@ test("excluye campañas no elegibles o incompletas del conteo y del split", () =
 test("un solapamiento sin resolución real deja la reserva en HOLD", () => {
   const input = validReservationInput();
   input.campaigns = withWindowOverlap(input.campaigns, "2021Q3", "2021Q4");
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
+  assert.ok(result.blockedBy.includes("UNRESOLVED_OVERLAP"));
+  assert.deepEqual(result.sealedOosCampaignIds, []);
+});
+
+test("un solapamiento anidado no adyacente deja la reserva en HOLD (no sella fail-open)", () => {
+  const input = validReservationInput();
+  input.campaigns = withNestedWindowOverlap(input.campaigns, "2022Q1", "2023Q1");
   const result = reserveSealedOos(input);
   assert.equal(result.decision, "HOLD");
   assert.ok(result.blockedBy.includes("UNRESOLVED_OVERLAP"));

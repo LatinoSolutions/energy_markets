@@ -54,30 +54,43 @@ export function detectOverlaps({ sealedOos, development = [] } = {}) {
     return overlaps;
   }
 
-  for (let index = 1; index < sealed.length; index += 1) {
-    const previous = sealed[index - 1];
-    const current = sealed[index];
-    if (previous.windowStart && current.windowStart && intervalsOverlap(previous.windowStart, previous.deadline, current.windowStart, current.deadline)) {
-      overlaps.push(overlap(
-        "PROCUREMENT_WINDOW",
-        [previous.campaignId, current.campaignId],
-        current.windowStart < previous.windowStart ? current.windowStart : previous.windowStart,
-        previous.deadline > current.deadline ? previous.deadline : current.deadline,
-        "Dos campañas reservadas tienen ventanas de procurement solapadas.",
-      ));
+  // §13.8: cualquier par de ventanas de procurement solapadas debe resolverse,
+  // no sólo las adyacentes. Un solapamiento anidado o entre campañas no
+  // consecutivas también invade la estructura real y no puede quedar sin
+  // intervención mientras la reserva sella igual.
+  for (let left = 0; left < sealed.length; left += 1) {
+    for (let right = left + 1; right < sealed.length; right += 1) {
+      const previous = sealed[left];
+      const current = sealed[right];
+      if (previous.windowStart && current.windowStart && intervalsOverlap(previous.windowStart, previous.deadline, current.windowStart, current.deadline)) {
+        overlaps.push(overlap(
+          "PROCUREMENT_WINDOW",
+          [previous.campaignId, current.campaignId],
+          current.windowStart < previous.windowStart ? current.windowStart : previous.windowStart,
+          previous.deadline > current.deadline ? previous.deadline : current.deadline,
+          "Dos campañas reservadas tienen ventanas de procurement solapadas.",
+        ));
+      }
     }
   }
 
   const firstSealed = sealed[0];
-  const lastDevelopment = Array.isArray(development) && development.length > 0 ? development[development.length - 1] : null;
-  if (lastDevelopment && intervalsOverlap(lastDevelopment.windowStart, lastDevelopment.deadline, firstSealed.windowStart, firstSealed.deadline)) {
-    overlaps.push(overlap(
-      "DEVELOPMENT_OOS_BOUNDARY",
-      [lastDevelopment.campaignId, firstSealed.campaignId],
-      lastDevelopment.windowStart < firstSealed.windowStart ? lastDevelopment.windowStart : firstSealed.windowStart,
-      lastDevelopment.deadline > firstSealed.deadline ? lastDevelopment.deadline : firstSealed.deadline,
-      "La última campaña de development toca la frontera del sealed OOS.",
-    ));
+  // §13.8: cualquier ventana de development que invada el sealed OOS rompe la
+  // frontera protegida; no basta con comparar la última campaña de development,
+  // porque una campaña intermedia con ventana larga también puede invadirla.
+  const developmentCampaigns = Array.isArray(development) ? development : [];
+  for (const developmentEpisode of developmentCampaigns) {
+    for (const sealedEpisode of sealed) {
+      if (developmentEpisode.windowStart && sealedEpisode.windowStart && intervalsOverlap(developmentEpisode.windowStart, developmentEpisode.deadline, sealedEpisode.windowStart, sealedEpisode.deadline)) {
+        overlaps.push(overlap(
+          "DEVELOPMENT_OOS_BOUNDARY",
+          [developmentEpisode.campaignId, sealedEpisode.campaignId],
+          developmentEpisode.windowStart < sealedEpisode.windowStart ? developmentEpisode.windowStart : sealedEpisode.windowStart,
+          developmentEpisode.deadline > sealedEpisode.deadline ? developmentEpisode.deadline : sealedEpisode.deadline,
+          "Una campaña de development toca la frontera del sealed OOS.",
+        ));
+      }
+    }
   }
 
   for (const episode of sealed) {

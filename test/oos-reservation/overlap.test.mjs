@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { detectOverlaps, resolveOverlaps } from "../../src/oos-reservation/overlap.mjs";
 import { chronologicalEligibleComplete } from "../../src/oos-reservation/campaign-register.mjs";
-import { gasQuarterlyRegister, realDurationResolution, withWindowOverlap, gasQuarterlyCampaign } from "./fixtures.mjs";
+import { gasQuarterlyRegister, realDurationResolution, withNestedWindowOverlap, withWindowOverlap, gasQuarterlyCampaign } from "./fixtures.mjs";
 
 function split(register) {
   const ordered = chronologicalEligibleComplete(register);
@@ -23,6 +23,25 @@ test("detecta el solapamiento de ventanas entre campañas reservadas", () => {
   assert.equal(overlaps.length, 1);
   assert.equal(overlaps[0].kind, "PROCUREMENT_WINDOW");
   assert.deepEqual(overlaps[0].between, ["GAS-Q-2021Q3", "GAS-Q-2021Q4"]);
+});
+
+test("detecta un solapamiento anidado entre campañas selladas no adyacentes", () => {
+  const register = withNestedWindowOverlap(gasQuarterlyRegister({ year: 2021, quarter: 1, count: 10 }), "2022Q1", "2023Q1");
+  const { sealedOos, development } = split(register);
+  const overlaps = detectOverlaps({ sealedOos, development });
+  assert.equal(overlaps.length, 1);
+  assert.equal(overlaps[0].kind, "PROCUREMENT_WINDOW");
+  assert.deepEqual(overlaps[0].between, ["GAS-Q-2022Q1", "GAS-Q-2023Q1"]);
+});
+
+test("detecta una ventana de development intermedia que invade el sealed OOS", () => {
+  const register = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 10 });
+  // development[0] (2021Q1) no es la última de development; su deadline se
+  // extiende hasta la primera ventana sellada (2021Q3, desde 2021-03-01).
+  register[0].deadline = "2021-03-15";
+  const { sealedOos, development } = split(register);
+  const overlaps = detectOverlaps({ sealedOos, development });
+  assert.ok(overlaps.some((detected) => detected.kind === "DEVELOPMENT_OOS_BOUNDARY" && detected.between[0] === "GAS-Q-2021Q1"));
 });
 
 test("detecta el solapamiento de la frontera development/OOS", () => {
