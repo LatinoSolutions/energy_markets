@@ -61,6 +61,16 @@ test("latency queda UNKNOWN porque el paquete no entrega un valor auditado", () 
   assert.ok(latency.reason.length > 0);
 });
 
+test("HT-IMP-07-01: la cita de rounding declara el archivo que la contiene", () => {
+  const contract = createGasQuarterlyExecutionContract();
+  const rounding = parameter(contract, "rounding");
+  assert.equal(rounding.source.quote, "Lot / quantity increment: 1 MW minimum and 1 MW increments.");
+  assert.ok(
+    rounding.source.locator.split(";").map((entry) => entry.trim()).includes("ESTADO_INPUTS.csv"),
+    "el locator de rounding debe incluir ESTADO_INPUTS.csv, de donde sale la cita",
+  );
+});
+
 test("§13.6 regla 5: con parámetros provisionales o desconocidos la interpretación es HOLD", () => {
   const contract = createGasQuarterlyExecutionContract();
   const validity = evaluateP56Validity(contract);

@@ -73,13 +73,20 @@ export const PARAMETER_STATUSES = ["AUDITED", "PROVISIONAL", "UNKNOWN"];
 
 // Provenance del paquete del cliente: la autoridad es Fundamental (cliente) y
 // la verificación de la Oficina está registrada en OFICINA_INTAKE_VERIFICATION.json.
+// El locator es el conjunto de archivos que respaldan las citas de los
+// parámetros; cada cita debe salir de uno de esos archivos (HT-IMP-07-01).
 export const CLIENT_PACKAGE_PROVENANCE = {
   authority: "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
   locator: "02_execution_costs/execution_parameters.csv; 02_execution_costs/execution_and_costs.md; 01_campaigns/01_shared_campaign_rules.md",
 };
 
-function clientSource(quote) {
-  return { ...CLIENT_PACKAGE_PROVENANCE, quote };
+// La cita de `rounding` es verbatim de ESTADO_INPUTS.csv, que no está en el
+// locator por defecto; se declara su locator exacto para no citar un archivo
+// ausente (HT-IMP-07-01).
+const ESTADO_INPUTS_LOCATOR = "ESTADO_INPUTS.csv";
+
+function clientSource(quote, locator = CLIENT_PACKAGE_PROVENANCE.locator) {
+  return { ...CLIENT_PACKAGE_PROVENANCE, locator, quote };
 }
 
 // Valores del caso actual Gas Quarterly. AUDITED = valor real con fuente
@@ -141,7 +148,7 @@ export const GAS_QUARTERLY_EXECUTION_PARAMETERS = [
     status: "AUDITED",
     value: "1 MW minimum and 1 MW increments",
     unit: null,
-    source: clientSource("Lot / quantity increment: 1 MW minimum and 1 MW increments."),
+    source: clientSource("Lot / quantity increment: 1 MW minimum and 1 MW increments.", ESTADO_INPUTS_LOCATOR),
   },
   {
     key: "dailyQuantityCap",
