@@ -1,6 +1,7 @@
 // Fila REAL de trade EEX copiada del lake para derivar el deadline del episodio
-// 2021Q1 de Gas Quarterly. Fixture para builders y tests: NO se lee el lago de
-// 93 GB. Fuente verificada 23-sep-2026:
+// 2021Q1 de Gas Quarterly. Registro fijado: el validador del deadline sólo
+// acepta filas idénticas a éstas (review 210116); builders/tests NO leen el
+// lago de 93 GB. Fuente verificada 23-sep-2026 (sha256 y fila recomprobados):
 //   /srv/hot-data/EEX/table=eex_derivative_trade/cmdty=NATGAS/area=THE/
 //     trd_date=2020-11-30/pull_id=d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b/part.parquet
 //   sha256(part.parquet) = 65966b6e0ad593473de9f366ee20e100af8c0417700c0715bf7872a468219a18

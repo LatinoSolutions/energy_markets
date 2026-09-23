@@ -434,7 +434,11 @@ test("el deadline del episodio es el último día efectivo respaldado por eviden
   assert.deepEqual(validateCampaignContract(determinedFicha).errors, []);
 
   // Con evidencia el deadline debe coincidir exactamente con la derivada.
-  const wrongValue = episodeWithDeadline("2021Q1", { value: "2020-10-15", evidenceTradeRows: EVIDENCE_2021Q1.tradeRows });
+  const wrongValue = episodeWithDeadline("2021Q1", {
+    value: "2020-10-15",
+    source: determinedFicha.facts.find((entry) => entry.factId === "campaign.calendar.deadline").source,
+    evidenceTradeRows: EVIDENCE_2021Q1.tradeRows,
+  });
   const wrongOutcome = resolveObligationDeadline(wrongValue);
   assert.equal(wrongOutcome.determined, false);
   assert.ok(wrongOutcome.reason.includes("no coincide con el último día efectivo derivado"));
@@ -475,6 +479,122 @@ test("una evidencia que no deriva el deadline impide construir la ficha instanci
   ]) {
     assert.throws(() => createGasQuarterlyValidationFicha("2021Q1", { ...EVIDENCE_2021Q1, tradeRows: broken }), TypeError, JSON.stringify(broken));
   }
+});
+
+// Regresión del hallazgo IMP02-DEADLINE-EVIDENCE-UNBOUND (review 210116): la
+// evidencia del deadline se liga a la fila EEX fijada y verificada y al
+// provenance publicado; una fila inventada o hashes falsos no dan criterionMet.
+
+const FAKE_HEX = "f".repeat(64);
+
+function realDeadlineSource() {
+  return fact(createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1), "campaign.calendar.deadline").source;
+}
+
+test("una fila con _row_sha256 'x' y fuente sintética no determina el deadline", () => {
+  const row = { ...EVIDENCE_2021Q1.tradeRows[0], _row_sha256: "x", TrdID: "FAKE" };
+  assert.equal(deriveQuarterlyEpisodeDeadline("2021Q1", [row]).determined, false);
+  const ficha = episodeWithDeadline("2021Q1", { value: "2020-11-30", evidenceTradeRows: [row] });
+  assert.equal(resolveObligationDeadline(ficha).determined, false);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, false);
+  assert.throws(() => createGasQuarterlyValidationFicha("2021Q1", { ...EVIDENCE_2021Q1, tradeRows: [row] }), TypeError);
+});
+
+test("una fila inventada en L con hashes hex bien formados pero no fijada no determina el deadline", () => {
+  const row = { ...EVIDENCE_2021Q1.tradeRows[0], _row_sha256: FAKE_HEX, TrdID: "FAKE" };
+  const derived = deriveQuarterlyEpisodeDeadline("2021Q1", [row]);
+  assert.equal(derived.determined, false);
+  assert.ok(derived.reason.includes("evidencia EEX fijada"));
+  // La fila real conserva el positivo aunque vaya acompañada de una inventada.
+  const mixed = deriveQuarterlyEpisodeDeadline("2021Q1", [row, EVIDENCE_2021Q1.tradeRows[0]]);
+  assert.equal(mixed.determined, true);
+  assert.deepEqual(mixed.evidence, EVIDENCE_2021Q1.tradeRows);
+});
+
+test("el provenance del deadline distinto a la fila fijada no determina el deadline", () => {
+  for (const field of ["rowSha256", "pullId", "requestPath", "responseSha256", "parquetSha256"]) {
+    for (const forged of ["deadbeef", FAKE_HEX, null]) {
+      const ficha = episodeWithDeadline("2021Q1", {
+        value: "2020-11-30",
+        source: { ...realDeadlineSource(), [field]: forged },
+        evidenceTradeRows: EVIDENCE_2021Q1.tradeRows,
+      });
+      const outcome = resolveObligationDeadline(ficha);
+      assert.equal(outcome.determined, false, `${field}=${forged}`);
+      assert.ok(outcome.reason.includes(field), `${field}=${forged}`);
+      assert.equal(ficha.acceptanceCriterion.criterionMet, false, `${field}=${forged}`);
+    }
+  }
+  // Fuente sintética sin hashes con la fila real tampoco basta.
+  const synthetic = episodeWithDeadline("2021Q1", { value: "2020-11-30", evidenceTradeRows: EVIDENCE_2021Q1.tradeRows });
+  assert.equal(resolveObligationDeadline(synthetic).determined, false);
+  assert.equal(synthetic.acceptanceCriterion.criterionMet, false);
+});
+
+test("una fila inventada del 2021-02-28 (domingo) para 2021Q2 no instancia el deadline", () => {
+  const invented = {
+    ...EVIDENCE_2021Q1.tradeRows[0],
+    _row_sha256: FAKE_HEX,
+    _request_path: "/trd/derivatives/NATGAS/THE/2021-02-28",
+    TrdDate: "2021-02-28",
+    Tm: "2021-02-28T16:00:00.000000Z",
+    Maturity: "202104",
+    ExpiryDate: "2021-03-30",
+    TrdID: "FAKE",
+  };
+  const derived = deriveQuarterlyEpisodeDeadline("2021Q2", [invented]);
+  assert.equal(derived.determined, false);
+  assert.equal(derived.lastWindowDay, "2021-02-28");
+  assert.throws(
+    () => createGasQuarterlyValidationFicha("2021Q2", { lake: { ...EVIDENCE_2021Q1.lake }, tradeRows: [invented] }),
+    TypeError,
+  );
+  const ficha = episodeWithDeadline("2021Q2", {
+    value: "2021-02-28",
+    source: { ...realDeadlineSource(), rowSha256: FAKE_HEX, requestPath: invented._request_path },
+    evidenceTradeRows: [invented],
+  });
+  assert.equal(resolveObligationDeadline(ficha).determined, false);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, false);
+});
+
+test("quitar o cambiar el marcador episode no salta la ligadura de la evidencia del deadline", () => {
+  const forged = createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1);
+  const deadline = fact(forged, "campaign.calendar.deadline");
+  deadline.evidenceTradeRows = [{ ...deadline.evidenceTradeRows[0], _row_sha256: "x" }];
+  deadline.source = { authority: "Bru (owner)", locator: "fixture sintético" };
+  const withoutMarker = structuredClone(forged);
+  delete withoutMarker.episode;
+  const otherKind = structuredClone(forged);
+  otherKind.episode.kind = "OTHER";
+  for (const ficha of [forged, withoutMarker, otherKind]) {
+    assert.equal(resolveObligationDeadline(ficha).determined, false);
+    assert.equal(evaluateImp02Acceptance(ficha).criterionMet, false);
+  }
+  // Positivo conservado: la ficha real sin marcador sigue derivando su deadline de la identidad.
+  const real = createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1);
+  delete real.episode;
+  assert.equal(resolveObligationDeadline(real).determined, true);
+});
+
+test("un deadline con provenance EEX en una ficha que no es episodio no se determina", () => {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.calendar.deadline", "2020-11-30");
+  fact(ficha, "campaign.calendar.deadline").source = realDeadlineSource();
+  assert.equal(resolveObligationDeadline(ficha).determined, false);
+  assert.ok(resolveObligationDeadline(ficha).reason.includes("no es un episodio de validación"));
+});
+
+test("el builder rechaza evidencia sin parquetSha256 del lake fijado", () => {
+  for (const parquetSha256 of [null, undefined, "", "x", FAKE_HEX]) {
+    const evidence = { ...EVIDENCE_2021Q1, lake: { ...EVIDENCE_2021Q1.lake, parquetSha256 } };
+    assert.throws(() => createGasQuarterlyValidationFicha("2021Q1", evidence), TypeError, String(parquetSha256));
+  }
+  assert.throws(() => createGasQuarterlyValidationFicha("2021Q1", { tradeRows: EVIDENCE_2021Q1.tradeRows }), TypeError);
+  // Positivo conservado: la fila real Q1-2021 con su lake publica los hashes fijados.
+  const ficha = createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1);
+  assert.equal(fact(ficha, "campaign.calendar.deadline").source.parquetSha256, EVIDENCE_2021Q1.lake.parquetSha256);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
 });
 
 test("una fact de texto con valor no textual se rechaza", () => {

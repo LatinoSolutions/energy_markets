@@ -17,6 +17,7 @@ import {
   validateRelationDeclaration,
   validateResidualAmendment,
 } from "./coverage-ownership.mjs";
+import { EEX_QUARTERLY_DEADLINE_EVIDENCE } from "./eex-deadline-evidence.mjs";
 
 const AVAILABILITY = STATE_NAMESPACES.data_availability.values;
 
@@ -1020,11 +1021,15 @@ function episodeDeadlineWindow(maturity) {
 // evidencia POSITIVA de Exchange del instrumento/maturity exactos
 // (NATGAS/THE, ProductISIN DE000A0MEW99, Maturity YYYY{01|04|07|10} del
 // quarter) con ExpiryDate ≥ su TrdDate e integridad row-level del lake
-// (_row_sha256/_pull_id/_request_path/_response_sha256). Un trade en L prueba
-// Exchange Day y tradabilidad ese día; sólo candidate == L determina el
+// (_row_sha256/_pull_id/_response_sha256 hex 64, _request_path). Un trade en L
+// prueba Exchange Day y tradabilidad ese día; sólo candidate == L determina el
 // deadline. Último trade anterior a L → fail-closed ("días finales sin
 // evidencia positiva de Exchange Day"); la ausencia de trades no prueba que no
-// fuera Exchange Day, así que se completa con heurística de fines de semana.
+// fuera Exchange Day, y NO se completa con heurística de fines de semana.
+// La receta de _row_sha256 del lake no está documentada (review 210116), así
+// que la fila en L sólo cuenta si es idéntica a una fila fijada y verificada
+// contra el lake en EEX_QUARTERLY_DEADLINE_EVIDENCE (mismo _row_sha256 y mismo
+// parquet); una fila escrita a mano no instancia el deadline.
 const QUARTER_FIRST_MONTH = { 1: "01", 2: "04", 3: "07", 4: "10" };
 const DEADLINE_EVIDENCE_EXCHANGE = { Cmdty: "NATGAS", Area: "THE", ProductISIN: "DE000A0MEW99", TrdType: "Exchange" };
 
@@ -1035,9 +1040,30 @@ function plainIsoCalendarDay(value) {
   return value;
 }
 
+const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
+
+function isSha256Hex(value) {
+  return typeof value === "string" && SHA256_HEX_PATTERN.test(value);
+}
+
 function tradeRowHasLakeIntegrity(row) {
-  return ["_row_sha256", "_pull_id", "_request_path", "_response_sha256"]
-    .every((field) => isNonEmptyString(row?.[field]));
+  return ["_row_sha256", "_pull_id", "_response_sha256"].every((field) => isSha256Hex(row?.[field]))
+    && isNonEmptyString(row?._request_path);
+}
+
+function pinnedDeadlineEvidenceFor(maturity) {
+  return Object.hasOwn(EEX_QUARTERLY_DEADLINE_EVIDENCE, maturity) ? EEX_QUARTERLY_DEADLINE_EVIDENCE[maturity] : null;
+}
+
+// Revisión 210116: la fila debe ser idéntica campo a campo a una fila fijada
+// del episodio, cuyo parquet del lake tiene hash hex 64.
+function isPinnedLakeRow(row, pinned) {
+  if (!pinned || !isSha256Hex(pinned.lake?.parquetSha256)) {
+    return false;
+  }
+  return pinned.tradeRows.some((pinnedRow) => pinnedRow._row_sha256 === row._row_sha256
+    && pinnedRow._pull_id === pinned.lake.pullId
+    && isDeepStrictEqual(pinnedRow, row));
 }
 
 function positiveExchangeEvidence(row, expectedMaturity, window) {
@@ -1096,13 +1122,39 @@ export function deriveQuarterlyEpisodeDeadline(maturity, tradeRows) {
       reason: `El último trade con evidencia es ${candidate}, anterior al último día calendario de la ventana (${lastCalendarWindowDay}); días finales sin evidencia positiva de Exchange Day: fail-closed, sin heurística de fines de semana.`,
     };
   }
+  const pinned = pinnedDeadlineEvidenceFor(maturity);
+  const pinnedEvidence = evidence.filter((row) => row.TrdDate === candidate && isPinnedLakeRow(row, pinned));
+  if (pinnedEvidence.length === 0) {
+    return {
+      determined: false,
+      deadline: null,
+      lastWindowDay: lastCalendarWindowDay,
+      evidence: [],
+      reason: `Ninguna fila del ${candidate} coincide con la evidencia EEX fijada y verificada del episodio ${maturity} (_row_sha256 y parquetSha256); una fila no fijada no prueba Exchange Day: fail-closed.`,
+    };
+  }
   return {
     determined: true,
     deadline: lastCalendarWindowDay,
     lastWindowDay: lastCalendarWindowDay,
-    evidence: evidence.filter((row) => row.TrdDate === candidate),
+    evidence: pinnedEvidence,
+    lake: pinned.lake,
     reason: null,
   };
+}
+
+// Revisión 210116: el provenance publicado de la fact debe ser el de la fila
+// fijada que derivó el deadline, no un texto editable a mano.
+function deadlineSourceMismatch(source, derived) {
+  const row = derived.evidence[0];
+  const expected = {
+    rowSha256: row._row_sha256,
+    pullId: row._pull_id,
+    requestPath: row._request_path,
+    responseSha256: row._response_sha256,
+    parquetSha256: derived.lake.parquetSha256,
+  };
+  return Object.keys(expected).filter((field) => source?.[field] !== expected[field]);
 }
 
 // Fact de deadline instanciada desde evidencia EEX (DERIVADA, no escrita a
@@ -1117,6 +1169,9 @@ export function quarterlyDeadlineFact(maturity, evidence) {
   }
   const row = derived.evidence[0];
   const lake = evidence?.lake && typeof evidence.lake === "object" ? evidence.lake : {};
+  if (!isSha256Hex(lake.parquetSha256) || lake.parquetSha256 !== derived.lake.parquetSha256 || lake.pullId !== row._pull_id) {
+    throw new TypeError(`La evidencia del episodio ${maturity} no trae el parquetSha256/pullId del lake fijado para su fila (${derived.lake.parquetSha256}); sin provenance del parquet no se instancia el deadline (revisión 210116).`);
+  }
   return {
     factId: "campaign.calendar.deadline",
     section: "Calendario",
@@ -1127,7 +1182,7 @@ export function quarterlyDeadlineFact(maturity, evidence) {
     source: {
       authority: `Lake EEX (evidencia de mercado, ${isNonEmptyString(lake.table) ? lake.table : "eex_derivative_trade"}); ${CLIENT_PACKAGE_CONFIRMATION.authority}`,
       locator: `table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=${row.TrdDate}/pull_id=${row._pull_id}/part.parquet`,
-      parquetSha256: isNonEmptyString(lake.parquetSha256) ? lake.parquetSha256 : null,
+      parquetSha256: lake.parquetSha256,
       pullId: row._pull_id,
       requestPath: row._request_path,
       responseSha256: row._response_sha256,
@@ -1149,6 +1204,27 @@ export function quarterlyDeadlineFact(maturity, evidence) {
     evidenceTradeRows: derived.evidence,
     reason: null,
   };
+}
+
+const RESEARCH_CAMPAIGN_ID_PATTERN = new RegExp(`^(${Object.values(FAMILY_PREFIX).join("|")})-(${Object.values(MISSION_PREFIX).join("|")})-(.+)$`);
+const DEADLINE_LAKE_PROVENANCE_FIELDS = ["rowSha256", "pullId", "requestPath", "responseSha256", "parquetSha256"];
+
+// Revisión 210116 (bypass): el marcador `episode` es editable. Una ficha cuya
+// identidad es la de un episodio de research (P-006 punto 6) sigue siendo un
+// episodio aunque se le quite o cambie el marcador, y su deadline se deriva
+// igual de la evidencia fijada.
+function validationEpisodeMaturityOf(ficha) {
+  if (ficha?.episode?.kind === "VALIDATION_EPISODE") {
+    return ficha.episode.maturity;
+  }
+  const campaignId = (ficha?.facts ?? []).find((fact) => fact.factId === "campaign.identity.campaignId")?.value;
+  const match = typeof campaignId === "string" ? RESEARCH_CAMPAIGN_ID_PATTERN.exec(campaignId) : null;
+  return match ? match[3] : null;
+}
+
+function deadlineClaimsLakeEvidence(deadline) {
+  return deadline.evidenceTradeRows !== undefined
+    || DEADLINE_LAKE_PROVENANCE_FIELDS.some((field) => deadline.source?.[field] !== undefined);
 }
 
 export function resolveObligationDeadline(ficha) {
@@ -1173,8 +1249,16 @@ export function resolveObligationDeadline(ficha) {
     // el deadline del episodio es el fin del último día efectivo de trading en
     // su ventana; una ficha editada a mano no puede atribuir al episodio un
     // deadline ajeno a esa ventana.
-    const episode = ficha?.episode;
-    if (episode?.kind === "VALIDATION_EPISODE") {
+    const episodeMaturity = validationEpisodeMaturityOf(ficha);
+    if (episodeMaturity === null && deadlineClaimsLakeEvidence(deadline)) {
+      return {
+        determined: false,
+        deadline: null,
+        reason: "El deadline cita evidencia EEX del lake pero la ficha no es un episodio de validación identificable; la evidencia fijada sólo instancia el cierre de su episodio (§13.4; P-006 punto 6).",
+      };
+    }
+    if (episodeMaturity !== null) {
+      const episode = { maturity: episodeMaturity };
       const window = episodeDeadlineWindow(episode.maturity);
       if (window === null) {
         return {
@@ -1201,6 +1285,14 @@ export function resolveObligationDeadline(ficha) {
           determined: false,
           deadline: null,
           reason: `El deadline "${deadline.value}" no queda respaldado por evidencia de trading: ${derived.reason} (§13.4; regla del paquete cliente "final effective trading day").`,
+        };
+      }
+      const mismatchedSource = deadlineSourceMismatch(deadline.source, derived);
+      if (mismatchedSource.length > 0) {
+        return {
+          determined: false,
+          deadline: null,
+          reason: `El provenance del deadline no coincide con la evidencia EEX fijada que lo deriva (${mismatchedSource.join(", ")}); §13.4: sin procedencia ligada a la fila verificada el cierre no se instancia.`,
         };
       }
       if (deadline.value !== derived.deadline) {
