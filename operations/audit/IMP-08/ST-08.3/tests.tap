@@ -1,0 +1,78 @@
+✔ FX-C01-PROXY-MIXED: proxy 0.75*100+0.25*104=101, sin VWAP (1.624059ms)
+✔ FX-C02-TRADES-ONLY: sólo trades -> T=100 (0.187142ms)
+✔ FX-C02-MIDPOINTS-ONLY: sólo midpoints -> M=104 (0.162586ms)
+✔ FX-C02-NO-SOURCE: sin fuente -> missing, nunca cero (0.226256ms)
+✔ FX-C03-EQUAL-WEIGHT: B=105 con peso diario igual pese a densidad de ticks (9.681248ms)
+✔ FX-C04-OFFICIAL-REPLACEMENT: oficial 102 sustituye proxy 100 -> B=106 y B previo 105 preservado (0.370468ms)
+✔ FX-C05-OFFICIAL-CORRECTION: gana el timestamp de proveedor más reciente -> B=106.5 (0.246424ms)
+✔ FX-C06-MISSING-THEN-OFFICIAL: recálculo de conjunto, denominador y cobertura (0.194968ms)
+✔ FX-C07-MONTHLY-1-0-1: inicio incluido, fin excluido (0.160332ms)
+✔ FX-C07-QUARTERLY-3-1-3: inicio incluido, fin excluido (0.222729ms)
+✔ FX-C07-FALLBACK-PM60: |t-17:15|<=60 min, extremos incluidos (0.289997ms)
+✔ FX-C07-POST-1715-CONSUMABILITY: publicado ≠ consumible por la policy (0.143019ms)
+✔ FX-C08-OFFICIAL-001-VALID: 0.01 declarado válido; guard reportado, sin regla canónica (0.179128ms)
+✔ FX-C08-OFFICIAL-001-UNKNOWN: validez desconocida -> excluido, nunca puesto a cero (0.140915ms)
+✔ negativo: B con D_t vacío no se rellena con cero (0.187934ms)
+✔ negativo: una fecha missing no entra en el denominador de B (0.138992ms)
+✔ negativo: la densidad de ticks no cambia el peso diario de B (0.972282ms)
+✔ FX-BHV-POSITIVE: V=B-H=105-100=+5 EUR/MWh (1.198147ms)
+✔ FX-BHV-NEGATIVE: V=100-105=-5 EUR/MWh (0.194927ms)
+✔ FX-BHV-ZERO: V=105-105=0 neutral (0.155373ms)
+✔ FX-BHV-UNITS-INCOMPATIBLE: B EUR/MWh y H EUR -> V indefinido, sin conversión (0.186982ms)
+✔ FX-BHV-TOTAL-EUR-NO-MWH: volumen MW -> total EUR indefinido, sin MW->MWh (0.198514ms)
+✔ FX-BHV-MISSING-FEE: fee unknown -> H indefinido, nunca cero (0.204125ms)
+✔ FX-BHV-INCOMPLETE-COVERAGE: V=5 aritmético pero no evidencia de research válida (0.174438ms)
+✔ FX-BHV-C-DIAGNOSTIC: C=4 diagnóstico, no gate duro (0.191381ms)
+✔ FX-BHV-UNDEFINED-RATIO-NO-PASS: sólo positivos -> Sortino indefinido -> HOLD, nunca PASS (0.514299ms)
+✔ positivo: un coste conocido entra exactamente una vez en H (0.284215ms)
+✔ positivo: total EUR con volumen MWh sí se computa (0.146546ms)
+✔ negativo: B o H no finitos no se coercionan a cero (0.115367ms)
+✔ negativo: cobertura full sí es evidencia de research válida (0.104577ms)
+✔ FX-C09-SCORING-POS-NEG: +4/-1 -> n=2,p=.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5 (2.174256ms)
+✔ FX-C09-NEUTRAL-ADDITION: +4/-1/0 preserva n_nonzero=2 y n_total=3 (0.219814ms)
+✔ FX-C10-SCORING-SORTINO-1: +3/-1 -> mu=1,R=C=3,Sortino=1 no supera >1 estricto (0.185389ms)
+✔ FX-C11-SCORING-ZERO-MEAN: +2/-2 -> mu=0,R=C=1,sigma=2,Sortino=0 (0.196079ms)
+✔ FX-C12-ONLY-POSITIVES: [4,3] -> A/R/C indefinidos, sigma=0, Sortino indefinido (0.758399ms)
+✔ FX-C12-EXACT-ZERO-ONLY: [0,0] -> n_nonzero=0, todo indefinido (0.219684ms)
+✔ FX-C12-N-LT-2: [4] -> n-1=0, sigma_down y Sortino indefinidos (0.198995ms)
+✔ FX-C12-EMPTY-POPULATION: [] -> todo indefinido, nada fabricado (0.18086ms)
+✔ FX-C12-EMPTY-WINNER-GROUP: [-1,-2] -> A=1.5, sigma=sqrt(5), Sortino=-0.6708..., G/R/C indefinidos (0.977201ms)
+✔ FX-MONTHLY-NO-SORTINO-IMPORT: Monthly no importa el screen Quarterly (1.334023ms)
+✔ FX-MONTHLY-ONLY-POSITIVE-NO-HOLD: el HOLD Monthly es de alcance, no del Sortino indefinido (0.376019ms)
+✔ FX-MONTHLY-REASON-DISCRIMINA: el HOLD Monthly discrimina por su propia razón (0.251884ms)
+✔ FX-EVIDENCE-TWO-CAMPAIGNS: 2 quarters / 1 año no cumplen el mínimo (0.335161ms)
+✔ negativo: n nunca se sustituye por n_total (2.288251ms)
+✔ negativo: un ratio indefinido nunca se convierte en PASS (0.905856ms)
+✔ gate sintético: evidencia suficiente y screen falso -> FAIL, no PASS (0.175911ms)
+✔ gate sintético: evidencia suficiente y screen cumplido -> PASS (chequeo de rama, no evidencia real) (0.130727ms)
+✔ negativo (criterio 5): entradas inválidas no se ocultan tras un score alto (0.139532ms)
+✔ negativo (criterio 5): cobertura incompleta no se oculta tras un score alto (0.235544ms)
+✔ negativo (criterio 5): benchmark provisional no se oculta tras un score alto (0.099798ms)
+✔ negativo (criterio 5): sin canal de calidad declarado no se emite PASS (0.084058ms)
+✔ negativo: C no es un gate de research (0.088827ms)
+✔ negativo: entradas no finitas no se coercionan a cero en scoring (0.070593ms)
+ℹ tests 53
+ℹ suites 0
+ℹ pass 53
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111.17769
+✔ ST-08.3-R1: exact product/date/accessibility selection deduplicates daily rows (10.746135ms)
+✔ ST-08.3-R2: conflicting daily duplicates are explicitly rejected (0.26025ms)
+✔ ST-08.3-R3: malformed and unknown official candidates cannot outrank a valid row (0.28718ms)
+✔ ST-08.3-R4: valid synthetic 0.01 remains eligible and invalid rows fall back to proxy (0.161364ms)
+✔ ST-08.3-R5: malformed, missing and incomplete costs remain unavailable (0.279476ms)
+✔ ST-08.3-R6: an explicitly complete known-zero cost list is finite (0.14851ms)
+✔ ST-08.3-R7: Monthly evidence cannot satisfy the Quarterly gate (0.442964ms)
+✔ ST-08.3-R8: Quarterly sufficiency is derived from mission-bound counts (0.298363ms)
+✔ ST-08.3-R9: receipt route identity matches corrective run and preserves initial history (0.770171ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 74.625912

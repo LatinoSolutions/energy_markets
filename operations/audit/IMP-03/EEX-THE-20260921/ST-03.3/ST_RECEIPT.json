@@ -1,0 +1,127 @@
+{
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-03-ST-3-v1.1",
+    "subtaskId": "ST-03.3",
+    "parentImp": "IMP-03",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "DeepSeek V4.1 Flash via OpenRouter, model deepseek/deepseek-v4.1-flash, adapter opencode_local, agent 2f30b8dd-306b-4735-a135-f8d3127c8c0e, run 056cd012-4784-4fd3-8886-0fd0eced0af5 (manual bounded product continuation of the same packet after OpenCode Go provider-region rejection)",
+  "startingBaseline": {
+    "contentHash": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "contentHashOf": "operations/bootstrap/baseline-manifest.json",
+    "host": "brunode",
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "branch": "main",
+    "gitState": "Git repository on branch main with an unborn HEAD: no commits (git rev-list --all --count = 0), no remote (git remote -v empty); is-inside-work-tree = true. Content-hash baseline is used because there is no commit; no commit, branch or worktree was created.",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01ReceiptSha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "priorImp03ReceiptSha256": "e203580b4a1dc88107bebd37502450c58286ecd81d9c840f8f94c1bef63bcde3",
+    "st03_1MatrixSha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f",
+    "priorTemporalManifestSha256": "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578",
+    "note": "No prior run artifacts existed for this instance; the previous run of this packet ended timed_out with no detectable output."
+  },
+  "resultingVersion": {
+    "contentHash": "d10095bd88d15ffdd72c39e82023448fc179285289e4c7539531dca93d084ca4",
+    "algorithm": "sha256 of the path-sorted sha256sum listing",
+    "scope": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/** excluding ST_RECEIPT.json and SHA256SUMS (self-referential); includes all other stable outputs",
+    "changedFileHashes": {
+      "audit-report.md": "ec69c1b34e1b966580ec11e2ed28fee1f029d113510bd0e202aa1419d6aba68d",
+      "audit_eex_the_temporal.py": "2703bb3b45535e0b7f3956614307850b7aab007ff2710839e4c33526dfbf1009",
+      "continuity-checkpoint.md": "547f09b938c2d556cd69cb282101ad63143e04ed34998a98109b5eda818c9d73",
+      "matrix-contribution.json": "5a137593353072db3242a5dac6fa0e9257d8a6c9213dac91908dc4b089ab1f39",
+      "provenance-permissions.json": "f3d3e0d47e83baf6d7507252640bb3f4fb602d5046a1876419165c6449cc04a4",
+      "temporal-manifest.json": "288e405f5bb033ea9eb602c7b28dae54dfc7de9881393b393aed2ccee2f8f77a",
+      "verification-output.txt": "280a2cbba3f46dd379ad00a2763a9a849ca4994189fc0b9fa6627b5b73136fae",
+      "verify-eex-the-temporal.mjs": "11fac2ea9c7a6fc722528ef530a9846e1b6985aee19371b2f9a6fc29d6230069"
+    }
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (v1.1, sha256 86c4bd4e...39cb6c; sections 6.1-6.4, 13, 20.2.7-20.2.10, 25.1, 25.2.1-25.2.3)",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json (accepted; sha256 78d92de8...b887c)",
+    "operations/receipts/IMP-03-IMP_RECEIPT.json (prior accepted; sha256 e203580b...bcde3)",
+    "operations/audit/IMP-03/data-sufficiency-matrix.json (accepted ST-03.1; sha256 5e94b60b...6b42f)",
+    "operations/audit/IMP-03/temporal-manifest.json (prior accepted ST-03.1; sha256 6b630e9e...b58578, preserved unchanged)",
+    "/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=NATGAS/area=THE (bounded partition listing + deterministic content sample)",
+    "/srv/hot-data/EEX/table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE (bounded partition listing + deterministic content sample)",
+    "/srv/hot-data/EEX/_scripts/extract-eex.sh and /srv/hot-data/EEX/_logs/{extract-status.tsv,extract.complete,final-size.txt} (non-secret extraction metadata, granted by the packet)",
+    "reference/documentation/eex-reference-price.md (provenance only; sha256 dfa9cfc8...e260)",
+    "supplied project/reference documentation for usage-permission evidence only (reference/**, app/docs/**)",
+    "installed reader venv /srv/hot-data/alexandria/venvs/data/bin/python3 (pyarrow 25.0.1)",
+    "read-only auxiliary inspection of /home/op/apps/power-markets-explorer/app/market-explorer.tsx for field/timezone display handling"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/audit_eex_the_temporal.py",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/temporal-manifest.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/provenance-permissions.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/matrix-contribution.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/audit-report.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/verify-eex-the-temporal.mjs",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/verification-output.txt",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/continuity-checkpoint.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/ST_RECEIPT.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/SHA256SUMS"
+  ],
+  "result": "Bounded factual temporal/provenance audit of the EEX THE NatGas trade and top-of-book lake. The four section 6.1 temporal semantics are distinguished for all 17 requirements. Occurred/reference time is now OBSERVED for the inspected scope (Tm stored UTC with Z suffix; TrdDate partition key), while publication-at-source and policy-consumable times are MISSING and revision/vintage lineage is only PARTIAL. Positive price/unit/instrument evidence is captured as bounded per-file summaries tied to file locators and sha256 (provenance.sampleEvidenceDigest). The archived import (bulk extraction 2026-08-03, retrieved 2026-06-06..2026-07-28) proves present possession, not historical policy availability. No entitlement/license/rights record was found; rights remain UNKNOWN with a scoped absence. A0/A1 remain DATA_BLOCKED; R-04 is UNAVAILABLE (only partial observed price evidence; exact Quarterly eligibility and decision boundaries are not established and the sample mixes product buckets), as are R-08/R-09/R-10/R-11/R-12. No official/PIT/permission claim is fabricated.",
+  "testsRun": [
+    "/srv/hot-data/alexandria/venvs/data/bin/python3 audit_eex_the_temporal.py",
+    "/srv/hot-data/alexandria/venvs/data/bin/python3 audit_eex_the_temporal.py --check",
+    "node verify-eex-the-temporal.mjs"
+  ],
+  "testResults": [
+    {
+      "command": "audit_eex_the_temporal.py",
+      "exitCode": 0,
+      "observed": "Wrote temporal-manifest.json, provenance-permissions.json and matrix-contribution.json. Observed trade 1464 partitions 2020-11-02..2026-07-28 (12 sampled files) and top-of-book 257 partitions 2025-07-25..2026-07-28 (19 sampled files); all sampled Tm values carry a UTC Z suffix; 4 extraction metadata files present; bounded price/unit/instrument summaries captured (Px/BidPx/AskPx non-empty, UOM=MWh, Currency=EUR); permissions conclusion UNKNOWN."
+    },
+    {
+      "command": "audit_eex_the_temporal.py --check",
+      "exitCode": 0,
+      "observed": "Reported errors: [] \u2014 partition counts/span, sampled file locators/rows/bytes/sha256/Tm bounds, four semantics per entry and all six preserved hashes match the recorded outputs."
+    },
+    {
+      "command": "node verify-eex-the-temporal.mjs",
+      "exitCode": 0,
+      "observed": "All checks PASS including preserved input hashes, lake scope, temporal manifest contract, provenance/permissions contract, eight-field matrix contribution, ST_RECEIPT via src/contracts validateStReceipt/linkStReceiptToPacket, SHA256SUMS integrity and write-set containment. See verification-output.txt."
+    }
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/temporal-manifest.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/provenance-permissions.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/matrix-contribution.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/audit-report.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/audit_eex_the_temporal.py",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/verify-eex-the-temporal.mjs",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/verification-output.txt",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/continuity-checkpoint.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/SHA256SUMS"
+  ],
+  "assumptions": [
+    "The installed alexandria data venv is an admissible read-only reader environment; no package was installed.",
+    "The deterministic partition-index sample is representative for the observed temporal/provenance facts; every such fact is labelled observed-sample-only.",
+    "Partition-name enumeration (listing only) is a sufficient bounded observation of currently-present partitions; no coverage percentage is inferred.",
+    "The reader app is auxiliary and non-authoritative for vendor semantics and timezone handling."
+  ],
+  "deviations": [
+    "No commit/push/branch/worktree created, consistent with the packet and the workspace's unborn-HEAD Git state.",
+    "No full inventory/census performed: the packet assigns that to sibling ST-03.2; this instance enumerates partitions and reads only a bounded deterministic content sample.",
+    "Occurred/reference status for R-04/R-08 is updated from MISSING (prior accepted manifest) to OBSERVED for the newly identified lake; the prior manifest file itself is preserved unchanged.",
+    "R-04 is recorded UNAVAILABLE (partial observed price evidence only), not AVAILABLE NOW, after review round 1; the sibling ST-03.2 contribution is a future reconciliation locator, not consumed evidence."
+  ],
+  "dependencyFindings": [
+    "REQUIRES accepted IMP-01 receipt hash reproduced exactly (78d92de8...b887c).",
+    "REQUIRES_AUDIT / REQUIRES_EVIDENCE are not prerequisites; this instance performs its own audit under section 25.2 and makes no economic evidence claim.",
+    "RESOLVES_AUDIT is claimed only for the exact inspected EEX THE scope: DEP-06 is partial evidence; DEP-07 is unchanged. Neither is claimed fully satisfied.",
+    "The EEX THE trade/top-of-book lake is not the official EEX reference-price benchmark; no benchmark row is claimed.",
+    "Usage rights remain unknown; absence of an entitlement record is scoped, not a legal conclusion.",
+    "Sibling ST-03.2 (operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/matrix-contribution.json) is NOT consumed by this generator and is recorded only as a future reconciliation locator for Command."
+  ],
+  "failuresRetries": [
+    "Prior run 6e26602c-c191-4b74-8e59-09db5262aed6 timed out after 2400s with no detected output artifacts. This run avoided any exhaustive scan (partition listing plus a deterministic bounded content sample) and completed in about 2 seconds.",
+    "The OpenCode Go route was rejected by provider region; this run is the authorized manual OpenRouter continuation of the same packet.",
+    "No reader installation was needed; pyarrow 25.0.1 was already present in the installed data venv."
+  ],
+  "recommendedStatus": "in_review"
+}

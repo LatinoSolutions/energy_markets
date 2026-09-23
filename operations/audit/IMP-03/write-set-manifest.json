@@ -1,0 +1,41 @@
+{
+  "artifactKind": "IMP-03_WRITE_SET_MANIFEST",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-03-ST-1-v1.1",
+  "subtaskId": "ST-03.1",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "allowedPaths": ["operations/audit/IMP-03/**", "operations/receipts/IMP-03-ST-1.json"],
+  "revision": "round 3 — stage-2 Findings B (R-06 in criticalMissing summaries + consistency check) and C (refresh stale attachments) inside allowed_paths",
+  "before": {
+    "observedAtUtc": "2026-09-19T15:01:09Z",
+    "commands": [
+      "ls -la operations/audit/IMP-03 -> 'No such file or directory'",
+      "ls -la operations/receipts/IMP-03-ST-1.json -> 'No such file or directory'"
+    ],
+    "finding": "Both allocated output paths did not pre-exist, so there was no pre-existing ownership conflict to resolve."
+  },
+  "after": {
+    "observedAtUtc": "2026-09-19T15:50:00Z",
+    "contentVersionAlgorithm": "sha256 of the path-sorted sha256sum listing",
+    "contentVersionScope": "operations/audit/IMP-03/** excluding this self-referential write-set-manifest.json",
+    "contentVersion": "c097a6a5e131b50af159ac48e1f382a474070bdcd66884dbba94c30ba5291787",
+    "files": {
+      "operations/audit/IMP-03/audit-report.md": "3fad9a93ee235f1c3a6745365736071ebb214c4393cdd41fcb53c3355f95758d",
+      "operations/audit/IMP-03/data-sufficiency-matrix.json": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f",
+      "operations/audit/IMP-03/source-inventory.json": "915c413a54cea169ec58b1e9b181bded440c5ed2d6218d8bfef118b3d827fa05",
+      "operations/audit/IMP-03/temporal-manifest.json": "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578",
+      "operations/audit/IMP-03/verify-run.txt": "7b1432f6bdb9aae5f54b1272afbfa843a9cbaac0b51ae23b28de96d6766f5762",
+      "operations/audit/IMP-03/verify.mjs": "8c72dae6758a1876f35d46035363a7ddcab7ce5f6218492569bf9f60c9fb71b9"
+    }
+  },
+  "outsideAllowedPathsWrites": [],
+  "preservedEvidence": {
+    "spec": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01Receipt": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "baselineManifest": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "imp01ContentVersion": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "reVerifiedAt": "2026-09-19T15:50:00Z",
+    "result": "all four preserved hashes still match"
+  },
+  "note": "operations/receipts/IMP-03-ST-1.json is the handoff receipt and is recorded there. This write-set-manifest.json is excluded from the content version because it records the hashes it would otherwise have to cover; its own sha256 is recorded in operations/receipts/IMP-03-ST-1.json. Round 3 touched data-sufficiency-matrix.json (R-06 added to both criticalMissing summaries + one new labeled synthetic), verify.mjs (candidate criticalMissing consistency check), audit-report.md (readiness table), verify-run.txt and this manifest; no conclusion changed and no file outside allowed_paths was modified."
+}

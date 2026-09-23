@@ -1,0 +1,56 @@
+== INPUT HASHES ==
+  SPEC: 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c (expected 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)
+  IMP-01-IMP_RECEIPT.json: 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c (expected 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c)
+  baseline-manifest.json: 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 (expected 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860)
+  IMP-01 content version: c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c (expected c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c)
+  OK
+
+== INVENTORY INTEGRITY (fail closed) ==
+  sources=9
+  OK: every inspected inventory source exists and matches its pinned hash.
+
+== PROVENANCE (campaign-contract.json facts) ==
+  facts=38 verified=3 historical=6 missing=29
+  OK: every asserted fact cites an allowlisted source/hash/locator; every missing fact is documented.
+
+== CONSERVATION / GUARD INVARIANTS (campaign-contract.reconciliation) ==
+  OK: no fabricated numbers, no sizing/total conflation, no benchmark-window-as-permission, no close-out fill for an unknown terminal rule.
+
+== OWNERSHIP / NO DOUBLE COUNTING (coverage-ownership.json) ==
+  OK: no fill belongs to more than one obligation; missing relation is documented.
+
+== NEGATIVE CASES (synthetic, explicitly labeled) ==
+  [PASS] conservation-holds (expect valid) -> no errors
+  [PASS] conservation-violation (expect rejects:CONSERVATION_VIOLATION) -> CONSERVATION_VIOLATION 100 != 40 + 50
+  [PASS] closeout-with-unknown-terminal-rule (expect rejects:CLOSEOUT_WITH_UNKNOWN_TERMINAL_RULE) -> CLOSEOUT_WITH_UNKNOWN_TERMINAL_RULE; COVERAGE_INCOMPLETE_EXPECTED
+  [PASS] sizing-conflated-with-total (expect rejects:TOTAL_SIZING_CONFLATION) -> TOTAL_SIZING_CONFLATION
+  [PASS] benchmark-window-as-execution-permission (expect rejects:BENCHMARK_WINDOW_AS_PERMISSION) -> BENCHMARK_WINDOW_AS_PERMISSION
+  [PASS] verified-fact-without-provenance (expect rejects:NO_PROVENANCE) -> SYNTHETIC_NOT_LABELED synthetic.noSource: status VERIFIED in synthetic context; NO_PROVENANCE synthetic.noSource: VERIFIED without source
+  [PASS] missing-without-documentation (expect rejects:MISSING_NOT_DOCUMENTED) -> SYNTHETIC_NOT_LABELED synthetic.undocumentedMissing: status MISSING in synthetic context; MISSING_NOT_DOCUMENTED synthetic.undocumentedMissing
+  [PASS] missing-with-invented-value (expect rejects:INVENTED_VALUE) -> SYNTHETIC_NOT_LABELED synthetic.missingInvented: status MISSING in synthetic context; INVENTED_VALUE synthetic.missingInvented: MISSING fact carries value 60
+  [PASS] single-assignment-valid (expect valid) -> no errors
+  [PASS] duplicate-ownership (expect rejects:DUPLICATE_OWNERSHIP) -> DUPLICATE_OWNERSHIP SYN-F1 referenced 2 times
+  [PASS] unknown-fill-reference (expect rejects:UNKNOWN_FILL) -> UNKNOWN_FILL SYN-Q1 -> SYN-F9
+  [PASS] undocumented-missing-relation (expect rejects:MISSING_NOT_DOCUMENTED) -> MISSING_NOT_DOCUMENTED relationMonthlyQuarterly
+
+== INLINE ADVERSARIAL PROBES ==
+  [PASS] hash-tamper-detected (expect BAD_SOURCE_HASH) -> BAD_SOURCE_HASH probe.badHash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa != inventory 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c
+  [PASS] unknown-source-detected (expect UNKNOWN_SOURCE) -> UNKNOWN_SOURCE probe.unknown: reference/does-not-exist.md
+  [PASS] bad-status-detected (expect BAD_STATUS) -> BAD_STATUS probe.status: PROBABLY_TRUE
+  [PASS] valid-provenance (expect valid) -> no errors
+  [PASS] missing-cited-source-detected (expect MISSING_INVENTORY_SOURCE) -> MISSING_INVENTORY_SOURCE S-05 /srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf
+  [PASS] altered-absence-source-detected (expect INVENTORY_SOURCE_DRIFT) -> INVENTORY_SOURCE_DRIFT S-07 /srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_Open_Points_v1_0_2026-09-16.pdf b3cc95e7b24d7f239cfe6d91a0203c0e68e84746c9121b3a6fcbbd89bec5c0e2 != af5db8b876081c46dc3a23337aae130a09f81c8aebe283013b271b3e49c9a82e
+  [PASS] missing-other-inspected-source-detected (expect MISSING_INVENTORY_SOURCE) -> MISSING_INVENTORY_SOURCE S-05 /srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf
+  [PASS] intact-inventory-passes (expect valid) -> no errors
+  OK: all negative cases behave as expected.
+
+== REAL-DATA INSUFFICIENCY (reported separately) ==
+  campaignIdentified=false reconciliation.evaluated=false status=NOT_COMPUTABLE
+  coverageStatus=NOT_COMPUTABLE_NO_REAL_CAMPAIGN terminalRuleStatus=MISSING
+  unresolvedCanonicalParentCriteria=5
+  => INSUFFICIENT REAL DATA: campaign contract cannot be reconciled; documented absence preserved.
+  (Insufficiency is a factual finding, not a verifier failure.)
+
+== RESULT ==
+  exit=0 (0 = hashes/inventory/provenance/invariants/negatives pass; real-data insufficiency reported separately)
+EXIT=0

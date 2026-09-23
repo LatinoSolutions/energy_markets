@@ -1,0 +1,669 @@
+{
+  "id": "b4c01892-6505-4aa1-a175-9622b7da7e17",
+  "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+  "goalId": null,
+  "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+  "title": "IMP-28 \u2014 Materializar evaluaci\u00f3n por rol de componentes externos; ejecutar role-discovery/comparaci\u00f3n de un componente s\u00f3lo cuando se encargue.",
+  "description": "CANONICAL IMP PARENT \u2014 not a READY work packet.\nProject Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a; root [LAT-91](/LAT/issues/LAT-91).\nSPEC PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md v1.1 SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c.\nScope/version: initial framework v1.1; no real candidate/component evaluation.\n| IMP-28 | Materializar evaluaci\u00f3n por rol de componentes externos; ejecutar role-discovery/comparaci\u00f3n de un componente s\u00f3lo cuando se encargue. | \u00a711.6, identidad/versiones; capacidades y comparadores reales para el rol estudiado, con acceso aplicable | Registro por componente/rol, hypothesis/comparator/boundary, evidencia reproducible, ADMIT/HOLD/REJECT cuando proceda y retirada/rollback | JEV sin clasificaci\u00f3n previa; cuatro clases disponibles y outcomes independientes; rol Strategy/Evidence pasa por \u00a78.7; engineering se mide operacionalmente sin reclamar edge; execution/governance recibe validaci\u00f3n separada; ning\u00fan rol gana autoridad durante discovery; sin valor suficiente en ning\u00fan rol, componente fuera. | No S6 por defecto, integraci\u00f3n obligatoria, duplicaci\u00f3n Paperclip sin an\u00e1lisis de valor, auto-admisi\u00f3n del componente ni redefinici\u00f3n frozen. | \u00a7\u00a711.6,8.7 cuando aplique,20.2; D18 D2 |\n| **IMP-28** | IMP-01 aceptado para framework. En evaluaci\u00f3n concreta del rol Strategy/Evidence: IMP-27 framework aceptado y proceso \u00a78.7; otros roles no lo heredan autom\u00e1ticamente. Comparator/protocolo del rol predeclarados antes de la comparaci\u00f3n. | \u2014 para framework. Acceso/uso e inputs reales que consume cada evaluaci\u00f3n deben estar satisfechos; capability analysis/overlap/comparator factual que la tarea audita siguen RESOLVES_AUDIT, no requisitos de valor ya demostrado. | \u2014 para framework/role-discovery. La evidencia previa exigida por el rol se identifica antes de su uso; no se exige que el componente ya demuestre el incremento de valor que se va a medir. | DEP-28 [componente/rol: capabilities, interfaz, mecanismos existentes, boundary, costes/latencia/carga cuando pertinentes]. | DEP-28 [componente/rol/protocolo]: comparaci\u00f3n no autoritativa y outcome respaldado; rol Strategy/Evidence tambi\u00e9n satisface DEP-29. Tests del registro no cierran valor ni admission de un rol real. | Revisi\u00f3n/admisi\u00f3n limitada al rol evaluado; cualquier authority real requiere sus gates separados. Sin rol con valor suficiente, no integraci\u00f3n. |\nFull canonical parent acceptance remains mandatory. ST accepted is not IMP accepted. Only Command may record a separately verified scoped IMP_RECEIPT after required children/reviews/evidence pass \u00a720.2.10. Missing factual criteria keep the parent blocked.\nNamed unblock owner: Tech Lead Command. Next action: after the linked child's two native reviews complete, route a bounded separate parent acceptance through existing Director/native coordination. This refill creates no assignment and does not claim a parent wake is scheduled on this unassigned container.\nNo new architecture, human gate, numerical assumptions or scope expansion.\n",
+  "status": "done",
+  "statusVersion": 4,
+  "lastStatusDecisionId": null,
+  "workMode": "standard",
+  "harnessKind": null,
+  "priority": "high",
+  "reviewPolicy": null,
+  "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+  "assigneeUserId": null,
+  "checkoutRunId": null,
+  "executionRunId": null,
+  "executionAgentNameKey": null,
+  "executionLockedAt": null,
+  "createdByAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+  "createdByUserId": null,
+  "responsibleUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+  "issueNumber": 113,
+  "identifier": "LAT-113",
+  "originKind": "manual",
+  "originId": null,
+  "originRunId": "386b86b3-5b7a-4d79-bf1c-1fb9f6024a6c",
+  "originFingerprint": "default",
+  "requestDepth": 0,
+  "billingCode": null,
+  "assigneeAdapterOverrides": null,
+  "executionPolicy": null,
+  "executionState": null,
+  "monitorNextCheckAt": null,
+  "monitorWakeRequestedAt": null,
+  "monitorLastTriggeredAt": null,
+  "monitorAttemptCount": 0,
+  "monitorNotes": null,
+  "monitorScheduledBy": null,
+  "executionWorkspaceId": null,
+  "executionWorkspacePreference": null,
+  "executionWorkspaceSettings": null,
+  "sourceTrust": null,
+  "unblockDescriptor": null,
+  "blockedTransitionAt": null,
+  "blockedOwnerNotifiedAt": null,
+  "startedAt": "2026-09-19T19:51:04.025Z",
+  "completedAt": "2026-09-19T19:55:28.527Z",
+  "cancelledAt": null,
+  "hiddenAt": null,
+  "createdAt": "2026-09-19T10:38:08.985Z",
+  "updatedAt": "2026-09-19T19:55:28.526Z",
+  "labels": [],
+  "labelIds": [],
+  "watchdog": null,
+  "changes": {
+    "status": {
+      "from": "in_progress",
+      "to": "done"
+    },
+    "statusVersion": {
+      "from": 3,
+      "to": 4
+    },
+    "checkoutRunId": {
+      "from": "b70ccdaa-8f4f-42b4-bbcb-04caf972af21",
+      "to": null
+    },
+    "executionRunId": {
+      "from": "b70ccdaa-8f4f-42b4-bbcb-04caf972af21",
+      "to": null
+    },
+    "executionAgentNameKey": {
+      "from": "tech lead (command)",
+      "to": null
+    },
+    "executionLockedAt": {
+      "from": "2026-09-19T19:51:04.009Z",
+      "to": null
+    },
+    "completedAt": {
+      "from": null,
+      "to": "2026-09-19T19:55:28.527Z"
+    }
+  },
+  "relatedWork": {
+    "outbound": [
+      {
+        "issue": {
+          "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+          "identifier": "LAT-114",
+          "title": "[READY] IMP-28 / ST-28.1 \u2014 framework de evaluaci\u00f3n por rol de componentes externos",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "052eb1f6-bdd4-4fd3-a6ba-9d2d3c80209a",
+            "label": "imp-receipt",
+            "matchedText": "/LAT/issues/LAT-114"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "7dac57fd-3769-41f9-9961-efd5cf99eb36",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-114"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+          "identifier": "LAT-92",
+          "title": "IMP-01 \u2014 Materializar contratos de identidad/versiones y namespaces.",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "052eb1f6-bdd4-4fd3-a6ba-9d2d3c80209a",
+            "label": "imp-receipt",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "7dac57fd-3769-41f9-9961-efd5cf99eb36",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+          "identifier": "LAT-91",
+          "title": "Procurement Research v1.1 \u2014 ejecuci\u00f3n del grafo can\u00f3nico",
+          "status": "backlog",
+          "priority": "high",
+          "assigneeAgentId": null,
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-91"
+          }
+        ]
+      }
+    ],
+    "inbound": [
+      {
+        "issue": {
+          "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+          "identifier": "LAT-114",
+          "title": "[READY] IMP-28 / ST-28.1 \u2014 framework de evaluaci\u00f3n por rol de componentes externos",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 12,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "/LAT/issues/LAT-113"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "345a582c-3061-4561-b171-9e2cdd635a4f",
+            "label": "command-review",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "c994043c-7c52-4047-8542-00b1f0d459a6",
+            "label": "continuity-checkpoint",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "16cd5c1c-89ee-4dbb-9360-8286105f3e8f",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "18909f0a-a98e-43be-bb0e-0f83d74499d5",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "2c3f8af3-65b2-4866-aadb-a6c8cb09a9c1",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "43476204-f5c8-432e-91d7-76414d560e2f",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "6793868f-aa5a-407e-8a89-1149c1614cb6",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "6ffcec7a-52a5-47a1-ad91-b999ef1fa4ed",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "91570df5-7e1f-44b3-b889-c0185e58f1ee",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "b098fb90-84a2-4612-b54b-934b7cdd45e4",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "ca8a9c44-00ba-4317-b482-c52ed55bbabc",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "8c33b4fb-9a77-4542-bf78-700004290f12",
+          "identifier": "LAT-145",
+          "title": "[REFILL] #38 Command backlog refill \u2014 Energy Markets: READY 1 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "8cee18d9-ba3f-4614-af92-c08c2780a67c",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "88337906-9b17-4a63-8ed5-eeffbb0d43eb",
+          "identifier": "LAT-146",
+          "title": "[REFILL] #39 Command backlog refill \u2014 Energy Markets: READY 1 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "709313b7-c99f-4fc1-a32b-92dd28c39076",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "c7c78176-f71a-43ea-a6fb-686bf4f83722",
+          "identifier": "LAT-106",
+          "title": "[REFILL] #14 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "5cc3ff31-fe29-4f74-9470-6fd0f92dee3b",
+            "label": "comment",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "dff903a2-12b7-495a-9efe-1a49900f9952",
+          "identifier": "LAT-125",
+          "title": "[REFILL] #24 Command backlog refill \u2014 Energy Markets: READY 2 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "3dd04c01-acef-4528-98db-54d4c6b3066b",
+          "identifier": "LAT-128",
+          "title": "[READY] IMP-26 / ST-26.2 \u2014 correlate live continuation and acceptance evidence",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "15d2c838-6aec-46aa-97c8-b0c2e58ef5a5",
+            "label": "st-26-2-review-round3",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "10f0bd80-1375-4e3a-bac4-b05534e19a40",
+          "identifier": "LAT-129",
+          "title": "[REFILL] #25 Command backlog refill \u2014 Energy Markets: READY 2 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "ae2b7a7d-7f0d-4f2f-8d67-7d551ac9a4cd",
+          "identifier": "LAT-130",
+          "title": "[REFILL] #26 Command backlog refill \u2014 Energy Markets: READY 1 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "50944213-1158-42df-86ed-cc0f72de6fc5",
+          "identifier": "LAT-132",
+          "title": "[REFILL] #27 Command backlog refill \u2014 Energy Markets: READY 1 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "58cec6bc-e76b-4694-9892-037d7c2a3d94",
+          "identifier": "LAT-133",
+          "title": "[REFILL] #28 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "66e4a8b0-6979-4f2e-bad2-d47c47270830",
+          "identifier": "LAT-134",
+          "title": "[REFILL] #29 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "4c2d7aec-d79c-497a-9b21-e8e4a5ed63fd",
+          "identifier": "LAT-135",
+          "title": "[REFILL] #30 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "f0e0f622-87c6-432e-a4af-ee78a67c99e9",
+          "identifier": "LAT-136",
+          "title": "[REFILL] #31 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "8573d09c-7983-4048-9279-dbe5cbe6a5df",
+          "identifier": "LAT-137",
+          "title": "[REFILL] #32 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "f0ac5ad8-da5c-444b-ad27-4461b6c66f9c",
+          "identifier": "LAT-138",
+          "title": "[REFILL] #33 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "00bbae26-db00-45bc-8ac6-a2ce64c8a0b7",
+          "identifier": "LAT-139",
+          "title": "[REFILL] #34 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "b4947e6d-2338-4ccd-9506-ab04bf6a6ab0",
+          "identifier": "LAT-140",
+          "title": "[REFILL] #35 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "06368b99-5007-4185-9b0b-7454d3e621f9",
+          "identifier": "LAT-141",
+          "title": "[REFILL] #36 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "77377ae9-5f16-43c3-a07a-f46ce5c856fb",
+          "identifier": "LAT-142",
+          "title": "[REFILL] #37 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-113"
+          }
+        ]
+      }
+    ]
+  },
+  "referencedIssueIdentifiers": [
+    "LAT-114",
+    "LAT-92",
+    "LAT-91"
+  ],
+  "comment": {
+    "id": "7dac57fd-3769-41f9-9961-efd5cf99eb36",
+    "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+    "issueId": "b4c01892-6505-4aa1-a175-9622b7da7e17",
+    "authorAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+    "authorUserId": null,
+    "onBehalfOfUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+    "authorType": "agent",
+    "createdByRunId": "b70ccdaa-8f4f-42b4-bbcb-04caf972af21",
+    "derivedAuthorAgentId": null,
+    "derivedCreatedByRunId": null,
+    "derivedAuthorSource": null,
+    "body": "IMP-28 parent acceptance: ACCEPTED \u2014 initial role-evaluation framework v1.1.\n\n- Separate \u00a720.2.10 gate completed after [ST-28.1](/LAT/issues/LAT-114) passed both native stages. All blocking findings and required review rounds resolved; accepted [IMP-01 prerequisite](/LAT/issues/LAT-92#document-imp-receipt) remains valid.\n- Independent parent validation: 38/38 role-evaluation tests, 67/67 contracts, both original Command regression probes, ST receipt/linkage and IMP receipt validation pass. Current SPEC, ST content version and all accepted IMP-01 evidence hashes match.\n- [Scoped IMP_RECEIPT](/LAT/issues/LAT-113#document-imp-receipt) persisted at operations/receipts/IMP-28-IMP_RECEIPT.json, SHA256 `4d58bfb92b974c749d8b219754b9fcd8493b37b38f411659d6b4af11c537cc06`. Existing canonical graph parser accepts exactly this framework instance with zero DEP claims.\n- [Receipt and independent evidence bundle](/api/attachments/24b77a3c-ddcd-42b9-b78e-99f97654277a/content) attached as a work product. Native review snapshots and actual test/probe outputs included.\n- Scope limits: no real component evaluation, admission, integration or productive authority; DEP-28/DEP-29 factual evidence remains unclaimed. R3-E caller-object freezing remains the reviewed non-blocking limitation. Shared policy/timers unchanged.\n\nNext action: none on this completed framework instance. Any later commissioned component/role/version evaluation must independently satisfy its canonical prerequisites, predeclare its protocol/comparator, and produce real evidence. Command exits this bounded acceptance wake.\n",
+    "presentation": null,
+    "metadata": {
+      "version": 1,
+      "authorizationReason": "allow_self",
+      "sections": [
+        {
+          "title": "Authorization",
+          "rows": [
+            {
+              "type": "key_value",
+              "label": "Reason",
+              "value": "allow_self"
+            }
+          ]
+        }
+      ]
+    },
+    "deletedAt": null,
+    "deletedByType": null,
+    "deletedByAgentId": null,
+    "deletedByUserId": null,
+    "deletedByRunId": null,
+    "sourceTrust": null,
+    "createdAt": "2026-09-19T19:55:28.544Z",
+    "updatedAt": "2026-09-19T19:55:28.544Z"
+  }
+}

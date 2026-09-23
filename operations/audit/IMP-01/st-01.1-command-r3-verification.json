@@ -1,0 +1,32 @@
+{
+  "runId": "6edf8237-d7d1-4293-8ffc-f2aa2ce861f6",
+  "observedAt": "2026-09-19T10:17:03.370207+00:00",
+  "tests": [
+    {
+      "path": "operations/audit/IMP-01/st-01.1-command-r3-tests.txt",
+      "exit": 0,
+      "sha256": "8c8a84ab8492b0c5a22f2c0008c9f18e0c64eeca911b60094a3c2dfdf49be06a"
+    },
+    {
+      "path": "operations/audit/IMP-01/st-01.1-command-r3-boundaries.txt",
+      "exit": 0,
+      "sha256": "bc724e025192e11656f8808e790a884abd25c54eb3efd31c45342dcdbe5641d0"
+    }
+  ],
+  "hashes": {
+    "operations/audit/IMP-01/test-run.txt": "a6b9544e79167b1914cb2f9249b8a10dca28304ff892b6ae23ca55fd9124c877",
+    "src/contracts/economic-bundle.mjs": "d37384f1aa0a25ee8da476f8a103d468337b5eea5f7437737b860f54d2d271dc",
+    "src/contracts/identities.mjs": "6425fb956f3f65d98bb1ccad5bb9e1fcf4619f0b35a350f8442d05d4c6ac2e9e",
+    "src/contracts/index.mjs": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+    "src/contracts/namespaces.mjs": "d48733d23827388fdf221466019b6b830c473e51f4184097cf2dccd8d729fbb2",
+    "src/contracts/states.mjs": "fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75",
+    "test/contracts/economic-bundle.test.mjs": "54a58ffee86fef3b0038bf58f6e92233d858aa5d983630f4d4a6dd7fb0d85d7c",
+    "test/contracts/identities.test.mjs": "9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc",
+    "test/contracts/namespaces.test.mjs": "23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98",
+    "test/contracts/states.test.mjs": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655",
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/audit/IMP-01/st-01.1-command-boundaries.mjs": "045086b6441cf61f25afefed6a354b1bb0d136a4354c98e7ebdca017974b1e3d",
+    "operations/receipts/IMP-01-ST-1.json": "484a349763650580c39965b526f09745726e453d45006a6682572c292bef8068"
+  },
+  "resultingVersion": "6d24e9788501933e89cec201586a66e150a750585ae272023b3294128eed5430"
+}

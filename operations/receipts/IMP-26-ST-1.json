@@ -1,0 +1,339 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-26-ST-1-v1.1",
+    "subtaskId": "ST-26.1",
+    "parentImp": "IMP-26",
+    "project": "Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "LatinoSolutions owner-side terminal session (Bru), outside the Office lanes; author of the binding, not its reviewer; independent review: native Independent Reviewer stage on LAT-97 + Command gate LAT-124",
+  "startingBaseline": "3a02669",
+  "resultingVersion": {
+    "contentHash": "c7ea02e2e8ad589880d0b35d614c950d0a9f7557aedb88331c62e44a88fecb85",
+    "commit": "319c012"
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)",
+    "operations/bootstrap/canonical-imp-rows.json (verbatim projection, read by canonical-graph.mjs)",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json, operations/receipts/IMP-25-IMP_RECEIPT.json (accepted prerequisites)",
+    "operations/audit/IMP-25/capability-mapping.md (G1-G10 gap register)",
+    "LAT-97 packet revision 2 + OWNER-IMP26-BLOCKER-20260919; LAT-94 documents imp26-gap-cost-aware-routing / imp26-gap-review-round-escalation",
+    "office-continuity commit 3a02669 (North Star baseline) and the installed server sources cited in each module header",
+    "Bru instruction 'IMP-26 FINAL OFFICE AUTONOMY CUTOVER' (terminal, 2026-09-19)"
+  ],
+  "artifactsChanged": [
+    "office-continuity/CONTINUITY_TIMER_REENABLE_20260919.md",
+    "office-continuity/IMP26_LIVE_VALIDATION_20260919.md",
+    "office-continuity/README.md",
+    "office-continuity/STALE_REFERENCES_INVENTORY.md",
+    "office-continuity/autonomy-certification.test.mjs",
+    "office-continuity/autonomy.mjs",
+    "office-continuity/board-sim.mjs",
+    "office-continuity/canonical-graph.mjs",
+    "office-continuity/canonical-graph.test.mjs",
+    "office-continuity/command-question.mjs",
+    "office-continuity/command-question.test.mjs",
+    "office-continuity/continuity-e2e.test.mjs",
+    "office-continuity/controller.mjs",
+    "office-continuity/dead-execution.mjs",
+    "office-continuity/dispatcher.mjs",
+    "office-continuity/dispatcher.test.mjs",
+    "office-continuity/economics.mjs",
+    "office-continuity/failure-taxonomy.mjs",
+    "office-continuity/failure-taxonomy.test.mjs",
+    "office-continuity/final-acceptance.mjs",
+    "office-continuity/guards.mjs",
+    "office-continuity/handoff.mjs",
+    "office-continuity/handoff.test.mjs",
+    "office-continuity/imp26-autonomy.test.mjs",
+    "office-continuity/liveness.mjs",
+    "office-continuity/liveness.test.mjs",
+    "office-continuity/north-star.test.mjs",
+    "office-continuity/pcapi.mjs",
+    "office-continuity/pilot.mjs",
+    "office-continuity/project-scope.mjs",
+    "office-continuity/project-scope.test.mjs",
+    "office-continuity/project-state.mjs",
+    "office-continuity/project-state.test.mjs",
+    "office-continuity/queue-snapshot.mjs",
+    "office-continuity/replenisher.mjs",
+    "office-continuity/replenisher.test.mjs",
+    "office-continuity/review-exhaustion.mjs",
+    "office-continuity/review-exhaustion.test.mjs",
+    "office-continuity/review-recovery.mjs",
+    "office-continuity/routing-telemetry.mjs",
+    "office-continuity/routing-telemetry.test.mjs",
+    "office-continuity/routing.jsonl",
+    "office-continuity/stale-references.mjs",
+    "office-continuity/stale-references.test.mjs",
+    "office-continuity/status.mjs",
+    "operations/receipts/IMP-26-ST-1.json",
+    "operations/audit/IMP-26/*"
+  ],
+  "testsRun": [
+    {
+      "command": "/opt/node/bin/node --test *.test.mjs",
+      "cwd": "/home/op/.paperclip/integrations/office-continuity",
+      "mutating": false
+    },
+    {
+      "command": "/opt/node/bin/node controller.mjs run --dry-run",
+      "cwd": "/home/op/.paperclip/integrations/office-continuity",
+      "mutating": false
+    }
+  ],
+  "testResults": [
+    "node --test: 599 tests, 599 pass, 0 fail (operations/audit/IMP-26/tests-tap.txt)",
+    "dry-run 2026-09-19T15:22:52.751Z: scope LAT-91, preflight EXECUTION_READY, readyByClass {\"routine\":3,\"premium\":0,\"critical\":0}, plannedActions 0, autonomy WORK_AVAILABLE_PRODUCTION_RUNNING"
+  ],
+  "evidenceHashesAtReceipt": {
+    "office-continuity/IMP26_LIVE_VALIDATION_20260919.md (living document; hash at receipt time)": "e1d834386ee31757ec2ccbc80d45f2781914713a79d56e26d6cdc6c38a9458ef",
+    "office-continuity/STALE_REFERENCES_INVENTORY.md (living document; hash at receipt time)": "dd58c9b6b1e6bb5fd585280b13775d3ce5b635d699d6c67255d99d167f52cc2e"
+  },
+  "evidenceProduced": [
+    "operations/audit/IMP-26/tests-tap.txt",
+    "operations/audit/IMP-26/dry-run.json",
+    "operations/audit/IMP-26/controller-file-hashes.json",
+    "operations/audit/IMP-26/adversarial-review.json",
+    "office-continuity/IMP26_LIVE_VALIDATION_20260919.md (interventions, ticks, transitions)",
+    "office-continuity/STALE_REFERENCES_INVENTORY.md"
+  ],
+  "assumptions": [
+    "A workspace without operations/bootstrap/canonical-imp-rows.json has no typed canonical gating; the Command's judgment stands (reported canonical_graph_absent).",
+    "Conditional clauses in a dependency row (para validacion concreta, en evaluacion concreta, si el scope) are notes for the Command, never resolved by the controller."
+  ],
+  "deviations": [
+    "LAT-97 was not executed by a cheap worker: the owner (Bru) executed IMP-26 through the owner-side terminal session (human intervention #1, owner scope decision). The packet's native independent review stage is preserved and pending; the author-side adversarial reviews do not replace it.",
+    "Reviewer R2 (criteria 3 and 10): live controller mutations happened during this ST and the recurring timer was enabled before the parent gate. Authority: the owner instruction 'IMP-26 FINAL OFFICE AUTONOMY CUTOVER' (Bru, terminal, 2026-09-19), section 15 (dry-run, one bounded live tick, inspection, then persistent enablement) and section 17 (live validation with 0 owner interventions for machine-resolvable operations). Executed: real ticks 14:11:40Z and 14:12:17Z, timer enabled 14:12:29Z (human intervention #2). Recorded in office-continuity/IMP26_LIVE_VALIDATION_20260919.md. The criterion 3/10 conflict is routed to the parent gate LAT-124; a code-stage approval is not live compliance.",
+    "Reviewer R3 (criterion 6): review-exhaustion.mjs is an ACTING module, not only an audit plus proposal. Authority: the same owner instruction, section 5 (GAP C: 'Implement the Office-side equivalent required by Bru's policy ... Do NOT route to Bru ... Never auto-approve'). It acts with the board token of the native escalation principal (pcapi.mjs controllerUserId), applies only a human-actor changes_requested (never an approval), 2 cycles per issue per 24 h and 4 per issue lifetime, and never touches LAT-40 or a paused policy. The vendored OFFICE-CONTINUITY-001 exception (Alexandria root only) is untouched.",
+    "Reviewer R4 (criterion 7): the packet-declared Energy-side surfaces test/office/*.test.mjs, operations/binding/** and procurement-*.test.mjs were not created. The binding tests live in the office-continuity suites (project-scope, project-state, imp26-autonomy, canonical-graph, review-exhaustion, liveness, failure-taxonomy, stale-references, routing-telemetry); the packet's declared command for test/office cannot run. Relocation recorded here; no Energy-side duplicate suite was written.",
+    "Reviewer R1: the review target changed during the open review round (commits f2bebf6 and 8c66bf7, receipt regenerated at 14:59:22Z). This receipt declares ONE frozen revision (resultingVersion.commit and the per-file sha256 list in resultingVersionDetail.files); the listed files are held unchanged for the duration of the next review round. Frozen targets declared so far: c4bb4a8 (round 2, reviewed 15:18Z) and the commit in resultingVersion.commit (round 3 target, declared as a new frozen target as the round-2 verdict requires).",
+    "Reviewer finding B (round 2, 15:18Z; criteria 3 and 7): four packet-declared PROHIBITED write surfaces were changed against 3a02669 and are disclosed here as the bounded technical finding the packet routes to the coordinating role. replenisher.mjs sha256 2083735e431244b9 to b0cd1175f6685463: indispensable because the refill ticket (parent = project root, goal, description with the canonical eligible IMPs and the claims/instance contract, parked refill question, wait while execution is not ready) is composed inside this module; an extension from the controller seam would have to re-implement the refill composition (a second truth of the same decision). command-question.mjs sha256 d8bb5d7d302839b4 to 9cdc2799f6277d59: indispensable because live defect 1 (14:19:03Z, the controller resumed the Command into its own hold) is a defect of the isCommandQuestion predicate that lives in this module; a seam-side fix would duplicate the classification. replenisher.test.mjs sha256 fda84e24c2bf267f to 28be17fa88d8f5e1 and command-question.test.mjs created (6ffa9dec78c8d049): the associated tests of both contracts, including the regression test of live defect 1. The concurrent edits the surface protected were the owner-side session's own uncommitted work at packet time; they are committed in the 3a02669..HEAD series (clean worktree, no work lost). policy-params.json and the budget/routing/provider files (policy.mjs, lanes.json) are byte-identical to 3a02669. The packet's 'Director' is not an active agent of the company (6 agents, none in that role); the finding is returned to the Command (Tech Lead) as the coordinating role through the LAT-97 thread and to the owner as the responsible user through this receipt; no SPEC change is requested."
+  ],
+  "dependencyFindings": [
+    "REQUIRES IMP-01 and IMP-25: accepted (IMP_RECEIPTs with the current SPEC sha), verified by canonical-graph.mjs on the live workspace.",
+    "REQUIRES_AUDIT DEP-27: scope from the accepted IMP-25 mapping; native limits cited per module (services/issues.js:5007, routes/issues.js:3719-3727, issue-execution-policy.js:731-750, heartbeat.js:1524-1593).",
+    "Project ON: Energy Markets on, Alexandria off (GET /projects/execution)."
+  ],
+  "failuresRetries": [
+    "Five implementation sub-agents were terminated by a provider session limit at ~13:2xZ before writing; the modules were then implemented in the terminal session.",
+    "Live 14:19:03Z: the pre-fix command-question module resumed the Command into its own verification hold (loop of 2 Command runs); fixed in 1f431dc.",
+    "Live 14:25:01Z: the first canonical parser read a conditional id as a hard REQUIRES (LAT-114 not eligible), READY fell to 2 and refill LAT-125 was created; fixed in 7ba3f35."
+  ],
+  "recommendedStatus": "in_review (native Independent Reviewer stage on LAT-97); parent IMP-26 acceptance stays with the Command gate LAT-124 on observed live continuation (§20.2.10)",
+  "identityDetail": {
+    "packetId": "WP-IMP-26-ST-1-v1.1",
+    "subtaskId": "ST-26.1",
+    "parentImp": "IMP-26",
+    "parentImpIssue": {
+      "identifier": "LAT-94",
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797"
+    },
+    "workIssue": {
+      "identifier": "LAT-97",
+      "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389"
+    },
+    "commandGateIssue": {
+      "identifier": "LAT-124",
+      "id": "2ca425cd-27ad-42fb-8dec-0eba6b412829"
+    },
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "specHashVerifiedLive": true,
+    "sourceSections": [
+      "20.2",
+      "24 DEP-27",
+      "25.1 IMP-26",
+      "25.2 IMP-26"
+    ],
+    "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "projectName": "Energy Markets",
+    "workspace": "/srv/hot-data/energy-markets/app (project workspace 5c08ab20-ca30-475e-ba63-d9420870645a)",
+    "host": "brunode"
+  },
+  "workerRouteDetail": {
+    "actor": "LatinoSolutions owner-side terminal session (Bru), under the instruction 'IMP-26 FINAL OFFICE AUTONOMY CUTOVER' (2026-09-19)",
+    "roleInThisSubtask": "author of the office binding; NOT the independent reviewer",
+    "lane": "owner_terminal (outside the Office lanes)",
+    "dispatchMode": "owner scope decision: the implementation of IMP-26 was executed by the owner-side terminal session directly; LAT-97 was never dispatched to a worker lane",
+    "independentReview": "PENDING: the native Independent Reviewer stage on LAT-97 (unchanged policy) after the Command verification; the two adversarial sub-agent reviews in operations/audit/IMP-26/adversarial-review.json are author-side pre-review evidence, not the native decision"
+  },
+  "startingBaselineDetail": {
+    "declaredBaseline": "office-continuity commit 3a02669 (North Star cutover 5/5), controller-state.json pre-IMP-26 layout",
+    "versionIdentity": "git commits in /home/op/.paperclip/integrations/office-continuity",
+    "northStarPreserved": "reserves 0, failover margin 0, wallet floor 0, no monthly hard stop, refill cap telemetry only, legacy relay disabled, watchdog unapproved CLOSED, fresh quota > 0 usable: policy.mjs, policy-params.json and lanes.json are untouched in 3a02669..HEAD"
+  },
+  "resultingVersionDetail": {
+    "type": "git commits",
+    "controllerCommit": "319c012",
+    "commitRange": "3a02669..HEAD",
+    "files": {
+      "CONTINUITY_TIMER_REENABLE_20260919.md": "fe05fe50cc53f30d9607344cc66cafb271366db68d683b82071c504d693a7ec2",
+      "IMP26_LIVE_VALIDATION_20260919.md": "e1d834386ee31757ec2ccbc80d45f2781914713a79d56e26d6cdc6c38a9458ef",
+      "README.md": "753b285805478e22360f51484f8b701b272d628234e095a6ff66afa82f0fb4db",
+      "STALE_REFERENCES_INVENTORY.md": "dd58c9b6b1e6bb5fd585280b13775d3ce5b635d699d6c67255d99d167f52cc2e",
+      "autonomy-certification.test.mjs": "4d61e457961f8b83c8756409fc53b0c72775ec049036575e6e71892a3e49b137",
+      "autonomy.mjs": "3c87ab67e10b8dc0d54db066117af7671bc391d5684ef4f11ff80b898820d169",
+      "board-sim.mjs": "88d399ec0eb2d6c37a1218ac723af13ac46bf96ff1499075706eb39ea3589a73",
+      "canonical-graph.mjs": "e2098af0f86b248764f3fdd571d2756dd920c5e3367e835bef8113f19e0a8c7d",
+      "canonical-graph.test.mjs": "803ebecf28082ee73bb00bfa2a74c3d8a5e9f93312fae800e709142749b619a0",
+      "command-question.mjs": "9cdc2799f6277d59194b456cba9f3efe214dfc5eaea92e642468033a1c070bfa",
+      "command-question.test.mjs": "6ffa9dec78c8d049bfa1bb6ce9b64c5cea276583858edd5640977f95c612e791",
+      "continuity-e2e.test.mjs": "a55326bfce587bdbbf0f21f2644210d30d0cca39c750dbfda5814b4080fc4266",
+      "controller.mjs": "78f581cc639b09be3a227b9456bf43f9a442612293193155d2bd877280e55df2",
+      "dead-execution.mjs": "1d112f259fc9191fb73b7fed3fe7d77249b833c7823df522d1724929d07d59db",
+      "dispatcher.mjs": "a6a709dab7861992e945f173fbf2fd82688d6c0e5b50b9d3c9337df2c273405c",
+      "dispatcher.test.mjs": "31d58f41111f47d14be470bdc2e32cc8b38ca6f791323a19f9a79a0eaf2f918e",
+      "economics.mjs": "0d038cc1156cc5cdec7af93da89297cb7d108ae916de1b8ef360782bd04395a9",
+      "failure-taxonomy.mjs": "c9e04a63b436fd278649698328004dd07d890b86b64e7f3cc7d654dec215aba1",
+      "failure-taxonomy.test.mjs": "444a9e1407d41cbd3ede5045cf4461316efd18a2c334ab5e5b8aee244762d1be",
+      "final-acceptance.mjs": "b6f16120674b00cf5e8fc932a60554c1492eaa71f641f8ae66acf923c808a7dd",
+      "guards.mjs": "481cd339d4d23c4809b5c0266250ccbbc152f95ce97118b85110bfa454322f05",
+      "handoff.mjs": "6768535de0e25369292ea98bddaad213140e15fd0951e5d6a29c3c9fe6198be1",
+      "handoff.test.mjs": "e9591257ce52ebcedf72fc2c7401830ac8c3184b157eed860efd9ffad6df27f1",
+      "imp26-autonomy.test.mjs": "09b139e60e21f122229f6ef0b00d76c2cb73df7ab41fd772a5b8f10786fd31c1",
+      "liveness.mjs": "23cf6a747ff5e4ad62a0dfe93f67af387b96c9046faaf64d9e0f53b978498558",
+      "liveness.test.mjs": "da8c7c084ae8566a2be930f2f8cff4a113e9b937935d8b79832c544a890af487",
+      "north-star.test.mjs": "5358e11798bc9d6f16136c17d9b05816073ea9b4f2c8a8a90f66d3f2eb14840c",
+      "pcapi.mjs": "e3c9c164afa5ebed0812072f41246de19681a1b12e98b7511606f7c9b426c224",
+      "pilot.mjs": "b549af989ba3a848faacc524bef440f55efd0cca1960a2003f0f5971e584a86e",
+      "project-scope.mjs": "efc29d6895b76007a60446f4c857a33b82b189a22710ea7ffb41feedd183d0f6",
+      "project-scope.test.mjs": "4820fff1c34622e17ae82ae1d9ab2777f7d1320dc364e8fdef6b92b85276cc8d",
+      "project-state.mjs": "ef2a72747776007f31f4a86b45b7feb4f9b4da7f8438ee41f309661e3bc7822b",
+      "project-state.test.mjs": "d93bb7a6f63bfc7cc595be0ad738a788e45a322a549a3709ddce8701e2aeaf23",
+      "queue-snapshot.mjs": "c9c94a0df66ecf440e2ea11af837ba6ab02cdc52bb2ba92af43e978f084df425",
+      "replenisher.mjs": "b0cd1175f66854632cccdd43947ea3ff81420a00bcc0024c33aff3622765421b",
+      "replenisher.test.mjs": "28be17fa88d8f5e132610084fe2ab4f4507aaf593c26a1d25be2c397c93acd1c",
+      "review-exhaustion.mjs": "6422940ecfddc8131dbbdae0db79945f65f7545ef08c7236d3af51f1f3d4763d",
+      "review-exhaustion.test.mjs": "24439993ec287784678f2241a67025eef598931c1dda627f1718692bee625392",
+      "review-recovery.mjs": "6c1a63a58d2d2446a0fc4d2075893ce4426df472d72056f22fc5b741ca1f6c86",
+      "routing-telemetry.mjs": "5278d052430007979fb3704740fd6604bed754f6f42c43461f886cdc5b6c96bf",
+      "routing-telemetry.test.mjs": "b73d7ecf8f10a3d678602585936b688677cff01e86e99ffd62693a64e3af3ab7",
+      "routing.jsonl": "e3c5e103b7f514017da0a20fa8350db8d46a4c316fdfcc6a0f065bef8b65b512",
+      "stale-references.mjs": "5c4c0cc0c264cbdeb4dde6894baab3a12b6f8bd8584d7e2bfb4164e07672c749",
+      "stale-references.test.mjs": "29760c01a79d46b2ff4831f44401a1ea8514d6c695c0313ddd8a1caea33439e6",
+      "status.mjs": "afd09a1f321aec1cb4b79c30f5a487df6c097062c15af5cd289367ca52785764"
+    },
+    "artifactHashesComputedAtUtc": "2026-09-19T15:23:00.492Z"
+  },
+  "artifactsChangedDetail": {
+    "officeFilesWritten": [
+      "CONTINUITY_TIMER_REENABLE_20260919.md",
+      "IMP26_LIVE_VALIDATION_20260919.md",
+      "README.md",
+      "STALE_REFERENCES_INVENTORY.md",
+      "autonomy-certification.test.mjs",
+      "autonomy.mjs",
+      "board-sim.mjs",
+      "canonical-graph.mjs",
+      "canonical-graph.test.mjs",
+      "command-question.mjs",
+      "command-question.test.mjs",
+      "continuity-e2e.test.mjs",
+      "controller.mjs",
+      "dead-execution.mjs",
+      "dispatcher.mjs",
+      "dispatcher.test.mjs",
+      "economics.mjs",
+      "failure-taxonomy.mjs",
+      "failure-taxonomy.test.mjs",
+      "final-acceptance.mjs",
+      "guards.mjs",
+      "handoff.mjs",
+      "handoff.test.mjs",
+      "imp26-autonomy.test.mjs",
+      "liveness.mjs",
+      "liveness.test.mjs",
+      "north-star.test.mjs",
+      "pcapi.mjs",
+      "pilot.mjs",
+      "project-scope.mjs",
+      "project-scope.test.mjs",
+      "project-state.mjs",
+      "project-state.test.mjs",
+      "queue-snapshot.mjs",
+      "replenisher.mjs",
+      "replenisher.test.mjs",
+      "review-exhaustion.mjs",
+      "review-exhaustion.test.mjs",
+      "review-recovery.mjs",
+      "routing-telemetry.mjs",
+      "routing-telemetry.test.mjs",
+      "routing.jsonl",
+      "stale-references.mjs",
+      "stale-references.test.mjs",
+      "status.mjs"
+    ],
+    "energyWorkspaceFiles": [
+      "operations/receipts/IMP-26-ST-1.json",
+      "operations/audit/IMP-26/tests-tap.txt",
+      "operations/audit/IMP-26/dry-run.json",
+      "operations/audit/IMP-26/controller-file-hashes.json",
+      "operations/audit/IMP-26/adversarial-review.json"
+    ],
+    "outsideAllowedPaths": [
+      "policy-params.json / policy.mjs / lanes.json: NOT modified (verified by the commit range)"
+    ],
+    "apiMutationsIssuedByThisSubtask": "none from the implementation; live validation mutations are recorded in controller-state.json.actions[] and in the LAT-94 comment trail"
+  },
+  "result": "The controller derives its scope from the unique ON project (project-scope.mjs), keeps work state per project (project-state.mjs), preflights the workspace once per tick, dispatches blocked-but-ready packets as the board actor, wakes the Command only through issue-scoped tickets ([REFILL], [COMMAND-QUESTION], [FINAL-ACCEPTANCE]), re-authorizes technical rework after native round exhaustion (review-exhaustion.mjs), classifies failures deterministically (failure-taxonomy.mjs), names every machine wait and its owner (liveness.mjs), audits stale agent references (stale-references.mjs) and records routing/cost telemetry (routing-telemetry.mjs). Owner requirements 1-9 of OWNER-IMP26-BLOCKER-20260919 are covered by deterministic tests; requirement 10 (timer) is executed by the owner-side live validation, see operations/audit/IMP-26/dry-run.json and the LAT-94 comment trail.",
+  "testResultsDetail": {
+    "nodeTest": {
+      "tests": 599,
+      "pass": 599,
+      "fail": 0
+    },
+    "observedTapSaved": "operations/audit/IMP-26/tests-tap.txt",
+    "dryRun": {
+      "ts": "2026-09-19T15:22:52.751Z",
+      "scope": {
+        "ok": true,
+        "project": "Energy Markets",
+        "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "root": "LAT-91",
+        "rootId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+        "goalId": null,
+        "cwd": "/srv/hot-data/energy-markets/app",
+        "cwdSource": "project_workspace",
+        "workspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a"
+      },
+      "preflight": {
+        "ready": true,
+        "code": "EXECUTION_READY",
+        "failures": []
+      },
+      "readyByClass": {
+        "routine": 3,
+        "premium": 0,
+        "critical": 0
+      },
+      "plannedActions": 0,
+      "autonomy": "WORK_AVAILABLE_PRODUCTION_RUNNING"
+    }
+  },
+  "assumptionsAndDeviationsDetail": [
+    "LAT-97 was not executed by a cheap worker: the owner (Bru) executed IMP-26 through the owner-side terminal session (human intervention #1, owner scope decision). The packet's native independent review stage is preserved and pending; the author-side adversarial reviews do not replace it.",
+    "review-exhaustion.mjs acts through the board user (the escalation principal), not through a vendored server change; the hardcoded OFFICE-CONTINUITY-001 exception in issue-execution-policy.js (Alexandria root only) is left untouched.",
+    "Alexandria switch-back: with no project workspace its cwd resolves from the lane agents' adapterConfig.cwd (all /srv/hot-data/alexandria/app today); preflight will name the remediation if that ever disagrees."
+  ],
+  "dependencyFindingsDetail": {
+    "REQUIRES": "IMP-01 and IMP-25 accepted (LAT-92, LAT-93 done with IMP_RECEIPTs) -- verified on the board",
+    "REQUIRES_AUDIT": "DEP-27 scope from the accepted IMP-25 mapping; the native limits used here are cited with file:line in each module header",
+    "projectOn": "Energy Markets ON, Alexandria OFF (GET /projects/execution)"
+  },
+  "failuresAndRetriesDetail": "Five implementation sub-agents were terminated by a provider session limit at ~13:2xZ before writing; the modules were then implemented in the terminal session. No board mutation was issued by those agents.",
+  "recommendedStatusDetail": {
+    "value": "in_review",
+    "meaning": "Code ST delivered with tests; the native Independent Reviewer stage on LAT-97 is the pending independent review; parent IMP-26 acceptance stays with the Command gate LAT-124 on observed live continuation (§20.2.10). No approval is claimed."
+  },
+  "exactNextAction": "Command (LAT-124): verify this receipt against the commit range, observe the live Energy continuation recorded in the LAT-94 trail and CONTINUITY_STATUS.md, then write the scoped IMP_RECEIPT or return exact findings.",
+  "writtenAt": "2026-09-19T15:23:00.492Z"
+}

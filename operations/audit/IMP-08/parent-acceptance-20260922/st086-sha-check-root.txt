@@ -1,0 +1,12 @@
+operations/audit/IMP-08/ST-08.6/parent-gate-verification.md: OK
+operations/audit/IMP-08/ST-08.6/parent-gate-inputs.json: OK
+operations/audit/IMP-08/ST-08.6/proposed-imp-receipt.json: OK
+operations/audit/IMP-08/ST-08.6/baseline-hashes.txt: OK
+operations/audit/IMP-08/ST-08.6/tests.tap: OK
+operations/audit/IMP-08/ST-08.6/verification.txt: OK
+operations/audit/IMP-08/ST-08.6/verify-delivery.mjs: OK
+operations/audit/IMP-08/ST-08.6/authority-guard.mjs: OK
+operations/audit/IMP-08/ST-08.6/authority-guard-probes.mjs: OK
+operations/audit/IMP-08/ST-08.6/authority-guard-probes.txt: OK
+operations/audit/IMP-08/ST-08.6/continuity-checkpoint.md: OK
+operations/receipts/IMP-08-ST-6.json: OK

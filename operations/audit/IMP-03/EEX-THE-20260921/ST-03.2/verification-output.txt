@@ -1,0 +1,63 @@
+$ node verify-eex-the.mjs
+ok    input:SPEC
+ok    input:IMP-01-IMP_RECEIPT
+ok    input:IMP-03-IMP_RECEIPT (prior accepted)
+ok    input:ST-03.1 matrix (accepted)
+ok    lakeScope:eex_derivative_trade
+ok    lakeScope:eex_derivative_top_of_book
+ok    matrix:guards.noCoveragePercent
+ok    matrix:isContribution
+ok    matrix:R-04.fields
+ok    matrix:R-04.id
+ok    matrix:R-04.availability
+ok    matrix:R-08.fields
+ok    matrix:R-08.id
+ok    matrix:R-08.availability
+ok    matrix:R-09.fields
+ok    matrix:R-09.id
+ok    matrix:R-09.availability
+ok    matrix:R-10.fields
+ok    matrix:R-10.id
+ok    matrix:R-10.availability
+ok    matrix:R-11.fields
+ok    matrix:R-11.id
+ok    matrix:R-11.availability
+ok    matrix:R-12.fields
+ok    matrix:R-12.id
+ok    matrix:R-12.availability
+ok    matrix:notContributed:R-01
+ok    matrix:notContributed:R-02
+ok    matrix:notContributed:R-03
+ok    matrix:notContributed:R-05
+ok    matrix:notContributed:R-06
+ok    matrix:notContributed:R-07
+ok    matrix:notContributed:R-13
+ok    matrix:notContributed:R-14
+ok    matrix:notContributed:R-15
+ok    matrix:notContributed:R-16
+ok    matrix:notContributed:R-17
+ok    matrix:readiness:A0 Calendar-only baseline
+ok    matrix:readiness:A1 S1 candidate
+ok    matrix:noFabricatedReady
+ok    matrix:criticalMissingNotClaimedReady
+ok    negative:unexpectedEntryRejected
+ok    negative:criticalMissingDataReadyRejected
+ok    receipt:validateStReceipt
+ok    receipt:linkStReceiptToPacket
+ok    receipt:recommendedStatus
+ok    negative:receiptMissingFieldRejected
+ok    sums:integrityAndContainment
+ok    sums:expectedOutputsListed
+ok    sums:noUnexpectedEntries
+ok    writeset:containment
+
+PASS (51 checks)
+exit=0
+
+$ /srv/hot-data/alexandria/venvs/data/bin/python3 audit_eex_the.py --check
+{
+  "check": "census-inventory-sample-reproducibility",
+  "errors": [],
+  "ok": true
+}
+exit=0

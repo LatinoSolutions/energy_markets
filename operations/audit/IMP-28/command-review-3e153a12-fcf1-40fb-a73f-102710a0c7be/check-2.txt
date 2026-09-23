@@ -1,0 +1,8 @@
+COMMAND: sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json
+EXIT: 0
+STDOUT:
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+
+STDERR:

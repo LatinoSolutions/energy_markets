@@ -1,0 +1,121 @@
+COMMAND: /opt/node/bin/node operations/audit/IMP-28/command-protocol-identity-probe.mjs
+EXIT: 1
+{
+  "synthetic": true,
+  "results": [
+    {
+      "format": "semver",
+      "expected": "Both distinct protocol identities retain REJECT findings",
+      "pass": false,
+      "before": [
+        {
+          "protocolId": "SYN-P1",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P1-REJECT"
+            }
+          ]
+        },
+        {
+          "protocolId": "SYN-P2",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P2-REJECT"
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "protocolId": "SYN-P1",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P1-REJECT"
+            }
+          ]
+        }
+      ],
+      "outcomeHistory": [
+        {
+          "protocolId": "SYN-P1",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P1-REJECT"
+            }
+          ]
+        },
+        {
+          "protocolId": "SYN-P2",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P2-REJECT"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "format": "content-hash",
+      "expected": "Both distinct protocol identities retain REJECT findings",
+      "pass": false,
+      "before": [
+        {
+          "protocolId": "SYN-P1",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P1-REJECT"
+            }
+          ]
+        },
+        {
+          "protocolId": "SYN-P2",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P2-REJECT"
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "protocolId": "SYN-P1",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P1-REJECT"
+            }
+          ]
+        }
+      ],
+      "outcomeHistory": [
+        {
+          "protocolId": "SYN-P1",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P1-REJECT"
+            }
+          ]
+        },
+        {
+          "protocolId": "SYN-P2",
+          "refs": [
+            {
+              "kind": "synthetic",
+              "ref": "SYN-P2-REJECT"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+STDERR:

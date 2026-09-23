@@ -1,0 +1,21 @@
+{
+  "id": "b4c01892-6505-4aa1-a175-9622b7da7e17",
+  "identifier": "LAT-113",
+  "status": "in_progress",
+  "description": "CANONICAL IMP PARENT \u2014 not a READY work packet.\nProject Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a; root [LAT-91](/LAT/issues/LAT-91).\nSPEC PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md v1.1 SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c.\nScope/version: initial framework v1.1; no real candidate/component evaluation.\n| IMP-28 | Materializar evaluaci\u00f3n por rol de componentes externos; ejecutar role-discovery/comparaci\u00f3n de un componente s\u00f3lo cuando se encargue. | \u00a711.6, identidad/versiones; capacidades y comparadores reales para el rol estudiado, con acceso aplicable | Registro por componente/rol, hypothesis/comparator/boundary, evidencia reproducible, ADMIT/HOLD/REJECT cuando proceda y retirada/rollback | JEV sin clasificaci\u00f3n previa; cuatro clases disponibles y outcomes independientes; rol Strategy/Evidence pasa por \u00a78.7; engineering se mide operacionalmente sin reclamar edge; execution/governance recibe validaci\u00f3n separada; ning\u00fan rol gana autoridad durante discovery; sin valor suficiente en ning\u00fan rol, componente fuera. | No S6 por defecto, integraci\u00f3n obligatoria, duplicaci\u00f3n Paperclip sin an\u00e1lisis de valor, auto-admisi\u00f3n del componente ni redefinici\u00f3n frozen. | \u00a7\u00a711.6,8.7 cuando aplique,20.2; D18 D2 |\n| **IMP-28** | IMP-01 aceptado para framework. En evaluaci\u00f3n concreta del rol Strategy/Evidence: IMP-27 framework aceptado y proceso \u00a78.7; otros roles no lo heredan autom\u00e1ticamente. Comparator/protocolo del rol predeclarados antes de la comparaci\u00f3n. | \u2014 para framework. Acceso/uso e inputs reales que consume cada evaluaci\u00f3n deben estar satisfechos; capability analysis/overlap/comparator factual que la tarea audita siguen RESOLVES_AUDIT, no requisitos de valor ya demostrado. | \u2014 para framework/role-discovery. La evidencia previa exigida por el rol se identifica antes de su uso; no se exige que el componente ya demuestre el incremento de valor que se va a medir. | DEP-28 [componente/rol: capabilities, interfaz, mecanismos existentes, boundary, costes/latencia/carga cuando pertinentes]. | DEP-28 [componente/rol/protocolo]: comparaci\u00f3n no autoritativa y outcome respaldado; rol Strategy/Evidence tambi\u00e9n satisface DEP-29. Tests del registro no cierran valor ni admission de un rol real. | Revisi\u00f3n/admisi\u00f3n limitada al rol evaluado; cualquier authority real requiere sus gates separados. Sin rol con valor suficiente, no integraci\u00f3n. |\nFull canonical parent acceptance remains mandatory. ST accepted is not IMP accepted. Only Command may record a separately verified scoped IMP_RECEIPT after required children/reviews/evidence pass \u00a720.2.10. Missing factual criteria keep the parent blocked.\nNamed unblock owner: Tech Lead Command. Next action: after the linked child's two native reviews complete, route a bounded separate parent acceptance through existing Director/native coordination. This refill creates no assignment and does not claim a parent wake is scheduled on this unassigned container.\nNo new architecture, human gate, numerical assumptions or scope expansion.\n",
+  "executionPolicy": null,
+  "executionState": null,
+  "blockedBy": [
+    {
+      "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+      "identifier": "LAT-114",
+      "title": "[READY] IMP-28 / ST-28.1 \u2014 framework de evaluaci\u00f3n por rol de componentes externos",
+      "status": "done",
+      "priority": "high",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "assigneeUserId": null,
+      "scheduledRetry": null,
+      "activeRecoveryAction": null
+    }
+  ]
+}

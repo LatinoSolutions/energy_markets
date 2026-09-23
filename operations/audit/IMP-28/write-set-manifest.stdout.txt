@@ -1,0 +1,2 @@
+wrote operations/audit/IMP-28/write-set-manifest.json with 58 hashed files
+MANIFEST_EXIT=0

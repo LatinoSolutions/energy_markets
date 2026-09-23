@@ -1,0 +1,49 @@
+$ hostname
+brunode
+exit=0
+
+$ pwd
+/srv/hot-data/energy-markets/app
+exit=0
+
+$ git branch --show-current
+main
+exit=0
+
+$ sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+exit=0
+
+$ /opt/node/bin/node --check operations/audit/IMP-08/fixture-oracle/verify.mjs
+exit=0
+
+$ /opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs
+== INPUT HASHES ==
+  SPEC: 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c (expected 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)
+  IMP-01-IMP_RECEIPT.json: 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c (expected 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c)
+  baseline-manifest.json: 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 (expected 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860)
+  IMP-01 content version: c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c (expected c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c)
+  OK
+
+== FIXTURE COLLECTION ==
+  fixtures=35
+  canonical cases covered: C01,C02,C03,C04,C05,C06,C07,C08,C09,C10,C11,C12 (required C01,C02,C03,C04,C05,C06,C07,C08,C09,C10,C11,C12)
+  check kinds: proxy=4, benchmark=4, window=2, fallback=1, declarative=5, scoring=12, bhv=5, undefined=2
+  undefined/partial fixtures: FX-C02-NO-SOURCE, FX-C12-ONLY-POSITIVES, FX-C12-EXACT-ZERO-ONLY, FX-C12-N-LT-2, FX-C12-EMPTY-POPULATION, FX-C12-EMPTY-WINNER-GROUP, FX-MONTHLY-ONLY-POSITIVE-NO-HOLD, FX-BHV-UNITS-INCOMPATIBLE, FX-BHV-TOTAL-EUR-NO-MWH, FX-BHV-MISSING-FEE, FX-BHV-UNDEFINED-RATIO-NO-PASS
+  OK: unique IDs, full canonical coverage, synthetic labels, explicit undefined reasons, arithmetic agrees with the documented calculations.
+
+== NEGATIVE PROBES (tampered copies, never written to disk) ==
+  [PASS] duplicate-fixture-id-detected (expect DUPLICATE_FIXTURE_ID) -> DUPLICATE_FIXTURE_ID FX-C01-PROXY-MIXED
+  [PASS] tampered-proxy-detected (expect PROXY_VALUE_MISMATCH) -> PROXY_VALUE_MISMATCH FX-C01-PROXY-MIXED: computed 101, check 102, expected 102
+  [PASS] unsynthetic-fixture-detected (expect NOT_SYNTHETIC) -> NOT_SYNTHETIC FX-C01-PROXY-MIXED
+  [PASS] missing-canonical-case-detected (expect CANONICAL_CASE_UNCOVERED) -> CANONICAL_CASE_UNCOVERED C11
+  [PASS] undefined-without-reason-detected (expect UNDEFINED_WITHOUT_REASON) -> UNDEFINED_WITHOUT_REASON FX-C12-N-LT-2; SCORING_UNDEFINED_WITHOUT_REASON FX-C12-N-LT-2
+  [PASS] scoring-tamper-detected (expect SCORING_VALUE_MISMATCH) -> SCORING_VALUE_MISMATCH sortino: computed 1.5, expected 2
+  [PASS] undocumented-fixture-detected (expect NOT_DOCUMENTED_IN_CALCULATIONS) -> NOT_DOCUMENTED_IN_CALCULATIONS FX-UNDOCUMENTED-PROBE
+  OK: the verifier rejects duplicate IDs, arithmetic tampering, unsynthetic labels, uncovered canonical cases, undefined-without-reason and undocumented fixtures.
+
+== RESULT ==
+  exit=0 (0 = hashes/identity/coverage/arithmetic/negatives pass)
+exit=0

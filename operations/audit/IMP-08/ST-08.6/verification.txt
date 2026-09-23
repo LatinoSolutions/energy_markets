@@ -1,0 +1,41 @@
+ST-08.6 verification — packet WP-IMP-08-ST-6-v1.1 on brunode /srv/hot-data/energy-markets/app (rev6, reviewer rounds 1-5 addressed)
+
+Verifier: /opt/node/bin/node operations/audit/IMP-08/ST-08.6/verify-delivery.mjs
+Output:
+verify-delivery: PASS; pins=11 unchanged; proposal=PROPOSED_IMP_RECEIPT/non-authoritative; claims=0; currentSemanticHash=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528; splitHash=96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e; sha256sum entries=12
+
+Structural + value-schema non-authority guard (reviewer findings, criterion 5):
+- operations/audit/IMP-08/ST-08.6/authority-guard.mjs enforces BOTH an explicit key schema per node (arrays validated as arrays, so a key literally named `requiredStIdentities[99]` cannot impersonate the element path) AND value rules:
+  - unexpected/alias keys fail (e.g. `verdict`/`parentVerdict`, `metadata.*`, `fulfilledDependencies`);
+  - `result` values, `acceptanceStatus`, `status`, `outcome`, `verdict` and `*kind` are constrained to the exact structural allowlist, and the ST-08.6 lineage entry must remain `pending`;
+  - `sha256`/`receiptSha256`/`contentHash` must be 64-hex;
+  - `dependencyUpdate` must explicitly state `None`; each `potentialUnlocks` element must state it is `not granted`;
+  - a negation-aware scanner rejects fabricated DEP-satisfaction and unlock claims in ANY string value, including string-array elements (`unresolvedLimits`, `potentialUnlocks`).
+- Negative probes: operations/audit/IMP-08/ST-08.6/authority-guard-probes.mjs (38/38 rejected, clean control ok, ST-08.6 pending) recorded in authority-guard-probes.txt; the verifier asserts RESULT PASS, >=38 rejected cases and the ST-08.6 pending assertion.
+
+Execution-instance binding (reviewer findings, criteria 5/6):
+- The instance protocol is `v1` (as defined by the packet and the accepted ST-08.1-ST-08.4 lineage), distinct from the SPEC/schema version `1.1`.
+- The proposal scope, `objectProtocolVersion`, the ST-08.6 `executionInstance` and `objectProtocolVersion` all bind `protocol v1`; the verifier asserts this and fails on any `protocol v1.1` drift.
+
+Publication (criterion 7):
+- The issue-native `st-receipt` document is republished through safe JSON encoding and its fenced payload is asserted to parse and equal operations/receipts/IMP-08-ST-6.json; the `continuity-checkpoint` document is byte-exact; the evidence bundle and readable verification are published as attachment-backed work products.
+
+What the verifier proves:
+- the proposed IMP_RECEIPT is PROPOSED_IMP_RECEIPT (both `receiptKind` and `_kind`) / outcome=proposed / acceptanceStatus=NOT_ACCEPTED / parentAcceptancePending=true, has an empty claims list, omits acceptedAtUtc, and contains no acceptance or DEP authority marker; operations/receipts/IMP-08-IMP_RECEIPT.json does not exist;
+- the proposal and the ST_RECEIPT bind the source instance `protocol v1`;
+- all 11 protected pins are unchanged; the current accepted semantic version equals ST-08.5 bc0ce6ad...4f661528;
+- the ST-08.6 ST_RECEIPT validates against src/contracts/identities.mjs and links to its WORK-PACKET identity;
+- SHA256SUMS covers and matches the published payload.
+
+Checksums: sha256sum -c operations/audit/IMP-08/ST-08.6/SHA256SUMS
+Result: all 12 listed OK (also recorded in tests.tap).
+
+Reproduce the bundle with:
+  tar --sort=name --mtime='UTC 2026-09-22' --owner=0 --group=0 --numeric-owner \
+    --exclude='operations/audit/IMP-08/ST-08.6/evidence-bundle.tar.gz' \
+    --exclude='operations/audit/IMP-08/ST-08.6/final-hashes.txt' \
+    -czf evidence-bundle.tar.gz -C /srv/hot-data/energy-markets/app \
+    operations/audit/IMP-08/ST-08.6 operations/receipts/IMP-08-ST-6.json
+The bundle sha256 is recorded in operations/audit/IMP-08/ST-08.6/final-hashes.txt.
+
+Authority: NON-AUTHORITATIVE staging. No IMP_RECEIPT, no IMP-08 acceptance and no dependency unlock are produced by this packet.

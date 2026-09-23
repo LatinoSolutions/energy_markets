@@ -1,0 +1,337 @@
+{
+  "receiptKind": "IMP_RECEIPT",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "impIdentity": "IMP-28",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "issueId": "b4c01892-6505-4aa1-a175-9622b7da7e17",
+  "issueIdentifier": "LAT-113",
+  "scope": "Initial role-evaluation framework v1.1 (§25.2.1): registry and structural validation for external components across four roles; no real candidate/component role-discovery, comparison, admission or integration.",
+  "version": {
+    "contentHash": "274bec7430ffc9e90c6898eacd55a55ad5f0e1a797656ce88db53ef413b0d8d2"
+  },
+  "objectProtocolVersion": "1.1",
+  "outcome": "accepted",
+  "acceptedAtUtc": "2026-09-19T19:54:30.272991+00:00",
+  "requiredStIdentities": [
+    {
+      "identity": {
+        "packetId": "WP-IMP-28-ST-1-v1.1",
+        "subtaskId": "ST-28.1",
+        "parentImp": "IMP-28",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "projectName": "Energy Markets",
+        "programRoot": {
+          "identifier": "LAT-91",
+          "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+        },
+        "semanticParentIssue": {
+          "identifier": "LAT-113",
+          "note": "IMP-28 parent acceptance se evalúa por separado (§20.2.10)."
+        },
+        "workIssue": {
+          "identifier": "LAT-114",
+          "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4"
+        },
+        "workspace": "/srv/hot-data/energy-markets/app",
+        "host": "brunode",
+        "executionInstance": "SPEC 86c4bd4e… + IMP-28 + scope[Role-evaluation framework, framework instance v1.1, no real component evaluation or integration] + version 1"
+      },
+      "receiptPath": "operations/receipts/IMP-28-ST-1.json",
+      "receiptSha256": "148a7b45bddabe7d98fdbaa47113355e522d1ee53a07f01394936cb3391cb225",
+      "status": "accepted",
+      "nativeExecutionPolicy": {
+        "mode": "normal",
+        "stages": [
+          {
+            "id": "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+            "type": "review",
+            "participants": [
+              {
+                "id": "6fb0dbb1-0f52-403b-a663-2a89d39b07c9",
+                "type": "agent",
+                "userId": null,
+                "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+              }
+            ],
+            "approvalsNeeded": 1
+          },
+          {
+            "id": "94306103-7967-47a7-9ca4-78c860a19dc7",
+            "type": "review",
+            "participants": [
+              {
+                "id": "7e1b26dc-e74a-4a3d-926d-db7216b96969",
+                "type": "agent",
+                "userId": null,
+                "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+              }
+            ],
+            "approvalsNeeded": 1
+          }
+        ],
+        "commentRequired": true
+      },
+      "nativeExecutionState": {
+        "status": "completed",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": null,
+        "lastDecisionId": "1911bf58-3070-4278-b41d-c22398987e1f",
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+        },
+        "currentStageType": null,
+        "completedStageIds": [
+          "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+          "94306103-7967-47a7-9ca4-78c860a19dc7"
+        ],
+        "currentStageIndex": null,
+        "currentParticipant": null,
+        "lastDecisionOutcome": "approved",
+        "changesRequestedCount": 0
+      },
+      "resultingVersion": {
+        "type": "content-hash (no commits created; commits are packet-prohibited and the branch remains unborn)",
+        "contentHash": "274bec7430ffc9e90c6898eacd55a55ad5f0e1a797656ce88db53ef413b0d8d2",
+        "contentHashScope": "aggregate sha256 over the 10 framework source/test files (sorted path + per-file sha256)",
+        "sourceFiles": [
+          "src/role-evaluation/roles.mjs",
+          "src/role-evaluation/contract.mjs",
+          "src/role-evaluation/outcomes.mjs",
+          "src/role-evaluation/registry.mjs",
+          "src/role-evaluation/index.mjs"
+        ],
+        "testFiles": [
+          "test/role-evaluation/fixtures.mjs",
+          "test/role-evaluation/roles.test.mjs",
+          "test/role-evaluation/contract.test.mjs",
+          "test/role-evaluation/outcomes.test.mjs",
+          "test/role-evaluation/registry.test.mjs"
+        ]
+      }
+    }
+  ],
+  "reviewerRunIdentities": [
+    {
+      "role": "Independent Reviewer, native stage 1",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "runId": "5015e990-6303-4934-86db-f83305f0e7e9",
+      "decisionId": "4da37f43-3636-4ed7-bf28-6a7cfce77fa9",
+      "commentId": "ff063a9e-c4bf-4f6f-b268-89fb7408d3a1",
+      "outcome": "approved"
+    },
+    {
+      "role": "Command, native stage 2 after CMD-1/CMD-2 rework",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "32aac743-9f42-480c-a103-483644d9e9df",
+      "decisionId": "1911bf58-3070-4278-b41d-c22398987e1f",
+      "commentId": "2c3f8af3-65b2-4866-aadb-a6c8cb09a9c1",
+      "outcome": "approved"
+    },
+    {
+      "role": "Command, separate parent acceptance",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "b70ccdaa-8f4f-42b4-bbcb-04caf972af21",
+      "outcome": "accepted"
+    }
+  ],
+  "evidenceTestHashes": [
+    {
+      "path": "src/role-evaluation/roles.mjs",
+      "sha256": "4509ea4e2b1c647e7b73ce57597f1dfd756bccf0743a7dcf9070aa54a2999a69"
+    },
+    {
+      "path": "src/role-evaluation/contract.mjs",
+      "sha256": "316daea51a6eaf4fe76fb50e4c52a1fa16b50638603e708a3ac740ccfe93ca1d"
+    },
+    {
+      "path": "src/role-evaluation/outcomes.mjs",
+      "sha256": "2cda5dd8c6e60697753fc4ff873eeb9bc3f7e489664b9aa64a013511b8d803a4"
+    },
+    {
+      "path": "src/role-evaluation/registry.mjs",
+      "sha256": "26e175314258a596040e291a6c247b1b11d1940fe87c7cfc08d35affcfeeb97c"
+    },
+    {
+      "path": "src/role-evaluation/index.mjs",
+      "sha256": "491a9b172e13d959b52509ea6baa6e3299ef0b81686bd4c1325e447527dae3da"
+    },
+    {
+      "path": "test/role-evaluation/fixtures.mjs",
+      "sha256": "cbe2557077e504d09f87c221668347afd9b86324a2d339b2a5d9e09b67c832a1"
+    },
+    {
+      "path": "test/role-evaluation/roles.test.mjs",
+      "sha256": "b9334898c324fb3edbf6b4ebcca93578204ada5d9aee1ebea696be27e35d8ce8"
+    },
+    {
+      "path": "test/role-evaluation/contract.test.mjs",
+      "sha256": "5bfbfb87cc8de0144e64496409025ec32e94df4e18f08cd3aa9363330032265e"
+    },
+    {
+      "path": "test/role-evaluation/outcomes.test.mjs",
+      "sha256": "ec9a3fc92a403a687466dbac13c1d8b92eb9cc26ba2bfe8eefe11da07d694f48"
+    },
+    {
+      "path": "test/role-evaluation/registry.test.mjs",
+      "sha256": "43e7064395eb14d6c25dbbe4388b9b00331a01e39bb8e8c79c15ab0f3efbe4a0"
+    },
+    {
+      "path": "operations/receipts/IMP-28-ST-1.json",
+      "sha256": "148a7b45bddabe7d98fdbaa47113355e522d1ee53a07f01394936cb3391cb225"
+    },
+    {
+      "path": "operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "sha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c"
+    },
+    {
+      "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+      "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+    },
+    {
+      "path": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/verification.json",
+      "sha256": "cbc52096efb5c7b2d9a35202725d687211e687a5745a03f152136fd0f14478ab"
+    },
+    {
+      "path": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-0.txt",
+      "sha256": "47063f8035cbf2bb46f0ed2259e930980f07484ec21f302dc4f879d1aea9faef"
+    },
+    {
+      "path": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-1.txt",
+      "sha256": "b72652f1bd22d1eb4b747ad490b4b027143beedff71d9b5c60931285bc7be016"
+    },
+    {
+      "path": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-2.txt",
+      "sha256": "d86edacd882f0c266b05b3dd948fa77bac050279944613fff4161ab2d4dcb592"
+    },
+    {
+      "path": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-3.txt",
+      "sha256": "44656fcde8dc84b35125d2715314edbd3f73c556c547ded0d1a7c744e52872ec"
+    },
+    {
+      "path": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-4.txt",
+      "sha256": "ef8275f859a9675bb087d95e52d5bbaa66a891ddca227a31b9e554fcdb250b48"
+    }
+  ],
+  "prerequisiteChecks": [
+    {
+      "requirement": "Project ON and exact SPEC",
+      "result": "satisfied",
+      "evidence": "Live issue project in_progress/pausedAt=null; resource scope Energy ON; exact canonical hash verified on brunode."
+    },
+    {
+      "requirement": "IMP-01 separately accepted",
+      "result": "satisfied",
+      "evidence": "LAT-92 done plus accepted scoped IMP_RECEIPT SHA256 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c; every hashed source/evidence file still matches."
+    },
+    {
+      "requirement": "All required subtasks and planned reviews",
+      "result": "satisfied",
+      "evidence": "LAT-114 ST-28.1 accepted, both native stages completed. All blocking R1/R2/CMD-1/CMD-2 findings resolved under native returnAssignee. No remaining mandatory round."
+    },
+    {
+      "requirement": "Consumed REQUIRES_AUDIT/REQUIRES_EVIDENCE",
+      "result": "none for initial framework under §25.2; future real evaluation gates retained"
+    },
+    {
+      "requirement": "No applicable unresolved SPEC conflict or human gate",
+      "result": "satisfied",
+      "evidence": "Current source issue, child review sequence and receipt show no applicable unresolved SPEC_CHANGE_REQUEST or authority decision. Parent framework passes canonical scope criteria."
+    }
+  ],
+  "acceptanceChecks": [
+    {
+      "criterion": "Registro componente/rol, hypothesis/comparator/boundary, evidence and rollback",
+      "result": "pass",
+      "evidence": "Four classes, five identity fields and all fourteen §11.6.2 fields validated; immutable contract stored before readiness; evidence links and removal path preserved."
+    },
+    {
+      "criterion": "JEV without default classification; four independent role outcomes",
+      "result": "pass",
+      "evidence": "Explicit role required; no S6 or automatic JEV role. role_admission ADMIT/HOLD/REJECT independent from research_verdict and other roles."
+    },
+    {
+      "criterion": "Strategy/Evidence follows §8.7",
+      "result": "pass",
+      "evidence": "Readiness structurally requires accepted IMP-27 framework reference and §8.7 gate. Resolving future factual references and actual §8.7 process remains mandatory before a commissioned evaluation."
+    },
+    {
+      "criterion": "Engineering value operational, never procurement edge",
+      "result": "pass",
+      "evidence": "Role comparator and operational domain defined; procurement-edge claims rejected outside Strategy/Evidence."
+    },
+    {
+      "criterion": "Execution/Governance receives separate validation",
+      "result": "pass",
+      "evidence": "Real-action prerequisite requires separate authority validation; framework always denies productive authority."
+    },
+    {
+      "criterion": "No discovery authority, no integration without qualifying role",
+      "result": "pass",
+      "evidence": "Initial grant empty; recordOutcome supplies only role-scoped admission label. evaluateIntegration always integrated=false and eligible=false without a role ADMIT. No automatic real admission or productive integration."
+    },
+    {
+      "criterion": "Protocol/version reproducibility and preserved outcomes",
+      "result": "pass",
+      "evidence": "Version reuse rejected against full history; distinct protocol identities retain HOLD/REJECT findings, verified with both unchanged Command probes; no reset of accepted identities."
+    },
+    {
+      "criterion": "Frozen decisions and scoped closure",
+      "result": "pass",
+      "evidence": "No real component commissioned or evaluated, no procurement/learning execution, no Paperclip duplication or integration. Technical framework evidence only; no DEP-28/DEP-29 claim."
+    }
+  ],
+  "testsRun": [
+    {
+      "command": "/opt/node/bin/node --test test/role-evaluation/contract.test.mjs test/role-evaluation/outcomes.test.mjs test/role-evaluation/registry.test.mjs test/role-evaluation/roles.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-0.txt",
+      "sha256": "47063f8035cbf2bb46f0ed2259e930980f07484ec21f302dc4f879d1aea9faef"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/economic-bundle.test.mjs test/contracts/identities.test.mjs test/contracts/namespaces.test.mjs test/contracts/states.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-1.txt",
+      "sha256": "b72652f1bd22d1eb4b747ad490b4b027143beedff71d9b5c60931285bc7be016"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-2.txt",
+      "sha256": "d86edacd882f0c266b05b3dd948fa77bac050279944613fff4161ab2d4dcb592"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-protocol-identity-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-3.txt",
+      "sha256": "44656fcde8dc84b35125d2715314edbd3f73c556c547ded0d1a7c744e52872ec"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-4.txt",
+      "sha256": "ef8275f859a9675bb087d95e52d5bbaa66a891ddca227a31b9e554fcdb250b48"
+    }
+  ],
+  "claims": [],
+  "unresolvedLimits": [
+    "Technical framework validation uses synthetic fixtures. DEP-28 capabilities/comparators/value and DEP-29 candidate evidence remain unclaimed; no real role is admitted.",
+    "Structural references and asserted prerequisites are not authenticated external evidence. A commissioned component/role/version evaluation must verify real access/inputs, predeclared comparator/protocol, evidence and governance before use; Strategy/Evidence additionally requires accepted IMP-27 and the actual §8.7 process.",
+    "R3-E remains the independently reviewed non-blocking observation: storing some gate/list objects freezes caller-owned objects. It does not change identity, evidence history, role separation or authority gates.",
+    "The shared-workspace write-set evidence is bounded to recorded artifacts/reviews, not a forensic audit of every historical filesystem write. No production source or prior receipt was modified in this parent acceptance run."
+  ],
+  "potentialUnlocks": [
+    "Use of this accepted structural framework in separately commissioned component/role/version evaluations; every applicable gate must be checked anew."
+  ],
+  "dependencyUpdate": "Only this IMP-28 framework instance is accepted. No factual DEP claims, automatic downstream admission, new evaluation commission or IMP-26 compliance claim. No new work packet justified by this acceptance alone.",
+  "preservation": "Prior receipts, SPEC, source/test files, shared office policies, timers, routing and budgets unchanged. No commits, branches or worktrees."
+}

@@ -1,0 +1,204 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-28-ST-1-v1.1",
+    "subtaskId": "ST-28.1",
+    "parentImp": "IMP-28",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "projectName": "Energy Markets",
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "semanticParentIssue": {
+      "identifier": "LAT-113",
+      "note": "IMP-28 parent acceptance se evalúa por separado (§20.2.10)."
+    },
+    "workIssue": {
+      "identifier": "LAT-114",
+      "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4"
+    },
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode",
+    "executionInstance": "SPEC 86c4bd4e… + IMP-28 + scope[Role-evaluation framework, framework instance v1.1, no real component evaluation or integration] + version 1"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) — DeepSeek V4.1 Flash, adapter opencode_local, run 7721d193-7edb-4060-ac7e-6512ebb56e7a",
+  "workerRoute": {
+    "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+    "agentName": "Emergency Cheap Production Worker (OpenRouter)",
+    "roleInThisSubtask": "routine author; explicitly NOT the independent reviewer of this ST (§20.2.9)",
+    "adapter": "opencode_local",
+    "provider": "OpenRouter",
+    "model": "DeepSeek V4.1 Flash",
+    "dispatchMode": "OFFICE-CONTINUITY dispatch -> cheap_or; native Paperclip assignment under owner-authorized Energy Markets scope; automated controller timer held OFF",
+    "runId": "7721d193-7edb-4060-ac7e-6512ebb56e7a"
+  },
+  "startingBaseline": "operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 + accepted IMP-01 content version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c; non-git unborn main, 0 commits; declared hashes verified live before writing",
+  "startingBaselineDetail": {
+    "declaredBaseline": "operations/bootstrap/baseline-manifest.json SHA256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 + accepted IMP-01 content version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "versionIdentity": "content hashes (non-git workspace; branch main unborn, 0 commits, per AGENTS.md lines 13 and 17)",
+    "liveHashCheckPerformedBeforeWriting": true,
+    "specHashLive": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01ReceiptHashLive": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "baselineManifestHashLive": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "canonicalDocsMatchBaseline": true,
+    "baselineDrift": [],
+    "allocatedOutputPathsPreexistingAtStart": [],
+    "allocatedOutputPathsObservedAbsentBeforeWriting": [
+      "src/role-evaluation",
+      "test/role-evaluation",
+      "operations/audit/IMP-28",
+      "operations/receipts/IMP-28-ST-1.json"
+    ],
+    "captureOrderNote": "La ausencia de los cuatro paths se observó al inicio del run, antes de escribir. environment-and-inputs.txt se capturó después de crear los directorios y por eso los reporta como presentes; ese archivo no es la observación de inicio."
+  },
+  "resultingVersion": {
+    "type": "content-hash (no commits created; commits are packet-prohibited and the branch remains unborn)",
+    "contentHash": "274bec7430ffc9e90c6898eacd55a55ad5f0e1a797656ce88db53ef413b0d8d2",
+    "contentHashScope": "aggregate sha256 over the 10 framework source/test files (sorted path + per-file sha256)",
+    "sourceFiles": [
+      "src/role-evaluation/roles.mjs",
+      "src/role-evaluation/contract.mjs",
+      "src/role-evaluation/outcomes.mjs",
+      "src/role-evaluation/registry.mjs",
+      "src/role-evaluation/index.mjs"
+    ],
+    "testFiles": [
+      "test/role-evaluation/fixtures.mjs",
+      "test/role-evaluation/roles.test.mjs",
+      "test/role-evaluation/contract.test.mjs",
+      "test/role-evaluation/outcomes.test.mjs",
+      "test/role-evaluation/registry.test.mjs"
+    ]
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c), §§0,3,11.6,8.7,10–12,16–18,20.2,25.1/25.2",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json (SHA256 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c)",
+    "operations/bootstrap/baseline-manifest.json (SHA256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860)",
+    "src/contracts/*.mjs accepted contracts (read-only reuse: identities, states, namespaces)",
+    "operations/receipts/IMP-27-ST-1.json referenced only as the external §8.7 gate locator, not imported or edited",
+    "/home/op/.paperclip/integrations/office-continuity/CONTINUITY_STATUS.md (resource advisory read at execution)"
+  ],
+  "artifactsChanged": [
+    "src/role-evaluation/roles.mjs (created)",
+    "src/role-evaluation/contract.mjs (created)",
+    "src/role-evaluation/outcomes.mjs (created)",
+    "src/role-evaluation/registry.mjs (created)",
+    "src/role-evaluation/index.mjs (created)",
+    "test/role-evaluation/fixtures.mjs (created)",
+    "test/role-evaluation/roles.test.mjs (created)",
+    "test/role-evaluation/contract.test.mjs (created)",
+    "test/role-evaluation/outcomes.test.mjs (created)",
+    "test/role-evaluation/registry.test.mjs (created)",
+    "operations/audit/IMP-28/environment-and-inputs.txt (created)",
+    "operations/audit/IMP-28/collect-boundary-cases.mjs (created)",
+    "operations/audit/IMP-28/boundary-cases.json (created)",
+    "operations/audit/IMP-28/boundary-cases.stdout.txt (created)",
+    "operations/audit/IMP-28/role-evaluation-tests.txt (created)",
+    "operations/audit/IMP-28/role-evaluation-tests.tap (created)",
+    "operations/audit/IMP-28/contracts-tests.txt (created)",
+    "operations/audit/IMP-28/reviewer-probe-rerun.txt (created; rerun of the stage-1 round-1 reviewer probe after fixes A/B/C)",
+    "operations/audit/IMP-28/reviewer-probe-round2-rerun.txt (created; rerun of the round-2 probe after fixes R2-B/R2-C1)",
+    "operations/audit/IMP-28/command-version-reuse-probe-rerun.txt (created; rerun of the Command CMD-1 probe after the history-wide identity guard)",
+    "operations/audit/IMP-28/command-protocol-identity-probe-rerun.txt (created; rerun of the Command CMD-2 probe after including protocolId in the dedup key)",
+    "operations/audit/IMP-28/build-write-set-manifest.mjs (created)",
+    "operations/audit/IMP-28/write-set-manifest.json (created)",
+    "operations/audit/IMP-28/acceptance-mapping.md (created)",
+    "operations/audit/IMP-28/validate-receipt.mjs (created)",
+    "operations/audit/IMP-28/receipt-validation.txt (created)",
+    "operations/receipts/IMP-28-ST-1.json (created)"
+  ],
+  "result": "Framework estructural dependency-free para evaluación por rol de componentes externos. Materializa: (a) las cuatro clases de §11.6.1 con su contrato de admisión y dominio de valor; (b) los catorce campos semánticos de §11.6.2 más identidad exacta componente/rol/protocolo/versión; (c) readiness estructural con prerequisites y evidencia, y gate externo obligatorio IMP-27/§8.7 para el rol Strategy/Evidence; (d) outcomes ADMIT/HOLD/REJECT namespaced en role_admission, independientes por rol e inmutables por versión; (e) autoridad solicitada separada de la concedida, con cero autoridad productiva y validación separada exigida a Execution/Governance; (f) preservación de coste/latencia/carga y desconocidos, overlap, reproducibilidad, evidencia y retirada/rollback; (g) regla de no integración sin rol con ADMIT y rechazo de etiquetar ingeniería como procurement edge. No evalúa componentes reales, no ejecuta comparadores, no integra ni concede autoridad. No cierra DEP-28 ni admite ningún rol real. Tras la ronda 1 de review se corrigieron los hallazgos A (coincidencia obligatoria entre la versión del contrato y newVersion), A2 (cambio de protocolo declarado o rechazado), B (history() refleja el outcome de cada versión) y C (la evidencia ingerida no congela objetos del llamante); D quedó resuelto excluyendo el stdout del propio manifiesto. Tras la ronda 2 se corrigieron R2-B (el dedup de priorFindings usaba interpolación directa y colapsaba versiones content-hash en [object Object]; ahora usa versionKey()) y R2-C1 (registrar/versionar congelaban el objeto de versión del llamante; ahora se toman de la copia clonada). En la etapa 2 (Tech Lead) se corrigió CMD-1: la identidad componente/rol/versión/protocolo se comprueba contra TODO el historial, no sólo contra la versión vigente, de modo que una versión ya evaluada no se rehabilita (§25.2.1). En la revisión delta de la etapa 2 se corrigió CMD-2: la clave de dedup de priorFindings ahora serializa la identidad completa (componentVersion, protocolId, protocolVersion, value) con JSON, de modo que dos protocolos distintos con la misma versión no colapsan y no se pierde un REJECT previo.",
+  "testsRun": [
+    "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+    "/opt/node/bin/node --test-reporter=tap --test test/role-evaluation/*.test.mjs",
+    "/opt/node/bin/node --test test/contracts/*.test.mjs",
+    "/opt/node/bin/node operations/audit/IMP-28/collect-boundary-cases.mjs",
+    "/opt/node/bin/node operations/audit/IMP-28/st-28.1-independent-review-round1-fdc48a18-a814-4351-abdd-6b753098c9dd/reviewer-probe.mjs",
+    "node (copy with corrected import depth, logic unchanged) operations/audit/IMP-28/st-28.1-independent-review-round2-14ab62c4-30d7-44ea-9a03-14dbd90f316e/reviewer-probe-round2.mjs",
+    "/opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs",
+    "/opt/node/bin/node operations/audit/IMP-28/command-protocol-identity-probe.mjs",
+    "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs"
+  ],
+  "testResults": [
+    "role-evaluation: exit 0 — tests 38, pass 38, fail 0 (operations/audit/IMP-28/role-evaluation-tests.txt); incluye 8 tests de regresión A/A2/B/C/R2-B/R2-C1/CMD-1/CMD-2",
+    "role-evaluation TAP: exit 0 (operations/audit/IMP-28/role-evaluation-tests.tap)",
+    "contracts (accepted, preserved): exit 0 — tests 67, pass 67, fail 0 (operations/audit/IMP-28/contracts-tests.txt)",
+    "boundary cases: exit 0 — 14/14 passed (operations/audit/IMP-28/boundary-cases.json, boundary-cases.stdout.txt)",
+    "stage-1 round-1 probe rerun: exit 0 — 0 failing checks, A1/A2/B1/C1 pasan (operations/audit/IMP-28/reviewer-probe-rerun.txt)",
+    "stage-1 round-2 probe rerun: exit 0 — 0 failing checks, R2-A/R2-B/R2-C1/R2-D pasan (operations/audit/IMP-28/reviewer-probe-round2-rerun.txt)",
+    "Command CMD-1 probe rerun: exit 0 — ambas reutilizaciones (semver y content-hash) rechazadas, eligible=false, identidades nuevas legítimas continúan (operations/audit/IMP-28/command-version-reuse-probe-rerun.txt)",
+    "Command CMD-2 probe rerun: exit 0 — ambos REJECT (v1/P1 y v1/P2) sobreviven en priorFindings (operations/audit/IMP-28/command-protocol-identity-probe-rerun.txt)",
+    "ST_RECEIPT validation with accepted IMP-01 validators: exit 0 — validateStReceipt.ok=true, linkStReceiptToPacket.ok=true (operations/audit/IMP-28/receipt-validation.txt)"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-28/environment-and-inputs.txt — hostname/pwd/node, input hashes, accepted contract hashes, git state",
+    "operations/audit/IMP-28/write-set-manifest.json — created files with per-file sha256, 0 writes outside allowed_paths",
+    "operations/audit/IMP-28/role-evaluation-tests.txt y .tap — stdout/exit codes reales",
+    "operations/audit/IMP-28/contracts-tests.txt — contratos aceptados preservados",
+    "operations/audit/IMP-28/boundary-cases.json — 14 casos positivos/negativos ejecutados, sintéticos",
+    "operations/audit/IMP-28/reviewer-probe-rerun.txt — probe de la ronda 1 rerun tras las correcciones: 0 fallos",
+    "operations/audit/IMP-28/reviewer-probe-round2-rerun.txt — probe de la ronda 2 rerun tras las correcciones R2-B/R2-C1: 0 fallos",
+    "operations/audit/IMP-28/command-version-reuse-probe-rerun.txt — probe CMD-1 del Command rerun tras el guard de historial: exit 0, reutilización rechazada",
+    "operations/audit/IMP-28/command-protocol-identity-probe-rerun.txt — probe CMD-2 del Command rerun tras incluir protocolId en la clave: exit 0, ambos REJECT sobreviven",
+    "operations/audit/IMP-28/acceptance-mapping.md — mapeo criterio→materialización→evidencia",
+    "operations/audit/IMP-28/validate-receipt.mjs y receipt-validation.txt — receipt validado con validadores aceptados",
+    "operations/receipts/IMP-28-ST-1.json — este ST_RECEIPT",
+    "LAT-114 continuity-checkpoint (issue document) — checkpoint portable de handoff"
+  ],
+  "assumptions": [
+    "El rol Strategy/Evidence referencia el framework aceptado de IMP-27/§8.7 sólo como gate externo por referencia; no se importa ni edita código de IMP-27 (packet: do not import unfinished IMP-27 code).",
+    "El namespace role_admission y sus valores ADMIT/HOLD/REJECT ya estaban declarados en el contrato aceptado de IMP-01 (src/contracts/states.mjs:53-56) y se reutilizan read-only.",
+    "La distinción requested/granted authority se materializa como authorityRequested (declarado por el componente) y authorityGranted (siempre vacío al inicio; sólo ROLE_SCOPED_ADMISSION tras ADMIT, sin autoridad productiva).",
+    "Todos los fixtures, componentes, protocolos y evidencias de test son sintéticos y no representan JEV, capacidades reales ni valor empírico."
+  ],
+  "deviations": [
+    "Ninguna respecto del packet. No se tocó ningún path fuera de allowed_paths; no se modificó src/contracts/index.mjs, src/strategy-admission ni ningún índice compartido.",
+    "Aclaración de orden de captura (no es una desviación de scope): environment-and-inputs.txt se generó después de crear los directorios, por lo que lista los paths como presentes; la observación de ausencia al inicio quedó registrada antes de escribir y consta en startingBaselineDetail.captureOrderNote."
+  ],
+  "dependencyFindings": [
+    "REQUIRES (IMP-01 aceptado) satisfecho: receipt local verificado por hash exacto.",
+    "REQUIRES_AUDIT=none y REQUIRES_EVIDENCE=none para el framework declarado; no se consumió ningún otro prerequisito.",
+    "El gate IMP-27/§8.7 queda referenciado como dependencia externa futura del rol Strategy/Evidence en el borde de evaluación real; no bloquea este framework (packet lo declara explícito).",
+    "DEP-28 factual (capabilities/valor/admisión real) permanece sin tocar: no se ejecutó role-discovery ni comparación de ningún componente."
+  ],
+  "failuresRetries": [
+    "Etapa 2 review delta / Command (changes_requested, CMD-2): la clave de dedup de priorFindings omitía protocolId (usaba componentVersion + protocolVersion + value), por lo que dos REJECT de v1/P1 y v1/P2 colapsaban y uno desaparecía al crear la siguiente versión. Ahora usa serialización JSON de la identidad completa (componentVersion, protocolId, protocolVersion, value), sin colisiones por delimitadores. Test de regresión CMD-2 (semver y content-hash, dos protocolos) añadido; probe del Command rerun: exit 0, ambos hallazgos sobreviven.",
+    "Etapa 2 de review / Command (changes_requested, CMD-1): createNewEvaluationVersion sólo comparaba newVersion contra la versión vigente, permitiendo reintroducir una identidad ya evaluada (probe v1 REJECT -> v2 HOLD -> v1 ADMIT) y readmitirla. Ahora se comprueba la identidad componente/rol/versión/protocolo contra todo el historial (VERSION_ALREADY_EVALUATED) antes de mutar estado, para semver y content-hash. Test de regresión CMD-1 añadido; probe del Command rerun: exit 0, ambas reutilizaciones rechazadas y elegibilidad false.",
+    "Ronda 2 de review (changes_requested): corregidos R2-B (clave de dedup de priorFindings usaba `${componentVersion}:${protocolVersion}` y colapsaba versiones content-hash; ahora usa versionKey()) y R2-C1 recomendado (registerComponent/createNewEvaluationVersion guardaban la referencia del objeto de versión del llamante y deepFreeze la congelaba; ahora toman la copia clonada). Tests de regresión R2-B/R2-C1 añadidos. Probe de ronda 2 rerun: 0 fallos.",
+    "Ronda 1 de review (changes_requested, decision 8aa6ebee): corregidos A (createNewEvaluationVersion exigía identidad componente/rol pero no versión; ahora exige candidate.componentVersion === newVersion), A2 (cambio de protocolo se colaba; ahora exige declararlo o se rechaza con PROTOCOL_CHANGE_NOT_DECLARED), B (history() devolvía instantáneas de registro; #store ahora actualiza la entrada vigente de la cadena), C (la ingesta de evidencia congelaba objetos del llamante; ahora se clonan) y D recomendado (el stdout del manifiesto se hasheaba vacío; ahora se excluye como selfStdoutOmitted). Tests de regresión A/A2/B/C añadidos. Probe del revisor rerun: 0 fallos.",
+    "Dos fallos de test durante el desarrollo inicial, corregidos antes del primer run: validateEvidenceList sin `errors` iterable y orden de chequeo de estado/outcome. Sin fallos pendientes.",
+    "Sin fallos de red, proveedor ni control-plane."
+  ],
+  "scope": "ST-28.1 framework instance v1.1 only; no real component/role evaluation, no integration, no authority change, no DEP-28 closure.",
+  "unresolvedFacts": [
+    "DEP-28 factual (capacidades, inputs/outputs, boundary/authority, comparación y coste/latencia real de cualquier componente/rol) permanece abierto; este framework no lo cierra.",
+    "Ninguna admisión de rol real existe ni se reclama."
+  ],
+  "recommendedStatus": "ST-28.1 completo para el alcance del framework; hallazgos de ronda 1 (A/A2/B/C/D), ronda 2 (R2-B, R2-C1) y etapa 2 (CMD-1, CMD-2) corregidos y con tests de regresión. Reenviar a la etapa 2 nativa (Tech Lead) para review delta. No me autoapruebo.",
+  "handoff": {
+    "changes": "Nuevo framework src/role-evaluation/** (roles, contract, outcomes, registry, index) y suite test/role-evaluation/** (30 tests) más evidencia en operations/audit/IMP-28/**.",
+    "commands": [
+      "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+      "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "/opt/node/bin/node operations/audit/IMP-28/collect-boundary-cases.mjs",
+      "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs"
+    ],
+    "results": "Todos exit 0; 30/30 role-evaluation, 67/67 contracts, 14/14 boundary cases, receipt validado.",
+    "risks": [
+      "Riesgo de sobre-lectura: el framework sólo valida estructura; no debe interpretarse como valor empírico ni admisión real.",
+      "El gate IMP-27/§8.7 del rol Strategy/Evidence es estructural; una evaluación real futura exige el framework IMP-27 aceptado y su proceso §8.7.",
+      "DEP-28 sigue abierto; ninguna conclusión factual debe derivarse de estos tests sintéticos."
+    ],
+    "nextAction": "Review nativa delta: etapa 2 Tech Lead 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6 (revisión de CMD-1). Parent IMP-28 acceptance (LAT-113) queda pendiente y separada (§20.2.10)."
+  },
+  "providerCostMetadata": {
+    "provider": "OpenRouter",
+    "model": "DeepSeek V4.1 Flash",
+    "lane": "cheap_or",
+    "note": "Coste exacto no expuesto al worker en este run; no se incluyen secretos."
+  }
+}

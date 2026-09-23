@@ -1,0 +1,393 @@
+{
+  "artifactKind": "IMP-03_DATA_SUFFICIENCY_MATRIX",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-03-ST-1-v1.1",
+  "subtaskId": "ST-03.1",
+  "parentImp": "IMP-03",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "inspectedAtUtc": "2026-09-19T15:00:00Z",
+  "scope": "P5 Gas Quarterly (Mission Quarterly, product Gas) for arms A0 Calendar-only baseline and A1 S1 candidate.",
+  "method": "One row per important information requirement (not per file). Each row carries the eight frozen §6.3 fields. Availability and candidate data-readiness use their separate canonical namespaces and are never merged.",
+  "fields": [
+    "requirement",
+    "missionAndCandidate",
+    "criticalVersusOptional",
+    "sourceType",
+    "historicalCoverage",
+    "pointInTimeValidity",
+    "availabilityStatus",
+    "shortValidationNote"
+  ],
+  "availabilityNamespace": ["AVAILABLE NOW", "FORWARD CAPTURE", "PROXY", "UNAVAILABLE"],
+  "readinessNamespace": ["DATA_READY", "DATA_PROVISIONAL", "FORWARD_ONLY", "DATA_BLOCKED"],
+  "guards": {
+    "universalCoveragePercentageUsed": false,
+    "inferredHistoryFromDeclaration": false,
+    "assumedFeesOrDefaults": false,
+    "fabricatedDataset": false,
+    "coveragePercent": null
+  },
+  "rows": [
+    {
+      "requirementId": "R-01",
+      "requirement": "Eligible Gas Quarterly campaign list and exact campaign dates",
+      "missionAndCandidate": "Quarterly (Gas) / A0 Calendar-only baseline + A1 S1 candidate",
+      "criticalVersusOptional": "critical",
+      "sourceType": "mandate/campaign dataset (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No campaign dataset exists in the inspected material; the exact eligible list is populated later from the audited dataset (S-08 p.5).", "inspectedSources": ["S-01", "S-06", "S-08"], "custodianRole": "Procurement owner / mandate custodian", "nextRetrievalAction": "Provide the audited list of eligible Gas Quarterly campaigns with exact dates and contract identity." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Campaign identity/date is a prerequisite for both arms; without it the population cannot be instantiated.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-02",
+      "requirement": "Opening obligation, total volume, unit and delivery profile",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "procurement contract (not present)",
+      "historicalCoverage": { "status": "HISTORICAL_ASSERTION", "value": "Gas Quarterly 60 MW communicated", "evidence": { "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf", "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f", "locator": "p.4 cantidades comunicadas; MW != MWh, horas/perfil ausentes" } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Historical communicated quantity with incomplete unit is provenance only and is not an executable obligation (S-06 p.4; S-13 p.2).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-03",
+      "requirement": "Procurement calendar: trading days, opportunities, deadline, pause/excluded month",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "trading calendar / mandate (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "Only benchmark reference windows are documented; no real procurement calendar, deadline or pause exists in the inspected material.", "inspectedSources": ["S-01", "S-07", "S-08"], "custodianRole": "Procurement owner / operations calendar custodian", "nextRetrievalAction": "Provide the real procurement window, decision opportunities, deadline and any pause/excluded-month structure." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "The benchmark window is an economic reference and does not authorize execution inside the excluded month (S-01 §5.3 L389).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-04",
+      "requirement": "Execution price series at eligible decision boundaries for the exact Gas Quarterly contract",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "market data (trade/order-book series; not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No price, trade or order-book series exists in the workspace; S-05 describes an external repository not present here.", "inspectedSources": ["S-01", "S-05"], "custodianRole": "Data owner/custodian (market-data provider responsible for the EEX price feed)", "nextRetrievalAction": "Provide a hashable extract of the exact Gas Quarterly contract price/trade/top-of-book series with timestamps, units and coverage." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Without executable prices neither the calendar arm nor the S1 arm can produce fills or H.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-05",
+      "requirement": "S1 causal price references (price at decision timestamp and reference construction history)",
+      "missionAndCandidate": "Quarterly (Gas) / A1 S1 candidate only",
+      "criticalVersusOptional": "critical (A1 only; A0 is price-blind)",
+      "sourceType": "derived feature series (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "S1 requires a causal price at the exact decision timestamp plus reference construction; no price series exists to build or verify it. S1 parameters are explicitly not chosen in this ST.", "inspectedSources": ["S-01", "S-05"], "custodianRole": "Research owner (S1 instantiation, IMP-11) + data owner/custodian", "nextRetrievalAction": "After a price series exists, instantiate S1 references/lookbacks under IMP-11 with frozen configuration and provide PIT evidence." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "S1 references must be causal and point-in-time valid; no reference series exists to demonstrate this (S-01 §8.1 L711).",
+      "consumers": ["A1"]
+    },
+    {
+      "requirementId": "R-06",
+      "requirement": "Benchmark B reference prices (official EEX settlement or derived provisional) per trading date",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1 (shared evaluation reference)",
+      "criticalVersusOptional": "critical",
+      "sourceType": "official/proxy benchmark reference (not present)",
+      "historicalCoverage": { "status": "HISTORICAL_ASSERTION", "value": "One selected reference per trading date; 1-0-1/3-1-3 averaging (methodology only)", "evidence": { "path": "/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md", "sha256": "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260", "locator": "§3 L74-98" } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null, "note": "B is evaluation-view only; it must never be visible to the decision policy (S-01 §5.3 L389)." },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Methodology is documented but no official or derived reference rows exist; proxy equivalence is explicitly not proven (S-05 §5 L126).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-07",
+      "requirement": "Execution cost parameters: fees, spread/slippage, latency, fill/partial rules, lot size/rounding",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1 (P5.6 parity)",
+      "criticalVersusOptional": "critical",
+      "sourceType": "execution/mandate parameters (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No fee schedule, spread/slippage, latency, fill rule or lot/rounding specification exists in the inspected material.", "inspectedSources": ["S-01", "S-07"], "custodianRole": "Execution/mandate custodian", "nextRetrievalAction": "Provide the real audited execution parameters (fees, spread/slippage, latency, fill/partial rules, lot size/rounding) for the exact Gas Quarterly contract." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Unknown costs are never replaced by zero; until audited, economic interpretation stays HOLD (S-01 §13.6 L1221-1222).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-08",
+      "requirement": "Units and contract specifications (EUR, MW vs MWh, delivery hours/profile)",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1 (H/V unit compatibility)",
+      "criticalVersusOptional": "critical",
+      "sourceType": "contract specification (not present)",
+      "historicalCoverage": { "status": "HISTORICAL_ASSERTION", "value": "MW quantities communicated without hours/profile", "evidence": { "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf", "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f", "locator": "p.4 nota de unidades: MW != MWh; horas/perfil pendientes" } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "H and V require compatible units; MW cannot be converted to MWh without an audited delivery profile (S-01 §4.1 L258).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-09",
+      "requirement": "Publication and policy-consumable timestamps for price references",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1 (causal replay / PIT)",
+      "criticalVersusOptional": "critical",
+      "sourceType": "source metadata (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No timestamped source rows exist, so publication and policy-consumable times cannot be established.", "inspectedSources": ["S-01", "S-05", "S-09"], "custodianRole": "Data owner/custodian (source publication metadata)", "nextRetrievalAction": "Provide source-row publication timestamps and contemporaneous evidence of what the policy could consume at each decision boundary." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Published does not mean consumable; without proof the item is unavailable for Replay (S-01 §6.1 L529).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-10",
+      "requirement": "Missingness and revision/vintage history for prices and references",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1 (causal replay / PIT)",
+      "criticalVersusOptional": "critical",
+      "sourceType": "source version history (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No versioned series exists to measure missing periods or revision lineage.", "inspectedSources": ["S-01", "S-05", "S-09"], "custodianRole": "Data owner/custodian (source version history)", "nextRetrievalAction": "Provide revision/vintage metadata and missing-period records for the exact series." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Missing critical data without a predeclared fallback => DATA_BLOCKED (S-01 §6.2 L540).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-11",
+      "requirement": "Timezone/DST/calendar semantics for the inspected products",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "calendar/timezone specification",
+      "historicalCoverage": { "status": "HISTORICAL_ASSERTION", "value": "CE(S)T settlement windows documented (gas/THE 17:00-17:15)", "evidence": { "path": "/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md", "sha256": "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260", "locator": "§1 L13-16" } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "DST/calendar cannot be verified without a real timestamped series; a time conversion does not substitute availability (S-01 §6.1 L529).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-12",
+      "requirement": "Permissions/rights/entitlements to use each source",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "licence/entitlement record (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No entitlement, licence or rights record exists; S-05 records a historical HTTP 403 for the settlement endpoint, which is not a grant.", "inspectedSources": ["S-01", "S-05"], "custodianRole": "Data owner/custodian + legal/rights owner", "nextRetrievalAction": "Confirm in writing the entitlement/rights for each source and endpoint actually required." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Unknown permissions are recorded as unknown; no use is assumed.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-13",
+      "requirement": "Forecast vintages (expected/surprise) for fundamentals and extraordinary events",
+      "missionAndCandidate": "Quarterly (Gas) / future candidates only (not A0/A1 timing)",
+      "criticalVersusOptional": "optional",
+      "sourceType": "forecast vintage series (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No forecast series or vintage metadata exists. Drivers/extraordinary are excluded from P5 A0/A1 timing.", "inspectedSources": ["S-01", "S-12"], "custodianRole": "Data owner/custodian (forecast vintages)", "nextRetrievalAction": "If a future candidate requires expected/surprise, provide dated forecast vintages with publication times." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Optional for P5: excluded from P5 timing (S-01 §13.5 L1209).",
+      "consumers": []
+    },
+    {
+      "requirementId": "R-14",
+      "requirement": "Fundamental Price Drivers / Extraordinary State observables",
+      "missionAndCandidate": "Quarterly (Gas) / future candidates only",
+      "criticalVersusOptional": "optional",
+      "sourceType": "fundamental driver series (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "Taxonomy is documented but no driver series exists; drivers are excluded from P5 A0/A1 timing.", "inspectedSources": ["S-01", "S-12"], "custodianRole": "Data owner/custodian (fundamental drivers)", "nextRetrievalAction": "If a future candidate requires drivers, provide PIT observables and publication times per driver." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Optional for P5: excluded from P5 timing (S-01 §13.5 L1209).",
+      "consumers": []
+    },
+    {
+      "requirementId": "R-15",
+      "requirement": "Market Dynamics & Sentiment State inputs (Z_t components)",
+      "missionAndCandidate": "Quarterly (Gas) / future candidates only",
+      "criticalVersusOptional": "optional",
+      "sourceType": "market dynamics series (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No Z_t input series exists; Z is excluded from P5 A0/A1 timing.", "inspectedSources": ["S-01", "S-12"], "custodianRole": "Research/data owner (Z_t instantiation)", "nextRetrievalAction": "If a future candidate requires Z, provide PIT inputs and evidence." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Optional for P5: excluded from P5 timing (S-01 §13.5 L1209).",
+      "consumers": []
+    },
+    {
+      "requirementId": "R-16",
+      "requirement": "Intraday resolution for Q07 entry-hour analysis",
+      "missionAndCandidate": "Quarterly (Gas) / Q07 separate protocol (out of P5 scope)",
+      "criticalVersusOptional": "optional",
+      "sourceType": "intraday series (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No intraday data exists; Q07 is a separate IMP-21 protocol and is not audited here.", "inspectedSources": ["S-01"], "custodianRole": "Data owner/custodian (intraday)", "nextRetrievalAction": "Q07 audit is a separate scope (S-01 §24 DEP-17); no action in this ST." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Out of this ST scope: Q07 is a separate experiment (S-01 §13.4 L1200).",
+      "consumers": []
+    },
+    {
+      "requirementId": "R-17",
+      "requirement": "OOS reservation eligibility data (last 8 complete eligible Gas Quarterly campaigns)",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1 experiment reservation",
+      "criticalVersusOptional": "critical",
+      "sourceType": "eligibility/campaign dataset (not present)",
+      "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "No campaign eligibility dataset exists. Reservation belongs to IMP-09; this ST does not select campaigns or read economic outcomes.", "inspectedSources": ["S-01", "S-08"], "custodianRole": "Procurement owner / mandate custodian", "nextRetrievalAction": "Provide the audited eligible campaign list and dates so IMP-09 can reserve the last 8 complete campaigns (>=2 years) without outcome-based selection." } },
+      "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Reservation requires >=2 years of eligible history; insufficient history => HOLD (S-01 §24 DEP-12; S-08 p.10).",
+      "consumers": ["A0", "A1"]
+    }
+  ],
+  "candidates": [
+    {
+      "candidate": "A0 Calendar-only baseline",
+      "mission": "Quarterly (Gas)",
+      "readiness": "DATA_BLOCKED",
+      "rationale": "Critical shared inputs are missing: campaign identity/calendar (R-01/R-03), obligation/unit (R-02/R-08), execution prices (R-04), benchmark B references (R-06), costs (R-07), PIT/publication evidence (R-09/R-10), timezone/DST (R-11), permissions (R-12) and OOS eligibility (R-17). A critical requirement missing means the candidate is not DATA_READY (S-01 §6.3 L566).",
+      "criticalMissing": ["R-01", "R-02", "R-03", "R-04", "R-06", "R-07", "R-08", "R-09", "R-10", "R-11", "R-12", "R-17"]
+    },
+    {
+      "candidate": "A1 S1 candidate",
+      "mission": "Quarterly (Gas)",
+      "readiness": "DATA_BLOCKED",
+      "rationale": "Inherits every critical missing input of A0 (including the benchmark B references R-06) and additionally lacks the S1 causal price references (R-05). No S1 parameters were chosen in this ST; readiness cannot be claimed without a causal, PIT-valid price reference.",
+      "criticalMissing": ["R-01", "R-02", "R-03", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10", "R-11", "R-12", "R-17"]
+    }
+  ],
+  "readinessConclusion": "Both P5 Gas Quarterly candidates are DATA_BLOCKED on factual absence of real data. The 2020-2026 range is a communicated input pending audit, not certified coverage (S-01 §6.4 L570; S-07 p.8; S-10 p.6). A negative audit is a valid completion: it prevents DATA_READY rather than fabricating availability.",
+  "syntheticExamples": [
+    {
+      "name": "synthetic-valid-documented-row",
+      "expect": "valid",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-OK",
+          "requirement": "Synthetic requirement with documented source",
+          "missionAndCandidate": "Quarterly (Gas) / A0",
+          "criticalVersusOptional": "optional",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "VERIFIED", "value": "2020-2026", "evidence": { "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md", "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c", "locator": "synthetic locator" } },
+          "pointInTimeValidity": { "status": "DEMONSTRATED", "value": true, "evidence": { "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md", "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c", "locator": "synthetic locator" } },
+          "availabilityStatus": "AVAILABLE NOW",
+          "evidence": { "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md", "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c", "locator": "synthetic locator" },
+          "shortValidationNote": "Synthetic positive control."
+        }
+      ]
+    },
+    {
+      "name": "synthetic-critical-missing-declared-ready",
+      "expect": "rejects:CRITICAL_MISSING_DATA_READY",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-CRIT",
+          "requirement": "Synthetic critical requirement",
+          "missionAndCandidate": "Quarterly (Gas) / A0",
+          "criticalVersusOptional": "critical",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "synthetic", "inspectedSources": ["SYN"], "custodianRole": "synthetic", "nextRetrievalAction": "synthetic" } },
+          "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+          "availabilityStatus": "UNAVAILABLE",
+          "shortValidationNote": "synthetic"
+        }
+      ],
+      "candidateReadiness": [{ "candidate": "A0 Calendar-only baseline", "readiness": "DATA_READY", "criticalMissing": [] }]
+    },
+    {
+      "name": "synthetic-publication-only-pit",
+      "expect": "rejects:PUBLICATION_ONLY_PIT",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-PIT",
+          "requirement": "Synthetic PIT requirement",
+          "missionAndCandidate": "Quarterly (Gas) / A1",
+          "criticalVersusOptional": "critical",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "VERIFIED", "value": "synthetic", "evidence": { "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md", "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c", "locator": "synthetic locator" } },
+          "pointInTimeValidity": { "status": "DEMONSTRATED", "value": true, "publicationOnly": true },
+          "availabilityStatus": "AVAILABLE NOW",
+          "shortValidationNote": "synthetic publication-only PIT claim"
+        }
+      ]
+    },
+    {
+      "name": "synthetic-universal-coverage-percentage",
+      "expect": "rejects:UNIVERSAL_COVERAGE_PERCENTAGE",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "guards": { "universalCoveragePercentageUsed": true, "coveragePercent": 87 },
+      "rows": []
+    },
+    {
+      "name": "synthetic-namespace-conflation",
+      "expect": "rejects:NAMESPACE_CONFLATION",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-NS",
+          "requirement": "Synthetic namespace requirement",
+          "missionAndCandidate": "Quarterly (Gas) / A0",
+          "criticalVersusOptional": "optional",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "synthetic", "inspectedSources": ["SYN"], "custodianRole": "synthetic", "nextRetrievalAction": "synthetic" } },
+          "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+          "availabilityStatus": "DATA_BLOCKED",
+          "shortValidationNote": "synthetic conflation of readiness into availability"
+        }
+      ]
+    },
+    {
+      "name": "synthetic-inferred-history",
+      "expect": "rejects:INFERRED_HISTORY",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-HIST",
+          "requirement": "Synthetic history requirement",
+          "missionAndCandidate": "Quarterly (Gas) / A0",
+          "criticalVersusOptional": "optional",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "VERIFIED", "value": "2020-2026", "inferredFromDeclaration": true },
+          "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+          "availabilityStatus": "AVAILABLE NOW",
+          "shortValidationNote": "synthetic inferred history without a source"
+        }
+      ]
+    },
+    {
+      "name": "synthetic-assumed-fees",
+      "expect": "rejects:ASSUMED_FEES",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-FEE",
+          "requirement": "Synthetic fee requirement",
+          "missionAndCandidate": "Quarterly (Gas) / A0",
+          "criticalVersusOptional": "critical",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "synthetic", "inspectedSources": ["SYN"], "custodianRole": "synthetic", "nextRetrievalAction": "synthetic" } },
+          "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+          "availabilityStatus": "AVAILABLE NOW",
+          "shortValidationNote": "synthetic fee assumed zero without a source",
+          "assumedValues": { "fees": 0 }
+        }
+      ]
+    },
+    {
+      "name": "synthetic-criticalmissing-summary-omission",
+      "expect": "rejects:CRITICALMISSING_INCONSISTENT",
+      "label": "SYNTHETIC EXAMPLE - NOT EVIDENCE",
+      "rows": [
+        {
+          "requirementId": "SYN-OMIT",
+          "requirement": "Synthetic critical requirement omitted from the candidate summary",
+          "missionAndCandidate": "Quarterly (Gas) / A0",
+          "criticalVersusOptional": "critical",
+          "sourceType": "synthetic",
+          "historicalCoverage": { "status": "MISSING", "value": null, "missing": { "reason": "synthetic", "inspectedSources": ["SYN"], "custodianRole": "synthetic", "nextRetrievalAction": "synthetic" } },
+          "pointInTimeValidity": { "status": "NOT_DEMONSTRATED", "value": null },
+          "availabilityStatus": "UNAVAILABLE",
+          "shortValidationNote": "synthetic critical row consumed by A0",
+          "consumers": ["A0"]
+        }
+      ],
+      "candidateReadiness": [{ "candidate": "A0 Calendar-only baseline", "readiness": "DATA_BLOCKED", "criticalMissing": [] }]
+    }
+  ]
+}

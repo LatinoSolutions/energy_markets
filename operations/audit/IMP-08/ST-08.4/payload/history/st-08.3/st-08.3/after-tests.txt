@@ -1,0 +1,66 @@
+IMP-08 / ST-08.3 post-edit test record (R3 shared-validator continuation)
+Workspace: `/srv/hot-data/energy-markets/app` on `brunode`, branch `main`.
+
+Reviewer R1 corrections applied before this run:
+
+- `quarterlyResearchVerdict` now reconciles `evidence.quartersCompleted` to
+  `scoring.nTotal`; two scored values cannot claim eight completed quarters.
+- The positive Quarterly fixture uses eight finite values, with six neutral
+  zeros preserved separately from `n_nonzero`.
+- An explicitly present `declaredValidity: null` is unknown and excluded; only
+  an absent validity field uses legacy synthetic compatibility.
+
+Reviewer R2 correction applied before this run:
+
+- `workerRoute.runId`, `workerModelRoute` and `receiptMeta.writtenByRun` now
+  identify the same current corrective run; the initial implementation run is
+  preserved in `runHistory`.
+
+Reviewer R3 correction applied before this run:
+
+- `validateWorkerRouteIdentity` is shared by delivery verification and R9;
+  cloned mismatches in each route field are rejected by that same validator.
+
+1. `pwd` and `hostname`
+   - `/srv/hot-data/energy-markets/app`
+   - `brunode`
+   - exit 0
+
+2. Pinned protected hashes
+   - SPEC, baseline manifest, IMP-01 receipt, ST-08.1 receipt, frozen fixtures,
+     independent calculations and ST-08.2 receipt all matched their packet
+     SHA-256 pins; exit 0.
+
+3. `/opt/node/bin/node --check src/economic-calculation/index.mjs`
+   - exit 0.
+
+4. `/opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs`
+   - exit 0; 35 fixtures; C01–C12 complete; all verifier arithmetic and seven
+     tamper/negative probes PASS; oracle inputs unchanged.
+
+5. `/opt/node/bin/node --test test/economic-calculation/*.test.mjs`
+   - exit 0; 53 tests, 53 pass, 0 fail, 0 skipped.
+
+6. `/opt/node/bin/node --test test/contracts/*.test.mjs`
+   - exit 0; 67 tests, 67 pass, 0 fail, 0 skipped.
+
+7. `/opt/node/bin/node --test operations/audit/IMP-08/ST-08.3/regression.test.mjs`
+   - exit 0; 9 corrective regressions, 9 pass, 0 fail, 0 skipped, including
+     eight-value Quarterly sufficiency, two-values-vs-eight HOLD, explicit
+     null validity exclusion, and shared-validator receipt run-identity
+     mismatch detection.
+
+8. Combined TAP capture
+   - `tests.tap` contains the actual TAP output for the 53 inherited economic
+     tests plus 9 corrective tests; exit 0.
+   - `contracts-tests.tap` contains the actual TAP output for 67 contract tests;
+     exit 0.
+
+9. Receipt identity verification
+   - Delivery verification asserts `workerRoute.runId`, `workerModelRoute` and
+     `receiptMeta.writtenByRun` agree, and that current plus initial run history
+     are present; mismatch regression R9 passes.
+
+The tests use synthetic fixtures only. No real-market/OOS run, ledger-cost
+formula, purchase, trading action, production activation, or research authority
+was performed or claimed.

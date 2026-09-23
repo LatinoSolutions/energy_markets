@@ -1,0 +1,406 @@
+{
+  "_kind": "NEW_INDEX (authored by ST-08.4/WP-IMP-08-ST-4-v1.1). Source review documents are preserved verbatim under payload/native-reviews/; this file is a factual index, not a replacement decision.",
+  "parentImp": "IMP-08",
+  "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "nativeRoot": "LAT-91",
+  "spec": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "sourceSections": [
+      "5",
+      "19.3-19.3.1",
+      "20.2.7-20.2.10",
+      "25.1 IMP-08",
+      "25.2.1-25.2.3 IMP-08"
+    ]
+  },
+  "scope": "synthetic B/H/V calculation and mission-specific scoring, protocol v1",
+  "parentAcceptance": {
+    "claimed": false,
+    "impReceiptPresent": false,
+    "note": "PARENT-OUTSTANDING. \u00a720.2.10 gate is evaluated separately by Command; this child does not accept IMP-08."
+  },
+  "childSubtasks": [
+    {
+      "subtaskId": "ST-08.1",
+      "packetId": "WP-IMP-08-ST-1-v1.1",
+      "issue": {
+        "identifier": "LAT-126",
+        "id": "ab16dbf3-fb54-4a10-ad45-f63673898ed4"
+      },
+      "nativeReviewStageId": "a508cbb9-c518-4857-b83f-1a6ef57b1e66",
+      "nativeDecision": {
+        "id": "473757cf-567b-4cc0-ad43-937825bc068d",
+        "outcome": "approved",
+        "participant": {
+          "type": "agent",
+          "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+          "name": "Independent Reviewer"
+        },
+        "recordedIn": "LAT-126 executionState.lastDecisionId"
+      },
+      "actualAuthor": {
+        "role": "author; not the independent reviewer",
+        "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+        "name": "Emergency Cheap Production Worker (OpenRouter)",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
+        "adapter": "opencode_local"
+      },
+      "receipt": "operations/receipts/IMP-08-ST-1.json",
+      "receiptSha256": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+      "resultingContentHash": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f",
+      "supersededContentHashes": [],
+      "nativeReviewDocuments": [
+        {
+          "key": "st-receipt",
+          "revisionId": "6ce8e5c7-d1c9-4ffe-a1d8-ba78e92dbeef",
+          "archivedAs": "native-reviews/LAT-126--st-receipt.md"
+        },
+        {
+          "key": "artifact-review-5f329513-f5ca-454f-8fcb-45a0c20341e6",
+          "revisionId": "f826b187-e8dd-47d0-b636-ea0b70faf13f",
+          "archivedAs": "native-reviews/LAT-126--independent-calculations.md"
+        },
+        {
+          "key": "continuity-checkpoint",
+          "revisionId": "f03d4210-414a-4a8b-a515-f5d9e16a362c",
+          "archivedAs": "native-reviews/LAT-126--continuity-checkpoint.md"
+        }
+      ]
+    },
+    {
+      "subtaskId": "ST-08.2",
+      "packetId": "WP-IMP-08-ST-2-v1.1",
+      "issue": {
+        "identifier": "LAT-157",
+        "id": "c523d63f-77bb-4260-9be6-e2c0a8243758"
+      },
+      "nativeReviewStageId": "90fe07d0-4af4-4e7c-9c09-c5a48e784d00",
+      "nativeDecision": {
+        "id": "7641d5d4-de07-434b-8c71-c5c4eb39eae3",
+        "outcome": "approved",
+        "participant": {
+          "type": "agent",
+          "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+          "name": "Independent Reviewer"
+        },
+        "recordedIn": "LAT-157 executionState.lastDecisionId"
+      },
+      "commandVerdictOnTopOfNativeDone": {
+        "decision": "changes_requested",
+        "issue": {
+          "identifier": "LAT-176",
+          "id": "7cc3fb4b-00d4-4668-a409-46ab30045995"
+        },
+        "documentKey": "final-acceptance-evidence",
+        "revisionId": "3b159e73-7a11-4465-9f09-741a1a872099",
+        "note": "LAT-157 remains natively done; Command returned changes_requested with four reproducible findings, carried into ST-08.3. Not a reopened native review."
+      },
+      "actualAuthor": {
+        "role": "author; not the independent reviewer",
+        "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+        "name": "Emergency Cheap Production Worker (OpenRouter)",
+        "model": "openrouter/deepseek/deepseek-v4.1-flash",
+        "adapter": "opencode_local",
+        "deviation": "premium-class packet Command-rerouted to this lane while premium/Go lanes unavailable; distinct reviewer preserved"
+      },
+      "receipt": "operations/receipts/IMP-08-ST-2.json",
+      "receiptSha256": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d",
+      "resultingContentHash": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "supersededContentHashes": [
+        {
+          "contentHash": "215a0e76d6cddb450c85f405e8f5e6bd4eb54e996da7359e072a9b69efba5c88",
+          "note": "round-0 pre-review; MUST NOT be accepted as current"
+        }
+      ],
+      "nativeReviewDocuments": [
+        {
+          "key": "st-receipt",
+          "revisionId": "5b85ae5d-ac58-468b-9f1d-7efda42d99e4",
+          "archivedAs": "native-reviews/LAT-157--st-receipt.md"
+        },
+        {
+          "key": "artifact-review-8d472891-8d22-452a-9631-9ff5783a6f2f",
+          "revisionId": "6274edd0-907f-48af-ac9c-c10a46f8bce7",
+          "archivedAs": "native-reviews/LAT-157--acceptance-matrix.md"
+        },
+        {
+          "key": "artifact-review-c395b09f-0ace-4ee6-864d-5d16bb14600a",
+          "revisionId": "6ad3563a-77c8-4bfb-b9cf-5a16f0f43aac",
+          "archivedAs": "native-reviews/LAT-157--acceptance-matrix-superseded-round0.md"
+        },
+        {
+          "key": "continuity-checkpoint",
+          "revisionId": "1bf0e895-861b-4e79-ae7b-8e06b99e41d3",
+          "archivedAs": "native-reviews/LAT-157--continuity-checkpoint.md"
+        }
+      ],
+      "historicalHashRoleNote": "Accepted ST-08.2 content hash is \u2026df1b1b\u2026 (from operations/receipts/IMP-08-ST-2.json, recomputed from its nine artifactHashes). ST-08.3's frozen baseline reference \u2026df8b1b\u2026 is a separate, disclosed historical baseline-reference value, not the accepted ST-08.2 hash. Predecessor bytes unchanged."
+    },
+    {
+      "subtaskId": "ST-08.3",
+      "packetId": "WP-IMP-08-ST-3-v1.1",
+      "issue": {
+        "identifier": "LAT-178",
+        "id": "53cc7856-154b-4d65-be39-ddf8281042a5"
+      },
+      "nativeReviewStageId": "7098b2ce-7a55-46f9-8ae1-f38c0d0efae5",
+      "nativeDecision": {
+        "id": "7af7ec2f-f63c-4785-a447-219620ab5e78",
+        "outcome": "approved",
+        "participant": {
+          "type": "user",
+          "userId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+          "agentId": null,
+          "role": "owner-authorized Board-recorded independent review participant (Independent Reviewer lane quota-exhausted)"
+        },
+        "recordedIn": "LAT-178 executionState.lastDecisionId",
+        "note": "Board-recorded independent R4 approval. No Opus approval is inferred, and the ST-08.2 worker recommendation is not rewritten into an accepted receipt."
+      },
+      "actualAuthor": {
+        "role": "author; not the independent reviewer",
+        "agentId": "6c548bcb-e6aa-43ea-9c6c-319497cbe6a9",
+        "name": "Premium Production Worker A (Luna)",
+        "model": "gpt-5.6-luna",
+        "adapter": "codex_local",
+        "reasoningEffort": "high"
+      },
+      "receipt": "operations/receipts/IMP-08-ST-3.json",
+      "receiptSha256": "4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110",
+      "resultingContentHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+      "baselineContentHash": "8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "supersededContentHashes": [],
+      "manifest": "operations/audit/IMP-08/ST-08.3/manifest.json",
+      "manifestSha256": "1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e",
+      "reviewHistory": [
+        {
+          "round": "R1",
+          "documentKey": "codex-luna-independent-review-r1",
+          "revisionId": "dc114fb6-54e4-4ca5-8298-8d9cfcb54ecd",
+          "outcome": "CHANGES_REQUESTED",
+          "finding": "quarterly evidence count not reconciled (two values for eight quarters); explicit declaredValidity:null followed legacy path",
+          "archivedAs": "native-reviews/LAT-178--independent-review-r1-changes-requested.md"
+        },
+        {
+          "round": "R2",
+          "documentKey": "codex-luna-independent-review-r2",
+          "revisionId": "1256bf9e-7966-4472-89e6-5920c0749bdd",
+          "outcome": "changes requested",
+          "finding": "receipt actual-run identity inconsistent (workerRoute.runId vs workerModelRoute/writtenByRun)",
+          "archivedAs": "native-reviews/LAT-178--independent-review-r2-changes-requested.md"
+        },
+        {
+          "round": "R3",
+          "documentKey": "codex-luna-independent-review-r3",
+          "revisionId": "8c131c49-7f94-4107-b607-fe321b4624cf",
+          "outcome": "CHANGES_REQUESTED",
+          "finding": "regression R9 did not invoke the shared run-identity validator",
+          "archivedAs": "native-reviews/LAT-178--independent-review-r3-changes-requested.md"
+        },
+        {
+          "round": "R4",
+          "documentKey": "codex-luna-independent-review-r4",
+          "revisionId": "6bd5ab95-8510-400b-8083-e82abf4bf838",
+          "outcome": "APPROVED for the subtask",
+          "archivedAs": "native-reviews/LAT-178--independent-review-r4-approved.md"
+        }
+      ],
+      "runHistory": [
+        {
+          "runId": "9cf8e5bf-a7e2-436c-b540-94b6a8e3e32a",
+          "phase": "initial implementation",
+          "status": "superseded"
+        },
+        {
+          "runId": "5f8809e5-58f7-4bd5-ad18-7ceac9f5a197",
+          "phase": "R1 corrective continuation",
+          "status": "superseded"
+        },
+        {
+          "runId": "94159bc6-39ef-494a-ab38-fc6b382e0457",
+          "phase": "R2 receipt identity correction",
+          "status": "superseded"
+        },
+        {
+          "runId": "6c2d1408-a304-4bd7-8515-15d08decb8f0",
+          "phase": "R3 shared validator correction",
+          "status": "current"
+        }
+      ],
+      "predecessorDocumentGap": {
+        "observation": "LAT-178 carries no `st-receipt` document; its continuity-checkpoint describes pre-R4 pending review. PRESERVED AS HISTORICAL; exact final receipt JSON is operations/receipts/IMP-08-ST-3.json (sha256 4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110). The human-owned predecessor issue is not modified.",
+        "continuityCheckpointRevisionId": "d7380b07-0fbc-482f-b89e-31ae6696d4d4"
+      },
+      "nativeReviewDocuments": [
+        {
+          "key": "continuity-checkpoint",
+          "revisionId": "d7380b07-0fbc-482f-b89e-31ae6696d4d4",
+          "archivedAs": "native-reviews/LAT-178--continuity-checkpoint.md"
+        }
+      ]
+    },
+    {
+      "subtaskId": "ST-08.5",
+      "packetId": "WP-IMP-08-ST-5-v1.1",
+      "status": "approved (current accepted corrective)",
+      "issue": {
+        "identifier": "LAT-195",
+        "id": "2a89265c-3143-4e1f-9071-f03fa95e81ea"
+      },
+      "nativeReviewStageId": "b7cc671c-59ca-4d57-8858-521949b96afb",
+      "nativeDecision": {
+        "id": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+        "outcome": "approved",
+        "completedAt": "2026-09-21T16:00:28Z",
+        "participant": {
+          "type": "agent",
+          "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "name": "Tech Lead (Command) / Astra"
+        },
+        "independentReviewRoute": "independent Sol High review. Authoritative source: LAT-195 approval comment 457cce45-8d57-4915-9968-95a11fc640b4 (author agent 2b6bf987, 2026-09-21T16:00:28.732Z; participant ran as gpt-5.6-sol with modelReasoningEffort=high and OA2 CODEX_HOME).",
+        "recordedIn": "LAT-195 executionState.lastDecisionId"
+      },
+      "actualAuthor": {
+        "role": "corrective author; not the independent reviewer",
+        "agentId": "6c548bcb-e6aa-43ea-9c6c-319497cbe6a9",
+        "name": "Premium Production Worker A (Luna)",
+        "model": "gpt-5.6-luna",
+        "adapter": "codex_local",
+        "reasoningEffort": "high",
+        "runId": "9bc9b307-a1fa-4e6d-a6a6-c21163d0fe36"
+      },
+      "receipt": "operations/receipts/IMP-08-ST-5.json",
+      "receiptSha256": "ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71",
+      "manifest": "operations/audit/IMP-08/ST-08.5/manifest.json",
+      "manifestSha256": "3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209",
+      "contentHashReported": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+      "aggregateAlgorithmA": "96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e",
+      "baselineReviewedContentHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+      "changedFiles": {
+        "src/economic-calculation/bhv.mjs": {
+          "from": "ef20fbbf19d3484bc5a7d35f9e99c39778734e73ad853011358ca35c4d44203b",
+          "to": "4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf"
+        },
+        "test/economic-calculation/bhv.test.mjs": {
+          "from": "afbd61b7f52a71f292b40ff82c34118281b9974be6551eeea639a7c1ddb9ca19",
+          "to": "b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7"
+        }
+      },
+      "nativeReviewDocuments": [
+        {
+          "key": "st-receipt",
+          "revisionId": "3015b43a-f1f3-49cb-8332-6a27360b8948",
+          "archivedAs": "native-reviews/LAT-195--st-receipt.md"
+        },
+        {
+          "key": "change-review",
+          "revisionId": "c4745d74-1b3e-4ada-8dc6-7ee921fa7c38",
+          "archivedAs": "native-reviews/LAT-195--change-review.md"
+        },
+        {
+          "key": "test-evidence",
+          "revisionId": "e3fffc6b-5376-4d47-9776-d011f7464e25",
+          "archivedAs": "native-reviews/LAT-195--test-evidence.md"
+        },
+        {
+          "key": "continuity-checkpoint",
+          "revisionId": "4a359f9e-0667-4ea4-bdd3-79b9724e8f4d",
+          "archivedAs": "native-reviews/LAT-195--continuity-checkpoint.md"
+        },
+        {
+          "key": "approval-comment",
+          "commentId": "457cce45-8d57-4915-9968-95a11fc640b4",
+          "authorAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "createdAt": "2026-09-21T16:00:28.732Z",
+          "archivedAs": "native-reviews/LAT-195--approval-comment.md"
+        }
+      ],
+      "payloadPath": "payload/accepted/st-08.5/**"
+    }
+  ],
+  "sourceIssueImmutability": {
+    "LAT-126": "unmodified (read-only source)",
+    "LAT-157": "unmodified (read-only source)",
+    "LAT-178": "unmodified (human-owned predecessor; read-only)",
+    "LAT-176": "unmodified (Command evidence read-only)",
+    "LAT-195": "unmodified (read-only source; approved ST-08.5)"
+  },
+  "newIndexOnThisIssue": {
+    "issue": {
+      "identifier": "LAT-191",
+      "id": "915be6a5-d1ec-4675-b04b-9192925553d1"
+    },
+    "artifacts": [
+      "operations/audit/IMP-08/ST-08.4/parent-readiness.md",
+      "operations/audit/IMP-08/ST-08.4/native-review-lineage.json",
+      "operations/audit/IMP-08/ST-08.4/version-binding.json",
+      "operations/audit/IMP-08/ST-08.4/payload/**",
+      "operations/audit/IMP-08/ST-08.4/payload/SHA256SUMS",
+      "operations/audit/IMP-08/ST-08.4/dossier.tar.gz",
+      "operations/audit/IMP-08/ST-08.4/{baseline-hashes.txt,final-hashes.txt,verification.txt}",
+      "operations/receipts/IMP-08-ST-4.json"
+    ]
+  },
+  "currentAcceptedVersion": {
+    "subtask": "ST-08.5",
+    "issue": "LAT-195",
+    "nativeDecision": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+    "outcome": "approved",
+    "contentHashReportedByST085": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "aggregateAlgorithmA": "96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e",
+    "supersedes": "ST-08.3 140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+    "note": "This is the version the IMP-08 parent gate must consume. ST-08.3 and earlier are preserved as history under payload/history/."
+  },
+  "historicalLineageDefects": [
+    {
+      "id": "ST-08.2-hash-role",
+      "status": "disclosed residual for Command assessment; predecessor bytes unchanged",
+      "acceptedST082ContentHash": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "frozenST083BaselineReference": "8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "explanation": "ST-08.3 records \u2026df8b1b\u2026 as its baseline reference; the accepted ST-08.2 content hash from its own artifacts is \u2026df1b1b\u2026. Recorded separately; verifier asserts both roles."
+    }
+  ],
+  "lat191ReviewHistory": {
+    "issue": "LAT-191",
+    "completedChangesRequestedRounds": 5,
+    "nextRoundPending": 6,
+    "rounds": [
+      {
+        "round": 1,
+        "commentId": "56b79cc1-34c4-42df-b1db-0d560b5c622b",
+        "reviewer": "6c548bcb-e6aa-43ea-9c6c-319497cbe6a9",
+        "outcome": "changes_requested"
+      },
+      {
+        "round": 2,
+        "commentId": "a72d657d-b715-473a-b828-8dc988014676",
+        "reviewer": "6c548bcb-e6aa-43ea-9c6c-319497cbe6a9",
+        "outcome": "changes_requested"
+      },
+      {
+        "round": 3,
+        "commentId": "840c1bae-89ab-4de3-acfd-aa982c7a18d1",
+        "reviewer": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "5d3fec05-b7cc-4f08-b5ac-0234ce5c3fe5",
+        "outcome": "changes_requested"
+      },
+      {
+        "round": 4,
+        "commentId": "bc0ded02-436e-47e6-babf-459dc838bae7",
+        "reviewer": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "9731bab4-8a40-4576-938c-619c5b795af2",
+        "outcome": "changes_requested"
+      },
+      {
+        "round": 5,
+        "commentId": "3c00c32b-f3a2-461d-8dba-f590b388a211",
+        "reviewer": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "24b9e024-31c6-45b6-affb-19f9c7a205ca",
+        "outcome": "changes_requested"
+      }
+    ],
+    "archivedAt": "payload/native-reviews/LAT-191--review-r{1..5}-changes-requested.md",
+    "ownerRecoveryCommentId": "1a0a65ab-eeae-4077-b72b-fbb5ffe84a07"
+  }
+}

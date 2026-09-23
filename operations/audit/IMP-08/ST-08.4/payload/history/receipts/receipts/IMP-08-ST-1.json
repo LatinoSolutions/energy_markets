@@ -1,0 +1,91 @@
+{
+  "receiptKind": "ST_RECEIPT",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-08-ST-1-v1.1",
+    "subtaskId": "ST-08.1",
+    "parentImp": "IMP-08",
+    "parentIssueIdentifier": "LAT-91",
+    "subtaskIssueIdentifier": "LAT-126",
+    "nativeRoot": "LAT-91",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "objectProtocolVersion": "1.1",
+    "executionInstance": "IMP-08 synthetic calculation/fixtures, protocol v1; expected-results preparation phase only"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / DeepSeek V4.1 Flash via opencode_local",
+  "startingBaseline": "brunode:/srv/hot-data/energy-markets/app, empty main (no commits/remotes/worktrees); baseline operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860. Allocated output paths operations/audit/IMP-08/** and operations/receipts/IMP-08-ST-1.json did not pre-exist.",
+  "resultingVersion": {
+    "contentHash": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f",
+    "algorithm": "sha256 of the path-sorted sha256sum listing",
+    "scope": "operations/audit/IMP-08/fixture-oracle/** excluding the self-referential write-set-manifest.json",
+    "changedFileHashes": {
+      "operations/audit/IMP-08/fixture-oracle/fixtures.json": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec",
+      "operations/audit/IMP-08/fixture-oracle/independent-calculations.md": "58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9",
+      "operations/audit/IMP-08/fixture-oracle/verify.mjs": "b657af8025ccc6d31271db7fcbab4a8f11e608dc9fa450775adbeb3773d2d11c",
+      "operations/audit/IMP-08/fixture-oracle/verify-run.txt": "fcfb3d79e1a12e7b2602c6bd6ff812b7e1c446192d8eb61f090b5da40f2e412e",
+      "operations/audit/IMP-08/fixture-oracle/write-set-manifest.json": "5d98d8b4d1b2517ddb685332d2572448d5a7fc7bb9056edf71b1177cedd2067a"
+    }
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md sha256 86c4bd4e...39cb6c (normative §§3,5.1-5.8,6.1,19.3-19.3.1,20.2.7-20.2.10,25.1 IMP-08,25.2.2 IMP-08,25.2.3 IMP-08)",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json sha256 78d92de8...b887c (accepted REQUIRES, content version c7cdf47c...d15a437c)",
+    "operations/bootstrap/baseline-manifest.json sha256 895539b7...ca9860",
+    "src/contracts/index.mjs and src/contracts/economic-bundle.mjs (accepted contract surface, read-only; economic bundle missing/version semantics referenced for provenance, not imported as a calculator)"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json",
+    "operations/audit/IMP-08/fixture-oracle/independent-calculations.md",
+    "operations/audit/IMP-08/fixture-oracle/verify.mjs",
+    "operations/audit/IMP-08/fixture-oracle/verify-run.txt",
+    "operations/audit/IMP-08/fixture-oracle/write-set-manifest.json",
+    "operations/receipts/IMP-08-ST-1.json"
+  ],
+  "result": "Preparado y verificado independientemente el oráculo sintético de expected results de benchmark/B y scoring de IMP-08 antes de cualquier implementación del cálculo. fixtures.json contiene 35 fixtures explícitamente sintéticos que cubren las doce filas de §19.3.1 (C01-C12): proxy 101 desde medias 100/104 (sin VWAP), fuentes únicas y missing, B=105 con pesos diarios iguales pese a densidad de ticks, sustitución oficial 100->102 con B=106 y receipt previo preservado, corrección 102->103 con B=106.5 por timestamp de proveedor, fecha missing que luego recibe oficial recalculando conjunto/suma/denominador/cobertura, fronteras 1-0-1 mensual y 3-1-3 trimestral con inicio incluido/fin excluido y DST, fallback ±60 minutos etiquetado nearby-60m/eex-derived-reference, consumo posterior a 17:15 condicionado a disponibilidad efectiva, y el guard reportado de 0.01 documentado como caso de audit sin regla canónica de rechazo. El scoring reproduce +4/-1 (n=2,p=0.5,mu=1.5,R=C=4,sigma_down=1,Sortino=1.5), +3/-1 (mu=1,R=C=3,Sortino=1 screen estricto falso), +2/-2 (mu=0,R=C=1,sigma_down=2,Sortino=0), adición neutra que preserva n_nonzero=2, sólo positivos, sólo ceros, n<2, población vacía, grupo ganador vacío y no-aplicabilidad del screen Monthly, distinguiendo siempre resultado aritmético de veredicto de research y sin fabricar PASS. Los ejemplos B/H/V declaran unidades compatibles, H all-in sintético con cobertura, signos que reconcilian, sin MW->MWh, sin fee omitido->0, cobertura incompleta reportada aparte, C sólo diagnóstico y ratio indefinido nunca PASS. verify.mjs comprueba hashes de entrada, IDs únicos, cobertura C01-C12, etiqueta sintética, razones de undefined explícitas y la aritmética documentada, y demuestra con copias adversarias que rechaza duplicados, alteración aritmética, fixtures no sintéticos, casos sin cubrir y fixtures no documentados. No se implementó ningún cálculo de producción ni se ejecutó economía real.",
+  "testsRun": [
+    "hostname; pwd; git branch --show-current",
+    "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json",
+    "/opt/node/bin/node --check operations/audit/IMP-08/fixture-oracle/verify.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs"
+  ],
+  "testResults": [
+    "hostname=brunode (exit 0); pwd=/srv/hot-data/energy-markets/app (exit 0); git branch --show-current=main (exit 0).",
+    "SPEC sha256 86c4bd4e...39cb6c == expected; IMP-01-IMP_RECEIPT.json sha256 78d92de8...b887c == expected; baseline-manifest.json sha256 895539b7...ca9860 == expected (exit 0).",
+    "verify.mjs syntax check exit 0.",
+    "verify.mjs exit 0. Input hashes OK (SPEC, IMP-01 receipt, baseline manifest and IMP-01 content version c7cdf47c...d15a437c reproduced). Fixture collection OK: 35 fixtures, unique IDs, canonical cases C01-C12 all covered, all synthetic, explicit undefined reasons, arithmetic agrees with the documented independent calculations. 7 adversarial negative probes PASS (duplicate ID, arithmetic tampering, unsynthetic fixture, uncovered canonical case, undefined-without-reason, scoring tampering, undocumented fixture). Full output: operations/audit/IMP-08/fixture-oracle/verify-run.txt (sha256 fcfb3d79...f2e412e). The independent reviewer must additionally recompute the documented numeric and boundary cases by hand."
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json (35 synthetic fixtures, source locators, inputs, units, expected values or explicit undefined/missing reasons, worked derivations)",
+    "operations/audit/IMP-08/fixture-oracle/independent-calculations.md (hand-worked derivations per fixture, arithmetic vs research-verdict separation)",
+    "operations/audit/IMP-08/fixture-oracle/verify.mjs + verify-run.txt (actual stdout/exit codes; fixture-oracle checker, not a production engine)",
+    "operations/audit/IMP-08/fixture-oracle/write-set-manifest.json (before/after write set; no writes outside allowed_paths)"
+  ],
+  "assumptions": [
+    "All fixture values, dates, timestamps and sources are synthetic and labelled; the §19.3.1 rows are treated as arithmetic examples with known answers, not market results.",
+    "Boundary timestamps are synthetic calendar examples; Europe/Berlin CET/CEST (DST switch 2026-03-29) is used only for arithmetic.",
+    "H is an explicitly supplied synthetic all-in value with unit and coverage metadata; no real-ledger H formula or denominator is invented.",
+    "The reported 0.01 guard is documented as an implementation limitation/audit case; rejecting 0.01 is not asserted as canonical and no real-market validity is asserted.",
+    "The 24-month Monthly evidence set is outside this synthetic subset; the Monthly fixtures only test screen non-applicability.",
+    "Missing real inputs (real B, fills, fees, calendar, permissions) remain outside this synthetic phase."
+  ],
+  "deviations": [],
+  "dependencyFindings": [
+    "REQUIRES=IMP-01 accepted verified by receipt hash 78d92de8...b887c and reproduced content version c7cdf47c...d15a437c.",
+    "REQUIRES_AUDIT=none and REQUIRES_EVIDENCE=none declared by the packet; none was claimed.",
+    "IMP-05/07 and their audit scopes remain required before any real campaign run, not for these fixtures; no DEP is claimed closed.",
+    "No SPEC contradiction encountered, so no §20.2.12 SPEC_CHANGE_REQUEST is raised.",
+    "No file outside allowed_paths was modified; dirty files preserved."
+  ],
+  "failuresRetries": [
+    "Initial verify.mjs root resolution was one directory too shallow (resolved to operations/ instead of the app root); corrected to four parent levels and re-run to exit 0. No other command failures.",
+    "No package was installed; only /opt/node/bin/node (v24.19.0) was used."
+  ],
+  "recommendedStatus": "in_review",
+  "nativeReviewRequested": {
+    "stage1": "Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c (exactly one native review stage, comment required, maxReviewRounds 3)",
+    "note": "Reviewer must read the full issue and executionPolicy/executionState, then independently and manually recompute the documented numeric and boundary cases and inspect fixture/source coverage, synthetic provenance and undefined reasons. The worker script alone is not sufficient independence. Only approve when all ST criteria and planned ST review actions are complete; the remaining premium parent implementation is explicitly not accepted by this review."
+  },
+  "parentPending": "LAT-91 / IMP-08 parent acceptance under §20.2.10 remains pending and is NOT satisfied by this ST. After an accepted oracle, the remaining premium implementation of the complete calculation/fixtures objective, an executable acceptance suite and independent review are still required, followed by a separate Command parent acceptance/IMP_RECEIPT. This ST cannot close IMP-08, IMP-13, P6, DEP-13 or any real data audit.",
+  "generatedAtUtc": "2026-09-19T17:05:00Z"
+}

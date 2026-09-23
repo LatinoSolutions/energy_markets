@@ -1,0 +1,84 @@
+{
+  "_kind": "NEW (authored by ST-08.4, rev3). Cross-packet version binding for this consolidated dossier.",
+  "packetId": "WP-IMP-08-ST-4-v1.1",
+  "subtaskId": "ST-08.4",
+  "parentImp": "IMP-08",
+  "boundaryType": "current-accepted-version-index",
+  "currentAcceptedVersion": {
+    "description": "The dossier now indexes the current accepted IMP-08 synthetic version, which supersedes the earlier ST-08.3 snapshot.",
+    "subtask": "ST-08.5",
+    "issue": { "identifier": "LAT-195", "id": "2a89265c-3143-4e1f-9071-f03fa95e81ea" },
+    "nativeApproval": {
+      "decisionId": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+      "outcome": "approved",
+      "completedAt": "2026-09-21T16:00:28Z",
+      "reviewStageId": "b7cc671c-59ca-4d57-8858-521949b96afb",
+      "stageParticipantAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "independentReviewRoute": "independent Sol High review. Authoritative source: LAT-195 approval comment 457cce45-8d57-4915-9968-95a11fc640b4 (author agent 2b6bf987, 2026-09-21T16:00:28.732Z), which states the Tech Lead participant ran as gpt-5.6-sol with modelReasoningEffort=high and OA2 CODEX_HOME. Archived at native-reviews/LAT-195--approval-comment.md.",
+      "recordedIn": "LAT-195 executionState.lastDecisionId"
+    },
+    "contentHashReportedByST085": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "aggregateAlgorithmA": "96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e",
+    "aggregateAlgorithmNote": "ST-08.5 reports its hash with a sha256sum-style line convention (algorithm C, 'hash  path'); algorithm A is sorted 'path\\nhash\\n'. Both describe the same accepted bytes.",
+    "receipt": "operations/receipts/IMP-08-ST-5.json",
+    "receiptSha256": "ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71",
+    "manifest": "operations/audit/IMP-08/ST-08.5/manifest.json",
+    "manifestSha256": "3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209",
+    "changedFiles": {
+      "src/economic-calculation/bhv.mjs": "4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf",
+      "test/economic-calculation/bhv.test.mjs": "b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7"
+    },
+    "payloadPaths": ["payload/accepted/code/**", "payload/accepted/st-08.5/**", "payload/accepted/receipt/IMP-08-ST-5.json"]
+  },
+  "priorAcceptedVersions": [
+    {
+      "subtask": "ST-08.3",
+      "aggregateAlgorithmA": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+      "nativeDecision": "7af7ec2f-f63c-4785-a447-219620ab5e78",
+      "status": "superseded by ST-08.5",
+      "payloadPath": "payload/history/st-08.3/**"
+    },
+    {
+      "subtask": "ST-08.2",
+      "acceptedAggregateAlgorithmA": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "sourceOfTruth": "operations/receipts/IMP-08-ST-2.json resultingVersion.contentHash (recomputed from its nine artifactHashes)",
+      "status": "superseded by ST-08.3",
+      "payloadPath": "payload/history/st-08.2/**"
+    },
+    {
+      "subtask": "ST-08.1",
+      "resultingContentHash": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f",
+      "status": "accepted oracle (unchanged)",
+      "payloadPath": "payload/history/oracle/**"
+    }
+  ],
+  "verifierNotes": {
+    "st08_3LiveVerifier": "operations/audit/IMP-08/ST-08.3/verify-delivery.mjs intentionally exits 1 ('manifest content hash is stale') because its manifest pins the pre-ST-08.5 reviewed bytes; the historical bytes are preserved untouched and recorded in verification.txt.",
+    "st08_5Verifier": "operations/audit/IMP-08/ST-08.5/verify-delivery.mjs PASS: artifacts=11, protectedHashes=9 unchanged, semanticHash=bc0ce6ad…4f661528.",
+    "st08_4Verifier": "operations/audit/IMP-08/ST-08.4/verify-st4.mjs verifies the current accepted aggregate, the frozen ST-08.3 history, the ST-08.2 accepted-hash role, the disclosed ST-08.3 baseline-reference mismatch, and the payload/archive integrity."
+  },
+  "historicalLineageDefects": [
+    {
+      "id": "ST-08.2-hash-role",
+      "status": "disclosed residual for Command assessment; predecessor bytes unchanged",
+      "acceptedST082ContentHash": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "acceptedSource": "operations/receipts/IMP-08-ST-2.json resultingVersion.contentHash; recomputation from its nine artifactHashes confirms this value",
+      "frozenST083BaselineReference": "8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "frozenST083BaselineReferenceSource": "operations/audit/IMP-08/ST-08.3/manifest.json baselineContentHash; IMP-08-ST-3.json startingBaseline; baseline.json startingReviewedContentHash",
+      "explanation": "ST-08.3's baseline reference records …df8b1b… whereas the accepted ST-08.2 content hash computed from its own artifact hashes is …df1b1b…. This dossier records the accepted ST-08.2 hash as …df1b1b… and treats …df8b1b… strictly as ST-08.3's historical baseline-reference value. The predecessor bytes are preserved unmodified; the mismatch is a known historical lineage defect and is NOT a semantic defect in the accepted evidence.",
+      "verifierAssertion": "verify-st4.mjs asserts acceptedST082 == …df1b1b… (recomputed from the ST-08.2 receipt) and that the ST-08.3 baseline reference is …df8b1b…, so the two roles cannot be conflated again."
+    }
+  ],
+  "parentGate": "The IMP-08 parent gate under SPEC §20.2.10 consumes this current accepted version; ST accepted is not IMP accepted and no IMP_RECEIPT is produced here. If a later packet again changes the accepted bytes, this dossier must be re-consolidated.",
+  "protectedPinsUnchanged": {
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/bootstrap/baseline-manifest.json": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "operations/receipts/IMP-08-ST-1.json": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+    "operations/receipts/IMP-08-ST-2.json": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d",
+    "operations/receipts/IMP-08-ST-3.json": "4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110",
+    "operations/audit/IMP-08/ST-08.3/manifest.json": "1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e",
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec",
+    "operations/audit/IMP-08/fixture-oracle/independent-calculations.md": "58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9"
+  }
+}

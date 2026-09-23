@@ -1,0 +1,41 @@
+{
+  "observedAtUtc": "2026-09-19T11:36:24.707157+00:00",
+  "host": "brunode",
+  "cwd": "/srv/hot-data/energy-markets/app",
+  "hashes": {
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/audit/IMP-25/capability-mapping.md": "37c5dfc444e8459ce48ac1fbb50022725c3c53556d126265264e3d75f9c91068",
+    "operations/audit/IMP-25/evidence.json": "1294e71387d5bb6b5fb79629fd0e8738343f6ef4dbc2f8f71ae14e5b8c8970c8",
+    "operations/receipts/IMP-25-ST-1.json": "f2eaa5cbb092184ab5b555c794354362f539b86c16272da4997074a966ce20c4",
+    "operations/audit/IMP-25/tests-tap.txt": "7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a",
+    "/home/op/.paperclip/integrations/office-continuity/packet.mjs": "dbb771b3f52ad12797cb5d9e3866e0a2ca8441f3c64f8dc0729c77f9ed5cb6e5",
+    "/home/op/.paperclip/integrations/office-continuity/project-gate.mjs": "18603a44fe0dbac0a704120b5d44403f757383173350fd41c9a6ba61030de4da",
+    "/home/op/.paperclip/integrations/office-continuity/command-question.mjs": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c",
+    "/home/op/.paperclip/integrations/office-continuity/guards.mjs": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b",
+    "/home/op/.paperclip/integrations/office-continuity/queue-snapshot.mjs": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f",
+    "/home/op/.paperclip/integrations/office-continuity/autonomy.mjs": "84df72e4f4810c022e86a201b4f414a8450b4e76bb0db55fe69529450b9572d1",
+    "/home/op/.paperclip/integrations/office-continuity/controller.mjs": "2378f2e15e53c049320a01282ca6c301d04cd234c4b111e82835d978847d1ce8"
+  },
+  "allMatchAcceptedReview": true,
+  "projectsExecution": [
+    {
+      "projectId": "69d82bcd-56b4-4cb8-831e-d5a54b9859d1",
+      "name": "Alexandria",
+      "state": "off",
+      "pausedAt": "2026-09-19T08:58:23.200Z",
+      "pauseReason": "manual"
+    },
+    {
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "name": "Energy Markets",
+      "state": "on",
+      "pausedAt": null,
+      "pauseReason": null
+    }
+  ],
+  "timer": {
+    "exitCode": 0,
+    "stdout": "ActiveState=inactive\nSubState=dead\nUnitFileState=disabled\n",
+    "stderr": ""
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "recordedAt": "2026-09-19T09:52:31.487Z",
+  "verifiedNativeDocs": [
+    "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+    "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+    "b4f03ad2-e300-4b21-8338-0b04fe4bd389"
+  ],
+  "controllerHead": "3a02669",
+  "controllerWorkingTreeClean": true,
+  "timer": "ActiveState=inactive\nSubState=dead\nUnitFileState=disabled",
+  "policyModified": false,
+  "acceptanceGatePassed": false,
+  "continuousMonitoring": false
+}

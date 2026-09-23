@@ -1,0 +1,41 @@
+{
+  "runId": "b70ccdaa-8f4f-42b4-bbcb-04caf972af21",
+  "host": "brunode",
+  "cwd": "/srv/hot-data/energy-markets/app",
+  "sourceTestVersion": "274bec7430ffc9e90c6898eacd55a55ad5f0e1a797656ce88db53ef413b0d8d2",
+  "stReceiptSha256": "148a7b45bddabe7d98fdbaa47113355e522d1ee53a07f01394936cb3391cb225",
+  "acceptedImp01HashesMatch": true,
+  "specHashMatch": true,
+  "tests": [
+    {
+      "command": "/opt/node/bin/node --test test/role-evaluation/contract.test.mjs test/role-evaluation/outcomes.test.mjs test/role-evaluation/registry.test.mjs test/role-evaluation/roles.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-0.txt",
+      "sha256": "47063f8035cbf2bb46f0ed2259e930980f07484ec21f302dc4f879d1aea9faef"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/economic-bundle.test.mjs test/contracts/identities.test.mjs test/contracts/namespaces.test.mjs test/contracts/states.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-1.txt",
+      "sha256": "b72652f1bd22d1eb4b747ad490b4b027143beedff71d9b5c60931285bc7be016"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-2.txt",
+      "sha256": "d86edacd882f0c266b05b3dd948fa77bac050279944613fff4161ab2d4dcb592"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-protocol-identity-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-3.txt",
+      "sha256": "44656fcde8dc84b35125d2715314edbd3f73c556c547ded0d1a7c744e52872ec"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/parent-acceptance-b70ccdaa-8f4f-42b4-bbcb-04caf972af21/check-4.txt",
+      "sha256": "ef8275f859a9675bb087d95e52d5bbaa66a891ddca227a31b9e554fcdb250b48"
+    }
+  ]
+}

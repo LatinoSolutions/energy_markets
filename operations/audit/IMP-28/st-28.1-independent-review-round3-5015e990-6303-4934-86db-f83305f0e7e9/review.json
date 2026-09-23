@@ -1,0 +1,104 @@
+{
+  "schema": "INDEPENDENT_REVIEW_v1",
+  "subtask": "ST-28.1",
+  "packet": "WP-IMP-28-ST-1-v1.1",
+  "parentImp": "IMP-28",
+  "workIssue": "LAT-114",
+  "semanticParentIssue": "LAT-113",
+  "programRoot": "LAT-91",
+  "round": 3,
+  "maxRounds": 3,
+  "reviewer": "0af74a08-cb39-4cf5-a94f-117b242ea08c (Independent Reviewer / Command Failover)",
+  "author": "2f30b8dd-306b-4735-a135-f8d3127c8c0e (Emergency Cheap Production Worker)",
+  "reviewerRunId": "5015e990-6303-4934-86db-f83305f0e7e9",
+  "reviewedTarget": "src/role-evaluation/**, test/role-evaluation/**, operations/audit/IMP-28/**, operations/receipts/IMP-28-ST-1.json",
+  "outcome": "approved",
+  "outcomeSummary": "R2-B (bloqueante) y R2-C1 (recomendado) quedan corregidos y verificados de forma independiente con un probe nuevo escrito por el revisor, no con los tests del autor. La corrección de R2-B es general, no un caso especial: la clave de dedup distingue content-hashes tanto en componentVersion como en protocolVersion, y versionKey() no puede colisionar con una versión textual porque isVersionLike sólo admite semver como cadena. Las dos suites están en verde (36/36 y 67/67), los probes de las rondas 1 y 2 rerun a 0 fallos, el manifiesto reproduce sus 30 entradas en disco con 0 discrepancias y 0 escrituras fuera de allowed_paths, y el ST_RECEIPT valida contra los validadores aceptados de IMP-01. Los seis criterios del packet se dan por satisfechos. Se aprueba la etapa 1 y pasa a la etapa 2 (Tech Lead 2b6bf987) con un residuo NO bloqueante registrado abajo (R3-E), que el revisor deja explícito en lugar de convertirlo en una tercera devolución.",
+  "verificationPerformed": [
+    {
+      "check": "identidad de entorno y de entradas",
+      "command": "hostname; pwd; sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "result": "brunode, /srv/hot-data/energy-markets/app. SPEC=86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c e IMP-01=78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c coinciden exactamente con el packet."
+    },
+    {
+      "check": "suite del framework, ejecutada por el revisor",
+      "command": "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+      "result": "exit 0, tests 36, pass 36, fail 0. Incluye los dos tests de regresión nuevos de la ronda 2 («R2-B: versiones content-hash distintas no colapsan priorFindings» y «R2-C1: registrar y versionar no congelan objetos de versión del llamante»)."
+    },
+    {
+      "check": "contratos aceptados preservados",
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "result": "exit 0, tests 67, pass 67, fail 0. IMP-01 read-only intacto."
+    },
+    {
+      "check": "probe adversarial nuevo de la ronda 3, escrito por el revisor",
+      "command": "/opt/node/bin/node operations/audit/IMP-28/st-28.1-independent-review-round3-5015e990-6303-4934-86db-f83305f0e7e9/reviewer-probe-round3.mjs",
+      "result": "13 comprobaciones, 10 PASS y 3 FAIL. Los 3 FAIL son R3-E1/E2/E3, el residuo no bloqueante descrito abajo; R2-B y R2-C1 pasan (R3-A, R3-B, R3-C, R3-D1, R3-D2) y las propiedades nucleares del packet no regresan (R3-F1..F4)."
+    },
+    {
+      "check": "reejecución del probe independiente de la ronda 1",
+      "command": "/opt/node/bin/node operations/audit/IMP-28/st-28.1-independent-review-round1-fdc48a18-a814-4351-abdd-6b753098c9dd/reviewer-probe.mjs",
+      "result": "0 comprobaciones fallidas. A1, A2, B1 y C1 siguen corregidos; D1-D8 siguen pasando."
+    },
+    {
+      "check": "reejecución del probe independiente de la ronda 2 (lógica intacta, imports reescritos a rutas absolutas por el bug de profundidad relativa del propio probe)",
+      "command": "/opt/node/bin/node $PAPERCLIP_RUN_SCRATCH_DIR/r3/p2.mjs",
+      "result": "0 comprobaciones fallidas. R2-A, R2-B, R2-B-control, R2-C1, R2-C2 y R2-D pasan. Salvedad: el PASS de R2-C2 es vacío, ver R3-E."
+    },
+    {
+      "check": "manifiesto de write set contra disco",
+      "command": "recomputación sha256 de changedFileHashes de operations/audit/IMP-28/write-set-manifest.json",
+      "result": "30 entradas, 30 comprobadas, 0 discrepancias. writesOutsideAllowedPaths=0, outsideAllowedPaths=[], allocatedPathsPreexistingAtStart=[]. Ninguna entrada del manifiesto cae fuera de allowed_paths."
+    },
+    {
+      "check": "ausencia de escrituras fuera de allowed_paths",
+      "command": "find src test operations docs -type f -newermt '2026-09-19 16:20' excluyendo los allowed_paths del packet",
+      "result": "Sólo artefactos de IMP-08 e IMP-26/ST-26.2, atribuibles a los runs concurrentes del workspace compartido (LAT-128/LAT-141). Ninguna escritura fuera de allowed_paths atribuible a ST-28.1."
+    },
+    {
+      "check": "ST_RECEIPT contra los validadores aceptados de IMP-01",
+      "command": "validateStReceipt(operations/receipts/IMP-28-ST-1.json)",
+      "result": "ok=true, 0 errores. Identidad packet/subtask/parent/proyecto/SPEC completa, resultingVersion content-hash declarada con su scope, ruta real del worker declarada, unresolvedFacts honestos (DEP-28 sigue abierto; ninguna admisión de rol real existe ni se reclama), y recommendedStatus explícito en que el autor no se autoaprueba."
+    }
+  ],
+  "findings": [
+    {
+      "id": "R3-E",
+      "severity": "non-blocking observation (no se devuelve; registrada para la etapa 2 y como posible seguimiento)",
+      "criterion": "ninguno de los seis criterios numerados. Afecta a la higiene de aislamiento que el propio test del autor anuncia.",
+      "category": "residuo de la misma clase que C (ronda 1) y R2-C1 (ronda 2): el registro congela objetos propiedad del llamante alcanzables por deepFreeze",
+      "location": "src/role-evaluation/registry.mjs:238-247 (markEvaluationReady: readiness.strategyAdmissionGate en la línea 244 y prerequisitesSatisfied en la 242) y src/role-evaluation/registry.mjs:194 (registerComponent: authorityRequested)",
+      "claim": "Tras C y R2-C1, el registro aísla los objetos del llamante: clona el contrato, la versión y la evidencia antes de congelar.",
+      "refutation": "El aislamiento se aplicó a las tres superficies señaladas, no a las restantes. markEvaluationReady guarda `strategyAdmissionGate: context.strategyAdmissionGate ?? null` por referencia dentro de un deepFreeze(readiness), y copia `prerequisitesSatisfied` y `authorityRequested` con spread superficial, de modo que sus elementos-objeto siguen siendo los del llamante. Observado con el probe de la ronda 3: R3-E1 gate §8.7 del llamante Object.isFrozen === true; R3-E2 elemento-objeto de authorityRequested Object.isFrozen === true; R3-E3 elemento-objeto de prerequisitesSatisfied Object.isFrozen === true. El control R3-E0 confirma que el escenario se ejecuta de verdad (registerComponent ok y markEvaluationReady ok).",
+      "reviewerSelfCorrection": "Este residuo no se le devolvió al autor en la ronda 2 por un defecto del probe del revisor, no por omisión del autor: la comprobación R2-C2 de la ronda 2 construyó la evaluación con roleClass \"strategy_evidence\" en minúsculas, que no es una de las cuatro clases de §11.6.1, así que registerComponent falló, markEvaluationReady nunca llegó a guardar el gate y la comprobación pasó de forma vacía con frozen=false. El PASS de R2-C2 en el rerun de la ronda 2 es igualmente vacío. La responsabilidad del hallazgo tardío es del revisor.",
+      "whyNotBlocking": "No incumple ningún criterio numerado del packet, igual que C y R2-C1, que ya se clasificaron como recomendados. No altera la identidad componente/rol/protocolo/versión, no pierde hallazgos previos, no concede autoridad, no confunde outcomes entre roles y no afecta a la inmutabilidad. Es un efecto colateral sobre objetos del llamante. Devolverlo sería la tercera devolución del packet y escalaría al Command por un asunto recomendado que el propio revisor debió detectar en la ronda 2; el criterio aplicado es no inflar rondas con hallazgos de severidad recomendada detectados tarde por fallo del revisor.",
+      "suggestedFollowUp": "Clonar el gate y los elementos de las listas al almacenarlos (por ejemplo structuredClone sobre readiness y sobre authorityRequested), y extender el test de aislamiento existente para cubrir gate §8.7, authorityRequested y prerequisitesSatisfied. Cabe como tarea menor de higiene en un packet posterior de IMP-28, no como corrección de ST-28.1.",
+      "withinAllowedPaths": true
+    }
+  ],
+  "upheld": [
+    "R2-B corregido y verificado independientemente: la clave de dedup de priorFindings usa versionKey() para componentVersion y protocolVersion. R3-A reproduce desde cero el escenario que fallaba —dos HOLD en versiones content-hash distintas— y ahora sobreviven los dos (priorFindings=2, refs SYN-HOLD-V1 y SYN-HOLD-V2).",
+    "La corrección de R2-B es general, no un parche del caso reportado: R3-B muestra que dos REJECT con content-hashes distintos de protocolVersion tampoco colapsan, y R3-C descarta la colisión inversa (isVersionLike no admite una cadena con forma 'hash:…', así que los prefijos version:/hash: no pueden chocar).",
+    "R2-C1 corregido y verificado: registerComponent toma componentVersion de la copia structuredClone, y createNewEvaluationVersion toma la del candidate ya validado. R3-D1 y R3-D2 confirman que ni el objeto de versión inicial ni newVersion del llamante quedan congelados.",
+    "Sin regresión en lo aceptado de rondas anteriores: R3-F1 ADMIT en un rol no admite ni altera otro rol del mismo componente; R3-F2 Strategy/Evidence no alcanza readiness sin el gate §8.7 aceptado; R3-F3 ni con ADMIT y validación separada aceptada el framework concede autoridad productiva (NO_PRODUCTIVE_AUTHORITY, hasProductiveAuthority=false); R3-F4 el outcome de una versión resuelta es inmutable. Los probes completos de las rondas 1 y 2 rerun a 0 fallos.",
+    "Criterio 1: las cuatro clases de §11.6.1 y los catorce campos semánticos de §11.6.2 más la identidad exacta componente/rol/protocolo/versión quedan exigidos por el contrato; las listas obligatorias con minItems 0 exigen array explícito, de modo que la ausencia total sigue siendo contenido faltante.",
+    "Criterio 2: JEV no recibe clasificación por defecto (sin roleClass declarado el registro devuelve CONTRACT_INCOMPLETE) y los outcomes por rol son independientes, con role_admission separado de research_verdict.",
+    "Criterio 3: la autoridad solicitada y la concedida son campos distintos, la concedida arranca vacía y nunca deriva en autoridad productiva; Strategy/Evidence exige el gate externo IMP-27/§8.7 por referencia aceptada, sin importar su código; Execution/Governance exige la validación separada de §§16-18 y aun así no obtiene autoridad.",
+    "Criterio 4: costLatencyBurden admite un desconocido declarado con razón pero no su omisión ni un cero implícito; overlapAssessment, reproducibilityRequirements, evidenceRequiredForAdmission y removalRollbackPath son obligatorios y el camino de retirada sobrevive al cambio de versión; PROCUREMENT_EDGE_NOT_ALLOWED impide que un rol de ingeniería etiquete su valor como procurement edge; sin ningún rol ADMIT la integración queda en NO_QUALIFYING_ROLE y eligible=false.",
+    "Criterio 5: la suite cubre protocolo incompleto, evidencia y gates ausentes, separación por rol, ausencia de autoridad automática y de rol por defecto para JEV, e inmutabilidad de outcomes y versiones previas. Los tests son explícitamente estructurales sobre fixtures sintéticas y no cierran DEP-28 ni admiten ningún componente.",
+    "Criterio 6: el ST_RECEIPT §20.2.8 valida con ok=true contra los validadores aceptados de IMP-01, declara la ruta real del worker, preserva los hashes de los prerequisitos aceptados, es honesto sobre tests y hechos no resueltos y prueba 0 escrituras fuera de allowed_paths con un manifiesto que reproduce en disco."
+  ],
+  "notAssessed": [
+    "Valor empírico, capacidad real o admisión de cualquier componente externo: fuera del alcance del packet y explícitamente no evaluado por este framework.",
+    "DEP-28 factual (capacidad/valor y admisión real de rol): permanece abierto y no lo cierra ni esta ST ni esta revisión.",
+    "Código de IMP-27: referenciado sólo como gate externo por referencia aceptada; no se importó ni se revisó aquí.",
+    "Aceptación del padre IMP-28: corresponde a la §20.2.10 del Command, separada de las dos etapas de revisión de esta ST."
+  ],
+  "reviewLimits": [
+    "Revisión estructural sobre fixtures sintéticas; no se ejecutó ningún comparador real ni se tocó estado de oficina.",
+    "El workspace estuvo compartido con runs concurrentes (LAT-128/LAT-141); los ficheros de IMP-08/IMP-26 observados fuera de allowed_paths se atribuyen a ese trabajo, no a ST-28.1.",
+    "El residuo R3-E se detectó en la ronda 3 por un defecto del probe del revisor en la ronda 2, no por ocultación del autor."
+  ],
+  "nextAction": "Etapa 1 aprobada. Pasa a la etapa 2, Tech Lead 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6, con R3-E sobre la mesa como observación no bloqueante. La aceptación del padre IMP-28 (§20.2.10) sigue siendo separada y no la concede esta aprobación.",
+  "reviewedAtUtc": "2026-09-19T19:40:00Z"
+}

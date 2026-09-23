@@ -1,0 +1,60 @@
+{
+  "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+  "identifier": "LAT-114",
+  "status": "done",
+  "description": "WORK-PACKET v1\nclass: routine\nobjective: Materializar el registro y las validaciones de evaluaci\u00f3n por componente/rol, sin evaluar ni integrar componentes reales.\nscope: Packet=WP-IMP-28-ST-1-v1.1; Subtask=ST-28.1; semantic Parent=IMP-28 [parent acceptance](/LAT/issues/LAT-113); Project=Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a; native root=[LAT-91](/LAT/issues/LAT-91); workspace=/srv/hot-data/energy-markets/app on brunode.\nSPEC ID=PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md; version=1.1; SHA256=86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c. Source Sections: \u00a7\u00a70,3,11.6,8.7,10\u201312,16\u201318,20.2,25.1/25.2 IMP-28; read these plus \u00a7\u00a720.2.7\u201320.2.10 before implementation. Routine: contrato estructural frozen por rol y aislamiento de outcomes; sin comparaci\u00f3n estad\u00edstica, nuevos permisos, integraci\u00f3n ni cambio de oficina.\nFramework instance v1.1 only per \u00a725.2.1. Read-only reuse of accepted src/contracts; do not import unfinished IMP-27 code or edit a shared index. Implement dependency-free Node registry/validators for four role classes and all \u00a711.6.2 fields, protocol/version/evidence links, independent outcomes ADMIT/HOLD/REJECT and removal/rollback references. Validate structural requirements without pretending to determine empirical value or grant authority. The Strategy/Evidence evaluation prerequisite references accepted IMP-27 framework as an external dependency at the future actual evaluation boundary, not a prerequisite for this framework. No JEV launch, capability evaluation, new agent, research comparator execution, tool integration or authority change. Fixtures are synthetic and isolated from real office state.\nInputs: canonical SPEC; accepted IMP-01 [receipt](/LAT/issues/LAT-92#document-imp-receipt), local operations/receipts/IMP-01-IMP_RECEIPT.json SHA256 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c; accepted src/contracts read-only. Baseline=operations/bootstrap/baseline-manifest.json SHA256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 plus accepted IMP-01 content version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c. Capture actual starting hashes before writing. Allocated output paths did not exist at decomposition; if pre-existing at start preserve them and resolve ownership.\nFrozen decisions/MUST NOT CHANGE: P1\u2013P7, D1\u2013D5, canonical names/namespaces, Mission/product separation, PIT, B/H/V, reward, Strategy identity, BUY/WAIT/sizing separation, authority/governance, office policy. Expected outputs: REQUIRES_AUDIT/EVIDENCE=none for framework; PRODUCES_EVIDENCE=technical framework tests. DEP-28 factual capability/value and real role admission remain untouched.\nParent acceptance context: | IMP-28 | Materializar evaluaci\u00f3n por rol de componentes externos; ejecutar role-discovery/comparaci\u00f3n de un componente s\u00f3lo cuando se encargue. | \u00a711.6, identidad/versiones; capacidades y comparadores reales para el rol estudiado, con acceso aplicable | Registro por componente/rol, hypothesis/comparator/boundary, evidencia reproducible, ADMIT/HOLD/REJECT cuando proceda y retirada/rollback | JEV sin clasificaci\u00f3n previa; cuatro clases disponibles y outcomes independientes; rol Strategy/Evidence pasa por \u00a78.7; engineering se mide operacionalmente sin reclamar edge; execution/governance recibe validaci\u00f3n separada; ning\u00fan rol gana autoridad durante discovery; sin valor suficiente en ning\u00fan rol, componente fuera. | No S6 por defecto, integraci\u00f3n obligatoria, duplicaci\u00f3n Paperclip sin an\u00e1lisis de valor, auto-admisi\u00f3n del componente ni redefinici\u00f3n frozen. | \u00a7\u00a711.6,8.7 cuando aplique,20.2; D18 D2 | ST completion is only evidence for that full gate; no parent scope/criterion reduction. Framework acceptance never accepts future candidate/role evaluation. A partial factual audit cannot assert unavailable facts or full campaign acceptance.\nallowed_paths: src/role-evaluation/**, test/role-evaluation/**, operations/audit/IMP-28/**, operations/receipts/IMP-28-ST-1.json\nprohibited: No commits/push, deploy, services, trading/procurement, purchases, quotas/budgets/reserves/providers/routing/autonomy changes, branches/worktrees, agents/subagents, package installs or SPEC edits. Canonical docs, accepted IMP-01 artifacts/receipts, reference material, Alexandria and both shared office integration directories are read-only. Timer stays OFF. Preserve dirty files and all accepted evidence; only allocated write paths may change.\ndependencies: Project ON; REQUIRES=separately accepted IMP-01 in exact scoped receipt above, verified current SPEC. No other consumed prerequisite for this declared initial audit/framework scope under \u00a725.2. REQUIRES_AUDIT=none; REQUIRES_EVIDENCE=none beyond accepted IMP-01. Own RESOLVES_AUDIT/PRODUCES_EVIDENCE remain outputs, never start gates. Native blocker links accepted [IMP-01](/LAT/issues/LAT-92). Read continuity/resource advisory at execution; routine author must use an OPEN existing DeepSeek lane. No assignments in this refill.\nacceptance:\n1. Record all four role classes and all \u00a711.6.2 semantic fields; exact component/role/protocol/version identity and predeclared comparator/value hypothesis are required at evaluation readiness.\n2. JEV receives no default classification; role outcomes are independent and cannot grant admission to another role or confuse research verdicts.\n3. Initial evaluation has no productive authority; requested authority is distinct from granted authority. Strategy/Evidence cannot claim evaluation readiness without its applicable accepted IMP-27/\u00a78.7 gate; execution/governance requires separate authority validation before real actions.\n4. Preserve cost/latency/burden and evidence unknowns, overlap assessment, reproducibility and removal/rollback path. Engineering value cannot be labeled procurement edge; no qualifying role means no integration.\n5. Tests cover incomplete protocol, absent evidence/gates, per-role separation, no automatic authority/default JEV role and immutable prior outcomes/versions. Framework tests close neither factual DEP-28 nor admission of any component.\n6. Produce complete \u00a720.2.8 ST_RECEIPT with honest tests/evidence, scope/version, failures and unresolved facts; preserve accepted prerequisite hashes and prove no writes outside allowed_paths.\ntests: Verify hostname and pwd match brunode and /srv/hot-data/energy-markets/app. sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json ; expected exact hashes above. /opt/node/bin/node --test test/role-evaluation/*.test.mjs ; expected exit 0, all contract/boundary tests pass. /opt/node/bin/node --test test/contracts/*.test.mjs ; expected exit 0, accepted contracts preserved. Store full actual stdout/stderr and exit codes under operations/audit/IMP-28/; no fabricated passing logs.\nevidence: Source/locator and input hashes, before/after write-set manifest, changed-file hashes, exact test commands/outputs/exit codes, positive/negative boundary cases and explicit synthetic labels. Upload deliverables to this native issue and attach reviewable artifacts/documents; local paths alone are insufficient. No secrets in evidence. Independent reviewers inspect source facts and validate executable deliverables themselves.\ndone: Worker recommends completion only when ST criteria pass; request the existing native review path. Native child completion after both reviews is ST accepted only. Parent remains pending separate Command \u00a720.2.10 acceptance/IMP_RECEIPT; factual gaps block only their dependent branch.\nhandoff: Write operations/receipts/IMP-28-ST-1.json containing packet/subtask/parent SPEC/project identity; actual worker/model route; starting baseline; resulting content-hash version; inputs actually used; changed artifacts; result; tests run/results; evidence produced; assumptions; deviations; dependency findings; failures/retries; recommended status. Add continuity-checkpoint issue document with packet id, original criteria, current state, completed actions, changed files, commands/results, diff summary, pending work, blocker, exact next action, assumptions, architecture decision needed and review state. Record concise changes/results/risks/next action comment.\nno_guess: Do not infer units, source rights, market data, evidence, missing fees, thresholds or authority. Unknown factual input is an audit finding with owner/retrieval action, not a new architectural decision. A true frozen contradiction stops only this branch and produces \u00a720.2.12 SPEC_CHANGE_REQUEST with exact evidence. A necessary edit outside allowed_paths returns a bounded technical scope finding to Command; do not silently broaden scope.\nreview: Native stage 1 Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c; native stage 2 Tech Lead 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6. Author must not approve either review. Read full issue, native executionPolicy/executionState, all requested rounds and evidence. Independently validate; changes_requested for any unmet criterion/planned round, approved only after all resolved. Maximum 3 rounds, escalate to Command on third return. Separate parent acceptance follows both stages; no ad-hoc state repairs, no self-approval.\n",
+  "executionPolicy": {
+    "mode": "normal",
+    "stages": [
+      {
+        "id": "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+        "type": "review",
+        "participants": [
+          {
+            "id": "6fb0dbb1-0f52-403b-a663-2a89d39b07c9",
+            "type": "agent",
+            "userId": null,
+            "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+          }
+        ],
+        "approvalsNeeded": 1
+      },
+      {
+        "id": "94306103-7967-47a7-9ca4-78c860a19dc7",
+        "type": "review",
+        "participants": [
+          {
+            "id": "7e1b26dc-e74a-4a3d-926d-db7216b96969",
+            "type": "agent",
+            "userId": null,
+            "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+          }
+        ],
+        "approvalsNeeded": 1
+      }
+    ],
+    "commentRequired": true
+  },
+  "executionState": {
+    "status": "completed",
+    "monitor": null,
+    "reviewRequest": null,
+    "currentStageId": null,
+    "lastDecisionId": "1911bf58-3070-4278-b41d-c22398987e1f",
+    "returnAssignee": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+    },
+    "currentStageType": null,
+    "completedStageIds": [
+      "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+      "94306103-7967-47a7-9ca4-78c860a19dc7"
+    ],
+    "currentStageIndex": null,
+    "currentParticipant": null,
+    "lastDecisionOutcome": "approved",
+    "changesRequestedCount": 0
+  },
+  "blockedBy": []
+}

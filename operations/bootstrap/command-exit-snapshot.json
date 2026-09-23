@@ -1,0 +1,251 @@
+{
+  "observedAt": "2026-09-19T09:26:39.295Z",
+  "projects": [
+    {
+      "projectId": "69d82bcd-56b4-4cb8-831e-d5a54b9859d1",
+      "name": "Alexandria",
+      "state": "off",
+      "pausedAt": "2026-09-19T08:58:23.200Z",
+      "pauseReason": "manual"
+    },
+    {
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "name": "Energy Markets",
+      "state": "on",
+      "pausedAt": null,
+      "pauseReason": null
+    }
+  ],
+  "issues": [
+    {
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "identifier": "LAT-91",
+      "title": "Procurement Research v1.1 — ejecución del grafo canónico",
+      "status": "backlog",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": null,
+      "assigneeAgentId": null,
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": null,
+      "executionState": null,
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "identifier": "LAT-92",
+      "title": "IMP-01 — Materializar contratos de identidad/versiones y namespaces.",
+      "status": "backlog",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "assigneeAgentId": null,
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": null,
+      "executionState": null,
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+      "identifier": "LAT-93",
+      "title": "IMP-25 — Auditar Paperclip existente y mapear su workflow al handoff canónico, preservando la oficina.",
+      "status": "backlog",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "assigneeAgentId": null,
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": null,
+      "executionState": null,
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+      "identifier": "LAT-94",
+      "title": "IMP-26 — Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas.",
+      "status": "backlog",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "assigneeAgentId": null,
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": null,
+      "executionState": null,
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "ca7c3c88-807e-4616-ac00-4249f6870307",
+      "identifier": "LAT-95",
+      "title": "[READY] IMP-25 / ST-25.1 — audit factual Paperclip",
+      "status": "in_progress",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": {
+        "mode": "normal",
+        "stages": [
+          {
+            "id": "a9ec8e65-9233-412e-8b68-560252740e30",
+            "type": "review",
+            "participants": [
+              {
+                "id": "d77664d8-4122-4eba-9874-6af284b78cf5",
+                "type": "agent",
+                "userId": null,
+                "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+              }
+            ],
+            "approvalsNeeded": 1
+          }
+        ],
+        "commentRequired": true,
+        "maxReviewRounds": 3
+      },
+      "executionState": {
+        "status": "pending",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": "a9ec8e65-9233-412e-8b68-560252740e30",
+        "lastDecisionId": null,
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+        },
+        "currentStageType": "review",
+        "completedStageIds": [],
+        "currentStageIndex": 0,
+        "currentParticipant": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+        },
+        "lastDecisionOutcome": null,
+        "changesRequestedCount": 0
+      },
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+      "identifier": "LAT-96",
+      "title": "[READY] IMP-01 / ST-01.1 — contratos de identidad y namespaces",
+      "status": "in_review",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "assigneeAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": {
+        "mode": "normal",
+        "stages": [
+          {
+            "id": "07153d27-ef36-4fb6-912b-95cf85619fae",
+            "type": "review",
+            "participants": [
+              {
+                "id": "9f1e912b-cad3-4ab6-862b-32ca6481bdc4",
+                "type": "agent",
+                "userId": null,
+                "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+              }
+            ],
+            "approvalsNeeded": 1
+          },
+          {
+            "id": "b5a65c08-877c-48c7-af49-c8d2a5c49896",
+            "type": "review",
+            "participants": [
+              {
+                "id": "d4dff064-0871-4e0e-b693-9efa2bc53152",
+                "type": "agent",
+                "userId": null,
+                "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+              }
+            ],
+            "approvalsNeeded": 1
+          }
+        ],
+        "commentRequired": true,
+        "maxReviewRounds": 3
+      },
+      "executionState": {
+        "status": "pending",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": "07153d27-ef36-4fb6-912b-95cf85619fae",
+        "lastDecisionId": null,
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+        },
+        "currentStageType": "review",
+        "completedStageIds": [],
+        "currentStageIndex": 0,
+        "currentParticipant": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+        },
+        "lastDecisionOutcome": null,
+        "changesRequestedCount": 0
+      },
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+      "identifier": "LAT-97",
+      "title": "[WAITING] IMP-26 / ST-26.1 — binding canónico y continuidad por proyecto",
+      "status": "backlog",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "assigneeAgentId": null,
+      "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "executionPolicy": {
+        "mode": "normal",
+        "stages": [
+          {
+            "id": "8295543b-cfca-4708-806b-5126059a6fd9",
+            "type": "review",
+            "participants": [
+              {
+                "id": "263e2a70-089a-40c7-87c9-b7c843dd14ba",
+                "type": "agent",
+                "userId": null,
+                "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+              }
+            ],
+            "approvalsNeeded": 1
+          },
+          {
+            "id": "8610b431-e523-40b6-b6f0-0a91fab940a1",
+            "type": "review",
+            "participants": [
+              {
+                "id": "9b284322-2b48-4c0c-b315-984daf760090",
+                "type": "agent",
+                "userId": null,
+                "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+              }
+            ],
+            "approvalsNeeded": 1
+          }
+        ],
+        "commentRequired": true,
+        "maxReviewRounds": 3
+      },
+      "executionState": null,
+      "activeRecoveryAction": null
+    }
+  ],
+  "runs": [
+    {
+      "id": "2d0fee68-5c00-406d-bc39-2f0ee3fbb5b7",
+      "issueId": "ca7c3c88-807e-4616-ac00-4249f6870307",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "status": "running"
+    },
+    {
+      "id": "f12d65b2-06b9-4892-adfd-9af0b3950041",
+      "issueId": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+      "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+      "status": "running"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+# ST-08.4 verification log (rev5: completed review-history)
+# captured: 2026-09-21T21:35:59Z
+
+$ pwd; hostname; git branch --show-current
+/srv/hot-data/energy-markets/app
+brunode
+main
+
+$ sha256sum <11 pins>
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f  operations/receipts/IMP-08-ST-1.json
+121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d  operations/receipts/IMP-08-ST-2.json
+4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110  operations/receipts/IMP-08-ST-3.json
+1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e  operations/audit/IMP-08/ST-08.3/manifest.json
+33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec  operations/audit/IMP-08/fixture-oracle/fixtures.json
+58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9  operations/audit/IMP-08/fixture-oracle/independent-calculations.md
+ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71  operations/receipts/IMP-08-ST-5.json
+3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209  operations/audit/IMP-08/ST-08.5/manifest.json
+
+$ /opt/node/bin/node operations/audit/IMP-08/ST-08.5/verify-delivery.mjs
+verify-delivery: PASS; artifacts=11; protectedHashes=9 unchanged; semanticHash=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528; receipt=in_review; reviewer=Astra
+exit=0
+
+$ /opt/node/bin/node operations/audit/IMP-08/ST-08.3/verify-delivery.mjs
+verify-delivery: FAIL: manifest content hash is stale
+exit=1
+
+$ /opt/node/bin/node operations/audit/IMP-08/ST-08.4/verify-st4.mjs
+verify-st4: PASS
+pins=9 unchanged
+receiptValidation=true
+receiptLinkage=true
+payloadFiles=86
+payloadAggregateContentHash=a70044d97ab3ac604db4dea55d8c01b69d85e3a611dcfb6d26bcf475babecef5
+currentAcceptedST085_C=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528 A=96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e
+historyST083Files=9 aggregateA=140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2
+dossierArchiveSha256=c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af
+exit=0
+
+$ (cd payload && sha256sum -c SHA256SUMS)
+./native-reviews/LAT-195--st-receipt.md: OK
+./native-reviews/LAT-195--test-evidence.md: OK
+exit=0
+
+$ tar -xzf dossier.tar.gz && (cd payload && sha256sum -c SHA256SUMS)
+./native-reviews/LAT-195--st-receipt.md: OK
+./native-reviews/LAT-195--test-evidence.md: OK
+exit=0
+
+$ # attachment byte-fidelity (rev5)
+$ curl -s .../api/attachments/64b8cc3f-.../content -o dl5.tar.gz
+downloaded sha256=c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af (matches local dossier.tar.gz)
+$ tar -xzf dl5.tar.gz && (cd payload && sha256sum -c SHA256SUMS)
+all 86 payload files OK (exit 0)
+# attachment ids: dossier=64b8cc3f-198f-4503-bd79-c8e59c236ea3 sha256=c264868b…f4af;
+#   matrix=c4795088-d341-42f3-b989-da61ddd07404 sha256=b633f2c7…a3db0;
+#   binding=cbe5ba3d-c916-43db-a499-a3bb9df2f142 sha256=5c0a062c…ec2c9e

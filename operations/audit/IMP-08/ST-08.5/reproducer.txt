@@ -1,0 +1,71 @@
+LAT-194 exact reproducer
+
+Command:
+/opt/node/bin/node --input-type=module - <<'JS'
+import { computeAllInH } from './src/economic-calculation/index.mjs';
+for (const entry of [false, null, 0, undefined, '', {status:'known',value:0}, {status:'unknown',value:0}]) {
+  const label = entry === undefined ? 'undefined' : JSON.stringify(entry);
+  try {
+    const result = computeAllInH({base:100, unit:'EUR/MWh', costs:[entry], costsComplete:true});
+    console.log(label, JSON.stringify(result), 'H_isNaN='+Number.isNaN(result.H));
+  } catch (e) { console.log(label, 'THREW', e.name, e.message); }
+}
+JS
+
+Observed after ST-08.5 correction:
+false {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+null {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+0 {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+undefined {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+"" {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+{"status":"known","value":0} {"H":100,"unit":"EUR/MWh","defined":true,"available":true,"rejected":false,"reason":null} H_isNaN=false
+{"status":"unknown","value":0} {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+
+ST-08.5 malformed-element matrix, all costsComplete=true
+
+Command:
+/opt/node/bin/node --input-type=module - <<'JS'
+import { computeAllInH } from './src/economic-calculation/index.mjs';
+const sparse = [];
+sparse.length = 1;
+const cases = [
+  ['null', [null]],
+  ['undefined', [undefined]],
+  ['sparse-hole', sparse],
+  ['number', [0]],
+  ['string', ['cost']],
+  ['boolean', [false]],
+  ['empty-object', [{}]],
+  ['missing-value', [{status:'known'}]],
+  ['NaN-value', [{status:'known', value:NaN}]],
+  ['Infinity-value', [{status:'known', value:Infinity}]],
+  ['unknown-status', [{status:'unknown', value:2}]],
+  ['invalid-status', [{status:'invalid', value:2}]],
+  ['valid-control', [{status:'known', value:2.5}]],
+];
+for (const [label, costs] of cases) {
+  try {
+    const result = computeAllInH({base:100, unit:'EUR/MWh', costs, costsComplete:true});
+    console.log(label, JSON.stringify(result), 'H_isNaN='+Number.isNaN(result.H));
+  } catch (e) {
+    console.log(label, 'THREW', e.name, e.message);
+  }
+}
+JS
+
+Observed after ST-08.5 correction:
+null {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+undefined {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+sparse-hole {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+number {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+string {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+boolean {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+empty-object {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+missing-value {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+NaN-value {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+Infinity-value {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+unknown-status {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+invalid-status {"H":null,"unit":"EUR/MWh","defined":false,"available":false,"rejected":true,"reason":"Un coste no está reconciliado (unknown), no es un objeto válido o no es finito: H unavailable, nunca sustituido por cero."} H_isNaN=false
+valid-control {"H":102.5,"unit":"EUR/MWh","defined":true,"available":true,"rejected":false,"reason":null} H_isNaN=false
+
+Result: no input in either reproducer threw; all malformed complete elements returned the established unavailable/rejected result; valid known-zero and finite controls remained computable.

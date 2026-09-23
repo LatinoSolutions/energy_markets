@@ -1,0 +1,353 @@
+{
+  "_kind": "PROPOSED_IMP_RECEIPT",
+  "_authority": "NON-AUTHORITATIVE PROPOSAL. Prepared by ST-08.6 for Command/Tech Lead inspection under SPEC v1.1 20.2.10. This is NOT an IMP_RECEIPT. It does not accept IMP-08, does not create canonical state, does not unlock IMP-13/IMP-15 and MUST NOT be copied to operations/receipts/IMP-08-IMP_RECEIPT.json. Only a separate bounded Tech Lead parent gate may author the accepted IMP_RECEIPT.",
+  "_prohibitions": [
+    "No acceptedAtUtc field exists in this file.",
+    "outcome is 'proposed', never 'accepted'.",
+    "claims is empty; no DEP, research PASS, admission or production authority is claimed.",
+    "receiptKind is PROPOSED_IMP_RECEIPT, not IMP_RECEIPT."
+  ],
+  "receiptKind": "PROPOSED_IMP_RECEIPT",
+  "acceptanceStatus": "NOT_ACCEPTED",
+  "outcome": "proposed",
+  "parentAcceptancePending": true,
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "impIdentity": "IMP-08",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "issueId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+  "issueIdentifier": "LAT-91",
+  "scope": "IMP-08 synthetic B/H/V calculation and mission-specific scoring, protocol v1, instance = the same unaccepted synthetic implementation/fixtures instance continued from ST-08.1-ST-08.5.",
+  "version": {
+    "contentHash": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "algorithm": "sha256 (algorithm C, sha256sum-style line convention) over src/economic-calculation/*.mjs, test/economic-calculation/*.test.mjs and docs/economic-calculation.md",
+    "algorithmA_sortedPathNewlineHash": "96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e",
+    "sourceSubtask": "ST-08.5",
+    "sourceIssueIdentifier": "LAT-195"
+  },
+  "objectProtocolVersion": "v1",
+  "requiredStIdentities": [
+    {
+      "identity": {
+        "packetId": "WP-IMP-08-ST-1-v1.1",
+        "subtaskId": "ST-08.1",
+        "parentImp": "IMP-08",
+        "parentIssueIdentifier": "LAT-91",
+        "subtaskIssueIdentifier": "LAT-126",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-08-ST-1.json",
+      "receiptSha256": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+      "resultingVersion": {
+        "contentHash": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f"
+      },
+      "status": "accepted",
+      "nativeApproval": {
+        "decisionId": "473757cf-567b-4cc0-ad43-937825bc068d",
+        "outcome": "approved",
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+      }
+    },
+    {
+      "identity": {
+        "packetId": "WP-IMP-08-ST-2-v1.1",
+        "subtaskId": "ST-08.2",
+        "parentImp": "IMP-08",
+        "parentIssueIdentifier": "LAT-91",
+        "subtaskIssueIdentifier": "LAT-157",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-08-ST-2.json",
+      "receiptSha256": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d",
+      "resultingVersion": {
+        "contentHash": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe"
+      },
+      "status": "accepted",
+      "supersededBy": "ST-08.3",
+      "nativeApproval": {
+        "decisionId": "7641d5d4-de07-434b-8c71-c5c4eb39eae3",
+        "outcome": "approved",
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+      }
+    },
+    {
+      "identity": {
+        "packetId": "WP-IMP-08-ST-3-v1.1",
+        "subtaskId": "ST-08.3",
+        "parentImp": "IMP-08",
+        "parentIssueIdentifier": "LAT-91",
+        "subtaskIssueIdentifier": "LAT-178",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-08-ST-3.json",
+      "receiptSha256": "4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110",
+      "resultingVersion": {
+        "contentHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2"
+      },
+      "status": "accepted",
+      "supersededBy": "ST-08.5",
+      "nativeApproval": {
+        "decisionId": "7af7ec2f-f63c-4785-a447-219620ab5e78",
+        "outcome": "approved",
+        "reviewerAgentId": null,
+        "reviewerUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO"
+      }
+    },
+    {
+      "identity": {
+        "packetId": "WP-IMP-08-ST-4-v1.1",
+        "subtaskId": "ST-08.4",
+        "parentImp": "IMP-08",
+        "parentIssueIdentifier": "LAT-91",
+        "subtaskIssueIdentifier": "LAT-191",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-08-ST-4.json",
+      "receiptSha256": "43fe0b9b3dc145f42efadc64138f86f166cea33671e8e95d1eaa6b1aff889bf4",
+      "resultingVersion": {
+        "contentHash": "a70044d97ab3ac604db4dea55d8c01b69d85e3a611dcfb6d26bcf475babecef5"
+      },
+      "status": "accepted",
+      "nativeApproval": {
+        "decisionId": "c1532101-7871-40a3-99a3-82d38dfd405c",
+        "outcome": "approved",
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+      }
+    },
+    {
+      "identity": {
+        "packetId": "WP-IMP-08-ST-5-v1.1",
+        "subtaskId": "ST-08.5",
+        "parentImp": "IMP-08",
+        "parentIssueIdentifier": "LAT-91",
+        "subtaskIssueIdentifier": "LAT-195",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-08-ST-5.json",
+      "receiptSha256": "ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71",
+      "resultingVersion": {
+        "contentHash": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528"
+      },
+      "status": "accepted",
+      "current": true,
+      "nativeApproval": {
+        "decisionId": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+        "outcome": "approved",
+        "reviewerAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+      }
+    }
+  ],
+  "reviewerLineage": [
+    {
+      "role": "Independent Reviewer, ST-08.1",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "decisionId": "473757cf-567b-4cc0-ad43-937825bc068d",
+      "commentId": "234c54fc-810a-4cca-b0fd-2ac572e86d85",
+      "verdict": "approved"
+    },
+    {
+      "role": "Independent Reviewer, ST-08.2",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "decisionId": "7641d5d4-de07-434b-8c71-c5c4eb39eae3",
+      "commentId": "bb3c2094-bdf4-4791-abf4-26866b96c69b",
+      "verdict": "approved"
+    },
+    {
+      "role": "Board/user participant, ST-08.3 (Independent Reviewer quota exhausted)",
+      "agentId": null,
+      "userId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+      "decisionId": "7af7ec2f-f63c-4785-a447-219620ab5e78",
+      "commentId": "e5f22db2-171a-4a6a-95a3-9ea7680d930b",
+      "verdict": "approved"
+    },
+    {
+      "role": "Independent Reviewer, ST-08.4 rev5",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "decisionId": "c1532101-7871-40a3-99a3-82d38dfd405c",
+      "commentId": "e14f90bf-e29a-41f3-be22-c6f392d89a57",
+      "verdict": "approved"
+    },
+    {
+      "role": "Tech Lead participant configured as independent reviewer (Sol High), ST-08.5",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "decisionId": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+      "commentId": "457cce45-8d57-4915-9968-95a11fc640b4",
+      "verdict": "approved"
+    },
+    {
+      "role": "Independent Reviewer, ST-08.6 (this packet, pending)",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "note": "One native review stage approvalsNeeded 1; author differs. Child approval means parent-gate inputs are ready only.",
+      "verdict": "pending"
+    }
+  ],
+  "evidenceTestHashes": [
+    {
+      "path": "operations/audit/IMP-08/fixture-oracle/fixtures.json",
+      "sha256": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec"
+    },
+    {
+      "path": "operations/audit/IMP-08/fixture-oracle/verify.mjs",
+      "sha256": "b657af8025ccc6d31271db7fcbab4a8f11e608dc9fa450775adbeb3773d2d11c"
+    },
+    {
+      "path": "src/economic-calculation/bhv.mjs",
+      "sha256": "4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf"
+    },
+    {
+      "path": "src/economic-calculation/scoring.mjs",
+      "sha256": "52ebf0a56bf6f027ea90be0e8623f10caaaaaf4a383dba8a574eab337ac2cbed"
+    },
+    {
+      "path": "src/economic-calculation/benchmark.mjs",
+      "sha256": "0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1"
+    },
+    {
+      "path": "src/economic-calculation/reference.mjs",
+      "sha256": "c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b"
+    },
+    {
+      "path": "docs/economic-calculation.md",
+      "sha256": "adb7dca17dad1175214fed82a747495c2feb42208553cba618547e39052f847d"
+    },
+    {
+      "path": "test/economic-calculation/bhv.test.mjs",
+      "sha256": "b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7"
+    },
+    {
+      "path": "test/economic-calculation/scoring.test.mjs",
+      "sha256": "80c5467ff16deedbfb4e4172026b189115074c8230e761ea6700c385b8378c01"
+    },
+    {
+      "path": "test/economic-calculation/benchmark.test.mjs",
+      "sha256": "8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8"
+    },
+    {
+      "path": "operations/audit/IMP-08/ST-08.3/regression.test.mjs",
+      "sha256": "9169553a4de9279885d18b7b7d1fb1304b076b88a8b5e775de5fa64e2976c65d"
+    },
+    {
+      "path": "operations/audit/IMP-08/ST-08.5/manifest.json",
+      "sha256": "3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209"
+    },
+    {
+      "path": "operations/audit/IMP-08/ST-08.4/dossier.tar.gz",
+      "sha256": "c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af"
+    }
+  ],
+  "prerequisiteChecks": [
+    {
+      "requirement": "Project ON",
+      "result": "satisfied",
+      "evidence": "project 96bbd5b1-94da-4781-8c2b-455fdfb28d1a in_progress, pausedAt null"
+    },
+    {
+      "requirement": "Accepted IMP-01 exact scope/version",
+      "result": "satisfied",
+      "evidence": "operations/receipts/IMP-01-IMP_RECEIPT.json sha256 78d92de8... outcome accepted"
+    },
+    {
+      "requirement": "All required STs reviewed/accepted",
+      "result": "satisfied",
+      "evidence": "ST-08.1..ST-08.5 each done with a final native approval"
+    },
+    {
+      "requirement": "No unresolved applicable SPEC_CHANGE_REQUEST",
+      "result": "satisfied",
+      "evidence": "none exists for IMP-08"
+    },
+    {
+      "requirement": "Frozen decisions preserved",
+      "result": "satisfied",
+      "evidence": "epsilonUsed=false, annualizationUsed=false and all 15 frozen decisions mapped in parent-gate-inputs.json"
+    },
+    {
+      "requirement": "REQUIRES_AUDIT / REQUIRES_EVIDENCE for this scope",
+      "result": "not required by SPEC 25.2 IMP-08 row",
+      "evidence": "implementation/fixtures objective; real campaign use still requires accepted IMP-05/07"
+    }
+  ],
+  "acceptanceChecks": [
+    {
+      "criterion": "Reproduce +4/-1, +3/-1, +2/-2 and neutral/zero-denominator; Monthly not inheriting the Quarterly Sortino gate",
+      "result": "proposed-pass",
+      "evidence": "oracle verify.mjs exit 0 (35 fixtures, C01-C12, 7 negative probes); 56 economic tests pass"
+    },
+    {
+      "criterion": "Frozen decisions: n-1, target 0, C diagnostic, mission separation",
+      "result": "proposed-pass",
+      "evidence": "scoring.test.mjs; fixtures FX-BHV-C-DIAGNOSTIC, FX-MONTHLY-*"
+    },
+    {
+      "criterion": "Compatible units and explicit coverage; unknown/malformed cost never zero",
+      "result": "proposed-pass",
+      "evidence": "FX-BHV-UNITS-INCOMPATIBLE, FX-BHV-TOTAL-EUR-NO-MWH, FX-BHV-MISSING-FEE; ST-08.5 correction; regression R5-R6"
+    }
+  ],
+  "testsRun": [
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs",
+      "exitCode": 0,
+      "expected": "35 fixtures, C01-C12, seven negative probes"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/economic-calculation/*.test.mjs",
+      "tests": 56,
+      "pass": 56,
+      "fail": 0
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "tests": 67,
+      "pass": 67,
+      "fail": 0
+    },
+    {
+      "command": "/opt/node/bin/node --test operations/audit/IMP-08/ST-08.3/regression.test.mjs",
+      "tests": 9,
+      "pass": 9,
+      "fail": 0
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-08/ST-08.5/verify-delivery.mjs",
+      "exitCode": 0,
+      "expected": "semanticHash bc0ce6ad...4f661528"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-08/ST-08.4/verify-st4.mjs",
+      "exitCode": 0,
+      "expected": "accepted ST-08.5 plus approved dossier lineage"
+    }
+  ],
+  "unresolvedLimits": [
+    "Synthetic engineering evidence only. Does not satisfy DEP-13, any research PASS, admission or production authority.",
+    "Real campaign use requires accepted IMP-05/07 and their applicable typed audit/evidence claims before that run (SPEC 25.2.3 IMP-08).",
+    "Disclosed historical lineage defect: ST-08.3's baseline reference records 8d1ce8f2...df8b1b... while the accepted ST-08.2 content hash recomputed from its own artifact hashes is 8d1ce8f2...df1b1b.... Predecessor bytes are preserved unmodified; recorded as a residual for Command assessment, not a semantic defect in the accepted evidence.",
+    "ST-08.2 and ST-08.3 semantic hashes are superseded by ST-08.5; the current accepted semantic version is ST-08.5 (bc0ce6ad...)."
+  ],
+  "potentialUnlocks": [
+    "IMP-13 (consumes IMP-08 plus IMP-12; informational only, not granted by this proposal)",
+    "IMP-15 (consumes IMP-05,07,08,13,14; informational only, not granted by this proposal)"
+  ],
+  "claims": [],
+  "dependencyUpdate": "None. This proposal grants no unlock and changes no dependency state. IMP-08 remains unaccepted until a separate bounded Tech Lead parent gate under SPEC 20.2.10 authors the accepted operations/receipts/IMP-08-IMP_RECEIPT.json.",
+  "preservation": "No commits, branches, product-code edits, prior-receipt rewrites, shared office/controller/awareness writes, timer actions, routing/budget/reserve/provider/autonomy changes, project switches or Alexandria work in this packet."
+}

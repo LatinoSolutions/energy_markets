@@ -1,0 +1,120 @@
+{
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-03-ST-2-v1.1",
+    "subtaskId": "ST-03.2",
+    "parentImp": "IMP-03",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "DeepSeek Production Worker A / OpenRouter, model deepseek/deepseek-v4.1-flash, adapter opencode_local, agent 2f30b8dd-306b-4735-a135-f8d3127c8c0e, run c7f14cb4-d69c-406f-8d3d-9465e42aa8c8 (bounded controller recovery of the same packet after Go provider-region rejection)",
+  "startingBaseline": {
+    "contentHash": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "contentHashOf": "operations/bootstrap/baseline-manifest.json",
+    "host": "brunode",
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "branch": "main",
+    "gitState": "non-git content-hash workspace, no commit created",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01ReceiptSha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "priorImp03ReceiptSha256": "e203580b4a1dc88107bebd37502450c58286ecd81d9c840f8f94c1bef63bcde3",
+    "st03_1MatrixSha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f",
+    "note": "No prior run artifacts existed for this instance; the previous run of this packet ended timed_out with no detectable output."
+  },
+  "resultingVersion": {
+    "contentHash": "8bf1de7394b49d55b764edc6087f22881a49eb7bc9a51c7bbcdc261f50573367",
+    "algorithm": "sha256 of the path-sorted sha256sum listing",
+    "scope": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/** excluding ST_RECEIPT.json and SHA256SUMS (self-referential); includes all other stable outputs",
+    "changedFileHashes": {
+      "audit_eex_the.py": "23ef4f148194adc6c7963e3bf2c8d511bf0d38ab8c19aa0de4eb35c58dfb3016",
+      "audit-report.md": "89c5883f82d031b5ff01a08023805d3ff6c0d9aca1d36f972e97eb5779ac5954",
+      "coverage-summary.json": "c72b995d9fbdd5461c72b9ffab2b6d7ed45da957663a9a2d0b96b72b677e18e5",
+      "matrix-contribution.json": "e908579792a4f1ba778ec23f215162048340a102545274e6a20fba862f61fa4d",
+      "source-inventory.json": "7de16498e4e424bf587a0b47ebb3c008634d466e1a3f626f3cbd42b483ea5aae",
+      "verify-eex-the.mjs": "ff6b3fddf6fd8071f4c1530517aed89225bd491aeeb9c1601622b799b886baef",
+      "verification-output.txt": "44488413c643bd8b507077b9a0f51a1b9aa8c3e9cda21fbde27ce1fd48390849",
+      "continuity-checkpoint.md": "f7aeed3c82e336e5d3a031b72a88fe2131a9f2702dce6a679f7cb9ef77010038"
+    }
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (v1.1, sha256 86c4bd4e...39cb6c; \u00a7\u00a76.1-6.4,13,20.2.7-20.2.10,25.1,25.2.1-25.2.3)",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json (accepted; sha256 78d92de8...b887c)",
+    "operations/receipts/IMP-03-IMP_RECEIPT.json (prior accepted; sha256 e203580b...bcde3)",
+    "operations/audit/IMP-03/data-sufficiency-matrix.json (accepted ST-03.1; sha256 5e94b60b...6b42f)",
+    "operations/audit/IMP-03/verify.mjs and audit-report.md (prior accepted audit, read-only)",
+    "src/contracts/index.mjs validateStReceipt/linkStReceiptToPacket (contract validator actually executed)",
+    "/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=NATGAS/area=THE (Parquet footers + bounded content samples)",
+    "/srv/hot-data/EEX/table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE (Parquet footers + bounded content samples)",
+    "installed reader venv /srv/hot-data/alexandria/venvs/data/bin/python3 (pyarrow 25.0.1)",
+    "/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md (provenance only, exactly as named in the packet Inputs)"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/audit_eex_the.py",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/coverage-summary.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/matrix-contribution.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/audit-report.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/verify-eex-the.mjs",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/verification-output.txt",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/continuity-checkpoint.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/ST_RECEIPT.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/SHA256SUMS"
+  ],
+  "result": "Scoped factual inventory and coverage summary of the EEX THE NatGas trade and top-of-book lake produced from full footer census plus a deterministic bounded content sample. Censused trade 1464 partitions / 2801 files / 282693 rows / 2020-11-02..2026-07-28 and top-of-book 257 partitions / 9251 files / 94714717 rows / 2025-07-25..2026-07-28, with 14 and 11 Arrow schema variants respectively. Quarterly contracts (G0BQ) observed with DisplayName quarter-token evidence. A six-row eight-field \u00a76.3 matrix contribution records R-04 as AVAILABLE NOW in the observed scope, R-08 as partial-evidence but UNAVAILABLE overall (units present, contract specification absent), R-09/R-10/R-11/R-12 as UNAVAILABLE, and A0/A1 remain DATA_BLOCKED. No official/PIT/permission claim fabricated.",
+  "testsRun": [
+    "/srv/hot-data/alexandria/venvs/data/bin/python3 audit_eex_the.py",
+    "/srv/hot-data/alexandria/venvs/data/bin/python3 audit_eex_the.py --check",
+    "node verify-eex-the.mjs"
+  ],
+  "testResults": [
+    {
+      "command": "audit_eex_the.py",
+      "exitCode": 0,
+      "observed": "Wrote coverage-summary.json and source-inventory.json; census totals as reported; sample partitions 2020-11-02..2026-07-28 (trade) and 2025-07-25..2026-07-28 (top-of-book)."
+    },
+    {
+      "command": "audit_eex_the.py --check",
+      "exitCode": 0,
+      "observed": "Extended reproducibility check reported no errors for both tables: per-partition dates/counts/bytes/rows, per-file records, distinctPullIds, schema variants, and the 41 sampled file sha256/rows/partitionDates all match source-inventory.json/coverage-summary.json."
+    },
+    {
+      "command": "node verify-eex-the.mjs",
+      "exitCode": 0,
+      "observed": "All checks PASS including SHA256SUMS completeness against the expected-output list; see verification-output.txt."
+    }
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/coverage-summary.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/matrix-contribution.json",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/audit-report.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/audit_eex_the.py",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/verify-eex-the.mjs",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/verification-output.txt",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/continuity-checkpoint.md",
+    "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/SHA256SUMS"
+  ],
+  "assumptions": [
+    "The installed alexandria data venv is an admissible read-only reader environment; no package was installed.",
+    "Parquet footer metadata (row count, schema) is authoritative for the census without reading row content.",
+    "The deterministic partition-index sample is representative for observed identifier/missingness facts; every such fact is labelled observed-sample-only.",
+    "Quarterly classification uses the DisplayName quarter token as evidence; Maturity month alone is treated as insufficient."
+  ],
+  "deviations": [
+    "No commit/push/branch/worktree created, consistent with the packet and the non-git content-hash workspace.",
+    "No exhaustive row scan performed; content facts are bounded to the declared sample.",
+    "The prior timed-out run left no readable checkpoint document on the issue; this run restarted the bounded audit from the packet and verified host/cwd/paths before acting."
+  ],
+  "dependencyFindings": [
+    "REQUIRES accepted IMP-01 receipt hash reproduced exactly (78d92de8...b887c).",
+    "REQUIRES_AUDIT / REQUIRES_EVIDENCE are not prerequisites; this instance performs its own audit under \u00a725.2 and makes no economic evidence claim.",
+    "RESOLVES_AUDIT is claimed only for the exact inspected EEX THE scope; DEP-06 is partially evidenced and DEP-07 remains unchanged. Accepted default receipt and sibling outputs untouched.",
+    "The EEX THE trade/top-of-book lake is not the official EEX reference-price benchmark; no R-06 benchmark row is claimed."
+  ],
+  "failuresRetries": [
+    "Prior run 650a0a6f-90e0-413f-acd4-8f9df10e7581 timed out after 2400s with no detected output artifacts; this run avoided an exhaustive scan via footer-only census plus a deterministic bounded sample and completed in under 5 seconds.",
+    "No reader installation was needed; pyarrow 25.0.1 was already present in the installed data venv."
+  ],
+  "recommendedStatus": "in_review"
+}

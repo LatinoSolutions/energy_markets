@@ -1,0 +1,1 @@
+verify-delivery: PASS; pins=11 unchanged; proposal=PROPOSED_IMP_RECEIPT/non-authoritative; claims=0; currentSemanticHash=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528; splitHash=96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e; sha256sum entries=12

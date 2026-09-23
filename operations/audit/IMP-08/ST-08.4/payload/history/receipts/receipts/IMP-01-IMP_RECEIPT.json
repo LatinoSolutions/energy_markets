@@ -1,0 +1,233 @@
+{
+  "receiptKind": "IMP_RECEIPT",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "impIdentity": "IMP-01",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "issueId": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+  "issueIdentifier": "LAT-92",
+  "scope": "Initial framework/office binding v1.1 on brunode: complete IMP-01 identity/version, concept/state/receipt and economic-input namespace contracts; structural support only.",
+  "version": {
+    "contentHash": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c"
+  },
+  "objectProtocolVersion": "1.1",
+  "outcome": "accepted",
+  "acceptedAtUtc": "2026-09-19T10:29:09.685406+00:00",
+  "requiredStIdentities": [
+    {
+      "identity": {
+        "packetId": "WP-IMP-01-ST-1-v1.1",
+        "subtaskId": "ST-01.1",
+        "parentImp": "IMP-01",
+        "parentIssueIdentifier": "LAT-92",
+        "subtaskIssueIdentifier": "LAT-96",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-01-ST-1.json",
+      "receiptSha256": "d87288c178d3fa4ac181886e3a611950cbc2e55aa5a0826d4a18fa0dc1ba6814",
+      "resultingVersion": {
+        "contentHash": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+        "algorithm": "sha256 of the path-sorted sha256sum listing",
+        "scope": "src/contracts/**, test/contracts/**, operations/audit/IMP-01/test-run.txt"
+      },
+      "status": "accepted",
+      "nativeExecutionState": {
+        "status": "completed",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": null,
+        "lastDecisionId": "059f4f06-178c-47b8-96cc-f89e7123f924",
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+        },
+        "currentStageType": null,
+        "completedStageIds": [
+          "07153d27-ef36-4fb6-912b-95cf85619fae",
+          "b5a65c08-877c-48c7-af49-c8d2a5c49896"
+        ],
+        "currentStageIndex": null,
+        "currentParticipant": null,
+        "lastDecisionOutcome": "approved",
+        "changesRequestedCount": 0
+      }
+    }
+  ],
+  "reviewerRunIdentities": [
+    {
+      "role": "Independent Reviewer Opus, native stage 1",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "runId": "469b6875-c549-42c2-84bc-982f0fa48141",
+      "commentId": "439b6816-c5be-4eee-b389-0b8b262f84bb",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T09:59:53.331Z"
+    },
+    {
+      "role": "Tech Lead Astra, native stage 2",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "6b653d4b-7039-4c33-8df7-55e7549cc1f9",
+      "commentId": "ed763857-0715-48e8-bbf2-484014b6e681",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T10:27:23.305Z"
+    },
+    {
+      "role": "Tech Lead Astra, separate parent acceptance",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "9935bd44-9f27-466a-b923-65754972f4a4",
+      "outcome": "accepted"
+    }
+  ],
+  "evidenceTestHashes": [
+    {
+      "path": "operations/audit/IMP-01/test-run.txt",
+      "sha256": "3225c9699e1215393dd43e18153fb2b87adbf5174d5bfdfa955e4e89f09c274d"
+    },
+    {
+      "path": "src/contracts/economic-bundle.mjs",
+      "sha256": "96e29e69ca3137dbeed797158a0e52db81c87b95f45f141fe709b26f5bf68c09"
+    },
+    {
+      "path": "src/contracts/identities.mjs",
+      "sha256": "6425fb956f3f65d98bb1ccad5bb9e1fcf4619f0b35a350f8442d05d4c6ac2e9e"
+    },
+    {
+      "path": "src/contracts/index.mjs",
+      "sha256": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3"
+    },
+    {
+      "path": "src/contracts/namespaces.mjs",
+      "sha256": "d48733d23827388fdf221466019b6b830c473e51f4184097cf2dccd8d729fbb2"
+    },
+    {
+      "path": "src/contracts/states.mjs",
+      "sha256": "fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75"
+    },
+    {
+      "path": "test/contracts/economic-bundle.test.mjs",
+      "sha256": "04602faa36ac9f8bc8ef175618f81525dd567b75ee2d578f998d24dfa66f95ca"
+    },
+    {
+      "path": "test/contracts/identities.test.mjs",
+      "sha256": "9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc"
+    },
+    {
+      "path": "test/contracts/namespaces.test.mjs",
+      "sha256": "23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98"
+    },
+    {
+      "path": "test/contracts/states.test.mjs",
+      "sha256": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655"
+    },
+    {
+      "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+      "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+    },
+    {
+      "path": "operations/receipts/IMP-01-ST-1.json",
+      "sha256": "d87288c178d3fa4ac181886e3a611950cbc2e55aa5a0826d4a18fa0dc1ba6814"
+    },
+    {
+      "path": "operations/audit/IMP-01/st-01.1-independent-review.json",
+      "sha256": "c60268bc55a51c508d49a53cea52c30229d01d860609239328fd39f8ac45752a"
+    },
+    {
+      "path": "operations/audit/IMP-01/st-01.1-command-final-verification.json",
+      "sha256": "9c79a601c1df9ab6c02faec8efe58fc0ffe52097cfbb10825425c20468a63b80"
+    },
+    {
+      "path": "operations/audit/IMP-01/imp-01-parent-acceptance-tests.txt",
+      "sha256": "bd7267e74ad5e0f507ce5a502dc4886c230af8f46120b78c7c5be7dce3c0ca99"
+    }
+  ],
+  "prerequisiteChecks": [
+    {
+      "requirement": "Project ON",
+      "result": "satisfied",
+      "evidence": "Live project API: in_progress, pausedAt null; Energy identity matches."
+    },
+    {
+      "requirement": "Current SPEC and §§0–3,13–14",
+      "result": "satisfied",
+      "evidence": "Exact canonical SHA256 verified; namespace and required-input contracts checked against source."
+    },
+    {
+      "requirement": "REQUIRES_AUDIT and REQUIRES_EVIDENCE",
+      "result": "not required by IMP-01 row §25.2"
+    },
+    {
+      "requirement": "All required STs accepted",
+      "result": "satisfied",
+      "evidence": "ST-01.1 complete; both configured native stages completed and approved."
+    },
+    {
+      "requirement": "No unresolved applicable SPEC conflict or requested change",
+      "result": "satisfied",
+      "evidence": "Full child thread, independent review, final review and current sources inspected; F1–F3 and C1–C3 resolved."
+    },
+    {
+      "requirement": "Frozen names, state separation and scopes",
+      "result": "satisfied",
+      "evidence": "Canonical §0.3/§3.3/§14.10 checks and completed independent native reviews."
+    }
+  ],
+  "acceptanceChecks": [
+    {
+      "criterion": "Reject unqualified q_t/A0/S1 collisions and unsupported scopes",
+      "result": "pass",
+      "evidence": "Namespace test cases plus inherited-scope independent negative probes."
+    },
+    {
+      "criterion": "Reject missing or malformed versions and receipt identity/linkage",
+      "result": "pass",
+      "evidence": "Identity suite; C1 linkage probes; economic version negative probes; live ST validation."
+    },
+    {
+      "criterion": "Reject unknown required economic fields; preserve missing reasons without defaults",
+      "result": "pass",
+      "evidence": "Economic-input suite and C3 independent probes. Unknown represented inputs remain blocked; usable requires ok AND NOT blocked."
+    },
+    {
+      "criterion": "Preserve canonical names, separate concept/state/receipt scopes",
+      "result": "pass",
+      "evidence": "State and namespace suites; Opus F1–F3 verification; current hashes preserved."
+    }
+  ],
+  "testsRun": [
+    {
+      "command": "/opt/node/bin/node --test test/contracts/economic-bundle.test.mjs test/contracts/identities.test.mjs test/contracts/namespaces.test.mjs test/contracts/states.test.mjs operations/audit/IMP-01/st-01.1-command-boundaries.mjs operations/audit/IMP-01/st-01.1-command-r3-c3.mjs",
+      "exitCode": 0,
+      "tests": 76,
+      "pass": 76,
+      "fail": 0,
+      "output": "operations/audit/IMP-01/imp-01-parent-acceptance-tests.txt"
+    }
+  ],
+  "unresolvedLimits": [
+    "Engineering evidence from explicitly synthetic fixtures only; no economic run, factual audit DEP closure, research PASS, admission or production authority.",
+    "String/config references are structurally checked; resolving their external content, factual readiness and execution semantics remain subject to downstream IMP gates.",
+    "IMP-26 still requires independently accepted IMP-25 and sufficient DEP-27 scope. Timer must remain OFF until all owner isolation requirements and observed live sequence pass."
+  ],
+  "potentialUnlocks": [
+    "IMP-02",
+    "IMP-03",
+    "IMP-06",
+    "IMP-08",
+    "IMP-12",
+    "IMP-14",
+    "IMP-17",
+    "IMP-23",
+    "IMP-26",
+    "IMP-27",
+    "IMP-28",
+    "IMP-29"
+  ],
+  "dependencyUpdate": "Acceptance satisfies only the IMP-01 prerequisite in the exact accepted scope/version; other REQUIRES*, audit/evidence, project and authority gates remain. No downstream automatic acceptance. Existing native IMP-26 blockers preserved. Director-coordinated downstream decomposition remains separate.",
+  "preservation": "No code edits, prior receipts overwritten, canonical modifications, shared office writes, timer actions, routing/budget changes, commits or branches in this parent acceptance run."
+}

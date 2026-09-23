@@ -1,0 +1,25 @@
+IMP-08 / ST-08.3 pre-edit reproduction
+Source: Command final-acceptance evidence for LAT-176, revision 3b159e73-7a11-4465-9f09-741a1a872099, against reviewed ST-08.2 content 8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe.
+This output was preserved before ST-08.3 implementation changes; no real inputs were used.
+
+Command:
+/opt/node/bin/node --input-type=module <<'JS'
+import {benchmarkB,computeAllInH,minimumEvidence,quarterlyResearchVerdict,scoreQuarterly,selectDailyReference} from './src/economic-calculation/index.mjs';
+const probes = {
+ duplicateDailyReference: () => benchmarkB({references:[{date:'2026-01-05',selected:100},{date:'2026-01-05',selected:100},{date:'2026-01-06',selected:110}],expectedDates:2}),
+ wrongTypeCost: () => {const r=computeAllInH({base:100,unit:'EUR/MWh',costs:[false]});return {...r,HIsNaN:Number.isNaN(r.H)};},
+ missingCosts: () => computeAllInH({base:100,unit:'EUR/MWh'}),
+ nullCost: () => computeAllInH({base:100,unit:'EUR/MWh',costs:[null]}),
+ monthlyEvidenceInQuarterly: () => quarterlyResearchVerdict({scoring:scoreQuarterly([4,-1]),evidence:minimumEvidence({mission:'Monthly',monthsCompleted:24}),dataQuality:{coverage:'full',benchmarkProvisional:false}}),
+ invalidOfficialTimestamp: () => selectDailyReference({officialRows:[{value:999,providerTimestamp:'not-a-timestamp'},{value:102,providerTimestamp:'2026-01-06T18:00:00Z'}]}),
+};
+for (const [name,fn] of Object.entries(probes)){try{console.log(name,JSON.stringify(fn()));}catch(e){console.log(name,JSON.stringify({throws:e.name,message:e.message}));}}
+JS
+
+Observed exit 0 (exceptions captured by the probe):
+duplicateDailyReference {"B":103.33333333333333,"count":3,"sum":310,"coverage":"3/2","defined":true,"reason":null}
+wrongTypeCost {"H":null,"unit":"EUR/MWh","defined":true,"reason":null,"HIsNaN":true}
+missingCosts {"H":100,"unit":"EUR/MWh","defined":true,"reason":null}
+nullCost {"throws":"TypeError","message":"Cannot read properties of null (reading 'value')"}
+monthlyEvidenceInQuarterly {"verdict":"PASS","reason":"Criterios predeclarados cumplidos con evidencia válida y suficiente."}
+invalidOfficialTimestamp {"value":999,"source":"official","providerTimestamp":"not-a-timestamp","defined":true,"reason":null}

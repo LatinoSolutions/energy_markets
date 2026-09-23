@@ -1,0 +1,40 @@
+{
+  "packetId": "WP-IMP-08-ST-3-v1.1",
+  "subtaskId": "ST-08.3",
+  "parentImp": "IMP-08",
+  "observedAtUtc": "2026-09-20T22:34:00Z",
+  "workspace": "/srv/hot-data/energy-markets/app",
+  "host": "brunode",
+  "branch": "main",
+  "startingReviewedContentHash": "8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+  "startingContentFiles": {
+    "src/economic-calculation/benchmark.mjs": "59780186df176c231c110c7d553454459f1d46e955528fe6df26e44d01db8e34",
+    "src/economic-calculation/bhv.mjs": "038e5071f26b89a98d55b842f226a31f1f7b0de3d5916e6ae6106379e0630577",
+    "src/economic-calculation/index.mjs": "3e7496d5d8b41812878cdc7ca3b256a95ad00cd310ca5a0dc90ab4798e0b63b5",
+    "src/economic-calculation/reference.mjs": "e02037799c0ceb0d278067737510af37ca747c49073fc065977d1fc21bde0595",
+    "src/economic-calculation/scoring.mjs": "c09c1df9e8c9ac775700d5f21c8c2f31c479450ffe1b4c02aaf8a8f7dc47f95d",
+    "test/economic-calculation/benchmark.test.mjs": "8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8",
+    "test/economic-calculation/bhv.test.mjs": "e511c387b8dcf9713d1ae3f156bcb78acebc47d3ae2a980b04fae42cf62999a5",
+    "test/economic-calculation/scoring.test.mjs": "a5829e76aba1db75637e6d9a3e26fb7257ef750897b3d412f1c8826a0511ee0e",
+    "docs/economic-calculation.md": "18fbfc65ec6acf17911fc71cbf25d3d34e7e9bf7d30bdfc99de09dca2f75597f"
+  },
+  "protectedHashes": {
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/bootstrap/baseline-manifest.json": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "operations/receipts/IMP-08-ST-1.json": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec",
+    "operations/audit/IMP-08/fixture-oracle/independent-calculations.md": "58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9",
+    "operations/receipts/IMP-08-ST-2.json": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d"
+  },
+  "preEditObservations": {
+    "duplicateDaily": "B=103.33333333333333,count=3,coverage=3/2",
+    "wrongTypeCost": "H=NaN,defined=true",
+    "missingCosts": "H=100,defined=true",
+    "nullCost": "TypeError",
+    "monthlyEvidenceInQuarterly": "PASS",
+    "invalidOfficialTimestamp": "official 999 selected"
+  },
+  "oracleUnchangedBeforeEdit": true,
+  "allocatedSt08_3PathsAbsentAtStart": true
+}

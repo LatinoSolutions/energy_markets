@@ -1,0 +1,11 @@
+{
+  "issue": "LAT-195",
+  "subtaskId": "ST-08.5",
+  "status": "done",
+  "nativeDecisionId": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+  "lastDecisionOutcome": "approved",
+  "completedStageIds": [
+    "b7cc671c-59ca-4d57-8858-521949b96afb"
+  ],
+  "stageParticipantAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+}

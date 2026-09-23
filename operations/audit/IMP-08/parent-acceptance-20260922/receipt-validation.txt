@@ -1,0 +1,6 @@
+receipt_sha256=43b56173f021331a889393d3697f1ca8bdf40491e450798238044ac8decc9625
+validateImpReceipt={"ok":true,"errors":[]}
+canonical_graph_validator={"ok":true,"errors":[]}
+canonical_graph_accepted=["IMP-01","IMP-03","IMP-08","IMP-25","IMP-27","IMP-28"]
+canonical_graph_rejected=[]
+instances={"imp":"IMP-08","scope":"IMP-08 synthetic B/H/V calculation and mission-specific scoring, protocol v1, instance = the same unaccepted synthetic implementation/fixtures instance continued from ST-08.1-ST-08.5.","version":"bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528","objectProtocolVersion":"v1"}

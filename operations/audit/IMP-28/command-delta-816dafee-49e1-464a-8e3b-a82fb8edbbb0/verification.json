@@ -1,0 +1,54 @@
+{
+  "tests": [
+    {
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-delta-816dafee-49e1-464a-8e3b-a82fb8edbbb0/check-0.txt",
+      "sha256": "f3ebacebc8de6c8700b118cec3e99a3aa3b5b250ca5f7b96d1f37df189c26aec"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-delta-816dafee-49e1-464a-8e3b-a82fb8edbbb0/check-1.txt",
+      "sha256": "da7898ea8e4a1528ebf9f906edcd0368f1df63a0be6d541e539716377303a9cd"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-delta-816dafee-49e1-464a-8e3b-a82fb8edbbb0/check-2.txt",
+      "sha256": "180b221b61ccdccf867ffa7f78d2fc2ef2328b6159957708d1ee2e3a6f7d7e32"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-delta-816dafee-49e1-464a-8e3b-a82fb8edbbb0/check-3.txt",
+      "sha256": "d24c8a329ce7647d78720359d32c9ea7e77f96c2a73db0520ad4afd1e0f681f0"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-delta-816dafee-49e1-464a-8e3b-a82fb8edbbb0/check-4.txt",
+      "sha256": "271280e7cf541fd6eecfa7c3e80482f069c76c995b7127ba06c5d3a05bf732b0"
+    }
+  ],
+  "manifestEntries": 46,
+  "manifestMismatches": [],
+  "acceptedImp01HashMismatches": [],
+  "originalIndependentProbeUnchanged": true,
+  "receiptVersion": "86a81af4a11e0bb919969bb0c767a0041630ea72a16d957d874d299b5936555e",
+  "receiptSha256": "50ed6adaabda33351f057197108ea19e0e3f7cec5f83d364720c644e9bd5a81d",
+  "initialAlternateHashComputation": {
+    "algorithm": "sha256 of sha256sum-style lines",
+    "value": "3b707450001fd0404a5d4c1ea2922e20a9a23d8d278f678af69749578e6acbf6",
+    "note": "Alternate serialization, not the worker formula; not a content discrepancy."
+  },
+  "sourceTestVersion": "86a81af4a11e0bb919969bb0c767a0041630ea72a16d957d874d299b5936555e",
+  "aggregateAlgorithm": "sha256(UTF-8 concatenation of sorted relative path + space + file sha256 + newline)",
+  "aggregateMatchesReceipt": true,
+  "protocolIdentityProbe": {
+    "exitCode": 1,
+    "cases": 2,
+    "failure": "priorFindings omits protocolId in dedup key; two distinct REJECT findings collapse to one",
+    "output": "operations/audit/IMP-28/command-delta-816dafee-49e1-464a-8e3b-a82fb8edbbb0/protocol-identity-probe.txt"
+  }
+}

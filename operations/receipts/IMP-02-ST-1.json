@@ -1,0 +1,117 @@
+{
+  "receiptKind": "ST_RECEIPT",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-02-ST-1-v1.1",
+    "subtaskId": "ST-02.1",
+    "parentImp": "IMP-02",
+    "parentIssueIdentifier": "LAT-107",
+    "subtaskIssueIdentifier": "LAT-108",
+    "nativeRoot": "LAT-91",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / DeepSeek V4.1 Flash via opencode_local",
+  "startingBaseline": "brunode:/srv/hot-data/energy-markets/app, empty main (no commits/remotes/worktrees); baseline operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860. Allocated output paths operations/audit/IMP-02/** and operations/receipts/IMP-02-ST-1.json did not pre-exist.",
+  "resultingVersion": {
+    "contentHash": "25e77106813b611529340c83fa1aedceed3c1169eb61d8db4733b2471d089ecb",
+    "algorithm": "sha256 of the path-sorted sha256sum listing of exactly the enumerated hashedFiles",
+    "hashedFiles": [
+      "operations/audit/IMP-02/audit-report.md",
+      "operations/audit/IMP-02/campaign-contract.json",
+      "operations/audit/IMP-02/coverage-ownership.json",
+      "operations/audit/IMP-02/dep-01-04-report.json",
+      "operations/audit/IMP-02/source-inventory.json",
+      "operations/audit/IMP-02/verify.mjs",
+      "operations/audit/IMP-02/verify-run.txt"
+    ],
+    "explicitlyExcluded": [
+      "operations/audit/IMP-02/write-set-manifest.json (self-referential metadata; excluded so it cannot self-hash)",
+      "operations/receipts/IMP-02-ST-1.json (this handoff receipt, outside the audit content directory)"
+    ],
+    "changedFileHashes": {
+      "operations/audit/IMP-02/source-inventory.json": "ded40c42c1aba68ae1b22a9f53e0a811efc3e06335b1e305df432d8665356616",
+      "operations/audit/IMP-02/campaign-contract.json": "64d8d427f7dd72c56dba2517a77046538e07992064fb48fc2fcb09239953570a",
+      "operations/audit/IMP-02/coverage-ownership.json": "991e04e9f16b65d4eaab4b786e35340405aa5c8b5fa0102616841aa360cd1cb1",
+      "operations/audit/IMP-02/dep-01-04-report.json": "680d9be476460cb144dc417018a33078ad166f4d80baba12aa76fe3ae54f7d52",
+      "operations/audit/IMP-02/audit-report.md": "9f4b4894e5ca54246f21626b7d4c60c546a908467e0caca4ea6e8de50183b212",
+      "operations/audit/IMP-02/verify.mjs": "dd194c09a459878321c82ab565898c5e53ba95b9eb35d10f21947ea60a3979a7",
+      "operations/audit/IMP-02/verify-run.txt": "a8e2ba70bbc3d3c07dc5baff467c9bcc140f7882e862ea48eaf5894d5288ee55",
+      "operations/audit/IMP-02/write-set-manifest.json": "recorded in write-set-manifest.json (excluded from content version)"
+    }
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md sha256 86c4bd4e...39cb6c (§§0-4,5.3,13.3-13.4,14.5,20.2.7-.10,24 DEP-01-04,25.1/25.2)",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json sha256 78d92de8...b887c (accepted REQUIRES, content version c7cdf47c...d15a437c)",
+    "operations/bootstrap/baseline-manifest.json sha256 895539b7...ca9860",
+    "src/contracts/index.mjs sha256 55c79769...cd9c3 (accepted contract surface, read-only)",
+    "operations/audit/IMP-02/source-inventory.json (complete inspected-source inventory, S-01..S-09, with hashes/kinds/locators) — includes S-04 src/contracts/index.mjs, S-05 Power_Gas_Plan_Maestro_v1_1, S-06 Power_Gas_Cuaderno_13_Preguntas, S-07 Master_Plan_Open_Points, S-08 Master_Plan_P1-P4, S-09 Master_Plan_P5",
+    "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf sha256 85b2b8b0...a999f (S-05)",
+    "/srv/hot-data/energy-markets/reference/research/Power_Gas_Cuaderno_Investigacion_13_Preguntas_v1_2026-09-14.pdf sha256 f814aed7...d654 (S-06)",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_Open_Points_v1_0_2026-09-16.pdf sha256 af5db8b8...a82e (S-07)",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P1-P4_Canonical_Decisions_v1_0_2026-09-16.pdf sha256 697def17...739e (S-08)",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P5_Canonical_Decisions_v1_0_2026-09-16.pdf sha256 0ff9e0bf...d730 (S-09)"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-02/source-inventory.json",
+    "operations/audit/IMP-02/campaign-contract.json",
+    "operations/audit/IMP-02/coverage-ownership.json",
+    "operations/audit/IMP-02/dep-01-04-report.json",
+    "operations/audit/IMP-02/audit-report.md",
+    "operations/audit/IMP-02/verify.mjs",
+    "operations/audit/IMP-02/verify-run.txt",
+    "operations/audit/IMP-02/write-set-manifest.json",
+    "operations/receipts/IMP-02-ST-1.json"
+  ],
+  "result": "Audit factual completado. Se reconstruyó la ficha de campaña contra el contrato frozen §4.1: campaignIdentified=false. No existe mandato real de campaña Gas Quarterly en el workspace ni en el corpus; sólo afirmaciones históricas con unidades incompletas (Gas Quarterly 60 MW, Gas Monthly 10 MW, Power Quarterly «10 Energy» sin unidad), que el propio corpus declara que no confirman el mandato real. Hechos verificados: ventanas de benchmark 1-0-1 / 3-1-3 (referencia económica, no permiso de ejecución) y población del primer experimento (Gas Quarterly). DEP-01-04 quedan como DOCUMENTED_ABSENCE (no resueltos). Reconciliación Opening=Executed+Remaining NO COMPUTABLE; terminalRule MISSING y closeOutFill=null; sin doble ownership. Correcciones de stage 2 aplicadas: inventario fail-closed con regresiones, ejecutable republicado byte-exacto, y content-version con alcance explícito. Se recomienda bloquear el parent IMP-02 por ausencia factual del mandato, preservando la reconciliación y la ausencia documentada como evidencia válida del ST.",
+  "testsRun": [
+    "hostname; pwd (brunode; /srv/hot-data/energy-markets/app)",
+    "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json",
+    "/opt/node/bin/node --check operations/audit/IMP-02/verify.mjs",
+    "/opt/node/bin/node operations/audit/IMP-02/verify.mjs"
+  ],
+  "testResults": [
+    "hostname=brunode, pwd=/srv/hot-data/energy-markets/app: OK",
+    "SPEC sha256 86c4bd4e...39cb6c == expected; IMP-01-IMP_RECEIPT.json sha256 78d92de8...b887c == expected",
+    "node --check verify.mjs: syntax OK (no backslash in source; the published document parses byte-for-byte)",
+    "verify.mjs exit 0. Input hashes OK (SPEC, IMP-01 receipt, baseline manifest and IMP-01 content version c7cdf47c...d15a437c all reproduced). Inventory integrity OK (9/9 sources exist and match pinned hashes; fails closed otherwise). Provenance OK (38 facts: 3 verified, 6 historical, 29 missing, all documented). Conservation/guard invariants OK. Ownership/no-double-counting OK. 12 synthetic negative cases + 8 inline adversarial probes all PASS (including missing cited source S-05 and drift in absence-supporting source S-07). Real-data insufficiency reported separately. Full output: operations/audit/IMP-02/verify-run.txt (sha256 a8e2ba70...5288ee55)."
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-02/source-inventory.json (inspected sources with hashes and exact locators)",
+    "operations/audit/IMP-02/campaign-contract.json (facts with provenance, documented missing facts, reconciliation, labeled synthetics)",
+    "operations/audit/IMP-02/coverage-ownership.json (DEP-02, ownership invariants, labeled synthetics)",
+    "operations/audit/IMP-02/dep-01-04-report.json (complete DEP-01-04 scope/limits report)",
+    "operations/audit/IMP-02/audit-report.md",
+    "operations/audit/IMP-02/verify.mjs + verify-run.txt (actual stdout/stderr/exit code; node --check clean)",
+    "operations/audit/IMP-02/write-set-manifest.json (explicit hashedFiles and exclusion; no writes outside allowed_paths)"
+  ],
+  "assumptions": [
+    "Historical quantities are provenance only and are not an executable contract (§4.1).",
+    "A documented absence is not a dependency closure and does not certify a missing contract.",
+    "Synthetic fixtures are engineering test data only and are never accepted evidence.",
+    "The P5 Gas Quarterly population is a canonical target, not a confirmed real campaign."
+  ],
+  "deviations": [],
+  "dependencyFindings": [
+    "REQUIRES=IMP-01 accepted verified by receipt hash and reproduced content version c7cdf47c...d15a437c.",
+    "REQUIRES_AUDIT=none and REQUIRES_EVIDENCE=none declared by the packet; none was claimed.",
+    "DEP-01-04 remain open as documented absence with named custodian roles and exact next retrieval actions.",
+    "No SPEC contradiction encountered, so no §20.2.12 SPEC_CHANGE_REQUEST is raised.",
+    "No file outside allowed_paths was modified."
+  ],
+  "failuresRetries": [
+    "Round 0 (author self-check): no command failures; no retries needed.",
+    "Stage 2 review (Tech Lead 2b6bf987, changes_requested, review document stage2-review) required three bounded corrections, all applied in this round: (1) verify.mjs now fails closed on an unavailable or altered inventory input, with regression negatives for a missing cited source (S-05) and drift in an absence-supporting source (S-07), without mutating reference files; (2) the native verify-script upload corrupted backslash-escapes, so verify.mjs was rewritten with zero backslashes and is re-published byte-exact (node --check clean, uploaded body compared to disk); (3) the receipt/write-set content version now enumerates the seven hashed files explicitly and excludes write-set-manifest.json by design, removing the previous ambiguous operations/audit/IMP-02/** glob."
+  ],
+  "recommendedStatus": "in_review",
+  "parentRecommendation": "blocked",
+  "parentRecommendationReason": "IMP-02 parent acceptance requires the mandate/product/calendar/delivery audited and a real campaign contract. No real Gas Quarterly campaign mandate exists in the inspected material, so the parent's audit-dependent prerequisites remain unmet. The ST itself is complete: factual reconciliation and documented absence were produced with passing verifier and preserved prerequisite hashes.",
+  "nativeReviewRequested": {
+    "stage1": "Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "stage2": "Tech Lead 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+    "note": "Reviewers must independently inspect every claimed source fact against its locator and run verify.mjs themselves. Worker completion is only a recommendation and does not accept the subtask, the parent or any DEP."
+  },
+  "parentPending": "LAT-107 / IMP-02 parent acceptance under §20.2.10 remains pending; child native done after both reviews is ST accepted only.",
+  "generatedAtUtc": "2026-09-19T15:06:00Z"
+}

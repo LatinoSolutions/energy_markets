@@ -1,0 +1,71 @@
+{
+  "candidate": "LAT-222",
+  "version": "v2-account-binding-callers",
+  "supersedes": "manifest.json",
+  "agent": "codex_local/Luna/xHigh",
+  "host": "op@100.92.44.106",
+  "canonicalCwd": "/srv/hot-data/energy-markets/app",
+  "generatedAt": "2026-09-21T22:16:41.329Z",
+  "writeSet": {
+    "stagingRoot": "operations/audit/IMP-26/LAT-222/staging/**",
+    "evidenceRoot": "evidence/closure-20260921/LAT-222-luna-xhigh/**",
+    "outsideWrites": []
+  },
+  "nativeContract": {
+    "normalAssigneeField": "executionPolicy.assigneeAccountProfileId",
+    "reviewParticipantField": "executionPolicy.stages[].participants[].accountProfileId",
+    "wakeFields": ["executionStage.accountProfileId", "nativeAccountProfileId", "assigneeAccountProfileId"],
+    "supportedProfiles": ["oa1", "oa2"],
+    "unboundFailover": "review_ant remains without a Codex account profile"
+  },
+  "callerChangesSha256": {
+    "mutate.mjs": "9b1acb54708460eaeb9bf4487d8df27b27dcdd7727201696ebeb2ca15c63775a",
+    "mutate.test.mjs": "b164f94db66b2a2d269731096703f01400badd30da8bb0772d9fdcb5a4f126b5",
+    "replenisher.mjs": "79475d204953be2cb3ed043d1377158138bc35746603700351bb6185033d8b8e",
+    "replenisher.test.mjs": "ded91b27ce5caef224cf032f6fde74647b1af7336b66ac14a650da74cea0ce31",
+    "final-acceptance.mjs": "caa6948d2f0634d70db9387c2ef5b2d81cdb5e5704e428fbc77f461062b3e49d",
+    "command-question.mjs": "ff9138121a6b77d077909f29558020dc7d0147bfa14cbf6463e4105fdd2deed1",
+    "command-question.test.mjs": "498706dd9ef0bca89a96e9ca47a910a63d5b4f5f24c585042455d17639f4637e",
+    "dispatcher.mjs": "b58f53825b324fa2100c080ede59a26c7169fd982de21b9ccb3c679feda07ce3",
+    "dispatcher.test.mjs": "7c1029eb6cd3709bcbd087922425dddff02e5db42e3f5604f3206f26a11ed7f1",
+    "stale-references.mjs": "95d57e9bc09d677026bb60bd8184d3061be04633f1e8e9cc391d89eca737fcd8",
+    "stale-references.test.mjs": "ae7c8207df0ef7f22f2b46f8052f8cc1f234882b7c1cf10b767bffd41b877023",
+    "native-final-acceptance.test.mjs": "75b4ce9f8c7c45f353f682436dbaed879b24c249b32e95181e19cc51e6e77a75",
+    "controller.mjs": "fa13f436ae364416009c36b6147db6710dd0a0c89fcb2c1e1ff02a75c28f55cc"
+  },
+  "tests": {
+    "javascript": {
+      "command": "/opt/node/bin/node --test --test-reporter=tap",
+      "tapOutput": "/tmp/lat222-luna-v2-final.tap",
+      "tests": 693,
+      "passed": 693,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "bindingFocused": {
+      "result": "passed",
+      "scope": ["mutate.test.mjs", "replenisher.test.mjs", "native-final-acceptance.test.mjs", "command-question.test.mjs", "dispatcher.test.mjs", "stale-references.test.mjs"]
+    },
+    "pythonEmailSink": {
+      "command": "python3 email-sink.test.py",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "exitCode": 0
+    }
+  },
+  "nativeReadback": {
+    "issue": {
+      "id": "86a06588-9bce-4880-ac9d-9947a272001e4",
+      "identifier": "LAT-222",
+      "status": "blocked",
+      "executionState": {"status": "idle", "currentStageType": null, "currentParticipantAgentId": null, "returnAssigneeAgentId": null},
+      "updatedAt": "2026-09-21T21:03:01.646Z",
+      "readAt": "2026-09-21T22:16:41.329Z"
+    }
+  },
+  "residuals": [
+    "The separate native runtime patch is not installed by this staging candidate.",
+    "Live OA2 profile-capacity and auto-wake contention remain deployment-review concerns."
+  ]
+}

@@ -1,0 +1,38 @@
+ST-08.5 FINAL HASHES / DIRTY STATUS
+utc=2026-09-21T10:40:00Z (evidence assembly; final content hashes are in manifest)
+hostname=brunode
+pwd=/srv/hot-data/energy-markets/app
+branch=main
+
+git status --short remains the pre-existing non-git baseline:
+?? .claude/
+?? .txt
+?? AGENTS.md
+?? docs/
+?? operations/
+?? src/
+?? test/
+
+Changed product/test resulting hashes:
+4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf  src/economic-calculation/bhv.mjs
+b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7  test/economic-calculation/bhv.test.mjs
+
+Semantic aggregate command and result:
+sha256sum src/economic-calculation/benchmark.mjs src/economic-calculation/bhv.mjs src/economic-calculation/index.mjs src/economic-calculation/reference.mjs src/economic-calculation/scoring.mjs test/economic-calculation/benchmark.test.mjs test/economic-calculation/bhv.test.mjs test/economic-calculation/scoring.test.mjs docs/economic-calculation.md | sort -k2 | sha256sum
+bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528  -
+
+SPEC and protected historical pins (unchanged from baseline):
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f  operations/receipts/IMP-08-ST-1.json
+33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec  operations/audit/IMP-08/fixture-oracle/fixtures.json
+58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9  operations/audit/IMP-08/fixture-oracle/independent-calculations.md
+121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d  operations/receipts/IMP-08-ST-2.json
+4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110  operations/receipts/IMP-08-ST-3.json
+1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e  operations/audit/IMP-08/ST-08.3/manifest.json
+
+Comparison result:
+- product/test changed only in the two explicit packet paths
+- protected nine-file hash set unchanged
+- no commit, branch, worktree, service, timer, route, quota, budget, SPEC or parent receipt changes

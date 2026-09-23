@@ -1,0 +1,63 @@
+[
+  {
+    "name": "framework",
+    "command": [
+      "/opt/node/bin/node",
+      "--test",
+      "test/strategy-admission/channels.test.mjs",
+      "test/strategy-admission/contract.test.mjs",
+      "test/strategy-admission/lifecycle.test.mjs",
+      "test/strategy-admission/registry.test.mjs"
+    ],
+    "exitCode": 0,
+    "sha256": "5906bbe67ec53a85b351b7aa0be9b456707bef5871d10cd122a5f0a68a190e9c",
+    "summary": [
+      "\u2714 una nueva versi\u00f3n conserva identidad y deja record y contrato consistentes (0.187484ms)",
+      "\u2139 tests 59",
+      "\u2139 suites 0",
+      "\u2139 pass 59",
+      "\u2139 fail 0",
+      "\u2139 cancelled 0",
+      "\u2139 skipped 0",
+      "\u2139 todo 0",
+      "\u2139 duration_ms 82.029285"
+    ]
+  },
+  {
+    "name": "contracts",
+    "command": [
+      "/opt/node/bin/node",
+      "--test",
+      "test/contracts/economic-bundle.test.mjs",
+      "test/contracts/identities.test.mjs",
+      "test/contracts/namespaces.test.mjs",
+      "test/contracts/states.test.mjs"
+    ],
+    "exitCode": 0,
+    "sha256": "f77cd8c296af8c5f39661790e15671e1ec0501550de766b528af8cd2ba79216d",
+    "summary": [
+      "\u2714 los estados can\u00f3nicos de \u00a70.3 y \u00a714.10 quedan separados (0.087004ms)",
+      "\u2139 tests 67",
+      "\u2139 suites 0",
+      "\u2139 pass 67",
+      "\u2139 fail 0",
+      "\u2139 cancelled 0",
+      "\u2139 skipped 0",
+      "\u2139 todo 0",
+      "\u2139 duration_ms 70.159689"
+    ]
+  },
+  {
+    "name": "receipt",
+    "command": [
+      "/opt/node/bin/node",
+      "operations/audit/IMP-27/validate-receipt.mjs"
+    ],
+    "exitCode": 0,
+    "sha256": "ef8275f859a9675bb087d95e52d5bbaa66a891ddca227a31b9e554fcdb250b48",
+    "summary": [
+      "validateStReceipt.ok = true",
+      "linkStReceiptToPacket.ok = true"
+    ]
+  }
+]

@@ -1,0 +1,1304 @@
+{
+  "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+  "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "projectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+  "goalId": null,
+  "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+  "title": "IMP-01 \u2014 Materializar contratos de identidad/versiones y namespaces.",
+  "description": "CANONICAL IMP PARENT \u2014 not a dispatchable work packet.\nSPEC PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md v1.1 SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c\nExecution scope: initial framework/office binding v1.1 on brunode.\nNormative \u00a725.1 row (verbatim):\n| IMP-01 | Materializar contratos de identidad/versiones y namespaces. | \u00a7\u00a70\u20133,13\u201314 | Schemas/validadores de concept/state/version/receipt | Rechaza colisiones q_t/A0/S1, versiones ausentes y campos econ\u00f3micos obligatorios desconocidos; preserva raz\u00f3n del faltante. | Nombres can\u00f3nicos, separaci\u00f3n de estados y scopes. | \u00a7\u00a70,3,14 |\nNormative \u00a725.2 row (verbatim):\n| **IMP-01** | SPEC vigente y contratos de \u00a7\u00a70\u20133,13\u201314. | \u2014 | \u2014 | \u2014 | Tests de schemas, campos obligatorios, namespaces y versionado exigidos por su acceptance; evidencia de ingenier\u00eda, no de procurement. | IMP-02,03,06,08,12,14,17,23,26,27,28,29, sujetos a sus dem\u00e1s requisitos. |\nST accepted != IMP accepted. Parent remains unaccepted until \u00a720.2.10 passes and a scoped IMP_RECEIPT exists. No factual/empirical dependency closed by synthetic tests.",
+  "status": "done",
+  "statusVersion": 3,
+  "lastStatusDecisionId": null,
+  "workMode": "standard",
+  "harnessKind": null,
+  "priority": "high",
+  "reviewPolicy": null,
+  "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+  "assigneeUserId": null,
+  "checkoutRunId": null,
+  "executionRunId": null,
+  "executionAgentNameKey": null,
+  "executionLockedAt": null,
+  "createdByAgentId": null,
+  "createdByUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+  "responsibleUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+  "issueNumber": 92,
+  "identifier": "LAT-92",
+  "originKind": "manual",
+  "originId": null,
+  "originRunId": null,
+  "originFingerprint": "default",
+  "requestDepth": 0,
+  "billingCode": null,
+  "assigneeAdapterOverrides": null,
+  "executionPolicy": null,
+  "executionState": null,
+  "monitorNextCheckAt": null,
+  "monitorWakeRequestedAt": null,
+  "monitorLastTriggeredAt": null,
+  "monitorAttemptCount": 0,
+  "monitorNotes": null,
+  "monitorScheduledBy": null,
+  "executionWorkspaceId": null,
+  "executionWorkspacePreference": null,
+  "executionWorkspaceSettings": null,
+  "sourceTrust": null,
+  "unblockDescriptor": null,
+  "blockedTransitionAt": "2026-09-19T09:29:05.399Z",
+  "blockedOwnerNotifiedAt": null,
+  "startedAt": "2026-09-19T10:27:23.365Z",
+  "completedAt": "2026-09-19T10:31:03.326Z",
+  "cancelledAt": null,
+  "hiddenAt": null,
+  "createdAt": "2026-09-19T09:01:45.570Z",
+  "updatedAt": "2026-09-19T10:31:03.348Z",
+  "labels": [],
+  "labelIds": [],
+  "watchdog": null,
+  "ancestors": [
+    {
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "identifier": "LAT-91",
+      "title": "Procurement Research v1.1 \u2014 ejecuci\u00f3n del grafo can\u00f3nico",
+      "description": "# Energy Markets / Procurement Research v1.1\n\nOwner authorization: Bru, 2026-09-19, this task. Run on brunode in /srv/hot-data/energy-markets/app. The existing Paperclip project is 96bbd5b1-94da-4781-8c2b-455fdfb28d1a. Alexandria is OFF for new office work; preserve all its code, issues and evidence. No branches/worktrees, commits/push, purchases, trading, production activation, autonomy changes or budget/routing changes are authorized here.\n\nSole normative engineering source: docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (v1.1, SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c). Consolidation Report gives status/provenance; Patch Report records changes already applied. Never reapply D1-D5. /srv/hot-data/energy-markets/reference contains historical provenance, not extra requirements. Full frontend design will come from Bru later; preserve \u00a726 backend observability boundary.\n\nRead \u00a7\u00a720.2,25.1,25.2 before coordination; relevant normative sections before each implementation. Project ON and scoped, accepted REQUIRES* govern eligibility. RESOLVES_AUDIT and PRODUCES_EVIDENCE are outputs, not prerequisites. No invented data, fees, evidence or accepted receipts. Only IMP-01 and IMP-25 are initially eligible; no parent IMP is accepted yet. IMP-26 requires accepted IMP-01 and IMP-25 and sufficient DEP-27 audit scope. ST accepted is not IMP accepted. Paperclip issue done is not an IMP_RECEIPT.\n\nUse current office roles, routes, quotas and review mechanism. Command decomposes and reviews parent acceptance; DeepSeek implements routine packets; Luna handles eligible premium work; Opus reviews independently and is authorized Command failover. No new office, agents, architecture or arbitrary backlog. Follow the existing WORK-PACKET v1 parser while including all semantic fields of \u00a720.2.7, full ST_RECEIPT of \u00a720.2.8, independent review of \u00a720.2.9 and parent acceptance/IMP_RECEIPT of \u00a720.2.10. Preserve accepted prior receipts and scope/version identity.\n\nKnown preflight gap: office controller ROOT and refill prompts still point to LAT-20/Alexandria. Do not create Energy issues as children of LAT-20 or use Decision Engine requirements. Bootstrap runs use native Paperclip assignments under Director coordination while the automated controller timer is temporarily held. This is not proof of IMP-26 compliance. IMP-25 audits the gap; IMP-26 must bind the existing controller, then restore the same timer and verify a real continuation cycle. Do not alter quotas/reserves/providers while Bru and Claude work on budgets.\n\nOnly modify packet allowed_paths; preserve dirty files. Baseline for this new non-git workspace is the manifest in operations/bootstrap; code and evidence are identified by content hashes until the owner chooses repository publication. No implicit requirement to initialize git or create branches. Run on brunode and verify actual cwd. Existing instructions restricting Alexandria to its main branch apply to Alexandria, not to this new directory.\n\nScope technical failures to their branch and use existing bounded recovery. SPEC contradictions require \u00a720.2.12 SPEC_CHANGE_REQUEST with exact evidence, never a silent frozen decision change. Escalate genuine human authority needs through existing Director Hermes Telegram, as Bru authorized. No routine approvals. Respect machine quotas and report technical blockers accurately.\n",
+      "status": "backlog",
+      "priority": "high",
+      "assigneeAgentId": null,
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "goalId": null,
+      "project": {
+        "id": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "name": "Energy Markets",
+        "description": "Procurement Research v1.1. Sole normative source /srv/hot-data/energy-markets/app/docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md, SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c. Execute canonical IMP-01..29, typed dependencies and parent receipts per \u00a7\u00a720.2,25.1,25.2. Existing Paperclip office, Brunode only. No real purchases/autonomy changes. Full UI later. Owner authorized exclusive focus 2026-09-19.",
+        "status": "in_progress",
+        "goalId": null,
+        "workspaces": [
+          {
+            "id": "5c08ab20-ca30-475e-ba63-d9420870645a",
+            "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+            "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+            "name": "Brunode canonical workspace",
+            "cwd": "/srv/hot-data/energy-markets/app",
+            "repoUrl": null,
+            "repoRef": null,
+            "metadata": null,
+            "isPrimary": true,
+            "createdAt": "2026-09-19T09:01:45.508Z",
+            "updatedAt": "2026-09-19T09:01:45.508Z"
+          }
+        ],
+        "primaryWorkspace": {
+          "id": "5c08ab20-ca30-475e-ba63-d9420870645a",
+          "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+          "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+          "name": "Brunode canonical workspace",
+          "cwd": "/srv/hot-data/energy-markets/app",
+          "repoUrl": null,
+          "repoRef": null,
+          "metadata": null,
+          "isPrimary": true,
+          "createdAt": "2026-09-19T09:01:45.508Z",
+          "updatedAt": "2026-09-19T09:01:45.508Z"
+        }
+      },
+      "goal": null
+    }
+  ],
+  "blockerAttention": {
+    "state": "none",
+    "reason": null,
+    "unresolvedBlockerCount": 0,
+    "coveredBlockerCount": 0,
+    "stalledBlockerCount": 0,
+    "attentionBlockerCount": 0,
+    "pendingFinalizeBlockerIssueIds": [],
+    "sampleBlockerIdentifier": null,
+    "sampleStalledBlockerIdentifier": null,
+    "blockingTreeLive": false,
+    "directBlockerIssueId": null,
+    "terminalBlockerIssueId": null,
+    "terminalBlocker": null
+  },
+  "reviewAttention": {
+    "state": "none",
+    "paths": [],
+    "reason": null
+  },
+  "productivityReview": null,
+  "successfulRunHandoff": null,
+  "scheduledRetry": null,
+  "activeRecoveryAction": null,
+  "blockedBy": [
+    {
+      "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+      "identifier": "LAT-96",
+      "title": "[READY] IMP-01 / ST-01.1 \u2014 contratos de identidad y namespaces",
+      "status": "done",
+      "priority": "high",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "assigneeUserId": null,
+      "scheduledRetry": null,
+      "activeRecoveryAction": null
+    }
+  ],
+  "blocks": [
+    {
+      "id": "7117a538-26e4-4f79-b5e8-c925fa94c8b8",
+      "identifier": "LAT-108",
+      "title": "[READY] IMP-02 / ST-02.1 \u2014 audit factual de campa\u00f1a Gas Quarterly y ownership",
+      "status": "done",
+      "priority": "high",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "assigneeUserId": null,
+      "scheduledRetry": null,
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "109a077b-16d8-4423-9c6f-b327ed6d8804",
+      "identifier": "LAT-110",
+      "title": "[READY] IMP-03 / ST-03.1 \u2014 inventario factual y Data Sufficiency Matrix P5",
+      "status": "done",
+      "priority": "high",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "assigneeUserId": null,
+      "scheduledRetry": null,
+      "activeRecoveryAction": null
+    },
+    {
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+      "identifier": "LAT-94",
+      "title": "IMP-26 \u2014 Vincular la SPEC y canonical IMP graph a la ejecuci\u00f3n del office, extendiendo s\u00f3lo las brechas verificadas.",
+      "status": "blocked",
+      "priority": "high",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "assigneeUserId": null,
+      "scheduledRetry": null,
+      "activeRecoveryAction": null
+    }
+  ],
+  "relatedWork": {
+    "outbound": [
+      {
+        "issue": {
+          "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+          "identifier": "LAT-96",
+          "title": "[READY] IMP-01 / ST-01.1 \u2014 contratos de identidad y namespaces",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 3,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-96"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "994cd1a0-79bf-45b3-a8ba-5332ebc2bb61",
+            "label": "imp-receipt",
+            "matchedText": "/LAT/issues/LAT-96"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "22042418-1e91-4d6e-a7cf-9a92a2b67a12",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-96"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+          "identifier": "LAT-93",
+          "title": "IMP-25 \u2014 Auditar Paperclip existente y mapear su workflow al handoff can\u00f3nico, preservando la oficina.",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-93"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "22042418-1e91-4d6e-a7cf-9a92a2b67a12",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-93"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+          "identifier": "LAT-94",
+          "title": "IMP-26 \u2014 Vincular la SPEC y canonical IMP graph a la ejecuci\u00f3n del office, extendiendo s\u00f3lo las brechas verificadas.",
+          "status": "blocked",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-94"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "22042418-1e91-4d6e-a7cf-9a92a2b67a12",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-94"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+          "identifier": "LAT-97",
+          "title": "[READY] IMP-26 / ST-26.1 \u2014 binding code and isolation tests",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-97"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "22042418-1e91-4d6e-a7cf-9a92a2b67a12",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-97"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+          "identifier": "LAT-91",
+          "title": "Procurement Research v1.1 \u2014 ejecuci\u00f3n del grafo can\u00f3nico",
+          "status": "backlog",
+          "priority": "high",
+          "assigneeAgentId": null,
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-91"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "ca7c3c88-807e-4616-ac00-4249f6870307",
+          "identifier": "LAT-95",
+          "title": "[READY] IMP-25 / ST-25.1 \u2014 audit factual Paperclip",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-95"
+          }
+        ]
+      }
+    ],
+    "inbound": [
+      {
+        "issue": {
+          "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+          "identifier": "LAT-96",
+          "title": "[READY] IMP-01 / ST-01.1 \u2014 contratos de identidad y namespaces",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 14,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "dffb7b40-6658-4ac8-9b38-b6660e390f35",
+            "label": "artifact-review-3804bd2a-f8e6-4300-9afb-0995686375f4",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "a1173e2c-db10-486c-b0d5-e1b8d6628b22",
+            "label": "artifact-review-f3d72214-d916-4e08-8b2c-1c9ee97a16ce",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "6eaa18bc-9bce-4203-8cd7-e6343c68b039",
+            "label": "artifact-review-fba68c16-fc86-4fdb-a1da-abb821785047",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "cb742fbe-74eb-4d2a-b275-b66eef820ebc",
+            "label": "continuity-checkpoint",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "3af4b69c-1e98-40a5-be0a-f6527423946e",
+            "label": "director-continuation-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "c4c97e5a-74fb-4a08-aaef-3d6d5ae1860b",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "0ae6c21b-f8ca-4135-a4a7-2da49c63fc94",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "20b6489e-b109-474d-bc9d-4389ec77cf93",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "5134bfa6-935a-4fff-bbcd-b3f7218067f8",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "816bf48f-fa5c-4f64-b04e-273cd6011f96",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "82f0ff7c-3e08-40e0-87db-ebf431faad59",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "cfe32146-3bba-41f6-8bd3-aebc7876f951",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "ed763857-0715-48e8-bbf2-484014b6e681",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+          "identifier": "LAT-97",
+          "title": "[READY] IMP-26 / ST-26.1 \u2014 binding code and isolation tests",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+          "assigneeUserId": null
+        },
+        "mentionCount": 4,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "97254dab-f2a8-45e0-908a-6f6be6b3e057",
+            "label": "continuity-checkpoint",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "f2da4a74-b0d8-438d-aa53-ee1e1b617e74",
+            "label": "director-continuation-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "fa5f95e4-8e70-4dd6-bf18-4bd2a65b113d",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "c704bb6a-3664-4647-adb6-3e8fe9accc7b",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+          "identifier": "LAT-93",
+          "title": "IMP-25 \u2014 Auditar Paperclip existente y mapear su workflow al handoff can\u00f3nico, preservando la oficina.",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 3,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "21619055-6846-4a00-972f-c4ad1e7f85c8",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "937c979f-9a6c-47d6-9409-f5a2ba8a08a2",
+            "label": "imp-receipt",
+            "matchedText": "/LAT/issues/LAT-92"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "bfd12da8-aaa8-49f8-9073-6d442315dcf0",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "b4c01892-6505-4aa1-a175-9622b7da7e17",
+          "identifier": "LAT-113",
+          "title": "IMP-28 \u2014 Materializar evaluaci\u00f3n por rol de componentes externos; ejecutar role-discovery/comparaci\u00f3n de un componente s\u00f3lo cuando se encargue.",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "052eb1f6-bdd4-4fd3-a6ba-9d2d3c80209a",
+            "label": "imp-receipt",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          },
+          {
+            "kind": "comment",
+            "sourceRecordId": "7dac57fd-3769-41f9-9961-efd5cf99eb36",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+          "identifier": "LAT-91",
+          "title": "Procurement Research v1.1 \u2014 ejecuci\u00f3n del grafo can\u00f3nico",
+          "status": "backlog",
+          "priority": "high",
+          "assigneeAgentId": null,
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "6e6f4adc-6f3d-4290-bfe8-02029a5e1dbe",
+            "label": "director-continuation-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "1ddc970a-02c2-408d-8fb1-d8bbe22e4d97",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+          "identifier": "LAT-94",
+          "title": "IMP-26 \u2014 Vincular la SPEC y canonical IMP graph a la ejecuci\u00f3n del office, extendiendo s\u00f3lo las brechas verificadas.",
+          "status": "blocked",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "9108e27f-7848-472c-bd3d-aca0f6382df8",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "0725fc21-3c7c-4f32-8a51-ac1d7a5320f5",
+            "label": "imp26-eligibility-delegation",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "ca7c3c88-807e-4616-ac00-4249f6870307",
+          "identifier": "LAT-95",
+          "title": "[READY] IMP-25 / ST-25.1 \u2014 audit factual Paperclip",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 2,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "1a07faf4-4779-48e4-a58b-8d852649fad4",
+            "label": "director-continuation-handoff",
+            "matchedText": "LAT-92"
+          },
+          {
+            "kind": "document",
+            "sourceRecordId": "a29d878d-2eb8-42fb-8c44-af35156716dc",
+            "label": "event-driven-command-handoff",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "39de1a93-1d92-474f-a2e1-42876f69bc35",
+          "identifier": "LAT-100",
+          "title": "[REFILL] #8 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "ca63f373-8e37-47ff-b52f-b4424c7d9fb0",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "0cdd9776-9180-45cd-8da0-4a1a24bcd933",
+          "identifier": "LAT-101",
+          "title": "[REFILL] #9 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "8d8188ee-7f47-4a62-9f15-65cee4e28257",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "f90ed06d-4907-4d17-b58c-18830937ffb3",
+          "identifier": "LAT-102",
+          "title": "[REFILL] #10 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "7aeb1f47-4175-4ac0-b4ef-a6dde43c4af5",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "e4e4a740-d382-4598-81d6-5005dcbad4a3",
+          "identifier": "LAT-103",
+          "title": "[REFILL] #11 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "9a5ba5ec-8622-4532-b003-50e676d8478c",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "335b5142-d523-491b-8c4e-0857863d9717",
+          "identifier": "LAT-104",
+          "title": "[REFILL] #12 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "5f8446da-f3e0-48da-a675-070d477ceed6",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "9d289f3c-03f5-4a24-b581-da6c79617168",
+          "identifier": "LAT-105",
+          "title": "[REFILL] #13 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "88c3c143-98e1-45d1-bf78-f487fe939349",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "c7c78176-f71a-43ea-a6fb-686bf4f83722",
+          "identifier": "LAT-106",
+          "title": "[REFILL] #14 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "5cc3ff31-fe29-4f74-9470-6fd0f92dee3b",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "c85c4a2b-40c3-4f87-a581-6997178919f4",
+          "identifier": "LAT-107",
+          "title": "IMP-02 \u2014 Reconstruir ficha de una campa\u00f1a Gas Quarterly y relaciones de obligaci\u00f3n.",
+          "status": "blocked",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "38196952-df72-4f06-b34b-72c9814eddec",
+            "label": "parent-acceptance",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "7117a538-26e4-4f79-b5e8-c925fa94c8b8",
+          "identifier": "LAT-108",
+          "title": "[READY] IMP-02 / ST-02.1 \u2014 audit factual de campa\u00f1a Gas Quarterly y ownership",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "ac1a015c-71c4-4b0a-b27a-55747b72bcd2",
+          "identifier": "LAT-109",
+          "title": "IMP-03 \u2014 Ejecutar data audit y poblar Data Sufficiency Matrix.",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "document",
+            "sourceRecordId": "5dd42266-a1d1-4dff-8277-ca5471f90c1e",
+            "label": "imp-receipt",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "109a077b-16d8-4423-9c6f-b327ed6d8804",
+          "identifier": "LAT-110",
+          "title": "[READY] IMP-03 / ST-03.1 \u2014 inventario factual y Data Sufficiency Matrix P5",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "24c7a41f-6073-4210-8d3c-80510026f2d6",
+          "identifier": "LAT-112",
+          "title": "[READY] IMP-27 / ST-27.1 \u2014 Strategy Admission framework sin admisi\u00f3n real",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+          "identifier": "LAT-114",
+          "title": "[READY] IMP-28 / ST-28.1 \u2014 framework de evaluaci\u00f3n por rol de componentes externos",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "c319f905-1415-4ace-8795-c967b8ecbeaf",
+          "identifier": "LAT-115",
+          "title": "[REFILL] #15 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "455cb9ba-c8a9-41d1-ae48-2f57d0e43e86",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "ce4042e0-b09f-4dd3-8471-78a2f0d68710",
+          "identifier": "LAT-116",
+          "title": "[REFILL] #16 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "08acb6cc-7c9c-4c55-a0c4-1ca11ce29812",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "686a3a6e-b87d-4579-935a-ce30564eeb19",
+          "identifier": "LAT-117",
+          "title": "[REFILL] #17 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "fa19b349-07f7-4463-ba9c-d1527b0c9f58",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "88f55335-e803-4979-ae53-20c7108cdb12",
+          "identifier": "LAT-118",
+          "title": "[REFILL] #18 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "1fad8419-24a5-4bfd-a5f7-b084bcafffe4",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "44be1938-2a2d-4b15-899e-6a7d303b1e59",
+          "identifier": "LAT-119",
+          "title": "[REFILL] #19 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "b4a651ac-1107-4bab-8737-d1bdecb7fc87",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "e6c34525-716e-46a7-8c13-f2d765855a83",
+          "identifier": "LAT-120",
+          "title": "[REFILL] #20 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "8b69cc75-d1a9-42c6-88a6-5a29233017b5",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "90d6e321-dfeb-4d5c-944c-7b19845070a8",
+          "identifier": "LAT-121",
+          "title": "[REFILL] #21 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "d5aeb522-4711-49ea-b266-1a71942890d3",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "a05214f7-7abb-46ef-b1f4-aaedfc74ef87",
+          "identifier": "LAT-122",
+          "title": "[REFILL] #22 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "bc58391d-01b6-4998-8d8f-72bd0bc945d8",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "b1041427-2de1-492e-a944-062894be68b2",
+          "identifier": "LAT-123",
+          "title": "[REFILL] #23 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "4c9bc0fb-d0cb-4133-a868-a589533765f9",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "dff903a2-12b7-495a-9efe-1a49900f9952",
+          "identifier": "LAT-125",
+          "title": "[REFILL] #24 Command backlog refill \u2014 Energy Markets: READY 2 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "d5ac9da4-10fc-4d42-8dc8-552f78f24e91",
+            "label": "comment",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "ab16dbf3-fb54-4a10-ad45-f63673898ed4",
+          "identifier": "LAT-126",
+          "title": "[READY] IMP-08 / ST-08.1 \u2014 expected results sint\u00e9ticos previos al c\u00e1lculo",
+          "status": "done",
+          "priority": "medium",
+          "assigneeAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "description",
+            "sourceRecordId": null,
+            "label": "description",
+            "matchedText": "/LAT/issues/LAT-92#document-imp-receipt"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "708c759e-4b61-48ab-b52a-4f149c56e256",
+          "identifier": "LAT-98",
+          "title": "[REFILL] #6 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "740778b1-a353-4956-97b3-ad546c0cdaef",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      },
+      {
+        "issue": {
+          "id": "911fcff3-6878-46e3-8b0c-4764f808958c",
+          "identifier": "LAT-99",
+          "title": "[REFILL] #7 Command backlog refill \u2014 Energy Markets: READY 0 -> target 6",
+          "status": "done",
+          "priority": "high",
+          "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+          "assigneeUserId": null
+        },
+        "mentionCount": 1,
+        "sources": [
+          {
+            "kind": "comment",
+            "sourceRecordId": "bd2f354f-e40e-4c17-a1b9-c9d5255d0418",
+            "label": "comment",
+            "matchedText": "LAT-92"
+          }
+        ]
+      }
+    ]
+  },
+  "referencedIssueIdentifiers": [
+    "LAT-96",
+    "LAT-93",
+    "LAT-94",
+    "LAT-97",
+    "LAT-91",
+    "LAT-95"
+  ],
+  "planDocument": null,
+  "documentSummaries": [
+    {
+      "id": "ad98a4e8-9c83-4a69-a20d-751ef76c18c0",
+      "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+      "issueId": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "key": "event-driven-command-handoff",
+      "title": null,
+      "format": "markdown",
+      "latestRevisionId": "94748c82-48a6-42bc-844c-794c274b3761",
+      "latestRevisionNumber": 1,
+      "createdByAgentId": null,
+      "createdByUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+      "updatedByAgentId": null,
+      "updatedByUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+      "lockedAt": null,
+      "lockedByAgentId": null,
+      "lockedByUserId": null,
+      "sourceTrust": null,
+      "createdAt": "2026-09-19T09:29:04.957Z",
+      "updatedAt": "2026-09-19T09:29:04.957Z"
+    },
+    {
+      "id": "994cd1a0-79bf-45b3-a8ba-5332ebc2bb61",
+      "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+      "issueId": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "key": "imp-receipt",
+      "title": "IMP-01 \u2014 scoped accepted IMP_RECEIPT",
+      "format": "markdown",
+      "latestRevisionId": "dcec778d-5919-4327-b238-6305a6882c1c",
+      "latestRevisionNumber": 1,
+      "createdByAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "createdByUserId": null,
+      "updatedByAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "updatedByUserId": null,
+      "lockedAt": null,
+      "lockedByAgentId": null,
+      "lockedByUserId": null,
+      "sourceTrust": null,
+      "createdAt": "2026-09-19T10:30:43.109Z",
+      "updatedAt": "2026-09-19T10:30:43.109Z"
+    }
+  ],
+  "legacyPlanDocument": null,
+  "project": {
+    "id": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+    "urlKey": "energy-markets",
+    "goalId": null,
+    "goalIds": [],
+    "goals": [],
+    "name": "Energy Markets",
+    "description": "Procurement Research v1.1. Sole normative source /srv/hot-data/energy-markets/app/docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md, SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c. Execute canonical IMP-01..29, typed dependencies and parent receipts per \u00a7\u00a720.2,25.1,25.2. Existing Paperclip office, Brunode only. No real purchases/autonomy changes. Full UI later. Owner authorized exclusive focus 2026-09-19.",
+    "status": "in_progress",
+    "leadAgentId": null,
+    "targetDate": null,
+    "color": null,
+    "icon": null,
+    "env": null,
+    "pauseReason": null,
+    "pausedAt": null,
+    "executionWorkspacePolicy": {
+      "enabled": true,
+      "sharedWorkspaceConcurrency": "allow",
+      "defaultMode": "shared_workspace",
+      "allowIssueOverride": true,
+      "defaultProjectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "workspaceStrategy": {
+        "type": "project_primary"
+      }
+    },
+    "codebase": {
+      "workspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "repoUrl": null,
+      "repoRef": null,
+      "defaultRef": null,
+      "repoName": null,
+      "localFolder": "/srv/hot-data/energy-markets/app",
+      "managedFolder": "/home/op/.paperclip/instances/default/projects/0cd3e396-2505-4349-af4f-09dd608047d2/96bbd5b1-94da-4781-8c2b-455fdfb28d1a/_default",
+      "effectiveLocalFolder": "/srv/hot-data/energy-markets/app",
+      "origin": "local_folder"
+    },
+    "workspaces": [
+      {
+        "id": "5c08ab20-ca30-475e-ba63-d9420870645a",
+        "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+        "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "name": "Brunode canonical workspace",
+        "sourceType": "non_git_path",
+        "cwd": "/srv/hot-data/energy-markets/app",
+        "repoUrl": null,
+        "repoRef": null,
+        "defaultRef": null,
+        "visibility": "default",
+        "setupCommand": null,
+        "cleanupCommand": null,
+        "remoteProvider": null,
+        "remoteWorkspaceRef": null,
+        "sharedWorkspaceKey": null,
+        "runtimeConfig": null,
+        "isPrimary": true,
+        "createdAt": "2026-09-19T09:01:45.508Z",
+        "updatedAt": "2026-09-19T09:01:45.508Z"
+      }
+    ],
+    "primaryWorkspace": {
+      "id": "5c08ab20-ca30-475e-ba63-d9420870645a",
+      "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "name": "Brunode canonical workspace",
+      "sourceType": "non_git_path",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "repoUrl": null,
+      "repoRef": null,
+      "defaultRef": null,
+      "visibility": "default",
+      "setupCommand": null,
+      "cleanupCommand": null,
+      "remoteProvider": null,
+      "remoteWorkspaceRef": null,
+      "sharedWorkspaceKey": null,
+      "runtimeConfig": null,
+      "isPrimary": true,
+      "createdAt": "2026-09-19T09:01:45.508Z",
+      "updatedAt": "2026-09-19T09:01:45.508Z"
+    },
+    "managedByPlugin": null,
+    "archivedAt": null,
+    "createdAt": "2026-09-17T21:03:26.252Z",
+    "updatedAt": "2026-09-19T09:02:15.423Z"
+  },
+  "goal": null,
+  "mentionedProjects": [],
+  "currentExecutionWorkspace": null,
+  "workProducts": [
+    {
+      "id": "e14fcc48-216e-4400-82dd-2dc0480e2995",
+      "companyId": "0cd3e396-2505-4349-af4f-09dd608047d2",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "issueId": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "executionWorkspaceId": null,
+      "runtimeServiceId": null,
+      "type": "artifact",
+      "provider": "paperclip",
+      "externalId": null,
+      "title": "IMP-01 accepted parent receipt",
+      "url": null,
+      "status": "ready_for_review",
+      "reviewState": "none",
+      "isPrimary": true,
+      "healthStatus": "unknown",
+      "summary": "Scoped parent acceptance, native review identities, 76 passing tests and evidence hashes.",
+      "metadata": {
+        "byteSize": 9624,
+        "openPath": "/api/attachments/a7d1c3d3-3578-4c11-bcb0-f97888968a66/content",
+        "contentPath": "/api/attachments/a7d1c3d3-3578-4c11-bcb0-f97888968a66/content",
+        "contentType": "application/json",
+        "attachmentId": "a7d1c3d3-3578-4c11-bcb0-f97888968a66",
+        "downloadPath": "/api/attachments/a7d1c3d3-3578-4c11-bcb0-f97888968a66/content?download=1",
+        "originalFilename": "IMP-01-IMP_RECEIPT.json"
+      },
+      "sourceTrust": null,
+      "createdByRunId": "9935bd44-9f27-466a-b923-65754972f4a4",
+      "createdAt": "2026-09-19T10:30:42.988Z",
+      "updatedAt": "2026-09-19T10:30:42.988Z"
+    }
+  ],
+  "linkedCases": []
+}

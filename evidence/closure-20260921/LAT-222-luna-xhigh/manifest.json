@@ -1,0 +1,99 @@
+{
+  "candidate": "LAT-222",
+  "agent": "codex_local/Luna/xHigh",
+  "host": "op@100.92.44.106",
+  "canonicalCwd": "/srv/hot-data/energy-markets/app",
+  "generatedAt": "2026-09-21T22:00:32.774Z",
+  "writeSet": {
+    "stagingRoot": "operations/audit/IMP-26/LAT-222/staging/**",
+    "evidenceRoot": "evidence/closure-20260921/LAT-222-luna-xhigh/**",
+    "outsideWrites": []
+  },
+  "stagingSha256": {
+    "replenisher.mjs": "47080a8c9d5c4550e44dbd3f95a5bfdf4345034434c6cd2b988bcfbe1a64f922",
+    "replenisher.test.mjs": "98185925945b9f6663a8f1e5866afe037d75d756a5c6ce70309ed25767a6c103",
+    "continuity-e2e.test.mjs": "e6554f5a00b338077504ae428c46b2d4146d85e835cc8645690925206893925f",
+    "runtime-profile.mjs": "3fc00d1563f8a0becf83aa6d96b6e82b8e024cada5a820388b472ef5d214f1b0",
+    "runtime-profile.test.mjs": "87381210ba42d9e7af95f4493dcc711151b1653f3fa0542f7418b022898c7c50",
+    "resources.json": "eb94e632a96dde0472d7eb5722ab0d42cae521cab3de7fb7514118ca740f222f",
+    "LAT-222-NATIVE_RUNTIME_PROFILE_BLOCKER.md": "828f0f2d81551fb3988414404dcdb7d6fccd527cd7b457987cc1f5fcf691a872",
+    "lanes.json": "bacb3aa74d4e61db433d6cee0457d6142088782113f30736699bacf2d866cac1",
+    "policy.mjs": "7045f5522502d80fb67e6838126e7c361f1abf8c76698bcb7a673666e430d993",
+    "policy.test.mjs": "f6261775f9a56b9bf06e264ee83e176fe6f6f0e08a2af16a689d09a106059780",
+    "routing-telemetry.test.mjs": "50dc9eee49f6769432789e33d6905d1efbd97e34e26b6cf675ca27242673c6ff",
+    "review-recovery.test.mjs": "aba42b76da4faa34ffc70d6dbdb0c2f21301ee7b4904ec11107c8c94dfbaed67",
+    "imp26-autonomy.test.mjs": "a7e79c314f504f79829868a1756ddbee33108e317bd28922a9d2e371a1d41a12",
+    "north-star.test.mjs": "a4f02c4bba1d03a37cb5c30e33cd2d082d6438dd91a06b4f5967513595bab20e",
+    "final-acceptance.mjs": "0e448cb7a20033454ee20d54056f332a265ea0d989198d849f052eb650c67c71",
+    "controller.mjs": "fa13f436ae364416009c36b6147db6710dd0a0c89fcb2c1e1ff02a75c28f55cc",
+    "native-final-acceptance.test.mjs": "3bbbf807629095889defe8e2131866273c9a18eaf467fa29d4f35233fdd78d06",
+    "board-sim.mjs": "852833a93cff5c09e0a086b7502472ea577c1191a9a1a7c952f0275cf2fc5a8a"
+  },
+  "tests": {
+    "javascript": {
+      "command": "/opt/node/bin/node --test --test-reporter=tap",
+      "tests": 691,
+      "passed": 691,
+      "failed": 0,
+      "exitCode": 0,
+      "tapOutput": "/tmp/lat222-luna-final.tap"
+    },
+    "focused": {
+      "result": "passed",
+      "scope": [
+        "native-final-acceptance.test.mjs",
+        "controller.test.mjs",
+        "imp26-autonomy.test.mjs",
+        "continuity-e2e.test.mjs",
+        "replenisher.test.mjs",
+        "policy.test.mjs",
+        "dispatcher.test.mjs",
+        "review-recovery.test.mjs",
+        "runtime-profile.test.mjs",
+        "routing-telemetry.test.mjs",
+        "north-star.test.mjs"
+      ]
+    },
+    "pythonEmailSink": {
+      "command": "python3 email-sink.test.py",
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "exitCode": 0
+    }
+  },
+  "nativeReadback": {
+    "issue": {
+      "id": "86a06588-9bce-4880-ac9d-9947a272001e4",
+      "identifier": "LAT-222",
+      "status": "blocked",
+      "executionState": {
+        "status": "idle",
+        "currentStageType": null,
+        "currentParticipantType": null,
+        "currentParticipantAgentId": null,
+        "returnAssigneeAgentId": null
+      },
+      "updatedAt": "2026-09-21T21:03:01.646Z"
+    },
+    "fixedProfiles": [
+      {
+        "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+        "adapterType": "codex_local",
+        "status": "idle",
+        "envKeys": ["CODEX_HOME"]
+      },
+      {
+        "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "adapterType": "codex_local",
+        "status": "idle",
+        "envKeys": ["CODEX_HOME"]
+      }
+    ]
+  },
+  "residuals": [
+    "Dynamic per-stage/per-run account-profile binding is not proven.",
+    "Shared OA2 capacity under auto-wake is not proven.",
+    "Separate native runtime patch remains required for those dynamic/failover claims."
+  ]
+}

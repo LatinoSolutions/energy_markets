@@ -1,0 +1,922 @@
+TAP version 13
+# ST-08.6 frozen parent acceptance tests, packet WP-IMP-08-ST-6-v1.1 (rev6)
+# host brunode cwd /srv/hot-data/energy-markets/app atUtc 2026-09-22T11:04:03Z
+# node v24.19.0
+# (ST-08.6 verifier output and 'sha256sum -c' confirmation are recorded in verification.txt)
+
+# ===== oracle fixtures: node operations/audit/IMP-08/fixture-oracle/verify.mjs =====
+# == INPUT HASHES ==
+#   SPEC: 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c (expected 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)
+#   IMP-01-IMP_RECEIPT.json: 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c (expected 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c)
+#   baseline-manifest.json: 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 (expected 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860)
+#   IMP-01 content version: c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c (expected c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c)
+#   OK
+# 
+# == FIXTURE COLLECTION ==
+#   fixtures=35
+#   canonical cases covered: C01,C02,C03,C04,C05,C06,C07,C08,C09,C10,C11,C12 (required C01,C02,C03,C04,C05,C06,C07,C08,C09,C10,C11,C12)
+#   check kinds: proxy=4, benchmark=4, window=2, fallback=1, declarative=5, scoring=12, bhv=5, undefined=2
+#   undefined/partial fixtures: FX-C02-NO-SOURCE, FX-C12-ONLY-POSITIVES, FX-C12-EXACT-ZERO-ONLY, FX-C12-N-LT-2, FX-C12-EMPTY-POPULATION, FX-C12-EMPTY-WINNER-GROUP, FX-MONTHLY-ONLY-POSITIVE-NO-HOLD, FX-BHV-UNITS-INCOMPATIBLE, FX-BHV-TOTAL-EUR-NO-MWH, FX-BHV-MISSING-FEE, FX-BHV-UNDEFINED-RATIO-NO-PASS
+#   OK: unique IDs, full canonical coverage, synthetic labels, explicit undefined reasons, arithmetic agrees with the documented calculations.
+# 
+# == NEGATIVE PROBES (tampered copies, never written to disk) ==
+#   [PASS] duplicate-fixture-id-detected (expect DUPLICATE_FIXTURE_ID) -> DUPLICATE_FIXTURE_ID FX-C01-PROXY-MIXED
+#   [PASS] tampered-proxy-detected (expect PROXY_VALUE_MISMATCH) -> PROXY_VALUE_MISMATCH FX-C01-PROXY-MIXED: computed 101, check 102, expected 102
+#   [PASS] unsynthetic-fixture-detected (expect NOT_SYNTHETIC) -> NOT_SYNTHETIC FX-C01-PROXY-MIXED
+#   [PASS] missing-canonical-case-detected (expect CANONICAL_CASE_UNCOVERED) -> CANONICAL_CASE_UNCOVERED C11
+#   [PASS] undefined-without-reason-detected (expect UNDEFINED_WITHOUT_REASON) -> UNDEFINED_WITHOUT_REASON FX-C12-N-LT-2; SCORING_UNDEFINED_WITHOUT_REASON FX-C12-N-LT-2
+#   [PASS] scoring-tamper-detected (expect SCORING_VALUE_MISMATCH) -> SCORING_VALUE_MISMATCH sortino: computed 1.5, expected 2
+#   [PASS] undocumented-fixture-detected (expect NOT_DOCUMENTED_IN_CALCULATIONS) -> NOT_DOCUMENTED_IN_CALCULATIONS FX-UNDOCUMENTED-PROBE
+#   OK: the verifier rejects duplicate IDs, arithmetic tampering, unsynthetic labels, uncovered canonical cases, undefined-without-reason and undocumented fixtures.
+# 
+# == RESULT ==
+#   exit=0 (0 = hashes/identity/coverage/arithmetic/negatives pass)
+# oracle exit=0
+
+# ===== ST-08.5 delivery: node operations/audit/IMP-08/ST-08.5/verify-delivery.mjs =====
+# verify-delivery: PASS; artifacts=11; protectedHashes=9 unchanged; semanticHash=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528; receipt=in_review; reviewer=Astra
+# st085 exit=0
+
+# ===== ST-08.4 dossier: node operations/audit/IMP-08/ST-08.4/verify-st4.mjs =====
+# verify-st4: PASS
+# pins=9 unchanged
+# receiptValidation=true
+# receiptLinkage=true
+# payloadFiles=86
+# payloadAggregateContentHash=a70044d97ab3ac604db4dea55d8c01b69d85e3a611dcfb6d26bcf475babecef5
+# currentAcceptedST085_C=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528 A=96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e
+# historyST083Files=9 aggregateA=140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2
+# dossierArchiveSha256=c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af
+# st084 exit=0
+
+# ===== economic tests: node --test test/economic-calculation/*.test.mjs =====
+# TAP version 13
+# # Subtest: FX-C01-PROXY-MIXED: proxy 0.75*100+0.25*104=101, sin VWAP
+# ok 1 - FX-C01-PROXY-MIXED: proxy 0.75*100+0.25*104=101, sin VWAP
+#   ---
+#   duration_ms: 0.914455
+#   type: 'test'
+#   ...
+# # Subtest: FX-C02-TRADES-ONLY: sólo trades -> T=100
+# ok 2 - FX-C02-TRADES-ONLY: sólo trades -> T=100
+#   ---
+#   duration_ms: 0.128943
+#   type: 'test'
+#   ...
+# # Subtest: FX-C02-MIDPOINTS-ONLY: sólo midpoints -> M=104
+# ok 3 - FX-C02-MIDPOINTS-ONLY: sólo midpoints -> M=104
+#   ---
+#   duration_ms: 0.115207
+#   type: 'test'
+#   ...
+# # Subtest: FX-C02-NO-SOURCE: sin fuente -> missing, nunca cero
+# ok 4 - FX-C02-NO-SOURCE: sin fuente -> missing, nunca cero
+#   ---
+#   duration_ms: 0.164169
+#   type: 'test'
+#   ...
+# # Subtest: FX-C03-EQUAL-WEIGHT: B=105 con peso diario igual pese a densidad de ticks
+# ok 5 - FX-C03-EQUAL-WEIGHT: B=105 con peso diario igual pese a densidad de ticks
+#   ---
+#   duration_ms: 8.646983
+#   type: 'test'
+#   ...
+# # Subtest: FX-C04-OFFICIAL-REPLACEMENT: oficial 102 sustituye proxy 100 -> B=106 y B previo 105 preservado
+# ok 6 - FX-C04-OFFICIAL-REPLACEMENT: oficial 102 sustituye proxy 100 -> B=106 y B previo 105 preservado
+#   ---
+#   duration_ms: 0.446292
+#   type: 'test'
+#   ...
+# # Subtest: FX-C05-OFFICIAL-CORRECTION: gana el timestamp de proveedor más reciente -> B=106.5
+# ok 7 - FX-C05-OFFICIAL-CORRECTION: gana el timestamp de proveedor más reciente -> B=106.5
+#   ---
+#   duration_ms: 0.220236
+#   type: 'test'
+#   ...
+# # Subtest: FX-C06-MISSING-THEN-OFFICIAL: recálculo de conjunto, denominador y cobertura
+# ok 8 - FX-C06-MISSING-THEN-OFFICIAL: recálculo de conjunto, denominador y cobertura
+#   ---
+#   duration_ms: 0.219845
+#   type: 'test'
+#   ...
+# # Subtest: FX-C07-MONTHLY-1-0-1: inicio incluido, fin excluido
+# ok 9 - FX-C07-MONTHLY-1-0-1: inicio incluido, fin excluido
+#   ---
+#   duration_ms: 0.16389
+#   type: 'test'
+#   ...
+# # Subtest: FX-C07-QUARTERLY-3-1-3: inicio incluido, fin excluido
+# ok 10 - FX-C07-QUARTERLY-3-1-3: inicio incluido, fin excluido
+#   ---
+#   duration_ms: 0.20161
+#   type: 'test'
+#   ...
+# # Subtest: FX-C07-FALLBACK-PM60: |t-17:15|<=60 min, extremos incluidos
+# ok 11 - FX-C07-FALLBACK-PM60: |t-17:15|<=60 min, extremos incluidos
+#   ---
+#   duration_ms: 0.25425
+#   type: 'test'
+#   ...
+# # Subtest: FX-C07-POST-1715-CONSUMABILITY: publicado ≠ consumible por la policy
+# ok 12 - FX-C07-POST-1715-CONSUMABILITY: publicado ≠ consumible por la policy
+#   ---
+#   duration_ms: 0.154772
+#   type: 'test'
+#   ...
+# # Subtest: FX-C08-OFFICIAL-001-VALID: 0.01 declarado válido; guard reportado, sin regla canónica
+# ok 13 - FX-C08-OFFICIAL-001-VALID: 0.01 declarado válido; guard reportado, sin regla canónica
+#   ---
+#   duration_ms: 0.179498
+#   type: 'test'
+#   ...
+# # Subtest: FX-C08-OFFICIAL-001-UNKNOWN: validez desconocida -> excluido, nunca puesto a cero
+# ok 14 - FX-C08-OFFICIAL-001-UNKNOWN: validez desconocida -> excluido, nunca puesto a cero
+#   ---
+#   duration_ms: 0.128212
+#   type: 'test'
+#   ...
+# # Subtest: negativo: B con D_t vacío no se rellena con cero
+# ok 15 - negativo: B con D_t vacío no se rellena con cero
+#   ---
+#   duration_ms: 0.141207
+#   type: 'test'
+#   ...
+# # Subtest: negativo: una fecha missing no entra en el denominador de B
+# ok 16 - negativo: una fecha missing no entra en el denominador de B
+#   ---
+#   duration_ms: 0.125918
+#   type: 'test'
+#   ...
+# # Subtest: negativo: la densidad de ticks no cambia el peso diario de B
+# ok 17 - negativo: la densidad de ticks no cambia el peso diario de B
+#   ---
+#   duration_ms: 0.977575
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-POSITIVE: V=B-H=105-100=+5 EUR/MWh
+# ok 18 - FX-BHV-POSITIVE: V=B-H=105-100=+5 EUR/MWh
+#   ---
+#   duration_ms: 0.968136
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-NEGATIVE: V=100-105=-5 EUR/MWh
+# ok 19 - FX-BHV-NEGATIVE: V=100-105=-5 EUR/MWh
+#   ---
+#   duration_ms: 0.13237
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-ZERO: V=105-105=0 neutral
+# ok 20 - FX-BHV-ZERO: V=105-105=0 neutral
+#   ---
+#   duration_ms: 0.124986
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-UNITS-INCOMPATIBLE: B EUR/MWh y H EUR -> V indefinido, sin conversión
+# ok 21 - FX-BHV-UNITS-INCOMPATIBLE: B EUR/MWh y H EUR -> V indefinido, sin conversión
+#   ---
+#   duration_ms: 0.160002
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-TOTAL-EUR-NO-MWH: volumen MW -> total EUR indefinido, sin MW->MWh
+# ok 22 - FX-BHV-TOTAL-EUR-NO-MWH: volumen MW -> total EUR indefinido, sin MW->MWh
+#   ---
+#   duration_ms: 0.192513
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-MISSING-FEE: fee unknown -> H indefinido, nunca cero
+# ok 23 - FX-BHV-MISSING-FEE: fee unknown -> H indefinido, nunca cero
+#   ---
+#   duration_ms: 0.199967
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-INCOMPLETE-COVERAGE: V=5 aritmético pero no evidencia de research válida
+# ok 24 - FX-BHV-INCOMPLETE-COVERAGE: V=5 aritmético pero no evidencia de research válida
+#   ---
+#   duration_ms: 0.172506
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-C-DIAGNOSTIC: C=4 diagnóstico, no gate duro
+# ok 25 - FX-BHV-C-DIAGNOSTIC: C=4 diagnóstico, no gate duro
+#   ---
+#   duration_ms: 0.15945
+#   type: 'test'
+#   ...
+# # Subtest: FX-BHV-UNDEFINED-RATIO-NO-PASS: sólo positivos -> Sortino indefinido -> HOLD, nunca PASS
+# ok 26 - FX-BHV-UNDEFINED-RATIO-NO-PASS: sólo positivos -> Sortino indefinido -> HOLD, nunca PASS
+#   ---
+#   duration_ms: 0.512397
+#   type: 'test'
+#   ...
+# # Subtest: positivo: un coste conocido entra exactamente una vez en H
+# ok 27 - positivo: un coste conocido entra exactamente una vez en H
+#   ---
+#   duration_ms: 0.215958
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.5: every malformed complete cost element fails closed without throwing
+# ok 28 - ST-08.5: every malformed complete cost element fails closed without throwing
+#   ---
+#   duration_ms: 0.969048
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.5: valid complete finite costs and known-zero costs preserve arithmetic
+# ok 29 - ST-08.5: valid complete finite costs and known-zero costs preserve arithmetic
+#   ---
+#   duration_ms: 0.189558
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.5: invalid base unit still fails closed with the established reason
+# ok 30 - ST-08.5: invalid base unit still fails closed with the established reason
+#   ---
+#   duration_ms: 0.140214
+#   type: 'test'
+#   ...
+# # Subtest: positivo: total EUR con volumen MWh sí se computa
+# ok 31 - positivo: total EUR con volumen MWh sí se computa
+#   ---
+#   duration_ms: 0.131498
+#   type: 'test'
+#   ...
+# # Subtest: negativo: B o H no finitos no se coercionan a cero
+# ok 32 - negativo: B o H no finitos no se coercionan a cero
+#   ---
+#   duration_ms: 0.097624
+#   type: 'test'
+#   ...
+# # Subtest: negativo: cobertura full sí es evidencia de research válida
+# ok 33 - negativo: cobertura full sí es evidencia de research válida
+#   ---
+#   duration_ms: 0.129524
+#   type: 'test'
+#   ...
+# # Subtest: FX-C09-SCORING-POS-NEG: +4/-1 -> n=2,p=.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5
+# ok 34 - FX-C09-SCORING-POS-NEG: +4/-1 -> n=2,p=.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5
+#   ---
+#   duration_ms: 1.173343
+#   type: 'test'
+#   ...
+# # Subtest: FX-C09-NEUTRAL-ADDITION: +4/-1/0 preserva n_nonzero=2 y n_total=3
+# ok 35 - FX-C09-NEUTRAL-ADDITION: +4/-1/0 preserva n_nonzero=2 y n_total=3
+#   ---
+#   duration_ms: 0.152678
+#   type: 'test'
+#   ...
+# # Subtest: FX-C10-SCORING-SORTINO-1: +3/-1 -> mu=1,R=C=3,Sortino=1 no supera >1 estricto
+# ok 36 - FX-C10-SCORING-SORTINO-1: +3/-1 -> mu=1,R=C=3,Sortino=1 no supera >1 estricto
+#   ---
+#   duration_ms: 0.135987
+#   type: 'test'
+#   ...
+# # Subtest: FX-C11-SCORING-ZERO-MEAN: +2/-2 -> mu=0,R=C=1,sigma=2,Sortino=0
+# ok 37 - FX-C11-SCORING-ZERO-MEAN: +2/-2 -> mu=0,R=C=1,sigma=2,Sortino=0
+#   ---
+#   duration_ms: 0.144463
+#   type: 'test'
+#   ...
+# # Subtest: FX-C12-ONLY-POSITIVES: [4,3] -> A/R/C indefinidos, sigma=0, Sortino indefinido
+# ok 38 - FX-C12-ONLY-POSITIVES: [4,3] -> A/R/C indefinidos, sigma=0, Sortino indefinido
+#   ---
+#   duration_ms: 0.290799
+#   type: 'test'
+#   ...
+# # Subtest: FX-C12-EXACT-ZERO-ONLY: [0,0] -> n_nonzero=0, todo indefinido
+# ok 39 - FX-C12-EXACT-ZERO-ONLY: [0,0] -> n_nonzero=0, todo indefinido
+#   ---
+#   duration_ms: 0.14855
+#   type: 'test'
+#   ...
+# # Subtest: FX-C12-N-LT-2: [4] -> n-1=0, sigma_down y Sortino indefinidos
+# ok 40 - FX-C12-N-LT-2: [4] -> n-1=0, sigma_down y Sortino indefinidos
+#   ---
+#   duration_ms: 0.131819
+#   type: 'test'
+#   ...
+# # Subtest: FX-C12-EMPTY-POPULATION: [] -> todo indefinido, nada fabricado
+# ok 41 - FX-C12-EMPTY-POPULATION: [] -> todo indefinido, nada fabricado
+#   ---
+#   duration_ms: 0.167627
+#   type: 'test'
+#   ...
+# # Subtest: FX-C12-EMPTY-WINNER-GROUP: [-1,-2] -> A=1.5, sigma=sqrt(5), Sortino=-0.6708..., G/R/C indefinidos
+# ok 42 - FX-C12-EMPTY-WINNER-GROUP: [-1,-2] -> A=1.5, sigma=sqrt(5), Sortino=-0.6708..., G/R/C indefinidos
+#   ---
+#   duration_ms: 0.23863
+#   type: 'test'
+#   ...
+# # Subtest: FX-MONTHLY-NO-SORTINO-IMPORT: Monthly no importa el screen Quarterly
+# ok 43 - FX-MONTHLY-NO-SORTINO-IMPORT: Monthly no importa el screen Quarterly
+#   ---
+#   duration_ms: 0.320405
+#   type: 'test'
+#   ...
+# # Subtest: FX-MONTHLY-ONLY-POSITIVE-NO-HOLD: el HOLD Monthly es de alcance, no del Sortino indefinido
+# ok 44 - FX-MONTHLY-ONLY-POSITIVE-NO-HOLD: el HOLD Monthly es de alcance, no del Sortino indefinido
+#   ---
+#   duration_ms: 0.285729
+#   type: 'test'
+#   ...
+# # Subtest: FX-MONTHLY-REASON-DISCRIMINA: el HOLD Monthly discrimina por su propia razón
+# ok 45 - FX-MONTHLY-REASON-DISCRIMINA: el HOLD Monthly discrimina por su propia razón
+#   ---
+#   duration_ms: 0.212852
+#   type: 'test'
+#   ...
+# # Subtest: FX-EVIDENCE-TWO-CAMPAIGNS: 2 quarters / 1 año no cumplen el mínimo
+# ok 46 - FX-EVIDENCE-TWO-CAMPAIGNS: 2 quarters / 1 año no cumplen el mínimo
+#   ---
+#   duration_ms: 0.305166
+#   type: 'test'
+#   ...
+# # Subtest: negativo: n nunca se sustituye por n_total
+# ok 47 - negativo: n nunca se sustituye por n_total
+#   ---
+#   duration_ms: 0.955593
+#   type: 'test'
+#   ...
+# # Subtest: negativo: un ratio indefinido nunca se convierte en PASS
+# ok 48 - negativo: un ratio indefinido nunca se convierte en PASS
+#   ---
+#   duration_ms: 0.120968
+#   type: 'test'
+#   ...
+# # Subtest: gate sintético: evidencia suficiente y screen falso -> FAIL, no PASS
+# ok 49 - gate sintético: evidencia suficiente y screen falso -> FAIL, no PASS
+#   ---
+#   duration_ms: 0.093647
+#   type: 'test'
+#   ...
+# # Subtest: gate sintético: evidencia suficiente y screen cumplido -> PASS (chequeo de rama, no evidencia real)
+# ok 50 - gate sintético: evidencia suficiente y screen cumplido -> PASS (chequeo de rama, no evidencia real)
+#   ---
+#   duration_ms: 0.07975
+#   type: 'test'
+#   ...
+# # Subtest: negativo (criterio 5): entradas inválidas no se ocultan tras un score alto
+# ok 51 - negativo (criterio 5): entradas inválidas no se ocultan tras un score alto
+#   ---
+#   duration_ms: 0.170853
+#   type: 'test'
+#   ...
+# # Subtest: negativo (criterio 5): cobertura incompleta no se oculta tras un score alto
+# ok 52 - negativo (criterio 5): cobertura incompleta no se oculta tras un score alto
+#   ---
+#   duration_ms: 0.11094
+#   type: 'test'
+#   ...
+# # Subtest: negativo (criterio 5): benchmark provisional no se oculta tras un score alto
+# ok 53 - negativo (criterio 5): benchmark provisional no se oculta tras un score alto
+#   ---
+#   duration_ms: 0.086814
+#   type: 'test'
+#   ...
+# # Subtest: negativo (criterio 5): sin canal de calidad declarado no se emite PASS
+# ok 54 - negativo (criterio 5): sin canal de calidad declarado no se emite PASS
+#   ---
+#   duration_ms: 0.080943
+#   type: 'test'
+#   ...
+# # Subtest: negativo: C no es un gate de research
+# ok 55 - negativo: C no es un gate de research
+#   ---
+#   duration_ms: 0.100569
+#   type: 'test'
+#   ...
+# # Subtest: negativo: entradas no finitas no se coercionan a cero en scoring
+# ok 56 - negativo: entradas no finitas no se coercionan a cero en scoring
+#   ---
+#   duration_ms: 0.070383
+#   type: 'test'
+#   ...
+# 1..56
+# # tests 56
+# # suites 0
+# # pass 56
+# # fail 0
+# # cancelled 0
+# # skipped 0
+# # todo 0
+# # duration_ms 78.784504
+
+# ===== contract tests: node --test test/contracts/*.test.mjs =====
+# TAP version 13
+# # Subtest: un bundle completo con todo AVAILABLE_NOW es válido y no bloquea
+# ok 1 - un bundle completo con todo AVAILABLE_NOW es válido y no bloquea
+#   ---
+#   duration_ms: 1.929841
+#   type: 'test'
+#   ...
+# # Subtest: un required input UNAVAILABLE con razón se preserva y bloquea el bundle
+# ok 2 - un required input UNAVAILABLE con razón se preserva y bloquea el bundle
+#   ---
+#   duration_ms: 0.305837
+#   type: 'test'
+#   ...
+# # Subtest: UNAVAILABLE sin razón se rechaza en vez de inventar un default
+# ok 3 - UNAVAILABLE sin razón se rechaza en vez de inventar un default
+#   ---
+#   duration_ms: 0.189367
+#   type: 'test'
+#   ...
+# # Subtest: UNAVAILABLE con valor numérico se rechaza como default inventado
+# ok 4 - UNAVAILABLE con valor numérico se rechaza como default inventado
+#   ---
+#   duration_ms: 0.176383
+#   type: 'test'
+#   ...
+# # Subtest: declarar un default explícito se rechaza
+# ok 5 - declarar un default explícito se rechaza
+#   ---
+#   duration_ms: 0.216859
+#   type: 'test'
+#   ...
+# # Subtest: un required input ausente se rechaza
+# ok 6 - un required input ausente se rechaza
+#   ---
+#   duration_ms: 0.30751
+#   type: 'test'
+#   ...
+# # Subtest: un required input sin versión se rechaza
+# ok 7 - un required input sin versión se rechaza
+#   ---
+#   duration_ms: 0.216027
+#   type: 'test'
+#   ...
+# # Subtest: un campo obligatorio ausente en un input disponible se rechaza
+# ok 8 - un campo obligatorio ausente en un input disponible se rechaza
+#   ---
+#   duration_ms: 0.158018
+#   type: 'test'
+#   ...
+# # Subtest: stochasticity es opcional: su ausencia no bloquea
+# ok 9 - stochasticity es opcional: su ausencia no bloquea
+#   ---
+#   duration_ms: 0.22283
+#   type: 'test'
+#   ...
+# # Subtest: un bundle ausente se rechaza
+# ok 10 - un bundle ausente se rechaza
+#   ---
+#   duration_ms: 0.229442
+#   type: 'test'
+#   ...
+# # Subtest: un campo obligatorio con objeto vacío no cuenta como valor conocido
+# ok 11 - un campo obligatorio con objeto vacío no cuenta como valor conocido
+#   ---
+#   duration_ms: 0.323079
+#   type: 'test'
+#   ...
+# # Subtest: un campo obligatorio con UNAVAILABLE y razón bloquea y preserva la razón
+# ok 12 - un campo obligatorio con UNAVAILABLE y razón bloquea y preserva la razón
+#   ---
+#   duration_ms: 0.189287
+#   type: 'test'
+#   ...
+# # Subtest: un campo obligatorio con UNAVAILABLE sin razón se rechaza
+# ok 13 - un campo obligatorio con UNAVAILABLE sin razón se rechaza
+#   ---
+#   duration_ms: 0.193044
+#   type: 'test'
+#   ...
+# # Subtest: un campo obligatorio que sólo declara availability no es contenido conocido
+# ok 14 - un campo obligatorio que sólo declara availability no es contenido conocido
+#   ---
+#   duration_ms: 1.09709
+#   type: 'test'
+#   ...
+# # Subtest: las referencias de versión obligatorias usan las reglas de versión/content-hash
+# ok 15 - las referencias de versión obligatorias usan las reglas de versión/content-hash
+#   ---
+#   duration_ms: 0.716772
+#   type: 'test'
+#   ...
+# # Subtest: la obligación de apertura exige valor numérico finito y unidad
+# ok 16 - la obligación de apertura exige valor numérico finito y unidad
+#   ---
+#   duration_ms: 0.31758
+#   type: 'test'
+#   ...
+# # Subtest: gasQuarterly debe ser booleano y no un texto arbitrario
+# ok 17 - gasQuarterly debe ser booleano y no un texto arbitrario
+#   ---
+#   duration_ms: 0.144633
+#   type: 'test'
+#   ...
+# # Subtest: el PIT manifest exige id y versión válida
+# ok 18 - el PIT manifest exige id y versión válida
+#   ---
+#   duration_ms: 0.198535
+#   type: 'test'
+#   ...
+# # Subtest: el seed estocástico, cuando existe, debe ser numérico
+# ok 19 - el seed estocástico, cuando existe, debe ser numérico
+#   ---
+#   duration_ms: 3.315475
+#   type: 'test'
+#   ...
+# # Subtest: isVersionString acepta 1.1 y rechaza vacío
+# ok 20 - isVersionString acepta 1.1 y rechaza vacío
+#   ---
+#   duration_ms: 1.99846
+#   type: 'test'
+#   ...
+# # Subtest: isVersionLike acepta content-hash
+# ok 21 - isVersionLike acepta content-hash
+#   ---
+#   duration_ms: 0.198094
+#   type: 'test'
+#   ...
+# # Subtest: validateSpecIdentity exige id, version y sha256
+# ok 22 - validateSpecIdentity exige id, version y sha256
+#   ---
+#   duration_ms: 0.257225
+#   type: 'test'
+#   ...
+# # Subtest: validateWorkPacket acepta un packet completo
+# ok 23 - validateWorkPacket acepta un packet completo
+#   ---
+#   duration_ms: 0.222731
+#   type: 'test'
+#   ...
+# # Subtest: validateWorkPacket rechaza versiones ausentes y campos faltantes
+# ok 24 - validateWorkPacket rechaza versiones ausentes y campos faltantes
+#   ---
+#   duration_ms: 0.360851
+#   type: 'test'
+#   ...
+# # Subtest: validateStReceipt acepta un receipt completo
+# ok 25 - validateStReceipt acepta un receipt completo
+#   ---
+#   duration_ms: 0.305406
+#   type: 'test'
+#   ...
+# # Subtest: baselineVersion y resultingVersion admiten content-hash de extremo a extremo
+# ok 26 - baselineVersion y resultingVersion admiten content-hash de extremo a extremo
+#   ---
+#   duration_ms: 0.274368
+#   type: 'test'
+#   ...
+# # Subtest: una versión content-hash malformada se rechaza en vez de aceptarse como texto
+# ok 27 - una versión content-hash malformada se rechaza en vez de aceptarse como texto
+#   ---
+#   duration_ms: 0.152317
+#   type: 'test'
+#   ...
+# # Subtest: assumptions, deviations y failuresRetries vacíos son legítimos
+# ok 28 - assumptions, deviations y failuresRetries vacíos son legítimos
+#   ---
+#   duration_ms: 0.202793
+#   type: 'test'
+#   ...
+# # Subtest: validateStReceipt rechaza un receipt sin resultado de tests
+# ok 29 - validateStReceipt rechaza un receipt sin resultado de tests
+#   ---
+#   duration_ms: 0.349829
+#   type: 'test'
+#   ...
+# # Subtest: linkStReceiptToPacket acepta el linkage correcto
+# ok 30 - linkStReceiptToPacket acepta el linkage correcto
+#   ---
+#   duration_ms: 0.189457
+#   type: 'test'
+#   ...
+# # Subtest: linkStReceiptToPacket rechaza subtask o hash que no coinciden
+# ok 31 - linkStReceiptToPacket rechaza subtask o hash que no coinciden
+#   ---
+#   duration_ms: 0.221608
+#   type: 'test'
+#   ...
+# # Subtest: validateStReceipt rechaza una identidad de packet/subtask/parent vacía
+# ok 32 - validateStReceipt rechaza una identidad de packet/subtask/parent vacía
+#   ---
+#   duration_ms: 0.20688
+#   type: 'test'
+#   ...
+# # Subtest: validateStReceipt rechaza identidad sin proyecto, SPEC ID o versión
+# ok 33 - validateStReceipt rechaza identidad sin proyecto, SPEC ID o versión
+#   ---
+#   duration_ms: 0.273336
+#   type: 'test'
+#   ...
+# # Subtest: validateStReceipt rechaza specVersion y specSha256 malformados
+# ok 34 - validateStReceipt rechaza specVersion y specSha256 malformados
+#   ---
+#   duration_ms: 0.215246
+#   type: 'test'
+#   ...
+# # Subtest: linkStReceiptToPacket rechaza proyecto y SPEC ID/versión en conflicto con hash válido
+# ok 35 - linkStReceiptToPacket rechaza proyecto y SPEC ID/versión en conflicto con hash válido
+#   ---
+#   duration_ms: 0.269288
+#   type: 'test'
+#   ...
+# # Subtest: validateImpReceipt exige identidad de SPEC y límites no resueltos
+# ok 36 - validateImpReceipt exige identidad de SPEC y límites no resueltos
+#   ---
+#   duration_ms: 0.286881
+#   type: 'test'
+#   ...
+# # Subtest: q_t sin scope se rechaza por ambigüedad
+# ok 37 - q_t sin scope se rechaza por ambigüedad
+#   ---
+#   duration_ms: 2.262137
+#   type: 'test'
+#   ...
+# # Subtest: q_t admite Sentiment y cantidad como namespaces distintos
+# ok 38 - q_t admite Sentiment y cantidad como namespaces distintos
+#   ---
+#   duration_ms: 0.228041
+#   type: 'test'
+#   ...
+# # Subtest: q_t no adquiere significado de quarter; el índice q de V_q es otro símbolo
+# ok 39 - q_t no adquiere significado de quarter; el índice q de V_q es otro símbolo
+#   ---
+#   duration_ms: 0.198014
+#   type: 'test'
+#   ...
+# # Subtest: q_t con scope no declarado se rechaza
+# ok 40 - q_t con scope no declarado se rechaza
+#   ---
+#   duration_ms: 0.162176
+#   type: 'test'
+#   ...
+# # Subtest: A0/A1 separan ablation de autonomía
+# ok 41 - A0/A1 separan ablation de autonomía
+#   ---
+#   duration_ms: 0.199477
+#   type: 'test'
+#   ...
+# # Subtest: A0/A1 sin scope se rechazan
+# ok 42 - A0/A1 sin scope se rechazan
+#   ---
+#   duration_ms: 0.197583
+#   type: 'test'
+#   ...
+# # Subtest: S1 separa Strategy de workstream histórico y código bibliográfico
+# ok 43 - S1 separa Strategy de workstream histórico y código bibliográfico
+#   ---
+#   duration_ms: 0.202331
+#   type: 'test'
+#   ...
+# # Subtest: S2 declara strategy y código bibliográfico; el workstream histórico se rechaza
+# ok 44 - S2 declara strategy y código bibliográfico; el workstream histórico se rechaza
+#   ---
+#   duration_ms: 0.18058
+#   type: 'test'
+#   ...
+# # Subtest: S5 no es código bibliográfico del Master Plan (S1–S4) y sí workstream histórico
+# ok 45 - S5 no es código bibliográfico del Master Plan (S1–S4) y sí workstream histórico
+#   ---
+#   duration_ms: 0.197563
+#   type: 'test'
+#   ...
+# # Subtest: un símbolo no colisionante se resuelve sin scope
+# ok 46 - un símbolo no colisionante se resuelve sin scope
+#   ---
+#   duration_ms: 0.2595
+#   type: 'test'
+#   ...
+# # Subtest: scopesForLabel expone los ámbitos de una etiqueta compartida
+# ok 47 - scopesForLabel expone los ámbitos de una etiqueta compartida
+#   ---
+#   duration_ms: 0.284166
+#   type: 'test'
+#   ...
+# # Subtest: HOLD conserva research, admisión por rol y governance; no es run status
+# ok 48 - HOLD conserva research, admisión por rol y governance; no es run status
+#   ---
+#   duration_ms: 0.192082
+#   type: 'test'
+#   ...
+# # Subtest: scopesForLabel y namespacesForLabel concuerdan en etiquetas compartidas de estado
+# ok 49 - scopesForLabel y namespacesForLabel concuerdan en etiquetas compartidas de estado
+#   ---
+#   duration_ms: 0.314944
+#   type: 'test'
+#   ...
+# # Subtest: una referencia sin symbol se rechaza
+# ok 50 - una referencia sin symbol se rechaza
+#   ---
+#   duration_ms: 0.139383
+#   type: 'test'
+#   ...
+# # Subtest: las claves heredadas de Object no son scopes declarados
+# ok 51 - las claves heredadas de Object no son scopes declarados
+#   ---
+#   duration_ms: 0.209856
+#   type: 'test'
+#   ...
+# # Subtest: un símbolo con nombre de propiedad heredada no se trata como colisión
+# ok 52 - un símbolo con nombre de propiedad heredada no se trata como colisión
+#   ---
+#   duration_ms: 0.123132
+#   type: 'test'
+#   ...
+# # Subtest: una reference o un scope malformado se rechaza sin lanzar
+# ok 53 - una reference o un scope malformado se rechaza sin lanzar
+#   ---
+#   duration_ms: 0.173207
+#   type: 'test'
+#   ...
+# # Subtest: DATA_BLOCKED vive a la vez en data_readiness y run_validity
+# ok 54 - DATA_BLOCKED vive a la vez en data_readiness y run_validity
+#   ---
+#   duration_ms: 0.954822
+#   type: 'test'
+#   ...
+# # Subtest: DATA_BLOCKED no se aplana al namespace de research
+# ok 55 - DATA_BLOCKED no se aplana al namespace de research
+#   ---
+#   duration_ms: 1.422473
+#   type: 'test'
+#   ...
+# # Subtest: HOLD conserva su ámbito de research
+# ok 56 - HOLD conserva su ámbito de research
+#   ---
+#   duration_ms: 0.128182
+#   type: 'test'
+#   ...
+# # Subtest: concept_maturity tiene exactamente los seis estados de §0.3
+# ok 57 - concept_maturity tiene exactamente los seis estados de §0.3
+#   ---
+#   duration_ms: 0.117341
+#   type: 'test'
+#   ...
+# # Subtest: OUT_OF_CURRENT_SCOPE no es un séptimo estado de madurez
+# ok 58 - OUT_OF_CURRENT_SCOPE no es un séptimo estado de madurez
+#   ---
+#   duration_ms: 0.184127
+#   type: 'test'
+#   ...
+# # Subtest: IMPLEMENTATION_DETAIL no es un séptimo estado de madurez
+# ok 59 - IMPLEMENTATION_DETAIL no es un séptimo estado de madurez
+#   ---
+#   duration_ms: 0.117813
+#   type: 'test'
+#   ...
+# # Subtest: governance_event usa exactamente PROMOTE/HOLD/DEMOTE/HALT/ROLLBACK
+# ok 60 - governance_event usa exactamente PROMOTE/HOLD/DEMOTE/HALT/ROLLBACK
+#   ---
+#   duration_ms: 0.125446
+#   type: 'test'
+#   ...
+# # Subtest: governance_event rechaza nombres no canónicos
+# ok 61 - governance_event rechaza nombres no canónicos
+#   ---
+#   duration_ms: 0.14292
+#   type: 'test'
+#   ...
+# # Subtest: HOLD también vive en admisión por rol y governance
+# ok 62 - HOLD también vive en admisión por rol y governance
+#   ---
+#   duration_ms: 0.167366
+#   type: 'test'
+#   ...
+# # Subtest: namespacesForLabel lista los ámbitos de un label compartido
+# ok 63 - namespacesForLabel lista los ámbitos de un label compartido
+#   ---
+#   duration_ms: 0.390135
+#   type: 'test'
+#   ...
+# # Subtest: un namespace desconocido se rechaza
+# ok 64 - un namespace desconocido se rechaza
+#   ---
+#   duration_ms: 0.178887
+#   type: 'test'
+#   ...
+# # Subtest: un valor fuera del namespace se rechaza y lista los permitidos
+# ok 65 - un valor fuera del namespace se rechaza y lista los permitidos
+#   ---
+#   duration_ms: 0.098245
+#   type: 'test'
+#   ...
+# # Subtest: un claim sin namespace se rechaza
+# ok 66 - un claim sin namespace se rechaza
+#   ---
+#   duration_ms: 0.136748
+#   type: 'test'
+#   ...
+# # Subtest: los estados canónicos de §0.3 y §14.10 quedan separados
+# ok 67 - los estados canónicos de §0.3 y §14.10 quedan separados
+#   ---
+#   duration_ms: 0.085361
+#   type: 'test'
+#   ...
+# 1..67
+# # tests 67
+# # suites 0
+# # pass 67
+# # fail 0
+# # cancelled 0
+# # skipped 0
+# # todo 0
+# # duration_ms 89.85076
+
+# ===== ST-08.3 regression: node --test operations/audit/IMP-08/ST-08.3/regression.test.mjs =====
+# TAP version 13
+# # Subtest: ST-08.3-R1: exact product/date/accessibility selection deduplicates daily rows
+# ok 1 - ST-08.3-R1: exact product/date/accessibility selection deduplicates daily rows
+#   ---
+#   duration_ms: 11.375719
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R2: conflicting daily duplicates are explicitly rejected
+# ok 2 - ST-08.3-R2: conflicting daily duplicates are explicitly rejected
+#   ---
+#   duration_ms: 0.263247
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R3: malformed and unknown official candidates cannot outrank a valid row
+# ok 3 - ST-08.3-R3: malformed and unknown official candidates cannot outrank a valid row
+#   ---
+#   duration_ms: 0.292863
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R4: valid synthetic 0.01 remains eligible and invalid rows fall back to proxy
+# ok 4 - ST-08.3-R4: valid synthetic 0.01 remains eligible and invalid rows fall back to proxy
+#   ---
+#   duration_ms: 0.16943
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R5: malformed, missing and incomplete costs remain unavailable
+# ok 5 - ST-08.3-R5: malformed, missing and incomplete costs remain unavailable
+#   ---
+#   duration_ms: 0.335653
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R6: an explicitly complete known-zero cost list is finite
+# ok 6 - ST-08.3-R6: an explicitly complete known-zero cost list is finite
+#   ---
+#   duration_ms: 0.170011
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R7: Monthly evidence cannot satisfy the Quarterly gate
+# ok 7 - ST-08.3-R7: Monthly evidence cannot satisfy the Quarterly gate
+#   ---
+#   duration_ms: 0.447955
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R8: Quarterly sufficiency is derived from mission-bound counts
+# ok 8 - ST-08.3-R8: Quarterly sufficiency is derived from mission-bound counts
+#   ---
+#   duration_ms: 0.3288
+#   type: 'test'
+#   ...
+# # Subtest: ST-08.3-R9: receipt route identity matches corrective run and preserves initial history
+# ok 9 - ST-08.3-R9: receipt route identity matches corrective run and preserves initial history
+#   ---
+#   duration_ms: 0.762609
+#   type: 'test'
+#   ...
+# 1..9
+# # tests 9
+# # suites 0
+# # pass 9
+# # fail 0
+# # cancelled 0
+# # skipped 0
+# # todo 0
+# # duration_ms 77.187873
+
+# ===== ST-08.6 authority-guard negative probes =====
+# PASS reject top-level accepted:true -> $.accepted (unexpected key outside the proposal schema)
+# PASS reject top-level parentAccepted:true -> $.parentAccepted (unexpected key outside the proposal schema)
+# PASS reject dependencyStatus DEP-13 satisfied -> $.dependencyStatus (unexpected key outside the proposal schema)
+# PASS reject depClaims list -> $.depClaims (unexpected key outside the proposal schema)
+# PASS reject isAccepted:true -> $.isAccepted (unexpected key outside the proposal schema)
+# PASS reject impAccepted:true -> $.impAccepted (unexpected key outside the proposal schema)
+# PASS reject DEP-13:true -> $.DEP-13 (unexpected key outside the proposal schema)
+# PASS reject resolvedDeps map -> $.resolvedDeps (unexpected key outside the proposal schema)
+# PASS reject acceptedOutcome:accepted -> $.acceptedOutcome (unexpected key outside the proposal schema)
+# PASS reject acceptedAtUtc present -> $.acceptedAtUtc (unexpected key outside the proposal schema)
+# PASS reject receiptKind IMP_RECEIPT -> $.receiptKind (non-proposed IMP receipt kind)
+# PASS reject outcome accepted -> $.outcome (accepted/approved outcome outside nativeApproval path)
+# PASS reject claims non-empty -> $.claims (non-empty claims)
+# PASS reject nested metadata.accepted:true -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject approvalGranted:true -> $.approvalGranted (unexpected key outside the proposal schema)
+# PASS reject nested parentAccepted under result -> $.result (unexpected key outside the proposal schema)
+# PASS reject top-level _kind:IMP_RECEIPT -> $._kind (non-proposed IMP receipt kind)
+# PASS reject top-level status:accepted -> $.status (unexpected key outside the proposal schema)
+# PASS reject nested metadata._kind:IMP_RECEIPT -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject nested metadata.status:accepted -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject case _Kind:imp_receipt -> $._Kind (unexpected key outside the proposal schema)
+# PASS reject case receiptKind:imp_receipt -> $.receiptKind (non-proposed IMP receipt kind)
+# PASS reject nested result.status:approved -> $.result (unexpected key outside the proposal schema)
+# PASS reject metadata.outcome:approved -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject metadata.acceptanceStatus:approved -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject metadata._kind:PROPOSED_IMP_RECEIPT_ACCEPTED -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject satisfiedDependencies:[DEP-13] -> $.satisfiedDependencies (unexpected key outside the proposal schema)
+# PASS reject metadata.claims string -> $.metadata (unexpected key outside the proposal schema)
+# PASS reject top-level verdict:approved -> $.verdict (unexpected key outside the proposal schema)
+# PASS reject top-level parentVerdict:approved -> $.parentVerdict (unexpected key outside the proposal schema)
+# PASS reject ST-08.6 lineage verdict approved -> $.reviewerLineage[5].verdict (ST-08.6 lineage must remain pending)
+# PASS reject spoof key requiredStIdentities[99] -> $.requiredStIdentities[99] (unexpected key outside the proposal schema)
+# PASS reject fulfilledDependencies:[DEP-13] -> $.fulfilledDependencies (unexpected key outside the proposal schema)
+# PASS reject acceptanceChecks[0].result accepted -> $.acceptanceChecks[0].result (accepted/approved result value)
+# PASS reject prerequisiteChecks[0].result approved -> $.prerequisiteChecks[0].result (accepted/approved result value)
+# PASS reject dependencyUpdate DEP-13 satisfied -> $.dependencyUpdate (dependencyUpdate must explicitly state None)
+# PASS reject unresolvedLimits[0] DEP-13 resolved -> $.unresolvedLimits[0] (fabricated DEP satisfaction in value)
+# PASS reject potentialUnlocks IMP-13 unlocked -> $.potentialUnlocks[0] (potential unlock must state it is not granted)
+# PASS clean proposal has no authority violation
+# PASS ST-08.6 lineage entry remains pending
+# RESULT PASS: probes=38 rejected, clean control ok
+# probes exit=0

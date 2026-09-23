@@ -1,0 +1,367 @@
+$ /opt/node/bin/node --test --test-reporter=tap test/strategy-admission/*.test.mjs
+TAP version 13
+# Subtest: existen exactamente los tres canales canónicos de §8.7.1
+ok 1 - existen exactamente los tres canales canónicos de §8.7.1
+  ---
+  duration_ms: 1.219558
+  type: 'test'
+  ...
+# Subtest: el canal 3 puede omitir discovery pero debe declararlo explícitamente
+ok 2 - el canal 3 puede omitir discovery pero debe declararlo explícitamente
+  ---
+  duration_ms: 0.258858
+  type: 'test'
+  ...
+# Subtest: los canales 1 y 2 no pueden omitir discovery
+ok 3 - los canales 1 y 2 no pueden omitir discovery
+  ---
+  duration_ms: 0.137539
+  type: 'test'
+  ...
+# Subtest: cada canal exige su provenance específica
+ok 4 - cada canal exige su provenance específica
+  ---
+  duration_ms: 0.173337
+  type: 'test'
+  ...
+# Subtest: un canal desconocido y un provenance ausente se rechazan
+ok 5 - un canal desconocido y un provenance ausente se rechazan
+  ---
+  duration_ms: 0.151786
+  type: 'test'
+  ...
+# Subtest: los tres canales convergen en el mismo registro y contrato
+ok 6 - los tres canales convergen en el mismo registro y contrato
+  ---
+  duration_ms: 1.043376
+  type: 'test'
+  ...
+# Subtest: el contrato enumera todas las filas semánticas de §8.7.2
+ok 7 - el contrato enumera todas las filas semánticas de §8.7.2
+  ---
+  duration_ms: 0.879167
+  type: 'test'
+  ...
+# Subtest: un candidato completo es válido en los tres canales
+ok 8 - un candidato completo es válido en los tres canales
+  ---
+  duration_ms: 0.74318
+  type: 'test'
+  ...
+# Subtest: la ausencia de cualquier contenido obligatorio se rechaza
+ok 9 - la ausencia de cualquier contenido obligatorio se rechaza
+  ---
+  duration_ms: 0.74846
+  type: 'test'
+  ...
+# Subtest: las listas obligatorias vacías cuentan como contenido faltante
+ok 10 - las listas obligatorias vacías cuentan como contenido faltante
+  ---
+  duration_ms: 0.215426
+  type: 'test'
+  ...
+# Subtest: se rechaza la colisión de identidad con S1–S5
+ok 11 - se rechaza la colisión de identidad con S1–S5
+  ---
+  duration_ms: 0.205687
+  type: 'test'
+  ...
+# Subtest: se rechaza una versión ausente o malformada
+ok 12 - se rechaza una versión ausente o malformada
+  ---
+  duration_ms: 0.158388
+  type: 'test'
+  ...
+# Subtest: se rechaza provenance ausente y provenance de otro canal
+ok 13 - se rechaza provenance ausente y provenance de otro canal
+  ---
+  duration_ms: 0.188124
+  type: 'test'
+  ...
+# Subtest: se rechaza un admissionStatus sin namespace o con namespace desconocido
+ok 14 - se rechaza un admissionStatus sin namespace o con namespace desconocido
+  ---
+  duration_ms: 0.186622
+  type: 'test'
+  ...
+# Subtest: ablation design debe existir o declararse explícitamente no aplicable con razón
+ok 15 - ablation design debe existir o declararse explícitamente no aplicable con razón
+  ---
+  duration_ms: 1.137284
+  type: 'test'
+  ...
+# Subtest: el canal 3 no puede omitir la validación
+ok 16 - el canal 3 no puede omitir la validación
+  ---
+  duration_ms: 3.501498
+  type: 'test'
+  ...
+# Subtest: un candidato de canal desconocido se rechaza en el contrato
+ok 17 - un candidato de canal desconocido se rechaza en el contrato
+  ---
+  duration_ms: 0.180881
+  type: 'test'
+  ...
+# Subtest: CHANNEL expone los tres identificadores canónicos
+ok 18 - CHANNEL expone los tres identificadores canónicos
+  ---
+  duration_ms: 0.103164
+  type: 'test'
+  ...
+# Subtest: la secuencia de hitos de §8.7.3 conserva namespaces separados
+ok 19 - la secuencia de hitos de §8.7.3 conserva namespaces separados
+  ---
+  duration_ms: 1.205952
+  type: 'test'
+  ...
+# Subtest: PASS vive en research_verdict y no se aplana con lifecycle ni admisión
+ok 20 - PASS vive en research_verdict y no se aplana con lifecycle ni admisión
+  ---
+  duration_ms: 4.194504
+  type: 'test'
+  ...
+# Subtest: DATA_BLOCKED conserva sus dos ámbitos y exige namespace explícito
+ok 21 - DATA_BLOCKED conserva sus dos ámbitos y exige namespace explícito
+  ---
+  duration_ms: 0.330172
+  type: 'test'
+  ...
+# Subtest: las transiciones de lifecycle son deterministas y no saltan hitos
+ok 22 - las transiciones de lifecycle son deterministas y no saltan hitos
+  ---
+  duration_ms: 0.149402
+  type: 'test'
+  ...
+# Subtest: EXPERIMENT-READY exige prerequisites y evidencia, no sólo campos completos
+ok 23 - EXPERIMENT-READY exige prerequisites y evidencia, no sólo campos completos
+  ---
+  duration_ms: 0.308582
+  type: 'test'
+  ...
+# Subtest: EXPERIMENT-READY rechaza prerequisites explícitamente falsos o vacíos
+ok 24 - EXPERIMENT-READY rechaza prerequisites explícitamente falsos o vacíos
+  ---
+  duration_ms: 0.340672
+  type: 'test'
+  ...
+# Subtest: EXPERIMENT-READY acepta referencias string y objetos de prerequisite satisfecho
+ok 25 - EXPERIMENT-READY acepta referencias string y objetos de prerequisite satisfecho
+  ---
+  duration_ms: 0.116921
+  type: 'test'
+  ...
+# Subtest: un veredicto PASS nunca admite por sí mismo
+ok 26 - un veredicto PASS nunca admite por sí mismo
+  ---
+  duration_ms: 0.136066
+  type: 'test'
+  ...
+# Subtest: la admisión sólo otorga rol Evidence Generator y niega autoridad de acción
+ok 27 - la admisión sólo otorga rol Evidence Generator y niega autoridad de acción
+  ---
+  duration_ms: 0.172244
+  type: 'test'
+  ...
+# Subtest: un namespace de hito desconocido se rechaza
+ok 28 - un namespace de hito desconocido se rechaza
+  ---
+  duration_ms: 0.186432
+  type: 'test'
+  ...
+# Subtest: registra candidatos de los tres canales en un mismo proceso
+ok 29 - registra candidatos de los tres canales en un mismo proceso
+  ---
+  duration_ms: 2.171322
+  type: 'test'
+  ...
+# Subtest: rechaza colisión de id y de canonical name
+ok 30 - rechaza colisión de id y de canonical name
+  ---
+  duration_ms: 1.150848
+  type: 'test'
+  ...
+# Subtest: rechaza un contrato incompleto en el registro
+ok 31 - rechaza un contrato incompleto en el registro
+  ---
+  duration_ms: 0.392791
+  type: 'test'
+  ...
+# Subtest: rechaza registrar un candidato ya admitido
+ok 32 - rechaza registrar un candidato ya admitido
+  ---
+  duration_ms: 0.203273
+  type: 'test'
+  ...
+# Subtest: recorre el lifecycle completo y admite sólo con decisión explícita
+ok 33 - recorre el lifecycle completo y admite sólo con decisión explícita
+  ---
+  duration_ms: 1.285523
+  type: 'test'
+  ...
+# Subtest: EXPERIMENT-READY se rechaza sin prerequisites ni evidencia de readiness
+ok 34 - EXPERIMENT-READY se rechaza sin prerequisites ni evidencia de readiness
+  ---
+  duration_ms: 0.26511
+  type: 'test'
+  ...
+# Subtest: no se salta de PROPOSED a EXPERIMENT_READY
+ok 35 - no se salta de PROPOSED a EXPERIMENT_READY
+  ---
+  duration_ms: 0.180671
+  type: 'test'
+  ...
+# Subtest: no se registra veredicto antes de UNDER TEST ni con otro experimento
+ok 36 - no se registra veredicto antes de UNDER TEST ni con otro experimento
+  ---
+  duration_ms: 0.258928
+  type: 'test'
+  ...
+# Subtest: la admisión exige justificación, autoridad y evidencia
+ok 37 - la admisión exige justificación, autoridad y evidencia
+  ---
+  duration_ms: 0.353015
+  type: 'test'
+  ...
+# Subtest: FAIL exige nueva versión y no admite la versión refutada
+ok 38 - FAIL exige nueva versión y no admite la versión refutada
+  ---
+  duration_ms: 0.332577
+  type: 'test'
+  ...
+# Subtest: un cambio material crea nueva versión y preserva FAIL y OOS consumido
+ok 39 - un cambio material crea nueva versión y preserva FAIL y OOS consumido
+  ---
+  duration_ms: 0.623394
+  type: 'test'
+  ...
+# Subtest: no se crea versión sin cambio material ni repitiendo la misma versión
+ok 40 - no se crea versión sin cambio material ni repitiendo la misma versión
+  ---
+  duration_ms: 0.206489
+  type: 'test'
+  ...
+# Subtest: no se resetea silenciosamente un OOS consumido
+ok 41 - no se resetea silenciosamente un OOS consumido
+  ---
+  duration_ms: 0.211358
+  type: 'test'
+  ...
+# Subtest: la evidencia es append-only y queda congelada
+ok 42 - la evidencia es append-only y queda congelada
+  ---
+  duration_ms: 0.209444
+  type: 'test'
+  ...
+# Subtest: un candidato desconocido se rechaza en todas las operaciones
+ok 43 - un candidato desconocido se rechaza en todas las operaciones
+  ---
+  duration_ms: 0.080391
+  type: 'test'
+  ...
+# Subtest: no se reescribe el veredicto de una misma versión/experimento (FAIL→PASS)
+ok 44 - no se reescribe el veredicto de una misma versión/experimento (FAIL→PASS)
+  ---
+  duration_ms: 0.24365
+  type: 'test'
+  ...
+# Subtest: un FAIL posterior a la admisión no se registra ni revoca la admisión en silencio
+ok 45 - un FAIL posterior a la admisión no se registra ni revoca la admisión en silencio
+  ---
+  duration_ms: 0.239972
+  type: 'test'
+  ...
+# Subtest: una nueva versión puede pasar y admitirse conservando el FAIL previo
+ok 46 - una nueva versión puede pasar y admitirse conservando el FAIL previo
+  ---
+  duration_ms: 0.35073
+  type: 'test'
+  ...
+# Subtest: priorFindings no duplica refutaciones tras cambios materiales sucesivos
+ok 47 - priorFindings no duplica refutaciones tras cambios materiales sucesivos
+  ---
+  duration_ms: 0.304263
+  type: 'test'
+  ...
+# Subtest: register no congela el objeto del llamante
+ok 48 - register no congela el objeto del llamante
+  ---
+  duration_ms: 0.160732
+  type: 'test'
+  ...
+# Subtest: createNewVersion rechaza un contrato cuya Version no coincide con newVersion
+ok 49 - createNewVersion rechaza un contrato cuya Version no coincide con newVersion
+  ---
+  duration_ms: 3.425906
+  type: 'test'
+  ...
+# Subtest: createNewVersion rechaza un contrato que se declara ya admitido
+ok 50 - createNewVersion rechaza un contrato que se declara ya admitido
+  ---
+  duration_ms: 0.183726
+  type: 'test'
+  ...
+# Subtest: un experimentId ya veredictado no se reutiliza en una versión nueva
+ok 51 - un experimentId ya veredictado no se reutiliza en una versión nueva
+  ---
+  duration_ms: 0.282783
+  type: 'test'
+  ...
+# Subtest: una segunda admisión no sobrescribe la decisión anterior
+ok 52 - una segunda admisión no sobrescribe la decisión anterior
+  ---
+  duration_ms: 0.200518
+  type: 'test'
+  ...
+# Subtest: el reciclaje a una versión {contentHash} ya refutada no se admite
+ok 53 - el reciclaje a una versión {contentHash} ya refutada no se admite
+  ---
+  duration_ms: 0.521993
+  type: 'test'
+  ...
+# Subtest: transition, recordVerdict y admit no congelan los arrays del llamante
+ok 54 - transition, recordVerdict y admit no congelan los arrays del llamante
+  ---
+  duration_ms: 0.210447
+  type: 'test'
+  ...
+# Subtest: attachEvidence y createNewVersion tampoco congelan los objetos del llamante
+ok 55 - attachEvidence y createNewVersion tampoco congelan los objetos del llamante
+  ---
+  duration_ms: 0.210286
+  type: 'test'
+  ...
+# Subtest: EXPERIMENT-READY rechaza prerequisites falsos en los tres canales
+ok 56 - EXPERIMENT-READY rechaza prerequisites falsos en los tres canales
+  ---
+  duration_ms: 0.272243
+  type: 'test'
+  ...
+# Subtest: createNewVersion rechaza una identidad/provenance contradictorias de otra Strategy
+ok 57 - createNewVersion rechaza una identidad/provenance contradictorias de otra Strategy
+  ---
+  duration_ms: 0.232247
+  type: 'test'
+  ...
+# Subtest: createNewVersion rechaza cambiar el intake channel de la identidad
+ok 58 - createNewVersion rechaza cambiar el intake channel de la identidad
+  ---
+  duration_ms: 0.148199
+  type: 'test'
+  ...
+# Subtest: una nueva versión conserva identidad y deja record y contrato consistentes
+ok 59 - una nueva versión conserva identidad y deja record y contrato consistentes
+  ---
+  duration_ms: 0.179047
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 83.923256
+
+EXIT_CODE=0

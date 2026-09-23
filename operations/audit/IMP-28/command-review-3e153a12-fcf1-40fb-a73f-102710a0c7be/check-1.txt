@@ -1,0 +1,6 @@
+COMMAND: pwd
+EXIT: 0
+STDOUT:
+/srv/hot-data/energy-markets/app
+
+STDERR:

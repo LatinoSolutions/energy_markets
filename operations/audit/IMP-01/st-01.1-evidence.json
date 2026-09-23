@@ -1,0 +1,127 @@
+{
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-01-ST-1-v1.1",
+    "subtaskId": "ST-01.1",
+    "parentImp": "IMP-01",
+    "parentIssueIdentifier": "LAT-92",
+    "subtaskIssueIdentifier": "LAT-96",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a"
+  },
+  "generatedAtUtc": "2026-09-19T10:24:00Z",
+  "host": "brunode",
+  "workspace": "/srv/hot-data/energy-markets/app",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "baseline": {
+    "source": "operations/bootstrap/baseline-manifest.json",
+    "sha256": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "startingVersion": "empty main, no commits/remotes/worktrees; content-hash baseline"
+  },
+  "resultingContentHashVersion": {
+    "contentHash": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "algorithm": "sha256 of the path-sorted sha256sum listing (round 4)",
+    "scope": "src/contracts/**, test/contracts/**, operations/audit/IMP-01/test-run.txt"
+  },
+  "commands": [
+    {
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "result": "67 pass, 0 fail, 0 skipped, 0 todo",
+      "outputFile": "operations/audit/IMP-01/test-run.txt"
+    },
+    {
+      "command": "/opt/node/bin/node --test operations/audit/IMP-01/st-01.1-command-r3-c3.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "result": "3 pass, 0 fail (los 2 negativos residuales de C3 ahora pasan)",
+      "outputFile": "operations/audit/IMP-01/st-01.1-author-r3-c3-verification.txt"
+    },
+    {
+      "command": "/opt/node/bin/node --test operations/audit/IMP-01/st-01.1-command-boundaries.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "result": "6 pass, 0 fail",
+      "outputFile": "operations/audit/IMP-01/st-01.1-author-boundaries-verification.txt"
+    }
+  ],
+  "inputHashes": {
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/bootstrap/baseline-manifest.json": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860"
+  },
+  "changedFileHashes": {
+    "src/contracts/economic-bundle.mjs": "96e29e69ca3137dbeed797158a0e52db81c87b95f45f141fe709b26f5bf68c09",
+    "src/contracts/identities.mjs": "6425fb956f3f65d98bb1ccad5bb9e1fcf4619f0b35a350f8442d05d4c6ac2e9e",
+    "src/contracts/index.mjs": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+    "src/contracts/namespaces.mjs": "d48733d23827388fdf221466019b6b830c473e51f4184097cf2dccd8d729fbb2",
+    "src/contracts/states.mjs": "fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75",
+    "test/contracts/economic-bundle.test.mjs": "04602faa36ac9f8bc8ef175618f81525dd567b75ee2d578f998d24dfa66f95ca",
+    "test/contracts/identities.test.mjs": "9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc",
+    "test/contracts/namespaces.test.mjs": "23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98",
+    "test/contracts/states.test.mjs": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655",
+    "operations/audit/IMP-01/test-run.txt": "3225c9699e1215393dd43e18153fb2b87adbf5174d5bfdfa955e4e89f09c274d",
+    "operations/audit/IMP-01/st-01.1-author-boundaries-verification.txt": "4d8622c5c85ae1cdf09335415c0c48ddcf34528a11cc9018ba86648a247bd884",
+    "operations/audit/IMP-01/st-01.1-author-r3-c3-verification.txt": "70e100f220e44389317ecb18b141cd71d1bce8a9d74b89208e9b011e86d775b7"
+  },
+  "boundaryCases": {
+    "namespace_collisions": [
+      "q_t sin scope -> AMBIGUOUS_SYMBOL (scopes: sentiment, quantity)",
+      "q_t sentiment vs quantity -> ids distintos",
+      "q_t + quarter -> UNKNOWN_SCOPE: q_t no adquiere significado de quarter",
+      "q/quarter índice de V_q -> quarter:q, símbolo distinto de q_t",
+      "A0/A1 ablation vs autonomy -> ids distintos",
+      "S1 strategy vs history_workstream vs master_plan_code -> ids distintos",
+      "S2 strategy vs master_plan_code -> ids distintos; history_workstream -> UNKNOWN_SCOPE",
+      "S5 master_plan_code -> UNKNOWN_SCOPE (bibliográfico S1-S4); history_workstream -> válido",
+      "C2: q_t/A0/A1/S1 con scopes heredados de Object (toString, constructor, __proto__, hasOwnProperty) -> UNKNOWN_SCOPE",
+      "C2: un símbolo con nombre de propiedad heredada (toString) no se trata como colisión declarada",
+      "C2: reference null/string/número/objeto sin symbol -> rechazo sin lanzar; scope no-string -> INVALID_SCOPE"
+    ],
+    "state_namespaces": [
+      "DATA_BLOCKED válido en data_readiness y run_validity; rechazado en research_verdict",
+      "HOLD válido en research_verdict, role_admission y governance_event; rechazado en run_validity",
+      "concept_maturity declarado con exactamente seis valores §0.3; OUT_OF_CURRENT_SCOPE e IMPLEMENTATION_DETAIL rechazados como madurez y válidos en sus namespaces propios",
+      "governance_event: PROMOTE/HOLD/DEMOTE/HALT/ROLLBACK válidos; ACTIVATION/PROMOTION/DEMOTION rechazados",
+      "scopesForLabel y namespacesForLabel concuerdan en las etiquetas compartidas DATA_BLOCKED y HOLD",
+      "claim sin namespace -> UNKNOWN_STATE_NAMESPACE"
+    ],
+    "identity_version": [
+      "spec sha256 inválido -> INVALID_SHA256",
+      "baselineVersion ausente -> MISSING_VERSION",
+      "baselineVersion/resultingVersion/startingBaseline content-hash válidos de extremo a extremo (packet -> receipt -> linkage)",
+      "baselineVersion content-hash malformado -> MISSING_VERSION",
+      "assumptions/deviations/failuresRetries vacíos -> válido",
+      "linkage con subtask/specSha256 distinto -> IDENTITY_MISMATCH",
+      "C1: packetSubtaskParentIdentity {} -> MISSING_REQUIRED (siete miembros)",
+      "C1: identidad sin project/specId/specVersion/specSha256 -> MISSING_REQUIRED",
+      "C1: specVersion 'latest' -> INVALID_VERSION; specSha256 'xyz' -> INVALID_SHA256",
+      "C1: linkage con project o SPEC ID/versión en conflicto y hash correcto -> IDENTITY_MISMATCH",
+      "C1: el receipt real operations/receipts/IMP-01-ST-1.json pasa validateStReceipt y linkStReceiptToPacket"
+    ],
+    "economic_bundle": [
+      "required input ausente -> MISSING_REQUIRED_INPUT",
+      "required input sin versión -> MISSING_VERSION",
+      "UNAVAILABLE con razón -> bloqueado, razón preservada, sin poblar",
+      "UNAVAILABLE sin razón -> MISSING_REASON",
+      "UNAVAILABLE con value numérico -> INVENTED_DEFAULT",
+      "default explícito -> INVENTED_DEFAULT",
+      "campo obligatorio ausente en input disponible -> MISSING_REQUIRED_FIELD",
+      "C3: campo obligatorio con objeto vacío {} -> MISSING_REQUIRED_FIELD",
+      "C3: campo obligatorio con {availability:'UNAVAILABLE', reason} -> blocked true, razón preservada",
+      "C3: campo obligatorio con {availability:'UNAVAILABLE'} sin razón -> MISSING_REASON",
+      "C3: campo obligatorio que sólo declara availability -> MISSING_REQUIRED_FIELD",
+      "C3 residual: referencias de versión obligatorias (execution.contractVersion, benchmark.sourceVersion, evaluator.version) validadas con isVersionLike; '' / 'latest' / {contentHash malformado} -> INVALID_REQUIRED_FIELD",
+      "C3 residual: openingObligation exige value numérico finito y unit no vacío; {value:null,unit:'MWh'} y {value:100} -> INVALID_REQUIRED_FIELD; {value:100,unit:'MWh'} válido",
+      "C3 residual: campaign.gasQuarterly no booleano -> INVALID_REQUIRED_FIELD",
+      "C3 residual: pitManifest exige id no vacío y version válida",
+      "C3 residual: seed estocástico no numérico -> INVALID_REQUIRED_FIELD"
+    ]
+  },
+  "limitations": [
+    "Fixtures y casos son sintéticos; no constituyen evidencia de procurement ni cierran DEP.",
+    "El contrato cubre identidad/versión/namespaces; no implementa evaluator, algoritmos financieros ni paquetes externos.",
+    "El estado de madurez de los conceptos referenciados se toma de la SPEC; no se recalcula ni se declara cerrado.",
+    "Las formas mínimas de campo (text/boolean/number/list/version/config/manifest/obligation) son una elección de implementación que preserva semántica; no fijan defaults numéricos, unidades ni contratos económicos nuevos."
+  ],
+  "noMarketRuns": true
+}

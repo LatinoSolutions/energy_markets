@@ -1,0 +1,113 @@
+✖ §20.2.8: an empty packet/subtask/parent identity must fail (1.428584ms)
+✖ §20.2.5/.7/.8: a mismatched project or SPEC identity/version must fail linkage (0.309003ms)
+✖ §3.3: inherited Object keys are not declared q_t/A0/S1 scopes (0.244441ms)
+✔ synthetic positive control: complete bundle accepted without mutation (1.084374ms)
+✖ §14.2/§25.1: empty obligation/config/version objects must not count as known fields (0.256294ms)
+✖ §14.7/§25.1: field-level unavailable must reject or preserve its reason and block (0.165973ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 61.03757
+
+✖ failing tests:
+
+test at operations/audit/IMP-01/st-01.1-command-boundaries.mjs:17:1
+✖ §20.2.8: an empty packet/subtask/parent identity must fail (1.428584ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///srv/hot-data/energy-markets/app/operations/audit/IMP-01/st-01.1-command-boundaries.mjs:18:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at operations/audit/IMP-01/st-01.1-command-boundaries.mjs:21:1
+✖ §20.2.5/.7/.8: a mismatched project or SPEC identity/version must fail linkage (0.309003ms)
+  AssertionError [ERR_ASSERTION]: project
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///srv/hot-data/energy-markets/app/operations/audit/IMP-01/st-01.1-command-boundaries.mjs:25:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at operations/audit/IMP-01/st-01.1-command-boundaries.mjs:29:1
+✖ §3.3: inherited Object keys are not declared q_t/A0/S1 scopes (0.244441ms)
+  AssertionError [ERR_ASSERTION]: q_t/toString
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///srv/hot-data/energy-markets/app/operations/audit/IMP-01/st-01.1-command-boundaries.mjs:32:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at operations/audit/IMP-01/st-01.1-command-boundaries.mjs:62:1
+✖ §14.2/§25.1: empty obligation/config/version objects must not count as known fields (0.256294ms)
+  AssertionError [ERR_ASSERTION]: openingContract.openingObligation: {"ok":true,"blocked":false,"errors":[],"missing":[],"unavailable":[]}
+      at TestContext.<anonymous> (file:///srv/hot-data/energy-markets/app/operations/audit/IMP-01/st-01.1-command-boundaries.mjs:67:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at operations/audit/IMP-01/st-01.1-command-boundaries.mjs:71:1
+✖ §14.7/§25.1: field-level unavailable must reject or preserve its reason and block (0.165973ms)
+  AssertionError [ERR_ASSERTION]: {"ok":true,"blocked":false,"errors":[],"missing":[],"unavailable":[]}
+      at TestContext.<anonymous> (file:///srv/hot-data/energy-markets/app/operations/audit/IMP-01/st-01.1-command-boundaries.mjs:75:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

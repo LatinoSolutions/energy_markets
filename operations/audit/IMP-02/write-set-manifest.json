@@ -1,0 +1,54 @@
+{
+  "artifactKind": "IMP-02_WRITE_SET_MANIFEST",
+  "schemaVersion": "1.1",
+  "packetId": "WP-IMP-02-ST-1-v1.1",
+  "subtaskId": "ST-02.1",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "allowedPaths": ["operations/audit/IMP-02/**", "operations/receipts/IMP-02-ST-1.json"],
+  "before": {
+    "observedAtUtc": "2026-09-19T14:11:00Z",
+    "commands": [
+      "ls -la operations/audit/IMP-02/  -> 'No such file or directory'",
+      "ls -la operations/receipts/IMP-02-ST-1.json -> 'No such file or directory'"
+    ],
+    "finding": "Both allocated output paths did not pre-exist, so there was no pre-existing ownership conflict to resolve."
+  },
+  "after": {
+    "observedAtUtc": "2026-09-19T15:20:00Z",
+    "contentVersionAlgorithm": "sha256 of the path-sorted sha256sum listing of exactly the enumerated hashedFiles",
+    "contentVersion": "25e77106813b611529340c83fa1aedceed3c1169eb61d8db4733b2471d089ecb",
+    "hashedFiles": [
+      "operations/audit/IMP-02/audit-report.md",
+      "operations/audit/IMP-02/campaign-contract.json",
+      "operations/audit/IMP-02/coverage-ownership.json",
+      "operations/audit/IMP-02/dep-01-04-report.json",
+      "operations/audit/IMP-02/source-inventory.json",
+      "operations/audit/IMP-02/verify.mjs",
+      "operations/audit/IMP-02/verify-run.txt"
+    ],
+    "explicitlyExcludedFromContentVersion": [
+      "operations/audit/IMP-02/write-set-manifest.json (self-referential metadata; excluded so it cannot self-hash)",
+      "operations/receipts/IMP-02-ST-1.json (handoff receipt, outside the audit content directory)"
+    ],
+    "files": {
+      "operations/audit/IMP-02/audit-report.md": "9f4b4894e5ca54246f21626b7d4c60c546a908467e0caca4ea6e8de50183b212",
+      "operations/audit/IMP-02/campaign-contract.json": "64d8d427f7dd72c56dba2517a77046538e07992064fb48fc2fcb09239953570a",
+      "operations/audit/IMP-02/coverage-ownership.json": "991e04e9f16b65d4eaab4b786e35340405aa5c8b5fa0102616841aa360cd1cb1",
+      "operations/audit/IMP-02/dep-01-04-report.json": "680d9be476460cb144dc417018a33078ad166f4d80baba12aa76fe3ae54f7d52",
+      "operations/audit/IMP-02/source-inventory.json": "ded40c42c1aba68ae1b22a9f53e0a811efc3e06335b1e305df432d8665356616",
+      "operations/audit/IMP-02/verify.mjs": "dd194c09a459878321c82ab565898c5e53ba95b9eb35d10f21947ea60a3979a7",
+      "operations/audit/IMP-02/verify-run.txt": "a8e2ba70bbc3d3c07dc5baff467c9bcc140f7882e862ea48eaf5894d5288ee55",
+      "operations/audit/IMP-02/write-set-manifest.json": "recorded here; excluded from the content version by design"
+    }
+  },
+  "outsideAllowedPathsWrites": [],
+  "preservedEvidence": {
+    "spec": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01Receipt": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "baselineManifest": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "imp01ContentVersion": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "reVerifiedAt": "2026-09-19T15:05:00Z",
+    "result": "all four preserved hashes still match; all nine inventory sources exist and match their pinned hashes"
+  },
+  "sourceInventoryReference": "The complete inspected-source inventory (S-01..S-09, including S-08 Master_Plan_P1-P4 and S-09 Master_Plan_P5) is operations/audit/IMP-02/source-inventory.json, with hashes, kinds and locators."
+}

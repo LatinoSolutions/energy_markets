@@ -1,0 +1,145 @@
+{
+  "schema": "energy-bootstrap-command-dependency-v1",
+  "spec": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "target": {
+    "imp": "IMP-26",
+    "parent": {
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+      "identifier": "LAT-94"
+    },
+    "packet": {
+      "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+      "identifier": "LAT-97"
+    }
+  },
+  "allOf": [
+    {
+      "imp": "IMP-01",
+      "nativeParentIssueId": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "requiredCanonicalState": "ACCEPTED",
+      "requiredReceipt": "operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "requireScopedSpecHashMatch": true,
+      "requireCompletedIndependentReview": true
+    },
+    {
+      "imp": "IMP-25",
+      "nativeParentIssueId": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+      "requiredCanonicalState": "ACCEPTED",
+      "requiredReceipt": "operations/receipts/IMP-25-IMP_RECEIPT.json",
+      "requireScopedSpecHashMatch": true,
+      "requireCompletedIndependentReview": true
+    }
+  ],
+  "wake": {
+    "mechanism": "native Paperclip blockedByIssueIds + issue_blockers_resolved",
+    "commandAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+    "commandIssueId": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+    "dedup": "native ready-state idempotency",
+    "polling": false
+  },
+  "additionalGates": {
+    "project": "ON",
+    "requiredAudit": "DEP-27 factual scope needed for binding; refresh against current owner changes",
+    "sharedSurfaceOwnership": "Claude cutover complete. North Star policy at 3a02669 read-only; only eligible, scoped IMP-26 binding work allowed. Other packet restrictions remain.",
+    "specChangeRequest": "none unresolved for affected scope",
+    "parentReceiptRule": "Native status alone is not canonical acceptance; verify accepted receipt before delegation",
+    "timerReactivation": {
+      "requiredEvidence": "/srv/hot-data/energy-markets/app/operations/bootstrap/IMP-26-BLOCKER-EVIDENCE-UPDATE.md",
+      "requiredObservedSequence": [
+        "Energy ON, Alexandria OFF",
+        "bounded tick scopes Energy / LAT-91",
+        "LAT-20 children excluded",
+        "eligible refill only below Energy root",
+        "worker executes",
+        "independent review",
+        "continuation",
+        "Astra idle except Command event"
+      ],
+      "allTenOwnerRequirementsMustPass": true,
+      "timerMustRemainOffDuringValidation": true,
+      "fixtureOrDryRunAloneSufficient": false
+    }
+  },
+  "nativeEdges": [
+    {
+      "imp": "IMP-01",
+      "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "blockers": [
+        "1bccd784-b081-4234-8d18-2e32b527c9e7"
+      ],
+      "assigned": true
+    },
+    {
+      "imp": "IMP-25",
+      "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+      "blockers": [
+        "ca7c3c88-807e-4616-ac00-4249f6870307"
+      ],
+      "assigned": true
+    },
+    {
+      "imp": "IMP-26-command-gate",
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+      "blockers": [
+        "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+        "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+      ],
+      "assigned": true
+    },
+    {
+      "imp": "IMP-26-worker-packet",
+      "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+      "blockers": [
+        "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+        "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+      ],
+      "assigned": false
+    }
+  ],
+  "wiringResults": [
+    {
+      "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "identifier": "LAT-92",
+      "status": "blocked",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "blockedBy": [
+        "1bccd784-b081-4234-8d18-2e32b527c9e7"
+      ]
+    },
+    {
+      "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+      "identifier": "LAT-93",
+      "status": "blocked",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "blockedBy": [
+        "ca7c3c88-807e-4616-ac00-4249f6870307"
+      ]
+    },
+    {
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+      "identifier": "LAT-94",
+      "status": "blocked",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "blockedBy": [
+        "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+        "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+      ]
+    },
+    {
+      "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+      "identifier": "LAT-97",
+      "status": "blocked",
+      "assigneeAgentId": null,
+      "blockedBy": [
+        "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+        "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+      ]
+    }
+  ],
+  "recordedAt": "2026-09-19T09:29:05.586Z",
+  "ownerBlockerUpdateAt": "2026-09-19T09:52:30.948Z"
+}

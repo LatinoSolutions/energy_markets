@@ -1,0 +1,202 @@
+{
+  "_kind": "PARENT_GATE_INPUTS",
+  "_authority": "NON-AUTHORITATIVE STAGING ONLY. Hash-bound inputs for a separate Tech Lead parent gate under SPEC v1.1 20.2.10. This file does not accept IMP-08, does not create an IMP_RECEIPT and does not unlock IMP-13/IMP-15.",
+  "packet": {
+    "packetId": "WP-IMP-08-ST-6-v1.1",
+    "subtaskId": "ST-08.6",
+    "parentImp": "IMP-08",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "projectName": "Energy Markets",
+    "programRoot": { "identifier": "LAT-91", "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3" },
+    "workIssue": { "identifier": "LAT-229", "id": "2c466c2d-3345-404f-bae4-7b094a3231bd" },
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode",
+    "branch": "main (unborn; non-git content-hash baseline)"
+  },
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "verified": true
+  },
+  "pinnedInputs": [
+    { "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md", "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c", "role": "spec" },
+    { "path": "operations/bootstrap/baseline-manifest.json", "sha256": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860", "role": "baseline-manifest" },
+    { "path": "operations/receipts/IMP-01-IMP_RECEIPT.json", "sha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c", "role": "requiredAcceptedParentPrerequisite" },
+    { "path": "operations/receipts/IMP-08-ST-1.json", "sha256": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f", "role": "childStReceipt" },
+    { "path": "operations/receipts/IMP-08-ST-2.json", "sha256": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d", "role": "childStReceipt" },
+    { "path": "operations/receipts/IMP-08-ST-3.json", "sha256": "4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110", "role": "childStReceipt" },
+    { "path": "operations/receipts/IMP-08-ST-4.json", "sha256": "43fe0b9b3dc145f42efadc64138f86f166cea33671e8e95d1eaa6b1aff889bf4", "role": "childStReceipt" },
+    { "path": "operations/receipts/IMP-08-ST-5.json", "sha256": "ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71", "role": "childStReceipt" },
+    { "path": "operations/audit/IMP-08/ST-08.5/manifest.json", "sha256": "3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209", "role": "currentSemanticVersionManifest" },
+    { "path": "operations/audit/IMP-08/ST-08.4/dossier.tar.gz", "sha256": "c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af", "role": "approvedConsolidatedDossier" },
+    { "path": "operations/audit/IMP-08/ST-08.4/version-binding.json", "sha256": "5c0a062c06beda3637b2667b492cc1ff0ac25ee7b08bbc6228217a1348ec2c9e", "role": "crossPacketVersionBinding" },
+    { "path": "operations/audit/IMP-08/ST-08.3/manifest.json", "sha256": "1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e", "role": "frozenHistoricalManifest" },
+    { "path": "operations/audit/IMP-08/fixture-oracle/fixtures.json", "sha256": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec", "role": "acceptedOracleFixtures" },
+    { "path": "operations/audit/IMP-08/fixture-oracle/verify.mjs", "sha256": "b657af8025ccc6d31271db7fcbab4a8f11e608dc9fa450775adbeb3773d2d11c", "role": "oracleVerifier" },
+    { "path": "operations/audit/IMP-08/ST-08.3/regression.test.mjs", "sha256": "9169553a4de9279885d18b7b7d1fb1304b076b88a8b5e775de5fa64e2976c65d", "role": "childRegressionSuite" },
+    { "path": "operations/audit/IMP-08/ST-08.4/verify-st4.mjs", "sha256": "88042817cf0db8cfc2510da0088f5e3421160046ddedb3bf1f174c21f8aef358", "role": "dossierVerifier" },
+    { "path": "operations/audit/IMP-08/ST-08.5/verify-delivery.mjs", "sha256": "3707db11bfa97db2245f308131928ce3c4842a18550b909404a7c92b30cbbc8d", "role": "deliveryVerifier" },
+    { "path": "docs/economic-calculation.md", "sha256": "adb7dca17dad1175214fed82a747495c2feb42208553cba618547e39052f847d", "role": "semanticProductDoc" },
+    { "path": "src/economic-calculation/benchmark.mjs", "sha256": "0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1", "role": "semanticProduct" },
+    { "path": "src/economic-calculation/bhv.mjs", "sha256": "4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf", "role": "semanticProduct" },
+    { "path": "src/economic-calculation/index.mjs", "sha256": "04217b163082ac848a5088a2120fb201d32b64ab9e6737b2179e7b20da2e8d66", "role": "semanticProduct" },
+    { "path": "src/economic-calculation/reference.mjs", "sha256": "c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b", "role": "semanticProduct" },
+    { "path": "src/economic-calculation/scoring.mjs", "sha256": "52ebf0a56bf6f027ea90be0e8623f10caaaaaf4a383dba8a574eab337ac2cbed", "role": "semanticProduct" },
+    { "path": "test/economic-calculation/benchmark.test.mjs", "sha256": "8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8", "role": "semanticTest" },
+    { "path": "test/economic-calculation/bhv.test.mjs", "sha256": "b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7", "role": "semanticTest" },
+    { "path": "test/economic-calculation/scoring.test.mjs", "sha256": "80c5467ff16deedbfb4e4172026b189115074c8230e761ea6700c385b8378c01", "role": "semanticTest" },
+    { "path": "test/contracts/economic-bundle.test.mjs", "sha256": "04602faa36ac9f8bc8ef175618f81525dd567b75ee2d578f998d24dfa66f95ca", "role": "contractTest" },
+    { "path": "test/contracts/identities.test.mjs", "sha256": "9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc", "role": "contractTest" },
+    { "path": "test/contracts/namespaces.test.mjs", "sha256": "23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98", "role": "contractTest" },
+    { "path": "test/contracts/states.test.mjs", "sha256": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655", "role": "contractTest" }
+  ],
+  "currentAcceptedSemanticVersion": {
+    "subtask": "ST-08.5",
+    "issue": { "identifier": "LAT-195", "id": "2a89265c-3143-4e1f-9071-f03fa95e81ea" },
+    "semanticHashAlgorithmC_sha256sumStyle": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "semanticHashAlgorithmA_sortedPathNewlineHash": "96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e",
+    "algorithmNote": "ST-08.5 reports the hash with the sha256sum-style line convention (algorithm C). Algorithm A is sorted 'path\\nhash\\n'. Both describe the same accepted bytes.",
+    "superseded": {
+      "ST-08.3": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+      "ST-08.2": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "ST-08.1": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f"
+    }
+  },
+  "nativeLineage": [
+    {
+      "subtask": "ST-08.1",
+      "issue": { "identifier": "LAT-126", "id": "ab16dbf3-fb54-4a10-ad45-f63673898ed4" },
+      "author": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / DeepSeek V4.1 Flash via opencode_local",
+      "receiptPath": "operations/receipts/IMP-08-ST-1.json",
+      "receiptSha256": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+      "resultingContentHash": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f",
+      "changesRequestedHistory": "none (changesRequestedCount 0). One premature FINAL-ACCEPTANCE batch rejection (command) was resolved before the native review; it is not a child review round.",
+      "finalNativeApproval": {
+        "decisionId": "473757cf-567b-4cc0-ad43-937825bc068d",
+        "outcome": "approved",
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "commentId": "234c54fc-810a-4cca-b0fd-2ac572e86d85",
+        "observedAt": "2026-09-19T19:48:37.380Z",
+        "authorReviewerDistinct": true
+      }
+    },
+    {
+      "subtask": "ST-08.2",
+      "issue": { "identifier": "LAT-157", "id": "c523d63f-77bb-4260-9be6-e2c0a8243758" },
+      "author": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / DeepSeek V4.1 Flash via opencode_local (Command-rerouted premium packet; reviewer distinct)",
+      "receiptPath": "operations/receipts/IMP-08-ST-2.json",
+      "receiptSha256": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d",
+      "resultingContentHash": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+      "changesRequestedHistory": "comment-based review rounds (executionState changesRequestedCount 0): round 1 changes_requested db24bcc3, round 2 changes_requested 0e7b98e8; both resolved by author resubmits. A separate Tech Lead FINAL-ACCEPTANCE (c1a05299, 2026-09-20T17:33Z) requested corrective work, which produced ST-08.3.",
+      "finalNativeApproval": {
+        "decisionId": "7641d5d4-de07-434b-8c71-c5c4eb39eae3",
+        "outcome": "approved",
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "commentId": "bb3c2094-bdf4-4791-abf4-26866b96c69b",
+        "observedAt": "2026-09-20T17:26:35.696Z",
+        "authorReviewerDistinct": true
+      }
+    },
+    {
+      "subtask": "ST-08.3",
+      "issue": { "identifier": "LAT-178", "id": "53cc7856-154b-4d65-be39-ddf8281042a5" },
+      "author": "Premium Production Worker A (Luna) 6c548bcb-e6aa-43ea-9c6c-319497cbe6a9 / codex_local / gpt-5.6-luna / high",
+      "receiptPath": "operations/receipts/IMP-08-ST-3.json",
+      "receiptSha256": "4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110",
+      "resultingContentHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+      "changesRequestedHistory": "owner/board-native review rounds R1 (1a9edecb), R2 (0d50c33e), R3 (39961cfd) changes_requested, because the Independent Reviewer quota was exhausted and the board participant was the configured reviewer.",
+      "finalNativeApproval": {
+        "decisionId": "7af7ec2f-f63c-4785-a447-219620ab5e78",
+        "outcome": "approved",
+        "reviewerAgentId": null,
+        "reviewerUserId": "I84aMJhYXgQM0RprhDchZAQP68Y0AgCO",
+        "reviewerRole": "board/user participant (configured native reviewer for this child)",
+        "commentId": "e5f22db2-171a-4a6a-95a3-9ea7680d930b",
+        "observedAt": "2026-09-21T00:05:19.601Z",
+        "authorReviewerDistinct": true
+      }
+    },
+    {
+      "subtask": "ST-08.4",
+      "issue": { "identifier": "LAT-191", "id": "915be6a5-d1ec-4675-b04b-9192925553d1" },
+      "author": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / opencode_local / openrouter/deepseek/deepseek-v4.1-flash",
+      "receiptPath": "operations/receipts/IMP-08-ST-4.json",
+      "receiptSha256": "43fe0b9b3dc145f42efadc64138f86f166cea33671e8e95d1eaa6b1aff889bf4",
+      "resultingContentHash": "a70044d97ab3ac604db4dea55d8c01b69d85e3a611dcfb6d26bcf475babecef5",
+      "changesRequestedHistory": "rounds 1-2 by 6c548bcb (56b79cc1, a72d657d), round 3 by 0af74a08 (840c1bae) followed by a board re-authorization (1a0a65ab), rounds 4-5 by 0af74a08 (bc0ded02, 3c00c32b). All resolved; rev5 approved.",
+      "finalNativeApproval": {
+        "decisionId": "c1532101-7871-40a3-99a3-82d38dfd405c",
+        "outcome": "approved",
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "commentId": "e14f90bf-e29a-41f3-be22-c6f392d89a57",
+        "observedAt": "2026-09-21T21:42:20.666Z",
+        "authorReviewerDistinct": true
+      }
+    },
+    {
+      "subtask": "ST-08.5",
+      "issue": { "identifier": "LAT-195", "id": "2a89265c-3143-4e1f-9071-f03fa95e81ea" },
+      "author": "Premium Production Worker A (Luna) 6c548bcb-e6aa-43ea-9c6c-319497cbe6a9 / codex_local / gpt-5.6-luna / high",
+      "receiptPath": "operations/receipts/IMP-08-ST-5.json",
+      "receiptSha256": "ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71",
+      "resultingContentHash": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+      "changesRequestedHistory": "none (changesRequestedCount 0).",
+      "finalNativeApproval": {
+        "decisionId": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+        "outcome": "approved",
+        "reviewerAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+        "reviewerRole": "Tech Lead participant configured as independent reviewer, running an independent Sol High review (gpt-5.6-sol, modelReasoningEffort=high, OA2 CODEX_HOME)",
+        "commentId": "457cce45-8d57-4915-9968-95a11fc640b4",
+        "observedAt": "2026-09-21T16:00:28.732Z",
+        "authorReviewerDistinct": true
+      }
+    }
+  ],
+  "operationalProvenance": [
+    {
+      "issue": { "identifier": "LAT-170", "id": "5478219d-9f60-4fad-ac06-fb32f1461811" },
+      "role": "read-only operational routing finding; NOT an accepted ST and NOT economic evidence",
+      "content": "Recorded that LAT-157 was still blocked by cancelled LAT-159 via a stale blocker edge; Command removed only that stale edge. No implementation/economic artifact."
+    }
+  ],
+  "parentGateCriteria": [
+    { "criterion": "All required subtasks accepted", "status": "satisfied", "evidence": "ST-08.1..ST-08.5 each done with a final native approval (see nativeLineage)." },
+    { "criterion": "Parent prerequisites still satisfied", "status": "satisfied", "evidence": "IMP-01 IMP_RECEIPT accepted, pinned at operations/receipts/IMP-01-IMP_RECEIPT.json sha256 78d92de8...; project ON; SPEC hash unchanged." },
+    { "criterion": "Real audit/evidence conditions required are satisfied", "status": "not-required-for-this-scope", "evidence": "SPEC 25.2 IMP-08 row: REQUIRES_AUDIT '--' and REQUIRES_EVIDENCE '--' for the implementation/fixtures objective. This state does NOT satisfy DEP-13 or any real campaign evidence." },
+    { "criterion": "Parent acceptance test passes", "status": "ready-for-tech-lead-evaluation", "evidence": "Frozen parent tests reproduced from clean commands in this packet; see testsRun and 25.1RequirementMap." },
+    { "criterion": "No unresolved SPEC conflict affecting closure", "status": "satisfied", "evidence": "No SPEC_CHANGE_REQUEST exists for IMP-08; no frozen decision changed." },
+    { "criterion": "No frozen decision violated", "status": "satisfied", "evidence": "The 15 frozen decisions in the packet scope are each mapped to direct evidence in 25.1RequirementMap." }
+  ],
+  "twentyFivePointOneRequirementMap": [
+    { "requirement": "Reproducible B/H/V", "evidence": "src/economic-calculation/bhv.mjs + fixtures FX-BHV-POSITIVE/NEGATIVE/ZERO; oracle verify.mjs; bhv.test.mjs", "status": "proven" },
+    { "requirement": "+4/-1 => n=2,p=0.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5", "evidence": "fixture FX-C09-SCORING-POS-NEG; scoring.test.mjs", "status": "proven" },
+    { "requirement": "+3/-1 => mu=1,R=C=3,Sortino=1 does not pass >1 strict", "evidence": "fixture FX-C10-SCORING-SORTINO-1", "status": "proven" },
+    { "requirement": "+2/-2 => mu=0,R=C=1,sigma=2,Sortino=0", "evidence": "fixture FX-C11-SCORING-ZERO-MEAN", "status": "proven" },
+    { "requirement": "Neutral addition keeps n_nonzero separate from n_total", "evidence": "fixture FX-C09-NEUTRAL-ADDITION (+4/-1/0 -> n_nonzero=2, nTotal=3)", "status": "proven" },
+    { "requirement": "n<2 case", "evidence": "fixture FX-C12-N-LT-2 (n-1 denominator unusable)", "status": "proven" },
+    { "requirement": "Only-positive case", "evidence": "fixture FX-C12-ONLY-POSITIVES (A/R/C undefined, sigma=0, Sortino undefined)", "status": "proven" },
+    { "requirement": "Only-zero case", "evidence": "fixture FX-C12-EXACT-ZERO-ONLY (n_nonzero=0, all undefined)", "status": "proven" },
+    { "requirement": "Empty denominator / empty winner group", "evidence": "fixtures FX-C12-EMPTY-POPULATION, FX-C12-EMPTY-WINNER-GROUP, FX-BHV-UNDEFINED-RATIO-NO-PASS", "status": "proven" },
+    { "requirement": "Undefined ratios never become PASS", "evidence": "oracle negatives (scoring-tamper, undefined-without-reason); economic test 'un ratio indefinido nunca se convierte en PASS'; fixture FX-BHV-UNDEFINED-RATIO-NO-PASS", "status": "proven" },
+    { "requirement": "Quarterly strict Sortino>1 screen", "evidence": "FX-C10 ('no supera >1 estricto'), scoring.test.mjs quarterlyResearchVerdict", "status": "proven" },
+    { "requirement": "Monthly mission separation (does not inherit Quarterly gate)", "evidence": "fixtures FX-MONTHLY-NO-SORTINO-IMPORT, FX-MONTHLY-ONLY-POSITIVE-NO-HOLD, FX-MONTHLY-REASON-DISCRIMINA", "status": "proven" },
+    { "requirement": "Valid/invalid reference selection and daily dedup", "evidence": "fixtures C01-C08; ST-08.3 regression R1-R4 (9/9 pass)", "status": "proven" },
+    { "requirement": "Complete/malformed costs fail closed (unknown never zero)", "evidence": "fixtures FX-BHV-MISSING-FEE, FX-BHV-INCOMPLETE-COVERAGE; ST-08.5 bhv.mjs correction; regression R5-R6", "status": "proven" },
+    { "requirement": "Compatible units and explicit coverage (no inferred MW-to-MWh)", "evidence": "fixtures FX-BHV-UNITS-INCOMPATIBLE, FX-BHV-TOTAL-EUR-NO-MWH", "status": "proven" },
+    { "requirement": "C diagnostic only, not a hard research gate", "evidence": "fixture FX-BHV-C-DIAGNOSTIC; economic test 'C no es un gate de research'", "status": "proven" },
+    { "requirement": "n-1 downside denominator and target zero, no epsilon, no annualization", "evidence": "fixture metadata epsilonUsed=false, annualizationUsed=false; scoring.mjs; C09/C10/C11 exact values", "status": "proven" }
+  ],
+  "claims": [],
+  "depNotice": "No DEP is satisfied by these inputs. DEP-13 (real economic research result) is NOT closed; IMP-08 synthetic fixtures are not a real campaign result.",
+  "prerequisiteCheck": {
+    "projectON": true,
+    "acceptedIMP01ExactScopeVersion": true,
+    "allRequiredChildrenReviewedAccepted": true,
+    "noUnresolvedApplicableSpecChangeRequest": true,
+    "frozenDecisionsPreserved": true,
+    "requiresAudit": "none for this synthetic implementation/fixtures objective (SPEC 25.2 IMP-08)",
+    "requiresEvidence": "none additional for this synthetic objective; real campaign use still requires accepted IMP-05/07"
+  }
+}

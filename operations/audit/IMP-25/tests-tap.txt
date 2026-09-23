@@ -1,0 +1,203 @@
+# Observed TAP — /opt/node/bin/node --test project-gate.test.mjs packet.test.mjs
+# cwd: /home/op/.paperclip/integrations/office-continuity
+# node: v24.19.0
+# observedAt: 2026-09-19T09:09:01Z
+# project-gate.mjs sha256: 18603a44fe0dbac0a704120b5d44403f757383173350fd41c9a6ba61030de4da
+# packet.mjs sha256: dbb771b3f52ad12797cb5d9e3866e0a2ca8441f3c64f8dc0729c77f9ed5cb6e5
+
+TAP version 13
+# Subtest: parses a well-formed WORK-PACKET v1
+ok 1 - parses a well-formed WORK-PACKET v1
+  ---
+  duration_ms: 1.524936
+  type: 'test'
+  ...
+# Subtest: missing lists every known key absent from the packet
+ok 2 - missing lists every known key absent from the packet
+  ---
+  duration_ms: 0.974668
+  type: 'test'
+  ...
+# Subtest: rejects text without the header line
+ok 3 - rejects text without the header line
+  ---
+  duration_ms: 0.13792
+  type: 'test'
+  ...
+# Subtest: rejects an empty or non-string description
+ok 4 - rejects an empty or non-string description
+  ---
+  duration_ms: 0.128262
+  type: 'test'
+  ...
+# Subtest: rejects a packet with no class field
+ok 5 - rejects a packet with no class field
+  ---
+  duration_ms: 0.131167
+  type: 'test'
+  ...
+# Subtest: rejects a packet with an invalid class value
+ok 6 - rejects a packet with an invalid class value
+  ---
+  duration_ms: 0.13236
+  type: 'test'
+  ...
+# Subtest: tolerates leading blank lines before the header
+ok 7 - tolerates leading blank lines before the header
+  ---
+  duration_ms: 0.129825
+  type: 'test'
+  ...
+# Subtest: a field's value continues across lines until the next key line
+ok 8 - a field's value continues across lines until the next key line
+  ---
+  duration_ms: 0.128222
+  type: 'test'
+  ...
+# Subtest: allowed_paths with only commas, only newlines, or a mix all split cleanly
+ok 9 - allowed_paths with only commas, only newlines, or a mix all split cleanly
+  ---
+  duration_ms: 0.184908
+  type: 'test'
+  ...
+# Subtest: a line that looks like an unknown key is treated as a continuation line
+ok 10 - a line that looks like an unknown key is treated as a continuation line
+  ---
+  duration_ms: 0.200358
+  type: 'test'
+  ...
+# Subtest: class takes the first token of the line, tolerating a trailing annotation
+ok 11 - class takes the first token of the line, tolerating a trailing annotation
+  ---
+  duration_ms: 0.192272
+  type: 'test'
+  ...
+# Subtest: class still rejects a first token that is not a known class
+ok 12 - class still rejects a first token that is not a known class
+  ---
+  duration_ms: 0.102603
+  type: 'test'
+  ...
+# Subtest: TEST F detector: marker present in the installed budgets.js -> present
+ok 13 - TEST F detector: marker present in the installed budgets.js -> present
+  ---
+  duration_ms: 2.164852
+  type: 'test'
+  ...
+# Subtest: TEST F detector: marker absent (pristine file after paperclipai update) -> missing
+ok 14 - TEST F detector: marker absent (pristine file after paperclipai update) -> missing
+  ---
+  duration_ms: 0.128893
+  type: 'test'
+  ...
+# Subtest: TEST F detector: unreadable file -> missing with read_failed reason
+ok 15 - TEST F detector: unreadable file -> missing with read_failed reason
+  ---
+  duration_ms: 0.145264
+  type: 'test'
+  ...
+# Subtest: TEST F detector: execution GET 200 -> ok with normalized rows
+ok 16 - TEST F detector: execution GET 200 -> ok with normalized rows
+  ---
+  duration_ms: 0.319433
+  type: 'test'
+  ...
+# Subtest: TEST F detector: execution GET 404 (route gone) -> not ok, http_404
+ok 17 - TEST F detector: execution GET 404 (route gone) -> not ok, http_404
+  ---
+  duration_ms: 0.234402
+  type: 'test'
+  ...
+# Subtest: TEST F detector: network failure -> not ok, request_failed
+ok 18 - TEST F detector: network failure -> not ok, request_failed
+  ---
+  duration_ms: 0.204796
+  type: 'test'
+  ...
+# Subtest: TEST F gate: issue in the ON project is eligible
+ok 19 - TEST F gate: issue in the ON project is eligible
+  ---
+  duration_ms: 0.208554
+  type: 'test'
+  ...
+# Subtest: TEST F gate: issue in the OFF project is not eligible (project_off)
+ok 20 - TEST F gate: issue in the OFF project is not eligible (project_off)
+  ---
+  duration_ms: 0.125677
+  type: 'test'
+  ...
+# Subtest: TEST F gate: issue without project is skipped with reason no_project
+ok 21 - TEST F gate: issue without project is skipped with reason no_project
+  ---
+  duration_ms: 0.182424
+  type: 'test'
+  ...
+# Subtest: TEST F gate: unknown project id (not in the list) is treated as OFF
+ok 22 - TEST F gate: unknown project id (not in the list) is treated as OFF
+  ---
+  duration_ms: 0.205187
+  type: 'test'
+  ...
+# Subtest: TEST F gate fails closed: execution GET not 200 -> missing, nothing is ON, every issue switch_missing
+ok 23 - TEST F gate fails closed: execution GET not 200 -> missing, nothing is ON, every issue switch_missing
+  ---
+  duration_ms: 0.151546
+  type: 'test'
+  ...
+# Subtest: TEST F gate fails closed: marker absent even though the GET still answers -> missing
+ok 24 - TEST F gate fails closed: marker absent even though the GET still answers -> missing
+  ---
+  duration_ms: 0.112883
+  type: 'test'
+  ...
+# Subtest: TEST F partitionByGate splits eligible vs skipped with reasons, keeps order
+ok 25 - TEST F partitionByGate splits eligible vs skipped with reasons, keeps order
+  ---
+  duration_ms: 0.199827
+  type: 'test'
+  ...
+# Subtest: TEST F partitionByGate without a gate passes everything through (pure selectors stay testable)
+ok 26 - TEST F partitionByGate without a gate passes everything through (pure selectors stay testable)
+  ---
+  duration_ms: 0.11689
+  type: 'test'
+  ...
+# Subtest: TEST F status: projects line reads 'projects: Alexandria ON, Energy Markets OFF'
+ok 27 - TEST F status: projects line reads 'projects: Alexandria ON, Energy Markets OFF'
+  ---
+  duration_ms: 0.131608
+  type: 'test'
+  ...
+# Subtest: TEST F status: missing patch renders UNKNOWN and the MISSING line text is the documented one
+ok 28 - TEST F status: missing patch renders UNKNOWN and the MISSING line text is the documented one
+  ---
+  duration_ms: 0.109597
+  type: 'test'
+  ...
+# Subtest: TEST F notice guard: sends when missing and never sent
+ok 29 - TEST F notice guard: sends when missing and never sent
+  ---
+  duration_ms: 0.09577
+  type: 'test'
+  ...
+# Subtest: TEST F notice guard: silent when not missing
+ok 30 - TEST F notice guard: silent when not missing
+  ---
+  duration_ms: 0.110098
+  type: 'test'
+  ...
+# Subtest: TEST F notice guard: at most once every 6 h
+ok 31 - TEST F notice guard: at most once every 6 h
+  ---
+  duration_ms: 0.35003
+  type: 'test'
+  ...
+1..31
+# tests 31
+# suites 0
+# pass 31
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 68.965541

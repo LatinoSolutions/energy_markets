@@ -1,0 +1,43 @@
+[PASS] A1 createNewEvaluationVersion rechaza (o normaliza) un contrato cuya componentVersion no es newVersion
+        esperado: ok=false (IDENTITY_MISMATCH) o contract.componentVersion === record.componentVersion
+        observado: ok=false, record.componentVersion=undefined, record.contract.componentVersion=undefined
+[PASS] A2 un cambio de identidad de protocolo en un salto de versión queda declarado o rechazado
+        esperado: ok=false, o materialChange registra el cambio de protocolo explícitamente
+        observado: ok=false, protocolId=undefined, protocolVersion=undefined, materialChange=undefined
+[PASS] B1 la entrada de historial de la versión evaluada conserva su outcome registrado
+        esperado: history()[0].outcome.value === 'HOLD' (y state OUTCOME_RECORDED)
+        observado: history().length=2, history()[0].state=OUTCOME_RECORDED, history()[0].outcome={"namespace":"role_admission","value":"HOLD","componentVersion":"0.1.0","protocolId":"SYN-REVIEWER-PROTOCOL","protocolVersion":"1.0.0","evidenceRefs":[{"kind":"synthetic","ref":"SYN-REVIEWER-EVIDENCE-1"}]}
+[PASS] B2 (delimitación) el registro vigente sí preserva el HOLD previo
+        esperado: priorFindings incluye HOLD
+        observado: priorFindings=["HOLD"], outcomeHistory=["HOLD"]
+[PASS] C1 el registro no congela el array de evidencia del llamante
+        esperado: Object.isFrozen(callerEvidence) === false
+        observado: array frozen=false, elemento frozen=false
+[PASS] D1 criterio 2: PASS/FAIL/INVALID no se resuelven como outcomes de admisión por rol
+        esperado: los tres rechazados con UNKNOWN_STATE_VALUE
+        observado: rechazados=true
+[PASS] D2 criterio 2: ADMIT en Engineering deja Strategy/Evidence sin outcome
+        esperado: outcome null y state REGISTERED
+        observado: outcome=null, state=REGISTERED
+[PASS] D3 criterio 3: Strategy/Evidence no alcanza readiness sin el gate aceptado §8.7
+        esperado: ok=false MISSING_STRATEGY_ADMISSION_GATE
+        observado: ok=false, code=MISSING_STRATEGY_ADMISSION_GATE
+[PASS] D4 criterio 3: Execution/Governance exige validación separada y aun así no obtiene autoridad
+        esperado: sin validación MISSING_AUTHORITY_VALIDATION; con validación NO_PRODUCTIVE_AUTHORITY; nunca ok=true
+        observado: sin=MISSING_AUTHORITY_VALIDATION, con=NO_PRODUCTIVE_AUTHORITY, algún ok=false
+[PASS] D5 criterio 4: elegibilidad por rol no integra; sin rol admitido NO_QUALIFYING_ROLE
+        esperado: integrated=false en ambos; reason NO_QUALIFYING_ROLE sin ADMIT
+        observado: admitido: integrated=false eligible=true authorityGranted=[]; sin rol: reason=NO_QUALIFYING_ROLE eligible=false
+[PASS] D6 criterio 4: Engineering no puede reclamar procurement edge
+        esperado: ok=false PROCUREMENT_EDGE_NOT_ALLOWED
+        observado: ok=false, code=PROCUREMENT_EDGE_NOT_ALLOWED
+[PASS] D7 criterio 5: no se reescribe el outcome de una versión ya resuelta
+        esperado: ok=false OUTCOME_ALREADY_RECORDED y el outcome sigue ADMIT
+        observado: ok=false, code=OUTCOME_ALREADY_RECORDED, outcome=ADMIT
+[PASS] D8 criterio 1/2: sin roleClass declarado no se asigna ningún rol por defecto
+        esperado: ok=false CONTRACT_INCOMPLETE
+        observado: ok=false, code=CONTRACT_INCOMPLETE
+
+reviewer-probe: 0 comprobación(es) fallida(s).
+Los FAIL de A1/A2/B1/C1 son los hallazgos de la ronda 1; los PASS de D delimitan lo que el revisor confirma satisfecho.
+PROBE_R1_EXIT=0

@@ -1,0 +1,186 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC \u00a720.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-26-ST-2-v1.1",
+    "subtaskId": "ST-26.2",
+    "parentImp": "IMP-26",
+    "parentImpIssue": {
+      "identifier": "LAT-94",
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797"
+    },
+    "executionGateIssue": {
+      "identifier": "LAT-124",
+      "id": "2ca425cd-27ad-42fb-8dec-0eba6b412829"
+    },
+    "workIssue": {
+      "identifier": "LAT-128",
+      "id": "3dd04c01-acef-4528-98db-54d4c6b3066b"
+    },
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "project": "Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "specHashVerifiedLive": true,
+    "sourceSections": [
+      "20.2",
+      "25.1 IMP-26",
+      "25.2"
+    ],
+    "host": "brunode",
+    "workspace": "/srv/hot-data/energy-markets/app"
+  },
+  "workerModelRoute": {
+    "actor": "Emergency Cheap Production Worker 2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+    "model": "DeepSeek V4.1 Flash",
+    "provider": "OpenRouter",
+    "lane": "cheap_or",
+    "runId": "8398470b-b400-4385-877e-4a243155ed48",
+    "dispatch": "owner-authorized continuity controller dispatch comment 311fffdc-63c5-4c7a-8ba7-d3ee66d86486 (2026-09-19T17:17:15.627Z)",
+    "roleInThisSubtask": "author of the read-only evidence matrix; NOT the reviewer, NOT the approver"
+  },
+  "startingBaseline": {
+    "frozenManifest": "operations/audit/IMP-26/review-target-319c012-aadaa2c1-3107-4ffe-ac6b-74bea6b6f713/manifest.json",
+    "frozenManifestSha256": "d1c3ec69560e743c6633e1f4fe7708a9a73efd37d7298d43e0a02e7f31f475c0",
+    "frozenTarget": "office-continuity commit 319c012",
+    "acceptedSt26_1ReceiptSha256": "52411facd51f249eb22439aa7af442ad2be5b77763ac8d2e749c8ae26b367eab",
+    "dirtyFilesPreserved": true
+  },
+  "resultingVersion": {
+    "type": "workspace evidence artifacts + receipt (no source changes, no commits)",
+    "artifacts": {
+      "operations/audit/IMP-26/ST-26.2/matrix.md": "cc9974a8aad325e8ccfc4688dfe3d4c41a11fa939bed9fab3574cb01c7a95574",
+      "operations/audit/IMP-26/ST-26.2/events.json": "3b6edf3178cf4c5e0914bb5d00fe96e8cc162852ff43a93bdd425ceff5192f8f",
+      "operations/audit/IMP-26/ST-26.2/source-hashes.json": "2699d53343f04ff665d2a74b98943e863b7b44447be076f053d2057123d8e922",
+      "operations/audit/IMP-26/ST-26.2/excerpts.md": "9db07c6a669a4b538c24b6231dc8500766ebe26b692446072f61e31bdd50a91b",
+      "operations/receipts/IMP-26-ST-2.json": "self"
+    }
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (sha256 86c4bd4e\u2026cb6c)",
+    "operations/receipts/IMP-26-ST-1.json (sha256 52411fac\u20267eab) and its native review rounds r1/r2/r3",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json, operations/receipts/IMP-25-IMP_RECEIPT.json (accepted prerequisites)",
+    "operations/audit/IMP-25/capability-mapping.md (G1-G10) and evidence.json (REQUIRES_AUDIT DEP-27 scope)",
+    "operations/audit/IMP-26/adversarial-review.json, dry-run.json, controller-file-hashes.json, tests-tap.txt",
+    "bounded journal service logs 2026-09-19 14:09Z-15:35Z plus the observed live timer/journal state",
+    "native threads LAT-91/94/97/108/110/124/125/126/127/128 (comments and documents) via authenticated GET",
+    "operations/bootstrap/IMP-26-BLOCKER-EVIDENCE-UPDATE.md, COMMAND_HANDOFF.md, CONCURRENT_OWNER_WORK.md, OWNER_EVENT_DRIVEN_COMMAND_20260919.txt"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-26/ST-26.2/matrix.md",
+    "operations/audit/IMP-26/ST-26.2/events.json",
+    "operations/audit/IMP-26/ST-26.2/source-hashes.json",
+    "operations/audit/IMP-26/ST-26.2/excerpts.md",
+    "operations/receipts/IMP-26-ST-2.json"
+  ],
+  "result": "Round-2 corrected criterion-by-criterion IMP-26 live acceptance matrix, source-linked, with the observed Energy-only event chain correlated to native ids/timestamps. Owner requirements 1,2,4,8,9 are PROVED live (Energy ON/Alexandria OFF, root LAT-91, no wrong-root work, active warranted Energy replenishment: 7 refill ticks creating LAT-129/130/132-136 plus LAT-131 final-acceptance, all parent LAT-91); requirement 5 proved on the normal path (GAP F1 fail-open); requirement 3 PARTIAL (7 of 9 surfaces live-evidenced, command-question and handoff not exercised in-window); requirements 6-7 proved in code with live behavior UNKNOWN; the owner tail 'Astra stays idle except a bounded Command event' has bounded wakes PROVED and idle-half UNKNOWN. Requirement 10 and criterion S8 FAIL in live state: the recurring timer is active/enabled and the approved sequence ran under it; no timer-OFF post-review sequence exists. Round-1 findings A-F addressed (false aggregate corrected via C5b, provenance declared, req-3 downgraded per-surface, Astra row added, snapshots dated, LAT-108 dual-id citation). Parent-gate findings F1/F2 remain open under LAT-127 (blocked). No IMP_RECEIPT issued; IMP-26 not accepted.",
+  "testsRun": [
+    {
+      "id": "C1",
+      "command": "hostname",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "brunode",
+      "observed": "brunode",
+      "status": "PASS"
+    },
+    {
+      "id": "C2",
+      "command": "pwd",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "/srv/hot-data/energy-markets/app",
+      "observed": "/srv/hot-data/energy-markets/app",
+      "status": "PASS"
+    },
+    {
+      "id": "C3",
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-26-ST-1.json",
+      "expected": "86c4bd4e\u2026 and 52411fac\u2026",
+      "observed": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c; 52411facd51f249eb22439aa7af442ad2be5b77763ac8d2e749c8ae26b367eab",
+      "status": "PASS"
+    },
+    {
+      "id": "C4",
+      "command": "systemctl --user show latinosolutions-continuity.timer -p ActiveState -p SubState -p UnitFileState",
+      "expected": "report actual state",
+      "observed": "ActiveState=active; SubState=waiting; UnitFileState=enabled (LastTrigger 17:21:06Z)",
+      "status": "REPORTED (state is a GAP vs requirement 10, not a command failure)"
+    },
+    {
+      "id": "C5",
+      "command": "journalctl --user -u latinosolutions-continuity.service --since '2026-09-19 14:09:00 UTC' --until '2026-09-19 15:35:00 UTC' --no-pager",
+      "expected": "bounded historical evidence",
+      "observed": "captured in events.json (C5 block)",
+      "status": "PASS"
+    },
+    {
+      "id": "C5b",
+      "command": "journalctl --user -u latinosolutions-continuity.service --since '2026-09-19 15:35:00 UTC' --no-pager (per-tick JSON parse)",
+      "expected": "declared source for post-15:35Z aggregates",
+      "observed": "93 ticks 15:35:02Z-18:39:09Z; all root LAT-91; 7 refill ticks; 8 issues created (LAT-129..LAT-136); 0 Alexandria",
+      "status": "PASS (declared after round-1 finding B)"
+    },
+    {
+      "id": "C6",
+      "command": "authenticated GET of native issue/review/comment data",
+      "expected": "native ids/timestamps",
+      "observed": "endpoints recorded in events.json; HTTP 200",
+      "status": "PASS"
+    },
+    {
+      "id": "C7",
+      "command": "python3 -m json.tool operations/receipts/IMP-26-ST-2.json",
+      "expected": "exit 0",
+      "observed": "exit 0",
+      "status": "PASS"
+    }
+  ],
+  "testResults": "All packet-declared commands executed as specified (C1-C7). C4 reports the actual live state and is deliberately recorded as a GAP (timer active/enabled) rather than a pass. C5b was added in round 2 to declare the post-15:35Z source after the round-1 finding B. No full test rerun (evidence-only packet); the frozen-target 370-pass targeted-suite result is reused as attributed independent reviewer evidence only.",
+  "evidenceProduced": [
+    "operations/audit/IMP-26/ST-26.2/matrix.md",
+    "operations/audit/IMP-26/ST-26.2/events.json",
+    "operations/audit/IMP-26/ST-26.2/source-hashes.json",
+    "operations/audit/IMP-26/ST-26.2/excerpts.md",
+    "operations/receipts/IMP-26-ST-2.json"
+  ],
+  "assumptions": [
+    "The packet's frozen manifest baseline is operations/audit/IMP-26/review-target-319c012-.../manifest.json, verified sha256 d1c3ec69\u2026 (matches the packet-declared hash).",
+    "The 'later owner timer override' the packet directs us to read is LAT-97 comment a0a03a00; it is treated as authorizing the recorded deviation, never as a live-compliance pass.",
+    "Journal prose alone is not proof; each event is tied to a native id or a read-only command output."
+  ],
+  "deviations": [
+    "Round-1 review correction (findings A-F): the initial post-15:35Z aggregate 'no refill / created None' was false, caused by a truncated journal read; it is corrected to 7 refill ticks and 8 created issues (LAT-129..LAT-136) with a declared C5b source read. Requirement 3 was downgraded from PROVED to PARTIAL per-surface; an 'Astra stays idle except a bounded Command event' row was added; tick snapshots were dated; LAT-108 stage-1 now cites both f22f1975 and 054b1275. No source or native state was changed by the correction.",
+    "Original ST-26.1 criterion 10 and owner requirement 10 required the observed sequence with the timer OFF. Live state contradicts that: the timer is active/enabled and firing ~2 min (93 ticks in the 15:35Z-18:39Z window). The approved worker->review->rework->accept->continuation chain ran with the timer ON. Recorded as a GAP/DEVIATION; no timer action taken by this run.",
+    "The bootstrap document IMP-26-BLOCKER-EVIDENCE-UPDATE.md states the timer was 'inactive/dead and disabled'; the live read (ActiveState=active, UnitFileState=enabled) contradicts it. Recorded as an open factual contradiction for LAT-124; not resolved here.",
+    "This ST adds no live action and starts no tick, per the packet. Only allowed_paths were written (operations/audit/IMP-26/ST-26.2/** and operations/receipts/IMP-26-ST-2.json)."
+  ],
+  "dependencyFindings": [
+    "REQUIRES IMP-01 and IMP-25: accepted (IMP_RECEIPT files present; hashes recorded).",
+    "REQUIRES accepted ST-26.1 native review: LAT-97 done; round-3 approved at frozen 319c012 (decision 12d37090-15e5-4eee-8fc5-7e688045427e).",
+    "REQUIRES_AUDIT DEP-27: G1-G10 scope from operations/audit/IMP-25/capability-mapping.md/evidence.json; adequacy per claim is assessed in matrix.md \u00a71/\u00a73. G9/G10 narrowed in IMP-25 rounds 2-3.",
+    "Current D4 contract and Energy ON confirmed live (project 96bbd5b1\u2026, root LAT-91).",
+    "Parent-gate findings F1 (canonical_graph_absent fail-open) and F2 (recovery reset trace incomplete) remain open under LAT-127 (blocked 16:23:18Z)."
+  ],
+  "failuresRetries": [
+    "No technical failures requiring retry. C4 returned an expected-state mismatch (timer active vs required OFF), which is a finding, not a command failure.",
+    "No controller tick, timer/service operation, native state mutation, source edit or credential access was performed."
+  ],
+  "recommendedStatus": {
+    "value": "in_review",
+    "meaning": "Read-only evidence assembly complete; every criterion is PROVED or an explicit GAP/UNKNOWN. Exactly one native Independent Reviewer premium stage (maxReviewRounds 3) is requested. An accurately reported gap may complete this audit ST but cannot accept IMP-26; LAT-124 owns the next bounded decision."
+  },
+  "identityDetail": {
+    "reviewerPolicy": "one native Independent Reviewer premium stage, maxReviewRounds 3, comment required",
+    "parentGate": "LAT-124",
+    "finalParentAcceptance": "LAT-94"
+  },
+  "exactNextAction": "Native independent review of this ST-26.2 evidence; then LAT-124 (Command) consumes the matrix to decide the IMP-26 parent gate. LAT-127 remains the owner of the missing-graph and reset-trace corrections.",
+  "writtenAt": "2026-09-19T19:06:00Z",
+  "reviewRounds": {
+    "round1": "changes_requested (decision ec018ec5, 18:38:29Z) \u2014 findings A-F",
+    "round2": "changes_requested (decision 6e420035, 19:01Z) \u2014 finding G; A-F confirmed fixed",
+    "round3": "this corrected resubmission"
+  }
+}

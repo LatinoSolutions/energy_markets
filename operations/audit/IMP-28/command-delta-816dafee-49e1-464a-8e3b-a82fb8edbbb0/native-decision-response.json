@@ -1,0 +1,29 @@
+{
+  "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+  "status": "in_progress",
+  "assigneeAgentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+  "executionState": {
+    "status": "changes_requested",
+    "monitor": null,
+    "reviewRequest": null,
+    "currentStageId": "94306103-7967-47a7-9ca4-78c860a19dc7",
+    "lastDecisionId": "e9b3df2d-7096-40bf-94b1-ac1bb1667ab7",
+    "returnAssignee": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+    },
+    "currentStageType": "review",
+    "completedStageIds": [
+      "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139"
+    ],
+    "currentStageIndex": 1,
+    "currentParticipant": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+    },
+    "lastDecisionOutcome": "changes_requested",
+    "changesRequestedCount": 2
+  }
+}

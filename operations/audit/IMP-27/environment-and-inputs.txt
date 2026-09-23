@@ -1,0 +1,20 @@
+ST-27.1 environment verification (packet tests step 1)
+observed_utc=2026-09-19T15:54:25Z
+hostname=brunode
+pwd=/srv/hot-data/energy-markets/app
+git_branch=main
+git_commits=0 (unborn main)
+
+--- declared input hashes (expected in packet) ---
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+
+--- accepted IMP-01 content version (from IMP-01-IMP_RECEIPT.json) ---
+c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c
+
+--- allocated output paths before writing (observed at 2026-09-19T15:47Z) ---
+src/strategy-admission: absent
+test/strategy-admission: absent
+operations/audit/IMP-27: absent
+operations/receipts/IMP-27-ST-1.json: absent

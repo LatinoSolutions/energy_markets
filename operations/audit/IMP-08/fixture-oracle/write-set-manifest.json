@@ -1,0 +1,39 @@
+{
+  "artifactKind": "IMP-08_ST1_WRITE_SET_MANIFEST",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-08-ST-1-v1.1",
+  "subtaskId": "ST-08.1",
+  "parentImp": "IMP-08",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "allowedPaths": ["operations/audit/IMP-08/fixture-oracle/**", "operations/receipts/IMP-08-ST-1.json"],
+  "before": {
+    "observedAtUtc": "2026-09-19T16:51:00Z",
+    "commands": [
+      "ls -la operations/audit/IMP-08 -> 'No such file or directory'",
+      "ls -la operations/receipts/IMP-08-ST-1.json -> 'No such file or directory'"
+    ],
+    "finding": "Both allocated output paths did not pre-exist, so there was no pre-existing ownership conflict to resolve."
+  },
+  "after": {
+    "observedAtUtc": "2026-09-19T17:05:00Z",
+    "contentVersionAlgorithm": "sha256 of the path-sorted sha256sum listing",
+    "contentVersionScope": "operations/audit/IMP-08/fixture-oracle/** excluding this self-referential write-set-manifest.json",
+    "contentVersion": "d8728e109a06c9a435cbc136dafb34e8e97b226c5a88580e855cf8cf0aa61e6f",
+    "files": {
+      "operations/audit/IMP-08/fixture-oracle/fixtures.json": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec",
+      "operations/audit/IMP-08/fixture-oracle/independent-calculations.md": "58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9",
+      "operations/audit/IMP-08/fixture-oracle/verify.mjs": "b657af8025ccc6d31271db7fcbab4a8f11e608dc9fa450775adbeb3773d2d11c",
+      "operations/audit/IMP-08/fixture-oracle/verify-run.txt": "fcfb3d79e1a12e7b2602c6bd6ff812b7e1c446192d8eb61f090b5da40f2e412e"
+    }
+  },
+  "outsideAllowedPathsWrites": [],
+  "preservedEvidence": {
+    "spec": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01Receipt": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "baselineManifest": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "imp01ContentVersion": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "reVerifiedAt": "2026-09-19T17:05:00Z",
+    "result": "all four preserved hashes still match"
+  },
+  "note": "No production engine, no real economic run and no file outside allowed_paths was touched. operations/receipts/IMP-08-ST-1.json is the handoff receipt and is recorded there. This manifest is excluded from the content version because it records the hashes it would otherwise have to cover; its own sha256 is recorded in operations/receipts/IMP-08-ST-1.json."
+}

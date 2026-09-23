@@ -1,0 +1,274 @@
+{
+  "receiptKind": "IMP_RECEIPT",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "impIdentity": "IMP-03",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "issueId": "ac1a015c-71c4-4b0a-b27a-55747b72bcd2",
+  "issueIdentifier": "LAT-109",
+  "scope": "Initial factual audit v1.1 of accessible P5 Gas Quarterly material; A0/A1 price, execution, accounting and S1 causal input requirements. Negative audit only; no Q07 scope.",
+  "version": {
+    "contentHash": "c097a6a5e131b50af159ac48e1f382a474070bdcd66884dbba94c30ba5291787"
+  },
+  "objectProtocolVersion": "initial factual audit v1.1",
+  "outcome": "accepted",
+  "acceptedAtUtc": "2026-09-19T16:16:15.220142+00:00",
+  "requiredStIdentities": [
+    {
+      "identity": {
+        "packetId": "WP-IMP-03-ST-1-v1.1",
+        "subtaskId": "ST-03.1",
+        "parentImp": "IMP-03",
+        "parentIssueIdentifier": "LAT-109",
+        "subtaskIssueIdentifier": "LAT-110",
+        "nativeRoot": "LAT-91",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+      },
+      "receiptPath": "operations/receipts/IMP-03-ST-1.json",
+      "receiptSha256": "7bf115919d6b02b952501fc8d8ffaa4276bb1dcbf69d17ddad5bc1e067ac2850",
+      "resultingVersion": {
+        "contentHash": "c097a6a5e131b50af159ac48e1f382a474070bdcd66884dbba94c30ba5291787",
+        "algorithm": "sha256 of the path-sorted sha256sum listing",
+        "scope": "operations/audit/IMP-03/** excluding the self-referential write-set-manifest.json",
+        "changedFileHashes": {
+          "operations/audit/IMP-03/source-inventory.json": "915c413a54cea169ec58b1e9b181bded440c5ed2d6218d8bfef118b3d827fa05",
+          "operations/audit/IMP-03/temporal-manifest.json": "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578",
+          "operations/audit/IMP-03/data-sufficiency-matrix.json": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f",
+          "operations/audit/IMP-03/audit-report.md": "3fad9a93ee235f1c3a6745365736071ebb214c4393cdd41fcb53c3355f95758d",
+          "operations/audit/IMP-03/verify.mjs": "8c72dae6758a1876f35d46035363a7ddcab7ce5f6218492569bf9f60c9fb71b9",
+          "operations/audit/IMP-03/verify-run.txt": "7b1432f6bdb9aae5f54b1272afbfa843a9cbaac0b51ae23b28de96d6766f5762",
+          "operations/audit/IMP-03/write-set-manifest.json": "0445d1259bf52a43de8ac2b1bfc695c37db9d2e170eef68b4571319e2083511a"
+        }
+      },
+      "status": "accepted",
+      "nativeExecutionState": {
+        "status": "completed",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": null,
+        "lastDecisionId": "67d1ce1f-e173-422b-a87b-c7238bb5bfe8",
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+        },
+        "currentStageType": null,
+        "completedStageIds": [
+          "d16498c7-b9f7-4c01-9d87-3226052327d7",
+          "e7f0cd7d-1930-4a0b-89ac-7981f89e65d8"
+        ],
+        "currentStageIndex": null,
+        "currentParticipant": null,
+        "lastDecisionOutcome": "approved",
+        "changesRequestedCount": 0
+      }
+    }
+  ],
+  "reviewerRunIdentities": [
+    {
+      "role": "Independent Reviewer native stage 1",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "runId": "0da91dbc-d229-4897-bfe8-2813b88beb7c",
+      "commentId": "fba38caf-f2da-4201-8081-330e747b2ae1",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T15:40:47.529Z"
+    },
+    {
+      "role": "Tech Lead native stage 2",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "ad02a4cc-627d-4540-b205-d5cf7e5d14aa",
+      "commentId": "05833674-ee98-4d10-b444-f389427646fb",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T16:11:37.835Z"
+    },
+    {
+      "role": "Command separate parent acceptance",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "8697b48e-ab1e-4ff9-b342-fe5e7f902b9c",
+      "outcome": "accepted"
+    }
+  ],
+  "evidenceTestHashes": [
+    {
+      "path": "operations/audit/IMP-03/source-inventory.json",
+      "sha256": "915c413a54cea169ec58b1e9b181bded440c5ed2d6218d8bfef118b3d827fa05"
+    },
+    {
+      "path": "operations/audit/IMP-03/temporal-manifest.json",
+      "sha256": "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578"
+    },
+    {
+      "path": "operations/audit/IMP-03/data-sufficiency-matrix.json",
+      "sha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f"
+    },
+    {
+      "path": "operations/audit/IMP-03/audit-report.md",
+      "sha256": "3fad9a93ee235f1c3a6745365736071ebb214c4393cdd41fcb53c3355f95758d"
+    },
+    {
+      "path": "operations/audit/IMP-03/verify.mjs",
+      "sha256": "8c72dae6758a1876f35d46035363a7ddcab7ce5f6218492569bf9f60c9fb71b9"
+    },
+    {
+      "path": "operations/audit/IMP-03/verify-run.txt",
+      "sha256": "7b1432f6bdb9aae5f54b1272afbfa843a9cbaac0b51ae23b28de96d6766f5762"
+    },
+    {
+      "path": "operations/audit/IMP-03/write-set-manifest.json",
+      "sha256": "0445d1259bf52a43de8ac2b1bfc695c37db9d2e170eef68b4571319e2083511a"
+    }
+  ],
+  "prerequisiteChecks": [
+    {
+      "requirement": "Project ON",
+      "result": "satisfied",
+      "evidence": "Live Energy project API in_progress, pausedAt null, correct workspace/root; no project switch."
+    },
+    {
+      "requirement": "IMP-01 accepted",
+      "result": "satisfied",
+      "evidence": "LAT-92 native imp-receipt JSON equals local accepted IMP_RECEIPT, SHA256 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c; contentVersion reproduced."
+    },
+    {
+      "requirement": "REQUIRES_AUDIT / REQUIRES_EVIDENCE",
+      "result": "none additional for initial IMP-03 audit under 25.2; negative outputs are not prerequisites"
+    },
+    {
+      "requirement": "All required STs and reviews accepted",
+      "result": "satisfied",
+      "evidence": "LAT-110 completed native stage 1 and stage 2; findings A/B/C resolved; authoritative policy retains completed stage 1 on stage-2 return. No fabricated repeat approval or state repair."
+    },
+    {
+      "requirement": "Current SPEC and no unresolved applicable SPEC conflict",
+      "result": "satisfied",
+      "evidence": "Canonical hash exact; source issue, completed review findings and deliverables inspected. Frozen decisions preserved."
+    }
+  ],
+  "acceptanceChecks": [
+    {
+      "criterion": "Inventory and readiness per candidate",
+      "result": "pass",
+      "evidence": "13 cited sources, all 18 reference files dispositioned; 17 requirements with eight fields and four temporal semantics; all data unavailable; A0/A1 DATA_BLOCKED."
+    },
+    {
+      "criterion": "Critical missing data prevents DATA_READY",
+      "result": "pass",
+      "evidence": "Independent row/consumer reconciliation yields A0=12/A1=13 critical gaps including R-06; executable negative guard passes."
+    },
+    {
+      "criterion": "Every input has traceable availability/PIT",
+      "result": "pass",
+      "evidence": "Missing/NOT_DEMONSTRATED or explicit historical assertion, source hashes/locators and named custodians/retrieval actions; no inferred source rights/history/fees."
+    },
+    {
+      "criterion": "Distinct namespaces and no universal coverage percentage",
+      "result": "pass",
+      "evidence": "Matrix and verifier enforce separate availability/readiness axes; labeled publication-only PIT and coverage-percentage negatives rejected."
+    }
+  ],
+  "testsRun": [
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-03/verify.mjs",
+      "exitCode": 0,
+      "stderr": "",
+      "output": "LAT-109 document imp-receipt, parent verification appendix",
+      "stdoutEvidenceSha256": "c5c92a8f48a28540fef073ec940b05709c49e7c51ef2b9384b3c7721141d88ca"
+    },
+    {
+      "command": "Independent Python SHA256 checks, contentVersion reconstruction, A0/A1 row reconciliation, native/local IMP-01 receipt comparison",
+      "result": "pass",
+      "note": "All comparisons passed. First reporting wrapper raised KeyError when printing nonexistent status after comparisons; corrected to outcome and confirmed accepted. Initial python command unavailable; used python3. Neither was a deliverable failure."
+    }
+  ],
+  "candidateReadiness": [
+    {
+      "candidate": "A0 Calendar-only baseline",
+      "mission": "Quarterly (Gas)",
+      "readiness": "DATA_BLOCKED",
+      "rationale": "Critical shared inputs are missing: campaign identity/calendar (R-01/R-03), obligation/unit (R-02/R-08), execution prices (R-04), benchmark B references (R-06), costs (R-07), PIT/publication evidence (R-09/R-10), timezone/DST (R-11), permissions (R-12) and OOS eligibility (R-17). A critical requirement missing means the candidate is not DATA_READY (S-01 §6.3 L566).",
+      "criticalMissing": [
+        "R-01",
+        "R-02",
+        "R-03",
+        "R-04",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10",
+        "R-11",
+        "R-12",
+        "R-17"
+      ]
+    },
+    {
+      "candidate": "A1 S1 candidate",
+      "mission": "Quarterly (Gas)",
+      "readiness": "DATA_BLOCKED",
+      "rationale": "Inherits every critical missing input of A0 (including the benchmark B references R-06) and additionally lacks the S1 causal price references (R-05). No S1 parameters were chosen in this ST; readiness cannot be claimed without a causal, PIT-valid price reference.",
+      "criticalMissing": [
+        "R-01",
+        "R-02",
+        "R-03",
+        "R-04",
+        "R-05",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10",
+        "R-11",
+        "R-12",
+        "R-17"
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "dep": "DEP-06",
+      "kind": "audit",
+      "scope": "Initial factual audit v1.1 of accessible P5 Gas Quarterly material; A0/A1 price, execution, accounting and S1 causal input requirements. Negative audit only; no Q07 scope.",
+      "content": "DOCUMENTED_ABSENCE: inventory and temporal audit completed, but required real series/metadata/permissions are absent or not demonstrated; no global factual closure.",
+      "result": "unresolved",
+      "evidence": "LAT-110 final audit-report, source-inventory, temporal-manifest and Data Sufficiency Matrix with hashes in evidenceTestHashes; accepted receipt LAT-109 imp-receipt"
+    },
+    {
+      "dep": "DEP-07",
+      "kind": "audit",
+      "scope": "Initial factual audit v1.1 of accessible P5 Gas Quarterly material; A0/A1 price, execution, accounting and S1 causal input requirements. Negative audit only; no Q07 scope.",
+      "content": "DOCUMENTED_ABSENCE: inventory and temporal audit completed, but required real series/metadata/permissions are absent or not demonstrated; no global factual closure.",
+      "result": "unresolved",
+      "evidence": "LAT-110 final audit-report, source-inventory, temporal-manifest and Data Sufficiency Matrix with hashes in evidenceTestHashes; accepted receipt LAT-109 imp-receipt"
+    }
+  ],
+  "unresolvedFacts": [
+    "Which exact Gas Quarterly products/contracts exist and their product codes.",
+    "Whether any accessible price/trade/order-book source exists at all, and its entitlement.",
+    "Actual historical coverage by source (the 2020-2026 range is unverified).",
+    "Frequency/resolution, units, timezone/DST handling, missingness and revision behaviour.",
+    "Publication and policy-consumable timestamps for any reference.",
+    "Permissions/rights to use each source.",
+    "Execution cost parameters (fees, spread/slippage, latency, fill rules, lots/rounding)."
+  ],
+  "potentialUnlocks": [
+    "IMP-04",
+    "IMP-05",
+    "IMP-06",
+    "IMP-07",
+    "IMP-09",
+    "IMP-11"
+  ],
+  "dependencyUpdate": "Only the scoped IMP-03 prerequisite is accepted. IMP-04 may consume the negative inventory when its documentary fixtures and access gates pass. IMP-06 may consume unavailable metadata for fail-closed structural support only when its scoped audit gate is met; no real PIT sufficiency is granted. IMP-05/07/09/11 and factual experiments retain all other IMP/audit/evidence gates. DEP-06/07 remain unresolved; no DEP-17/Q07 claim. Existing replenisher handles bounded downstream selection; no new assignment from this parent acceptance.",
+  "unresolvedLimits": [
+    "A0/A1 remain DATA_BLOCKED; 2020–2026 coverage unverified.",
+    "No economic run, edge, P6 closure, research PASS, OOS reservation, admission or production authority.",
+    "Data/mandate/execution custodians own the exact retrieval actions in unresolvedFacts; future inspected material requires its own scoped/versioned evidence."
+  ],
+  "preservation": "New parent receipt and native issue document only; accepted ST/source files, prior receipts, shared office surfaces, timers, budgets, routes and repository state untouched."
+}

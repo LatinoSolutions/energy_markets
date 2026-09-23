@@ -1,0 +1,354 @@
+{
+  "receiptKind": "IMP_RECEIPT",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "impIdentity": "IMP-27",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "issueId": "43770b54-d2da-4cbf-b5df-287e9190a271",
+  "issueIdentifier": "LAT-111",
+  "scope": "Initial Strategy Admission framework v1.1 (§25.2.1): common registry, structural validation, channels, lifecycle, version/evidence preservation; no real candidate/component evaluation or admission.",
+  "version": {
+    "contentHash": "7c5ea00b0d4ac8079e6dfd92b6fa14eb62017fd2cb0925614d05cd390be61d19"
+  },
+  "objectProtocolVersion": "1.1",
+  "outcome": "accepted",
+  "acceptedAtUtc": "2026-09-19T22:26:48.622493+00:00",
+  "requiredStIdentities": [
+    {
+      "identity": {
+        "packetId": "WP-IMP-27-ST-1-v1.1",
+        "subtaskId": "ST-27.1",
+        "parentImp": "IMP-27",
+        "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "projectName": "Energy Markets",
+        "programRoot": {
+          "identifier": "LAT-91",
+          "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+        },
+        "semanticParentIssue": {
+          "identifier": "LAT-111",
+          "note": "IMP-27 parent acceptance se evalúa por separado (§20.2.10)."
+        },
+        "workIssue": {
+          "identifier": "LAT-112",
+          "id": "24c7a41f-6073-4210-8d3c-80510026f2d6"
+        },
+        "workspace": "/srv/hot-data/energy-markets/app",
+        "host": "brunode",
+        "executionInstance": "SPEC 86c4bd4e… + IMP-27 + scope[Strategy Admission framework, framework instance v1.1, no real admission] + version 1"
+      },
+      "receiptPath": "operations/receipts/IMP-27-ST-1.json",
+      "receiptSha256": "ecb8cd9bdc2b1a56e6934f31787df78baff3913d38c100805064633c2ca07589",
+      "status": "accepted",
+      "nativeExecutionPolicy": {
+        "mode": "normal",
+        "stages": [
+          {
+            "id": "f3c97146-5d02-49fe-a95c-8f5321ba545c",
+            "type": "review",
+            "participants": [
+              {
+                "id": "d4d072b6-fe24-4227-a66b-747852bf7a74",
+                "type": "agent",
+                "userId": null,
+                "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+              }
+            ],
+            "approvalsNeeded": 1
+          },
+          {
+            "id": "29d8ff8b-9001-4199-b562-c731e87bef3f",
+            "type": "review",
+            "participants": [
+              {
+                "id": "2647fcc9-37b2-47aa-9f7b-c23e31173280",
+                "type": "agent",
+                "userId": null,
+                "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+              }
+            ],
+            "approvalsNeeded": 1
+          }
+        ],
+        "commentRequired": true
+      },
+      "nativeExecutionState": {
+        "status": "completed",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": null,
+        "lastDecisionId": "d1e48560-e021-427b-9aa2-435d5d0869bf",
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+        },
+        "currentStageType": null,
+        "completedStageIds": [
+          "f3c97146-5d02-49fe-a95c-8f5321ba545c",
+          "29d8ff8b-9001-4199-b562-c731e87bef3f"
+        ],
+        "currentStageIndex": null,
+        "currentParticipant": null,
+        "lastDecisionOutcome": "approved",
+        "changesRequestedCount": 0
+      }
+    }
+  ],
+  "reviewerRunIdentities": [
+    {
+      "role": "Independent Reviewer Opus; native stage 1",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "runId": "a554f811-e498-4441-9581-4d69459d46f5",
+      "commentId": "3e532ac8-80de-4756-9ada-95acbe3a7172",
+      "decisionId": "e28cc06f-a4fc-4fdf-8fb2-680c9c66097d",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T21:28:56.423Z"
+    },
+    {
+      "role": "Tech Lead Astra; native stage 2",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "1308f7ff-9865-4f9d-a3ec-07b0a02ec5d7",
+      "commentId": "e3de92e5-8bb9-48ce-9b91-6a682b9d281e",
+      "decisionId": "d1e48560-e021-427b-9aa2-435d5d0869bf",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T22:22:38.667Z"
+    },
+    {
+      "role": "Tech Lead Astra; separate parent acceptance",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "9b1ddf65-6784-4872-9814-b19f03a7d667",
+      "outcome": "accepted"
+    }
+  ],
+  "evidenceTestHashes": [
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/IMP-01-IMP_RECEIPT.json",
+      "sha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/IMP-27-ST-1.json",
+      "sha256": "ecb8cd9bdc2b1a56e6934f31787df78baff3913d38c100805064633c2ca07589"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/child-comments.json",
+      "sha256": "935383be73676c65073c6241c4f23689843ba6d1af3501b34649db29c8524f63"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/child.json",
+      "sha256": "c6c0e4590ec69a5a5baf20e3430d37f3e8f58fcfdd0d3df8c333ab932e7d2ee3"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/contracts.txt",
+      "sha256": "f77cd8c296af8c5f39661790e15671e1ec0501550de766b528af8cd2ba79216d"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/framework.txt",
+      "sha256": "5906bbe67ec53a85b351b7aa0be9b456707bef5871d10cd122a5f0a68a190e9c"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/prerequisite.json",
+      "sha256": "4b57b088a9a1c965d113489d067418d90ad85a8024c951f1e6d0f401fdf32fbf"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/project.json",
+      "sha256": "e7d016ec889f7e3151d5da045dae3ff05a417b7f0c127236cd2a5962be34c9ec"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/receipt.txt",
+      "sha256": "ef8275f859a9675bb087d95e52d5bbaa66a891ddca227a31b9e554fcdb250b48"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/stage2.json",
+      "sha256": "6bbb8e7cdd16fe498a23e9d94ceedbc88ba9aca455fe06fc719f355498814791"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/test-results.json",
+      "sha256": "2822ea1e1a2a443814dc0ccc3f6b70eb74de1b78d74676e7b906db2fc4733fe3"
+    },
+    {
+      "path": "operations/audit/IMP-27/parent-acceptance-9b1ddf65-6784-4872-9814-b19f03a7d667/write-set-manifest.json",
+      "sha256": "f66c80edee1bb7a1fe5c599f3796b2bb7dc104e15edad2f34c2181b7999f37d2"
+    },
+    {
+      "path": "src/strategy-admission/channels.mjs",
+      "sha256": "aeb75f80794595b785c9fcd58d60ddbd58240bc9853c94e723e8d9ce27b210b1"
+    },
+    {
+      "path": "src/strategy-admission/contract.mjs",
+      "sha256": "706d7366b06a58f7cb3e0542a11c6581aed82231eceef7d48d9e1d2a27ab8c7e"
+    },
+    {
+      "path": "src/strategy-admission/lifecycle.mjs",
+      "sha256": "91604e4a5c3bfd93a63c5b036f843a9c39686e0d58b14454f1a630304e685a78"
+    },
+    {
+      "path": "src/strategy-admission/registry.mjs",
+      "sha256": "e83980f272848300f94853e582f17514d270fa19c77806b80381f13a15a5d49e"
+    },
+    {
+      "path": "src/strategy-admission/index.mjs",
+      "sha256": "acc8ae0162d5fc7b703e1b300e4f77035e5581b0d432c3a32447f144fb4f63d8"
+    },
+    {
+      "path": "test/strategy-admission/fixtures.mjs",
+      "sha256": "dde7545148fb52c29e875e7e41832c712d16ad4e4a429c5555c5c31c38f6c789"
+    },
+    {
+      "path": "test/strategy-admission/channels.test.mjs",
+      "sha256": "84eab5075cb50b51e0f2d5ae9aa97521eb183772ee254aa084cd0a2c3320f4dc"
+    },
+    {
+      "path": "test/strategy-admission/contract.test.mjs",
+      "sha256": "13c59f691e3b38d277d0e3834cbfa7f32552fcaf998c37393d6702410a0daaac"
+    },
+    {
+      "path": "test/strategy-admission/lifecycle.test.mjs",
+      "sha256": "a2f084fddc86c70ede95b6dc84cb6f5db6bf0059f4f80c90c66b2f843d9d37f2"
+    },
+    {
+      "path": "test/strategy-admission/registry.test.mjs",
+      "sha256": "7a583a13ee5d5ed1e85e99e8e3f152612ce149e5f8d6b99a22189fbcbb78d693"
+    }
+  ],
+  "prerequisiteChecks": [
+    {
+      "requirement": "Project ON",
+      "result": "satisfied",
+      "evidence": "Live project API in_progress and pausedAt null; current continuity scope Energy Markets ON, Alexandria OFF."
+    },
+    {
+      "requirement": "IMP-01 accepted",
+      "result": "satisfied",
+      "receiptPath": "operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "receiptSha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+      "evidence": "Accepted scoped IMP_RECEIPT, exact packet hash, native LAT-92 done."
+    },
+    {
+      "requirement": "REQUIRES_AUDIT / REQUIRES_EVIDENCE",
+      "result": "none for initial framework per §25.2.2 IMP-27; no empirical evidence fabricated."
+    },
+    {
+      "requirement": "Required children/reviews complete",
+      "result": "satisfied",
+      "evidence": "ST-27.1 accepted after both native stages. Read review history including three-round escalation and user-authorized bounded technical recovery. Final corrections B1/B2 and R-precision closed by stage 2."
+    },
+    {
+      "requirement": "No unresolved applicable SPEC conflict/requested change/human gate",
+      "result": "satisfied",
+      "evidence": "Parent/child threads, final review, ST receipt and source inspected; no applicable unresolved conflict or requested change."
+    }
+  ],
+  "acceptanceChecks": [
+    {
+      "criterion": "Single common registry for all three channels and complete §8.7.2 fields, provenance, lifecycle and versions",
+      "result": "pass",
+      "evidence": "Source mapping and 59/59 framework tests; missing fields, collisions and inconsistent version/identity rejected."
+    },
+    {
+      "criterion": "Bru can omit discovery, never validation/readiness",
+      "result": "pass",
+      "evidence": "Channel 3 requires explicit provenance; common validation and readiness gates reject absent/false prerequisite structures. Factual truth remains external."
+    },
+    {
+      "criterion": "PASS does not automatically admit; admission grants no orders or local reward",
+      "result": "pass",
+      "evidence": "Separate lifecycle/research verdict/admission namespaces; explicit admission decision required, authority limited to Evidence Generator for global Candidate Policy."
+    },
+    {
+      "criterion": "Material change preserves FAIL/INVALID, evidence and OOS consumption and requires new version/experiment",
+      "result": "pass",
+      "evidence": "Verdict overwrite and experiment-id reuse rejected; refuted version recycling rejected for string and contentHash forms; stable identity/provenance guards and OOS no-reset tests pass."
+    },
+    {
+      "criterion": "Framework closure does not close DEP-29; concrete admission requires real scoped evidence",
+      "result": "pass",
+      "evidence": "This initial framework instance contains synthetic technical tests only. No candidate or role evaluation commissioned or performed."
+    },
+    {
+      "criterion": "S1–S5, Strategy != Hypothesis, global Candidate Policy/reward, P5 scope and §§16–18 authority preserved",
+      "result": "pass",
+      "evidence": "Reserved identities, channel paths and authority boundaries checked; no changes to accepted contracts, SPEC, economic logic or production systems."
+    }
+  ],
+  "testsRun": [
+    {
+      "name": "framework",
+      "command": [
+        "/opt/node/bin/node",
+        "--test",
+        "test/strategy-admission/channels.test.mjs",
+        "test/strategy-admission/contract.test.mjs",
+        "test/strategy-admission/lifecycle.test.mjs",
+        "test/strategy-admission/registry.test.mjs"
+      ],
+      "exitCode": 0,
+      "sha256": "5906bbe67ec53a85b351b7aa0be9b456707bef5871d10cd122a5f0a68a190e9c",
+      "summary": [
+        "✔ una nueva versión conserva identidad y deja record y contrato consistentes (0.187484ms)",
+        "ℹ tests 59",
+        "ℹ suites 0",
+        "ℹ pass 59",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 82.029285"
+      ]
+    },
+    {
+      "name": "contracts",
+      "command": [
+        "/opt/node/bin/node",
+        "--test",
+        "test/contracts/economic-bundle.test.mjs",
+        "test/contracts/identities.test.mjs",
+        "test/contracts/namespaces.test.mjs",
+        "test/contracts/states.test.mjs"
+      ],
+      "exitCode": 0,
+      "sha256": "f77cd8c296af8c5f39661790e15671e1ec0501550de766b528af8cd2ba79216d",
+      "summary": [
+        "✔ los estados canónicos de §0.3 y §14.10 quedan separados (0.087004ms)",
+        "ℹ tests 67",
+        "ℹ suites 0",
+        "ℹ pass 67",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 70.159689"
+      ]
+    },
+    {
+      "name": "receipt",
+      "command": [
+        "/opt/node/bin/node",
+        "operations/audit/IMP-27/validate-receipt.mjs"
+      ],
+      "exitCode": 0,
+      "sha256": "ef8275f859a9675bb087d95e52d5bbaa66a891ddca227a31b9e554fcdb250b48",
+      "summary": [
+        "validateStReceipt.ok = true",
+        "linkStReceiptToPacket.ok = true"
+      ]
+    }
+  ],
+  "unresolvedLimits": [
+    "Framework structural validation does not establish factual truth, valid evaluator/OOS evidence, economic edge or DEP-29. Future candidate/version/protocol instances must independently satisfy §§5–6,14–15,19 and §25.2 prerequisites before tests.",
+    "Known non-blocking KL-version-object-freeze: register/createNewVersion store supplied version objects by reference and deepFreeze them. Contract/evidence cloning claims do not include version objects.",
+    "No live candidate admission, BUY/WAIT/order/sizing authority, local reward, production activation, autonomy change or timer compliance is conferred."
+  ],
+  "potentialUnlocks": [
+    "IMP-28 Strategy/Evidence role evaluations when separately commissioned and all role/candidate prerequisites pass",
+    "Future scoped IMP-27 candidate validations when commissioned and eligible"
+  ],
+  "dependencyUpdate": "Satisfies only the IMP-27 initial-framework prerequisite for this SPEC/scope/version. No DEP-29 claim, no downstream automatic acceptance, no real candidate/role work created. Native parent completion and this receipt expose the accepted prerequisite to existing event-driven coordination.",
+  "preservation": "Parent acceptance only: new audit evidence and IMP receipt; no implementation edits, accepted ST/prerequisite rewrites, SPEC/shared office/timer/policy changes, commits, branches, or worktrees."
+}

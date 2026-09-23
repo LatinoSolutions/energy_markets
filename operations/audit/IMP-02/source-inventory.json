@@ -1,0 +1,118 @@
+{
+  "artifactKind": "IMP-02_SOURCE_INVENTORY",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-02-ST-1-v1.1",
+  "subtaskId": "ST-02.1",
+  "parentImp": "IMP-02",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "workspace": "/srv/hot-data/energy-markets/app",
+  "host": "brunode",
+  "branch": "main (empty repo, no commits; content-hash baseline per AGENTS.md:13-17)",
+  "inspectedAtUtc": "2026-09-19T14:24:00Z",
+  "authorityNote": "Historical reference files are provenance only; they are never extra requirements nor substitutes for a real mandate (packet scope). Verified facts cite an inspected source, hash and locator. Absent real mandate values remain explicitly MISSING.",
+  "sources": [
+    {
+      "id": "S-01",
+      "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+      "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+      "kind": "canonical_spec",
+      "readOnly": true,
+      "locatorsUsed": [
+        "§0.2 L44-54 reglas de autoridad",
+        "§0.3 L56-71 estados de madurez",
+        "§1 L83-97 Executive Mandate",
+        "§2 L99-122 Scope and Non-Scope",
+        "§3 L124-237 Canonical Vocabulary",
+        "§4.1 L243-258 Obligación y Mission",
+        "§4.2 L260-271 BUY/WAIT y Sizing",
+        "§4.3 L273-293 Procurement State, cobertura y cierre",
+        "§5.3 L363-389 ventanas de Benchmark B y permiso de ejecución",
+        "§13.3 L1185-1189 P5.3 Population",
+        "§13.4 L1191-1200 P5.4 Episode/horizon",
+        "§14.5 L1326-1337 P6.5 Coverage y remaining volume",
+        "§20.2.7-20.2.10 L1759-1833 WORK-PACKET/ST_RECEIPT/review/closure",
+        "§24 L2025-2059 DEP-01-04 y matriz de dependencias",
+        "§25.1-25.2 L2086-2177 objetivos y dependencias IMP-01/02"
+      ]
+    },
+    {
+      "id": "S-02",
+      "path": "operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "sha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+      "kind": "accepted_prerequisite_receipt",
+      "readOnly": true,
+      "locatorsUsed": [
+        "receipt acceptance and content-hash version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+        "linkage to native parent acceptance LAT-92"
+      ]
+    },
+    {
+      "id": "S-03",
+      "path": "operations/bootstrap/baseline-manifest.json",
+      "sha256": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+      "kind": "baseline_manifest",
+      "readOnly": true,
+      "locatorsUsed": ["files map and observedAt 2026-09-19T08:59:58Z"]
+    },
+    {
+      "id": "S-04",
+      "path": "src/contracts/index.mjs",
+      "sha256": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+      "kind": "accepted_contract_surface",
+      "readOnly": true,
+      "locatorsUsed": ["accepted IMP-01 contract surface; consumed read-only for namespace consistency"]
+    },
+    {
+      "id": "S-05",
+      "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf",
+      "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.4 §2 'Contrato del problema: qué compramos' — 'Datos comunicados por Bru' table",
+        "p.4 'Aclaraciones que sí cambian el experimento'",
+        "p.4 'Nota técnica de unidades'"
+      ]
+    },
+    {
+      "id": "S-06",
+      "path": "/srv/hot-data/energy-markets/reference/research/Power_Gas_Cuaderno_Investigacion_13_Preguntas_v1_2026-09-14.pdf",
+      "sha256": "f814aed7d7999e83772c833591264cbf8f6e084506344142feacf5b41235d654",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.2 'Obligaciones comunicadas; no reinterpretadas' table",
+        "p.2 'Se conserva lo comunicado por Bru ... Unidades, perfiles de entrega, cantidad por BUY y relación entre obligaciones siguen en el contrato del problema.'"
+      ]
+    },
+    {
+      "id": "S-07",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_Open_Points_v1_0_2026-09-16.pdf",
+      "sha256": "af5db8b876081c46dc3a23337aae130a09f81c8aebe283013b271b3e49c9a82e",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": ["p.3 block 1 'Close the real Procurement Contract' open points list"]
+    },
+    {
+      "id": "S-08",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P1-P4_Canonical_Decisions_v1_0_2026-09-16.pdf",
+      "sha256": "697def17ce9c795227aaf9fd2a41ba2519f777415c2d3872d9ddd51e56fb739e",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": ["P1.1 total obligation versus per-BUY sizing; P1 obligation/units AUDIT-DEPENDENT"]
+    },
+    {
+      "id": "S-09",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P5_Canonical_Decisions_v1_0_2026-09-16.pdf",
+      "sha256": "0ff9e0bf8e1b50264f56e96607eeab6bf7b5cecd3aa9f9c3ef71e5dc6e3ad730",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": ["P5.3 population = eligible Gas Quarterly campaigns; exact list from audited dataset"]
+    }
+  ],
+  "workspaceScan": {
+    "command": "find /srv/hot-data/energy-markets/app -type f -not -path '*/.git/*' | LC_ALL=C sort",
+    "finding": "No campaign mandate, contract, calendar, delivery profile, terminal rule, amendment or fill assignment exists anywhere in the workspace. Only canonical SPEC, accepted IMP-01 contracts/receipts, operations bootstrap/packets/audits/receipts and tests are present.",
+    "referenceScan": "All reference files are the historical research corpus (D01-D18 provenance). They contain no executable contract: communicated quantities carry incomplete units and the corpus explicitly states they do not confirm the real procurement mandate."
+  }
+}

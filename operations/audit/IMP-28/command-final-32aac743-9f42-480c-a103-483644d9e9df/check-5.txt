@@ -1,0 +1,7 @@
+COMMAND: /opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs
+EXIT: 0
+STDOUT:
+validateStReceipt.ok = true
+linkStReceiptToPacket.ok = true
+
+STDERR:

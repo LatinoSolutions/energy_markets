@@ -1,0 +1,29 @@
+{
+  "observedAt": "2026-09-19T09:04:59.402823+00:00",
+  "purpose": "bootstrap operational evidence, not IMP acceptance",
+  "controllerHead": "ca3546b167617eb64e9f731ffde11eee9367f66a",
+  "controllerDirty": " M autonomy-certification.test.mjs\n M command-question.mjs\n M policy-params.json\n M replenisher.mjs\n M replenisher.test.mjs\n?? COMMAND_FAILOVER_MARGIN_20260919.md\n?? COMMAND_QUESTION_WAKE_VERIFY_20260918.md\n",
+  "hashes": {
+    "controller.mjs": "e46722c7a936fd95ba769c90f52306a7e222a28ba6d7630617619ac9fae1a93c",
+    "pcapi.mjs": "b8e23c840ab90ff31fecc42fc699fc0a1856f1ab07f481929c1fcab8d8b47c68",
+    "project-gate.mjs": "18603a44fe0dbac0a704120b5d44403f757383173350fd41c9a6ba61030de4da",
+    "replenisher.mjs": "d792b4238312f522c5686da9a51d27acdc9e1adbe681125cdc7aeaeb070959fd",
+    "command-question.mjs": "794613680a21541fc29c18c71f14c0ac72bd52505b586a2514f4d5643c146857",
+    "policy-params.json": "8fdf91860591010e070957e6c8534ca548cca79518b6cbe0a0de0948aa967786",
+    "lanes.json": "a292a5fc7cb6a399d25e132e227ba02e075208d4f47799626a7da1e0d9841cc5",
+    "packet.mjs": "dbb771b3f52ad12797cb5d9e3866e0a2ca8441f3c64f8dc0729c77f9ed5cb6e5",
+    "dispatcher.mjs": "ce5666203f2e9c8511f0a4dc08cf6936d7215fde85a6766d4851d26cc537a1a6",
+    "review-recovery.mjs": "a2d708876c903781e294b2d10c29a9321b73b4a2611ab82c0532325e2dd2a2f4",
+    "final-acceptance.mjs": "d3fec37798bfd70660485c8b56f01af42a93fea7cdcd9619b052f7df57c8c849"
+  },
+  "projectStateObserved": {
+    "Alexandria": "off",
+    "Energy Markets": "on"
+  },
+  "timer": "temporarily stopped pending correct project binding; Paperclip and awareness active",
+  "technicalFailures": [
+    "invalid native executionPolicy stage/participant ID format; repaired with UUIDs before dispatch",
+    "workspace_validation_failed missing_git_metadata for both native adapters; repaired by empty Energy repository, no commits/remotes/worktrees"
+  ],
+  "authorizedBoundary": "engineering/research only, no real procurement/autonomy/budget changes"
+}

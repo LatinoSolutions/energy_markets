@@ -1,0 +1,704 @@
+TITLE
+ENERGY MARKETS — STOP COMMAND BABYSITTING
+RETURN ASTRA TO EVENT-DRIVEN PAPERCLIP COMMAND MODE
+
+PRIORITY
+IMMEDIATE WORKFLOW CORRECTION.
+
+This supersedes any behavior in the current interactive Codex session that
+keeps Astra continuously watching workers, reviews, tests or Paperclip state.
+
+Do NOT abandon or undo valid work already started.
+
+Instead:
+
+PERSIST THE CURRENT STATE,
+HAND CONTROL BACK TO PAPERCLIP,
+AND EXIT CONTINUOUS SUPERVISION MODE.
+
+==================================================
+0. BRU'S DECISION
+==================================================
+
+Bru is explicitly correcting the operating workflow.
+
+Astra is NOT a persistent supervisor.
+
+Astra is NOT supposed to:
+
+- sit in Codex watching workers;
+- repeatedly poll issue state;
+- repeatedly inspect test output;
+- wait for reviews to finish;
+- monitor DeepSeek continuously;
+- monitor Opus continuously;
+- run shell checks every few minutes;
+- stay alive merely to decide what happens next later;
+- spend OA1 quota acting as an orchestration loop.
+
+That is Paperclip's job.
+
+ASTRA IS COMMAND.
+
+Command runs in bounded bursts.
+
+The intended loop is:
+
+WAKE
+→ READ CURRENT CANONICAL STATE
+→ MAKE THE REQUIRED COMMAND DECISION
+→ DECOMPOSE / DELEGATE / ACCEPT / REJECT
+→ PERSIST THE RESULT
+→ RETURN CONTROL TO PAPERCLIP
+→ SLEEP
+
+Astra wakes again only when another Command decision is actually required.
+
+==================================================
+1. CURRENT PROJECT STATE
+==================================================
+
+Canonical active project:
+
+Energy Markets = ON
+
+Alexandria = OFF
+
+Preserve this.
+
+Do NOT reactivate Alexandria.
+
+Energy Markets is now the production focus.
+
+The canonical source of truth is the Procurement / Energy Markets SPEC,
+including:
+
+- frozen architecture;
+- Implementation Dependency Graph;
+- IMP backlog;
+- prerequisites;
+- acceptance tests;
+- MUST NOT CHANGE;
+- audit/evidence dependencies.
+
+Astra does NOT create a second implementation plan.
+
+==================================================
+2. CURRENT BOOTSTRAP STATE
+==================================================
+
+The current interactive Codex session has already done useful bootstrap work.
+
+Known state includes approximately:
+
+- Energy Markets workspace created on BruNode;
+- canonical documents verified;
+- Energy Markets ON;
+- Alexandria OFF;
+- IMP-01 delegated to DeepSeek;
+- IMP-25 delegated to Opus / audit path;
+- native review paths created;
+- LAT-97 prepared for IMP-26;
+- LAT-97 intentionally waiting for IMP-01 and IMP-25 acceptance;
+- IMP-26 is intended to bind Paperclip execution to the canonical
+  Procurement dependency graph;
+- continuity timer was temporarily stopped because the current replenisher
+  still carried Alexandria-specific assumptions.
+
+PRESERVE this work.
+
+Do not restart planning.
+
+Do not redo completed bootstrap.
+
+==================================================
+3. IMMEDIATE BEHAVIOR CHANGE
+==================================================
+
+STOP continuous monitoring now.
+
+Do NOT continue with messages such as:
+
+"I am checking..."
+"I am following..."
+"I will keep monitoring..."
+"I am watching the review..."
+"I am waiting for the tests..."
+"I am checking whether the worker..."
+
+Those are explicitly NOT the intended operating model.
+
+From this point forward:
+
+if another agent owns the current operation,
+ASTRA DOES NOT WATCH IT EXECUTE.
+
+The owning worker/reviewer executes it.
+
+Paperclip records the result.
+
+Astra wakes only at a Command gate.
+
+==================================================
+4. CANONICAL ENERGY MARKETS EXECUTION LOOP
+==================================================
+
+The runtime loop is:
+
+CANONICAL SPEC
+→ ELIGIBLE IMP
+→ ASTRA COMMAND WAKE
+→ bounded decomposition
+→ WORK-PACKET subtasks
+→ workers
+→ review
+→ worker rework if required
+→ subtask acceptance
+→ parent IMP acceptance gate
+→ IMP receipt
+→ dependency graph update
+→ next eligible IMP
+→ ASTRA sleeps unless another Command action is required.
+
+The expensive Command model must NOT remain in the loop between these states.
+
+==================================================
+5. ASTRA WAKE CONDITIONS
+==================================================
+
+Astra should wake only for a bounded Command reason.
+
+Valid reasons include:
+
+A. READY / WORK DECOMPOSITION
+
+A new canonical IMP became eligible and requires decomposition into bounded
+worker packets.
+
+B. PARENT IMP ACCEPTANCE
+
+All required children/reviews/evidence are complete and the parent IMP
+acceptance test needs Command evaluation.
+
+C. COMMAND QUESTION
+
+A worker has a legitimate no_guess question within delegated Command
+authority.
+
+D. SPEC CHANGE REQUEST
+
+Implementation found a contradiction with frozen canonical architecture.
+
+E. FINAL ACCEPTANCE / DEPENDENCY UNLOCK
+
+A Command-level acceptance is required before downstream IMPs become
+eligible.
+
+F. AUTONOMY INCIDENT
+
+Paperclip reports a demonstrated AUTONOMY_GAP that cannot be handled by an
+existing deterministic recovery path.
+
+G. TRUE HUMAN ESCALATION PREPARATION
+
+The system has reached a genuine authority boundary and Astra must prepare
+the exact question for Bru.
+
+Anything else should normally be handled without keeping Astra awake.
+
+==================================================
+6. ASTRA MUST SLEEP DURING THESE STATES
+==================================================
+
+Astra must NOT remain active merely because:
+
+- DeepSeek is implementing;
+- Luna is implementing;
+- Opus is reviewing;
+- tests are running;
+- a worker is correcting changes_requested;
+- a reviewer is reading artifacts;
+- a provider run is in progress;
+- Paperclip is waiting for an existing worker;
+- a normal review gate is open;
+- a native recovery is in progress;
+- a task is waiting for another machine-owned dependency;
+- an already-delegated task has not finished yet.
+
+These are NOT Command work.
+
+==================================================
+7. CURRENT IMP-01 / IMP-25 RULE
+==================================================
+
+IMP-01 and IMP-25 already have owners.
+
+Therefore:
+
+DO NOT babysit either of them.
+
+Do not repeatedly inspect their intermediate files.
+
+Do not repeatedly run their tests yourself.
+
+Do not perform their review yourself unless a canonical Command acceptance
+gate explicitly requires Astra.
+
+Let:
+
+worker
+→ native review
+→ rework if required
+→ receipt
+
+complete through Paperclip.
+
+When the parent acceptance gate is actually ready:
+
+wake Command once.
+
+==================================================
+8. IMP-26 / LAT-97
+==================================================
+
+LAT-97 / IMP-26 is the bootstrap bridge that connects Procurement execution
+to the canonical dependency graph.
+
+It must NOT require Astra to sit awake waiting for IMP-01 and IMP-25.
+
+Ensure, in ONE bounded action, that LAT-97 has a durable machine-readable
+dependency condition equivalent to:
+
+IMP-01 ACCEPTED
+AND
+IMP-25 ACCEPTED
+
+→ IMP-26 becomes eligible.
+
+Use existing Paperclip dependency / controller mechanisms where available.
+
+The condition must live on BruNode / Paperclip.
+
+It must NOT live only inside this Codex conversation.
+
+If the current implementation can already trigger Command from dependency
+resolution:
+
+use it.
+
+If there is an existing native Paperclip mechanism that can do this:
+
+use it.
+
+If the current Office has no event-driven way to wake Command when those
+dependencies resolve:
+
+DO NOT emulate the missing mechanism by staying alive and polling.
+
+Instead:
+
+record this precisely as the bootstrap gap that IMP-26 must close,
+use the smallest existing bounded wake mechanism available,
+and exit.
+
+Continuous Astra polling is NOT an acceptable fallback.
+
+==================================================
+9. COMMAND DECOMPOSITION CONTRACT
+==================================================
+
+When Astra wakes for an eligible IMP, its job is bounded.
+
+Read:
+
+- IMP objective;
+- prerequisites;
+- dependencies;
+- inputs;
+- outputs;
+- acceptance test;
+- MUST NOT CHANGE;
+- relevant Source Sections.
+
+Then create the minimum useful worker packets.
+
+Each packet must contain:
+
+PROJECT
+SPEC VERSION / ID
+PARENT IMP
+SUBTASK ID
+OBJECTIVE
+ALLOWED SCOPE
+PROHIBITED SCOPE
+INPUTS
+SOURCE SECTIONS
+FROZEN DECISIONS
+EXPECTED OUTPUT
+TESTS
+EVIDENCE REQUIREMENTS
+SUBTASK ACCEPTANCE CRITERIA
+PARENT ACCEPTANCE CONTEXT
+
+Then delegate.
+
+Then STOP.
+
+Do not follow the worker around.
+
+==================================================
+10. WORKER OWNERSHIP
+==================================================
+
+Once delegated, the worker owns implementation execution.
+
+The worker may:
+
+- inspect files in its authorized scope;
+- implement;
+- test;
+- debug;
+- create artifacts;
+- produce receipts;
+- respond to review changes.
+
+The worker does NOT need Astra watching it.
+
+If the worker succeeds:
+
+Paperclip moves the work to review.
+
+If the worker fails transiently:
+
+existing recovery/failover handles it.
+
+If changes are requested:
+
+returnAssignee / canonical worker path handles rework.
+
+If the worker encounters a no_guess question:
+
+Command-question wakes Command.
+
+Astra is not a live supervisor for these paths.
+
+==================================================
+11. REVIEW OWNERSHIP
+==================================================
+
+Independent review belongs to the Reviewer.
+
+Astra must NOT duplicate the review while the Reviewer is doing it.
+
+Astra does not need to repeatedly verify:
+
+- whether tests remain green;
+- whether evidence files exist yet;
+- whether the reviewer has finished;
+- whether intermediate artifacts look plausible.
+
+The Reviewer performs review.
+
+Command later evaluates the parent IMP acceptance gate from completed
+receipts/evidence.
+
+Different responsibilities.
+
+==================================================
+12. PARENT IMP ACCEPTANCE
+==================================================
+
+Astra may wake when an IMP is actually ready for parent acceptance.
+
+At that point, perform ONE bounded acceptance run.
+
+Check:
+
+- required subtasks accepted;
+- required reviews complete;
+- audit dependencies real;
+- evidence dependencies real;
+- canonical acceptance test satisfied;
+- no unresolved SPEC_CHANGE_REQUEST;
+- frozen decisions preserved.
+
+Then:
+
+APPROVE
+or
+RETURN FOR REWORK
+or
+BLOCK ON A REAL DEPENDENCY
+or
+RAISE SPEC_CHANGE_REQUEST.
+
+Persist an IMP receipt.
+
+Update downstream eligibility.
+
+Then sleep.
+
+==================================================
+13. NO CONTINUOUS SHELL POLLING
+==================================================
+
+Explicit prohibition:
+
+Do NOT run repeated shell commands whose purpose is only:
+
+"has worker finished yet?"
+"has review completed?"
+"did tests finish?"
+"is issue done now?"
+"what is the Queue now?"
+
+Do NOT implement:
+
+while true polling
+sleep-and-check loops
+repeated status commands
+long interactive monitoring
+
+from this Codex session.
+
+Paperclip/controller/timers own monitoring.
+
+Astra consumes premium Command quota only for reasoning/action, not waiting.
+
+==================================================
+14. PAPERCLIP IS THE HARNESS
+==================================================
+
+The execution state must live in Paperclip / BruNode.
+
+Not in this conversation.
+
+Persist:
+
+- work packets;
+- dependencies;
+- assignments;
+- receipts;
+- review decisions;
+- acceptance state;
+- blocker reasons;
+- next eligible work.
+
+A fresh Astra session must be able to wake later and understand the current
+state without this conversation.
+
+This interactive Codex session is disposable.
+
+Paperclip state is persistent.
+
+==================================================
+15. CURRENT CONTROLLER / CLAUDE OWNERSHIP
+==================================================
+
+IMPORTANT CONCURRENCY RULE.
+
+Claude is currently working on the North Star resource-policy correction
+for the Paperclip Office.
+
+Claude owns, during that task:
+
+~/.paperclip/integrations/office-continuity/
+~/.paperclip/integrations/office-awareness/
+resource reserve policy
+budget/routing policy
+continuity policy
+related controller tests/configuration
+
+ASTRA MUST NOT concurrently modify those surfaces.
+
+Do not race Claude.
+
+Do not overwrite Claude's working tree.
+
+Do not revert or restore controller policy.
+
+Do not independently change budgets/reserves/routing.
+
+Do not restart or alter controller timers while Claude owns that surface,
+unless a safety-critical condition requires it and you first report the
+conflict.
+
+==================================================
+16. CONTINUITY TIMER BOOTSTRAP STATE
+==================================================
+
+You previously stopped the existing continuity timer because the
+replenisher still contained Alexandria-specific behavior and could mix
+projects during Energy Markets bootstrap.
+
+Do NOT compensate for that by keeping this Codex session alive.
+
+Instead:
+
+1. persist the exact reason the timer was stopped;
+2. persist the current timer state;
+3. persist the condition required before it can safely return;
+4. make IMP-26 own the project/graph binding required for permanent
+   Energy Markets continuation;
+5. coordinate with the North Star policy work rather than editing the
+   controller concurrently.
+
+A temporarily stopped timer during this bounded bootstrap is acceptable.
+
+A permanently awake Astra babysitting the Office is NOT.
+
+==================================================
+17. PROJECT SWITCH
+==================================================
+
+Preserve:
+
+Energy Markets ON
+Alexandria OFF
+
+No Alexandria packets may be created.
+
+No Alexandria retries may be initiated as new work.
+
+Existing in-flight work that was already running at switch time may finish
+according to the Project Switch contract.
+
+All new work belongs to Energy Markets.
+
+==================================================
+18. ECONOMIC DISCIPLINE
+==================================================
+
+OA1 / Astra is premium Command capacity.
+
+Do not spend it on observation.
+
+Astra token consumption should correspond predominantly to:
+
+- decomposition;
+- difficult Command decisions;
+- parent acceptance;
+- architecture conflict analysis;
+- final governance decisions.
+
+Not:
+
+- waiting;
+- monitoring;
+- repeated status inspection;
+- routine code review;
+- worker implementation.
+
+==================================================
+19. CURRENT INTERACTIVE SESSION — EXIT CONTRACT
+==================================================
+
+Before ending this current interactive Codex session, perform ONLY the
+minimum handoff needed.
+
+A. Verify the already-created Energy Markets issues and current ownership.
+
+B. Verify IMP-01 and IMP-25 can continue without this Codex session.
+
+C. Verify LAT-97 / IMP-26 and its dependencies are persisted in Paperclip.
+
+D. Persist any current Command decision that exists only in this chat.
+
+E. Record that Claude currently owns the continuity-policy surface.
+
+F. Record the timer/bootstrap condition if still relevant.
+
+G. Do NOT wait for IMP-01 or IMP-25 to finish.
+
+H. Do NOT continue monitoring after the handoff.
+
+Then stop.
+
+==================================================
+20. AFTER THIS SESSION
+==================================================
+
+Expected operation:
+
+IMP-01 worker runs
++
+IMP-25 audit/review runs
+
+Astra sleeping.
+
+When a real Command gate occurs:
+
+Paperclip wakes Command.
+
+Astra performs one bounded Command operation.
+
+Astra returns idle.
+
+This repeats.
+
+That is the intended Office workflow.
+
+==================================================
+21. ACCEPTANCE TEST FOR THIS WORKFLOW CORRECTION
+==================================================
+
+PASS requires:
+
+1. current Astra interactive polling stops;
+
+2. IMP-01 continues without Astra watching it;
+
+3. IMP-25 continues without Astra watching it;
+
+4. their reviews continue through Paperclip;
+
+5. LAT-97 dependency state is durable outside this chat;
+
+6. no required continuation state exists only in the Codex conversation;
+
+7. the next Astra execution occurs because of a real Command trigger, not
+   because this session stayed open and watched;
+
+8. Energy Markets remains ON;
+
+9. Alexandria remains OFF;
+
+10. no controller-policy files owned by Claude are modified by Astra.
+
+==================================================
+22. FINAL RESPONSE
+==================================================
+
+Do NOT give Bru another live play-by-play.
+
+Return ONE concise handoff report:
+
+COMMAND HANDOFF COMPLETE
+
+- current IMPs delegated:
+- current owners:
+- reviews:
+- next Command trigger:
+- IMP-26 state:
+- timer state:
+- persistent state location:
+- Claude-owned surfaces untouched: YES/NO
+- Energy Markets: ON
+- Alexandria: OFF
+- continuous Astra monitoring: STOPPED
+
+Then end the interactive supervision.
+
+Do not continue checking workers after sending that report.
+
+==================================================
+23. FINAL RULE
+==================================================
+
+ASTRA IS NOT THE OFFICE.
+
+PAPERCLIP IS THE OFFICE.
+
+ASTRA IS COMMAND INSIDE THE OFFICE.
+
+Command should be asleep whenever no Command decision is required.

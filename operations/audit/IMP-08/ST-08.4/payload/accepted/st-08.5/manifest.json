@@ -1,0 +1,84 @@
+{
+  "manifestVersion": "ST-08.5-delivery-v1",
+  "packetId": "WP-IMP-08-ST-5-v1.1",
+  "subtaskId": "ST-08.5",
+  "parentImp": "IMP-08",
+  "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "workspace": "/srv/hot-data/energy-markets/app",
+  "host": "brunode",
+  "branch": "main",
+  "allowedPaths": [
+    "src/economic-calculation/bhv.mjs",
+    "test/economic-calculation/bhv.test.mjs",
+    "operations/audit/IMP-08/ST-08.5/**",
+    "operations/receipts/IMP-08-ST-5.json"
+  ],
+  "baseline": {
+    "reviewedPriorContentHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+    "productTestHashes": {
+      "src/economic-calculation/bhv.mjs": "ef20fbbf19d3484bc5a7d35f9e99c39778734e73ad853011358ca35c4d44203b",
+      "test/economic-calculation/bhv.test.mjs": "afbd61b7f52a71f292b40ff82c34118281b9974be6551eeea639a7c1ddb9ca19"
+    },
+    "dirtyStatus": "pre-existing non-git/unborn main content baseline; all workspace trees were untracked at capture",
+    "baselineEvidence": "operations/audit/IMP-08/ST-08.5/baseline-hashes.txt"
+  },
+  "resultingVersion": {
+    "type": "content-hash",
+    "algorithm": "sha256",
+    "contentHash": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "contentHashScope": "sha256 of sorted path+file-sha256 lines for src/economic-calculation/*.mjs, test/economic-calculation/*.test.mjs and docs/economic-calculation.md"
+  },
+  "changedProductTestHashes": {
+    "src/economic-calculation/bhv.mjs": "4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf",
+    "test/economic-calculation/bhv.test.mjs": "b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7"
+  },
+  "protectedHashes": {
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/bootstrap/baseline-manifest.json": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "operations/receipts/IMP-08-ST-1.json": "1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json": "33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec",
+    "operations/audit/IMP-08/fixture-oracle/independent-calculations.md": "58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9",
+    "operations/receipts/IMP-08-ST-2.json": "121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d",
+    "operations/receipts/IMP-08-ST-3.json": "4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110",
+    "operations/audit/IMP-08/ST-08.3/manifest.json": "1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e"
+  },
+  "requiredArtifacts": [
+    "src/economic-calculation/bhv.mjs",
+    "test/economic-calculation/bhv.test.mjs",
+    "operations/audit/IMP-08/ST-08.5/baseline-hashes.txt",
+    "operations/audit/IMP-08/ST-08.5/final-hashes.txt",
+    "operations/audit/IMP-08/ST-08.5/tests.tap",
+    "operations/audit/IMP-08/ST-08.5/reproducer.txt",
+    "operations/audit/IMP-08/ST-08.5/change-review.md",
+    "operations/audit/IMP-08/ST-08.5/verify-delivery.mjs",
+    "operations/audit/IMP-08/ST-08.5/verification.txt",
+    "operations/audit/IMP-08/ST-08.5/continuity-checkpoint.md",
+    "operations/receipts/IMP-08-ST-5.json"
+  ],
+  "artifacts": [
+    { "path": "src/economic-calculation/bhv.mjs", "sha256": "4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf" },
+    { "path": "test/economic-calculation/bhv.test.mjs", "sha256": "b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7" },
+    { "path": "operations/audit/IMP-08/ST-08.5/baseline-hashes.txt", "sha256": "df0ddf2fc4ec80d322ea2a8ad6b18197c14a5bec971eba392a4c28fdaa72bc59" },
+    { "path": "operations/audit/IMP-08/ST-08.5/final-hashes.txt", "sha256": "4dd01a237cedbc1183430f166b470b6bca1801a9ee2362d8aae82b1ff17e335a" },
+    { "path": "operations/audit/IMP-08/ST-08.5/tests.tap", "sha256": "52e4dd7f30784211c4c994525299b4e5c645ac81da683eee3996ccd02fd6a53e" },
+    { "path": "operations/audit/IMP-08/ST-08.5/reproducer.txt", "sha256": "16d7b4a4be044e2593646bd7ba68790191ddf44c436b6f6f22e852c2c9759eba" },
+    { "path": "operations/audit/IMP-08/ST-08.5/change-review.md", "sha256": "1d6e57ac1123419f9b1d3a8ab3eeea962b75625e41c60974812059a22cf44348" },
+    { "path": "operations/audit/IMP-08/ST-08.5/verify-delivery.mjs", "sha256": "3707db11bfa97db2245f308131928ce3c4842a18550b909404a7c92b30cbbc8d" },
+    { "path": "operations/audit/IMP-08/ST-08.5/verification.txt", "sha256": "966eeebf13875bed7c2f05685342bc766199750a43ba365f9374f0f4c4c1bfd7" },
+    { "path": "operations/audit/IMP-08/ST-08.5/continuity-checkpoint.md", "sha256": "8a81fbf8afb077d55088522991f7ef7ba2fe2c910d8a0c268be5f1f636db4a6a" },
+    { "path": "operations/receipts/IMP-08-ST-5.json", "sha256": "ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71" }
+  ],
+  "selfHashOmitted": "operations/audit/IMP-08/ST-08.5/manifest.json",
+  "outsideAllowedPaths": [],
+  "writesOutsideAllowedPaths": 0,
+  "historyPreserved": true,
+  "parentImpReceiptProduced": false,
+  "recommendedStatus": "in_review",
+  "review": {
+    "reviewerAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+    "approvalsNeeded": 1,
+    "authorReviewerDistinct": true,
+    "status": "pending_native_review"
+  }
+}

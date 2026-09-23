@@ -1,0 +1,126 @@
+{
+  "reviewKind": "INDEPENDENT_REVIEW",
+  "specSection": "§20.2.9",
+  "stage": 1,
+  "reviewer": "Independent Reviewer / Command Failover (0af74a08-cb39-4cf5-a94f-117b242ea08c)",
+  "issue": "LAT-96",
+  "packetId": "WP-IMP-01-ST-1-v1.1",
+  "subtaskId": "ST-01.1",
+  "parentImp": "IMP-01",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "verifiedInWorkspace": true,
+    "unchangedSinceRound1": true
+  },
+  "outcome": "approved",
+  "round": 2,
+  "maxReviewRounds": 3,
+  "rounds": [
+    {
+      "round": 1,
+      "outcome": "changes_requested",
+      "decisionId": "51549461-6e4d-4295-891b-0b6fc0776795",
+      "reviewedAtUtc": "2026-09-19T10:05:00Z",
+      "testsIndependentlyRun": {
+        "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+        "result": "tests 43, pass 43, fail 0",
+        "reproduced": true
+      },
+      "findings": [
+        {
+          "id": "F1",
+          "severity": "blocking",
+          "file": "src/contracts/states.mjs",
+          "violates": "§0.3; IMP-01 MUST NOT CHANGE (§25.1 nombres canónicos, separación de estados y scopes)",
+          "summary": "concept_maturity declaraba 8 valores; §0.3 define exactamente 6 estados de madurez.",
+          "detail": "OUT_OF_CURRENT_SCOPE e IMPLEMENTATION_DETAIL figuraban como valores de concept_maturity. §0.3 línea 71 verbatim: «IMPLEMENTATION DETAIL clasifica un faltante de materialización; no es un séptimo estado de madurez»; línea 69: «OUT OF CURRENT SCOPE / FUTURE REQUIREMENT ONLY clasifica alcance según D18 D5, no falta de definición conceptual del proyecto actual ni madurez empírica».",
+          "requestedFix": "Restringir concept_maturity a los seis estados de §0.3 y modelar clasificación de alcance y de materialización como namespaces propios; tests negativos para ambas etiquetas."
+        },
+        {
+          "id": "F2",
+          "severity": "blocking",
+          "file": "src/contracts/states.mjs",
+          "violates": "§18.4; IMP-01 MUST NOT CHANGE (nombres canónicos)",
+          "summary": "governance_event renombraba dos tipos canónicos de transición, omitía un tercero e inventaba ACTIVATION.",
+          "detail": "§18.4 línea 1553 verbatim: «Los tipos de transición registrados son PROMOTE, HOLD, DEMOTE, HALT y ROLLBACK». La implementación declaraba [ACTIVATION, PROMOTION, DEMOTION, HALT, ROLLBACK].",
+          "requestedFix": "Usar exactamente PROMOTE, HOLD, DEMOTE, HALT, ROLLBACK; test de resolución y de rechazo de nombres no canónicos."
+        },
+        {
+          "id": "F3",
+          "severity": "blocking",
+          "file": "src/contracts/namespaces.mjs",
+          "violates": "§3.3, §14.10, §18.4; inconsistencia entre módulos",
+          "summary": "HOLD declaraba un scope run_validity inexistente y omitía su ámbito de governance.",
+          "detail": "§14.10 no incluye HOLD entre los run statuses; el HOLD de §13.6 es interpretación de research. scopesForLabel(\"HOLD\") y namespacesForLabel(\"HOLD\") daban respuestas distintas para la misma etiqueta.",
+          "requestedFix": "Sustituir el scope run_validity por el ámbito de governance (§18.4) y el de admisión por rol ADMIT/HOLD/REJECT (§11.6.4); test de concordancia scopesForLabel/namespacesForLabel."
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "outcome": "approved",
+      "reviewedAtUtc": "2026-09-19T10:32:00Z",
+      "authorRoute": "Emergency Cheap Production Worker / DeepSeek V4.1 Flash via OpenRouter (2f30b8dd-306b-4735-a135-f8d3127c8c0e), run 965a5e57-3a35-4c03-8bd3-acee70b8c5be",
+      "testsIndependentlyRun": {
+        "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+        "cwd": "/srv/hot-data/energy-markets/app",
+        "result": "tests 51, suites 0, pass 51, fail 0, cancelled 0, skipped 0, todo 0",
+        "reproduced": true,
+        "matchesAuthorEvidence": true
+      },
+      "artifactHashesAtReview": {
+        "src/contracts/namespaces.mjs": "269ed75d24dee6092390515a6ffd6123cc860ee84c07b1ede9f9137a3ecf082b",
+        "src/contracts/states.mjs": "fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75",
+        "src/contracts/identities.mjs": "f7a5f98eb9e2d53b8ecff3dd71d3c7d9dee35b0c9c1e13fdf371dee5f8dafbc1",
+        "src/contracts/economic-bundle.mjs": "58309e39ca4bfe041f11275f89d8d8e2cddcd328ff4373b73230b01240704887",
+        "src/contracts/index.mjs": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+        "test/contracts/namespaces.test.mjs": "5681eb6ad89d9960a139c7300a9798776ad5ec70db172cb3630f44c580f9edc4",
+        "test/contracts/states.test.mjs": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655",
+        "test/contracts/identities.test.mjs": "0f8495b95e5dc6ed6a3672b805581f8d82a943ce48e21b31d8d8a69bcfbb4378",
+        "test/contracts/economic-bundle.test.mjs": "dbd8eb3cea4d5673183017a2fb7bb2430285674a38367e5c74bf70c6399ec641",
+        "operations/audit/IMP-01/test-run.txt": "11ee12862aa057c7846673ded17d962a29c53985102b0b26ed14278538134706"
+      },
+      "findingResolution": [
+        {
+          "id": "F1",
+          "status": "fixed",
+          "verifiedAgainst": "SPEC §0.3 líneas 56-71 leídas directamente",
+          "evidence": "STATE_NAMESPACES.concept_maturity.values === [CANONICAL_FROZEN, IMPLEMENTATION_READY, AUDIT_DEPENDENT, EVIDENCE_DEPENDENT, BLOCKED, OPEN_DECISION] — seis valores, uno por fila de la tabla de §0.3, en el mismo orden. OUT_OF_CURRENT_SCOPE vive ahora en el namespace scope_classification e IMPLEMENTATION_DETAIL en materialization_classification; resolveState(\"concept_maturity\", <cualquiera de los dos>) devuelve ok:false con code UNKNOWN_STATE_VALUE. Tests \"concept_maturity tiene exactamente los seis estados de §0.3\", \"OUT_OF_CURRENT_SCOPE no es un séptimo estado de madurez\" e \"IMPLEMENTATION_DETAIL no es un séptimo estado de madurez\" son negativos reales y falsables."
+        },
+        {
+          "id": "F2",
+          "status": "fixed",
+          "verifiedAgainst": "SPEC §18.4 línea 1553 verbatim",
+          "evidence": "STATE_NAMESPACES.governance_event.values === [PROMOTE, HOLD, DEMOTE, HALT, ROLLBACK], coincidencia exacta y completa con el texto canónico. ACTIVATION, PROMOTION y DEMOTION se rechazan con UNKNOWN_STATE_VALUE en el test \"governance_event rechaza nombres no canónicos\"."
+        },
+        {
+          "id": "F3",
+          "status": "fixed",
+          "verifiedAgainst": "SPEC §14.10 (run statuses), §18.4, §11.6.4 líneas 237/1098/1100",
+          "evidence": "MULTI_SCOPE_SYMBOLS.HOLD.scopes === {research_verdict, role_admission, governance_event}; run_validity eliminado. resolveSymbol({symbol:\"HOLD\", scope:\"run_validity\"}).ok === false. El nuevo namespace de estado role_admission = [ADMIT, HOLD, REJECT] corresponde a §11.6.4 («ADMIT / HOLD / REJECT pertenece a la admisión de un rol externo (§11.6)»). El test de concordancia importa los dos módulos y compara scopesForLabel(l) con namespacesForLabel(l) para DATA_BLOCKED y HOLD: ambas etiquetas concuerdan y la aserción es falsable (reintroducir run_validity en HOLD la rompe)."
+        }
+      ],
+      "additionalVerification": [
+        "Identidad de la SPEC sin cambios: sha256 86c4bd4e…39cb6c recalculado en vivo sobre docs/canonical/ — los documentos canónicos siguen sin tocar.",
+        "Alcance respetado: los únicos ficheros del packet modificados en la ronda 2 son src/contracts/{states,namespaces}.mjs, test/contracts/{states,namespaces}.test.mjs, operations/audit/IMP-01/{test-run.txt,st-01.1-evidence.json} y operations/receipts/IMP-01-ST-1.json — todos dentro de allowed_paths.",
+        "identities.mjs, economic-bundle.mjs e index.mjs conservan byte a byte los hashes verificados en la ronda 1, de modo que la verificación de §14.2 (bundle económico, preservación de razón, rechazo de defaults inventados) y de §§20.2.7-20.2.10 (linkage WORK-PACKET/ST_RECEIPT/IMP_RECEIPT) sigue vigente sin re-derivación.",
+        "Integridad de la evidencia reproducida de forma independiente: sha256 de operations/audit/IMP-01/test-run.txt == 11ee1286…34706 (valor declarado por el autor) y el contentHash declarado en el receipt, 51c14b1f415dad1f88bdbbc543798619f5638e652b983e8b63b010f0b1a1ffe6, se recalculó con el algoritmo declarado (sha256 del listado sha256sum ordenado por ruta) y coincide exactamente.",
+        "ST_RECEIPT operations/receipts/IMP-01-ST-1.json contiene los 19 campos de §20.2.8 y declara recommendedStatus \"in_review\": el worker no se autoaprueba y el parent sigue pendiente.",
+        "Ninguna contradicción canónica encontrada; §20.2.12 SPEC_CHANGE_REQUEST no se activa."
+      ],
+      "nonBlockingObservations": [
+        "El test de concordancia enumera literalmente [\"DATA_BLOCKED\", \"HOLD\"]. Hoy son las dos únicas etiquetas presentes a la vez en MULTI_SCOPE_SYMBOLS y en STATE_NAMESPACES, así que la cobertura es completa, pero una versión derivada (intersección calculada de ambos módulos) protegería automáticamente a una etiqueta compartida futura. No bloquea: no incumple ningún contrato congelado.",
+        "«OUT OF CURRENT SCOPE / FUTURE REQUIREMENT ONLY» se representa con el identificador único OUT_OF_CURRENT_SCOPE. §0.3 la trata como una sola clasificación de alcance, y §0.2 línea 54 declara que elegir nombres de campos de código es IMPLEMENTATION DETAIL cuando no cambia la semántica; aceptable.",
+        "Fuera del alcance de esta review, el workspace muestra escrituras concurrentes del owner/Command en AGENTS.md, operations/bootstrap/**, IMP-25 e IMP-26, coherentes con la concurrencia declarada (run f58bee06 / LAT-95 y el cutover de Claude). Ninguna de ellas toca los ficheros de este packet."
+      ],
+      "verdictRationale": "Los tres hallazgos bloqueantes de la ronda 1 están corregidos contra el texto canónico leído directamente, no sólo contra la descripción del autor. Los tests se reprodujeron de forma independiente (51/51) y las nuevas aserciones son negativas y falsables, no tautológicas. La evidencia de hashes se recalculó y coincide. No aparecen regresiones ni deriva de alcance."
+    }
+  ],
+  "nextStage": {
+    "stage": 2,
+    "participant": "Tech Lead Astra (2b6bf987-6800-4d4c-a23a-d470a4bb0ea6)",
+    "note": "Aprobación de stage 1 únicamente. La aceptación del parent IMP-01 y el IMP_RECEIPT de §20.2.10 son una evaluación separada del Tech Lead; ST aceptado no es IMP aceptado y el program root no se cierra."
+  }
+}

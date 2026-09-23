@@ -1,0 +1,803 @@
+{
+  "artifactKind": "IMP-08_ST1_FIXTURE_ORACLE",
+  "schemaVersion": "1.0",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-08-ST-1-v1.1",
+    "subtaskId": "ST-08.1",
+    "parentImp": "IMP-08",
+    "nativeRoot": "LAT-91",
+    "subtaskIssueIdentifier": "LAT-126",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "classification": "routine preparation of synthetic expected results for IMP-08; this file is NOT a production calculation engine and NOT real economic evidence",
+  "syntheticThroughout": true,
+  "epsilonUsed": false,
+  "annualizationUsed": false,
+  "canonicalCases": {
+    "C01": "Trades means 100 and midpoints means 104 -> proxy 101 by 0.75x100+0.25x104; no VWAP added.",
+    "C02": "Only trades / only midpoints / no source -> single source / missing if no observations after the permitted fallback.",
+    "C03": "Daily references 100 and 110 with different tick densities -> B=105; equal weight per date.",
+    "C04": "Proxy 100 replaced by official 102; second date 110 -> new B=106 and prior receipt preserved.",
+    "C05": "Official correction 102->103; second date 110 -> new B=106.5; selection by latest provider timestamp.",
+    "C06": "Missing date later receives official -> recompute set, sum, denominator and coverage.",
+    "C07": "1-0-1/3-1-3 boundaries and fallback +/-60 minutes -> start included / end excluded; correct calendar, zone/DST, availability and labels.",
+    "C08": "Official 0.01 -> test the reported guard and applicable validity; do not presume rejecting it is correct.",
+    "C09": "V=+4,-1 -> n=2; p=0.5; mu=1.5; R=C=4; sigma_down=1; Sortino=1.5.",
+    "C10": "V=+3,-1 -> mu=1; R=C=3; Sortino=1: does not pass >1 strict.",
+    "C11": "V=+2,-2 -> mu=0; R=C=1; sigma_down=2; Sortino=0.",
+    "C12": "Only positives; exact-zero; n<2; empty group -> explicit undefined case and application of 5, with no epsilon and no artificial PASS."
+  },
+  "frozenDecisions": [
+    "n_nonzero is the n of the scoring formulas; n_total and n_neutral are reported separately and never substituted for n.",
+    "Downside denominator is n-1, not n and not n_minus-1.",
+    "Target T=0; no annualization; no epsilon.",
+    "Quarterly statistical screen is Sortino>1 strict; C is diagnostic only and is not a hard research gate.",
+    "Quarterly and Monthly are separate; Monthly never inherits the Quarterly Sortino screen.",
+    "Gas and Power remain separate.",
+    "Benchmark daily weights are equal per included date; official/proxy/fill remain distinct.",
+    "V=B-H in compatible units; unknown fees are never replaced by zero; incomplete coverage is reported separately and is not valid research.",
+    "Historical versions and point-in-time views are preserved; corrections create new versions and never rewrite prior values.",
+    "No research PASS and no authority is produced by these synthetic fixtures."
+  ],
+  "mustNotChange": [
+    "n_nonzero vs n_total/n_neutral",
+    "downside n-1, target 0, no annualization/epsilon, strict Sortino>1",
+    "C diagnostic only",
+    "Quarterly/Monthly and Gas/Power separate",
+    "benchmark daily equal weights and windows",
+    "official/proxy/fill distinct",
+    "B-H units and full-coverage meaning",
+    "unknown fees never zero",
+    "historical versions/PIT preserved",
+    "Monthly never inherits the Quarterly screen"
+  ],
+  "units": {
+    "price": "EUR/MWh",
+    "value": "EUR/MWh",
+    "cost": "EUR/MWh",
+    "volume": "MWh",
+    "note": "B, H and V are unit-compatible per 5.5. Total EUR requires a compatible MWh volume; MW is not converted to MWh in any fixture."
+  },
+  "globalAssumptions": [
+    "All values, dates, timestamps and sources in this file are synthetic and explicitly labelled; rows/fuentes are assumed valid only for the described synthetic case.",
+    "Timestamps are synthetic calendar examples used to test inclusive/exclusive boundaries, not verified market dates.",
+    "The timezone declared for boundary fixtures is Europe/Berlin (CET/CEST); its DST switch 2026-03-29 is used only as an arithmetic example.",
+    "H is an explicitly supplied synthetic all-in value with unit and coverage metadata; no universally valid real-ledger H formula or denominator is invented.",
+    "Source procedures cited by the SPEC are treated as assumptions confined to fixtures, not audited market facts.",
+    "Missing real inputs remain outside this synthetic phase."
+  ],
+  "fixtures": [
+    {
+      "fixtureId": "FX-C01-PROXY-MIXED",
+      "canonicalCase": "C01",
+      "specSource": { "section": "5.2", "locator": "proxy R_d = 0.75*T_hat + 0.25*M_hat", "quote": "El proxy utiliza filas accesibles y deduplicadas del producto y fecha exactos: m_j=(bid_j+ask_j)/2, T_hat=(1/n)sum p_i, M_hat=(1/k)sum m_j, R_hat_d=0.75T_hat+0.25M_hat si trades y midpoints." },
+      "synthetic": true,
+      "classification": ["positive", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "tradesPresent": true,
+        "midpointsPresent": true,
+        "tradesMean": 100,
+        "midpointsMean": 104,
+        "tickDensity": "not used by the proxy formula (local intradiario n and k only)"
+      },
+      "expected": { "proxyR": 101, "sourceLabel": "proxy", "defined": true, "undefinedReason": null },
+      "check": { "kind": "proxy", "trades": true, "midpoints": true, "tradesMean": 100, "midpointsMean": 104, "expectedProxy": 101 },
+      "derivation": "0.75*100 = 75; 0.25*104 = 26; 75 + 26 = 101. No VWAP term is added."
+    },
+    {
+      "fixtureId": "FX-C02-TRADES-ONLY",
+      "canonicalCase": "C02",
+      "specSource": { "section": "5.2", "locator": "R_hat_d branch only trades", "quote": "R_hat_d = T_hat, solo trades." },
+      "synthetic": true,
+      "classification": ["single-source", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": { "tradesPresent": true, "midpointsPresent": false, "tradesMean": 100 },
+      "expected": { "proxyR": 100, "sourceLabel": "trades-only", "defined": true, "undefinedReason": null },
+      "check": { "kind": "proxy", "trades": true, "midpoints": false, "tradesMean": 100, "midpointsMean": null, "expectedProxy": 100 },
+      "derivation": "Only trades present: R_hat_d = T_hat = 100. The 0.75/0.25 mix is not applied."
+    },
+    {
+      "fixtureId": "FX-C02-MIDPOINTS-ONLY",
+      "canonicalCase": "C02",
+      "specSource": { "section": "5.2", "locator": "R_hat_d branch only midpoints", "quote": "R_hat_d = M_hat, solo midpoints." },
+      "synthetic": true,
+      "classification": ["single-source", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": { "tradesPresent": false, "midpointsPresent": true, "midpointsMean": 104 },
+      "expected": { "proxyR": 104, "sourceLabel": "midpoints-only", "defined": true, "undefinedReason": null },
+      "check": { "kind": "proxy", "trades": false, "midpoints": true, "tradesMean": null, "midpointsMean": 104, "expectedProxy": 104 },
+      "derivation": "Only midpoints present: R_hat_d = M_hat = 104. The 0.75/0.25 mix is not applied."
+    },
+    {
+      "fixtureId": "FX-C02-NO-SOURCE",
+      "canonicalCase": "C02",
+      "specSource": { "section": "5.2", "locator": "R_hat_d missing branch and fallback", "quote": "R_hat_d = missing, ninguno. Si la ventana estricta no contiene observaciones accesibles, se aplica el fallback determinista W_fallback={x:|t_x-17:15|<=60 minutos}... Si tampoco hay datos utilizables, permanece missing." },
+      "synthetic": true,
+      "classification": ["missing-source", "undefined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": { "tradesPresent": false, "midpointsPresent": false, "strictWindowObservations": 0, "fallbackObservations": 0 },
+      "expected": { "proxyR": null, "sourceLabel": "missing", "defined": false, "undefinedReason": "No trades and no midpoints in the strict window or the permitted fallback window: reference stays missing, never zero-filled." },
+      "check": { "kind": "proxy", "trades": false, "midpoints": false, "tradesMean": null, "midpointsMean": null, "expectedProxy": null },
+      "derivation": "Neither trades nor midpoints exist after the fallback. Branch R_hat_d = missing. Missing is preserved with its reason and is not replaced by 0."
+    },
+    {
+      "fixtureId": "FX-C03-EQUAL-WEIGHT",
+      "canonicalCase": "C03",
+      "specSource": { "section": "5.3", "locator": "B_t=(1/|D_t|)sum R_d and equal daily weight", "quote": "Cada fecha incluida aporta el mismo peso, independientemente de ticks o volumen." },
+      "synthetic": true,
+      "classification": ["benchmark", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "dates": [
+          { "date": "2026-01-05", "selectedReference": 100, "tickDensity": 500, "source": "official" },
+          { "date": "2026-01-06", "selectedReference": 110, "tickDensity": 3, "source": "official" }
+        ]
+      },
+      "expected": { "B": 105, "count": 2, "sum": 210, "defined": true, "undefinedReason": null },
+      "check": { "kind": "benchmark", "references": [{ "date": "2026-01-05", "selected": 100 }, { "date": "2026-01-06", "selected": 110 }], "expectedB": 105, "expectedCount": 2, "expectedSum": 210 },
+      "derivation": "|D_t|=2; sum=100+110=210; B_t=210/2=105. The 500-tick day and the 3-tick day get equal weight: B is not tick- or volume-weighted."
+    },
+    {
+      "fixtureId": "FX-C04-OFFICIAL-REPLACEMENT",
+      "canonicalCase": "C04",
+      "specSource": { "section": "5.3/5.4", "locator": "official priority and version change", "quote": "La fila oficial valida tiene prioridad... La sustitucion oficial sobre derivado cambia la version de evaluacion, nunca la decision view historica ni los fills originales." },
+      "synthetic": true,
+      "classification": ["benchmark", "version-change", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "priorVersion": { "date1Selected": 100, "date1Source": "proxy", "date2Selected": 110, "B": 105 },
+        "currentVersion": { "date1Selected": 102, "date1Source": "official", "date2Selected": 110, "B": 106 }
+      },
+      "expected": { "B": 106, "count": 2, "sum": 212, "priorBPreserved": 105, "defined": true, "undefinedReason": null },
+      "check": { "kind": "benchmark", "references": [{ "date": "2026-01-05", "selected": 102 }, { "date": "2026-01-06", "selected": 110 }], "expectedB": 106, "expectedCount": 2, "expectedSum": 212 },
+      "derivation": "Official row for date1 (102) replaces the derived proxy (100). New sum=102+110=212; new B=212/2=106. The prior receipt B=105 is preserved as a separate historical version; it is not overwritten."
+    },
+    {
+      "fixtureId": "FX-C05-OFFICIAL-CORRECTION",
+      "canonicalCase": "C05",
+      "specSource": { "section": "5.3/5.4", "locator": "latest provider timestamp wins", "quote": "Entre correcciones oficiales prevalece el timestamp de proveedor mas reciente." },
+      "synthetic": true,
+      "classification": ["benchmark", "correction", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "date1OfficialRows": [
+          { "value": 102, "providerTimestamp": "2026-01-06T18:00:00Z" },
+          { "value": 103, "providerTimestamp": "2026-01-07T09:30:00Z" }
+        ],
+        "date1Selected": 103,
+        "date2Selected": 110
+      },
+      "expected": { "B": 106.5, "count": 2, "sum": 213, "selectedByProviderTimestamp": 103, "defined": true, "undefinedReason": null },
+      "check": { "kind": "benchmark", "references": [{ "date": "2026-01-05", "selected": 103 }, { "date": "2026-01-06", "selected": 110 }], "expectedB": 106.5, "expectedCount": 2, "expectedSum": 213 },
+      "derivation": "Two official rows for date1: 102 at an earlier provider timestamp and 103 at the latest timestamp. The latest (103) is selected. New sum=103+110=213; new B=213/2=106.5. The 102 version remains preserved historically."
+    },
+    {
+      "fixtureId": "FX-C06-MISSING-THEN-OFFICIAL",
+      "canonicalCase": "C06",
+      "specSource": { "section": "5.3", "locator": "missing date later receives official", "quote": "Fechas missing no se rellenan con cero... Su aparicion posterior exige recalcular conjunto y denominador, conservando cobertura y versiones anteriores." },
+      "synthetic": true,
+      "classification": ["benchmark", "coverage", "version-change", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "expectedCalendarDates": 2,
+        "version1": { "references": [{ "date": "2026-01-05", "selected": 100 }, { "date": "2026-01-06", "selected": null }], "B": 100, "count": 1, "coverage": "1/2" },
+        "version2": { "references": [{ "date": "2026-01-05", "selected": 100 }, { "date": "2026-01-06", "selected": 110 }], "B": 105, "count": 2, "coverage": "2/2" }
+      },
+      "expected": { "B": 105, "count": 2, "sum": 210, "coverage": "2/2", "priorVersionPreserved": { "B": 100, "count": 1, "coverage": "1/2" }, "defined": true, "undefinedReason": null },
+      "check": { "kind": "benchmark", "references": [{ "date": "2026-01-05", "selected": 100 }, { "date": "2026-01-06", "selected": 110 }], "expectedB": 105, "expectedCount": 2, "expectedSum": 210 },
+      "derivation": "Version1: date2 missing -> |D_t|=1, sum=100, B=100, coverage 1/2. Version2: date2 receives official 110 -> |D_t|=2, sum=210, B=105, coverage 2/2. The denominator, sum and coverage all change; the prior version is preserved."
+    },
+    {
+      "fixtureId": "FX-C07-MONTHLY-1-0-1",
+      "canonicalCase": "C07",
+      "specSource": { "section": "5.3", "locator": "Monthly 1-0-1 window [S-1 mes, S)", "quote": "Monthly 1-0-1 [S-1 mes, S). El extremo inicial se incluye y el final se excluye." },
+      "synthetic": true,
+      "classification": ["boundary", "monthly", "defined"],
+      "units": { "time": "ISO-8601 with explicit UTC offset", "timezone": "Europe/Berlin" },
+      "inputs": {
+        "missionMonthlyStart": "2026-04-01T00:00:00+02:00",
+        "windowStart": "2026-03-01T00:00:00+01:00",
+        "windowEnd": "2026-04-01T00:00:00+02:00",
+        "dstSwitchInWindow": "2026-03-29T02:00:00+01:00 -> 2026-03-29T03:00:00+02:00"
+      },
+      "expected": { "startIncluded": true, "endExcluded": true, "defined": true, "undefinedReason": null },
+      "check": {
+        "kind": "window",
+        "windowStart": "2026-03-01T00:00:00+01:00",
+        "windowEnd": "2026-04-01T00:00:00+02:00",
+        "cases": [
+          { "timestamp": "2026-02-28T23:59:59+01:00", "included": false },
+          { "timestamp": "2026-03-01T00:00:00+01:00", "included": true },
+          { "timestamp": "2026-03-31T23:59:59+02:00", "included": true },
+          { "timestamp": "2026-04-01T00:00:00+02:00", "included": false }
+        ]
+      },
+      "derivation": "Window [2026-03-01T00:00+01:00, 2026-04-01T00:00+02:00). start <= t < end. 2026-02-28 is before start -> excluded. 2026-03-01T00:00 equals start -> included. 2026-03-31 (already CEST after the 2026-03-29 switch) is before end -> included. 2026-04-01T00:00 equals end -> excluded."
+    },
+    {
+      "fixtureId": "FX-C07-QUARTERLY-3-1-3",
+      "canonicalCase": "C07",
+      "specSource": { "section": "5.3", "locator": "Quarterly 3-1-3 window [Q-4 meses, Q-1 mes)", "quote": "Quarterly 3-1-3 [Q-4 meses, Q-1 mes). El extremo inicial se incluye y el final se excluye." },
+      "synthetic": true,
+      "classification": ["boundary", "quarterly", "defined"],
+      "units": { "time": "ISO-8601 with explicit UTC offset", "timezone": "Europe/Berlin" },
+      "inputs": {
+        "quarterStart": "2026-04-01T00:00:00+02:00",
+        "windowStart": "2025-12-01T00:00:00+01:00",
+        "windowEnd": "2026-03-01T00:00:00+01:00",
+        "excludedMonth": "2026-03"
+      },
+      "expected": { "startIncluded": true, "endExcluded": true, "defined": true, "undefinedReason": null },
+      "check": {
+        "kind": "window",
+        "windowStart": "2025-12-01T00:00:00+01:00",
+        "windowEnd": "2026-03-01T00:00:00+01:00",
+        "cases": [
+          { "timestamp": "2025-11-30T23:59:59+01:00", "included": false },
+          { "timestamp": "2025-12-01T00:00:00+01:00", "included": true },
+          { "timestamp": "2026-02-28T23:59:59+01:00", "included": true },
+          { "timestamp": "2026-03-01T00:00:00+01:00", "included": false }
+        ]
+      },
+      "derivation": "Window [2025-12-01T00:00+01:00, 2026-03-01T00:00+01:00). December 2025, January 2026 and February 2026 are the three included months; March 2026 (the excluded month before the quarter) is outside. Start included, end excluded."
+    },
+    {
+      "fixtureId": "FX-C07-FALLBACK-PM60",
+      "canonicalCase": "C07",
+      "specSource": { "section": "5.2", "locator": "fallback W_fallback={x:|t_x-17:15|<=60 minutos} with labels nearby-60m / eex-derived-reference", "quote": "Se aplica la misma formula a esas filas y se conserva el etiquetado nearby-60m / eex-derived-reference." },
+      "synthetic": true,
+      "classification": ["boundary", "fallback", "defined"],
+      "units": { "time": "local wall-clock Europe/Berlin", "referenceKind": "eex-derived-reference", "label": "nearby-60m" },
+      "inputs": {
+        "strictWindow": "17:05-17:15 CE(S)T",
+        "strictWindowObservations": 0,
+        "fallbackCenter": "17:15",
+        "fallbackRadiusMinutes": 60,
+        "referenceKind": "eex-derived-reference",
+        "provisionalLabel": "nearby-60m"
+      },
+      "expected": { "fallbackLowerBound": "16:15", "fallbackUpperBound": "18:15", "boundsInclusive": true, "label": "nearby-60m", "referenceKind": "eex-derived-reference", "defined": true, "undefinedReason": null },
+      "check": {
+        "kind": "fallback",
+        "centerLocalTime": "17:15",
+        "radiusMinutes": 60,
+        "cases": [
+          { "localTime": "16:14:59", "included": false },
+          { "localTime": "16:15:00", "included": true },
+          { "localTime": "17:15:00", "included": true },
+          { "localTime": "18:15:00", "included": true },
+          { "localTime": "18:15:01", "included": false }
+        ]
+      },
+      "derivation": "Fallback set {x: |t_x - 17:15| <= 60 min} = [16:15, 18:15] inclusive. 16:14:59 is 60m01s away -> excluded; 16:15:00 exactly 60m -> included; 17:15 center -> included; 18:15 exactly 60m -> included; 18:15:01 -> excluded. Rows keep the nearby-60m / eex-derived-reference labels."
+    },
+    {
+      "fixtureId": "FX-C07-POST-1715-CONSUMABILITY",
+      "canonicalCase": "C07",
+      "specSource": { "section": "5.2/6.1", "locator": "post-17:15 observations and decision consumability", "quote": "Las observaciones posteriores a 17:15 solo pueden entrar en una decision cuando se demuestre su disponibilidad efectiva para la policy." },
+      "synthetic": true,
+      "classification": ["boundary", "consumability", "defined"],
+      "units": { "time": "ISO-8601 UTC and Europe/Berlin", "timezone": "Europe/Berlin" },
+      "inputs": {
+        "observationLocalTime": "17:20",
+        "observationUtc": "2026-01-05T16:20:00Z",
+        "evaluationViewAvailable": true,
+        "effectiveAvailabilityDemonstrated": false
+      },
+      "expected": { "decisionConsumable": false, "evaluationViewAvailable": true, "defined": true, "undefinedReason": null },
+      "check": { "kind": "declarative" },
+      "derivation": "The 17:20 row exists and is available to the evaluation view, but effective availability to the policy at the decision boundary is not demonstrated, so under the declared synthetic assumption it is not decision-consumable. Publication/availability is not equated with consumability."
+    },
+    {
+      "fixtureId": "FX-C08-OFFICIAL-001-VALID",
+      "canonicalCase": "C08",
+      "specSource": { "section": "5.4", "locator": "reported 0.01 guard as audit case", "quote": "D16 reporta que una proyeccion rechaza oficiales de 0.01 como placeholder aunque el procedimiento alli citado permite ese valor en ciertos contratos Power con precio teorico negativo. Se conserva como limitacion de implementacion reportada y caso de audit/fixture, no como regla canonica para rechazar 0.01." },
+      "synthetic": true,
+      "classification": ["guard-audit", "declared-valid", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "officialValue": 0.01,
+        "declaredValidity": "valid-under-explicit-fixture-assumption",
+        "declaredContractContext": "synthetic Power contract where a negative theoretical price is permitted (fixture assumption only)"
+      },
+      "expected": {
+        "reportedGuardBehavior": "reject-as-placeholder",
+        "canonicalRejectionRule": "none",
+        "fixtureTreatment": "included",
+        "marketValidityAsserted": false,
+        "defined": true,
+        "undefinedReason": null
+      },
+      "check": { "kind": "declarative" },
+      "derivation": "0.01 is treated as a declared-valid synthetic official value under this fixture assumption; the reported guard (reject as placeholder) is recorded as an implementation limitation and audit case, not elevated to a canonical rejection rule. No real-market validity is asserted."
+    },
+    {
+      "fixtureId": "FX-C08-OFFICIAL-001-UNKNOWN",
+      "canonicalCase": "C08",
+      "specSource": { "section": "5.4", "locator": "0.01 validity unknown", "quote": "no como regla canonica para rechazar 0.01 ni como codigo actual verificado." },
+      "synthetic": true,
+      "classification": ["guard-audit", "declared-unknown", "defined"],
+      "units": { "input": "EUR/MWh", "output": "EUR/MWh" },
+      "inputs": {
+        "officialValue": 0.01,
+        "declaredValidity": "unknown-under-explicit-fixture-assumption"
+      },
+      "expected": {
+        "reportedGuardBehavior": "reject-as-placeholder",
+        "canonicalRejectionRule": "none",
+        "fixtureTreatment": "flag-and-exclude-until-validity-declared",
+        "silentlyZeroed": false,
+        "marketValidityAsserted": false,
+        "defined": true,
+        "undefinedReason": null
+      },
+      "check": { "kind": "declarative" },
+      "derivation": "With validity explicitly unknown, the value is flagged and excluded from the valid set until a validity declaration exists; it is never silently zeroed and rejection is not asserted as canonical. No real-market validity is asserted."
+    },
+    {
+      "fixtureId": "FX-C09-SCORING-POS-NEG",
+      "canonicalCase": "C09",
+      "specSource": { "section": "5.6", "locator": "exact scoring formulas", "quote": "V=+4,-1 -> n=2; p=0.5; mu=1.5; R=C=4; sigma_down=1; Sortino=1.5." },
+      "synthetic": true,
+      "classification": ["scoring", "positive", "negative", "defined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [4, -1] },
+      "expected": {
+        "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+        "p": 0.5, "l": 0.5, "G": 4, "A": 1, "mu": 1.5, "R": 4, "C": 4,
+        "sigmaDown": 1, "sortino": 1.5, "screenPass": true, "kappa": 1,
+        "defined": true, "undefinedReason": null
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [4, -1],
+        "expected": {
+          "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 0.5, "l": 0.5, "G": 4, "A": 1, "mu": 1.5, "R": 4, "C": 4,
+          "sigmaDown": 1, "sortino": 1.5, "screenPass": true
+        }
+      },
+      "arithmeticScreen": "Sortino=1.5 > 1 strict -> arithmetic screen true",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Arithmetic screen is true, but two campaigns do not meet the >=8 completed quarters / >=2 calendar years minimum evidence, so no research PASS.",
+      "derivation": "n_+=1 (4), n_-=1 (-1), n=2, p=1/2, l=1/2. G=4, A=1. mu=(4-1)/2=3/2=1.5. R=G/A=4. C=(p/l)R=1*4=4; check mu=l*A(C-1)=0.5*1*3=1.5. sigma_down=sqrt((0^2+(-1)^2)/(2-1))=1. Sortino=1.5/1=1.5. Auxiliary kappa: L_rms=1, kappa=1, sigma_down=A*kappa*sqrt(n_-/(n-1))=1*1*1=1."
+    },
+    {
+      "fixtureId": "FX-C09-NEUTRAL-ADDITION",
+      "canonicalCase": "C09",
+      "specSource": { "section": "5.6/5.7", "locator": "neutral V=0 preserves n_nonzero", "quote": "V exactamente cero es neutral... el reporte distingue n_total de campanas completadas, n_neutral con V exactamente cero y n_nonzero = n. No se sustituye n por n_total." },
+      "synthetic": true,
+      "classification": ["scoring", "neutral", "defined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [4, -1, 0] },
+      "expected": {
+        "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 1, "nTotal": 3,
+        "p": 0.5, "l": 0.5, "G": 4, "A": 1, "mu": 1.5, "R": 4, "C": 4,
+        "sigmaDown": 1, "sortino": 1.5, "screenPass": true,
+        "defined": true, "undefinedReason": null
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [4, -1, 0],
+        "expected": {
+          "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 1, "nTotal": 3,
+          "p": 0.5, "l": 0.5, "G": 4, "A": 1, "mu": 1.5, "R": 4, "C": 4,
+          "sigmaDown": 1, "sortino": 1.5, "screenPass": true
+        }
+      },
+      "arithmeticScreen": "Sortino=1.5 > 1 strict -> arithmetic screen true",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Same arithmetic as +4/-1; the neutral campaign raises n_total to 3 but n_nonzero stays 2, still below minimum evidence.",
+      "derivation": "The neutral V=0 contributes 0 to the sum and is excluded from n. n_+=1, n_-=1, n_nonzero=2, n_neutral=1, n_total=3. mu=sum/n=3/2=1.5, identical to +4/-1. sigma_down uses n-1=1 -> 1. Sortino=1.5. n is never replaced by n_total=3."
+    },
+    {
+      "fixtureId": "FX-C10-SCORING-SORTINO-1",
+      "canonicalCase": "C10",
+      "specSource": { "section": "5.6/5.7", "locator": "strict Sortino>1 screen", "quote": "V=+3,-1 -> mu=1; R=C=3; Sortino=1: no supera >1 estricto." },
+      "synthetic": true,
+      "classification": ["scoring", "positive", "negative", "screen-false", "defined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [3, -1] },
+      "expected": {
+        "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+        "p": 0.5, "l": 0.5, "G": 3, "A": 1, "mu": 1, "R": 3, "C": 3,
+        "sigmaDown": 1, "sortino": 1, "screenPass": false,
+        "defined": true, "undefinedReason": null
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [3, -1],
+        "expected": {
+          "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 0.5, "l": 0.5, "G": 3, "A": 1, "mu": 1, "R": 3, "C": 3,
+          "sigmaDown": 1, "sortino": 1, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Sortino=1 is not > 1 strict -> arithmetic screen false",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "The arithmetic screen is not met and evidence is far below minimum; this is a HOLD, not a fabricated PASS and not asserted as an economic FAIL verdict.",
+      "derivation": "G=3, A=1, mu=(3-1)/2=1, R=3, C=3, sigma_down=1, Sortino=1/1=1. Strict comparison 1>1 is false."
+    },
+    {
+      "fixtureId": "FX-C11-SCORING-ZERO-MEAN",
+      "canonicalCase": "C11",
+      "specSource": { "section": "5.6", "locator": "zero mean and zero Sortino", "quote": "V=+2,-2 -> mu=0; R=C=1; sigma_down=2; Sortino=0." },
+      "synthetic": true,
+      "classification": ["scoring", "positive", "negative", "zero-mean", "screen-false", "defined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [2, -2] },
+      "expected": {
+        "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+        "p": 0.5, "l": 0.5, "G": 2, "A": 2, "mu": 0, "R": 1, "C": 1,
+        "sigmaDown": 2, "sortino": 0, "screenPass": false,
+        "defined": true, "undefinedReason": null
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [2, -2],
+        "expected": {
+          "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 0.5, "l": 0.5, "G": 2, "A": 2, "mu": 0, "R": 1, "C": 1,
+          "sigmaDown": 2, "sortino": 0, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Sortino=0 is not > 1 strict -> arithmetic screen false; economic criterion mean(V_q)>0 is also false",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Zero mean fails the economic criterion and evidence is below minimum; HOLD, no fabricated PASS.",
+      "derivation": "G=2, A=2, mu=(2-2)/2=0, R=1, C=1, sigma_down=sqrt((0^2+(-2)^2)/(2-1))=2, Sortino=0/2=0."
+    },
+    {
+      "fixtureId": "FX-C12-ONLY-POSITIVES",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "only positives -> undefined Sortino -> HOLD", "quote": "En Quarterly, una muestra solo positiva produce Sortino indefinido y, por no poder satisfacer el screen requerido con evidencia interpretable, HOLD." },
+      "synthetic": true,
+      "classification": ["scoring", "positive-only", "empty-loser-group", "zero-downside", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [4, 3] },
+      "expected": {
+        "nPlus": 2, "nMinus": 0, "n": 2, "nNeutral": 0, "nTotal": 2,
+        "p": 1, "l": 0, "G": 3.5, "A": null, "mu": 3.5, "R": null, "C": null,
+        "sigmaDown": 0, "sortino": null, "screenPass": false,
+        "defined": false,
+        "undefinedReason": "Loser group empty: A, R and C are undefined; sigma_down=0 makes Sortino undefined. Quarterly cannot satisfy the strict screen with interpretable evidence -> HOLD. No epsilon or artificial denominator is introduced."
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [4, 3],
+        "expected": {
+          "nPlus": 2, "nMinus": 0, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 1, "l": 0, "G": 3.5, "A": null, "mu": 3.5, "R": null, "C": null,
+          "sigmaDown": 0, "sortino": null, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Sortino undefined -> arithmetic screen cannot pass",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Quarterly only-positive sample: Sortino undefined -> HOLD per 5.7.",
+      "derivation": "G=(4+3)/2=3.5, A undefined (no losers), mu=(4+3)/2=3.5, sigma_down=sqrt(0/1)=0. Sortino=mu/0 -> undefined. R=G/A undefined; C=pG/(lA) undefined because l=0."
+    },
+    {
+      "fixtureId": "FX-C12-EXACT-ZERO-ONLY",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "exact-zero neutral population", "quote": "V exactamente cero es neutral: no anade procurement value ni cuenta como exito." },
+      "synthetic": true,
+      "classification": ["scoring", "neutral-only", "empty-population", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [0, 0] },
+      "expected": {
+        "nPlus": 0, "nMinus": 0, "n": 0, "nNeutral": 2, "nTotal": 2,
+        "p": null, "l": null, "G": null, "A": null, "mu": null, "R": null, "C": null,
+        "sigmaDown": null, "sortino": null, "screenPass": false,
+        "defined": false,
+        "undefinedReason": "n_nonzero=0: p, l, G, A, mu, R, C and Sortino are undefined. Neutrality is reported separately; V=0 is not converted into success and no epsilon is added."
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [0, 0],
+        "expected": {
+          "nPlus": 0, "nMinus": 0, "n": 0, "nNeutral": 2, "nTotal": 2,
+          "p": null, "l": null, "G": null, "A": null, "mu": null, "R": null, "C": null,
+          "sigmaDown": null, "sortino": null, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Undefined population -> no arithmetic screen",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "All-zero neutral population has no non-neutral observation; HOLD, no fabricated numbers.",
+      "derivation": "n_+=0, n_-=0, n_nonzero=0, n_neutral=2, n_total=2. Every ratio has a zero or undefined denominator, so all are explicitly undefined."
+    },
+    {
+      "fixtureId": "FX-C12-N-LT-2",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "n<2 downside convention unusable", "quote": "n<2 -> Convencion de downside no utilizable; declarar caso insuficiente." },
+      "synthetic": true,
+      "classification": ["scoring", "insufficient-n", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [4] },
+      "expected": {
+        "nPlus": 1, "nMinus": 0, "n": 1, "nNeutral": 0, "nTotal": 1,
+        "p": 1, "l": 0, "G": 4, "A": null, "mu": 4, "R": null, "C": null,
+        "sigmaDown": null, "sortino": null, "screenPass": false,
+        "defined": false,
+        "undefinedReason": "n=1<2: the n-1 downside denominator is unusable, so sigma_down and Sortino are undefined. Case declared insufficient; no minimum campaign count is invented."
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [4],
+        "expected": {
+          "nPlus": 1, "nMinus": 0, "n": 1, "nNeutral": 0, "nTotal": 1,
+          "p": 1, "l": 0, "G": 4, "A": null, "mu": 4, "R": null, "C": null,
+          "sigmaDown": null, "sortino": null, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "n<2 -> downside convention unusable -> no arithmetic screen",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Insufficient case per 5.7.",
+      "derivation": "n_nonzero=1, so n-1=0. sigma_down=sqrt(sum/(n-1)) has a zero denominator -> undefined. G=4, mu=4, but A/R/C undefined (no losers)."
+    },
+    {
+      "fixtureId": "FX-C12-EMPTY-POPULATION",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.3/5.7", "locator": "empty population", "quote": "Si D_t esta vacio, B no esta definido." },
+      "synthetic": true,
+      "classification": ["scoring", "empty-population", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [] },
+      "expected": {
+        "nPlus": 0, "nMinus": 0, "n": 0, "nNeutral": 0, "nTotal": 0,
+        "p": null, "l": null, "G": null, "A": null, "mu": null, "R": null, "C": null,
+        "sigmaDown": null, "sortino": null, "screenPass": false,
+        "defined": false,
+        "undefinedReason": "Empty completed-campaign population: no observation, every ratio undefined. Nothing is fabricated to obtain a PASS."
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [],
+        "expected": {
+          "nPlus": 0, "nMinus": 0, "n": 0, "nNeutral": 0, "nTotal": 0,
+          "p": null, "l": null, "G": null, "A": null, "mu": null, "R": null, "C": null,
+          "sigmaDown": null, "sortino": null, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Empty population -> no arithmetic screen",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "No campaigns; HOLD.",
+      "derivation": "No values: n_+=n_-=0, n_nonzero=0, n_total=0. All quantities undefined."
+    },
+    {
+      "fixtureId": "FX-C12-EMPTY-WINNER-GROUP",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "empty winner or loser group", "quote": "Grupo ganador o perdedor vacio -> Medias y ratios afectados permanecen explicitamente no definidos." },
+      "synthetic": true,
+      "classification": ["scoring", "negative-only", "empty-winner-group", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [-1, -2] },
+      "expected": {
+        "nPlus": 0, "nMinus": 2, "n": 2, "nNeutral": 0, "nTotal": 2,
+        "p": 0, "l": 1, "G": null, "A": 1.5, "mu": -1.5, "R": null, "C": null,
+        "sigmaDown": 2.23606797749979, "sortino": -0.6708203932499369, "screenPass": false,
+        "defined": false,
+        "undefinedReason": "Winner group empty: G, R and C are undefined. Sortino is arithmetically defined but negative; screen is not passable."
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [-1, -2],
+        "expected": {
+          "nPlus": 0, "nMinus": 2, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 0, "l": 1, "G": null, "A": 1.5, "mu": -1.5, "R": null, "C": null,
+          "sigmaDown": 2.23606797749979, "sortino": -0.6708203932499369, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Sortino=-0.6708 not > 1 -> screen false; G/R/C undefined",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Negative-only sample with undefined winner-group ratios and n below minimum; HOLD.",
+      "derivation": "A=(1+2)/2=1.5, mu=(-1-2)/2=-1.5, sigma_down=sqrt((1+4)/(2-1))=sqrt(5)=2.23606797749979, Sortino=-1.5/sqrt(5)=-0.6708203932499369. G, R, C undefined because there are no winners."
+    },
+    {
+      "fixtureId": "FX-MONTHLY-NO-SORTINO-IMPORT",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "Monthly does not import the Quarterly screen", "quote": "En Monthly no se importa ese screen ni se impone HOLD solo por un ratio diagnostico no aplicable." },
+      "synthetic": true,
+      "classification": ["monthly", "screen-policy", "defined"],
+      "units": { "value": "EUR/MWh" },
+      "screenPolicy": "monthly_does_not_import_quarterly_sortino",
+      "inputs": { "Vq": [2, -1], "mission": "Monthly", "evidenceMonthsDeclared": 24, "note": "The 24-month evidence set is outside this synthetic subset; this fixture only tests screen non-applicability." },
+      "expected": {
+        "quarterlySortinoScreenApplicable": false,
+        "monthlyEconomicCriterionMet": true,
+        "monthlyEvidenceMinimumMet": false,
+        "defined": true, "undefinedReason": null
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [2, -1],
+        "expected": {
+          "nPlus": 1, "nMinus": 1, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 0.5, "l": 0.5, "G": 2, "A": 1, "mu": 0.5, "R": 2, "C": 2,
+          "sigmaDown": 1, "sortino": 0.5, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Sortino=0.5 -> Quarterly strict screen would be false, but Monthly does not import it",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "The Monthly Sortino value is diagnostic only; no Monthly PASS is claimed and the 24-month minimum is not demonstrated in this synthetic subset.",
+      "derivation": "G=2, A=1, mu=(2-1)/2=0.5, R=2, C=2, sigma_down=1, Sortino=0.5. Monthly does not apply the Quarterly strict screen and does not HOLD merely for this non-applicable ratio; it is evaluated by its own mean(V_m)>0 contract and evidence minimum."
+    },
+    {
+      "fixtureId": "FX-MONTHLY-ONLY-POSITIVE-NO-HOLD",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "Monthly own contract, not the Quarterly Sortino gate", "quote": "una muestra con 24 meses OOS completos y mean(V_m)>0 conserva el contrato Monthly, sujeto a los controles de validez propios de la evaluacion." },
+      "synthetic": true,
+      "classification": ["monthly", "screen-policy", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "screenPolicy": "monthly_does_not_import_quarterly_sortino",
+      "inputs": { "Vq": [4, 3], "mission": "Monthly" },
+      "expected": {
+        "quarterlySortinoScreenApplicable": false,
+        "monthlyEconomicCriterionMet": true,
+        "defined": false,
+        "undefinedReason": "Sortino is undefined for an only-positive sample, but Monthly does not HOLD merely for that non-applicable ratio. No PASS is claimed; Monthly validity controls and its evidence minimum remain separate."
+      },
+      "check": {
+        "kind": "scoring",
+        "values": [4, 3],
+        "expected": {
+          "nPlus": 2, "nMinus": 0, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 1, "l": 0, "G": 3.5, "A": null, "mu": 3.5, "R": null, "C": null,
+          "sigmaDown": 0, "sortino": null, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Sortino undefined; not used as a Monthly gate",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Monthly only-positive: the undefined Sortino is not imported as a hold reason; the fixture only asserts the Quarterly screen is not applicable and makes no PASS claim.",
+      "derivation": "G=3.5, A undefined, mu=3.5, sigma_down=0, Sortino undefined. QuarterlySortinoScreenApplicable=false."
+    },
+    {
+      "fixtureId": "FX-EVIDENCE-TWO-CAMPAIGNS",
+      "canonicalCase": "C09",
+      "specSource": { "section": "19.3.1/5.7", "locator": "two campaigns verify arithmetic, not minimum evidence", "quote": "Un caso de dos campanas verifica aritmetica; no satisface el minimo de evidencia de ocho quarters." },
+      "synthetic": true,
+      "classification": ["evidence", "minimum-evidence", "defined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [4, -1], "quartersCompleted": 2, "calendarYearsCovered": 1 },
+      "expected": {
+        "minimumQuartersRequired": 8,
+        "minimumCalendarYearsRequired": 2,
+        "quartersCompleted": 2,
+        "calendarYearsCovered": 1,
+        "minimumEvidenceMet": false,
+        "researchPassClaimed": false,
+        "defined": true, "undefinedReason": null
+      },
+      "check": { "kind": "declarative" },
+      "derivation": "The +4/-1 arithmetic is correct, but 2 < 8 quarters and 1 < 2 calendar years, so the minimum evidence is not met and no research PASS can follow."
+    },
+    {
+      "fixtureId": "FX-BHV-POSITIVE",
+      "canonicalCase": "C09",
+      "specSource": { "section": "5.5", "locator": "V=B-H in compatible units", "quote": "V_q=B_q-H_q... En Quarterly, B_q, H_q y V_q siguen EUR/MWh." },
+      "synthetic": true,
+      "classification": ["bhv", "positive", "defined"],
+      "units": { "B": "EUR/MWh", "H": "EUR/MWh", "V": "EUR/MWh" },
+      "inputs": {
+        "B": 105,
+        "H": 100,
+        "HProvenance": "explicitly supplied synthetic all-in value; not a real-ledger formula",
+        "HUnit": "EUR/MWh",
+        "HCoverage": "full",
+        "BUnit": "EUR/MWh"
+      },
+      "expected": { "V": 5, "sign": "positive", "defined": true, "undefinedReason": null },
+      "check": { "kind": "bhv", "B": 105, "H": 100, "unitsCompatible": true, "expectedV": 5, "expectedDefined": true },
+      "derivation": "V=B-H=105-100=5 EUR/MWh. Positive V means the policy beats the benchmark."
+    },
+    {
+      "fixtureId": "FX-BHV-NEGATIVE",
+      "canonicalCase": "C11",
+      "specSource": { "section": "5.5", "locator": "negative V", "quote": "V positivo significa superar el benchmark; negativo, quedar por debajo." },
+      "synthetic": true,
+      "classification": ["bhv", "negative", "defined"],
+      "units": { "B": "EUR/MWh", "H": "EUR/MWh", "V": "EUR/MWh" },
+      "inputs": { "B": 100, "H": 105, "HProvenance": "explicitly supplied synthetic all-in value", "HUnit": "EUR/MWh", "HCoverage": "full", "BUnit": "EUR/MWh" },
+      "expected": { "V": -5, "sign": "negative", "defined": true, "undefinedReason": null },
+      "check": { "kind": "bhv", "B": 100, "H": 105, "unitsCompatible": true, "expectedV": -5, "expectedDefined": true },
+      "derivation": "V=B-H=100-105=-5 EUR/MWh. Negative V means the policy is below the benchmark."
+    },
+    {
+      "fixtureId": "FX-BHV-ZERO",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.5/5.7", "locator": "V=0 neutral", "quote": "V exactamente cero es neutral." },
+      "synthetic": true,
+      "classification": ["bhv", "neutral", "defined"],
+      "units": { "B": "EUR/MWh", "H": "EUR/MWh", "V": "EUR/MWh" },
+      "inputs": { "B": 105, "H": 105, "HProvenance": "explicitly supplied synthetic all-in value", "HUnit": "EUR/MWh", "HCoverage": "full", "BUnit": "EUR/MWh" },
+      "expected": { "V": 0, "sign": "neutral", "defined": true, "undefinedReason": null },
+      "check": { "kind": "bhv", "B": 105, "H": 105, "unitsCompatible": true, "expectedV": 0, "expectedDefined": true },
+      "derivation": "V=B-H=105-105=0. V=0 is neutral and is not counted as a win."
+    },
+    {
+      "fixtureId": "FX-BHV-UNITS-INCOMPATIBLE",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.5", "locator": "incompatible units", "quote": "Monthly utiliza unidades compatibles entre su benchmark y coste... no se obtiene multiplicando V por MW directamente." },
+      "synthetic": true,
+      "classification": ["bhv", "units", "undefined"],
+      "units": { "B": "EUR/MWh", "H": "EUR", "V": "undefined" },
+      "inputs": { "B": 105, "BUnit": "EUR/MWh", "H": 100, "HUnit": "EUR", "HProvenance": "synthetic total cost, not a per-MWh all-in unit" },
+      "expected": { "V": null, "defined": false, "undefinedReason": "B is EUR/MWh and H is EUR (a total), so V=B-H is not unit-compatible and is undefined. No unit is silently converted or assumed." },
+      "check": { "kind": "bhv", "B": 105, "H": 100, "unitsCompatible": false, "expectedV": null, "expectedDefined": false },
+      "derivation": "B and H have different units. Subtraction is undefined until both are expressed in the same compatible unit; no conversion is invented."
+    },
+    {
+      "fixtureId": "FX-BHV-TOTAL-EUR-NO-MWH",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.5", "locator": "no MW->MWh assumption", "quote": "Total EUR exige volumen compatible en MWh y costes reconciliados; no se obtiene multiplicando V por MW directamente." },
+      "synthetic": true,
+      "classification": ["bhv", "units", "undefined"],
+      "units": { "V": "EUR/MWh", "volume": "MW", "totalEur": "undefined" },
+      "inputs": { "V": 5, "VUnit": "EUR/MWh", "volume": 10, "volumeUnit": "MW" },
+      "expected": { "totalEur": null, "defined": false, "undefinedReason": "Total EUR requires a compatible MWh volume; the available volume is in MW, so no MW->MWh conversion is assumed and total EUR is undefined." },
+      "check": { "kind": "undefined", "reason": "MW volume cannot be converted to MWh without an assumption; total EUR undefined" },
+      "derivation": "V=5 EUR/MWh and volume=10 MW. Multiplying would require assuming MW equals MWh, which is prohibited. Total EUR stays undefined."
+    },
+    {
+      "fixtureId": "FX-BHV-MISSING-FEE",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.5", "locator": "unknown cost is never zero", "quote": "Tampoco se sustituye coste desconocido por cero." },
+      "synthetic": true,
+      "classification": ["bhv", "missing-cost", "undefined"],
+      "units": { "H": "EUR/MWh", "fee": "unknown" },
+      "inputs": { "B": 105, "BUnit": "EUR/MWh", "HBase": 100, "HBaseUnit": "EUR/MWh", "fee": null, "feeStatus": "unknown" },
+      "expected": { "H": null, "V": null, "defined": false, "undefinedReason": "A fee is unknown, so H is not computable and is not replaced by 0. V=B-H is undefined until the cost is reconciled." },
+      "check": { "kind": "undefined", "reason": "unknown fee -> H undefined, never zero" },
+      "derivation": "H requires every attributable cost exactly once. With an unknown fee, H is undefined; setting fee=0 would fabricate a cost. V stays undefined."
+    },
+    {
+      "fixtureId": "FX-BHV-INCOMPLETE-COVERAGE",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.5", "locator": "incomplete coverage reported separately", "quote": "Cobertura incompleta se informa por separado y no se oculta dentro de V." },
+      "synthetic": true,
+      "classification": ["bhv", "coverage", "defined"],
+      "units": { "B": "EUR/MWh", "H": "EUR/MWh", "V": "EUR/MWh" },
+      "inputs": { "B": 105, "H": 100, "HCoverage": "incomplete", "coveredFractionDeclared": false },
+      "expected": { "V": 5, "coverage": "incomplete", "validResearchValue": false, "defined": true, "undefinedReason": null },
+      "check": { "kind": "bhv", "B": 105, "H": 100, "unitsCompatible": true, "expectedV": 5, "expectedDefined": true },
+      "derivation": "V=105-100=5 arithmetically, but coverage is incomplete, so the value is not valid research evidence and the incomplete coverage must be reported separately rather than hidden inside V."
+    },
+    {
+      "fixtureId": "FX-BHV-C-DIAGNOSTIC",
+      "canonicalCase": "C09",
+      "specSource": { "section": "5.6/5.7", "locator": "C diagnostic only", "quote": "C se reporta cuando esta definido... C>lambda no es un requisito de PASS de research." },
+      "synthetic": true,
+      "classification": ["diagnostic", "defined"],
+      "units": { "C": "dimensionless" },
+      "inputs": { "C": 4, "lambdaRange": [2.25, 3.0] },
+      "expected": { "CReported": true, "hardResearchGate": false, "researchPassFromCAlone": false, "defined": true, "undefinedReason": null },
+      "check": { "kind": "declarative" },
+      "derivation": "C=4 is above the commercial comfort range [2.25,3.00], but C is diagnostic only: it is not a hard research gate and cannot produce a PASS by itself."
+    },
+    {
+      "fixtureId": "FX-BHV-UNDEFINED-RATIO-NO-PASS",
+      "canonicalCase": "C12",
+      "specSource": { "section": "5.7", "locator": "undefined ratio is never a PASS", "quote": "Evidencia insuficiente o ratios relevantes indefinidos/inestables -> HOLD; no fabricar numeros ni PASS." },
+      "synthetic": true,
+      "classification": ["scoring", "positive-only", "undefined"],
+      "units": { "value": "EUR/MWh" },
+      "inputs": { "Vq": [4, 3] },
+      "expected": { "researchPassClaimed": false, "defined": false, "undefinedReason": "Sortino undefined for an only-positive sample; an undefined ratio is never converted into a PASS." },
+      "check": {
+        "kind": "scoring",
+        "values": [4, 3],
+        "expected": {
+          "nPlus": 2, "nMinus": 0, "n": 2, "nNeutral": 0, "nTotal": 2,
+          "p": 1, "l": 0, "G": 3.5, "A": null, "mu": 3.5, "R": null, "C": null,
+          "sigmaDown": 0, "sortino": null, "screenPass": false
+        }
+      },
+      "arithmeticScreen": "Undefined -> cannot pass",
+      "researchVerdict": "HOLD",
+      "researchVerdictReason": "Undefined ratio -> HOLD, never PASS.",
+      "derivation": "Only positives: Sortino undefined. An undefined ratio cannot be treated as a PASS."
+    }
+  ]
+}

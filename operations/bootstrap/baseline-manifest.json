@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-09-19T08:59:58.093194+00:00",
+  "host": "brunode",
+  "files": {
+    "AGENTS.md": "098043d5ae10ccaf766f34f8c3d0484517d0116d5f2a75817bb6c12ef5e55e38",
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_CONSOLIDATION_REPORT_v1_1.md": "7c2d952949aee5d5bad11da1cf5122bb078ebaafa980b0083d8146ca9ff2e862",
+    "docs/canonical/PROCUREMENT_RESEARCH_v1_0_to_v1_1_PATCH_REPORT.md": "472415943fdee2a27fdc91b5afdf92d85316b3d06202860d1f9a9ca4386b0dc3"
+  }
+}

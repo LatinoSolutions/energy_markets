@@ -1,0 +1,14 @@
+✔ §20.2.8: an empty packet/subtask/parent identity must fail (0.920184ms)
+✔ §20.2.5/.7/.8: a mismatched project or SPEC identity/version must fail linkage (0.383312ms)
+✔ §3.3: inherited Object keys are not declared q_t/A0/S1 scopes (0.272473ms)
+✔ synthetic positive control: complete bundle accepted without mutation (1.1518ms)
+✔ §14.2/§25.1: empty obligation/config/version objects must not count as known fields (0.343327ms)
+✔ §14.7/§25.1: field-level unavailable must reject or preserve its reason and block (0.168908ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 60.340095

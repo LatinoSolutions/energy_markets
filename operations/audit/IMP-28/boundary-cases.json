@@ -1,0 +1,135 @@
+{
+  "packetId": "WP-IMP-28-ST-1-v1.1",
+  "subtaskId": "ST-28.1",
+  "observedAtUtc": "2026-09-19T19:45:38Z",
+  "syntheticOnly": true,
+  "totalCases": 14,
+  "passed": 14,
+  "failed": 0,
+  "cases": [
+    {
+      "name": "cuatro clases de §11.6.1 reconocidas",
+      "kind": "positive",
+      "expected": "las cuatro resuelven OK",
+      "actual": {
+        "STRATEGY_EVIDENCE": "STRATEGY_EVIDENCE",
+        "REPRESENTATION_LEARNING": "REPRESENTATION_LEARNING",
+        "ENGINEERING_ORCHESTRATION": "ENGINEERING_ORCHESTRATION",
+        "EXECUTION_GOVERNANCE": "EXECUTION_GOVERNANCE"
+      },
+      "passed": true
+    },
+    {
+      "name": "S6/JEV no son clase de rol",
+      "kind": "negative",
+      "expected": "UNKNOWN_ROLE_CLASS",
+      "actual": "UNKNOWN_ROLE_CLASS",
+      "passed": true
+    },
+    {
+      "name": "evaluación sin rol declarado rechazada (sin clasificación por defecto)",
+      "kind": "negative",
+      "expected": "ok=false",
+      "actual": false,
+      "passed": true
+    },
+    {
+      "name": "contrato §11.6.2 incompleto rechazado",
+      "kind": "negative",
+      "expected": "ok=false",
+      "actual": false,
+      "passed": true
+    },
+    {
+      "name": "completar campos no demuestra readiness",
+      "kind": "negative",
+      "expected": "NOT_EVALUATION_READY",
+      "actual": "NOT_EVALUATION_READY",
+      "passed": true
+    },
+    {
+      "name": "Strategy/Evidence sin gate IMP-27/§8.7 no alcanza readiness",
+      "kind": "negative",
+      "expected": "MISSING_STRATEGY_ADMISSION_GATE",
+      "actual": "MISSING_STRATEGY_ADMISSION_GATE",
+      "passed": true
+    },
+    {
+      "name": "Strategy/Evidence con gate aceptado alcanza readiness",
+      "kind": "positive",
+      "expected": "OK",
+      "actual": "OK",
+      "passed": true
+    },
+    {
+      "name": "ADMIT en un rol no admite otro rol del mismo componente",
+      "kind": "negative",
+      "expected": "engineering sin outcome; eligible=true; integrated=false",
+      "actual": {
+        "engineeringOutcome": null,
+        "eligible": true,
+        "integrated": false
+      },
+      "passed": true
+    },
+    {
+      "name": "outcome por versión inmutable (no reescritura)",
+      "kind": "negative",
+      "expected": "OUTCOME_ALREADY_RECORDED y outcome sigue ADMIT",
+      "actual": {
+        "code": "OUTCOME_ALREADY_RECORDED",
+        "outcome": "ADMIT"
+      },
+      "passed": true
+    },
+    {
+      "name": "JEV no recibe clasificación por defecto",
+      "kind": "negative",
+      "expected": "CONTRACT_INCOMPLETE y sin registro",
+      "actual": {
+        "code": "CONTRACT_INCOMPLETE",
+        "records": 0
+      },
+      "passed": true
+    },
+    {
+      "name": "engineering no puede reclamar procurement edge",
+      "kind": "negative",
+      "expected": "PROCUREMENT_EDGE_NOT_ALLOWED",
+      "actual": "PROCUREMENT_EDGE_NOT_ALLOWED",
+      "passed": true
+    },
+    {
+      "name": "Execution/Governance exige validación separada y aun así no obtiene autoridad",
+      "kind": "negative",
+      "expected": "MISSING_AUTHORITY_VALIDATION sin validación; NO_PRODUCTIVE_AUTHORITY con ella",
+      "actual": {
+        "without": "MISSING_AUTHORITY_VALIDATION",
+        "with": "NO_PRODUCTIVE_AUTHORITY"
+      },
+      "passed": true
+    },
+    {
+      "name": "ningún outcome concede autoridad productiva",
+      "kind": "positive",
+      "expected": "initialAuthorityGrant=[] y ADMIT sólo otorga ROLE_SCOPED_ADMISSION",
+      "actual": {
+        "initial": [],
+        "admitsGrants": [
+          "ROLE_SCOPED_ADMISSION"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "name": "nueva versión preserva REJECT y reinicia autoridad",
+      "kind": "positive",
+      "expected": "priorFindings=1 y authorityGranted=[]",
+      "actual": {
+        "priorFindings": 1,
+        "authorityGranted": []
+      },
+      "passed": true
+    }
+  ]
+}

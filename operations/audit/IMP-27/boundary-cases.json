@@ -1,0 +1,217 @@
+{
+  "packetId": "WP-IMP-27-ST-1-v1.1",
+  "subtaskId": "ST-27.1",
+  "syntheticLabel": "All candidates, experiments and evidence in this file are explicitly synthetic. They are not real candidates, edge, admission or procurement evidence.",
+  "cases": [
+    {
+      "id": "P1",
+      "kind": "positive",
+      "description": "Los tres canales registran en el mismo proceso y contrato común.",
+      "test": "test/strategy-admission/channels.test.mjs: los tres canales convergen en el mismo registro y contrato",
+      "observed": "pass"
+    },
+    {
+      "id": "P2",
+      "kind": "positive",
+      "description": "Lifecycle completo PROPOSED→FORMALIZED→EXPERIMENT-READY→UNDER_TEST→PASS y admisión explícita.",
+      "test": "test/strategy-admission/registry.test.mjs: recorre el lifecycle completo y admite sólo con decisión explícita",
+      "observed": "pass"
+    },
+    {
+      "id": "P3",
+      "kind": "positive",
+      "description": "Cambio material crea nueva versión y preserva FAIL previo y OOS consumido.",
+      "test": "test/strategy-admission/registry.test.mjs: un cambio material crea nueva versión y preserva FAIL y OOS consumido",
+      "observed": "pass"
+    },
+    {
+      "id": "N1",
+      "kind": "negative",
+      "description": "Colisión de identidad con S1–S5 y con otro candidato/canonical name.",
+      "test": "contract.test.mjs: se rechaza la colisión de identidad con S1–S5; registry.test.mjs: rechaza colisión de id y de canonical name",
+      "observed": "pass"
+    },
+    {
+      "id": "N2",
+      "kind": "negative",
+      "description": "Versión ausente o malformada rechazada.",
+      "test": "contract.test.mjs: se rechaza una versión ausente o malformada",
+      "observed": "pass"
+    },
+    {
+      "id": "N3",
+      "kind": "negative",
+      "description": "Provenance ausente o de canal incorrecto rechazado.",
+      "test": "contract.test.mjs: se rechaza provenance ausente y provenance de otro canal",
+      "observed": "pass"
+    },
+    {
+      "id": "N4",
+      "kind": "negative",
+      "description": "Contenido obligatorio incompleto rechazado (barrido de todos los campos §8.7.2).",
+      "test": "contract.test.mjs: la ausencia de cualquier contenido obligatorio se rechaza",
+      "observed": "pass"
+    },
+    {
+      "id": "N5",
+      "kind": "negative",
+      "description": "Canal 3 no puede omitir validación (falta validationProposition).",
+      "test": "contract.test.mjs: el canal 3 no puede omitir la validación",
+      "observed": "pass"
+    },
+    {
+      "id": "N6",
+      "kind": "negative",
+      "description": "Completar nominalmente el contrato no habilita EXPERIMENT-READY sin prerequisites/evidencia.",
+      "test": "lifecycle.test.mjs y registry.test.mjs: EXPERIMENT-READY exige prerequisites y evidencia",
+      "observed": "pass"
+    },
+    {
+      "id": "N7",
+      "kind": "negative",
+      "description": "PASS sin decisión explícita no admite.",
+      "test": "lifecycle.test.mjs: un veredicto PASS nunca admite por sí mismo; registry.test.mjs: recorre el lifecycle completo",
+      "observed": "pass"
+    },
+    {
+      "id": "N8",
+      "kind": "negative",
+      "description": "FAIL/INVALID no admite la versión refutada; exige nueva versión.",
+      "test": "registry.test.mjs: FAIL exige nueva versión y no admite la versión refutada",
+      "observed": "pass"
+    },
+    {
+      "id": "N9",
+      "kind": "negative",
+      "description": "Intento de reset silencioso de OOS consumido rechazado.",
+      "test": "registry.test.mjs: no se resetea silenciosamente un OOS consumido",
+      "observed": "pass"
+    },
+    {
+      "id": "N10",
+      "kind": "negative",
+      "description": "Veredicto antes de UNDER TEST o con experimento distinto rechazado.",
+      "test": "registry.test.mjs: no se registra veredicto antes de UNDER TEST ni con otro experimento",
+      "observed": "pass"
+    },
+    {
+      "id": "S1",
+      "kind": "separation",
+      "description": "PASS sólo vive en research_verdict; DATA_BLOCKED conserva dos ámbitos y exige namespace.",
+      "test": "lifecycle.test.mjs: PASS vive en research_verdict...; DATA_BLOCKED conserva sus dos ámbitos",
+      "observed": "pass"
+    },
+    {
+      "id": "N11",
+      "kind": "negative",
+      "description": "Reescritura del veredicto de una misma versión/experimento (FAIL→PASS) rechazada; no admite sin nueva versión.",
+      "test": "registry.test.mjs: no se reescribe el veredicto de una misma versión/experimento (FAIL→PASS)",
+      "observed": "pass"
+    },
+    {
+      "id": "N12",
+      "kind": "negative",
+      "description": "Un FAIL posterior a la admisión no se registra y la admisión permanece intacta (sin revocación silenciosa).",
+      "test": "registry.test.mjs: un FAIL posterior a la admisión no se registra ni revoca la admisión en silencio",
+      "observed": "pass"
+    },
+    {
+      "id": "P4",
+      "kind": "positive",
+      "description": "Tras un cambio material, la nueva versión puede obtener PASS y admitirse conservando el FAIL previo.",
+      "test": "registry.test.mjs: una nueva versión puede pasar y admitirse conservando el FAIL previo",
+      "observed": "pass"
+    },
+    {
+      "id": "N13",
+      "kind": "negative",
+      "description": "priorFindings no infla refutaciones tras cambios materiales sucesivos.",
+      "test": "registry.test.mjs: priorFindings no duplica refutaciones tras cambios materiales sucesivos",
+      "observed": "pass"
+    },
+    {
+      "id": "N14",
+      "kind": "negative",
+      "description": "register() no congela el objeto del llamante; el registro usa su propia copia.",
+      "test": "registry.test.mjs: register no congela el objeto del llamante",
+      "observed": "pass"
+    },
+    {
+      "id": "N15",
+      "kind": "negative",
+      "description": "createNewVersion() rechaza un contrato cuya Version contradice change.newVersion (ligadura versión/evidencia).",
+      "test": "registry.test.mjs: createNewVersion rechaza un contrato cuya Version no coincide con newVersion",
+      "observed": "pass"
+    },
+    {
+      "id": "N16",
+      "kind": "negative",
+      "description": "createNewVersion() rechaza un contrato que se declara ya admitido (afirmación falsa de admisión).",
+      "test": "registry.test.mjs: createNewVersion rechaza un contrato que se declara ya admitido",
+      "observed": "pass"
+    },
+    {
+      "id": "N17",
+      "kind": "negative",
+      "description": "Un experimentId ya veredictado no se reutiliza en una versión nueva.",
+      "test": "registry.test.mjs: un experimentId ya veredictado no se reutiliza en una versión nueva",
+      "observed": "pass"
+    },
+    {
+      "id": "N18",
+      "kind": "negative",
+      "description": "Una segunda admisión no sobrescribe la decisión anterior (append-only).",
+      "test": "registry.test.mjs: una segunda admisión no sobrescribe la decisión anterior",
+      "observed": "pass"
+    },
+    {
+      "id": "N19",
+      "kind": "negative",
+      "description": "El reciclaje a una versión {contentHash} ya refutada no se admite (no-reset cubre ambas formas de versión).",
+      "test": "registry.test.mjs: el reciclaje a una versión {contentHash} ya refutada no se admite",
+      "observed": "pass"
+    },
+    {
+      "id": "N20",
+      "kind": "negative",
+      "description": "transition/recordVerdict/admit no congelan los arrays del llamante.",
+      "test": "registry.test.mjs: transition, recordVerdict y admit no congelan los arrays del llamante",
+      "observed": "pass"
+    },
+    {
+      "id": "N21",
+      "kind": "negative",
+      "description": "EXPERIMENT-READY rechaza prerequisites explícitamente falsos/vacíos y conserva FORMALIZED, en los tres canales.",
+      "test": "registry.test.mjs: EXPERIMENT-READY rechaza prerequisites falsos en los tres canales; lifecycle.test.mjs: rechaza prerequisites explícitamente falsos o vacíos",
+      "observed": "pass"
+    },
+    {
+      "id": "N22",
+      "kind": "negative",
+      "description": "createNewVersion rechaza identidad/provenance contradictorias tomadas de otra Strategy y preserva la versión previa.",
+      "test": "registry.test.mjs: createNewVersion rechaza una identidad/provenance contradictorias de otra Strategy",
+      "observed": "pass"
+    },
+    {
+      "id": "N23",
+      "kind": "negative",
+      "description": "createNewVersion rechaza cambiar el intake channel de la identidad.",
+      "test": "registry.test.mjs: createNewVersion rechaza cambiar el intake channel de la identidad",
+      "observed": "pass"
+    },
+    {
+      "id": "P5",
+      "kind": "positive",
+      "description": "Una nueva versión conserva identidad y deja record y contrato consistentes; versión previa intacta.",
+      "test": "registry.test.mjs: una nueva versión conserva identidad y deja record y contrato consistentes",
+      "observed": "pass"
+    },
+    {
+      "id": "N24",
+      "kind": "negative",
+      "description": "attachEvidence y createNewVersion tampoco congelan los objetos del llamante.",
+      "test": "registry.test.mjs: attachEvidence y createNewVersion tampoco congelan los objetos del llamante",
+      "observed": "pass"
+    }
+  ]
+}

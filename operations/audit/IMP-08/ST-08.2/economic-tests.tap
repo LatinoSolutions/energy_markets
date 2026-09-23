@@ -1,0 +1,330 @@
+$ /opt/node/bin/node --test --test-reporter=tap test/economic-calculation/*.test.mjs
+TAP version 13
+# Subtest: FX-C01-PROXY-MIXED: proxy 0.75*100+0.25*104=101, sin VWAP
+ok 1 - FX-C01-PROXY-MIXED: proxy 0.75*100+0.25*104=101, sin VWAP
+  ---
+  duration_ms: 0.902591
+  type: 'test'
+  ...
+# Subtest: FX-C02-TRADES-ONLY: sólo trades -> T=100
+ok 2 - FX-C02-TRADES-ONLY: sólo trades -> T=100
+  ---
+  duration_ms: 0.156865
+  type: 'test'
+  ...
+# Subtest: FX-C02-MIDPOINTS-ONLY: sólo midpoints -> M=104
+ok 3 - FX-C02-MIDPOINTS-ONLY: sólo midpoints -> M=104
+  ---
+  duration_ms: 0.141387
+  type: 'test'
+  ...
+# Subtest: FX-C02-NO-SOURCE: sin fuente -> missing, nunca cero
+ok 4 - FX-C02-NO-SOURCE: sin fuente -> missing, nunca cero
+  ---
+  duration_ms: 0.167626
+  type: 'test'
+  ...
+# Subtest: FX-C03-EQUAL-WEIGHT: B=105 con peso diario igual pese a densidad de ticks
+ok 5 - FX-C03-EQUAL-WEIGHT: B=105 con peso diario igual pese a densidad de ticks
+  ---
+  duration_ms: 0.200918
+  type: 'test'
+  ...
+# Subtest: FX-C04-OFFICIAL-REPLACEMENT: oficial 102 sustituye proxy 100 -> B=106 y B previo 105 preservado
+ok 6 - FX-C04-OFFICIAL-REPLACEMENT: oficial 102 sustituye proxy 100 -> B=106 y B previo 105 preservado
+  ---
+  duration_ms: 0.2016
+  type: 'test'
+  ...
+# Subtest: FX-C05-OFFICIAL-CORRECTION: gana el timestamp de proveedor más reciente -> B=106.5
+ok 7 - FX-C05-OFFICIAL-CORRECTION: gana el timestamp de proveedor más reciente -> B=106.5
+  ---
+  duration_ms: 0.188295
+  type: 'test'
+  ...
+# Subtest: FX-C06-MISSING-THEN-OFFICIAL: recálculo de conjunto, denominador y cobertura
+ok 8 - FX-C06-MISSING-THEN-OFFICIAL: recálculo de conjunto, denominador y cobertura
+  ---
+  duration_ms: 0.168287
+  type: 'test'
+  ...
+# Subtest: FX-C07-MONTHLY-1-0-1: inicio incluido, fin excluido
+ok 9 - FX-C07-MONTHLY-1-0-1: inicio incluido, fin excluido
+  ---
+  duration_ms: 0.159741
+  type: 'test'
+  ...
+# Subtest: FX-C07-QUARTERLY-3-1-3: inicio incluido, fin excluido
+ok 10 - FX-C07-QUARTERLY-3-1-3: inicio incluido, fin excluido
+  ---
+  duration_ms: 0.192363
+  type: 'test'
+  ...
+# Subtest: FX-C07-FALLBACK-PM60: |t-17:15|<=60 min, extremos incluidos
+ok 11 - FX-C07-FALLBACK-PM60: |t-17:15|<=60 min, extremos incluidos
+  ---
+  duration_ms: 0.278625
+  type: 'test'
+  ...
+# Subtest: FX-C07-POST-1715-CONSUMABILITY: publicado ≠ consumible por la policy
+ok 12 - FX-C07-POST-1715-CONSUMABILITY: publicado ≠ consumible por la policy
+  ---
+  duration_ms: 0.130726
+  type: 'test'
+  ...
+# Subtest: FX-C08-OFFICIAL-001-VALID: 0.01 declarado válido; guard reportado, sin regla canónica
+ok 13 - FX-C08-OFFICIAL-001-VALID: 0.01 declarado válido; guard reportado, sin regla canónica
+  ---
+  duration_ms: 0.116299
+  type: 'test'
+  ...
+# Subtest: FX-C08-OFFICIAL-001-UNKNOWN: validez desconocida -> excluido, nunca puesto a cero
+ok 14 - FX-C08-OFFICIAL-001-UNKNOWN: validez desconocida -> excluido, nunca puesto a cero
+  ---
+  duration_ms: 0.085912
+  type: 'test'
+  ...
+# Subtest: negativo: B con D_t vacío no se rellena con cero
+ok 15 - negativo: B con D_t vacío no se rellena con cero
+  ---
+  duration_ms: 0.1009
+  type: 'test'
+  ...
+# Subtest: negativo: una fecha missing no entra en el denominador de B
+ok 16 - negativo: una fecha missing no entra en el denominador de B
+  ---
+  duration_ms: 0.140205
+  type: 'test'
+  ...
+# Subtest: negativo: la densidad de ticks no cambia el peso diario de B
+ok 17 - negativo: la densidad de ticks no cambia el peso diario de B
+  ---
+  duration_ms: 0.116359
+  type: 'test'
+  ...
+# Subtest: FX-BHV-POSITIVE: V=B-H=105-100=+5 EUR/MWh
+ok 18 - FX-BHV-POSITIVE: V=B-H=105-100=+5 EUR/MWh
+  ---
+  duration_ms: 0.930203
+  type: 'test'
+  ...
+# Subtest: FX-BHV-NEGATIVE: V=100-105=-5 EUR/MWh
+ok 19 - FX-BHV-NEGATIVE: V=100-105=-5 EUR/MWh
+  ---
+  duration_ms: 0.131197
+  type: 'test'
+  ...
+# Subtest: FX-BHV-ZERO: V=105-105=0 neutral
+ok 20 - FX-BHV-ZERO: V=105-105=0 neutral
+  ---
+  duration_ms: 0.112672
+  type: 'test'
+  ...
+# Subtest: FX-BHV-UNITS-INCOMPATIBLE: B EUR/MWh y H EUR -> V indefinido, sin conversión
+ok 21 - FX-BHV-UNITS-INCOMPATIBLE: B EUR/MWh y H EUR -> V indefinido, sin conversión
+  ---
+  duration_ms: 0.161665
+  type: 'test'
+  ...
+# Subtest: FX-BHV-TOTAL-EUR-NO-MWH: volumen MW -> total EUR indefinido, sin MW->MWh
+ok 22 - FX-BHV-TOTAL-EUR-NO-MWH: volumen MW -> total EUR indefinido, sin MW->MWh
+  ---
+  duration_ms: 0.188686
+  type: 'test'
+  ...
+# Subtest: FX-BHV-MISSING-FEE: fee unknown -> H indefinido, nunca cero
+ok 23 - FX-BHV-MISSING-FEE: fee unknown -> H indefinido, nunca cero
+  ---
+  duration_ms: 0.208753
+  type: 'test'
+  ...
+# Subtest: FX-BHV-INCOMPLETE-COVERAGE: V=5 aritmético pero no evidencia de research válida
+ok 24 - FX-BHV-INCOMPLETE-COVERAGE: V=5 aritmético pero no evidencia de research válida
+  ---
+  duration_ms: 0.150053
+  type: 'test'
+  ...
+# Subtest: FX-BHV-C-DIAGNOSTIC: C=4 diagnóstico, no gate duro
+ok 25 - FX-BHV-C-DIAGNOSTIC: C=4 diagnóstico, no gate duro
+  ---
+  duration_ms: 0.146546
+  type: 'test'
+  ...
+# Subtest: FX-BHV-UNDEFINED-RATIO-NO-PASS: sólo positivos -> Sortino indefinido -> HOLD, nunca PASS
+ok 26 - FX-BHV-UNDEFINED-RATIO-NO-PASS: sólo positivos -> Sortino indefinido -> HOLD, nunca PASS
+  ---
+  duration_ms: 0.426433
+  type: 'test'
+  ...
+# Subtest: positivo: un coste conocido entra exactamente una vez en H
+ok 27 - positivo: un coste conocido entra exactamente una vez en H
+  ---
+  duration_ms: 0.215346
+  type: 'test'
+  ...
+# Subtest: positivo: total EUR con volumen MWh sí se computa
+ok 28 - positivo: total EUR con volumen MWh sí se computa
+  ---
+  duration_ms: 0.112913
+  type: 'test'
+  ...
+# Subtest: negativo: B o H no finitos no se coercionan a cero
+ok 29 - negativo: B o H no finitos no se coercionan a cero
+  ---
+  duration_ms: 0.115778
+  type: 'test'
+  ...
+# Subtest: negativo: cobertura full sí es evidencia de research válida
+ok 30 - negativo: cobertura full sí es evidencia de research válida
+  ---
+  duration_ms: 0.104286
+  type: 'test'
+  ...
+# Subtest: FX-C09-SCORING-POS-NEG: +4/-1 -> n=2,p=.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5
+ok 31 - FX-C09-SCORING-POS-NEG: +4/-1 -> n=2,p=.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5
+  ---
+  duration_ms: 1.773201
+  type: 'test'
+  ...
+# Subtest: FX-C09-NEUTRAL-ADDITION: +4/-1/0 preserva n_nonzero=2 y n_total=3
+ok 32 - FX-C09-NEUTRAL-ADDITION: +4/-1/0 preserva n_nonzero=2 y n_total=3
+  ---
+  duration_ms: 0.218933
+  type: 'test'
+  ...
+# Subtest: FX-C10-SCORING-SORTINO-1: +3/-1 -> mu=1,R=C=3,Sortino=1 no supera >1 estricto
+ok 33 - FX-C10-SCORING-SORTINO-1: +3/-1 -> mu=1,R=C=3,Sortino=1 no supera >1 estricto
+  ---
+  duration_ms: 0.201219
+  type: 'test'
+  ...
+# Subtest: FX-C11-SCORING-ZERO-MEAN: +2/-2 -> mu=0,R=C=1,sigma=2,Sortino=0
+ok 34 - FX-C11-SCORING-ZERO-MEAN: +2/-2 -> mu=0,R=C=1,sigma=2,Sortino=0
+  ---
+  duration_ms: 0.206239
+  type: 'test'
+  ...
+# Subtest: FX-C12-ONLY-POSITIVES: [4,3] -> A/R/C indefinidos, sigma=0, Sortino indefinido
+ok 35 - FX-C12-ONLY-POSITIVES: [4,3] -> A/R/C indefinidos, sigma=0, Sortino indefinido
+  ---
+  duration_ms: 0.370448
+  type: 'test'
+  ...
+# Subtest: FX-C12-EXACT-ZERO-ONLY: [0,0] -> n_nonzero=0, todo indefinido
+ok 36 - FX-C12-EXACT-ZERO-ONLY: [0,0] -> n_nonzero=0, todo indefinido
+  ---
+  duration_ms: 0.21215
+  type: 'test'
+  ...
+# Subtest: FX-C12-N-LT-2: [4] -> n-1=0, sigma_down y Sortino indefinidos
+ok 37 - FX-C12-N-LT-2: [4] -> n-1=0, sigma_down y Sortino indefinidos
+  ---
+  duration_ms: 0.197632
+  type: 'test'
+  ...
+# Subtest: FX-C12-EMPTY-POPULATION: [] -> todo indefinido, nada fabricado
+ok 38 - FX-C12-EMPTY-POPULATION: [] -> todo indefinido, nada fabricado
+  ---
+  duration_ms: 0.183977
+  type: 'test'
+  ...
+# Subtest: FX-C12-EMPTY-WINNER-GROUP: [-1,-2] -> A=1.5, sigma=sqrt(5), Sortino=-0.6708..., G/R/C indefinidos
+ok 39 - FX-C12-EMPTY-WINNER-GROUP: [-1,-2] -> A=1.5, sigma=sqrt(5), Sortino=-0.6708..., G/R/C indefinidos
+  ---
+  duration_ms: 0.268216
+  type: 'test'
+  ...
+# Subtest: FX-MONTHLY-NO-SORTINO-IMPORT: Monthly no importa el screen Quarterly
+ok 40 - FX-MONTHLY-NO-SORTINO-IMPORT: Monthly no importa el screen Quarterly
+  ---
+  duration_ms: 0.446502
+  type: 'test'
+  ...
+# Subtest: FX-MONTHLY-ONLY-POSITIVE-NO-HOLD: el HOLD Monthly es de alcance, no del Sortino indefinido
+ok 41 - FX-MONTHLY-ONLY-POSITIVE-NO-HOLD: el HOLD Monthly es de alcance, no del Sortino indefinido
+  ---
+  duration_ms: 0.386909
+  type: 'test'
+  ...
+# Subtest: FX-MONTHLY-REASON-DISCRIMINA: el HOLD Monthly discrimina por su propia razón
+ok 42 - FX-MONTHLY-REASON-DISCRIMINA: el HOLD Monthly discrimina por su propia razón
+  ---
+  duration_ms: 0.246625
+  type: 'test'
+  ...
+# Subtest: FX-EVIDENCE-TWO-CAMPAIGNS: 2 quarters / 1 año no cumplen el mínimo
+ok 43 - FX-EVIDENCE-TWO-CAMPAIGNS: 2 quarters / 1 año no cumplen el mínimo
+  ---
+  duration_ms: 0.280298
+  type: 'test'
+  ...
+# Subtest: negativo: n nunca se sustituye por n_total
+ok 44 - negativo: n nunca se sustituye por n_total
+  ---
+  duration_ms: 0.149492
+  type: 'test'
+  ...
+# Subtest: negativo: un ratio indefinido nunca se convierte en PASS
+ok 45 - negativo: un ratio indefinido nunca se convierte en PASS
+  ---
+  duration_ms: 1.257941
+  type: 'test'
+  ...
+# Subtest: gate sintético: evidencia suficiente y screen falso -> FAIL, no PASS
+ok 46 - gate sintético: evidencia suficiente y screen falso -> FAIL, no PASS
+  ---
+  duration_ms: 0.161985
+  type: 'test'
+  ...
+# Subtest: gate sintético: evidencia suficiente y screen cumplido -> PASS (chequeo de rama, no evidencia real)
+ok 47 - gate sintético: evidencia suficiente y screen cumplido -> PASS (chequeo de rama, no evidencia real)
+  ---
+  duration_ms: 0.147518
+  type: 'test'
+  ...
+# Subtest: negativo (criterio 5): entradas inválidas no se ocultan tras un score alto
+ok 48 - negativo (criterio 5): entradas inválidas no se ocultan tras un score alto
+  ---
+  duration_ms: 0.183586
+  type: 'test'
+  ...
+# Subtest: negativo (criterio 5): cobertura incompleta no se oculta tras un score alto
+ok 49 - negativo (criterio 5): cobertura incompleta no se oculta tras un score alto
+  ---
+  duration_ms: 0.158669
+  type: 'test'
+  ...
+# Subtest: negativo (criterio 5): benchmark provisional no se oculta tras un score alto
+ok 50 - negativo (criterio 5): benchmark provisional no se oculta tras un score alto
+  ---
+  duration_ms: 0.133722
+  type: 'test'
+  ...
+# Subtest: negativo (criterio 5): sin canal de calidad declarado no se emite PASS
+ok 51 - negativo (criterio 5): sin canal de calidad declarado no se emite PASS
+  ---
+  duration_ms: 0.110799
+  type: 'test'
+  ...
+# Subtest: negativo: C no es un gate de research
+ok 52 - negativo: C no es un gate de research
+  ---
+  duration_ms: 0.146266
+  type: 'test'
+  ...
+# Subtest: negativo: entradas no finitas no se coercionan a cero en scoring
+ok 53 - negativo: entradas no finitas no se coercionan a cero en scoring
+  ---
+  duration_ms: 0.113864
+  type: 'test'
+  ...
+1..53
+# tests 53
+# suites 0
+# pass 53
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 76.126501
+EXIT_CODE=0

@@ -1,0 +1,52 @@
+IMP-28 / ST-28.1 — environment and inputs (captured live)
+capturedAtUtc=2026-09-19T16:36:28Z
+hostname=brunode
+pwd=/srv/hot-data/energy-markets/app
+user=op
+node=v24.19.0
+
+--- declared input hashes ---
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+2b2e606bb49d1ebc8ec40768544cdef268d3d9225d858bbcc54618fb5cfffc18  operations/receipts/IMP-27-ST-1.json
+
+--- accepted src/contracts hashes (read-only reuse) ---
+96e29e69ca3137dbeed797158a0e52db81c87b95f45f141fe709b26f5bf68c09  src/contracts/economic-bundle.mjs
+6425fb956f3f65d98bb1ccad5bb9e1fcf4619f0b35a350f8442d05d4c6ac2e9e  src/contracts/identities.mjs
+55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3  src/contracts/index.mjs
+d48733d23827388fdf221466019b6b830c473e51f4184097cf2dccd8d729fbb2  src/contracts/namespaces.mjs
+fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75  src/contracts/states.mjs
+
+--- allocated output paths at start ---
+PREEXISTING: src/role-evaluation
+PREEXISTING: test/role-evaluation
+PREEXISTING: operations/audit/IMP-28
+ABSENT: operations/receipts/IMP-28-ST-1.json
+
+--- git ---
+?? .claude/
+?? AGENTS.md
+?? docs/
+?? operations/
+?? src/
+?? test/
+fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+HEAD
+commits=0
+
+--- office continuity advisory (read at execution) ---
+command: OA1 (command_oa1_open)  |  generatedAt: 2026-09-19T16:35:09.587Z  |  controller: 1.0.0-task1
+
+| lane | state | reason | agent | remaining | reserve | reset | burn | ETA | maxConc |
+|---|---|---|---|---|---|---|---|---|---|
+| command_oa1 | OPEN | - | idle | 69% | 0% | 2026-09-26T08:55:57.000Z (+160.3h) | 2.80 %/h | 24.6h | 1 |
+| review_ant | CLOSED | exhausted | error (Internal error: You've hit your session limit · resets 6:30p) | 0% | 0% | 2026-09-19T18:30:00.416Z (+1.9h) | n/a | unknown | 1 |
+| premium_oa2_a | CLOSED | exhausted | paused/manual (controller) | 0% | 0% | 2026-09-20T17:43:27.000Z (+25.1h) | n/a | never | 1 |
+| cheap_go_a | CLOSED | exhausted | paused/manual (controller) | 0% | 0% | 2026-09-21T00:00:00.000Z (+31.4h) | n/a | never | 1 |
+| cheap_go_b | CLOSED | exhausted | paused/manual (controller) | 0% | 0% | 2026-09-21T00:00:00.000Z (+31.4h) | n/a | never | 1 |
+| cheap_or | OPEN | - | running | 57.31 USD | 0.00 USD | n/a | n/a | unknown | 1 |
+| payg_deepseek | ABSENT | agent_not_configured | n/a | n/a | n/a | n/a | n/a | unknown | 2 |
+

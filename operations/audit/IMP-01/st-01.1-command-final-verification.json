@@ -1,0 +1,70 @@
+{
+  "runId": "6b653d4b-7039-4c33-8df7-55e7549cc1f9",
+  "observedAtUtc": "2026-09-19T10:25:52.982392+00:00",
+  "hostname": "brunode",
+  "cwd": "/srv/hot-data/energy-markets/app",
+  "tests": [
+    {
+      "command": [
+        "/opt/node/bin/node",
+        "--test",
+        "test/contracts/economic-bundle.test.mjs",
+        "test/contracts/identities.test.mjs",
+        "test/contracts/namespaces.test.mjs",
+        "test/contracts/states.test.mjs"
+      ],
+      "output": "operations/audit/IMP-01/st-01.1-command-final-tests.txt",
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/opt/node/bin/node",
+        "--test",
+        "operations/audit/IMP-01/st-01.1-command-boundaries.mjs"
+      ],
+      "output": "operations/audit/IMP-01/st-01.1-command-final-boundaries.txt",
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/opt/node/bin/node",
+        "--test",
+        "operations/audit/IMP-01/st-01.1-command-r3-c3.mjs"
+      ],
+      "output": "operations/audit/IMP-01/st-01.1-command-final-c3.txt",
+      "exitCode": 0
+    }
+  ],
+  "hashes": {
+    "operations/audit/IMP-01/test-run.txt": "3225c9699e1215393dd43e18153fb2b87adbf5174d5bfdfa955e4e89f09c274d",
+    "src/contracts/economic-bundle.mjs": "96e29e69ca3137dbeed797158a0e52db81c87b95f45f141fe709b26f5bf68c09",
+    "src/contracts/identities.mjs": "6425fb956f3f65d98bb1ccad5bb9e1fcf4619f0b35a350f8442d05d4c6ac2e9e",
+    "src/contracts/index.mjs": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+    "src/contracts/namespaces.mjs": "d48733d23827388fdf221466019b6b830c473e51f4184097cf2dccd8d729fbb2",
+    "src/contracts/states.mjs": "fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75",
+    "test/contracts/economic-bundle.test.mjs": "04602faa36ac9f8bc8ef175618f81525dd567b75ee2d578f998d24dfa66f95ca",
+    "test/contracts/identities.test.mjs": "9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc",
+    "test/contracts/namespaces.test.mjs": "23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98",
+    "test/contracts/states.test.mjs": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655",
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/receipts/IMP-01-ST-1.json": "d87288c178d3fa4ac181886e3a611950cbc2e55aa5a0826d4a18fa0dc1ba6814",
+    "operations/audit/IMP-01/st-01.1-command-boundaries.mjs": "045086b6441cf61f25afefed6a354b1bb0d136a4354c98e7ebdca017974b1e3d",
+    "operations/audit/IMP-01/st-01.1-command-r3-c3.mjs": "ba41bbe4ea5f110c4091b02c71abf18c837dbd62cf5280b64040ee2b4b87ecb0",
+    "operations/audit/IMP-01/st-01.1-evidence.json": "73fbdb4665c8ac21e221b4aa330ceebb5eeebf71417dd877d08f379bb8efb43d",
+    "operations/audit/IMP-01/st-01.1-command-final-tests.txt": "bb53cf7abe477f8ae88a978d698c9b70c7b397691b0689b96a247f18fdea4623",
+    "operations/audit/IMP-01/st-01.1-command-final-boundaries.txt": "1c8edc7116dae6f8323818686dbb53f83a1b5a95372d1c21209e373b787878dd",
+    "operations/audit/IMP-01/st-01.1-command-final-c3.txt": "63d5e2b78dd5724c808348a28b7abc2091bc232bb4da72a9c8698ae7ca8c3f4c"
+  },
+  "contentHash": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+  "projectState": {
+    "id": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "status": "in_progress",
+    "pausedAt": null
+  },
+  "priorReviewDecision": "6d770094-895d-4e5e-8e5e-7a31660ea846",
+  "findingResolution": {
+    "C1": "fixed; unchanged since prior review",
+    "C2": "fixed; unchanged since prior review",
+    "C3": "fixed; fieldKinds enforces version references and structured obligation, explicit unavailable reason remains preserved"
+  }
+}

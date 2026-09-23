@@ -1,0 +1,70 @@
+{
+  "candidate": "LAT-222",
+  "version": "v3-native-capability-descriptor",
+  "supersedes": "manifest-v2-account-binding.json",
+  "agent": "codex_local/Luna/xHigh",
+  "host": "op@100.92.44.106",
+  "canonicalCwd": "/srv/hot-data/energy-markets/app",
+  "generatedAt": "2026-09-21T22:26:46.273Z",
+  "writeSet": {
+    "stagingRoot": "operations/audit/IMP-26/LAT-222/staging/**",
+    "evidenceRoot": "evidence/closure-20260921/LAT-222-luna-xhigh/**",
+    "outsideWrites": []
+  },
+  "nativeDescriptorContract": {
+    "source": "existing GET /agents/:id response field nativeAccountBinding",
+    "version": 1,
+    "requiredFields": ["version", "enabled", "configSha256", "profiles"],
+    "profileFields": ["id", "capacity", "allowedAgentIds", "legacyAgentIds", "allowedRoles"],
+    "secretsOrHomeIncluded": false,
+    "fallback": "absent, disabled, invalid, or unavailable descriptor uses fixed resource/HOME compatibility"
+  },
+  "v3Sha256": {
+    "controller.mjs": "115276396ec03a3cb70d5f1c27dce0bc7be2bb9d3e793b2b78ef694014a3b11c",
+    "runtime-profile.mjs": "07ff46ea738b80d258036a84b0efe0a04d50042741b2205a363efaa45a8a1653",
+    "runtime-profile.test.mjs": "c0c5e3e7bf2e06b7c376cc578b5a9611c26f9b4886b8b9a2526119d0d33055c5",
+    "stale-references.mjs": "95d57e9bc09d677026bb60bd8184d3061be04633f1e8e9cc391d89eca737fcd8"
+  },
+  "tests": {
+    "javascript": {
+      "command": "/opt/node/bin/node --test --test-reporter=tap",
+      "tapOutput": "/tmp/lat222-luna-v3-final.tap",
+      "tests": 695,
+      "passed": 695,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "capabilityFocused": {
+      "result": "passed",
+      "scope": ["runtime-profile.test.mjs", "controller.test.mjs", "dispatcher.test.mjs", "stale-references.test.mjs", "mutate.test.mjs", "replenisher.test.mjs", "command-question.test.mjs", "native-final-acceptance.test.mjs"]
+    },
+    "pythonEmailSink": {
+      "tests": 7,
+      "passed": 7,
+      "failed": 0,
+      "exitCode": 0,
+      "fromVersion": "v2",
+      "codeChanged": false
+    }
+  },
+  "nativeReadback": {
+    "issue": {
+      "id": "86a06588-9bce-4880-ac9d-9947a272001e4",
+      "identifier": "LAT-222",
+      "status": "blocked",
+      "executionState": {
+        "status": "idle",
+        "currentStageType": null,
+        "currentParticipantAgentId": null,
+        "returnAssigneeAgentId": null
+      },
+      "updatedAt": "2026-09-21T21:03:01.646Z",
+      "readAt": "2026-09-21T22:26:46.273Z"
+    }
+  },
+  "residuals": [
+    "Active native service deployment is not claimed by staging.",
+    "Live OA1/OA2 capacity and auto-wake contention remain deployment-review concerns.",
+    "OA1 quota policy remains CLOSED at zero independently of profile authorization."
+  ]
+}

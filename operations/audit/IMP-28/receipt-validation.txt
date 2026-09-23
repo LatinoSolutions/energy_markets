@@ -1,0 +1,3 @@
+validateStReceipt.ok = true
+linkStReceiptToPacket.ok = true
+VALIDATE_EXIT=0

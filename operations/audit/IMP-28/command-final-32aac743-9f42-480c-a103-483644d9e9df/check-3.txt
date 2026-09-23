@@ -1,0 +1,74 @@
+COMMAND: /opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs
+EXIT: 0
+STDOUT:
+{
+  "synthetic": true,
+  "results": [
+    {
+      "kind": "semantic-version",
+      "expected": "Previously evaluated component/role/protocol/version identity rejected",
+      "pass": true,
+      "reuseAccepted": false,
+      "integration": {
+        "ok": true,
+        "componentId": "SYN-COMMAND-semantic-version",
+        "integrated": false,
+        "eligible": false,
+        "admittedRoles": [],
+        "reason": "NO_QUALIFYING_ROLE",
+        "authorityGranted": [],
+        "note": "La elegibilidad por rol no integra ni concede autoridad productiva (§11.6.3/§11.6.4)."
+      },
+      "history": [
+        {
+          "componentVersion": "1.0.0",
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "REJECT"
+        },
+        {
+          "componentVersion": "2.0.0",
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "HOLD"
+        }
+      ]
+    },
+    {
+      "kind": "content-hash",
+      "expected": "Previously evaluated component/role/protocol/version identity rejected",
+      "pass": true,
+      "reuseAccepted": false,
+      "integration": {
+        "ok": true,
+        "componentId": "SYN-COMMAND-content-hash",
+        "integrated": false,
+        "eligible": false,
+        "admittedRoles": [],
+        "reason": "NO_QUALIFYING_ROLE",
+        "authorityGranted": [],
+        "note": "La elegibilidad por rol no integra ni concede autoridad productiva (§11.6.3/§11.6.4)."
+      },
+      "history": [
+        {
+          "componentVersion": {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "REJECT"
+        },
+        {
+          "componentVersion": {
+            "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "HOLD"
+        }
+      ]
+    }
+  ]
+}
+
+STDERR:

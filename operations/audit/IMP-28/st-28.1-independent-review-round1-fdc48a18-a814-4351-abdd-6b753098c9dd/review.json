@@ -1,0 +1,145 @@
+{
+  "schema": "independent-review-v1 (SPEC §20.2.9)",
+  "subtask": "ST-28.1",
+  "packet": "WP-IMP-28-ST-1-v1.1",
+  "parentImp": "IMP-28",
+  "workIssue": {
+    "identifier": "LAT-114",
+    "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4"
+  },
+  "semanticParentIssue": {
+    "identifier": "LAT-113",
+    "note": "La aceptación del parent IMP-28 es separada (§20.2.10) y no la realiza esta review."
+  },
+  "programRoot": {
+    "identifier": "LAT-91",
+    "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+  },
+  "reviewer": {
+    "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "role": "Independent Reviewer (Command Failover)",
+    "stageId": "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+    "stageType": "review",
+    "stageIndex": 0,
+    "round": 1,
+    "maxReviewRounds": 3,
+    "runId": "fdc48a18-a814-4351-abdd-6b753098c9dd",
+    "wakeReason": "office_continuity_review_recovery (prior reviewer run ba4e48d8-4aa1-433a-95e6-20d38bd98991 failed: session limit, 2026-09-19T16:44:47.717Z)",
+    "selfApprovalCheck": "El revisor no es el autor de ningún artefacto revisado; el único fichero escrito por el revisor es esta carpeta de evidencia de review."
+  },
+  "author": {
+    "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+    "role": "Emergency Cheap Production Worker",
+    "route": "cheap_or / DeepSeek V4.1 Flash via OpenRouter",
+    "runId": "7721d193-7edb-4060-ac7e-6512ebb56e7a"
+  },
+  "reviewedTarget": {
+    "host": "brunode",
+    "cwd": "/srv/hot-data/energy-markets/app",
+    "artifacts": {
+      "src/role-evaluation/roles.mjs": "4509ea4e2b1c647e7b73ce57597f1dfd756bccf0743a7dcf9070aa54a2999a69",
+      "src/role-evaluation/contract.mjs": "316daea51a6eaf4fe76fb50e4c52a1fa16b50638603e708a3ac740ccfe93ca1d",
+      "src/role-evaluation/outcomes.mjs": "2cda5dd8c6e60697753fc4ff873eeb9bc3f7e489664b9aa64a013511b8d803a4",
+      "src/role-evaluation/registry.mjs": "41e537c3b814a8f42ae56f523f361496e9b58f8fb8c6d816e25fa0bb9679101f",
+      "src/role-evaluation/index.mjs": "491a9b172e13d959b52509ea6baa6e3299ef0b81686bd4c1325e447527dae3da",
+      "test/role-evaluation/fixtures.mjs": "cbe2557077e504d09f87c221668347afd9b86324a2d339b2a5d9e09b67c832a1",
+      "test/role-evaluation/roles.test.mjs": "b9334898c324fb3edbf6b4ebcca93578204ada5d9aee1ebea696be27e35d8ce8",
+      "test/role-evaluation/contract.test.mjs": "5bfbfb87cc8de0144e64496409025ec32e94df4e18f08cd3aa9363330032265e",
+      "test/role-evaluation/outcomes.test.mjs": "ec9a3fc92a403a687466dbac13c1d8b92eb9cc26ba2bfe8eefe11da07d694f48",
+      "test/role-evaluation/registry.test.mjs": "f3dcb3696463387c6070745d3c781159036a9f64ff32a7490ef98cb6e5c0c586",
+      "operations/receipts/IMP-28-ST-1.json": "cafa09c80c9f6b895b407ba3e10d49c267c8b5dcc060ca2e347cb3d044a68074",
+      "operations/audit/IMP-28/write-set-manifest.json": "08431e3e508f63ecd8d7c8c14a5d48d5daac0728439281c36d50cd30cb01e4ca",
+      "operations/audit/IMP-28/boundary-cases.json": "c62fbdafe3fe0c8561d2ba2b05d71851778431c64925969d5e28cdd30d383e5c"
+    }
+  },
+  "outcome": "changes_requested",
+  "outcomeSummary": "El framework es real, sustancialmente fiel a §§11.6.1-11.6.4 y honesto en su receipt: los tests declarados se reproducen (30/30 y 67/67, exit 0), los hashes de entrada coinciden exactamente, no hay escrituras fuera de allowed_paths, src/contracts y src/strategy-admission quedan intactos y no se importa código de IMP-27. Los criterios 2, 3 y 4 resisten los contraejemplos que intenté. Devuelvo por dos defectos materiales verificados: (A) createNewEvaluationVersion permite que la versión declarada del registro y la del contrato §11.6.2 almacenado divergan, rompiendo la identidad exacta componente/rol/protocolo/versión del criterio 1; (B) history() devuelve instantáneas de registro, de forma que una versión anterior que registró HOLD aparece en el historial como REGISTERED/outcome null, y ningún test comprueba el contenido del historial, que el criterio 5 exige cubrir.",
+  "verificationPerformed": [
+    "hostname=brunode y pwd=/srv/hot-data/energy-markets/app verificados en el propio run de review.",
+    "sha256sum de docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md = 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c: coincide con el packet.",
+    "sha256sum de operations/receipts/IMP-01-IMP_RECEIPT.json = 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c: coincide con el packet.",
+    "sha256sum de operations/bootstrap/baseline-manifest.json = 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860: coincide con el packet.",
+    "/opt/node/bin/node --test test/role-evaluation/*.test.mjs reproducido por el revisor: exit 0, tests 30, pass 30, fail 0.",
+    "/opt/node/bin/node --test test/contracts/*.test.mjs reproducido por el revisor: exit 0, tests 67, pass 67, fail 0; los contratos aceptados quedan preservados.",
+    "Lectura íntegra de los cinco módulos fuente y de las cuatro suites de test, contrastada contra §11.6 completo de la SPEC (11.6 cabecera, 11.6.1, 11.6.2, 11.6.3, 11.6.4) leída directamente del documento canónico.",
+    "Mapeo fila a fila de la tabla §11.6.2: los catorce contenidos obligatorios están presentes en ROLE_HYPOTHESIS_FIELDS, más cinco campos de identidad componente/rol/protocolo/versión. No falta ninguna fila.",
+    "Probe independiente escrito por el revisor (reviewer-probe.mjs, sin reutilizar las fixtures del autor): 13 comprobaciones, 4 FAIL correspondientes a los hallazgos y 9 PASS que delimitan lo confirmado.",
+    "Verificación del write set por mtime: los únicos ficheros modificados fuera de allowed_paths en la ventana posterior pertenecen a otros packets concurrentes (IMP-26 ST-26.2 a las 17:05-17:33, IMP-08 a las 16:32-17:05), no a este run, que terminó a las 16:40.",
+    "src/contracts/* (mtimes 09:15-10:22) y src/strategy-admission/* (15:48-16:11) no fueron tocados en la ventana de este packet (16:28-16:40): la reutilización read-only es real y no se editó ningún índice compartido.",
+    "Verificación de grafo de imports: src/role-evaluation sólo importa ../contracts/identities.mjs y ../contracts/states.mjs; no hay ninguna importación de src/strategy-admission (código IMP-27 no terminado), conforme al packet.",
+    "Verificación de changedFileHashes del write-set-manifest contra el disco: 22 de 23 entradas coinciden exactamente."
+  ],
+  "findings": [
+    {
+      "id": "A",
+      "severity": "blocking",
+      "criterion": "acceptance 1 (identidad exacta componente/rol/protocolo/versión)",
+      "category": "defecto de contrato: la identidad declarada puede divergir de la identidad almacenada",
+      "location": "src/role-evaluation/registry.mjs:303-370, guarda en 321-324",
+      "claim": "createNewEvaluationVersion() exige que la nueva versión difiera de la evaluada (VERSION_NOT_CHANGED, línea 317) precisamente para que no se reetiquete el mismo experimento, y comprueba la identidad del candidato en la línea 322.",
+      "refutation": "Esa comprobación cubre componentId y roleClass, pero no la versión. Cuando el llamante pasa un change.contract explícito, record.componentVersion toma change.newVersion mientras record.contract.componentVersion conserva el valor que traiga el contrato. Observado con el probe del revisor (A1): ok=true, record.componentVersion=0.9.0, record.contract.componentVersion=0.1.0. El registro afirma entonces estar evaluando 0.9.0 mientras la hipótesis §11.6.2 almacenada —comparador, value hypothesis, evidencia exigida, rollback— queda atribuida a 0.1.0. Es la misma confusión de identidad que la guarda adyacente existe para impedir, sólo que por la otra puerta. Variante A2: en ese mismo salto protocolId y protocolVersion se toman del candidato sin restricción (líneas 356-357), de modo que una versión nueva puede cambiar silenciosamente la identidad del protocolo de evaluación (observado: SYN-OTHER-PROTOCOL/7.0.0) sin que materialChange lo declare; materialChange sólo guarda changeSummary y fromVersion.",
+      "whyItMatters": "El criterio 1 exige identidad exacta de componente/rol/protocolo/versión en el punto de readiness de evaluación. Un registro cuya versión declarada y cuyo contrato almacenado discrepan no sostiene esa identidad, y un consumidor que lea record.contract atribuiría la hipótesis a la versión equivocada.",
+      "requestedFix": "En createNewEvaluationVersion, exigir que candidate.componentVersion sea equivalente a change.newVersion (rechazo explícito tipo IDENTITY_MISMATCH/VERSION_MISMATCH, o normalización forzada del campo), y tratar un cambio de protocolId/protocolVersion como parte declarada del cambio material o rechazarlo. Añadir los tests negativos correspondientes.",
+      "withinAllowedPaths": true
+    },
+    {
+      "id": "B",
+      "severity": "blocking",
+      "criterion": "acceptance 5 (tests cubren outcomes/versiones previos inmutables) y acceptance 4 (trazabilidad de hallazgos previos)",
+      "category": "superficie exportada que informa mal el estado histórico, sin cobertura de test",
+      "location": "src/role-evaluation/registry.mjs:135-137 (history), 457-469 (#store/#appendVersion); test/role-evaluation/registry.test.mjs:180",
+      "claim": "El framework declara conservar por versión los outcomes previos y expone history() como la cadena de versiones de un componente/rol.",
+      "refutation": "#appendVersion empuja a la cadena de versiones la instantánea del registro en el momento del registro, y las transiciones posteriores (markEvaluationReady, recordOutcome, attachEvidence) sólo actualizan #current mediante #store, nunca la entrada correspondiente de #versions. Observado con el probe del revisor (B1): tras registrar HOLD en 0.1.0 y crear la versión 0.2.0, history() devuelve 2 entradas, y history()[0] reporta state=REGISTERED y outcome=null para una versión que sí registró HOLD. La superficie histórica presenta como «nunca evaluada» una versión que tiene un outcome registrado. El test de la línea 180 sólo comprueba history(...).length === 2 y ninguna aserción examina el contenido del historial, de modo que el defecto pasa la suite completa sin señal.",
+      "whyItMatters": "El criterio 5 exige cobertura explícita de outcomes/versiones previos inmutables. La inmutabilidad sí se aplica en recordOutcome (OUTCOME_ALREADY_RECORDED, confirmado en el probe D7) y priorFindings/outcomeHistory del registro vigente sí preservan el HOLD (confirmado en B2), así que el hallazgo está delimitado: lo que falla es la cadena de versiones expuesta y su ausencia de test, no la preservación en sí.",
+      "requestedFix": "Hacer que #store actualice también la entrada vigente de la cadena de versiones (o registrar la instantánea en el momento de cada transición), y añadir un test que afirme que la entrada de historial de una versión resuelta conserva su state y su outcome.value.",
+      "withinAllowedPaths": true
+    },
+    {
+      "id": "C",
+      "severity": "recommended",
+      "criterion": "acceptance 4 (higiene del registro; consistencia con la propiedad que el propio autor testea)",
+      "category": "efecto colateral sobre objetos propiedad del llamante, aplicado de forma inconsistente",
+      "location": "src/role-evaluation/registry.mjs:96-98 (appendEvidence), 226-235 (markEvaluationReady), 273-295 (recordOutcome); test/role-evaluation/registry.test.mjs (test «la evidencia es append-only y el registro no congela el objeto del llamante»)",
+      "claim": "registerComponent hace structuredClone del contrato precisamente para no congelar el objeto del llamante, y la suite afirma esa propiedad de forma explícita.",
+      "refutation": "La ingesta de evidencia no hace esa copia: appendEvidence pasa por deepFreeze las referencias de evidencia recibidas, y el outcomeRecord guarda context.evidenceRefs directamente antes de congelarlo. Observado con el probe del revisor (C1): tras markEvaluationReady, el array del llamante no queda congelado (el spread lo copia) pero sus elementos sí (Object.isFrozen(callerEvidence[0]) === true). Un llamante que reutilice el mismo objeto de evidencia en dos roles se lo encuentra congelado sin haberlo pedido, y en modo estricto una mutación posterior lanza TypeError.",
+      "whyItMatters": "No incumple ningún criterio por sí solo, pero la propiedad de aislamiento se aplica al contrato y no a la evidencia, de modo que el test existente sugiere una garantía más fuerte de la que el registro ofrece.",
+      "requestedFix": "structuredClone de las referencias de evidencia al ingerirlas, igual que se hace con el contrato, y extender el test de aislamiento para cubrir la evidencia.",
+      "withinAllowedPaths": true
+    },
+    {
+      "id": "D",
+      "severity": "recommended",
+      "criterion": "acceptance 6 (evidencia honesta y hashes de ficheros cambiados verificables)",
+      "category": "inconsistencia declarado-vs-real en el manifiesto de write set",
+      "location": "operations/audit/IMP-28/write-set-manifest.json (entrada de operations/audit/IMP-28/write-set-manifest.stdout.txt)",
+      "claim": "changedFileHashes declara el sha256 de los 23 ficheros creados por el packet.",
+      "refutation": "22 de las 23 entradas coinciden exactamente con el disco. La entrada de write-set-manifest.stdout.txt declara e3b0c44298fc… (el sha del fichero vacío) mientras el fichero contiene ahora adbe6b36e285…: el hash se tomó antes de que el propio script escribiera su stdout. Es un artefacto de orden de captura de la evidencia, no un cambio de código ni una escritura fuera de allowed_paths, y el autor ya documentó una aclaración de orden de captura análoga para environment-and-inputs.txt.",
+      "whyItMatters": "El criterio 6 pide probar el write set con hashes verificables; una entrada que no reproduce obliga a cada revisor posterior a reconstruir por qué. Conviene regenerarla o anotarla junto a la aclaración de orden de captura existente.",
+      "requestedFix": "Regenerar la entrada del manifiesto tras escribir su stdout, u omitirla explícitamente como ya se hace con selfHashOmitted.",
+      "withinAllowedPaths": true
+    }
+  ],
+  "upheld": [
+    "Criterio 1 (parte de cobertura): las cuatro clases candidatas de §11.6.1 están registradas con su comparator scope, su contrato de admisión y su sección, y los catorce contenidos obligatorios de la tabla §11.6.2 están presentes uno a uno, más identidad explícita de componente, versión, rol, protocolo y versión de protocolo. El defecto A afecta a la conservación de esa identidad en un salto de versión, no a la cobertura de campos.",
+    "Criterio 2: ningún rol por defecto ni S6; sin roleClass declarado el registro rechaza con CONTRACT_INCOMPLETE (probe D8). Los outcomes son por clave componente::rol y un ADMIT en Engineering deja Strategy/Evidence en REGISTERED sin outcome (probe D2). Los labels de research_verdict no contaminan role_admission: PASS/FAIL/INVALID se rechazan con UNKNOWN_STATE_VALUE (probe D1), y el namespace role_admission se reutiliza read-only del contrato aceptado de IMP-01.",
+    "Criterio 3: initialAuthorityGrant() es siempre vacío y hasProductiveAuthority() es constante false; authorityRequested se guarda separado de authorityGranted. Strategy/Evidence no alcanza readiness sin el gate aceptado §8.7 referenciado por IMP-27 (probe D3), y ese gate se declara por referencia sin importar código de IMP-27, como el packet exige. Execution/Governance exige validación separada de §§16-18 y, aun con ella aceptada, validateRealActionPrerequisite devuelve NO_PRODUCTIVE_AUTHORITY: ningún camino del registro devuelve autoridad (probe D4).",
+    "Criterio 4: costLatencyBurden admite un desconocido sólo si se declara explícitamente con razón, y rechaza la omisión o el cero implícito; overlapAssessment, reproducibilityRequirements y removalRollbackPath son obligatorios y el rollback sobrevive al cambio de versión. Un rol de ingeniería no puede etiquetar su valor como procurement edge (probe D6). Sin ningún rol admitido, evaluateIntegration devuelve NO_QUALIFYING_ROLE y eligible=false; con un ADMIT devuelve elegibilidad de alcance de rol con integrated=false y authorityGranted vacío (probe D5).",
+    "Criterio 5 (parte de inmutabilidad): un outcome ya registrado no se reescribe (OUTCOME_ALREADY_RECORDED, el outcome sigue ADMIT; probe D7), y una nueva versión exige cambio material con resumen y versión distinta. La suite cubre protocolo incompleto, evidencia ausente, separación por rol y ausencia de rol por defecto. El defecto B es la parte de historial de versiones que queda sin cubrir.",
+    "Criterio 6 (parte sustantiva): el ST_RECEIPT es completo y honesto. Declara la ruta real del worker (OpenRouter/DeepSeek, lane cheap_or), su rol de autor explícitamente no revisor, los dos fallos de test intermedios y su corrección, la aclaración de orden de captura de environment-and-inputs.txt, DEP-28 como hecho no resuelto y la ausencia de cualquier admisión real. No reclama valor empírico, no reclama autoridad y no reclama cierre del parent. No encontré ninguna afirmación factual falsa en el receipt.",
+    "Frontera de oficina: el run no tocó office-continuity ni office-awareness, ni timers, ni cuotas, ni proveedores, ni routing; el timer permanece OFF. Los fixtures son sintéticos y están etiquetados como tales, y JEV no aparece con rol asignado en ningún fixture."
+  ],
+  "notAssessed": [
+    "Capacidad, valor incremental, coste, latencia o carga operacional reales de JEV o de cualquier otro componente externo. DEP-28 factual permanece abierto y esta review no lo toca.",
+    "La admisión real de ningún componente en ningún rol. No existe ninguna y no se reclama.",
+    "El framework de IMP-27/§8.7 en sí mismo: aquí sólo se verificó que se referencia como gate externo y que su código no se importa ni se edita.",
+    "La aceptación del parent IMP-28 (LAT-113), que es separada (§20.2.10) y no corresponde a esta etapa.",
+    "El hash agregado declarado en resultingVersion.contentHash: la fórmula exacta de concatenación no está especificada de forma reproducible en el receipt, así que no lo confirmo ni lo refuto. No es un hallazgo: los sha256 por fichero, que son lo verificable, sí coinciden."
+  ],
+  "reviewLimits": [
+    "Esta es una review de ST a nivel de framework estructural. No es aceptación de IMP-28, no es un IMP_RECEIPT y no es evidencia de valor empírico ni de admisión de ningún componente.",
+    "El revisor no implementó ninguna corrección del packet revisado: sólo escribió esta carpeta de evidencia de review. No hay autoaprobación en ninguna dirección.",
+    "Aprobar esta ST nunca aceptaría la evaluación futura de un candidato o de un rol real."
+  ],
+  "nextAction": "El mismo autor (2f30b8dd) corrige los hallazgos A y B (C y D recomendados) dentro de los mismos allowed_paths, reemite operations/receipts/IMP-28-ST-1.json y reenvía a esta misma etapa para una review delta (ronda 2 de 3). El probe del revisor queda disponible como comprobación de regresión: A1, A2, B1 y C1 deben pasar.",
+  "reviewedAtUtc": "2026-09-19T19:00:00Z"
+}

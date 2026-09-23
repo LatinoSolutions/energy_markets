@@ -1,0 +1,5 @@
+# Office (Paperclip) audit/patch artifacts: IMP-26, ~487 MB, not product code.
+operations/audit/IMP-26/
+operations/patches/
+.claude/settings.local.json
+node_modules/

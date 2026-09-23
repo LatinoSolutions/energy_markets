@@ -1,0 +1,130 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC 20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-26-ST-3-v1.1",
+    "subtaskId": "ST-26.3",
+    "parentImp": "IMP-26",
+    "parentImpIssue": {
+      "identifier": "LAT-94",
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797"
+    },
+    "executionGateIssue": {
+      "identifier": "LAT-124",
+      "id": "2ca425cd-27ad-42fb-8dec-0eba6b412829"
+    },
+    "workIssue": {
+      "identifier": "LAT-144",
+      "id": "850584e2-f873-483b-805e-da30360d3d76"
+    },
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "project": "Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "host": "brunode",
+    "workspace": "/srv/hot-data/energy-markets/app"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker 2f30b8dd-306b-4735-a135-f8d3127c8c0e — DeepSeek V4.1 Flash via OpenRouter (adapter opencode_local), lane cheap_or, run 57fa4208-b692-4e5a-8a5d-7b76814675bb; author, NOT reviewer and NOT approver.",
+  "startingBaseline": "SPEC sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c; accepted ST-26.1 receipt sha256 52411facd51f249eb22439aa7af442ad2be5b77763ac8d2e749c8ae26b367eab; C1 receipt sha256 c5add1af92077c134c81212cb95038df7f9fac32227f137b16b6d1f6d451a733; approved ST-26.2 receipt sha256 f9872f27e5e59b1f8c6d38834c06acd05602152687c9cba63ff53f2890a49880; ST-26.2 frozen manifest sha256 d1c3ec69560e743c6633e1f4fe7708a9a73efd37d7298d43e0a02e7f31f475c0; non-git workspace, versions are content-hashes. Original accepted artifacts preserved byte-for-byte.",
+  "result": "ST-26.3 normalizes the accepted ST-26.2 receipt into a validator-compatible supplemental representation (original preserved byte-for-byte) and reconciles residual evidence. Validator-required reshapes: workerModelRoute/recommendedStatus to non-empty strings, startingBaseline to a version-like text, testResults to a list, resultingVersion to a contentHash over the ST-26.2 artifact set; the original objects are retained under *Detail keys. C1 carried forward: F1 (canonical projection fail-closed) and F2 (recovery transition contract) accepted at 5d49f1e by LAT-127 round-3 independent review (approved 2026-09-19T19:34Z); the live human-actor recovery reset remains UNOBSERVED; F3 reviewer-runtime hold resolved. Reviewer-owned erratum applied: reviewRecovery 492 entries across 93/93 ticks, 489 skipped / 3 acted; the unsupported '186 per-tick' clause is discarded. Timer authority reconciled: first-party owner comment a0a03a00 authorizes historical enablement; the original timer-OFF criterion did not pass and the timer remains active/enabled (live GAP); no reapproval requested and the timer was not touched. Residual req-3 surfaces, S5 and live-target drift classified against existing evidence; tests distinguished from observed live sequence; LAT-143 owner-integrator gate cross-referenced as blocked, not delivered. An accurately evidenced GAP may finish this ST; it does NOT accept IMP-26.",
+  "recommendedStatus": "in_review — one native Independent Reviewer premium stage (maxReviewRounds 3, comment required); an accurately evidenced GAP may finish ST-26.3 but never accepts IMP-26; LAT-124 owns the next bounded decision.",
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)",
+    "operations/receipts/IMP-26-ST-1.json (sha256 52411fac..., accepted ST-26.1)",
+    "operations/receipts/IMP-26-ST-1-C1.json (sha256 c5add1af..., approved at 5d49f1e)",
+    "operations/receipts/IMP-26-ST-2.json (sha256 f9872f27..., approved round 3)",
+    "operations/audit/IMP-26/ST-26.2/{matrix.md,events.json,source-hashes.json,excerpts.md} and the three native review rounds",
+    "native run/comment/document records via authenticated GET (endpoints and query timestamp in native-run-correlation.json)",
+    "operations/bootstrap/IMP-26-BLOCKER-EVIDENCE-UPDATE.md and the owner comment LAT-97 a0a03a00"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-26/ST-26.3/ST-26.2-normalized.json",
+    "operations/audit/IMP-26/ST-26.3/matrix.md",
+    "operations/audit/IMP-26/ST-26.3/native-run-correlation.json",
+    "operations/audit/IMP-26/ST-26.3/source-hashes.json",
+    "operations/audit/IMP-26/ST-26.3/build-st26.3.mjs",
+    "operations/receipts/IMP-26-ST-3.json"
+  ],
+  "testsRun": [
+    {
+      "id": "C1",
+      "command": "hostname",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "brunode"
+    },
+    {
+      "id": "C2",
+      "command": "pwd",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "/srv/hot-data/energy-markets/app"
+    },
+    {
+      "id": "C3",
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-26-ST-1-C1.json operations/receipts/IMP-26-ST-2.json",
+      "expected": "exact input hashes"
+    },
+    {
+      "id": "C4",
+      "command": "node --input-type=module -e '... validateStReceipt ...' on ST-26.2-normalized.json and IMP-26-ST-3.json",
+      "expected": "both ok=true, exit 0"
+    },
+    {
+      "id": "C5",
+      "command": "python3 -m json.tool on the output JSON files",
+      "expected": "exit 0"
+    }
+  ],
+  "testResults": [
+    "C1 hostname => brunode (PASS)",
+    "C2 pwd => /srv/hot-data/energy-markets/app (PASS)",
+    "C3 input hashes => SPEC 86c4bd4e...cb6c; C1 c5add1af...451a733; ST-26.2 f9872f27...0a49880 (PASS)",
+    "C4 validateStReceipt => both ok=true, exit 0 (PASS)",
+    "C5 JSON validity => exit 0 (PASS)"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-26/ST-26.3/ST-26.2-normalized.json",
+    "operations/audit/IMP-26/ST-26.3/matrix.md",
+    "operations/audit/IMP-26/ST-26.3/native-run-correlation.json",
+    "operations/audit/IMP-26/ST-26.3/source-hashes.json",
+    "operations/receipts/IMP-26-ST-3.json"
+  ],
+  "assumptions": [
+    "The accepted ST-26.2 receipt f9872f27... and its round-3 approval are immutable; normalization is a supplemental projection, never a replacement.",
+    "The validator's required shape for workerModelRoute/startingBaseline/recommendedStatus/testResults/resultingVersion is a representation contract; reshaping loses no fact because the original value is retained under a *Detail key.",
+    "Where the native evidence does not expose host idleness, the status stays UNKNOWN rather than inferred."
+  ],
+  "deviations": [
+    "This ST is read-only and adds no live action: no controller tick, no timer/service operation, no native state mutation, no source edit, no commit/push.",
+    "The original ST-26.2 receipt and matrix.md are preserved byte-for-byte; the normalized receipt is a new supplemental artifact, not a replacement.",
+    "Round-1 independent review (decision 970690df-6522-4ec4-a284-c9be844ab2b5, changes_requested) findings A-E addressed: (A) native correlation aggregates recomputed over 65 distinct runs, not 74 run-issue attachment rows — Command 33, reviewer 22, succeeded 55, invocation assignment 40 / automation 25, worker 10, failures 10; (B) the longest Command run is 349.4s and the 541.2s run is the reviewer, not Command; (C) matrix §3 timer read relabeled R4 to match §0; (D) source-hashes.json now includes build-st26.3.mjs and receipt-validation.txt; (E) source-hashes.json, writtenAt and resultingVersion.contentHash recomputed and C4 re-run. §4 verdicts, the C1 carry-forward, the erratum and the normalization mapping are unchanged."
+  ],
+  "dependencyFindings": [
+    "REQUIRES accepted IMP-01 and IMP-25: both IMP_RECEIPT files present (hashes in source-hashes.json).",
+    "REQUIRES accepted ST-26.1 (LAT-97 done, round-3 approved), C1 (LAT-127 round-3 approved 5d49f1e) and ST-26.2 (LAT-128 done, round-3 approved f9872f27...).",
+    "Sibling LAT-143 (owner-integrator delivery: project prompt still names LAT-20, SPEC-change artifact binding, controller delta outside C1) is BLOCKED and has delivered nothing in the acceptance window; this ST does not claim LAT-143 delivered.",
+    "F1/F2 corrections are accepted at 5d49f1e; the live recovery reset remains unobserved; residual parent-gate ownership stays with LAT-124/LAT-143."
+  ],
+  "failuresRetries": [
+    "No technical failure requiring retry during this ST.",
+    "The 10 native reviewer adapter failures (acpx_turn_failed) in the window are pre-existing runtime evidence recorded in native-run-correlation.json; they were resolved before the LAT-127 round-3 approval."
+  ],
+  "resultingVersion": {
+    "type": "content-hash (no commits; non-git workspace)",
+    "contentHash": "8040e24adcab080167e903b5a17157e43226b88765fb1a87e23cb3c1fc5402cf",
+    "contentHashScope": "aggregate sha256 over the sorted (path + sha256) pairs of the ST-26.3 output artifacts ST-26.2-normalized.json, matrix.md, native-run-correlation.json, source-hashes.json and build-st26.3.mjs"
+  },
+  "authorityAndScope": {
+    "packet": "WP-IMP-26-ST-3-v1.1",
+    "class": "routine",
+    "allowedPaths": [
+      "operations/audit/IMP-26/ST-26.3/**",
+      "operations/receipts/IMP-26-ST-3.json"
+    ],
+    "prohibitedObserved": "no commits/push, no deploy, no services, no trading, no purchases, no branches/worktrees, no subagents, no shared/source edits, no validator edits, no timer/service action, no native state repair, no parent acceptance"
+  },
+  "exactNextAction": "Submit to the native Independent Reviewer (one premium stage). The reviewer validates the normalization representation, the exact evidence correlations and every criterion. LAT-124 then consumes the residual matrix; IMP-26 acceptance stays with the parent gate.",
+  "writtenAt": "2026-09-19T22:07:24Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+  "identifier": "LAT-92",
+  "status": "done",
+  "description": "CANONICAL IMP PARENT \u2014 not a dispatchable work packet.\nSPEC PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md v1.1 SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c\nExecution scope: initial framework/office binding v1.1 on brunode.\nNormative \u00a725.1 row (verbatim):\n| IMP-01 | Materializar contratos de identidad/versiones y namespaces. | \u00a7\u00a70\u20133,13\u201314 | Schemas/validadores de concept/state/version/receipt | Rechaza colisiones q_t/A0/S1, versiones ausentes y campos econ\u00f3micos obligatorios desconocidos; preserva raz\u00f3n del faltante. | Nombres can\u00f3nicos, separaci\u00f3n de estados y scopes. | \u00a7\u00a70,3,14 |\nNormative \u00a725.2 row (verbatim):\n| **IMP-01** | SPEC vigente y contratos de \u00a7\u00a70\u20133,13\u201314. | \u2014 | \u2014 | \u2014 | Tests de schemas, campos obligatorios, namespaces y versionado exigidos por su acceptance; evidencia de ingenier\u00eda, no de procurement. | IMP-02,03,06,08,12,14,17,23,26,27,28,29, sujetos a sus dem\u00e1s requisitos. |\nST accepted != IMP accepted. Parent remains unaccepted until \u00a720.2.10 passes and a scoped IMP_RECEIPT exists. No factual/empirical dependency closed by synthetic tests.",
+  "executionPolicy": null,
+  "executionState": null,
+  "blockedBy": [
+    {
+      "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+      "identifier": "LAT-96",
+      "title": "[READY] IMP-01 / ST-01.1 \u2014 contratos de identidad y namespaces",
+      "status": "done",
+      "priority": "high",
+      "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "assigneeUserId": null,
+      "scheduledRetry": null,
+      "activeRecoveryAction": null
+    }
+  ]
+}

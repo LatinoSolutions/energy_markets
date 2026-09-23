@@ -1,0 +1,36 @@
+{
+  "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "workspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+  "root": {
+    "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+    "identifier": "LAT-91"
+  },
+  "parents": {
+    "IMP-01": {
+      "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+      "identifier": "LAT-92"
+    },
+    "IMP-25": {
+      "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+      "identifier": "LAT-93"
+    },
+    "IMP-26": {
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797",
+      "identifier": "LAT-94"
+    }
+  },
+  "children": {
+    "IMP-25": {
+      "id": "ca7c3c88-807e-4616-ac00-4249f6870307",
+      "identifier": "LAT-95"
+    },
+    "IMP-01": {
+      "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+      "identifier": "LAT-96"
+    },
+    "IMP-26": {
+      "id": "b4f03ad2-e300-4b21-8338-0b04fe4bd389",
+      "identifier": "LAT-97"
+    }
+  }
+}

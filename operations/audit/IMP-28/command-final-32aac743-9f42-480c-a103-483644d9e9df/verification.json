@@ -1,0 +1,50 @@
+{
+  "runId": "32aac743-9f42-480c-a103-483644d9e9df",
+  "tests": [
+    {
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-final-32aac743-9f42-480c-a103-483644d9e9df/check-0.txt",
+      "sha256": "f3ebacebc8de6c8700b118cec3e99a3aa3b5b250ca5f7b96d1f37df189c26aec"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-final-32aac743-9f42-480c-a103-483644d9e9df/check-1.txt",
+      "sha256": "616200952f131e0b171e2166aba657ca337f0cf84375b77a2ecbf2b4789723f3"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-final-32aac743-9f42-480c-a103-483644d9e9df/check-2.txt",
+      "sha256": "24c12c8650d06f6af3e22390947e1a8259fe6c0cb4612a8d8591bcf33aafac72"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-final-32aac743-9f42-480c-a103-483644d9e9df/check-3.txt",
+      "sha256": "d24c8a329ce7647d78720359d32c9ea7e77f96c2a73db0520ad4afd1e0f681f0"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-protocol-identity-probe.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-final-32aac743-9f42-480c-a103-483644d9e9df/check-4.txt",
+      "sha256": "5e2092b1def72f6022a9d482d7d1d1f9de2b3fb74a4d9b834e2142d3d28c3631"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-final-32aac743-9f42-480c-a103-483644d9e9df/check-5.txt",
+      "sha256": "271280e7cf541fd6eecfa7c3e80482f069c76c995b7127ba06c5d3a05bf732b0"
+    }
+  ],
+  "manifestEntries": 58,
+  "manifestMismatches": [],
+  "acceptedImp01HashMismatches": [],
+  "originalIndependentProbesUnchanged": true,
+  "sourceTestVersion": "274bec7430ffc9e90c6898eacd55a55ad5f0e1a797656ce88db53ef413b0d8d2",
+  "receiptVersion": "274bec7430ffc9e90c6898eacd55a55ad5f0e1a797656ce88db53ef413b0d8d2",
+  "aggregateMatchesReceipt": true,
+  "aggregateAlgorithm": "sha256(UTF-8 concatenation of sorted path + space + file sha256 + newline)",
+  "receiptSha256": "148a7b45bddabe7d98fdbaa47113355e522d1ee53a07f01394936cb3391cb225"
+}

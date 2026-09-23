@@ -1,0 +1,34 @@
+{
+  "_kind": "PAYLOAD INDEX — new index authored by ST-08.4 (rev3). Describes the immutable snapshot and marks each item ORIGINAL / NEW and CURRENT / HISTORY.",
+  "packetId": "WP-IMP-08-ST-4-v1.1",
+  "subtaskId": "ST-08.4",
+  "parentImp": "IMP-08",
+  "capturedAtUtc": "2026-09-21",
+  "sourceRoot": "/srv/hot-data/energy-markets/app",
+  "snapshotRoot": "operations/audit/IMP-08/ST-08.4/payload",
+  "currentAcceptedVersion": {
+    "subtask": "ST-08.5",
+    "issue": "LAT-195",
+    "nativeDecisionId": "f0d45fae-3f59-45dd-b389-9f32e7442ded",
+    "outcome": "approved",
+    "contentHashReportedByST085": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "aggregateAlgorithmA": "96e73ef9ce63aea6bd39934cebc17cdc656f3f0d9ef576700739e39afa914f6e",
+    "receipt": "accepted/receipt/IMP-08-ST-5.json",
+    "manifest": "accepted/st-08.5/manifest.json"
+  },
+  "distinction": "ORIGINAL = verbatim copy of a previously accepted/reviewed artifact or native record; NEW = authored by this packet. CURRENT = the accepted version indexed for the parent gate; HISTORY = preserved prior accepted versions. Nothing here is a re-review or new functional implementation.",
+  "contents": [
+    { "path": "accepted/code/**", "kind": "ORIGINAL", "version": "CURRENT (ST-08.5)", "source": "src/economic-calculation/*.mjs, test/economic-calculation/*.test.mjs, docs/economic-calculation.md (current live accepted bytes)" },
+    { "path": "accepted/st-08.5/**", "kind": "ORIGINAL", "version": "CURRENT (ST-08.5)", "source": "operations/audit/IMP-08/ST-08.5/**", "note": "ST-08.5 correction evidence, manifest, verifier, tests, reproducer, change review, continuity checkpoint" },
+    { "path": "accepted/receipt/IMP-08-ST-5.json", "kind": "ORIGINAL", "version": "CURRENT (ST-08.5)", "source": "operations/receipts/IMP-08-ST-5.json" },
+    { "path": "history/st-08.3/**", "kind": "ORIGINAL", "version": "HISTORY (ST-08.3, accepted 140c8128)", "source": "ST-08.3 frozen semantic bytes + ST-08.3 evidence + receipt" },
+    { "path": "history/st-08.2/**", "kind": "ORIGINAL", "version": "HISTORY", "source": "operations/audit/IMP-08/ST-08.2/**" },
+    { "path": "history/oracle/**", "kind": "ORIGINAL", "version": "HISTORY (ST-08.1 accepted oracle)", "source": "operations/audit/IMP-08/fixture-oracle/**" },
+    { "path": "history/receipts/**", "kind": "ORIGINAL", "version": "HISTORY", "source": "IMP-01, IMP-08-ST-1, IMP-08-ST-2 receipts" },
+    { "path": "contracts/identities.mjs", "kind": "ORIGINAL", "source": "src/contracts/identities.mjs", "note": "existing receipt validators used by this packet's verification" },
+    { "path": "native-reviews/**", "kind": "ORIGINAL", "source": "native issue documents/comments on LAT-126, LAT-157, LAT-178, LAT-176, LAT-195 (including the authoritative approval comment 457cce45) and the FIVE completed LAT-191 review decisions r1-r5 (verbatim copies with source metadata header)", "note": "source ids recorded in ../native-review-lineage.json" },
+    { "path": "INDEX.json", "kind": "NEW", "note": "this file" }
+  ],
+  "excluded": "No credentials, environment tokens, logs, receipts of other IMPs, or unrelated files are included.",
+  "checksums": "SHA256SUMS lists every file in this payload except SHA256SUMS itself."
+}

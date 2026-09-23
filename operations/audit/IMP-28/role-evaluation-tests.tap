@@ -1,0 +1,239 @@
+TAP version 13
+# Subtest: el contrato materializa los catorce campos semánticos de §11.6.2
+ok 1 - el contrato materializa los catorce campos semánticos de §11.6.2
+  ---
+  duration_ms: 1.867269
+  type: 'test'
+  ...
+# Subtest: la identidad exige componente/rol/protocolo/versión exactos
+ok 2 - la identidad exige componente/rol/protocolo/versión exactos
+  ---
+  duration_ms: 0.493971
+  type: 'test'
+  ...
+# Subtest: un contrato incompleto se rechaza y lista los campos faltantes
+ok 3 - un contrato incompleto se rechaza y lista los campos faltantes
+  ---
+  duration_ms: 0.257125
+  type: 'test'
+  ...
+# Subtest: una lista obligatoria con minItems 0 debe declararse explícitamente
+ok 4 - una lista obligatoria con minItems 0 debe declararse explícitamente
+  ---
+  duration_ms: 0.159951
+  type: 'test'
+  ...
+# Subtest: coste/latencia/carga preserva el desconocido explícito y no admite omisión
+ok 5 - coste/latencia/carga preserva el desconocido explícito y no admite omisión
+  ---
+  duration_ms: 0.187834
+  type: 'test'
+  ...
+# Subtest: el camino de retirada/rollback es obligatorio
+ok 6 - el camino de retirada/rollback es obligatorio
+  ---
+  duration_ms: 0.157837
+  type: 'test'
+  ...
+# Subtest: missingRoleEvaluationContent coincide con la validación
+ok 7 - missingRoleEvaluationContent coincide con la validación
+  ---
+  duration_ms: 0.219754
+  type: 'test'
+  ...
+# Subtest: los outcomes de admisión por rol son ADMIT/HOLD/REJECT
+ok 8 - los outcomes de admisión por rol son ADMIT/HOLD/REJECT
+  ---
+  duration_ms: 1.164474
+  type: 'test'
+  ...
+# Subtest: HOLD se resuelve por namespace y no se confunde con research verdict
+ok 9 - HOLD se resuelve por namespace y no se confunde con research verdict
+  ---
+  duration_ms: 0.231256
+  type: 'test'
+  ...
+# Subtest: ningún outcome concede autoridad productiva
+ok 10 - ningún outcome concede autoridad productiva
+  ---
+  duration_ms: 0.226677
+  type: 'test'
+  ...
+# Subtest: registra el mismo componente en varios roles como procesos independientes
+ok 11 - registra el mismo componente en varios roles como procesos independientes
+  ---
+  duration_ms: 1.728057
+  type: 'test'
+  ...
+# Subtest: rechaza evaluación incompleta y colisión de identidad componente/rol
+ok 12 - rechaza evaluación incompleta y colisión de identidad componente/rol
+  ---
+  duration_ms: 0.290928
+  type: 'test'
+  ...
+# Subtest: JEV no recibe clasificación ni rol por defecto
+ok 13 - JEV no recibe clasificación ni rol por defecto
+  ---
+  duration_ms: 0.144732
+  type: 'test'
+  ...
+# Subtest: EVALUATION-READY exige prerequisites y evidencia, no campos completos
+ok 14 - EVALUATION-READY exige prerequisites y evidencia, no campos completos
+  ---
+  duration_ms: 0.522805
+  type: 'test'
+  ...
+# Subtest: Strategy/Evidence no alcanza readiness sin el gate aceptado de IMP-27/§8.7
+ok 15 - Strategy/Evidence no alcanza readiness sin el gate aceptado de IMP-27/§8.7
+  ---
+  duration_ms: 0.300115
+  type: 'test'
+  ...
+# Subtest: un outcome exige readiness y evidencia real
+ok 16 - un outcome exige readiness y evidencia real
+  ---
+  duration_ms: 0.411525
+  type: 'test'
+  ...
+# Subtest: los outcomes de rol son independientes entre roles del mismo componente
+ok 17 - los outcomes de rol son independientes entre roles del mismo componente
+  ---
+  duration_ms: 4.333275
+  type: 'test'
+  ...
+# Subtest: un outcome por versión es inmutable y no se reescribe
+ok 18 - un outcome por versión es inmutable y no se reescribe
+  ---
+  duration_ms: 0.273696
+  type: 'test'
+  ...
+# Subtest: una nueva versión preserva HOLD/REJECT previos, evidencia y retirada/rollback
+ok 19 - una nueva versión preserva HOLD/REJECT previos, evidencia y retirada/rollback
+  ---
+  duration_ms: 0.607465
+  type: 'test'
+  ...
+# Subtest: no se crea versión sin cambio material ni repitiendo la misma versión
+ok 20 - no se crea versión sin cambio material ni repitiendo la misma versión
+  ---
+  duration_ms: 0.278224
+  type: 'test'
+  ...
+# Subtest: sin rol que admita, el componente queda fuera (no integración)
+ok 21 - sin rol que admita, el componente queda fuera (no integración)
+  ---
+  duration_ms: 0.264589
+  type: 'test'
+  ...
+# Subtest: un componente desconocido se rechaza en integración y operaciones
+ok 22 - un componente desconocido se rechaza en integración y operaciones
+  ---
+  duration_ms: 0.119175
+  type: 'test'
+  ...
+# Subtest: engineering no puede presentar su valor como procurement edge
+ok 23 - engineering no puede presentar su valor como procurement edge
+  ---
+  duration_ms: 0.240082
+  type: 'test'
+  ...
+# Subtest: ninguna acción real obtiene autoridad; execution/governance exige validación separada
+ok 24 - ninguna acción real obtiene autoridad; execution/governance exige validación separada
+  ---
+  duration_ms: 0.316286
+  type: 'test'
+  ...
+# Subtest: la evidencia es append-only y el registro no congela el objeto del llamante
+ok 25 - la evidencia es append-only y el registro no congela el objeto del llamante
+  ---
+  duration_ms: 0.248619
+  type: 'test'
+  ...
+# Subtest: A: la versión del contrato debe coincidir con newVersion
+ok 26 - A: la versión del contrato debe coincidir con newVersion
+  ---
+  duration_ms: 0.178086
+  type: 'test'
+  ...
+# Subtest: A2: un cambio de protocolo debe declararse explícitamente
+ok 27 - A2: un cambio de protocolo debe declararse explícitamente
+  ---
+  duration_ms: 0.178026
+  type: 'test'
+  ...
+# Subtest: B: history() refleja el outcome de cada versión, no una instantánea previa
+ok 28 - B: history() refleja el outcome de cada versión, no una instantánea previa
+  ---
+  duration_ms: 0.20145
+  type: 'test'
+  ...
+# Subtest: C: la evidencia ingerida no congela objetos del llamante
+ok 29 - C: la evidencia ingerida no congela objetos del llamante
+  ---
+  duration_ms: 0.252887
+  type: 'test'
+  ...
+# Subtest: R2-B: versiones content-hash distintas no colapsan priorFindings
+ok 30 - R2-B: versiones content-hash distintas no colapsan priorFindings
+  ---
+  duration_ms: 0.379806
+  type: 'test'
+  ...
+# Subtest: CMD-1: una identidad evaluada no se rehabilita (semver y content-hash)
+ok 31 - CMD-1: una identidad evaluada no se rehabilita (semver y content-hash)
+  ---
+  duration_ms: 0.457272
+  type: 'test'
+  ...
+# Subtest: CMD-2: protocolId distinto no colapsa priorFindings (semver y content-hash)
+ok 32 - CMD-2: protocolId distinto no colapsa priorFindings (semver y content-hash)
+  ---
+  duration_ms: 0.564804
+  type: 'test'
+  ...
+# Subtest: R2-C1: registrar y versionar no congelan objetos de versión del llamante
+ok 33 - R2-C1: registrar y versionar no congelan objetos de versión del llamante
+  ---
+  duration_ms: 0.277182
+  type: 'test'
+  ...
+# Subtest: las cuatro clases candidatas de §11.6.1 quedan registradas
+ok 34 - las cuatro clases candidatas de §11.6.1 quedan registradas
+  ---
+  duration_ms: 1.226812
+  type: 'test'
+  ...
+# Subtest: no existe un rol por defecto ni S6
+ok 35 - no existe un rol por defecto ni S6
+  ---
+  duration_ms: 0.173707
+  type: 'test'
+  ...
+# Subtest: sólo Strategy/Evidence exige el gate §8.7 y sólo Execution/Governance la validación separada
+ok 36 - sólo Strategy/Evidence exige el gate §8.7 y sólo Execution/Governance la validación separada
+  ---
+  duration_ms: 0.156365
+  type: 'test'
+  ...
+# Subtest: sólo Strategy/Evidence puede reclamar procurement edge
+ok 37 - sólo Strategy/Evidence puede reclamar procurement edge
+  ---
+  duration_ms: 0.19641
+  type: 'test'
+  ...
+# Subtest: un dominio de valor desconocido o ausente se rechaza
+ok 38 - un dominio de valor desconocido o ausente se rechaza
+  ---
+  duration_ms: 0.779348
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 38
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 80.425879
+TAP_EXIT=0

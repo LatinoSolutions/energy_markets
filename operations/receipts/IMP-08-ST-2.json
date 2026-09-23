@@ -1,0 +1,270 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-08-ST-2-v1.1",
+    "subtaskId": "ST-08.2",
+    "parentImp": "IMP-08",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "projectName": "Energy Markets",
+    "programRoot": { "identifier": "LAT-91", "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3" },
+    "workIssue": { "identifier": "LAT-157", "id": "c523d63f-77bb-4260-9be6-e2c0a8243758" },
+    "predecessorSubtask": { "identifier": "LAT-126", "receipt": "operations/receipts/IMP-08-ST-1.json" },
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode",
+    "executionInstance": "SPEC 86c4bd4e… + IMP-08 + scope[synthetic B/H/V calculation and mission-specific scoring, protocol v1] + version 1"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / DeepSeek V4.1 Flash via opencode_local; Command-rerouted premium packet (primary premium/Go lanes unavailable), reviewer distinct",
+  "workerRoute": {
+    "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+    "agentName": "Emergency Cheap Production Worker (OpenRouter)",
+    "roleInThisSubtask": "routine author of a Command-rerouted premium packet; explicitly NOT the independent reviewer (§20.2.9)",
+    "adapter": "opencode_local",
+    "model": "openrouter/deepseek/deepseek-v4.1-flash",
+    "authorization": "Agent capability explicitly permits Command-rerouted premium implementation packets when primary premium/Go lanes are unavailable and the independent reviewer is distinct and preserved.",
+    "runId": "a349d0fc-7361-4e27-bb7d-526a57467c5d"
+  },
+  "startingBaseline": "operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860; IMP-01 receipt sha256 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c; IMP-08-ST-1.json sha256 1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f; oracle fixtures.json sha256 33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec; oracle independent-calculations.md sha256 58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9; non-git unborn main, 0 commits",
+  "startingBaselineDetail": {
+    "declaredBaseline": "operations/bootstrap/baseline-manifest.json (host brunode)",
+    "versionIdentity": "content hashes (non-git workspace; branch main unborn, 0 commits)",
+    "liveHashCheckPerformedBeforeWriting": true,
+    "canonicalDocsMatchBaseline": true,
+    "allocatedOutputPathsPreexistingAtStart": [],
+    "allocatedOutputPathsObservedAbsentBeforeWriting": [
+      "src/economic-calculation",
+      "test/economic-calculation",
+      "docs/economic-calculation.md",
+      "operations/audit/IMP-08/ST-08.2",
+      "operations/receipts/IMP-08-ST-2.json"
+    ],
+    "acceptedOracleVerifiedUnchanged": true
+  },
+  "resultingVersion": {
+    "type": "content-hash (no commits created; commits are packet-prohibited and the branch remains unborn)",
+    "contentHash": "8d1ce8f29f8474379082df1b1b294dc1838ba753c2a6d1586b2136e2524416fe",
+    "contentHashScope": "aggregate sha256 over the 9 semantic deliverables (src/economic-calculation/*.mjs, test/economic-calculation/*.test.mjs, docs/economic-calculation.md) as sorted lines '<path>\\n<sha256>\\n'; deliberately excludes volatile evidence text (test-output timings) and the receipt/self-referential manifest so the content version is deterministic and reproducible",
+    "supersededContentHashes": [
+      {
+        "contentHash": "215a0e76d6cddb450c85f405e8f5e6bd4eb54e996da7359e072a9b69efba5c88",
+        "note": "Round-0 version (pre-review), superseded by the round-1 review correction (data-quality admissibility gate, Monthly scope reason, docs signature fix). Recorded for traceability only; MUST NOT be accepted as current."
+      }
+    ],
+    "artifactHashes": {
+      "src/economic-calculation/reference.mjs": "e02037799c0ceb0d278067737510af37ca747c49073fc065977d1fc21bde0595",
+      "src/economic-calculation/benchmark.mjs": "59780186df176c231c110c7d553454459f1d46e955528fe6df26e44d01db8e34",
+      "src/economic-calculation/bhv.mjs": "038e5071f26b89a98d55b842f226a31f1f7b0de3d5916e6ae6106379e0630577",
+      "src/economic-calculation/scoring.mjs": "c09c1df9e8c9ac775700d5f21c8c2f31c479450ffe1b4c02aaf8a8f7dc47f95d",
+      "src/economic-calculation/index.mjs": "3e7496d5d8b41812878cdc7ca3b256a95ad00cd310ca5a0dc90ab4798e0b63b5",
+      "test/economic-calculation/benchmark.test.mjs": "8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8",
+      "test/economic-calculation/bhv.test.mjs": "e511c387b8dcf9713d1ae3f156bcb78acebc47d3ae2a980b04fae42cf62999a5",
+      "test/economic-calculation/scoring.test.mjs": "a5829e76aba1db75637e6d9a3e26fb7257ef750897b3d412f1c8826a0511ee0e",
+      "docs/economic-calculation.md": "18fbfc65ec6acf17911fc71cbf25d3d34e7e9bf7d30bdfc99de09dca2f75597f"
+    },
+    "receiptSelfHashOmitted": "this file's own hash is not embedded in itself; computed externally and reported in the handoff comment and continuity-checkpoint"
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md §§3,5.1–5.8,6.1,19.3–19.3.1,20.2.7–20.2.12,25.1 IMP-08,25.2.1–25.2.3 IMP-08",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json (accepted IMP-01, content version c7cdf47c…)",
+    "operations/bootstrap/baseline-manifest.json",
+    "operations/receipts/IMP-08-ST-1.json (approved ST-08.1 receipt)",
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json and independent-calculations.md (frozen oracle, read-only)",
+    "accepted src/contracts modules read-only"
+  ],
+  "artifactsChanged": [
+    "src/economic-calculation/reference.mjs",
+    "src/economic-calculation/benchmark.mjs",
+    "src/economic-calculation/bhv.mjs",
+    "src/economic-calculation/scoring.mjs",
+    "src/economic-calculation/index.mjs",
+    "test/economic-calculation/benchmark.test.mjs",
+    "test/economic-calculation/bhv.test.mjs",
+    "test/economic-calculation/scoring.test.mjs",
+    "docs/economic-calculation.md",
+    "operations/audit/IMP-08/ST-08.2/baseline-and-environment.txt",
+    "operations/audit/IMP-08/ST-08.2/node-check.txt",
+    "operations/audit/IMP-08/ST-08.2/economic-tests.txt",
+    "operations/audit/IMP-08/ST-08.2/economic-tests.tap",
+    "operations/audit/IMP-08/ST-08.2/contracts-tests.txt",
+    "operations/audit/IMP-08/ST-08.2/fixture-coverage-matrix.json",
+    "operations/audit/IMP-08/ST-08.2/acceptance-matrix.md",
+    "operations/audit/IMP-08/ST-08.2/build-write-set-manifest.mjs",
+    "operations/audit/IMP-08/ST-08.2/write-set-manifest.json",
+    "operations/audit/IMP-08/ST-08.2/validate-receipt.mjs",
+    "operations/audit/IMP-08/ST-08.2/receipt-validation.txt",
+    "operations/receipts/IMP-08-ST-2.json"
+  ],
+  "artifactsChangedDetail": {
+    "created": [
+      "src/economic-calculation/reference.mjs",
+      "src/economic-calculation/benchmark.mjs",
+      "src/economic-calculation/bhv.mjs",
+      "src/economic-calculation/scoring.mjs",
+      "src/economic-calculation/index.mjs",
+      "test/economic-calculation/benchmark.test.mjs",
+      "test/economic-calculation/bhv.test.mjs",
+      "test/economic-calculation/scoring.test.mjs",
+      "docs/economic-calculation.md",
+      "operations/audit/IMP-08/ST-08.2/baseline-and-environment.txt",
+      "operations/audit/IMP-08/ST-08.2/node-check.txt",
+      "operations/audit/IMP-08/ST-08.2/economic-tests.txt",
+      "operations/audit/IMP-08/ST-08.2/economic-tests.tap",
+      "operations/audit/IMP-08/ST-08.2/contracts-tests.txt",
+      "operations/audit/IMP-08/ST-08.2/fixture-coverage-matrix.json",
+      "operations/audit/IMP-08/ST-08.2/acceptance-matrix.md",
+      "operations/audit/IMP-08/ST-08.2/build-write-set-manifest.mjs",
+      "operations/audit/IMP-08/ST-08.2/write-set-manifest.json",
+      "operations/audit/IMP-08/ST-08.2/validate-receipt.mjs",
+      "operations/audit/IMP-08/ST-08.2/receipt-validation.txt",
+      "operations/receipts/IMP-08-ST-2.json"
+    ],
+    "modified": [],
+    "deleted": [],
+    "outsideAllowedPaths": [],
+    "allowedPathsFromPacket": [
+      "src/economic-calculation/**",
+      "test/economic-calculation/**",
+      "docs/economic-calculation.md",
+      "operations/audit/IMP-08/ST-08.2/**",
+      "operations/receipts/IMP-08-ST-2.json"
+    ],
+    "dirtyFilesPreserved": true
+  },
+  "result": "Implementación genérica y sintética de cálculo de referencia/benchmark, B/H/V y scoring de misión. La API pública (proxyReference, selectDailyReference, benchmarkB, isWithinWindow, isWithinFallbackWindow, isDecisionConsumable, classifyOfficialValidity, computeV, computeAllInH, computeTotalEur, classifyCoverage, scoreQuarterly, minimumEvidence, quarterlyResearchVerdict, monthlyDiagnostics, cDiagnostic) consume entradas explícitas y no contiene lookup de resultados, dispatch por fixture ni import del oráculo. Los 35 fixtures congelados ST-08.1 (C01–C12) mapean a tests ejecutados con valores literales: proxy 101, B=105/106/106.5, cobertura recalculada, ventanas 1-0-1/3-1-3 con inicio incluido y fin excluido, fallback ±60 min con extremos incluidos, consumibilidad condicionada, guard 0.01 como caso de audit; scoring +4/-1 (n=2,p=.5,mu=1.5,R=C=4,sigma=1,Sortino=1.5), +3/-1 (Sortino=1 screen falso), +2/-2 (mu=0,Sortino=0), neutrales que preservan n_nonzero, sólo positivos/ceros, n<2, población y grupos vacíos; Monthly separado del screen Quarterly; evidencia mínima; C diagnóstico. Los casos indefinidos conservan razón explícita y nunca se coercionan a cero ni producen PASS. Ronda 1 de revisión independiente (changes_requested) resuelta: (1) `quarterlyResearchVerdict` recibe el canal explícito `dataQuality` y no puede emitir PASS con entradas inválidas (INVALID si `invalidCount>0`), cobertura no `full` o benchmark provisional (HOLD), con su `reason`; (2) el HOLD Monthly es una limitación de alcance con razón decidida por criterio económico y evidencia, nunca por el Sortino indefinido; (3) firma pública de `cDiagnostic` documentada como `researchPassFromCAlone`. Ningún cálculo de producción real, fórmula de ledger H, run económico ni PASS de research.",
+  "testsRun": [
+    { "command": "hostname && pwd && git branch --show-current", "result": "brunode / /srv/hot-data/energy-markets/app / main", "requiredByPacket": true },
+    { "command": "sha256sum docs/canonical/... operations/bootstrap/baseline-manifest.json operations/receipts/IMP-01-IMP_RECEIPT.json operations/receipts/IMP-08-ST-1.json operations/audit/IMP-08/fixture-oracle/fixtures.json operations/audit/IMP-08/fixture-oracle/independent-calculations.md", "result": "los seis hashes coinciden con el baseline del packet y permanecen intactos", "requiredByPacket": true },
+    { "command": "/opt/node/bin/node --check src/economic-calculation/index.mjs", "result": "exit 0", "requiredByPacket": true },
+    { "command": "/opt/node/bin/node --test test/economic-calculation/*.test.mjs", "result": "exit 0; 53 tests, 53 pass, 0 fail", "requiredByPacket": true },
+    { "command": "/opt/node/bin/node --test test/contracts/*.test.mjs", "result": "exit 0; 67 tests, 67 pass, 0 fail", "requiredByPacket": true },
+    { "command": "/opt/node/bin/node --test --test-reporter=tap test/economic-calculation/*.test.mjs", "result": "exit 0; TAP guardado", "requiredByPacket": false }
+  ],
+  "testResults": [
+    "test/economic-calculation/*.test.mjs: 53 tests, 53 pass, 0 fail, exit 0",
+    "test/contracts/*.test.mjs: 67 tests, 67 pass, 0 fail, exit 0",
+    "node --check src/economic-calculation/index.mjs: exit 0"
+  ],
+  "testResultsDetail": {
+    "nodeTestEconomicCalculation": { "tests": 53, "pass": 53, "fail": 0, "cancelled": 0, "skipped": 0, "todo": 0, "exitCode": 0 },
+    "nodeTestContracts": { "tests": 67, "pass": 67, "fail": 0, "cancelled": 0, "skipped": 0, "todo": 0, "exitCode": 0 },
+    "observedStdoutSaved": [
+      "operations/audit/IMP-08/ST-08.2/economic-tests.txt",
+      "operations/audit/IMP-08/ST-08.2/economic-tests.tap",
+      "operations/audit/IMP-08/ST-08.2/contracts-tests.txt",
+      "operations/audit/IMP-08/ST-08.2/node-check.txt"
+    ],
+    "notRun": [
+      "ningún run económico real, campaña, ledger real ni adquisición de datos",
+      "ninguna mutación de API, tick de controller, cambio de timer o toggling de proyectos"
+    ],
+    "fixtureCaveat": "Los valores son sintéticos y no acreditan edge, admisión, PASS de research ni autoridad."
+  },
+  "evidenceProduced": [
+    "operations/audit/IMP-08/ST-08.2/fixture-coverage-matrix.json",
+    "operations/audit/IMP-08/ST-08.2/acceptance-matrix.md",
+    "operations/audit/IMP-08/ST-08.2/write-set-manifest.json",
+    "operations/audit/IMP-08/ST-08.2/baseline-and-environment.txt",
+    "operations/audit/IMP-08/ST-08.2/economic-tests.txt",
+    "operations/audit/IMP-08/ST-08.2/economic-tests.tap",
+    "operations/audit/IMP-08/ST-08.2/contracts-tests.txt",
+    "operations/audit/IMP-08/ST-08.2/node-check.txt"
+  ],
+  "evidenceProducedDetail": {
+    "fixtureCoverage": "35 fixtureId mapeados a tests ejecutados con valores literales",
+    "writeSetManifest": "before/after; allocated paths absent at start; 0 writes outside allowed_paths; oracle hashes recorded",
+    "placeholdersUsed": false,
+    "secretsRecorded": false
+  },
+  "assumptions": [
+    "Serialización y nombres de campo son IMPLEMENTATION DETAIL; el contenido semántico de §§5–6 se preserva.",
+    "H es un valor all-in suministrado; no se implementa fórmula de ledger real ni denominator unitario.",
+    "Los 35 fixtures son sintéticos; los tests afirman valores literales del oráculo ST-08.1 sin cargarlo en la implementación.",
+    "El packet es premium y fue reenrutado por Command a este lane; el reviewer independiente 0af74a08 es distinto del autor."
+  ],
+  "deviations": [
+    {
+      "item": "El packet clasifica ST-08.2 como premium pero fue autorado por el Emergency Cheap Production Worker (OpenRouter).",
+      "rationale": "Command reenrutó el packet y la capacidad del agente lo autoriza explícitamente cuando los lanes premium/Go primarios no están disponibles y el reviewer es distinto; el reviewer nativo 0af74a08 no es el autor.",
+      "impact": "ninguno sobre la semántica o los criterios; revisión independiente preservada"
+    }
+  ],
+  "dependencyFindings": [
+    "REQUIRES=IMP-01 aceptado y SPEC vigente — SATISFECHO; hashes verificados en vivo.",
+    "Phase gate LAT-126 ST-08.1 aprobado (native decision 473757cf-567b-4cc0-ad43-937825bc068d); oráculo congelado reutilizado read-only.",
+    "REQUIRES_AUDIT=none y REQUIRES_EVIDENCE=none declarados por el packet; ninguno reclamado.",
+    "IMP-05/07 y sus audit scopes siguen siendo necesarios antes de cualquier run real; no se cierra ningún DEP.",
+    "No se encontró contradicción canónica; no se activó SPEC_CHANGE_REQUEST."
+  ],
+  "dependencyFindingsDetail": {
+    "REQUIRES": "IMP-01 aceptado (LAT-92) y SPEC vigente; hashes verificados.",
+    "REQUIRES_AUDIT": "none para este scope sintético.",
+    "REQUIRES_EVIDENCE": "none adicional.",
+    "PRODUCES_EVIDENCE": "verificación ejecutable sintética de B/H/V/scoring y warnings.",
+    "downstreamNote": "IMP-08 parent acceptance queda separado (§20.2.10); no se produce IMP_RECEIPT ni cierre de DEP-13/P6."
+  },
+  "failuresRetries": [
+    {
+      "event": "El test de fallback ±60 min falló inicialmente (todos los casos devolvían false)",
+      "cause": "El default de segundos en el parser de hora local era el string \"0\", que Number.isFinite rechazaba",
+      "resolution": "Se cambió el default a 0 (número); la suite pasó 48/48",
+      "byThisSubtask": true
+    },
+    {
+      "event": "Un primer run previo (8009b942) no pudo autorar por conflicto de ruteo (packet premium despachado a su propio reviewer)",
+      "cause": "dispatch a lane review_ant con executionPolicy de un solo stage participante 0af74a08",
+      "resolution": "Se devolvió el finding a Command (LAT-159); Command reenrutó el packet a este lane distinto del reviewer y limpió el bloqueo",
+      "byThisSubtask": false
+    },
+    {
+      "event": "Revisión independiente ronda 1 (0af74a08, decision cebc19f9) devolvió changes_requested con 3 hallazgos",
+      "cause": "H1: `quarterlyResearchVerdict` no consultaba `invalidCount` ni recibía calidad de dato, así que población sucia, cobertura incompleta o benchmark provisional producían el mismo PASS que una población limpia. H2: el HOLD Monthly era constante y su test no afirmaba el veredicto. H3: la firma documentada de `cDiagnostic` no coincidía con la implementación.",
+      "resolution": "H1: canal explícito `dataQuality` en `quarterlyResearchVerdict` (INVALID si `invalidCount>0`; HOLD si cobertura no `full` o benchmark provisional; sin declarar admisibilidad no hay PASS) más tests discriminantes. H2: `monthlyDiagnostics` decide su `researchVerdictReason` por criterio económico y evidencia (HOLD de alcance, independiente del Sortino) y se renombró/afirmó el test conservando el fixtureId del oráculo. H3: docs corregidas a `researchPassFromCAlone`. Suites 53/53 económicos y 67/67 contratos.",
+      "byThisSubtask": true
+    }
+  ],
+  "noGuessQuestionsRaised": [],
+  "specChangeRequest": {
+    "raised": false,
+    "rationale": "No se encontró contradicción canónica frozen; no fue necesaria ninguna edición fuera de allowed_paths."
+  },
+  "recommendedStatus": "in_review",
+  "review": {
+    "stage1": "Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c (única etapa, approvalsNeeded 1, commentRequired true, maxReviewRounds 3)",
+    "note": "El autor no aprueba. El reviewer debe recomputar independientemente los casos numéricos y de frontera y validar la cobertura de fixtures; el script del autor no basta. ST accepted ≠ IMP accepted.",
+    "rounds": [
+      {
+        "round": 1,
+        "reviewer": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "cebc19f9-f6b7-4ac4-b40b-26fbc82d37d1",
+        "outcome": "changes_requested",
+        "findings": "H1 (criterio 5, bloqueante): entradas inválidas/cobertura/provisional ocultas tras un PASS; H2 (criterio 5): HOLD Monthly incondicional no demostrable; H3 (criterio 7): firma documentada de cDiagnostic desalineada.",
+        "resolution": "Los 3 hallazgos resueltos dentro de allowed_paths; oráculo y baselines intactos; suites 53/53 y 67/67; receipt y manifest actualizados con los hashes resultantes."
+      }
+    ]
+  },
+  "receiptMeta": {
+    "specSection": "20.2.8",
+    "writtenAtUtc": "2026-09-20T17:05:00Z",
+    "writtenByRun": "3ef4b2c1-7b36-4813-a8f2-830588bb8383",
+    "revision": "round-1 review correction of the round-0 receipt (superseded contentHash 215a0e76…)",
+    "fieldsCovered": [
+      "packet/subtask/parent identity",
+      "worker/model route",
+      "starting baseline",
+      "resulting version",
+      "inputs actually used",
+      "artifacts changed",
+      "result",
+      "tests run",
+      "test results",
+      "evidence produced",
+      "assumptions",
+      "deviations",
+      "dependency findings",
+      "failures/retries",
+      "recommended status"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "artifactKind": "IMP-03_EEX_THE_COVERAGE_SUMMARY",
+  "censusDefinition": "Full metadata census: every observed part.parquet footer (rows/schema/bytes), no row scan.",
+  "coverageClaim": "Observed partitions only. Presence in this census is not certified coverage of any complete period; the 2020-2026 range remains an unverified input.",
+  "generatedAtUtc": "2026-09-21T22:46:28.191375+00:00",
+  "instance": "EEX THE trade and top-of-book factual audit 20260921",
+  "instanceVersion": 1,
+  "sampleDefinition": "Deterministic bounded content sample: date-sorted partition indices [0.0, 0.12, 0.25, 0.37, 0.5, 0.62, 0.75, 0.87, 0.97, 1.0], up to 3 files per sampled partition.",
+  "tables": {
+    "eex_derivative_top_of_book": {
+      "dateMax": "2026-07-28",
+      "dateMin": "2025-07-25",
+      "distinctPullIds": 9251,
+      "fileCount": 9251,
+      "partitionCount": 257,
+      "root": "/srv/hot-data/EEX/table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE",
+      "schemaVariantCount": 11,
+      "totalBytes": 7490373724,
+      "totalRows": 94714717
+    },
+    "eex_derivative_trade": {
+      "dateMax": "2026-07-28",
+      "dateMin": "2020-11-02",
+      "distinctPullIds": 2801,
+      "fileCount": 2801,
+      "partitionCount": 1464,
+      "root": "/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=NATGAS/area=THE",
+      "schemaVariantCount": 14,
+      "totalBytes": 51080320,
+      "totalRows": 282693
+    }
+  }
+}

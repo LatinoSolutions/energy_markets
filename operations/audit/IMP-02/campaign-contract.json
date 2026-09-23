@@ -1,0 +1,727 @@
+{
+  "artifactKind": "IMP-02_CAMPAIGN_CONTRACT_AUDIT",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-02-ST-1-v1.1",
+  "subtaskId": "ST-02.1",
+  "parentImp": "IMP-02",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "spec": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "campaignIdentified": false,
+  "statusLegend": {
+    "VERIFIED": "Fact asserted with an inspected source, hash and exact locator.",
+    "HISTORICAL_ASSERTION": "Value communicated historically in the corpus. Provenance only; not an executable contract and not a substitute for a real mandate.",
+    "MISSING": "No real value exists in the inspected material. Documented with reason, inspected sources, custodian role and next retrieval action.",
+    "SYNTHETIC_EXAMPLE": "Explicitly fabricated example used only to exercise the verifier. Never accepted evidence."
+  },
+  "facts": [
+    {
+      "factId": "campaign.identity.campaignId",
+      "section": "Identidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real Campaign ID exists in the workspace or the historical corpus.",
+        "inspectedSources": ["workspace scan", "S-05", "S-06", "S-07"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Obtain the signed procurement mandate/campaign record containing the exact Campaign ID for the Gas Quarterly obligation."
+      }
+    },
+    {
+      "factId": "campaign.identity.productContract",
+      "section": "Identidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real product/contract is defined. The corpus explicitly warns that German client residency does not identify the Gas product by itself.",
+        "inspectedSources": ["workspace scan", "S-05 p.4 'Producto y unidades'", "S-07 p.3"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Request the exact gas product/contract (e.g. front-quarter contract naming as traded) from the procurement mandate owner."
+      }
+    },
+    {
+      "factId": "campaign.identity.productFamily",
+      "section": "Identidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real campaign identifies Power or Gas; Gas Quarterly is only the canonical first-experiment population, not a confirmed campaign.",
+        "inspectedSources": ["S-01 §13.3 L1187", "workspace scan"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Confirm product family for the campaign from the mandate; do not infer it from the P5 population target."
+      }
+    },
+    {
+      "factId": "campaign.identity.mission",
+      "section": "Identidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real campaign confirms Monthly or Quarterly; P5 targets Gas Quarterly only as an experimental population.",
+        "inspectedSources": ["S-01 §13.3 L1187", "workspace scan"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Identify the campaign mission (Monthly/Quarterly) from the mandate; keep Mission/Product separation frozen."
+      }
+    },
+    {
+      "factId": "campaign.identity.hubMarket",
+      "section": "Identidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No applicable market/hub is defined. The corpus lists 'mercado/hub' as an unresolved contract input.",
+        "inspectedSources": ["workspace scan", "S-05 p.4 'Producto y unidades'", "S-07 p.3"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Retrieve the applicable market/hub and settlement mechanism from the signed mandate."
+      }
+    },
+    {
+      "factId": "campaign.obligation.totalVolumeKnown",
+      "section": "Obligación",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real total obligation volume exists. Only historical communicated quantities with incomplete units are present, and §4.1 forbids using them as an executable value.",
+        "inspectedSources": ["S-01 §4.1 L247", "S-05 p.4", "S-06 p.2"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Obtain the known total obligation volume and its unit from the mandate; do not convert the historical MW figures."
+      }
+    },
+    {
+      "factId": "campaign.obligation.unit",
+      "section": "Obligación",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "Historical figures are expressed in MW (Power/Gas) or as an unstated unit; MW is not MWh and delivery hours/profile are unknown, so no valid economic unit exists.",
+        "inspectedSources": ["S-01 §4.1 L258", "S-05 p.4 'Nota técnica de unidades'"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Obtain the contractual unit and delivery hours/profile; only then evaluate any MW to MWh conversion."
+      }
+    },
+    {
+      "factId": "campaign.obligation.deliveryPeriod",
+      "section": "Obligación",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No contractual delivery period is documented.",
+        "inspectedSources": ["workspace scan", "S-05 p.4", "S-07 p.3"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Request the delivery period covered by the obligation from the mandate."
+      }
+    },
+    {
+      "factId": "campaign.obligation.deliveryProfile",
+      "section": "Obligación",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No delivery profile/hours exist. Without hours and profile, MW cannot be converted to MWh.",
+        "inspectedSources": ["S-01 §4.1 L258", "S-05 p.4", "S-07 p.3"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Retrieve the delivery profile (hours/load shape) from the mandate or the operations calendar."
+      }
+    },
+    {
+      "factId": "campaign.obligation.amendments",
+      "section": "Obligación",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No documented amendments/cancellations exist; absence cannot be asserted as 'none' without the real contract.",
+        "inspectedSources": ["workspace scan", "S-05 p.4", "S-07 p.3"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Confirm whether any amendments/cancellations apply to the real obligation."
+      }
+    },
+    {
+      "factId": "historical.gasQuarterlyVolume",
+      "section": "Obligación",
+      "status": "HISTORICAL_ASSERTION",
+      "value": "60 MW",
+      "unit": "MW",
+      "source": {
+        "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf",
+        "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f",
+        "locator": "p.4 §2 'Datos comunicados por Bru' table (Gas / Quarterly)",
+        "quote": "Quarterly  «10 Energy»; unidad no explicitada  ...  60 MW"
+      },
+      "note": "Historical communicated value. Section 4.1: corpus quantities with incomplete units do not authorize conversions nor replace an executable contract."
+    },
+    {
+      "factId": "historical.gasMonthlyVolume",
+      "section": "Obligación",
+      "status": "HISTORICAL_ASSERTION",
+      "value": "10 MW",
+      "unit": "MW",
+      "source": {
+        "path": "/srv/hot-data/energy-markets/reference/research/Power_Gas_Cuaderno_Investigacion_13_Preguntas_v1_2026-09-14.pdf",
+        "sha256": "f814aed7d7999e83772c833591264cbf8f6e084506344142feacf5b41235d654",
+        "locator": "p.2 'Obligaciones comunicadas; no reinterpretadas' table (Gas / Mensual)",
+        "quote": "Mensual  10 MW"
+      },
+      "note": "Historical only; no ownership relation to the Quarterly obligation is defined."
+    },
+    {
+      "factId": "historical.powerMonthlyVolume",
+      "section": "Obligación",
+      "status": "HISTORICAL_ASSERTION",
+      "value": "10 MW",
+      "unit": "MW",
+      "source": {
+        "path": "/srv/hot-data/energy-markets/reference/research/Power_Gas_Cuaderno_Investigacion_13_Preguntas_v1_2026-09-14.pdf",
+        "sha256": "f814aed7d7999e83772c833591264cbf8f6e084506344142feacf5b41235d654",
+        "locator": "p.2 'Obligaciones comunicadas; no reinterpretadas' table (Power / Mensual)",
+        "quote": "Mensual  10 MW"
+      },
+      "note": "Historical only. Power stays outside the first experiment; no aggregation is authorized."
+    },
+    {
+      "factId": "historical.powerQuarterlyVolume",
+      "section": "Obligación",
+      "status": "HISTORICAL_ASSERTION",
+      "value": "«10 Energy»; unidad no explicitada",
+      "unit": null,
+      "source": {
+        "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf",
+        "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f",
+        "locator": "p.4 §2 'Datos comunicados por Bru' table (Power / Quarterly)",
+        "quote": "Quarterly  «10 Energy»; unidad no explicitada"
+      },
+      "note": "Historical only; the unit is explicitly unstated and must not be assumed to be MW."
+    },
+    {
+      "factId": "historical.deliveryNarrative",
+      "section": "Obligación",
+      "status": "HISTORICAL_ASSERTION",
+      "value": "tres meses de actividad y un mes de delivery",
+      "unit": null,
+      "source": {
+        "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf",
+        "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f",
+        "locator": "p.4 §2 paragraph after the table",
+        "quote": "La conversación describió tres meses de actividad y un mes de delivery. ... no confirma todavía el mandato real de compras."
+      },
+      "note": "Narrative provenance; the same source states it does not confirm the real procurement mandate."
+    },
+    {
+      "factId": "historical.clientLocation",
+      "section": "Identidad",
+      "status": "HISTORICAL_ASSERTION",
+      "value": "cliente en Alemania",
+      "unit": null,
+      "source": {
+        "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf",
+        "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f",
+        "locator": "p.4 §2 paragraph after the table",
+        "quote": "Se mantienen cliente en Alemania, BUY = 1 / WAIT = 0 y volumen necesario definido."
+      },
+      "note": "Client location does not identify the Gas product/hub by itself (S-05 p.4 'Producto y unidades')."
+    },
+    {
+      "factId": "campaign.calendar.campaignOpenClose",
+      "section": "Calendario",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real campaign opening/closing dates exist.",
+        "inspectedSources": ["workspace scan", "S-05 p.4 'Calendario'", "S-07 p.3"],
+        "custodianRole": "Energy operations owner",
+        "nextRetrievalAction": "Retrieve the real procurement calendar (opening, closing, pause/exclusion) from operations/mandate."
+      }
+    },
+    {
+      "factId": "campaign.calendar.decisionOpportunities",
+      "section": "Calendario",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No concrete decision boundaries/trading calendar exist; 11:00 is not a documented default.",
+        "inspectedSources": ["S-01 §24 DEP-03 L2033", "S-05 p.4"],
+        "custodianRole": "Energy operations owner",
+        "nextRetrievalAction": "Obtain concrete trading calendar and decision boundaries, including timezone/DST."
+      }
+    },
+    {
+      "factId": "campaign.calendar.deadline",
+      "section": "Calendario",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real completion deadline is documented.",
+        "inspectedSources": ["S-07 p.3 'The real completion deadline'", "S-01 §24 DEP-03"],
+        "custodianRole": "Energy operations owner",
+        "nextRetrievalAction": "Retrieve the real completion deadline from the mandate/operations contract."
+      }
+    },
+    {
+      "factId": "campaign.calendar.pauseExclusion",
+      "section": "Calendario",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No documented pause/excluded month for the real campaign.",
+        "inspectedSources": ["S-01 §13.4 L1193", "S-05 p.4"],
+        "custodianRole": "Energy operations owner",
+        "nextRetrievalAction": "Confirm the documented pause/excluded-month structure applicable to the campaign."
+      }
+    },
+    {
+      "factId": "benchmark.window.quarterly",
+      "section": "Calendario",
+      "status": "VERIFIED",
+      "value": "[Q-4 meses, Q-1 mes)",
+      "unit": "calendar window",
+      "source": {
+        "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "locator": "§5.3 L385 (table) and L389",
+        "quote": "Quarterly | 3-1-3 | [Q-4 meses, Q-1 mes) | Tres meses y un mes excluido antes del trimestre que comienza en Q ... La ventana del benchmark es una referencia económica: no autoriza ejecutar dentro del mes excluido ni sustituye el calendario real de procurement."
+      },
+      "guard": "benchmarkWindowIsExecutionPermission=false"
+    },
+    {
+      "factId": "benchmark.window.monthly",
+      "section": "Calendario",
+      "status": "VERIFIED",
+      "value": "[S-1 mes, S)",
+      "unit": "calendar window",
+      "source": {
+        "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "locator": "§5.3 L384 (table) and L389",
+        "quote": "Monthly | 1-0-1 | [S-1 mes, S) ... no autoriza ejecutar dentro del mes excluido"
+      },
+      "guard": "benchmarkWindowIsExecutionPermission=false"
+    },
+    {
+      "factId": "spec.firstExperimentPopulation",
+      "section": "Calendario",
+      "status": "VERIFIED",
+      "value": "eligible Gas Quarterly procurement campaigns",
+      "unit": "population definition",
+      "source": {
+        "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "locator": "§13.3 L1187-1189",
+        "quote": "El primer experimento comprende exclusivamente eligible Gas Quarterly procurement campaigns. ... Si la evidencia Gas Quarterly válida es insuficiente, corresponde HOLD, con el faltante registrado."
+      },
+      "guard": "This is a canonical target population, not a confirmed real campaign."
+    },
+    {
+      "factId": "campaign.feasibility.lots",
+      "section": "Factibilidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real lot size/lot rules documented.",
+        "inspectedSources": ["S-01 §24 DEP-05 L2035", "S-07 p.3"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Retrieve lot size and rounding rules from the execution contract."
+      }
+    },
+    {
+      "factId": "campaign.feasibility.rounding",
+      "section": "Factibilidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No rounding treatment documented for the real product.",
+        "inspectedSources": ["S-01 §24 DEP-04 L2034", "S-07 p.3"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Retrieve rounding and residual treatment from the execution contract."
+      }
+    },
+    {
+      "factId": "campaign.feasibility.operationalRestrictions",
+      "section": "Factibilidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No daily limits, liquidity constraints or budget limits are documented.",
+        "inspectedSources": ["S-07 p.3", "S-01 §24 DEP-05"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Retrieve operational restrictions from the mandate/execution contract."
+      }
+    },
+    {
+      "factId": "campaign.feasibility.terminalCoverageRule",
+      "section": "Factibilidad",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No valid terminal coverage rule is documented. If residual remains without a valid terminal rule, §4.3/§14.5 require COVERAGE_INCOMPLETE and forbid inventing a close-out fill.",
+        "inspectedSources": ["S-01 §4.3 L289", "S-01 §14.5 L1337", "S-01 §24 DEP-04 L2034"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Retrieve the terminal coverage rule (and any amendments) from the procurement contract."
+      }
+    },
+    {
+      "factId": "campaign.execution.fillsContractVersion",
+      "section": "Ejecución",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No versioned fills/execution contract exists for a real campaign.",
+        "inspectedSources": ["S-01 §4.1 L255", "S-01 §24 DEP-05"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Obtain the versioned execution/fills contract applicable to the campaign."
+      }
+    },
+    {
+      "factId": "campaign.execution.latency",
+      "section": "Ejecución",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No audited latency value exists; §13.6 rule 4 forbids inventing defaults.",
+        "inspectedSources": ["S-01 §13.6 L1221-1224", "S-01 §24 DEP-05"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Obtain audited latency from execution/market data owner."
+      }
+    },
+    {
+      "factId": "campaign.execution.partialFills",
+      "section": "Ejecución",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real partial-fill/no-fill rules documented.",
+        "inspectedSources": ["S-01 §14.4 L1322-1324", "S-01 §24 DEP-05"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Obtain partial-fill/no-fill rules from the execution contract."
+      }
+    },
+    {
+      "factId": "campaign.execution.spreadSlippage",
+      "section": "Ejecución",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No audited spread/slippage values; zero cannot be assumed.",
+        "inspectedSources": ["S-01 §13.6 L1224", "S-01 §24 DEP-05"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Obtain audited spread/slippage from execution/market data owner."
+      }
+    },
+    {
+      "factId": "campaign.execution.fees",
+      "section": "Ejecución",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No audited fees; §13.6 'no invented defaults' forbids substituting zero.",
+        "inspectedSources": ["S-01 §13.6 L1221", "S-01 §24 DEP-05"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Obtain audited fee schedule from the execution contract."
+      }
+    },
+    {
+      "factId": "campaign.execution.costTreatment",
+      "section": "Ejecución",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No defined cost treatment (single accounting) for a real campaign.",
+        "inspectedSources": ["S-01 §13.6 L1219", "S-01 §14.4 L1320-1324"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Define cost treatment in the versioned execution contract."
+      }
+    },
+    {
+      "factId": "campaign.coverage.openingObligation",
+      "section": "Estado de cobertura",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No numeric opening obligation exists; historical MW values lack delivery hours/profile.",
+        "inspectedSources": ["S-01 §4.3 L280", "workspace scan"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Materialize opening obligation with unit from the mandate."
+      }
+    },
+    {
+      "factId": "campaign.coverage.executedVolume",
+      "section": "Estado de cobertura",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No execution ledger/fills exist for a real campaign.",
+        "inspectedSources": ["S-01 §4.3 L280", "workspace scan"],
+        "custodianRole": "Energy operations/execution owner",
+        "nextRetrievalAction": "Produce the real execution ledger when fills exist."
+      }
+    },
+    {
+      "factId": "campaign.coverage.remainingVolume",
+      "section": "Estado de cobertura",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "Remaining volume cannot be computed without opening obligation and executed volume.",
+        "inspectedSources": ["S-01 §4.3 L280", "workspace scan"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Derive remaining only after opening obligation and executed volume are materialized."
+      }
+    },
+    {
+      "factId": "campaign.coverage.fillToObligationAssignment",
+      "section": "Estado de cobertura",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "No real fills or obligation set exist to assign; ownership must avoid double counting (§4.3, DEP-02).",
+        "inspectedSources": ["S-01 §4.3 L287", "S-01 §24 DEP-02 L2032", "workspace scan"],
+        "custodianRole": "Procurement mandate owner",
+        "nextRetrievalAction": "Assign each real fill/coverage to at most one obligation once obligations exist."
+      }
+    },
+    {
+      "factId": "campaign.sizing.perBuyQuantity",
+      "section": "Obligación",
+      "status": "MISSING",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "missing": {
+        "reason": "Per-BUY sizing is a separate decision from the known total obligation (§4.1/§4.2) and no real sizing rule exists.",
+        "inspectedSources": ["S-01 §4.1 L247", "S-01 §4.2 L269"],
+        "custodianRole": "Procurement mandate owner / research",
+        "nextRetrievalAction": "Do not infer per-BUY quantity from any total; obtain it from the audited mandate/sizing policy later."
+      },
+      "guard": "totalObligationIsPerBuySizing=false"
+    }
+  ],
+  "reconciliation": {
+    "invariant": "OpeningObligation = ExecutedVolume + RemainingVolume",
+    "evaluated": false,
+    "status": "NOT_COMPUTABLE",
+    "reason": "No real campaign provides numeric opening obligation, executed volume or remaining volume. Historical MW values lack delivery hours/profile and are not an executable contract (§4.1).",
+    "openingObligation": null,
+    "executedVolume": null,
+    "remainingVolume": null,
+    "unit": null,
+    "coverageStatus": "NOT_COMPUTABLE_NO_REAL_CAMPAIGN",
+    "terminalRuleStatus": "MISSING",
+    "closeOutFill": null,
+    "guards": {
+      "totalObligationIsPerBuySizing": false,
+      "benchmarkWindowIsExecutionPermission": false,
+      "unknownTerminalRuleFabricatesCloseOutFill": false
+    }
+  },
+  "syntheticExamples": [
+    {
+      "name": "conservation-holds",
+      "synthetic": true,
+      "expect": "valid",
+      "facts": [
+        {
+          "factId": "synthetic.openingObligation",
+          "section": "Estado de cobertura",
+          "status": "SYNTHETIC_EXAMPLE",
+          "value": 100,
+          "unit": "MWh",
+          "source": { "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md", "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c", "locator": "synthetic fixture only", "quote": "explicitly synthetic" }
+        }
+      ],
+      "reconciliation": {
+        "invariant": "OpeningObligation = ExecutedVolume + RemainingVolume",
+        "evaluated": true,
+        "status": "COMPUTED",
+        "openingObligation": 100,
+        "executedVolume": 40,
+        "remainingVolume": 60,
+        "unit": "MWh",
+        "coverageStatus": "COVERED",
+        "terminalRuleStatus": "VERIFIED",
+        "closeOutFill": null,
+        "guards": { "totalObligationIsPerBuySizing": false, "benchmarkWindowIsExecutionPermission": false, "unknownTerminalRuleFabricatesCloseOutFill": false }
+      }
+    },
+    {
+      "name": "conservation-violation",
+      "synthetic": true,
+      "expect": "rejects:CONSERVATION_VIOLATION",
+      "reconciliation": {
+        "invariant": "OpeningObligation = ExecutedVolume + RemainingVolume",
+        "evaluated": true,
+        "status": "COMPUTED",
+        "openingObligation": 100,
+        "executedVolume": 40,
+        "remainingVolume": 50,
+        "unit": "MWh",
+        "coverageStatus": "COVERED",
+        "terminalRuleStatus": "VERIFIED",
+        "closeOutFill": null,
+        "guards": { "totalObligationIsPerBuySizing": false, "benchmarkWindowIsExecutionPermission": false, "unknownTerminalRuleFabricatesCloseOutFill": false }
+      }
+    },
+    {
+      "name": "closeout-with-unknown-terminal-rule",
+      "synthetic": true,
+      "expect": "rejects:CLOSEOUT_WITH_UNKNOWN_TERMINAL_RULE",
+      "reconciliation": {
+        "invariant": "OpeningObligation = ExecutedVolume + RemainingVolume",
+        "evaluated": true,
+        "status": "COMPUTED",
+        "openingObligation": 100,
+        "executedVolume": 30,
+        "remainingVolume": 70,
+        "unit": "MWh",
+        "coverageStatus": "COVERED",
+        "terminalRuleStatus": "MISSING",
+        "closeOutFill": { "quantity": 70, "unit": "MWh", "invented": true },
+        "guards": { "totalObligationIsPerBuySizing": false, "benchmarkWindowIsExecutionPermission": false, "unknownTerminalRuleFabricatesCloseOutFill": false }
+      }
+    },
+    {
+      "name": "sizing-conflated-with-total",
+      "synthetic": true,
+      "expect": "rejects:TOTAL_SIZING_CONFLATION",
+      "reconciliation": {
+        "invariant": "OpeningObligation = ExecutedVolume + RemainingVolume",
+        "evaluated": true,
+        "status": "COMPUTED",
+        "openingObligation": 100,
+        "executedVolume": 40,
+        "remainingVolume": 60,
+        "unit": "MWh",
+        "coverageStatus": "COVERED",
+        "terminalRuleStatus": "VERIFIED",
+        "closeOutFill": null,
+        "guards": { "totalObligationIsPerBuySizing": true, "benchmarkWindowIsExecutionPermission": false, "unknownTerminalRuleFabricatesCloseOutFill": false }
+      }
+    },
+    {
+      "name": "benchmark-window-as-execution-permission",
+      "synthetic": true,
+      "expect": "rejects:BENCHMARK_WINDOW_AS_PERMISSION",
+      "reconciliation": {
+        "invariant": "OpeningObligation = ExecutedVolume + RemainingVolume",
+        "evaluated": true,
+        "status": "COMPUTED",
+        "openingObligation": 100,
+        "executedVolume": 40,
+        "remainingVolume": 60,
+        "unit": "MWh",
+        "coverageStatus": "COVERED",
+        "terminalRuleStatus": "VERIFIED",
+        "closeOutFill": null,
+        "guards": { "totalObligationIsPerBuySizing": false, "benchmarkWindowIsExecutionPermission": true, "unknownTerminalRuleFabricatesCloseOutFill": false }
+      }
+    },
+    {
+      "name": "verified-fact-without-provenance",
+      "synthetic": true,
+      "expect": "rejects:NO_PROVENANCE",
+      "facts": [
+        {
+          "factId": "synthetic.noSource",
+          "section": "Identidad",
+          "status": "VERIFIED",
+          "value": "invented",
+          "unit": null,
+          "source": null
+        }
+      ]
+    },
+    {
+      "name": "missing-without-documentation",
+      "synthetic": true,
+      "expect": "rejects:MISSING_NOT_DOCUMENTED",
+      "facts": [
+        {
+          "factId": "synthetic.undocumentedMissing",
+          "section": "Identidad",
+          "status": "MISSING",
+          "value": null,
+          "unit": null,
+          "source": null,
+          "missing": null
+        }
+      ]
+    },
+    {
+      "name": "missing-with-invented-value",
+      "synthetic": true,
+      "expect": "rejects:INVENTED_VALUE",
+      "facts": [
+        {
+          "factId": "synthetic.missingInvented",
+          "section": "Obligación",
+          "status": "MISSING",
+          "value": 60,
+          "unit": "MW",
+          "source": null,
+          "missing": {
+            "reason": "synthetic",
+            "inspectedSources": ["workspace scan"],
+            "custodianRole": "Procurement mandate owner",
+            "nextRetrievalAction": "synthetic"
+          }
+        }
+      ]
+    }
+  ]
+}

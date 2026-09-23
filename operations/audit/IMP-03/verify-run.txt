@@ -1,0 +1,71 @@
+# IMP-03 / ST-03.1 verify run — actual stdout/stderr/exit codes (round 3, after stage-2 Findings B and C)
+# generatedAtUtc: 2026-09-19T16:04:50Z
+
+$ hostname
+brunode
+exit=0
+
+$ pwd
+/srv/hot-data/energy-markets/app
+exit=0
+
+$ sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+exit=0
+
+$ /opt/node/bin/node operations/audit/IMP-03/verify.mjs
+== INPUT HASHES ==
+  SPEC: 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c (expected 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)
+  IMP-01-IMP_RECEIPT.json: 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c (expected 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c)
+  baseline-manifest.json: 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 (expected 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860)
+  IMP-01 content version: c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c (expected c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c)
+  OK
+
+== SOURCE INVENTORY ==
+  OK: 13 cited sources; no data artifacts present (consistent with an UNAVAILABLE matrix).
+
+== REFERENCE-TREE DISPOSITION (reproducible universal negative) ==
+  reference files on disk=18 cited=sources[] dispositioned=notInspected[]
+  OK: every reference/ file is dispositioned exactly once and every declared hash matches disk.
+
+== NAMESPACE SEPARATION ==
+  OK: availability and readiness namespaces are distinct and disjoint.
+
+== TEMPORAL MANIFEST (four semantics) ==
+  semantics=4 entries=17
+  OK: all four time semantics defined and present on every entry.
+
+== MATRIX CONTRACT (eight fields, provenance, critical rule) ==
+  rows=17 candidates=2
+  criticalRows=13 optionalRows=4
+  candidate A0 Calendar-only baseline: readiness=DATA_BLOCKED
+  candidate A1 S1 candidate: readiness=DATA_BLOCKED
+  OK: every row has all eight fields; every claim cites an allowlisted source/hash/locator; no critical-missing DATA_READY; namespaces respected.
+
+== NEGATIVE CASES (synthetic, explicitly labeled) ==
+  [PASS] synthetic-valid-documented-row (expect valid) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> no errors
+  [PASS] synthetic-critical-missing-declared-ready (expect rejects:CRITICAL_MISSING_DATA_READY) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> CRITICAL_MISSING_DATA_READY A0 Calendar-only baseline: SYN-CRIT
+  [PASS] synthetic-publication-only-pit (expect rejects:PUBLICATION_ONLY_PIT) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> PUBLICATION_ONLY_PIT SYN-PIT; NO_PROVENANCE SYN-PIT; NO_PROVENANCE SYN-PIT
+  [PASS] synthetic-universal-coverage-percentage (expect rejects:UNIVERSAL_COVERAGE_PERCENTAGE) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> UNIVERSAL_COVERAGE_PERCENTAGE; UNIVERSAL_COVERAGE_PERCENTAGE
+  [PASS] synthetic-namespace-conflation (expect rejects:NAMESPACE_CONFLATION) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> NAMESPACE_CONFLATION SYN-NS: readiness value in availabilityStatus
+  [PASS] synthetic-inferred-history (expect rejects:INFERRED_HISTORY) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> INFERRED_HISTORY SYN-HIST; NO_PROVENANCE SYN-HIST; NO_PROVENANCE SYN-HIST
+  [PASS] synthetic-assumed-fees (expect rejects:ASSUMED_FEES) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> NO_PROVENANCE SYN-FEE; ASSUMED_FEES SYN-FEE
+  [PASS] synthetic-criticalmissing-summary-omission (expect rejects:CRITICALMISSING_INCONSISTENT) [SYNTHETIC EXAMPLE - NOT EVIDENCE] -> CRITICALMISSING_INCONSISTENT A0 Calendar-only baseline: missing=[SYN-OMIT] extra=[]
+
+== INLINE ADVERSARIAL PROBES ==
+  [PASS] hash-tamper-detected (expect BAD_SOURCE_HASH) -> BAD_SOURCE_HASH probe
+  [PASS] unknown-source-detected (expect UNKNOWN_SOURCE) -> UNKNOWN_SOURCE probe: reference/does-not-exist.md
+  [PASS] missing-field-detected (expect MISSING_FIELD) -> MISSING_FIELD probe.missing: missionAndCandidate; MISSING_FIELD probe.missing: criticalVersusOptional; MISSING_FIELD probe.missing: sourceType; MISSING_FIELD probe.missing: shortValidationNote
+  [PASS] valid-row (expect valid) -> no errors
+  OK: all labeled negative cases behave as expected (critical-missing DATA_READY and publication-only PIT are rejected).
+
+== REAL-DATA SUFFICIENCY (reported separately) ==
+  A0 Calendar-only baseline: DATA_BLOCKED (critical missing: R-01, R-02, R-03, R-04, R-06, R-07, R-08, R-09, R-10, R-11, R-12, R-17)
+  A1 S1 candidate: DATA_BLOCKED (critical missing: R-01, R-02, R-03, R-04, R-05, R-06, R-07, R-08, R-09, R-10, R-11, R-12, R-17)
+  dataArtifactsPresent=0 2020-2026ClaimVerified=no (pending audit)
+  => NEGATIVE AUDIT: no real series present; both P5 Gas Quarterly candidates are DATA_BLOCKED. This is a factual finding, not a verifier failure.
+
+== RESULT ==
+  exit=0 (0 = hashes/contract/namespaces/negatives pass; real-data insufficiency reported separately)
+exit=0

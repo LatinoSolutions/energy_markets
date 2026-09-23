@@ -1,0 +1,35 @@
+# ST-08.6 baseline pins captured before any ST-08.6 write
+# host: brunode  cwd: /srv/hot-data/energy-markets/app  atUtc: 2026-09-22T03:05:19Z
+# branch: main (unborn; no commits)
+# algorithm: sha256sum
+
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f  operations/receipts/IMP-08-ST-1.json
+121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d  operations/receipts/IMP-08-ST-2.json
+4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110  operations/receipts/IMP-08-ST-3.json
+43fe0b9b3dc145f42efadc64138f86f166cea33671e8e95d1eaa6b1aff889bf4  operations/receipts/IMP-08-ST-4.json
+ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71  operations/receipts/IMP-08-ST-5.json
+3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209  operations/audit/IMP-08/ST-08.5/manifest.json
+c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af  operations/audit/IMP-08/ST-08.4/dossier.tar.gz
+5c0a062c06beda3637b2667b492cc1ff0ac25ee7b08bbc6228217a1348ec2c9e  operations/audit/IMP-08/ST-08.4/version-binding.json
+1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e  operations/audit/IMP-08/ST-08.3/manifest.json
+33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec  operations/audit/IMP-08/fixture-oracle/fixtures.json
+b657af8025ccc6d31271db7fcbab4a8f11e608dc9fa450775adbeb3773d2d11c  operations/audit/IMP-08/fixture-oracle/verify.mjs
+9169553a4de9279885d18b7b7d1fb1304b076b88a8b5e775de5fa64e2976c65d  operations/audit/IMP-08/ST-08.3/regression.test.mjs
+88042817cf0db8cfc2510da0088f5e3421160046ddedb3bf1f174c21f8aef358  operations/audit/IMP-08/ST-08.4/verify-st4.mjs
+3707db11bfa97db2245f308131928ce3c4842a18550b909404a7c92b30cbbc8d  operations/audit/IMP-08/ST-08.5/verify-delivery.mjs
+adb7dca17dad1175214fed82a747495c2feb42208553cba618547e39052f847d  docs/economic-calculation.md
+0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1  src/economic-calculation/benchmark.mjs
+4cc204f9eef0e191228e032b0753e68a1f4782426bf76b1de1368e21ff686cdf  src/economic-calculation/bhv.mjs
+04217b163082ac848a5088a2120fb201d32b64ab9e6737b2179e7b20da2e8d66  src/economic-calculation/index.mjs
+c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b  src/economic-calculation/reference.mjs
+52ebf0a56bf6f027ea90be0e8623f10caaaaaf4a383dba8a574eab337ac2cbed  src/economic-calculation/scoring.mjs
+8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8  test/economic-calculation/benchmark.test.mjs
+b523f2d15bf326d8ee0d242ed1c496e5e3f1c1cb43f736f83453e3bb073c06c7  test/economic-calculation/bhv.test.mjs
+80c5467ff16deedbfb4e4172026b189115074c8230e761ea6700c385b8378c01  test/economic-calculation/scoring.test.mjs
+04602faa36ac9f8bc8ef175618f81525dd567b75ee2d578f998d24dfa66f95ca  test/contracts/economic-bundle.test.mjs
+9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc  test/contracts/identities.test.mjs
+23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98  test/contracts/namespaces.test.mjs
+6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655  test/contracts/states.test.mjs

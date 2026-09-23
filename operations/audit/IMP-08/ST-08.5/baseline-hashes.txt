@@ -1,0 +1,40 @@
+ST-08.5 BASELINE HASHES / DIRTY STATUS
+utc=2026-09-21T10:36:07Z
+hostname=brunode
+pwd=/srv/hot-data/energy-markets/app
+branch=main
+
+git status --short:
+?? .claude/
+?? .txt
+?? AGENTS.md
+?? docs/
+?? operations/
+?? src/
+?? test/
+
+Changed product/test starting hashes:
+ef20fbbf19d3484bc5a7d35f9e99c39778734e73ad853011358ca35c4d44203b  src/economic-calculation/bhv.mjs
+afbd61b7f52a71f292b40ff82c34118281b9974be6551eeea639a7c1ddb9ca19  test/economic-calculation/bhv.test.mjs
+
+SPEC and protected historical pins:
+86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c  docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
+895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860  operations/bootstrap/baseline-manifest.json
+78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c  operations/receipts/IMP-01-IMP_RECEIPT.json
+1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f  operations/receipts/IMP-08-ST-1.json
+33fda538883a879b076cf1d4ef81cb7dd1468791599ea92c95f613d3ee7439ec  operations/audit/IMP-08/fixture-oracle/fixtures.json
+58facba24c9df3ceb403e2a67423e905bfa89aa73d861a28d1aca0ea10b061e9  operations/audit/IMP-08/fixture-oracle/independent-calculations.md
+121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d  operations/receipts/IMP-08-ST-2.json
+4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110  operations/receipts/IMP-08-ST-3.json
+1d1e543edea87ec4c976b1f7c77906103c0c51dccdaa5045f20dde4a4f0c1b8e  operations/audit/IMP-08/ST-08.3/manifest.json
+
+Reviewed semantic aggregate inputs:
+0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1  src/economic-calculation/benchmark.mjs
+ef20fbbf19d3484bc5a7d35f9e99c39778734e73ad853011358ca35c4d44203b  src/economic-calculation/bhv.mjs
+04217b163082ac848a5088a2120fb201d32b64ab9e6737b2179e7b20da2e8d66  src/economic-calculation/index.mjs
+c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b  src/economic-calculation/reference.mjs
+52ebf0a56bf6f027ea90be0e8623f10caaaaaf4a383dba8a574eab337ac2cbed  src/economic-calculation/scoring.mjs
+8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8  test/economic-calculation/benchmark.test.mjs
+afbd61b7f52a71f292b40ff82c34118281b9974be6551eeea639a7c1ddb9ca19  test/economic-calculation/bhv.test.mjs
+80c5467ff16deedbfb4e4172026b189115074c8230e761ea6700c385b8378c01  test/economic-calculation/scoring.test.mjs
+adb7dca17dad1175214fed82a747495c2feb42208553cba618547e39052f847d  docs/economic-calculation.md

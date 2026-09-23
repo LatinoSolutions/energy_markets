@@ -1,0 +1,85 @@
+{
+  "receiptKind": "ST_RECEIPT",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-01-ST-1-v1.1",
+    "subtaskId": "ST-01.1",
+    "parentImp": "IMP-01",
+    "parentIssueIdentifier": "LAT-92",
+    "subtaskIssueIdentifier": "LAT-96",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) / DeepSeek V4.1 Flash via opencode_local",
+  "startingBaseline": "empty main, no commits/remotes/worktrees; baseline operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+  "resultingVersion": {
+    "contentHash": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "algorithm": "sha256 of the path-sorted sha256sum listing",
+    "scope": "src/contracts/**, test/contracts/**, operations/audit/IMP-01/test-run.txt"
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c (§§0-3,13-14,20.2.7-.10,25.1/25.2)",
+    "operations/packets/IMP-01-ST-1.md",
+    "operations/bootstrap/baseline-manifest.json",
+    "operations/bootstrap/paperclip-ids.json"
+  ],
+  "artifactsChanged": [
+    "src/contracts/namespaces.mjs",
+    "src/contracts/states.mjs",
+    "src/contracts/identities.mjs",
+    "src/contracts/economic-bundle.mjs",
+    "src/contracts/index.mjs",
+    "test/contracts/namespaces.test.mjs",
+    "test/contracts/states.test.mjs",
+    "test/contracts/identities.test.mjs",
+    "test/contracts/economic-bundle.test.mjs",
+    "operations/audit/IMP-01/test-run.txt",
+    "operations/audit/IMP-01/st-01.1-author-boundaries-verification.txt",
+    "operations/audit/IMP-01/st-01.1-author-r3-c3-verification.txt",
+    "operations/audit/IMP-01/st-01.1-evidence.json"
+  ],
+  "result": "Contratos dependency-free de identidad/versión/namespaces materializados: símbolos colisionantes rechazados sin scope explícito (q_t sentimiento/cantidad sin significado de quarter, A0/A1, S1-S5 con workstream histórico S1/S3/S4/S5 y código bibliográfico S1-S4), namespaces de estado separados (madurez, run, data readiness/availability, veredicto de research, admisión por rol, governance, receipt), linkage WORK-PACKET/ST_RECEIPT/IMP_RECEIPT, y bundle económico §14.2 con preservación de razón del faltante y rechazo de defaults inventados. Correcciones de fidelidad tras los early checks del Director: q_t ya no acepta scope quarter; S2 declara master_plan_code; baselineVersion/startingBaseline/resultingVersion aceptan la representación content-hash de extremo a extremo. Correcciones de la ronda 2 de review (F1-F3): concept_maturity queda restringido a los seis estados §0.3 con scope/materialización como namespaces propios; governance_event usa exactamente PROMOTE/HOLD/DEMOTE/HALT/ROLLBACK; HOLD declara research + admisión por rol + governance y ya no un run_validity inexistente, con test de concordancia scopesForLabel/namespacesForLabel. Correcciones de la ronda 3 de review (C1-C3, stage 2 Tech Lead): C1 valida todos los miembros de la identidad del receipt y el linkage de proyecto y SPEC ID/versión/hash (un hash correcto no valida una tupla en conflicto); C2 sólo acepta scopes propios declarados y no trata claves heredadas de Object como namespaces, validando tipos malformados sin lanzar; C3 rechaza campos económicos obligatorios vacíos o que sólo declaran availability, y representa el UNAVAILABLE a nivel de campo como bloqueado preservando la razón. Los 5 negativos de los probes de Command pasan ahora. Correcciones de la ronda 4 de review (C3 residual, stage 2 Tech Lead): el bundle económico define y valida la forma mínima soportada de cada campo obligatorio (text/boolean/number/list/version/config/manifest/obligation); las referencias de versión obligatorias (execution.contractVersion, benchmark.sourceVersion, evaluator.version) se validan con las reglas existentes isVersionLike (versión o content-hash SHA-256); openingObligation exige value numérico finito y unit no vacío; gasQuarterly booleano; pitManifest con id y version válida; seed numérico. Los 2 negativos residuales de C3 pasan 3/3 y los probes de ronda 2 siguen 6/6.",
+  "testsRun": [
+    "/opt/node/bin/node --test test/contracts/*.test.mjs",
+    "/opt/node/bin/node --test operations/audit/IMP-01/st-01.1-command-r3-c3.mjs",
+    "/opt/node/bin/node --test operations/audit/IMP-01/st-01.1-command-boundaries.mjs"
+  ],
+  "testResults": [
+    "tests 67, pass 67, fail 0, skipped 0, todo 0 (salida real en operations/audit/IMP-01/test-run.txt)",
+    "probes C3 residual de Command: tests 3, pass 3, fail 0 (salida real en operations/audit/IMP-01/st-01.1-author-r3-c3-verification.txt)",
+    "probes de ronda 2 de Command: tests 6, pass 6, fail 0 (salida real en operations/audit/IMP-01/st-01.1-author-boundaries-verification.txt)"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-01/test-run.txt sha256 3225c9699e1215393dd43e18153fb2b87adbf5174d5bfdfa955e4e89f09c274d",
+    "operations/audit/IMP-01/st-01.1-author-r3-c3-verification.txt sha256 70e100f220e44389317ecb18b141cd71d1bce8a9d74b89208e9b011e86d775b7",
+    "operations/audit/IMP-01/st-01.1-author-boundaries-verification.txt sha256 4d8622c5c85ae1cdf09335415c0c48ddcf34528a11cc9018ba86648a247bd884",
+    "operations/audit/IMP-01/st-01.1-evidence.json",
+    "resulting content-hash c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c"
+  ],
+  "assumptions": [
+    "La serialización y el formato de ids namespaced son IMPLEMENTATION DETAIL; la semántica de nombres canónicos se conserva según §0.2/§3.3.",
+    "Las fixtures de test son sintéticas y etiquetadas como tales; no son evidencia de procurement ni cierran DEP."
+  ],
+  "deviations": [],
+  "dependencyFindings": [
+    "REQUIRES=SPEC vigente y §§0-3,13-14 satisfecho: hash verificado en el workspace.",
+    "REQUIRES_AUDIT=none y REQUIRES_EVIDENCE=none declarados por el packet; no se reclamó ninguno.",
+    "No se tocaron paths fuera de allowed_paths."
+  ],
+  "failuresRetries": [
+    "Run previo a53b9a00-bb20-4c7b-b07c-00c21a0a8040 falló con workspace_validation_failed (faltaba .git); el Director reparó el workspace (repo main vacío, sin commits) y devolvió el issue al owner. Este run reanudó sin rehacer trabajo.",
+    "Early checks del Director (comment 182a3c74): corregidos q_t (sin scope quarter), S2 (master_plan_code) y el rechazo de baselineVersion/startingBaseline con forma content-hash; tests re-ejecutados 43/43 y hashes de evidencia actualizados.",
+    "Ronda 2 de review nativa (stage 1 Independent Reviewer, decision 51549461): corregidos F1 (concept_maturity limitado a seis estados §0.3; scope/materialización como namespaces propios), F2 (governance_event = PROMOTE/HOLD/DEMOTE/HALT/ROLLBACK) y F3 (HOLD: research_verdict/role_admission/governance_event, sin run_validity; test de concordancia). Tests re-ejecutados 51/51.",
+    "Ronda 3 de review nativa (stage 2 Tech Lead, decision c7c3f671, changes_requested): corregidos C1 (identidad del receipt: miembros obligatorios y linkage de proyecto/SPEC ID/versión/hash), C2 (resolveSymbol sólo acepta scopes propios declarados; claves heredadas de Object y tipos malformados rechazados sin lanzar) y C3 (campos económicos obligatorios vacíos o sólo-availability rechazados; UNAVAILABLE a nivel de campo bloquea preservando la razón). Tests re-ejecutados 62/62 y los 5 negativos de los probes de Command pasan 6/6.",
+    "Ronda 4 de review nativa (stage 2 Tech Lead, run 6edf8237, changes_requested residual C3): C1 y C2 confirmados fixed; C3 seguía aceptando referencias de versión malformadas ({contentHash:'not-a-sha256'}, {contentHash:null}, '') y obligaciones sin valor ({value:null,unit:'MWh'}). Corregido con formas mínimas por campo (fieldKinds) y validación isVersionLike para referencias de versión. Tests re-ejecutados 67/67, C3 residual 3/3 y probes de ronda 2 6/6."
+  ],
+  "recommendedStatus": "in_review",
+  "nativeReviewRequested": {
+    "stage1": "Independent Reviewer Opus",
+    "stage2": "Tech Lead Astra",
+    "note": "Reviewers deben correr los tests independientemente y verificar cobertura canónica. Worker completion es sólo recomendación."
+  },
+  "parentPending": "IMP-01 permanece pendiente hasta §20.2.10 y su IMP_RECEIPT separado.",
+  "generatedAtUtc": "2026-09-19T10:24:00Z"
+}

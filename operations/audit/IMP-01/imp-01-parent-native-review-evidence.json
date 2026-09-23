@@ -1,0 +1,77 @@
+{
+  "observedAt": "2026-09-19T10:29:09.685406+00:00",
+  "issueId": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+  "status": "done",
+  "executionPolicy": {
+    "mode": "normal",
+    "stages": [
+      {
+        "id": "07153d27-ef36-4fb6-912b-95cf85619fae",
+        "type": "review",
+        "participants": [
+          {
+            "id": "9f1e912b-cad3-4ab6-862b-32ca6481bdc4",
+            "type": "agent",
+            "userId": null,
+            "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+          }
+        ],
+        "approvalsNeeded": 1
+      },
+      {
+        "id": "b5a65c08-877c-48c7-af49-c8d2a5c49896",
+        "type": "review",
+        "participants": [
+          {
+            "id": "d4dff064-0871-4e0e-b693-9efa2bc53152",
+            "type": "agent",
+            "userId": null,
+            "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+          }
+        ],
+        "approvalsNeeded": 1
+      }
+    ],
+    "commentRequired": true,
+    "maxReviewRounds": 3
+  },
+  "executionState": {
+    "status": "completed",
+    "monitor": null,
+    "reviewRequest": null,
+    "currentStageId": null,
+    "lastDecisionId": "059f4f06-178c-47b8-96cc-f89e7123f924",
+    "returnAssignee": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+    },
+    "currentStageType": null,
+    "completedStageIds": [
+      "07153d27-ef36-4fb6-912b-95cf85619fae",
+      "b5a65c08-877c-48c7-af49-c8d2a5c49896"
+    ],
+    "currentStageIndex": null,
+    "currentParticipant": null,
+    "lastDecisionOutcome": "approved",
+    "changesRequestedCount": 0
+  },
+  "reviews": [
+    {
+      "role": "Independent Reviewer Opus, native stage 1",
+      "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "runId": "469b6875-c549-42c2-84bc-982f0fa48141",
+      "commentId": "439b6816-c5be-4eee-b389-0b8b262f84bb",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T09:59:53.331Z"
+    },
+    {
+      "role": "Tech Lead Astra, native stage 2",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "6b653d4b-7039-4c33-8df7-55e7549cc1f9",
+      "commentId": "ed763857-0715-48e8-bbf2-484014b6e681",
+      "outcome": "approved",
+      "observedAt": "2026-09-19T10:27:23.305Z"
+    }
+  ]
+}

@@ -1,0 +1,1318 @@
+{
+  "schema": "IMP-25/ST-25.1 audit evidence v1",
+  "packet": {
+    "packetId": "WP-IMP-25-ST-1-v1.1",
+    "subtaskId": "ST-25.1",
+    "parentImp": "IMP-25",
+    "parentImpIssue": {
+      "identifier": "LAT-93",
+      "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+    },
+    "workIssue": {
+      "identifier": "LAT-95",
+      "id": "ca7c3c88-807e-4616-ac00-4249f6870307"
+    },
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "sourceSections": [
+      "20.2",
+      "24 DEP-27",
+      "25.1 IMP-25",
+      "25.2 IMP-25"
+    ],
+    "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode"
+  },
+  "run": {
+    "authorAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "authorRole": "Opus hard-reasoning auditor (NOT independent reviewer of this ST)",
+    "adapter": "claude_local",
+    "model": "claude-opus-5[1m]",
+    "runId": "see ST_RECEIPT.workerRoute.runId",
+    "evidenceWindowUtc": {
+      "from": "2026-09-19T09:06:00Z",
+      "to": "2026-09-19T09:12:00Z",
+      "note": "Observed reads only; no end time was prestated. All facts in this file were read inside this window."
+    },
+    "correctionWindowUtc": {
+      "from": "2026-09-19T09:17:00Z",
+      "to": "2026-09-19T09:21:00Z",
+      "reason": "Director pre-review accuracy corrections C1-C4 (comments fb3550bd 09:12:29Z, 842408ac 09:16:35Z); see capability-mapping.md section 9.",
+      "liveReverification": {
+        "at": "2026-09-19T09:17:48Z",
+        "energyMarkets": {
+          "state": "on",
+          "pausedAt": null
+        },
+        "alexandria": {
+          "state": "off",
+          "pausedAt": "2026-09-19T08:58:23.200Z"
+        }
+      },
+      "testsRerun": false,
+      "testsRerunRationale": "Nothing the deterministic tests cover changed; Director instruction in 842408ac. Saved TAP and module hashes stand as the observed result.",
+      "evidenceDiscarded": "none"
+    },
+    "mutationsIssued": 0,
+    "officeFilesWritten": 0,
+    "secretsPrinted": false
+  },
+  "inputHashes": {
+    "note": "sha256, computed live in the workspace at 2026-09-19T09:06Z; compared against operations/bootstrap/baseline-manifest.json (observedAt 2026-09-19T08:59:58.093194+00:00).",
+    "canonicalDocs": {
+      "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": {
+        "live": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "baseline": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "match": true
+      },
+      "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_CONSOLIDATION_REPORT_v1_1.md": {
+        "live": "7c2d952949aee5d5bad11da1cf5122bb078ebaafa980b0083d8146ca9ff2e862",
+        "baseline": "7c2d952949aee5d5bad11da1cf5122bb078ebaafa980b0083d8146ca9ff2e862",
+        "match": true
+      },
+      "docs/canonical/PROCUREMENT_RESEARCH_v1_0_to_v1_1_PATCH_REPORT.md": {
+        "live": "472415943fdee2a27fdc91b5afdf92d85316b3d06202860d1f9a9ca4386b0dc3",
+        "baseline": "472415943fdee2a27fdc91b5afdf92d85316b3d06202860d1f9a9ca4386b0dc3",
+        "match": true
+      },
+      "AGENTS.md": {
+        "live": "f3c40b2ba61a98cc32c6d3dc88c2b7fc7616e1a45fe203933f009ec55a3319ae",
+        "baseline": "098043d5ae10ccaf766f34f8c3d0484517d0116d5f2a75817bb6c12ef5e55e38",
+        "match": false,
+        "explanation": "Baseline captured 08:59:58Z. AGENTS.md was updated by the Director at 09:03 (mtime 2026-09-19 09:03) to add the bootstrap .git technical finding now at line 17. Not modified by this audit."
+      }
+    },
+    "packetFile": {
+      "operations/packets/IMP-25-ST-1.md": "3c5bfa31e100ae2e0d2c2afe18806aaae5add2afb2bccc8292ee1950a346ff59"
+    },
+    "officeSources": {
+      "basePath": "/home/op/.paperclip/integrations/office-continuity",
+      "controller.mjs": "e46722c7a936fd95ba769c90f52306a7e222a28ba6d7630617619ac9fae1a93c",
+      "dispatcher.mjs": "ce5666203f2e9c8511f0a4dc08cf6936d7215fde85a6766d4851d26cc537a1a6",
+      "replenisher.mjs": "d792b4238312f522c5686da9a51d27acdc9e1adbe681125cdc7aeaeb070959fd",
+      "queue-snapshot.mjs": "e2a324ef81dae0557b645c39910f1c745970f1ab111c27886da6bbe4b41f0715",
+      "project-gate.mjs": "18603a44fe0dbac0a704120b5d44403f757383173350fd41c9a6ba61030de4da",
+      "packet.mjs": "dbb771b3f52ad12797cb5d9e3866e0a2ca8441f3c64f8dc0729c77f9ed5cb6e5",
+      "review-recovery.mjs": "a2d708876c903781e294b2d10c29a9321b73b4a2611ab82c0532325e2dd2a2f4",
+      "final-acceptance.mjs": "d3fec37798bfd70660485c8b56f01af42a93fea7cdcd9619b052f7df57c8c849",
+      "guards.mjs": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b",
+      "notify.mjs": "e52643855cf110ea2a91c7cf6288954d8757925da76a808536858e35d3d77bdc",
+      "pcapi.mjs": "b8e23c840ab90ff31fecc42fc699fc0a1856f1ab07f481929c1fcab8d8b47c68",
+      "mutate.mjs": "13a5ef7aa8075295d2d5c7bbc9f6c34988857d5025896c1185bf1df83bfe4fbc",
+      "dead-execution.mjs": "edbb7d76ae14982f4490b53a6f4c014e25017b46644a52c266a9cf1fc150573e",
+      "status.mjs": "4e8c1e216c08f823453a494bcea70be314012b2123e9fd98c74c9d014e80852d",
+      "handoff.mjs": "8df2980f2c2bd8cfce27d09165d86742fd8084cbce9304aeef476c9da5337a94",
+      "command-question.mjs": "794613680a21541fc29c18c71f14c0ac72bd52505b586a2514f4d5643c146857",
+      "pilot.mjs": "804c13bd3d1afc4b3dfbb9b743ded2de4f2ab2f39202b9278e0dc8852e40a057",
+      "economics.mjs": "bd95a2be92c277b6729a6974e06b8bc7bab434b1f2b99b2b0c4beca8ed596173",
+      "lanes.json": "a292a5fc7cb6a399d25e132e227ba02e075208d4f47799626a7da1e0d9841cc5",
+      "resources.json": "58e570d63c924d40cebd881cebeb45638287c1ffe88b66dba2e869f1a30ad88d"
+    },
+    "agentInstructionFiles": {
+      "basePath": "/home/op/.paperclip/instances/default/companies/0cd3e396-2505-4349-af4f-09dd608047d2/agents/<id>/instructions/AGENTS.md",
+      "note": "sha256 truncated to 16 hex chars. energySection = contains 'ENERGY-MARKETS-20260919'.",
+      "canonicalLaneAgents": [
+        {
+          "agentId": "2b6bf987",
+          "role": "Tech Lead (Command)",
+          "bytes": 13608,
+          "sha256_16": "f5f2548975da99cd",
+          "energySection": true,
+          "energyPath": true
+        },
+        {
+          "agentId": "0af74a08",
+          "role": "Independent Reviewer / Command Failover",
+          "bytes": 11947,
+          "sha256_16": "53fddc1c99e5d617",
+          "energySection": true,
+          "energyPath": true
+        },
+        {
+          "agentId": "6c548bcb",
+          "role": "Premium Worker A (Luna)",
+          "bytes": 8439,
+          "sha256_16": "5fc0acf9f74cf5c5",
+          "energySection": true,
+          "energyPath": true
+        },
+        {
+          "agentId": "684f6bf6",
+          "role": "Cheap Worker A (Go)",
+          "bytes": 8270,
+          "sha256_16": "32a6dcbfc9f78f86",
+          "energySection": true,
+          "energyPath": true
+        },
+        {
+          "agentId": "3930ac4b",
+          "role": "Cheap Worker B (Go)",
+          "bytes": 8270,
+          "sha256_16": "32a6dcbfc9f78f86",
+          "energySection": true,
+          "energyPath": true
+        },
+        {
+          "agentId": "2f30b8dd",
+          "role": "Emergency Cheap Worker (OpenRouter)",
+          "bytes": 8270,
+          "sha256_16": "32a6dcbfc9f78f86",
+          "energySection": true,
+          "energyPath": true
+        }
+      ],
+      "retiredAgentsWithoutEnergySection": [
+        "0960a1ad",
+        "58f354b3",
+        "5a24b47c",
+        "6351d0c7",
+        "715fba13",
+        "a5d495f0"
+      ],
+      "finding": "All six canonical lane agents are Energy-aware. No instruction change is required for IMP-26."
+    }
+  },
+  "liveObservations": {
+    "projectsExecution": {
+      "command": "GET /api/companies/0cd3e396-2505-4349-af4f-09dd608047d2/projects/execution",
+      "observedAt": "2026-09-19T09:06Z",
+      "result": [
+        {
+          "projectId": "69d82bcd-56b4-4cb8-831e-d5a54b9859d1",
+          "name": "Alexandria",
+          "state": "off",
+          "pausedAt": "2026-09-19T08:58:23.200Z",
+          "pauseReason": "manual"
+        },
+        {
+          "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+          "name": "Energy Markets",
+          "state": "on",
+          "pausedAt": null,
+          "pauseReason": null
+        }
+      ],
+      "projectOnVerified": true
+    },
+    "projectWorkspacePolicy": {
+      "command": "GET /api/companies/{c}/projects",
+      "energyMarkets": {
+        "enabled": true,
+        "defaultMode": "shared_workspace",
+        "sharedWorkspaceConcurrency": "allow",
+        "allowIssueOverride": true,
+        "defaultProjectWorkspaceId": "5c08ab20-ca30-475e-ba63-d9420870645a",
+        "workspaceStrategy": {
+          "type": "project_primary"
+        },
+        "goalIds": []
+      },
+      "alexandria": {
+        "executionWorkspacePolicy": null,
+        "goalIds": [
+          "f59f42d6-3d2c-41f5-8aec-cab9463f280a"
+        ]
+      },
+      "runtimeResolution": {
+        "PAPERCLIP_WORKSPACE_STRATEGY": "project_primary",
+        "PAPERCLIP_WORKSPACE_SOURCE": "project_primary",
+        "PAPERCLIP_WORKSPACE_CWD": "/srv/hot-data/energy-markets/app",
+        "PAPERCLIP_WORKSPACE_ID": "5c08ab20-ca30-475e-ba63-d9420870645a"
+      },
+      "finding": "Per-project workspace isolation already works natively and resolved this run to the Energy workspace via project_primary, not via the per-issue cwd override."
+    },
+    "thisIssue": {
+      "identifier": "LAT-95",
+      "status": "in_progress",
+      "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+      "parentId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "goalId": null,
+      "assigneeAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+      "assigneeAdapterOverrides": {
+        "adapterConfig": {
+          "cwd": "/srv/hot-data/energy-markets/app"
+        }
+      },
+      "executionPolicy": {
+        "mode": "normal",
+        "commentRequired": true,
+        "maxReviewRounds": 3,
+        "stages": [
+          {
+            "type": "review",
+            "approvalsNeeded": 1,
+            "participantAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+          }
+        ]
+      },
+      "finding": "Native review stage configured with Tech Lead Astra as the single required approver, matching the packet's review field."
+    },
+    "issueTree": {
+      "command": "GET /api/companies/{c}/issues",
+      "observedAt": "2026-09-19T09:10Z",
+      "alexandriaRootId": "ff615d11-3c10-4f18-b0d6-1b56d0d6ba13",
+      "energyRootIdentifier": "LAT-91",
+      "energyRootId": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3",
+      "counts": {
+        "energyProjectIssues": 6,
+        "energyIssuesWithParentEqualToAlexandriaRoot": 0,
+        "childrenOfAlexandriaRoot": 64
+      },
+      "energyIssues": [
+        {
+          "identifier": "LAT-91",
+          "status": "backlog",
+          "parentId": null,
+          "goalId": null
+        },
+        {
+          "identifier": "LAT-92",
+          "status": "backlog",
+          "parentId": "9a134853",
+          "goalId": null
+        },
+        {
+          "identifier": "LAT-93",
+          "status": "backlog",
+          "parentId": "9a134853",
+          "goalId": null
+        },
+        {
+          "identifier": "LAT-94",
+          "status": "backlog",
+          "parentId": "9a134853",
+          "goalId": null
+        },
+        {
+          "identifier": "LAT-95",
+          "status": "in_progress",
+          "parentId": "9a134853",
+          "goalId": null,
+          "assignee": "0af74a08"
+        },
+        {
+          "identifier": "LAT-96",
+          "status": "in_progress",
+          "parentId": "9a134853",
+          "goalId": null,
+          "assignee": "2f30b8dd"
+        }
+      ],
+      "finding": "Zero Energy issues satisfy controller.mjs:291 (parentId === ROOT). Energy work is structurally invisible to the controller backlog."
+    },
+    "controllerState": {
+      "file": "/home/op/.paperclip/integrations/office-continuity/controller-state.json",
+      "topLevelKeys": [
+        "version",
+        "pausedByController",
+        "openrouterCache",
+        "lastPruneAt",
+        "actions",
+        "pendingFinalAcceptance",
+        "handoffClaims",
+        "laneTicks",
+        "ticks",
+        "pilotStartedAt",
+        "blockage",
+        "lastEconomicsAt",
+        "reopenClaims",
+        "nudgeClaims",
+        "noPacketHandoffLog",
+        "projectSwitchMissing",
+        "replenisher",
+        "reviewRecovery",
+        "resetWatch",
+        "finalAcceptance",
+        "autonomy",
+        "commandQuestion",
+        "deadExecution"
+      ],
+      "pendingFinalAcceptanceCount": 30,
+      "pendingFinalAcceptanceIsProjectScoped": false,
+      "pendingFinalAcceptanceIdentifiers": "LAT-51,LAT-52,LAT-53,LAT-58,LAT-59,LAT-60,LAT-61,LAT-62,LAT-64,LAT-65,LAT-66,LAT-67,LAT-69,LAT-70,LAT-71,LAT-72,LAT-73,LAT-74,LAT-76,LAT-77,LAT-78,LAT-79,LAT-80,LAT-81,LAT-85,LAT-86,LAT-87,LAT-88,LAT-89,LAT-90 (all Alexandria)",
+      "projectSwitchMissing": false,
+      "finalAcceptance": {
+        "lastWakeAt": null,
+        "wakes": 0
+      },
+      "blockage": {
+        "startedAt": null
+      },
+      "finding": "pendingFinalAcceptance is a flat, project-less id list; 30 Alexandria ids would leak into an Energy refill prompt and the Tech Lead batch wake."
+    },
+    "lastControllerTick": {
+      "source": "CONTINUITY_STATUS.md + queue-snapshot.json",
+      "generatedAt": "2026-09-19T08:59:02.994Z",
+      "projectsLine": "projects: Alexandria OFF, Energy Markets OFF",
+      "readyBacklog": {
+        "routine": 0,
+        "premium": 0,
+        "critical": 0
+      },
+      "buffer": {
+        "readyRunnable": 0,
+        "readyTotal": 0,
+        "minReady": 3,
+        "targetReady": 6,
+        "status": "NO ACTIVE PROJECT"
+      },
+      "autonomy": {
+        "code": "NO_ACTIVE_PROJECT",
+        "consecutiveTicks": 1,
+        "since": "2026-09-19T08:59:02.994Z"
+      },
+      "replenisherLastDecision": "no_project_on",
+      "lanes": {
+        "command_oa1": {
+          "state": "OPEN",
+          "remainingPercent": 100,
+          "reserve": "30%"
+        },
+        "review_ant": {
+          "state": "OPEN",
+          "remainingPercent": 29,
+          "reserve": "20%"
+        },
+        "premium_oa2_a": {
+          "state": "CLOSED",
+          "reason": "below_reserve"
+        },
+        "cheap_go_a": {
+          "state": "CLOSED",
+          "reason": "below_reserve"
+        },
+        "cheap_go_b": {
+          "state": "CLOSED",
+          "reason": "below_reserve"
+        },
+        "cheap_or": {
+          "state": "OPEN",
+          "remaining": "59.03 USD",
+          "reserve": "2.00 USD"
+        },
+        "payg_deepseek": {
+          "state": "ABSENT",
+          "reason": "agent_not_configured"
+        }
+      },
+      "temporalNote": "Energy Markets was switched ON after this tick and before the 09:06Z audit read. The controller has not ticked since (timer held), so no controller artifact yet reflects Energy ON. Not a staleness defect: the gate reads live state each tick."
+    },
+    "systemd": {
+      "latinosolutions-continuity.timer": {
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "enabled",
+        "NextElapseUSecRealtime": "",
+        "LastTriggerUSec": "2026-09-19 08:59:02 UTC"
+      },
+      "latinosolutions-continuity.service": {
+        "ActiveState": "inactive",
+        "UnitFileState": "static",
+        "ExecMainStatus": 0,
+        "WorkingDirectory": "/home/op/.paperclip/integrations/office-continuity"
+      },
+      "latinosolutions-awareness.timer": {
+        "ActiveState": "active",
+        "UnitFileState": "enabled",
+        "NextElapseUSecRealtime": "2026-09-19 09:08:06 UTC"
+      },
+      "hermes-director.service": "active running",
+      "hermes-gateway.service": "active running",
+      "userLinger": {
+        "Linger": "yes",
+        "lingerFile": "/var/lib/systemd/linger/op present"
+      },
+      "finding": "Continuity timer stopped but still enabled; with linger=yes it resumes on boot or on an explicit start. Native Paperclip scheduling and awareness remain running."
+    }
+  },
+  "tests": {
+    "command": "/opt/node/bin/node --test project-gate.test.mjs packet.test.mjs",
+    "cwd": "/home/op/.paperclip/integrations/office-continuity",
+    "nodeBinary": "/opt/node/bin/node",
+    "mutating": false,
+    "observedTapFile": "operations/audit/IMP-25/tests-tap.txt",
+    "result": {
+      "tests": 31,
+      "suites": 0,
+      "pass": 31,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 68.97
+    },
+    "coverage": {
+      "packet.test.mjs": 12,
+      "project-gate.test.mjs": 19
+    },
+    "notRun": {
+      "switch-test.mjs": "Packet prohibition: live switch integration tests that toggle Alexandria were NOT run.",
+      "controllerTick": "No mutating controller tick was executed."
+    },
+    "fixtureCaveat": "project-gate.test.mjs asserts the fixture string 'projects: Alexandria ON, Energy Markets OFF'. That is a pure-function fixture, not live state; live state at audit time is the inverse. The test is correct; the fixture is simply not a live claim."
+  },
+  "gaps": [
+    {
+      "id": "G1",
+      "severity": "critical",
+      "title": "Controller backlog hardcoded to the Alexandria program root",
+      "evidence": [
+        "controller.mjs:291",
+        "pcapi.mjs:5",
+        "pilot.mjs:26",
+        "economics.mjs:28"
+      ],
+      "liveProof": "0 of 6 Energy issues have parentId === ROOT; 64 Alexandria children do",
+      "impact": "No Energy issue can ever become a READY/dispatch/refill/acceptance candidate.",
+      "minimalExtension": "Resolve the program root per ON project instead of a module constant; keep ROOT as the Alexandria default."
+    },
+    {
+      "id": "G2",
+      "severity": "critical",
+      "title": "Refill prompt content hardcoded to LAT-20 / Decision Engine plan / 'Energy Markets (OFF)'",
+      "evidence": [
+        "replenisher.mjs:317",
+        "replenisher.mjs:319",
+        "replenisher.mjs:320",
+        "replenisher.mjs:323"
+      ],
+      "liveProof": "Line 323 literally prohibits touching 'el proyecto Energy Markets (OFF)'; Energy is now the only ON project",
+      "impact": "A refill fired with Energy active instructs Command to read the Alexandria mandate and plan, create children of LAT-20, and simultaneously not touch Energy Markets. Self-contradictory; would produce misfiled wrong work.",
+      "minimalExtension": "Derive mandate reference, plan path and prohibition list from the active project."
+    },
+    {
+      "id": "G3",
+      "severity": "critical",
+      "title": "Refill inherits the Alexandria root parentId and goalId while setting projectId to Energy",
+      "evidence": [
+        "controller.mjs:295",
+        "controller.mjs:827",
+        "controller.mjs:828",
+        "replenisher.mjs:330",
+        "replenisher.mjs:331",
+        "replenisher.mjs:332"
+      ],
+      "liveProof": "Energy project goalIds is [] and all six Energy issues have goalId null; Alexandria root carries the goal",
+      "impact": "Cross-project contamination of the issue tree.",
+      "minimalExtension": "Derive parentId/goalId from the active project's own root; tolerate a null goal."
+    },
+    {
+      "id": "G4",
+      "severity": "high",
+      "title": "pendingFinalAcceptance is flat and project-less",
+      "evidence": [
+        "controller-state.json",
+        "CONTINUITY_STATUS.md:15",
+        "final-acceptance.mjs:35-39",
+        "final-acceptance.mjs:56-66",
+        "replenisher.mjs:307",
+        "replenisher.mjs:320"
+      ],
+      "liveProof": "30 Alexandria ids held with no project key",
+      "impact": "Alexandria ids leak into an Energy refill prompt and into the Tech Lead batch wake.",
+      "minimalExtension": "Key the pending set by project; filter prompt and status line to the active project."
+    },
+    {
+      "id": "G5",
+      "severity": "high",
+      "title": "No representation of canonical-graph eligibility (SPEC/IMP identity, instance-not-accepted, typed REQUIRES*, open SPEC_CHANGE_REQUEST)",
+      "evidence": [
+        "no such symbol in the inspected office",
+        "project-gate.mjs models only the project dimension"
+      ],
+      "specRef": [
+        "20.2.4",
+        "20.2.13",
+        "25.2.1"
+      ],
+      "impact": "The replenisher cannot ask 'which canonical IMP is eligible'; it only knows READY counts.",
+      "minimalExtension": "A small eligibility source the replenisher consults before requesting packets."
+    },
+    {
+      "id": "G6",
+      "severity": "high",
+      "title": "No ST_RECEIPT / IMP_RECEIPT object; FINAL-ACCEPTANCE is per-issue with no parent gate",
+      "evidence": [
+        "final-acceptance.mjs:28",
+        "final-acceptance.mjs:42-50"
+      ],
+      "specRef": [
+        "20.2.8",
+        "20.2.10"
+      ],
+      "impact": "'done' + comment is all the office records; the §20.2.10 parent gate cannot be evaluated.",
+      "minimalExtension": "Extend the existing comment-marker convention and add the parent-gate evaluation."
+    },
+    {
+      "id": "G7",
+      "severity": "medium",
+      "title": "No automated enforcement of the 20 fields required by §20.2.7: packet.mjs types only 8 of 20",
+      "fieldCount": {
+        "specFields": 20,
+        "countedFrom": "SPEC §20.2.7 table, Packet ID through Expected handoff format, counted live from the verified SPEC",
+        "typed": 8,
+        "partial": 2,
+        "untypedProse": 10
+      },
+      "semanticComplianceOfThisPacket": "20/20 — §20.2.7 requires 'el equivalente semántico' and explicitly does not select a storage format, so prose-carried fields SATISFY the SPEC. No SPEC violation is claimed.",
+      "evidence": [
+        "packet.mjs:9-23",
+        "packet.mjs:27",
+        "packet.mjs:85"
+      ],
+      "detail": "Fields with no typed slot: Packet ID, Project, SPEC ID/version/hash, Parent IMP, Subtask ID, Inputs, Source Sections, Frozen decisions, Parent IMP acceptance context, Baseline version. Separate parser defect: KEY_LINE_RE is lowercase-only, so the literal line 'Source Sections:' is silently absorbed as a continuation of scope: (content still reaches the worker, which is why semantic completeness holds).",
+      "impact": "A DIFFERENT, semantically incomplete packet with no SPEC hash, parent IMP or baseline would also be reported ok:true. The office cannot mechanically reject a malformed packet.",
+      "minimalExtension": "Add the missing keys to KNOWN_KEYS and let KEY_LINE_RE recognise the SPEC's literal field labels; backwards-compatible since unknown-key lines are already continuations."
+    },
+    {
+      "id": "G8",
+      "severity": "medium",
+      "title": "Handoff git inspection hardcoded to the Alexandria checkout",
+      "evidence": [
+        "handoff.mjs:16",
+        "handoff.mjs:157",
+        "handoff.mjs:172"
+      ],
+      "impact": "An Energy handoff would report Alexandria's dirty state.",
+      "minimalExtension": "Derive the inspected directory from the issue's resolved workspace."
+    },
+    {
+      "id": "G9",
+      "severity": "medium",
+      "title": "§20.2.12 SPEC_CHANGE_REQUEST: the escalation channel exists; its canonical contract does not",
+      "evidence": [
+        "command-question.mjs:106,161-165,228-241,242-260",
+        "guards.mjs:78,103,121",
+        "queue-snapshot.mjs:108",
+        "autonomy.mjs:166",
+        "command-question.mjs:251-254 (absence of field structure)",
+        "command-question.mjs:261-264 (post-conversion leftover-ticket cleanup, NOT a precondition)"
+      ],
+      "detail": "A real, wired escalation primitive exists end-to-end: the branch stops (issue stays blocked), authority leaves agent hands, and it is surfaced in Queue and autonomy. What is missing is the canonical contract around it, not the channel. Entry is narrow in AUTHOR and SOURCE STATE, not in ticket existence: no [COMMAND-QUESTION] ticket is required at any point before conversion (round-3 correction, reproduced with zero tickets). This primitive alone does not satisfy §20.2.12 and no such claim is made.",
+      "minimalExtension": "Extend the existing primitive, do not replace it: give the descriptor a structured payload carrying the 11 §20.2.12 fields (or an artifact id), and bind it to SPEC version + IMP/Subtask + project. Widen WHO may raise a contradiction and FROM WHAT STATE (a packet owner or reviewer, on a source whose descriptor is not already a Command question), and route architecture/research authority separately from the human gate. Do NOT add a 'ticket-free' entry point: that already exists. The earlier instruction not to reuse [COMMAND-QUESTION] is withdrawn; reusing its conversion path unchanged is recommended.",
+      "correctedInRound": [
+        2,
+        3
+      ],
+      "evidencePresent": [
+        "command-question.mjs:106 — CANONICAL_CONSTRAINTS directs a SPEC_CHANGE_REQUEST: comment when the answer would change frozen architecture",
+        "command-question.mjs:161-165 — findCommandAnswer returns specChange via SPEC_CHANGE_MARKER_RE",
+        "command-question.mjs:242-266 — descriptor converted to SPEC_CHANGE_REQUEST, issue left blocked, leftover ticket cancelled",
+        "guards.mjs:78 SPEC_CHANGE_MARKER_RE; guards.mjs:103 humanRequired -> {required:true, reason:spec_change_request}; guards.mjs:121 dependencyKind -> SPEC_CHANGE_REQUEST",
+        "command-question.mjs:133-138 — isCommandQuestion goes false once converted, so no further ticket",
+        "queue-snapshot.mjs:108 surfaces it; autonomy.mjs:166 reports SPEC_CHANGE_REQUEST as an autonomy outcome"
+      ],
+      "evidenceMissing": [
+        "None of §20.2.12s 11 required fields is captured anywhere (SPEC version, IMP/subtask, Source Sections, Exact contradiction, Observed evidence, Why not implementable as written, Minimum change, Downstream impact, Work safely completed, Work blocked, Requested authority)",
+        "command-question.mjs:251 — payload is a whitespace-collapsed 400-character excerpt of the Command comment",
+        "No SPEC version / IMP / Subtask identity and no project binding on the descriptor",
+        "No routing to the architecture/research authority distinct from the human gate: guards.mjs:103 collapses both into humanRequired",
+        "Narrow entry in author and source state: only a recognised Command agent's post-block comment on an already-blocked Command-question source converts (probes P3, P5, P6). A worker or Astra meeting a contradiction outside that state has no modelled route in; a hand-written SPEC_CHANGE_REQUEST descriptor would be recognised (guards.mjs:78,103) but nothing creates or validates one."
+      ],
+      "entryConditionsActual": [
+        "1. The source is in the controller's blocked list AND passes the project gate (project ON and scoped) - command-question.mjs:228, project-gate.mjs:85-94",
+        "2. On refetch: !mustNeverTouch(fullIssue) AND fullIssue.status === 'blocked' - command-question.mjs:235",
+        "3. isCommandQuestion(issue): non-empty descriptor, humanRequired(issue).required === false, text does not start with 'OFFICE-CONTINUITY', and matches /\\b(no_guess|Command|Tech Lead)\\b/i - command-question.mjs:133-138, 34",
+        "4. The FIRST non-deleted comment after blockedTransitionAt ?? updatedAt authored by an agent in commandAgentIds matches /\\bSPEC_CHANGE_REQUEST\\b/i - command-question.mjs:161-165, guards.mjs:78",
+        "5. actedThisTick < params.maxPerTick and mutate.remaining() >= 1 - command-question.mjs:230,246",
+        "NOT a condition: existence of any [COMMAND-QUESTION] ticket. ticketsForSource is first called at :261, after applied.push({step:'spec_change'}), inside if (ok && leftover && budget) - optional cleanup. The open-ticket lookup at :325 is Phase A, reached only when findCommandAnswer returned nothing."
+      ],
+      "supersededClaims": [
+        {
+          "text": "No §20.2.12 SPEC_CHANGE_REQUEST channel; no symbol found; a branch-stopping SPEC contradiction has no path; the nearest primitive explicitly excludes architectural change; G9 reproduces unchanged after the drift.",
+          "verdict": "FALSE at every inspected hash, including the audit original. Withdrawn in round 2 (capability-mapping.md §12.2).",
+          "retainedFor": "traceability only; must not be accepted."
+        },
+        {
+          "text": "Entry is single-path: it requires an open [COMMAND-QUESTION] ticket plus a Command answer; the minimal extension must add a second entry point that does not require an open [COMMAND-QUESTION].",
+          "verdict": "FALSE at command-question.mjs d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c. Introduced by the round-2 narrowing, withdrawn in round 3 (capability-mapping.md §13). Reproduced converting with ZERO [COMMAND-QUESTION] tickets in the backlog.",
+          "retainedFor": "traceability only; must not be accepted."
+        }
+      ]
+    },
+    {
+      "id": "G10",
+      "severity": "low",
+      "title": "§20.2.11 typed blockers: all six meanings exist; the binding to canonical packet data does not",
+      "evidence": [
+        "guards.mjs:78-80,109,119-128",
+        "queue-snapshot.mjs:101-122",
+        "autonomy.mjs:165-168",
+        "packet.mjs (no REQUIRES_AUDIT/REQUIRES_EVIDENCE parsing)"
+      ],
+      "minimalExtension": "Do not rebuild the types. Derive the dependency kind from typed packet fields once G7 types them, have the G5 eligibility source consult dependencyKind instead of only the project gate, and reorder guards.mjs:109 after the blockedByIssueIds check.",
+      "correctedInRound": 2,
+      "supersededClaim": {
+        "text": "§20.2.11 blocker types (Audit-dependent, Evidence-dependent, Normal dependency, SPEC contradiction) unrepresented / have no representation; G10 reproduces after the drift with one locator corrected.",
+        "verdict": "FALSE at every inspected hash, including the audit original. Withdrawn in round 2 (capability-mapping.md §12.1).",
+        "retainedFor": "traceability only; must not be accepted."
+      },
+      "evidencePresent": [
+        "guards.mjs:119-128 dependencyKind -> SPEC_CHANGE_REQUEST(121), AUDIT_DEPENDENT(122), EVIDENCE_DEPENDENT(123), HUMAN_DECISION(124), COMMAND_QUESTION(125), NORMAL_DEPENDENCY(126); markers at guards.mjs:77-83",
+        "queue-snapshot.mjs:107-110 surfaces the dependency kinds; :120 maps NORMAL_DEPENDENCY -> DEPENDENCY_BLOCKED",
+        "queue-snapshot.mjs:112-116 carries the sixth meaning (tool/provider/worker failure) via evaluation.diagnostic",
+        "Consumers: controller.mjs:933 and board-sim.mjs:444 -> autonomy.mjs:165-168"
+      ],
+      "evidenceMissing": [
+        "Classification recognises free-text unblockDescriptor.action by regex; packet.mjs parses neither REQUIRES_AUDIT nor REQUIRES_EVIDENCE, so a packets declared dependency never becomes a typed blocker",
+        "No eligibility or dispatch path consults dependencyKind: consumers are Queue rendering and the autonomy classifier only",
+        "§20.2.11 branch scope (a block affects only the dependent branch) is unmodelled — narrow instance of G5",
+        "Precedence defect: guards.mjs:109 returns human_decision for any unrecognised descriptor text before :126 can read blockedByIssueIds, so an ordinary dependency carrying a free-text note is classified as a human gate"
+      ]
+    }
+  ],
+  "capabilitiesPresentDoNotRebuild": [
+    {
+      "capability": "Project ON/OFF gating, fail-closed",
+      "evidence": [
+        "project-gate.mjs:30-38",
+        "project-gate.mjs:41-59",
+        "project-gate.mjs:65-83",
+        "controller.mjs:280-289"
+      ],
+      "consumers": [
+        "handoff.mjs:60",
+        "review-recovery.mjs:147",
+        "review-recovery.mjs:231",
+        "replenisher.mjs:149-151",
+        "replenisher.mjs:226",
+        "replenisher.mjs:426"
+      ],
+      "verified": "live, in the inverted Energy-ON/Alexandria-OFF configuration; 19 passing tests"
+    },
+    {
+      "capability": "Per-project workspace binding (project_primary)",
+      "evidence": [
+        "project executionWorkspacePolicy",
+        "PAPERCLIP_WORKSPACE_SOURCE=project_primary"
+      ],
+      "verified": "this run resolved to the Energy workspace natively"
+    },
+    {
+      "capability": "Native review stages with agent participants, approvalsNeeded, maxReviewRounds",
+      "evidence": [
+        "LAT-95 executionPolicy",
+        "replenisher.mjs:304-306"
+      ],
+      "verified": "live on this issue"
+    },
+    {
+      "capability": "Energy-aware worker instructions for all six canonical lane agents",
+      "evidence": [
+        "agent instruction file hashes above"
+      ],
+      "verified": "content hash over each on-disk AGENTS.md"
+    },
+    {
+      "capability": "Quota-stranded review recovery with evidence classification",
+      "evidence": [
+        "review-recovery.mjs:1-40",
+        "review-recovery.mjs:147",
+        "review-recovery.mjs:231"
+      ],
+      "note": "never forces green without quota evidence"
+    },
+    {
+      "capability": "Hermes escalation path, rate-limited and off the mutation path",
+      "evidence": [
+        "notify.mjs:8-10",
+        "notify.mjs:47-59",
+        "notify.mjs:64-93",
+        "project-gate.mjs:26"
+      ],
+      "verified": "hermes-director.service and hermes-gateway.service active running"
+    },
+    {
+      "capability": "Refill loop guards (backoff, daily cap, in-flight dedup, production-lane check, mutation budget)",
+      "evidence": [
+        "replenisher.mjs:225-255"
+      ],
+      "note": "guards are sound; only the prompt CONTENT is misbound"
+    },
+    {
+      "capability": "Lane routing by packet class",
+      "evidence": [
+        "lanes.json routing",
+        "packet.mjs:90-93"
+      ]
+    }
+  ],
+  "unknowns": [
+    "Whether a restarted controller reproduces the derived failure scenario — derived from code and live state, NOT executed. IMP-26 must test it.",
+    "Whether the project-switch patch survives 'paperclipai update' — the detector exists (project-gate.mjs:30-38) but no update was performed.",
+    "payg_deepseek lane capability — agentId is null, reported ABSENT/agent_not_configured; nothing inferred about whether it could be configured.",
+    "Whether an Energy-active tick would mutate any of the 30 pending Alexandria issues — the prune path reads their comments; not executed, not claimed.",
+    "Whether latinosolutions-lat40-deferred.timer / latinosolutions-go-usage.timer interact with Energy — outside the packet's named surface, not inspected.",
+    "Full switch-test.mjs integration behaviour — deliberately not run per packet prohibition."
+  ],
+  "boundaryCases": [
+    {
+      "case": "Project switch patch absent",
+      "behaviour": "Fails closed: onProjectIds empty, every candidate 'switch_missing', nothing dispatches, one Telegram notice per 6h.",
+      "evidence": [
+        "project-gate.mjs:66-68",
+        "project-gate.mjs:105-111"
+      ],
+      "status": "covered by existing tests"
+    },
+    {
+      "case": "Execution GET non-200",
+      "behaviour": "Same fail-closed path via eligibility.ok=false.",
+      "evidence": [
+        "project-gate.mjs:54-58"
+      ],
+      "status": "covered by existing tests"
+    },
+    {
+      "case": "Unknown project id not in the list",
+      "behaviour": "Treated as OFF.",
+      "evidence": [
+        "project-gate.mjs:79"
+      ],
+      "status": "covered by existing tests"
+    },
+    {
+      "case": "Issue with no projectId",
+      "behaviour": "Skipped with reason 'no_project'.",
+      "evidence": [
+        "project-gate.mjs:78"
+      ],
+      "status": "covered by existing tests"
+    },
+    {
+      "case": "Every production lane CLOSED",
+      "behaviour": "No refill requested (would burn a Command run and arm backoff).",
+      "evidence": [
+        "replenisher.mjs:232"
+      ],
+      "status": "covered by certification fault-injection E"
+    },
+    {
+      "case": "Packet class carries a trailing annotation",
+      "behaviour": "First token taken, annotation dropped.",
+      "evidence": [
+        "packet.mjs:90-93"
+      ],
+      "status": "covered by existing tests; live finding 2026-09-18"
+    },
+    {
+      "case": "A hypothetical packet missing SPEC hash / parent IMP / baseline",
+      "behaviour": "parsePacket returns ok:true — NOT detected.",
+      "evidence": [
+        "packet.mjs:85"
+      ],
+      "status": "GAP G7 (enforcement), uncovered",
+      "note": "Boundary case about the parser, not about the LAT-95 packet, which is semantically 20/20 complete."
+    },
+    {
+      "case": "Energy issue reaching the controller backlog",
+      "behaviour": "Impossible — filtered out before any gate runs.",
+      "evidence": [
+        "controller.mjs:291"
+      ],
+      "status": "GAP G1, uncovered"
+    }
+  ],
+  "workspaceIntegrity": {
+    "gitState": {
+      "branch": "main",
+      "commits": 0,
+      "note": "Unborn branch; content hashes are the version identity per AGENTS.md line 13/17."
+    },
+    "untrackedEntriesBeforeAndAfter": [
+      ".claude/",
+      "AGENTS.md",
+      "docs/",
+      "operations/"
+    ],
+    "dirtyFilesPreserved": true,
+    "filesWrittenByThisSubtask": [
+      "operations/audit/IMP-25/capability-mapping.md",
+      "operations/audit/IMP-25/evidence.json",
+      "operations/audit/IMP-25/tests-tap.txt",
+      "operations/receipts/IMP-25-ST-1.json"
+    ],
+    "filesOutsideAllowedPathsTouched": [],
+    "officeFilesModified": [],
+    "concurrentActivity": {
+      "sharedWorkspaceConcurrency": "allow",
+      "concurrentRunNotifiedToThisRun": {
+        "runId": "c85ee7fc-e9f1-4700-9ffc-9c4e53582b23",
+        "issue": "LAT-96",
+        "note": "Declared by the run environment as sharing this workspace. Not evidence of authorship of any particular file."
+      },
+      "unownedFileObserved": {
+        "path": "operations/bootstrap/canonical-imp-rows.json",
+        "sha256": "38572df5dd736c0f9d49c8a2ccaf2d6c53330d13732212461b48cda21d674d9d",
+        "mtimeUtc": "2026-09-19T09:06:10Z",
+        "bytes": 33975,
+        "rehashedAt": "2026-09-19T09:17Z",
+        "rehashUnchanged": true,
+        "authorship": "NOT OBSERVABLE BY THIS AUDIT. Per Director comment 842408ac on LAT-95, produced by the Director in the user task via literal extraction of 29 paired SPEC rows — not by LAT-96 / run c85ee7fc.",
+        "correctedFrom": "An earlier draft attributed this file to run c85ee7fc. That was an inference from the shared-workspace notice, not an observation.",
+        "handling": "Outside this packet's write set; created, modified and deleted by this subtask: no."
+      }
+    }
+  },
+  "depResolution": {
+    "dep": "DEP-27",
+    "type": "AUDIT-DEPENDENT",
+    "claimedScope": "Interfaces, workflow, configuration and state of the existing Paperclip office ACTUALLY INSPECTED and enumerated in capability-mapping.md sections 1-6: office controller and modules, project switch gate surface, queue snapshot and controller state, native review configuration, receipt/recovery paths, Hermes notify path, worker instruction files, systemd units/timer/linger, and the read-only API routes listed under liveObservations.",
+    "notClaimed": [
+      "DEP-27 is NOT closed as a whole ID.",
+      "No capability is asserted that was not inspected.",
+      "Identifying gaps G1-G10 does NOT resolve them (§25.2.2 IMP-25 RESOLVES_AUDIT).",
+      "No claim that the derived failure scenario was observed at runtime.",
+      "No claim about IMP-26 feasibility beyond naming the smallest extension surface."
+    ],
+    "specBasis": [
+      "25.1 IMP-25 acceptance",
+      "25.2.2 IMP-25 row",
+      "25.2.1 instancia de ejecución rule",
+      "24 DEP-27 row"
+    ]
+  },
+  "specChangeRequest": {
+    "raised": false,
+    "rationale": "No genuine canonical contradiction was found. Every gap is a materialization gap between §20.2 and the existing office, which is exactly what IMP-25 is chartered to map and IMP-26 to close (§20.2.15, §24 DEP-27). §20.2.12 is therefore not activated."
+  },
+  "postAuditSourceDelta": {
+    "requestedBy": "Independent review by Tech Lead Astra (run 2d0fee68-5c00-406d-bc39-2f0ee3fbb5b7), change 1",
+    "appliedByRun": "5228c431-454e-4b6a-b5c7-9e0365d6ba84",
+    "observedAt": "2026-09-19T09:28:14.312Z",
+    "method": "sha256sum + stat + grep only; read-only; no office file modified by this supplement",
+    "originalEvidencePreserved": true,
+    "originalEvidenceNote": "inputHashes.officeSources and every §1-§9 observation are the record of the 09:06Z-09:12Z window and are NOT rewritten by this delta.",
+    "authorshipOfEdits": "not observable by this audit; not attributed to this author; not made by this subtask",
+    "sourcesReHashed": 20,
+    "changed": [
+      {
+        "file": "controller.mjs",
+        "audited": "e46722c7a936fd95ba769c90f52306a7e222a28ba6d7630617619ac9fae1a93c",
+        "current": "8609331b96315ca6cd3d03d8d45c0673754c732b97a198dcd00740df473520aa",
+        "mtime": "2026-09-19T09:21:54.455Z"
+      },
+      {
+        "file": "replenisher.mjs",
+        "audited": "d792b4238312f522c5686da9a51d27acdc9e1adbe681125cdc7aeaeb070959fd",
+        "current": "2083735e431244b902f211265436afce2a181f2fe82141e68a7ae7cf016c9a19",
+        "mtime": "2026-09-19T09:21:52.515Z"
+      },
+      {
+        "file": "command-question.mjs",
+        "audited": "794613680a21541fc29c18c71f14c0ac72bd52505b586a2514f4d5643c146857",
+        "current": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c",
+        "mtime": "2026-09-19T09:21:52.847Z"
+      },
+      {
+        "file": "review-recovery.mjs",
+        "audited": "a2d708876c903781e294b2d10c29a9321b73b4a2611ab82c0532325e2dd2a2f4",
+        "current": "b7190bdbd5a65745f2855dc85d817f1097da2ebe71de67063ea7b5495994a9dd",
+        "mtime": "2026-09-19T09:21:53.191Z"
+      },
+      {
+        "file": "queue-snapshot.mjs",
+        "audited": "e2a324ef81dae0557b645c39910f1c745970f1ab111c27886da6bbe4b41f0715",
+        "current": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f",
+        "mtime": "2026-09-19T09:26:49.802Z",
+        "note": "changed TWICE inside the review window: reviewer observed 2290a88ead885f5a838a212f98c7de92d12072c95dd023280e877b00763786c1 at 09:26:34.118Z; drift is live and ongoing"
+      },
+      {
+        "file": "resources.json",
+        "audited": "58e570d63c924d40cebd881cebeb45638287c1ffe88b66dba2e869f1a30ad88d",
+        "current": "633c87932bcd22031363cf1d754070c15cc52e7eb2ab42b1dfbdb40b091debff",
+        "mtime": "2026-09-19T09:21:53.823Z",
+        "treatment": "ADVISORY ONLY. Cited by no gap. Content not read into this audit. No budget, quota, routing or reserve policy is inspected, reinterpreted, altered or claimed."
+      }
+    ],
+    "unchangedByteIdentical": [
+      "pcapi.mjs",
+      "project-gate.mjs",
+      "packet.mjs",
+      "final-acceptance.mjs",
+      "handoff.mjs",
+      "dispatcher.mjs",
+      "dead-execution.mjs",
+      "economics.mjs",
+      "guards.mjs",
+      "mutate.mjs",
+      "notify.mjs",
+      "pilot.mjs",
+      "status.mjs",
+      "lanes.json"
+    ],
+    "gapEffects": [
+      {
+        "gap": "G1",
+        "status": "reproduces_unmoved",
+        "currentLocators": [
+          "controller.mjs:291 (issues.filter(issue => issue.parentId === ROOT))",
+          "pcapi.mjs:5 (file unchanged)",
+          "pilot.mjs:26 (file unchanged)",
+          "economics.mjs:28 (file unchanged)"
+        ]
+      },
+      {
+        "gap": "G2",
+        "status": "reproduces_verbatim_locators_corrected",
+        "auditedLocators": [
+          "replenisher.mjs:317",
+          "replenisher.mjs:319",
+          "replenisher.mjs:320",
+          "replenisher.mjs:323"
+        ],
+        "currentLocators": [
+          "replenisher.mjs:338 (CONTINUITY_STATUS + LAT-20 mandate + DECISION_IMPLEMENTATION_PLAN_V1.md)",
+          "replenisher.mjs:340 (ticket hijo de LAT-20)",
+          "replenisher.mjs:341 (packet/pending lists)",
+          "replenisher.mjs:344 (prohibition still reads 'el proyecto Energy Markets (OFF)')"
+        ],
+        "note": "block moved about +21 lines; strings byte-identical; the §3 self-contradiction is intact at the current hash"
+      },
+      {
+        "gap": "G3",
+        "status": "reproduces_locators_corrected",
+        "auditedLocators": [
+          "controller.mjs:827",
+          "controller.mjs:828",
+          "replenisher.mjs:330-332"
+        ],
+        "currentLocators": [
+          "controller.mjs:295 (rootGoalId, unmoved)",
+          "controller.mjs:872 (rootId: ROOT)",
+          "controller.mjs:873 (goalId: backlog.rootGoalId)",
+          "replenisher.mjs:351 (projectId)",
+          "replenisher.mjs:352 (parentId: rootId)",
+          "replenisher.mjs:353 (goalId)"
+        ],
+        "note": "controller.mjs:827 now holds handoff setup, as the reviewer stated"
+      },
+      {
+        "gap": "G4",
+        "status": "reproduces",
+        "currentLocators": [
+          "replenisher.mjs:310 (parameter)",
+          "replenisher.mjs:328 (const pending join)",
+          "replenisher.mjs:341 (surfaced in prompt)",
+          "final-acceptance.mjs unchanged",
+          "CONTINUITY_STATUS.md:15 still 30 Alexandria ids, no project key"
+        ]
+      },
+      {
+        "gap": "G5",
+        "status": "unaffected",
+        "reason": "absence of a symbol; project-gate.mjs byte-identical"
+      },
+      {
+        "gap": "G6",
+        "status": "unaffected",
+        "reason": "final-acceptance.mjs byte-identical"
+      },
+      {
+        "gap": "G7",
+        "status": "unaffected",
+        "reason": "packet.mjs byte-identical; 8-of-20 typed coverage and lowercase-only KEY_LINE_RE stand as corrected in C3"
+      },
+      {
+        "gap": "G8",
+        "status": "unaffected",
+        "reason": "handoff.mjs byte-identical"
+      },
+      {
+        "gap": "G9",
+        "status": "superseded_by_round_2_correction",
+        "currentLocators": [
+          "command-question.mjs:104 (string byte-identical; file changed elsewhere)"
+        ],
+        "supersededStatus": "reproduces_unmoved",
+        "note": "The cited string is still present at the stated hash, but the finding built on it was false at every inspected hash. String relocation proves location, not truth. See capability-mapping.md §12 and gaps[].supersededClaim."
+      },
+      {
+        "gap": "G10",
+        "status": "superseded_by_round_2_correction",
+        "auditedLocators": [
+          "queue-snapshot.mjs:105"
+        ],
+        "currentLocators": [
+          "queue-snapshot.mjs:101 (export function blockedKind)",
+          "queue-snapshot.mjs:338 (call site)",
+          "review-recovery.mjs:257-259,263,377,498 (kind taxonomy unchanged in substance; no §20.2.11 blocker type added)"
+        ],
+        "supersededStatus": "reproduces_locator_corrected",
+        "note": "The cited string is still present at the stated hash, but the finding built on it was false at every inspected hash. String relocation proves location, not truth. See capability-mapping.md §12 and gaps[].supersededClaim."
+      }
+    ],
+    "netEffect": "Corrected in round 2: G1-G8 reproduce unchanged (none changed severity, none became unknown, none resolved by the drift; three locators corrected - G2, G3, G10 - and one re-pinned, G4). G9 and G10 are SUPERSEDED as false-absence claims by roundTwoCorrections, not by the drift. The earlier blanket statement all ten reproduce is withdrawn.",
+    "bindingRule": "Line-numbered references into this tree are valid only at a stated hash. IMP-26 must bind against the hashes in this block, not against the audit's.",
+    "testsRerun": false,
+    "testsRerunRationale": "Reviewer instruction; project-gate.mjs and packet.mjs -- the only modules the 31 tests exercise -- are byte-identical to the audit, so the saved TAP remains the observed result for the tested surface."
+  },
+  "offBoundary": {
+    "requestedBy": "Independent review by Tech Lead Astra (run 2d0fee68-5c00-406d-bc39-2f0ee3fbb5b7), change 2; and the packet line 'Record that active Alexandria review may finish; OFF blocks new work'",
+    "appliedByRun": "5228c431-454e-4b6a-b5c7-9e0365d6ba84",
+    "observedAt": "2026-09-19T09:28Z-09:31Z",
+    "alexandriaToggled": false,
+    "alexandriaWorkExecuted": false,
+    "mutatingTickRun": false,
+    "layers": {
+      "A_ownerAuthorization": {
+        "what": "AGENTS.md §ENERGY-MARKETS-20260919: 'Checkpoint any already-running Alexandria review without starting new work.' Plus the packet line.",
+        "nature": "a rule addressed to agents, not an enforcement mechanism",
+        "claim": "its being satisfied is NOT evidence that anything enforces it"
+      },
+      "B_nativeEnforcement": {
+        "sourceOfTruth": "budgets.js#getInvocationBlock, patched by OFFICE-PROJECT-SWITCH",
+        "selfDescribedBoundary": "budgets.js:736-738 -- 'It blocks NEW invocations only; nothing here cancels or touches a run already in flight.' Returns code project_execution_off.",
+        "corroboration": "project-switch/README.md:18-20 -- the switch route never calls any cancel/pause hook",
+        "blockedWhileOff": [
+          {
+            "path": "wake enqueue",
+            "location": "heartbeat.js:14086 enqueueWakeup -> :14261",
+            "effect": "throws conflict(block.reason); writes budget.blocked"
+          },
+          {
+            "path": "claim queued run",
+            "location": "heartbeat.js:9513 claimQueuedRun -> :9529",
+            "effect": "queued run is CANCELLED with the block reason"
+          },
+          {
+            "path": "scheduled retry",
+            "location": "heartbeat.js:8134 evaluateScheduledRetryGate -> :8139",
+            "effect": "allowed:false, errorCode budget_blocked"
+          },
+          {
+            "path": "run liveness continuation",
+            "location": "heartbeat.js:6733 -> :6767, :6809-6816; recovery/run-liveness-continuations.js:59-61",
+            "effect": "skip, 'budget hard stop blocks continuation'"
+          },
+          {
+            "path": "successful-run handoff wake",
+            "location": "heartbeat.js:6900 -> :7016",
+            "effect": "handoff wake not enqueued"
+          },
+          {
+            "path": "issue checkout",
+            "location": "routes/issues.js:9003 POST /issues/:id/checkout -> :9016",
+            "effect": "409 'Project is paused'"
+          },
+          {
+            "path": "safe-recovery hand-back",
+            "location": "routes/issues.js:3871, :3884",
+            "effect": "conflict"
+          }
+        ],
+        "notBlockedWhileOff": [
+          "the process of a run already executing (no cancel call exists in the switch path)",
+          "its API writes: pausedAt is gated in EXACTLY TWO places in routes/issues.js (3871 hand-back, 9016 checkout; 4225 is a response field). POST /issues/:id/comments (routes/issues.js:10013), document writes and execution-decision writes carry no project gate."
+        ],
+        "accurateStatement": "What may finish is the SINGLE RUN already executing, including its writes. The review STAGE cannot proceed across runs: continuation, retry, handoff wake, new wake and checkout are all refused. A reviewer needing a second run will not get one while Alexandria is OFF."
+      },
+      "C_controllerEnforcement": {
+        "gateModule": "project-gate.mjs (unchanged since the audit, 18603a44fe0dbac0a704120b5d44403f757383173350fd41c9a6ba61030de4da)",
+        "reasons": {
+          "project_off": "project-gate.mjs:79",
+          "no_project": "project-gate.mjs:78",
+          "switch_missing": "project-gate.mjs:76 (fails closed for everything)"
+        },
+        "builtOncePerTick": "controller.mjs:275-287; reported at controller.mjs:1166-1168",
+        "gatedSelectors": [
+          "dispatcher.mjs:176 ready dispatch",
+          "dispatcher.mjs:255 reopen",
+          "dispatcher.mjs:313 stale pending-review nudges",
+          "review-recovery.mjs:195 recovery GET candidates",
+          "review-recovery.mjs:282 wake follow-ups",
+          "controller.mjs:548 dead execution",
+          "controller.mjs:597 handoff"
+        ],
+        "consequence": "The controller will NOT restore a quota-stranded Alexandria review while Alexandria is OFF. 'May finish' covers a live process only; a review that is merely open (stage pending, no run executing) is carried forward by neither layer."
+      }
+    },
+    "currentLiveInstance": {
+      "command": "GET /api/companies/{companyId}/live-runs",
+      "observedAt": "2026-09-19T09:31:26.995Z",
+      "liveRuns": [
+        {
+          "runId": "5228c431-454e-4b6a-b5c7-9e0365d6ba84",
+          "status": "running",
+          "issue": "LAT-95",
+          "project": "Energy Markets (ON)",
+          "note": "this run"
+        },
+        {
+          "runId": "2d563751-17ba-4712-8bd7-da0790e1f934",
+          "status": "queued",
+          "issue": "LAT-96",
+          "project": "Energy Markets (ON)"
+        }
+      ],
+      "alexandriaRunsInFlight": 0,
+      "conclusion": "The 'already-running Alexandria review may finish' allowance is currently VACUOUS: there is no Alexandria run to finish.",
+      "projectStateReverifiedAt": "2026-09-19T09:31:09.197Z",
+      "projectState": [
+        {
+          "name": "Alexandria",
+          "state": "off",
+          "pausedAt": "2026-09-19T08:58:23.200Z",
+          "pauseReason": "manual"
+        },
+        {
+          "name": "Energy Markets",
+          "state": "on",
+          "pausedAt": null,
+          "pauseReason": null
+        }
+      ],
+      "timerReverifiedAt": "2026-09-19T09:31:17Z",
+      "timer": {
+        "ActiveState": "inactive",
+        "UnitFileState": "enabled",
+        "LastTriggerUSec": "2026-09-19 08:59:02 UTC",
+        "Linger": "yes"
+      }
+    },
+    "unknownsAndGap": [
+      {
+        "kind": "not_executed",
+        "detail": "§11.2/§11.3 are derived from source and live state. No OFF-project invocation was attempted, no run was allowed to expire, switch-test.mjs was not run (packet prohibition; its README:132-134 in-flight check is SKIPPED when nothing is in flight). High-confidence code evidence, not an observed runtime outcome."
+      },
+      {
+        "kind": "unknown",
+        "detail": "routes/issues.js:1521-1556 builds an execution_changes_requested wake for the return assignee when a decision is recorded; wake enqueue throws conflict while the project is OFF (heartbeat.js:14261). Whether that throw is caught (decision persists, wake skipped) or propagates (decision write fails) was NOT determined and is not claimed either way. IMP-26 should settle it by test."
+      },
+      {
+        "kind": "gap_folded_into_G5",
+        "detail": "Neither layer distinguishes 'this run may finish' from 'this stage may proceed'; that distinction is an emergent property of where getInvocationBlock is called, not a modelled concept. There is no office-side representation of an authorized-to-finish run. Folded into G5; no gap count or severity changes."
+      },
+      {
+        "kind": "not_inspected",
+        "detail": "Whether the 30 pending-final-acceptance Alexandria issues would be read or mutated by an Energy-active tick remains unknown (unchanged from unknowns item 4). The OFF gate does not cover refill prompt content -- that is G4."
+      }
+    ],
+    "claimLimit": "Nothing here claims a capability works that was not inspected. Authorization layer A is satisfied by construction: this audit ran no Alexandria work and toggled nothing."
+  },
+  "roundTwoCorrections": {
+    "requestedBy": "Independent review round 2, Tech Lead Astra (agent 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6), run 014f43d9, document independent-review-round-2, decision changes_requested at 2026-09-19T09:43:07.959Z (second of max 3 rounds)",
+    "appliedByRun": "4b09c083-0d24-4415-b568-32f6e55ae19d",
+    "appliedByAgent": "0af74a08-cb39-4cf5-a94f-117b242ea08c (Opus author; NOT the independent reviewer of this ST)",
+    "observedWindowUtc": "2026-09-19T09:43:54Z - 2026-09-19T09:5xZ (see resultingVersion timestamp in the receipt)",
+    "nature": "Two false absence claims withdrawn and replaced by narrowed, evidenced gaps. Not a drift correction: both capabilities existed at the audits own original hashes.",
+    "method": "Read-only re-inspection of guards.mjs, queue-snapshot.mjs, command-question.mjs, autonomy.mjs, packet.mjs plus a bounded pure-function reproduction over synthetic in-memory rows. No office file written, no API mutation, no controller tick, no test rerun.",
+    "sourceHashesAtCorrection": {
+      "guards.mjs": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b",
+      "queue-snapshot.mjs": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f",
+      "command-question.mjs": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c",
+      "note": "Re-hashed 2026-09-19T09:43:54Z; identical to the hashes cited by the reviewer and to the §10.1 baseline, so the correction is anchored to the same bytes the reviewer inspected."
+    },
+    "ownReproduction": {
+      "tool": "/opt/node/bin/node --input-type=module",
+      "inputs": "synthetic in-memory rows only; no file, API, office or issue fixture",
+      "observedAt": "2026-09-19T09:45Z",
+      "results": [
+        "descriptor AUDIT_DEPENDENT -> dependencyKind AUDIT_DEPENDENT, blockedKind AUDIT_DEPENDENT",
+        "descriptor AUDIT_REQUIRED -> AUDIT_DEPENDENT / AUDIT_DEPENDENT",
+        "descriptor EVIDENCE_DEPENDENT -> EVIDENCE_DEPENDENT / EVIDENCE_DEPENDENT",
+        "descriptor SPEC_CHANGE_REQUEST -> SPEC_CHANGE_REQUEST / SPEC_CHANGE_REQUEST",
+        "descriptor HUMAN_DECISION -> HUMAN_DECISION / HUMAN_DECISION",
+        "blockedByIssueIds only -> NORMAL_DEPENDENCY / DEPENDENCY_BLOCKED",
+        "evaluation.diagnostic QUOTA_RECOVERY_PENDING -> QUOTA_RECOVERY_PENDING; REVIEW_RECOVERY_RUNNING -> REVIEW_RECOVERY_RUNNING; REVIEW_FAILED_NON_QUOTA -> REAL_IMPLEMENTATION_FAILURE; REVIEW_RUN_ENDED_WITHOUT_DECISION -> REAL_IMPLEMENTATION_FAILURE; REVIEW_RECOVERY_BACKOFF -> REVIEW_RECOVERY_BACKOFF",
+        "blockedByIssueIds + unrecognised descriptor prose -> HUMAN_DECISION / HUMAN_DECISION (precedence defect, guards.mjs:109 before :126)",
+        "blockedByIssueIds + descriptor naming the Command -> COMMAND_QUESTION / COMMAND_DECISION_PENDING",
+        "findCommandAnswer with a SPEC_CHANGE_REQUEST comment -> specChange true; with COMMAND-ANSWER -> false"
+      ],
+      "limits": "Proves pure-function behaviour only. It does not prove live office integration, canonical compliance, or that any end-to-end escalation has ever executed."
+    },
+    "unchanged": [
+      "gap count (10)",
+      "all severities",
+      "G1-G8",
+      "§3 central finding",
+      "§4 field reconciliation",
+      "§6 contrasts",
+      "§7 unknowns",
+      "§8",
+      "§9",
+      "§10.1 drift data",
+      "§11 including its declared limits",
+      "depResolution",
+      "specChangeRequest: still none required"
+    ],
+    "effectOnConclusion": "None. G9 and G10 were the two lowest-severity gaps and both shrink. The critical G1-G3 finding is untouched, and the extend-do-not-rebuild conclusion of §20.2.15 is strengthened: two further capabilities turn out to exist already."
+  },
+  "roundThreeCorrections": {
+    "requestedBy": "Independent review round 3, Tech Lead Astra (agent 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6), run f58bee06-dda4-414a-9ac0-74ba3326253e, document independent-review-round-3, decision changes_requested (d7570507-2b2d-41a7-a3c9-7215aa20be6f) at 2026-09-19T09:59:42.803Z (third of maxReviewRounds=3). Continuation authorised by the responsible user I84aMJhYXgQM0RprhDchZAQP68Y0AgCO at 2026-09-19T11:21:44.361Z as a human decision to continue, explicitly NOT an approval.",
+    "appliedByAgent": "0af74a08-cb39-4cf5-a94f-117b242ea08c (Opus author; NOT the independent reviewer of this ST)",
+    "observedWindowUtc": "2026-09-19T11:22:11Z - 2026-09-19T11:3xZ",
+    "nature": "One false PRECONDITION withdrawn. Round 2 corrected G9's false absence but asserted in its place that the existing conversion requires an open [COMMAND-QUESTION] ticket. It does not. The reviewer is right; confirmed by independent re-inspection and my own bounded reproduction, not taken on trust.",
+    "scope": "Bounded factual correction to G9 only. Not a SPEC contradiction, not a human-authority question, no architecture regenerated, no controller code modified, no rerun of the unchanged required tests.",
+    "method": "Read-only re-inspection of command-question.mjs, guards.mjs, project-gate.mjs plus two bounded pure-function reproductions over synthetic in-memory objects with injected api/mutate. No office file written, no API mutation, no controller tick, no issue fixture.",
+    "sourceHashesAtCorrection": {
+      "command-question.mjs": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c",
+      "guards.mjs": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b",
+      "queue-snapshot.mjs": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f",
+      "autonomy.mjs": "84df72e4f4810c022e86a201b4f414a8450b4e76bb0db55fe69529450b9572d1",
+      "hashedAt": "2026-09-19T11:22:11Z",
+      "note": "Identical to the hashes cited in rounds 1-3 and to the §10.1 baseline. The correction is anchored to the same bytes the reviewer inspected; the files did not change between rounds."
+    },
+    "ownReproduction": {
+      "tool": "/opt/node/bin/node, ESM import of runCommandQuestion from command-question.mjs and buildProjectGate from project-gate.mjs",
+      "inputs": "synthetic in-memory objects only; injected api() and mutate() closures; no real API, no controller tick, no file edit, no issue fixture, no mutation",
+      "observedAt": "2026-09-19T11:2xZ",
+      "positiveCase": {
+        "setup": "backlog.allIssues = [] (ZERO [COMMAND-QUESTION] tickets); one blocked synthetic source in an ON project, descriptor 'no_guess: ask Command whether D3 applies'; one post-block comment from a recognised Command agent reading 'SPEC_CHANGE_REQUEST: synthetic contradiction.'; maxPerTick=1, mutation budget 5",
+        "assertionsPassed": 8,
+        "result": "applied = [{step:'spec_change'}]; evaluations diagnostic COMMAND_SPEC_CHANGE_REQUESTED; exactly one mutation, targeted at the SOURCE /issues/src-1; unblockDescriptor.action rewritten to 'SPEC_CHANGE_REQUEST: synthetic contradiction.'; no ticket lookup reached the injected api"
+      },
+      "boundaryProbes": {
+        "assertionsPassed": 12,
+        "P1": "baseline as above -> converts",
+        "P2": "project OFF -> not evaluated at all; the gate drops it before isCommandQuestion",
+        "P3": "descriptor without a Command-question marker ('waiting on an upstream dataset') -> no conversion",
+        "P4": "descriptor already SPEC_CHANGE_REQUEST -> excluded via humanRequired; no re-entry, no loop",
+        "P5": "source status in_progress, not blocked -> NOT_A_COMMAND_QUESTION",
+        "P6": "identical marked comment authored by the WORKER instead of a Command agent -> no conversion",
+        "P7": "Command comment posted before blockedTransitionAt -> no conversion",
+        "P8": "an ordinary Command answer precedes the marked comment -> resume_worker wins; findCommandAnswer takes the first post-block Command comment only",
+        "P9": "mutate.remaining() = 0 -> deferred with diagnostic COMMAND_SPEC_CHANGE_REQUESTED; still no ticket involved"
+      },
+      "limits": "Proves pure-function behaviour of runCommandQuestion at this hash only. It does not prove live end-to-end compliance, generic entry from any source state, the full §20.2.12 contract, or actual delivery of authority to Bru."
+    },
+    "withdrawn": [
+      "capability-mapping.md §5 G9: 'Entry is also single-path (only a Command answer to a worker no_guess; a worker or Astra hitting a contradiction with no open [COMMAND-QUESTION] has no modelled route in)'",
+      "capability-mapping.md §12.2: 'Entry is single-path: it requires an open [COMMAND-QUESTION] and a Command answer'",
+      "capability-mapping.md §5 G9 minimal extension: 'add a second entry point that does not require an open [COMMAND-QUESTION]'",
+      "evidence.json gaps[G9].evidenceMissing[4] and gaps[G9].minimalExtension, same claim",
+      "IMP-25-ST-1.json postReviewRound2Corrections, same claim",
+      "continuity-checkpoint revision 3, same claim"
+    ],
+    "preserved": [
+      "The valid core of G9: the missing 11-field §20.2.12 canonical contract, the <=400-char excerpt payload, the absent SPEC/IMP/Subtask identity and project binding, and the absent architecture/research authority routing distinct from the human gate",
+      "Severity Medium; gap count 10; G1-G8 and G10 unchanged; §12.1 unchanged; the valid remainder of §12.2 unchanged",
+      "All historical evidence and superseded text, retained and explicitly labelled",
+      "Round-2 corrections in full"
+    ],
+    "testsRerun": "None. project-gate.test.mjs and packet.test.mjs remain 31/31 pass at unchanged target hashes (tests-tap.txt, sha256 7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a); the reviewer explicitly did not request a rerun and the tested modules are byte-identical.",
+    "effectOnConclusion": "None. G9 stays Medium with its valid core intact. What changes is the SHAPE of the extension IMP-26 must build: widen author and source state, not ticket dependence. G1-G3 remain the critical finding and are untouched. The audit still concludes the office must be extended, not rebuilt.",
+    "boundariesRespected": [
+      "No office file written; only operations/audit/IMP-25/** and operations/receipts/IMP-25-ST-1.json touched, per allowed_paths",
+      "No commits, push, branches, worktrees, agents, subagents, deploy, purchases, trading, budget, quota, provider, routing or policy changes",
+      "No timer action; latinosolutions-continuity.timer left exactly as found",
+      "No controller code read for modification and none modified; North Star resource policy untouched",
+      "No self-approval: this is an author correction returned to native independent review"
+    ],
+    "liveVerification": {
+      "observedAtUtc": "2026-09-19T11:28:12Z",
+      "route": "GET /api/companies/{companyId}/projects/execution (the same route project-gate.mjs:43 uses); read-only",
+      "projects": "Alexandria 69d82bcd-56b4-4cb8-831e-d5a54b9859d1 = off; Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a = on",
+      "timer": "latinosolutions-continuity.timer ActiveState=inactive, SubState=dead, UnitFileState=disabled - unchanged, left exactly as found; no timer action taken (OWNER-IMP26-BLOCKER-20260919: OFF until the ten scope/isolation requirements and the observed Energy-only sequence pass)",
+      "linger": "Linger=yes for user op",
+      "note": "Confirms the round-3 reviewer's live observation is still current at correction time. GET /api/projects/execution (without the company segment) returns HTTP 500 and GET /api/projects returns 404; only the companies-scoped route is valid. Recorded as an observation, not a gap - it is outside this packet's scope."
+    },
+    "finalArtifactHashes": {
+      "operations/audit/IMP-25/capability-mapping.md": "37c5dfc444e8459ce48ac1fbb50022725c3c53556d126265264e3d75f9c91068",
+      "operations/audit/IMP-25/tests-tap.txt": "7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a",
+      "note": "evidence.json's own hash and the receipt's own hash are reported in the resubmission comment and continuity-checkpoint; neither can embed itself."
+    }
+  }
+}

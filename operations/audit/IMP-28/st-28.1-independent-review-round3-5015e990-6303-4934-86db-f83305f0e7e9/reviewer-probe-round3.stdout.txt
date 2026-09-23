@@ -1,0 +1,134 @@
+PASS R3-A — R2-B corregido: dos HOLD en versiones content-hash distintas sobreviven en priorFindings
+      esperado: priorFindings=2 con refs SYN-HOLD-V1 y SYN-HOLD-V2
+      observado: priorFindings=2 refs=["SYN-HOLD-V1","SYN-HOLD-V2"]
+PASS R3-B — la clave de dedup distingue también content-hashes de protocolVersion
+      esperado: priorFindings=2 con SYN-REJ-P1 y SYN-REJ-P2
+      observado: priorFindings=2 refs=["SYN-REJ-P1","SYN-REJ-P2"]
+PASS R3-C — isVersionLike no admite una cadena con forma de clave de hash (sin colisión de prefijos)
+      esperado: isVersionLike('hash:aaa…') === false
+      observado: isVersionLike('hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') === false
+PASS R3-D1 — R2-C1 corregido: registerComponent no congela el objeto de versión del llamante
+      esperado: registro ok y Object.isFrozen(callerVersion) === false
+      observado: ok=true frozen=false
+PASS R3-D2 — createNewEvaluationVersion no congela el objeto newVersion del llamante
+      esperado: salto ok y Object.isFrozen(callerNewVersion) === false
+      observado: ok=true frozen=false
+PASS R3-E0 — control: el escenario del gate §8.7 se ejecuta de verdad (lo que R2-C2 no hizo)
+      esperado: registerComponent ok y markEvaluationReady ok
+      observado: registered=true ready=true readyCode=-
+FAIL R3-E1 — markEvaluationReady no congela el objeto de gate §8.7 del llamante
+      esperado: Object.isFrozen(callerGate) === false
+      observado: frozen=true
+FAIL R3-E2 — registerComponent no congela elementos-objeto de authorityRequested del llamante
+      esperado: Object.isFrozen(callerAuthority) === false
+      observado: frozen=true
+FAIL R3-E3 — markEvaluationReady no congela elementos-objeto de prerequisitesSatisfied del llamante
+      esperado: Object.isFrozen(callerPrereq) === false
+      observado: frozen=true
+PASS R3-F1 — acceptance 2: ADMIT en un rol no admite ni altera el otro rol del mismo componente
+      esperado: el rol Strategy/Evidence sigue en REGISTERED, sin outcome y sin autoridad
+      observado: state=REGISTERED outcome=null authority=[]
+PASS R3-F2 — acceptance 3: Strategy/Evidence no alcanza readiness sin el gate §8.7 aceptado
+      esperado: fallo MISSING_STRATEGY_ADMISSION_GATE
+      observado: ok=false code=MISSING_STRATEGY_ADMISSION_GATE
+PASS R3-F3 — acceptance 3: ni con ADMIT y validación separada aceptada el framework concede autoridad productiva
+      esperado: fallo NO_PRODUCTIVE_AUTHORITY
+      observado: ok=false code=NO_PRODUCTIVE_AUTHORITY hasProductiveAuthority=false
+PASS R3-F4 — acceptance 5: un outcome ya registrado en su versión es inmutable
+      esperado: fallo OUTCOME_ALREADY_RECORDED
+      observado: ok=false code=OUTCOME_ALREADY_RECORDED
+
+--- 13 comprobaciones, 3 fallidas ---
+[
+  {
+    "id": "R3-A",
+    "title": "R2-B corregido: dos HOLD en versiones content-hash distintas sobreviven en priorFindings",
+    "expected": "priorFindings=2 con refs SYN-HOLD-V1 y SYN-HOLD-V2",
+    "observed": "priorFindings=2 refs=[\"SYN-HOLD-V1\",\"SYN-HOLD-V2\"]",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-B",
+    "title": "la clave de dedup distingue también content-hashes de protocolVersion",
+    "expected": "priorFindings=2 con SYN-REJ-P1 y SYN-REJ-P2",
+    "observed": "priorFindings=2 refs=[\"SYN-REJ-P1\",\"SYN-REJ-P2\"]",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-C",
+    "title": "isVersionLike no admite una cadena con forma de clave de hash (sin colisión de prefijos)",
+    "expected": "isVersionLike('hash:aaa…') === false",
+    "observed": "isVersionLike('hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') === false",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-D1",
+    "title": "R2-C1 corregido: registerComponent no congela el objeto de versión del llamante",
+    "expected": "registro ok y Object.isFrozen(callerVersion) === false",
+    "observed": "ok=true frozen=false",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-D2",
+    "title": "createNewEvaluationVersion no congela el objeto newVersion del llamante",
+    "expected": "salto ok y Object.isFrozen(callerNewVersion) === false",
+    "observed": "ok=true frozen=false",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-E0",
+    "title": "control: el escenario del gate §8.7 se ejecuta de verdad (lo que R2-C2 no hizo)",
+    "expected": "registerComponent ok y markEvaluationReady ok",
+    "observed": "registered=true ready=true readyCode=-",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-E1",
+    "title": "markEvaluationReady no congela el objeto de gate §8.7 del llamante",
+    "expected": "Object.isFrozen(callerGate) === false",
+    "observed": "frozen=true",
+    "status": "FAIL"
+  },
+  {
+    "id": "R3-E2",
+    "title": "registerComponent no congela elementos-objeto de authorityRequested del llamante",
+    "expected": "Object.isFrozen(callerAuthority) === false",
+    "observed": "frozen=true",
+    "status": "FAIL"
+  },
+  {
+    "id": "R3-E3",
+    "title": "markEvaluationReady no congela elementos-objeto de prerequisitesSatisfied del llamante",
+    "expected": "Object.isFrozen(callerPrereq) === false",
+    "observed": "frozen=true",
+    "status": "FAIL"
+  },
+  {
+    "id": "R3-F1",
+    "title": "acceptance 2: ADMIT en un rol no admite ni altera el otro rol del mismo componente",
+    "expected": "el rol Strategy/Evidence sigue en REGISTERED, sin outcome y sin autoridad",
+    "observed": "state=REGISTERED outcome=null authority=[]",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-F2",
+    "title": "acceptance 3: Strategy/Evidence no alcanza readiness sin el gate §8.7 aceptado",
+    "expected": "fallo MISSING_STRATEGY_ADMISSION_GATE",
+    "observed": "ok=false code=MISSING_STRATEGY_ADMISSION_GATE",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-F3",
+    "title": "acceptance 3: ni con ADMIT y validación separada aceptada el framework concede autoridad productiva",
+    "expected": "fallo NO_PRODUCTIVE_AUTHORITY",
+    "observed": "ok=false code=NO_PRODUCTIVE_AUTHORITY hasProductiveAuthority=false",
+    "status": "PASS"
+  },
+  {
+    "id": "R3-F4",
+    "title": "acceptance 5: un outcome ya registrado en su versión es inmutable",
+    "expected": "fallo OUTCOME_ALREADY_RECORDED",
+    "observed": "ok=false code=OUTCOME_ALREADY_RECORDED",
+    "status": "PASS"
+  }
+]

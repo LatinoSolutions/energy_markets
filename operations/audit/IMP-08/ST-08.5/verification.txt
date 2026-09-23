@@ -1,0 +1,46 @@
+ST-08.5 delivery verification record
+
+## Environment
+
+- host: `brunode`
+- cwd: `/srv/hot-data/energy-markets/app`
+- branch: `main`
+- packet: `WP-IMP-08-ST-5-v1.1` / `ST-08.5`
+- source comparison: reviewed ST-08.3 semantic hash `140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2`
+- resulting semantic hash: `bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528`
+
+## Required test status
+
+- Economic suite: 56/56 pass, exit 0.
+- Contract suite: 67/67 pass, exit 0.
+- ST-08.3 regression suite: 9/9 pass, exit 0.
+- Fixture oracle: 35 fixtures, C01–C12 complete, negative probes PASS, exit 0.
+- Exact LAT-194 reproducer and malformed matrix: no throws; malformed complete elements unavailable/rejected; valid controls finite.
+- SPEC and nine protected historical pins: unchanged.
+
+## Historical verifier boundary
+
+Command:
+
+```text
+/opt/node/bin/node operations/audit/IMP-08/ST-08.3/verify-delivery.mjs
+```
+
+Observed: `verify-delivery: FAIL: manifest content hash is stale`, exit 1. This is expected because the historical ST-08.3 verifier is pinned to the pre-ST-08.5 reviewed semantic bytes. No ST-08.3 artifact was rewritten.
+
+## ST-08.5 verifier
+
+Command:
+
+```text
+/opt/node/bin/node operations/audit/IMP-08/ST-08.5/verify-delivery.mjs
+```
+
+Observed:
+
+```text
+verify-delivery: PASS; artifacts=11; protectedHashes=9 unchanged; semanticHash=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528; receipt=in_review; reviewer=Astra
+exit=0
+```
+
+The isolated verifier checks all required artifact hashes, protected hashes, semantic content hash, receipt identity, review independence, and absence of a parent IMP_RECEIPT.

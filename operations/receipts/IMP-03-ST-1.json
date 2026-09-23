@@ -1,0 +1,123 @@
+{
+  "receiptKind": "ST_RECEIPT",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-03-ST-1-v1.1",
+    "subtaskId": "ST-03.1",
+    "parentImp": "IMP-03",
+    "parentIssueIdentifier": "LAT-109",
+    "subtaskIssueIdentifier": "LAT-110",
+    "nativeRoot": "LAT-91",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / DeepSeek V4.1 Flash via opencode_local",
+  "startingBaseline": "brunode:/srv/hot-data/energy-markets/app, empty main (no commits/remotes/worktrees); baseline operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860. Allocated output paths operations/audit/IMP-03/** and operations/receipts/IMP-03-ST-1.json did not pre-exist.",
+  "resultingVersion": {
+    "contentHash": "c097a6a5e131b50af159ac48e1f382a474070bdcd66884dbba94c30ba5291787",
+    "algorithm": "sha256 of the path-sorted sha256sum listing",
+    "scope": "operations/audit/IMP-03/** excluding the self-referential write-set-manifest.json",
+    "changedFileHashes": {
+      "operations/audit/IMP-03/source-inventory.json": "915c413a54cea169ec58b1e9b181bded440c5ed2d6218d8bfef118b3d827fa05",
+      "operations/audit/IMP-03/temporal-manifest.json": "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578",
+      "operations/audit/IMP-03/data-sufficiency-matrix.json": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f",
+      "operations/audit/IMP-03/audit-report.md": "3fad9a93ee235f1c3a6745365736071ebb214c4393cdd41fcb53c3355f95758d",
+      "operations/audit/IMP-03/verify.mjs": "8c72dae6758a1876f35d46035363a7ddcab7ce5f6218492569bf9f60c9fb71b9",
+      "operations/audit/IMP-03/verify-run.txt": "7b1432f6bdb9aae5f54b1272afbfa843a9cbaac0b51ae23b28de96d6766f5762",
+      "operations/audit/IMP-03/write-set-manifest.json": "0445d1259bf52a43de8ac2b1bfc695c37db9d2e170eef68b4571319e2083511a"
+    }
+  },
+  "reviewResponse": [
+    {
+      "round": 1,
+      "reviewer": "Independent Reviewer stage 1",
+      "finding": "Finding A — referenceScan asserted a universal negative without reproducible disposition; 9 of 18 reference files were absent from the inventory.",
+      "resolution": "source-inventory.json referenceScan now records the exact scan command, fileCount=18, citedCount=9, notInspectedCount=9, and a per-file disposition: the 9 cited files remain in sources[] (S-05..S-13); the other 9 are listed in notInspected[] with sha256, inspectionLevel and a stated reason each. The finding wording is scoped to what was actually inspected. verify.mjs now re-enumerates reference/ and fails if any file is undispositioned, duplicated, or hash-drifted.",
+      "conclusionUnchanged": true
+    },
+    {
+      "round": 2,
+      "reviewer": "Tech Lead stage 2",
+      "findingB": "R-06 (benchmark B) is critical, UNAVAILABLE and consumed by both A0/A1, but both criticalMissing summaries and the audit report omitted it (expected 12/13, declared 11/12).",
+      "resolutionB": "Added R-06 to A0.criticalMissing (now 12) and A1.criticalMissing (now 13) in data-sufficiency-matrix.json and to the readiness table in audit-report.md. verify.mjs now computes the expected critical-missing set per arm from criticalRowUnsatisfied + row.consumers and fails with CRITICALMISSING_INCONSISTENT if a declared summary omits or adds an id; a new labeled synthetic (synthetic-criticalmissing-summary-omission) demonstrates the rejection.",
+      "findingC": "Six of eight issue attachments were stale round-1 bytes (source-inventory, verifier, receipt, audit-report, verify-run, write-set-manifest).",
+      "resolutionC": "Re-uploaded all current final deliverables while the issue was executor-owned, and recorded the earlier 403 (author cannot mutate an issue in in_review) plus its resolution in failuresRetries and the checkpoint.",
+      "conclusionUnchanged": true
+    }
+  ],
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md sha256 86c4bd4e...39cb6c (§§0,3,5.2-5.6,6,8.1,13.3-13.6,14.2/14.4/14.7,20.2.7-.10,21,24 DEP-06/07/08/09/12/17,25.1/25.2)",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json sha256 78d92de8...b887c (accepted REQUIRES, content version c7cdf47c...d15a437c)",
+    "operations/bootstrap/baseline-manifest.json sha256 895539b7...ca9860",
+    "src/contracts/index.mjs sha256 55c79769...cd9c3 (accepted contract surface, read-only)",
+    "/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md sha256 dfa9cfc8...e260",
+    "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf sha256 85b2b8b0...a999f",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P1-P4_Canonical_Decisions_v1_0_2026-09-16.pdf sha256 697def17...b739e",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P5_Canonical_Decisions_v1_0_2026-09-16.pdf sha256 0ff9e0bf...e730",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P6_Canonical_Decisions_v1_0_2026-09-16.pdf sha256 97513b33...73e86",
+    "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_Open_Points_v1_0_2026-09-16.pdf sha256 af5db8b8...9a82e",
+    "/srv/hot-data/energy-markets/reference/research/STRATEGY_RESEARCH_Resolucion_13_Preguntas_v0_1_2026-09-15.pdf sha256 eeda70c7...f608a",
+    "/srv/hot-data/energy-markets/reference/research/RESEARCH_Fundamental_Price_Drivers_v0_1_2026-09-15.pdf sha256 d500535f...a30ef8",
+    "/srv/hot-data/energy-markets/reference/research/Power_Gas_Cuaderno_Investigacion_13_Preguntas_v1_2026-09-14.pdf sha256 f814aed7...d654"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-03/source-inventory.json",
+    "operations/audit/IMP-03/temporal-manifest.json",
+    "operations/audit/IMP-03/data-sufficiency-matrix.json",
+    "operations/audit/IMP-03/audit-report.md",
+    "operations/audit/IMP-03/verify.mjs",
+    "operations/audit/IMP-03/verify-run.txt",
+    "operations/audit/IMP-03/write-set-manifest.json",
+    "operations/receipts/IMP-03-ST-1.json"
+  ],
+  "result": "Audit factual P5 Gas Quarterly completado como auditoría negativa. dataArtifactsPresent=[]: no existe ninguna serie de precios, trades/order-book, calendario, contrato, fee schedule ni registro de permisos en el workspace ni en el corpus de referencia (que es provenance histórica). Se produjo inventario de fuentes, manifest temporal con las cuatro semánticas §6.1 y una Data Sufficiency Matrix de 17 filas (13 críticas, 4 opcionales) con los ocho campos §6.3 y los dos ejes separados. Todos los valores reales quedan UNAVAILABLE/MISSING con rol custodio y acción de recuperación; el rango 2020-2026 es una entrada comunicada pendiente de auditoría, no cobertura certificada. Ambos candidatos P5 Gas Quarterly (A0 Calendar-only baseline y A1 S1 candidate) resultan DATA_BLOCKED por ausencia de inputs críticos. DEP-06/07 quedan como DOCUMENTED_ABSENCE (no resueltos). No se eligieron parámetros S1, no se leyó outcome económico para OOS, no se eligió engine y no se tocó ningún path fuera de allowed_paths.",
+  "testsRun": [
+    "hostname; pwd (brunode; /srv/hot-data/energy-markets/app)",
+    "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json",
+    "/opt/node/bin/node operations/audit/IMP-03/verify.mjs"
+  ],
+  "testResults": [
+    "hostname=brunode, pwd=/srv/hot-data/energy-markets/app: OK",
+    "SPEC sha256 86c4bd4e...39cb6c == expected; IMP-01-IMP_RECEIPT.json sha256 78d92de8...b887c == expected",
+    "verify.mjs exit 0. Input hashes OK (SPEC, IMP-01 receipt, baseline manifest and IMP-01 content version c7cdf47c...d15a437c all reproduced). Source inventory OK (13 cited sources). Reference-tree disposition OK (18 files on disk, every one dispositioned exactly once in sources[]/notInspected[], all hashes match disk, counts 9 cited / 9 not inspected). Namespace separation OK (availability vs readiness disjoint). Temporal manifest OK (4 semantics on 17 entries). Matrix contract OK (17 rows, 8 fields, every claim allowlisted with hash/locator, no critical-missing DATA_READY). Candidate criticalMissing summaries OK: A0=12, A1=13, each equal to the critical rows actually unsatisfied for that arm (CRITICALMISSING_INCONSISTENT check). 8 labeled synthetic negative cases + 4 inline adversarial probes all PASS, including explicit rejection of critical-missing DATA_READY, publication-only PIT and an omitted criticalMissing entry. Real-data insufficiency reported separately. Full output: operations/audit/IMP-03/verify-run.txt (sha256 7b1432f6...6766f5762)."
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-03/source-inventory.json (cited sources with hashes and exact locators; workspace scan; reference scan with all 18 files dispositioned: 9 cited + 9 notInspected; dataArtifactsPresent empty)",
+    "operations/audit/IMP-03/temporal-manifest.json (four §6.1 semantics per requirement; timezone/DST; revision policy)",
+    "operations/audit/IMP-03/data-sufficiency-matrix.json (17 rows, eight frozen fields, two namespaces, candidate readiness, labeled synthetics)",
+    "operations/audit/IMP-03/audit-report.md",
+    "operations/audit/IMP-03/verify.mjs + verify-run.txt (actual stdout/stderr/exit code)",
+    "operations/audit/IMP-03/write-set-manifest.json (before/after write set; no writes outside allowed_paths)"
+  ],
+  "assumptions": [
+    "Reference files are provenance only and are never an executable contract or a data source.",
+    "A documented absence is not a dependency closure; it records what could not be demonstrated under the existing authority.",
+    "Synthetic fixtures are engineering test data only and are never accepted evidence.",
+    "The 2020-2026 range is a communicated input pending audit, not certified coverage.",
+    "No permission, unit, fee, coverage, resolution or PIT value may be inferred from documentation."
+  ],
+  "deviations": [],
+  "dependencyFindings": [
+    "REQUIRES=IMP-01 accepted verified by receipt hash and reproduced content version c7cdf47c...d15a437c.",
+    "REQUIRES_AUDIT=none and REQUIRES_EVIDENCE=none declared by the packet; none was claimed.",
+    "DEP-06/DEP-07 (P5 scope) remain open as DOCUMENTED_ABSENCE with named custodian roles and exact retrieval actions. No global DEP closure is claimed.",
+    "No SPEC contradiction encountered, so no §20.2.12 SPEC_CHANGE_REQUEST is raised.",
+    "No file outside allowed_paths was modified."
+  ],
+  "failuresRetries": [
+    "No command failures. pdftotext was used read-only to verify reference locators; no package was installed.",
+    "Round 2 attachment refresh failed with HTTP 403 'Agent cannot mutate another agent's issue' because the issue was in_review and assigned to the reviewer; the workspace kept the corrected bytes and the failure was declared in the round-2 comment.",
+    "Resolution: in round 3, while the issue was executor-owned (in_progress), all current final deliverables were re-uploaded as attachments, old evidence preserved, and uploaded hashes verified against disk. The 403 and its resolution are recorded here and in the continuity-checkpoint."
+  ],
+  "recommendedStatus": "in_review",
+  "parentRecommendation": "blocked",
+  "parentRecommendationReason": "IMP-03 parent acceptance requires the Data Sufficiency Matrix populated and a per-candidate readiness verdict. The matrix is populated and the honest verdict is DATA_BLOCKED for both P5 Gas Quarterly candidates because every critical input is missing. That is a valid negative audit result, not a parent PASS: no downstream IMP may treat these inputs as available. Parent remains pending separate Command §20.2.10 acceptance/IMP_RECEIPT after the two native review stages; factual gaps block only their dependent branch.",
+  "nativeReviewRequested": {
+    "stage1": "Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "stage2": "Tech Lead 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+    "note": "Reviewers must independently sample each available/source claim and every critical requirement against its locator, and run verify.mjs themselves. Worker completion is only a recommendation and does not accept the subtask, the parent or any DEP."
+  },
+  "parentPending": "LAT-109 / IMP-03 parent acceptance under §20.2.10 remains pending; native child done after both reviews is ST accepted only.",
+  "generatedAtUtc": "2026-09-19T15:55:00Z"
+}

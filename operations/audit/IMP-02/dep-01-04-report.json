@@ -1,0 +1,78 @@
+{
+  "artifactKind": "IMP-02_DEP_01_04_SCOPE_LIMITS_REPORT",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-02-ST-1-v1.1",
+  "subtaskId": "ST-02.1",
+  "parentImp": "IMP-02",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "spec": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "resolvesAuditClaim": "DEP-01, DEP-02, DEP-03 and DEP-04 for the actually inspected campaign material and relations only. The scope produced is a factual reconciliation plus a documented absence of the real mandate. No invented closure; a documented absence is not equivalent to resolving the dependency toward a complete campaign.",
+  "overallFinding": "There is no real Gas Quarterly campaign mandate in the workspace or the historical corpus. The corpus contains only historical communicated quantities with incomplete units and an explicit statement that they do not confirm the real procurement mandate. Therefore DEP-01-04 cannot be closed with real values; the unmet canonical parent criteria are enumerated and the parent is recommended blocked.",
+  "deps": [
+    {
+      "id": "DEP-01",
+      "title": "Instancias de mandato: producto/hub/contrato, total conocido materializado, unidad, delivery profile/horas, liquidación física/financiera.",
+      "status": "DOCUMENTED_ABSENCE",
+      "resolved": false,
+      "scopeInspected": "Full workspace scan plus the historical reference corpus (S-05, S-06, S-07).",
+      "verifiedFacts": [],
+      "historicalAssertions": ["historical.gasQuarterlyVolume (60 MW, S-05 p.4)", "historical.gasMonthlyVolume (10 MW, S-06 p.2)", "historical.powerMonthlyVolume (10 MW, S-06 p.2)", "historical.powerQuarterlyVolume (unstated unit, S-05 p.4)", "historical.clientLocation (Germany, S-05 p.4)"],
+      "missingFacts": ["campaign.identity.campaignId", "campaign.identity.productContract", "campaign.identity.productFamily", "campaign.identity.mission", "campaign.identity.hubMarket", "campaign.obligation.totalVolumeKnown", "campaign.obligation.unit", "campaign.obligation.deliveryPeriod", "campaign.obligation.deliveryProfile", "campaign.obligation.amendments"],
+      "limits": "No product, hub, contract, executable unit or delivery profile can be asserted. German client residency does not identify the Gas product (S-05 p.4). MW must not be converted to MWh without hours/profile.",
+      "custodianRole": "Procurement mandate owner",
+      "nextRetrievalAction": "Request the signed procurement mandate containing Campaign ID, exact product/contract, hub, total obligation, unit, delivery period/profile and settlement mechanism."
+    },
+    {
+      "id": "DEP-02",
+      "title": "Relación Monthly/Quarterly y ownership de cobertura: adicional, solapada o alternativa según mandato.",
+      "status": "DOCUMENTED_ABSENCE",
+      "resolved": false,
+      "scopeInspected": "Full workspace scan plus S-01 §4.1/§24, S-06 p.2, S-07 p.3.",
+      "verifiedFacts": [],
+      "historicalAssertions": [],
+      "missingFacts": ["campaign.coverage.fillToObligationAssignment"],
+      "limits": "The corpus explicitly leaves the Monthly/Quarterly relation unresolved; no obligation set or fill ledger exists, so no ownership assignment and no double-counting check can be performed on real data.",
+      "custodianRole": "Procurement mandate owner",
+      "nextRetrievalAction": "Retrieve the audited obligation relation and per-fill ownership; then assign each fill/coverage to at most one obligation."
+    },
+    {
+      "id": "DEP-03",
+      "title": "Fechas de campaña, ventanas operativas, trading calendar, pausa, deadline y decision boundaries concretos.",
+      "status": "DOCUMENTED_ABSENCE",
+      "resolved": false,
+      "scopeInspected": "Full workspace scan plus S-01 §5.3/§13.4/§24, S-05 p.4, S-07 p.3.",
+      "verifiedFacts": ["benchmark.window.quarterly (reference window only)", "benchmark.window.monthly (reference window only)", "spec.firstExperimentPopulation"],
+      "historicalAssertions": ["historical.deliveryNarrative (three months activity, one month delivery)"],
+      "missingFacts": ["campaign.calendar.campaignOpenClose", "campaign.calendar.decisionOpportunities", "campaign.calendar.deadline", "campaign.calendar.pauseExclusion"],
+      "limits": "The benchmark windows are reference economics, not execution permission (S-01 §5.3 L389). 11:00 is not a documented default. No real campaign dates, trading calendar or deadline exist.",
+      "custodianRole": "Energy operations owner",
+      "nextRetrievalAction": "Retrieve the real procurement calendar (opening, closing, pause/exclusion, deadline and decision boundaries with timezone/DST)."
+    },
+    {
+      "id": "DEP-04",
+      "title": "Terminal coverage rule y amendments/cancellations reales, si existen.",
+      "status": "DOCUMENTED_ABSENCE",
+      "resolved": false,
+      "scopeInspected": "Full workspace scan plus S-01 §4.3/§14.5/§24, S-05 p.4.",
+      "verifiedFacts": [],
+      "historicalAssertions": [],
+      "missingFacts": ["campaign.feasibility.terminalCoverageRule", "campaign.obligation.amendments"],
+      "limits": "No valid terminal rule exists. If residual remains without a valid rule, §4.3/§14.5 require COVERAGE_INCOMPLETE and forbid inventing a close-out fill. Absence of amendments cannot be asserted as 'none'.",
+      "custodianRole": "Procurement mandate owner",
+      "nextRetrievalAction": "Retrieve the versioned terminal coverage rule and any amendments/cancellations from the procurement contract."
+    }
+  ],
+  "unmetCanonicalParentCriteria": [
+    "IMP-02 parent acceptance requires 'Mandato/producto/calendario/delivery auditados'. The mandate, product and calendar are not audited because no real mandate exists; only historical assertions were found.",
+    "IMP-02 requires a campaign contract materialized from real inputs. campaignIdentified=false; the ficha is empty of real values.",
+    "IMP-02 requires determining remaining volume/deadline without inferring units. Neither remaining volume nor deadline is computable.",
+    "IMP-02 requires a coverage-ownership map proving a fill/coverage does not belong twice to obligations. No obligations or fills exist to map.",
+    "Dependency on the real mandate/custodian retrieval remains open (DEP-01-04 documented absence)."
+  ],
+  "parentRecommendation": "Recommend parent IMP-02 blocked on the factual absence of the real campaign mandate (audit-dependent blocker), while preserving the completed factual reconciliation and documented absence as valid ST evidence. This does not reduce parent scope or acceptance.",
+  "syntheticEvidenceNote": "All synthetic fixtures in campaign-contract.json and coverage-ownership.json are explicitly labeled synthetic and are used only to exercise the verifier; they are never accepted evidence and do not close DEP-01-04."
+}

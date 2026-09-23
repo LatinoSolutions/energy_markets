@@ -1,0 +1,26 @@
+{
+  "at": "2026-09-19T10:29:09.685406+00:00",
+  "command": "/opt/node/bin/node --test test/contracts/economic-bundle.test.mjs test/contracts/identities.test.mjs test/contracts/namespaces.test.mjs test/contracts/states.test.mjs operations/audit/IMP-01/st-01.1-command-boundaries.mjs operations/audit/IMP-01/st-01.1-command-r3-c3.mjs",
+  "exitCode": 0,
+  "tests": 76,
+  "pass": 76,
+  "fail": 0,
+  "hashes": {
+    "operations/audit/IMP-01/test-run.txt": "3225c9699e1215393dd43e18153fb2b87adbf5174d5bfdfa955e4e89f09c274d",
+    "src/contracts/economic-bundle.mjs": "96e29e69ca3137dbeed797158a0e52db81c87b95f45f141fe709b26f5bf68c09",
+    "src/contracts/identities.mjs": "6425fb956f3f65d98bb1ccad5bb9e1fcf4619f0b35a350f8442d05d4c6ac2e9e",
+    "src/contracts/index.mjs": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+    "src/contracts/namespaces.mjs": "d48733d23827388fdf221466019b6b830c473e51f4184097cf2dccd8d729fbb2",
+    "src/contracts/states.mjs": "fc0a944f72b0d8ab55911c61b11dc70db3186dc109b15a8bfcf3171ec2d26a75",
+    "test/contracts/economic-bundle.test.mjs": "04602faa36ac9f8bc8ef175618f81525dd567b75ee2d578f998d24dfa66f95ca",
+    "test/contracts/identities.test.mjs": "9308596639816b75779b22fd79d7790cb216d1a549a6473e4939a626f442a6fc",
+    "test/contracts/namespaces.test.mjs": "23fb4a01f5671e0c8a3ef717943875654827edccc26b38df9e03968b51548f98",
+    "test/contracts/states.test.mjs": "6e010a92816fca29b115021db8a10dc6063bfe90577f38dcff6d14e515944655",
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/receipts/IMP-01-ST-1.json": "d87288c178d3fa4ac181886e3a611950cbc2e55aa5a0826d4a18fa0dc1ba6814",
+    "operations/audit/IMP-01/st-01.1-independent-review.json": "c60268bc55a51c508d49a53cea52c30229d01d860609239328fd39f8ac45752a",
+    "operations/audit/IMP-01/st-01.1-command-final-verification.json": "9c79a601c1df9ab6c02faec8efe58fc0ffe52097cfbb10825425c20468a63b80",
+    "operations/audit/IMP-01/imp-01-parent-acceptance-tests.txt": "bd7267e74ad5e0f507ce5a502dc4886c230af8f46120b78c7c5be7dce3c0ca99"
+  },
+  "contentHash": "c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c"
+}

@@ -1,0 +1,2 @@
+validateStReceipt.ok = true
+linkStReceiptToPacket.ok = true

@@ -1,0 +1,278 @@
+{
+  "receiptKind": "IMP_RECEIPT",
+  "specIdentity": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "version": "1.1",
+    "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "impIdentity": "IMP-25",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "issueId": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+  "issueIdentifier": "LAT-93",
+  "scope": "Initial framework/office binding v1.1 on brunode: complete IMP-25 factual office capability audit, inspected surfaces enumerated in evidence.json.depResolution.claimedScope. No binding implementation or live continuation compliance claimed.",
+  "version": {
+    "contentHash": "8b6b66b32b67c37c898e4c54621d23b629e4e6bc3962babb1d10f12dee25feeb",
+    "algorithm": "SHA256 of path-sorted sha256sum listing of the four accepted audit/ST artifacts"
+  },
+  "objectProtocolVersion": "v1",
+  "outcome": "accepted",
+  "acceptedAtUtc": "2026-09-19T11:37:42.287659+00:00",
+  "requiredStIdentities": [
+    {
+      "identity": {
+        "packetId": "WP-IMP-25-ST-1-v1.1",
+        "subtaskId": "ST-25.1",
+        "parentImp": "IMP-25",
+        "parentImpIssue": {
+          "identifier": "LAT-93",
+          "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+        },
+        "workIssue": {
+          "identifier": "LAT-95",
+          "id": "ca7c3c88-807e-4616-ac00-4249f6870307"
+        },
+        "programRoot": {
+          "identifier": "LAT-91",
+          "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+        },
+        "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+        "specVersion": "1.1",
+        "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+        "specHashVerifiedLive": true,
+        "sourceSections": [
+          "20.2",
+          "24 DEP-27",
+          "25.1 IMP-25",
+          "25.2 IMP-25"
+        ],
+        "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+        "projectName": "Energy Markets",
+        "projectStateVerifiedViaApi": "on",
+        "workspace": "/srv/hot-data/energy-markets/app",
+        "host": "brunode",
+        "executionInstance": "SPEC 86c4bd4e… + IMP-25 + scope[office capability audit, inspected surface per evidence.json.depResolution.claimedScope] + protocol v1"
+      },
+      "receiptPath": "operations/receipts/IMP-25-ST-1.json",
+      "receiptSha256": "f2eaa5cbb092184ab5b555c794354362f539b86c16272da4997074a966ce20c4",
+      "resultingVersion": {
+        "operations/audit/IMP-25/capability-mapping.md": "37c5dfc444e8459ce48ac1fbb50022725c3c53556d126265264e3d75f9c91068",
+        "operations/audit/IMP-25/evidence.json": "1294e71387d5bb6b5fb79629fd0e8738343f6ef4dbc2f8f71ae14e5b8c8970c8",
+        "operations/audit/IMP-25/tests-tap.txt": "7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a"
+      },
+      "status": "accepted",
+      "nativeExecutionPolicy": {
+        "mode": "normal",
+        "stages": [
+          {
+            "id": "a9ec8e65-9233-412e-8b68-560252740e30",
+            "type": "review",
+            "participants": [
+              {
+                "id": "d77664d8-4122-4eba-9874-6af284b78cf5",
+                "type": "agent",
+                "userId": null,
+                "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+              }
+            ],
+            "approvalsNeeded": 1
+          }
+        ],
+        "commentRequired": true,
+        "maxReviewRounds": 3
+      },
+      "nativeExecutionState": {
+        "status": "completed",
+        "monitor": null,
+        "reviewRequest": null,
+        "currentStageId": null,
+        "lastDecisionId": "ced39b6d-092a-4a4e-9b16-bc5990394167",
+        "returnAssignee": {
+          "type": "agent",
+          "userId": null,
+          "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+        },
+        "currentStageType": null,
+        "completedStageIds": [
+          "a9ec8e65-9233-412e-8b68-560252740e30"
+        ],
+        "currentStageIndex": null,
+        "currentParticipant": null,
+        "lastDecisionOutcome": "approved",
+        "changesRequestedCount": 0
+      }
+    }
+  ],
+  "reviewerRunIdentities": [
+    {
+      "role": "Independent native ST reviewer; auditor was Opus",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "4ad6e670-813b-4e24-881e-0bed8600e6eb",
+      "decisionId": "ced39b6d-092a-4a4e-9b16-bc5990394167",
+      "commentId": "4d7b1936-ab4b-47a9-a41a-441d1001588b",
+      "documentKey": "independent-review-r5-acceptance",
+      "revisionId": "b8b6dd30-0bac-4cea-b8b6-a6155a1e913f",
+      "outcome": "approved"
+    },
+    {
+      "role": "Command separate parent acceptance",
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "runId": "c40afd42-f1df-4d51-83f3-1aa3f6faaf8e",
+      "outcome": "accepted"
+    }
+  ],
+  "evidenceTestHashes": [
+    {
+      "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+      "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+    },
+    {
+      "path": "operations/audit/IMP-25/capability-mapping.md",
+      "sha256": "37c5dfc444e8459ce48ac1fbb50022725c3c53556d126265264e3d75f9c91068"
+    },
+    {
+      "path": "operations/audit/IMP-25/evidence.json",
+      "sha256": "1294e71387d5bb6b5fb79629fd0e8738343f6ef4dbc2f8f71ae14e5b8c8970c8"
+    },
+    {
+      "path": "operations/receipts/IMP-25-ST-1.json",
+      "sha256": "f2eaa5cbb092184ab5b555c794354362f539b86c16272da4997074a966ce20c4"
+    },
+    {
+      "path": "operations/audit/IMP-25/tests-tap.txt",
+      "sha256": "7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/packet.mjs",
+      "sha256": "dbb771b3f52ad12797cb5d9e3866e0a2ca8441f3c64f8dc0729c77f9ed5cb6e5"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/project-gate.mjs",
+      "sha256": "18603a44fe0dbac0a704120b5d44403f757383173350fd41c9a6ba61030de4da"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/command-question.mjs",
+      "sha256": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/guards.mjs",
+      "sha256": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/queue-snapshot.mjs",
+      "sha256": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/autonomy.mjs",
+      "sha256": "84df72e4f4810c022e86a201b4f414a8450b4e76bb0db55fe69529450b9572d1"
+    },
+    {
+      "path": "/home/op/.paperclip/integrations/office-continuity/controller.mjs",
+      "sha256": "2378f2e15e53c049320a01282ca6c301d04cd234c4b111e82835d978847d1ce8"
+    }
+  ],
+  "prerequisiteChecks": [
+    {
+      "requirement": "Project ON and current canonical SPEC",
+      "result": "satisfied",
+      "evidence": "Live scoped execution API and exact SHA256; observed 2026-09-19T11:36:24.707157+00:00"
+    },
+    {
+      "requirement": "All required STs accepted and planned native review complete",
+      "result": "satisfied",
+      "evidence": "ST-25.1; completed native review, exact reviewed artifact hashes, R1-R5 resolved. Responsible-user comment 1d7fe4ab-35db-4727-84bf-ab5961c7b257 authorized the extra native continuation, without approving the work."
+    },
+    {
+      "requirement": "REQUIRES_AUDIT / REQUIRES_EVIDENCE",
+      "result": "none required at start by IMP-25; DEP-27 is an audit output"
+    },
+    {
+      "requirement": "No unresolved applicable SPEC conflict or frozen-decision violation",
+      "result": "satisfied",
+      "evidence": "Read full parent/child criteria, audit, ST_RECEIPT, completed review and owner corrections; no open conflict identified. Author audited without implementing binding or altering policy."
+    }
+  ],
+  "acceptanceChecks": [
+    {
+      "criterion": "Project ON/OFF, routing, Queue/READY, dispatch/recovery, review and receipts contrasted",
+      "result": "pass",
+      "evidence": "Accepted mapping sections 1-6; factual source hashes and read-only live observations; current native review/parent wake also observed."
+    },
+    {
+      "criterion": "Verified sources, visible gaps/unknowns and explicit audit limits",
+      "result": "pass",
+      "evidence": "Mapping sections 0,5,7,10-13; evidence.json inputHashes, depResolution, offBoundary and correction history; 10 residual gaps preserved."
+    },
+    {
+      "criterion": "No claim of nonexistent capability or global DEP-27 closure",
+      "result": "pass",
+      "evidence": "DEP-27 accepted only for inspected interfaces/workflow/configuration/state; G1-G10 are unresolved implementation findings. Synthetic checks do not prove live behavior."
+    },
+    {
+      "criterion": "Office architecture/routing and P1-P7 preserved; audit does not depend on implemented binding",
+      "result": "pass",
+      "evidence": "Read-only office audit and native independent review, no shared office writes. No binding, policy or canonical changes in parent acceptance."
+    }
+  ],
+  "testsRun": [
+    {
+      "kind": "parent verification performed",
+      "result": "pass",
+      "method": "Hash all four accepted artifacts, canonical SPEC and seven reviewed source files; assert completed review stage and distinct author; read live project state and timer; inspect fixed ROOT and wrong-project refill source."
+    },
+    {
+      "kind": "reused accepted required tests",
+      "command": "/opt/node/bin/node --test project-gate.test.mjs packet.test.mjs",
+      "cwd": "/home/op/.paperclip/integrations/office-continuity",
+      "tests": 31,
+      "pass": 31,
+      "fail": 0,
+      "output": "operations/audit/IMP-25/tests-tap.txt",
+      "rerunThisParent": false,
+      "reason": "Tested targets byte-identical to the accepted independent review; no implementation change or unresolved finding justifies rerun."
+    },
+    {
+      "kind": "reused independent correction validation",
+      "result": "9 synthetic probes / 21 assertions passed",
+      "source": "/LAT/issues/LAT-95#document-independent-review-r5-acceptance",
+      "rerunThisParent": false,
+      "limit": "No live controller mutation or observed end-to-end sequence."
+    }
+  ],
+  "depResolution": {
+    "dep": "DEP-27",
+    "type": "AUDIT-DEPENDENT",
+    "claimedScope": "Interfaces, workflow, configuration and state of the existing Paperclip office ACTUALLY INSPECTED and enumerated in capability-mapping.md sections 1-6: office controller and modules, project switch gate surface, queue snapshot and controller state, native review configuration, receipt/recovery paths, Hermes notify path, worker instruction files, systemd units/timer/linger, and the read-only API routes listed under liveObservations.",
+    "notClaimed": [
+      "DEP-27 is NOT closed as a whole ID.",
+      "No capability is asserted that was not inspected.",
+      "Identifying gaps G1-G10 does NOT resolve them (§25.2.2 IMP-25 RESOLVES_AUDIT).",
+      "No claim that the derived failure scenario was observed at runtime.",
+      "No claim about IMP-26 feasibility beyond naming the smallest extension surface."
+    ],
+    "specBasis": [
+      "25.1 IMP-25 acceptance",
+      "25.2.2 IMP-25 row",
+      "25.2.1 instancia de ejecución rule",
+      "24 DEP-27 row"
+    ],
+    "outcome": "accepted for inspected factual audit scope only",
+    "gapsResolvedByIdentification": false,
+    "globalDepClosed": false
+  },
+  "unresolvedLimits": [
+    "Whether a restarted controller reproduces the derived failure scenario — derived from code and live state, NOT executed. IMP-26 must test it.",
+    "Whether the project-switch patch survives 'paperclipai update' — the detector exists (project-gate.mjs:30-38) but no update was performed.",
+    "payg_deepseek lane capability — agentId is null, reported ABSENT/agent_not_configured; nothing inferred about whether it could be configured.",
+    "Whether an Energy-active tick would mutate any of the 30 pending Alexandria issues — the prune path reads their comments; not executed, not claimed.",
+    "Whether latinosolutions-lat40-deferred.timer / latinosolutions-go-usage.timer interact with Energy — outside the packet's named surface, not inspected.",
+    "Full switch-test.mjs integration behaviour — deliberately not run per packet prohibition.",
+    "OFF review-decision/wake interaction remains a disclosed unexecuted boundary; test only within authorized IMP-26 scope.",
+    "G1-G10 remain implementation gaps. Audit minimum-extension suggestions are non-normative recommendations, not new architecture or permissions; latest owner ten isolation requirements and North Star policy baseline 3a02669 govern IMP-26.",
+    "Historical timestamps/counts/timer enabled observations remain historical. Current timer is inactive/dead/disabled. No recurring timer activation until all required isolation and observed Energy-only worker/review/continuation checks pass."
+  ],
+  "potentialUnlocks": [
+    "IMP-26"
+  ],
+  "dependencyUpdate": "This accepted IMP-25 instance satisfies the IMP-25 prerequisite. Inspected DEP-27 scope supports a bounded IMP-26 binding eligibility decision; downstream Command must verify exact consumed surfaces/current baseline, accepted IMP-01 receipt, Project ON and all other gates before dispatch. Existing native LAT-94/LAT-97 dependencies wake the assigned Command gate; no direct dispatch or transitive acceptance.",
+  "preservation": "Prior ST receipts and audit artifacts unchanged. No shared-office, policy, routing, budget, timer, Alexandria, canonical, branch or commit changes."
+}

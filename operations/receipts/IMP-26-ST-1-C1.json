@@ -1,0 +1,140 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-26-ST-1-v1.1 correction C1 (LAT-127)",
+    "subtaskId": "ST-26.1-C1",
+    "parentImp": "IMP-26",
+    "project": "Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+  },
+  "workerModelRoute": "LatinoSolutions owner-side terminal session (Bru), outside the Office lanes; author of the correction, not its reviewer; independent review: native Independent Reviewer stage on LAT-127 (preconfigured), parent gate LAT-124",
+  "startingBaseline": "319c012",
+  "resultingVersion": {
+    "contentHash": "3385cc550cc564701de6f2c123c59810861c02dbe386dc63c9a29b12f76ffe0f",
+    "commit": "5d49f1e"
+  },
+  "inputsUsed": [
+    "LAT-127 technical delivery gate (Command, 2026-09-19 15:38:28Z): required corrections A and B with the cited source lines and hashes",
+    "office-continuity commit 319c012 (accepted ST-26.1 frozen target) and the vendored server sources issue-execution-policy.js:732,505-515,756-758 (human-actor changes_requested semantics)",
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md (sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c)",
+    "Bru instruction 'IMP-26 FINAL OFFICE AUTONOMY CUTOVER' (terminal, 2026-09-19), sections 5 (GAP C) and 18"
+  ],
+  "artifactsChanged": [
+    "office-continuity/autonomy.mjs",
+    "office-continuity/canonical-graph.mjs",
+    "office-continuity/canonical-graph.test.mjs",
+    "office-continuity/controller.mjs",
+    "office-continuity/guards.mjs",
+    "office-continuity/replenisher.mjs",
+    "office-continuity/replenisher.test.mjs",
+    "office-continuity/review-exhaustion.mjs",
+    "office-continuity/review-exhaustion.test.mjs",
+    "operations/receipts/IMP-26-ST-1-C1.json",
+    "operations/audit/IMP-26/C1/*"
+  ],
+  "testsRun": [
+    "/opt/node/bin/node --test (cwd office-continuity, every *.test.mjs)",
+    "/opt/node/bin/node controller.mjs run --dry-run (cwd office-continuity, read-only)",
+    "replay of the LAT-127 probe A on the Energy cwd: loadCanonicalGraph with ENOENT injected on the projection, loaded result passed into evaluatePacketEligibility"
+  ],
+  "testResults": [
+    "node --test: 607 tests, 607 pass, 0 fail (operations/audit/IMP-26/C1/tests-tap.txt)",
+    "dry-run 2026-09-19T16:07:08.592Z: scope LAT-91, preflight EXECUTION_READY, readyByClass {\"routine\":3,\"premium\":0,\"critical\":0}, plannedActions 0, autonomy WORK_AVAILABLE_PRODUCTION_RUNNING, canonical present true",
+    "probe A replay at 5d49f1e: loadCanonicalGraph(Energy cwd, ENOENT on projection) = {present:false, reason:canonical_projection_missing, specFile docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md}; evaluatePacketEligibility(loaded) = {eligible:false, reason:canonical_projection_missing}; a workspace without docs/canonical = canonical_graph_absent (eligible, generic)"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-26/C1/tests-tap.txt",
+    "operations/audit/IMP-26/C1/dry-run.json",
+    "operations/audit/IMP-26/C1/controller-file-hashes.json (per-file sha256 at 319c012 and 5d49f1e, North Star hashes)",
+    "office-continuity/IMP26_LIVE_VALIDATION_20260919.md (living document)"
+  ],
+  "assumptions": [
+    "Correction A binds the fail-closed absence to a workspace fact, not to a project name: a workspace that ships docs/canonical/*SPEC*.md is a canonical project; an unreadable docs/canonical also fails closed; a workspace with no canonical SPEC keeps the generic behaviour (canonical_graph_absent, no typed gating). No config file and no policy-params change.",
+    "Correction B relies on the native semantics verified in issue-execution-policy.js:732 (human-actor changes_requested resets changesRequestedCount to 0), :505-515 (buildChangesRequestedState spreads the previous state: completedStageIds, returnAssignee, lastDecisionId preserved; currentStageId kept) and :756-758 (status in_progress, assignee = returnAssignee)."
+  ],
+  "deviations": [
+    "Prohibited shared surfaces changed again in this correction (disclosed as in ST-26.1 deviation 6): replenisher.mjs b0cd1175f6685463 to 1a6b867ec848b735; replenisher.test.mjs 28be17fa88d8f5e1 to 483b0b719909aa22. Reason: LAT-127 A requires refill eligibility to fail closed and the refill decision lives in replenisher.mjs (decideRefill); the change is one guard (canonicalBlocked) plus its test. North Star files policy.mjs, policy-params.json, lanes.json unchanged (hashes in controller-file-hashes.json).",
+    "The Command continuation ticket [REVIEW-EXHAUSTED] is a new controller ticket kind (guards.mjs CONTROLLER_TICKET_PREFIXES); its decision protocol (DECISION: return_to_author | human | technical_blocker) is enforced by the controller reading the Command's comment on the ticket; it never approves and never moves the escalated review except through the same human-actor changes_requested, one cycle per decision, 2 decision tickets per issue lifetime.",
+    "Not exercised live: no issue reached the native round cap during the validation (LAT-97 approved at round 3 of 3; LAT-108 and LAT-110 at rounds 1-2). The transition contract and the continuation are covered by injected negative tests only (review-exhaustion.test.mjs). The read-only decision-history probe (issue_execution_decisions) was exercised live only as a read (3 rows on LAT-97).",
+    "Delta wording: `git diff --name-only 319c012..5d49f1e` returns the source/test files listed in resultingVersionDetail.files plus IMP26_LIVE_VALIDATION_20260919.md and routing.jsonl (living evidence and telemetry from the intermediate log commits); the listed files are the code delta, the two living documents are excluded from the frozen manifest on purpose.",
+    "Command probes on delivery 2 (16:05:37Z) applied: a failed comments read on a decision ticket (open or closed) is never consumed as no-decision, the ticket is re-read next tick and no duplicate is created; a failed or non-array pre-PATCH decision-history read issues no PATCH at all (REVIEW_EXHAUSTION_QUEUED, retry next tick), and verifyDecisionHistory refuses to verify without the pre-read (a single-row table can no longer pass).",
+    "Reviewer round 1 on LAT-127 (16:00:18Z) findings B1 (unobserved post-state reported RECOVERED), B2 (DECISION on a closed ticket discarded, duplicate ticket) and B3 (lastDecisionId not covered by the verifier) are applied in this frozen target: POSTCONDITION_UNVERIFIED (autonomy gap) when the post-PATCH read fails; a persisted DECISION on a completed ticket honoured exactly once under the same bounds; lastDecisionId must advance (state verifier) and must name the single new human changes_requested row (history probe)."
+  ],
+  "dependencyFindings": [
+    "REQUIRES: accepted ST-26.1 (LAT-97 done 15:34:11Z, native review approved round 3, frozen target 319c012); IMP-01 and IMP-25 accepted; Energy ON.",
+    "REQUIRES_AUDIT DEP-27: unchanged scope from the accepted IMP-25 receipt; the native semantics used by correction B are cited with file:line."
+  ],
+  "failuresRetries": [
+    "None in this correction: the full suite passed on the first run after the two corrections (607/607)."
+  ],
+  "recommendedStatus": "in_review (native Independent Reviewer stage on LAT-127); parent IMP-26 acceptance stays with the Command gate LAT-124",
+  "result": "Correction A: a canonical workspace (docs/canonical/*SPEC*.md) with its projection missing is canonical_projection_missing: no packet is eligible and no refill is created; a workspace without a canonical SPEC keeps the generic behaviour. Correction B: every review-exhaustion recovery writes its transition contract (actor, reason, prior count, expected native reset to 0, expected post-state with source lines) and verifies status, assignee, counter, executionState.status, stage, completedStageIds and returnAssignee after the PATCH; a mismatch is REVIEW_EXHAUSTION_POSTCONDITION_FAILED (bounded technical blocker, never repaired, never approved); once the allowance is used the Command decides through an issue-scoped [REVIEW-EXHAUSTED] ticket (return_to_author grants one cycle; human/technical_blocker is a human gate; 2 tickets per issue). Tests 603/603; dry-run unchanged on the live board.",
+  "correctionDetail": {
+    "A": {
+      "finding": "absence of operations/bootstrap/canonical-imp-rows.json read as canonical_graph_absent (eligible) on the Energy cwd at 319c012",
+      "fix": "canonical-graph.mjs canonicalSourceBinding(cwd, fsImpl): docs/canonical/*SPEC*.md present -> ENOENT on the projection = canonical_projection_missing (fail closed for evaluatePacketEligibility through the loaded result); replenisher.mjs canonicalGraphBlocked(canonical) -> decideRefill reason canonical_graph_blocked:<reason> (no refill for a canonical project with a blocked graph)",
+      "negativeTests": [
+        "canonical-graph.test.mjs 'Command gate LAT-127 correction A'",
+        "replenisher.test.mjs 'Command gate LAT-127 correction A'"
+      ]
+    },
+    "B": {
+      "finding": "buildRecoveryComment omitted the expected native reset; the post-PATCH verifier checked only status and assignee; no persisted Command continuation after the recovery allowance",
+      "fix": "review-exhaustion.mjs expectedRecoveryTransition (actor, reason, priorCount, expectedCount 0, priorLastDecisionId, expected status/assignee/executionState.status/stage/completedStageIds/returnAssignee, source lines) written into the recovery comment (TRANSITION: ...) and into state evaluations; verifyRecoveryTransition after the PATCH re-read: 7 state fields plus lastDecisionId advanced (cleared or unchanged = failure); verifyDecisionHistory through a read-only probe of issue_execution_decisions (controller.mjs readDecisionHistory via db.mjs): every prior decision row kept, exactly 1 new row, outcome changes_requested, actor = the board user, stage = expected, lastDecisionId names it; a failed post-PATCH read or probe = REVIEW_EXHAUSTION_POSTCONDITION_UNVERIFIED (autonomy gap, never RECOVERED); a mismatch = REVIEW_EXHAUSTION_POSTCONDITION_FAILED (bounded technical blocker, no repair, no approval); continueAfterExhaustion: [REVIEW-EXHAUSTED] Command ticket under the project root, the newest ticket without a recorded decision (open or closed) is THE pending decision, DECISION: return_to_author grants one cycle (cited in the next recovery comment), human/technical_blocker = REVIEW_EXHAUSTION_HUMAN_DECISION, a ticket closed without a DECISION counts against the bound (REVIEW_EXHAUSTION_COMMAND_NO_DECISION), maxDecisionTicketsPerIssue 2, then REVIEW_EXHAUSTION_EXHAUSTED (human gate); autonomy.mjs maps every new diagnostic",
+      "negativeTests": [
+        "review-exhaustion.test.mjs 'LAT-127 correction B: a post-state that does not match the native reset'",
+        "review-exhaustion.test.mjs 'LAT-127 correction B: allowance used up'",
+        "review-exhaustion.test.mjs 'LAT-127 correction B (Command probes 15:55Z): a failed post-PATCH read ...'",
+        "review-exhaustion.test.mjs 'LAT-127 correction B (Command probe 15:55Z): a DECISION written on a ticket the Command already closed ...'",
+        "review-exhaustion.test.mjs 'LAT-127 B (reviewer probe 16:00Z): clearing lastDecisionId ...'",
+        "matrix 8 fixture models the native reset and the decision insert"
+      ]
+    }
+  },
+  "resultingVersionDetail": {
+    "type": "git commits",
+    "baseCommit": "319c012",
+    "controllerCommit": "5d49f1e",
+    "commitRange": "319c012..5d49f1e",
+    "files": {
+      "autonomy.mjs": "1f50d0404209c6a19bd99c90e0895b51ae838506a1ebe332ace058bedd20bb34",
+      "canonical-graph.mjs": "cef750461cfb8c23017f672e5ca0eec228b6955fe0667652b3252c872b121e46",
+      "canonical-graph.test.mjs": "f4e550a19c2ecf4997945f06fe4b7f154ff5c303a370cd5a60cc410834dd3ff7",
+      "controller.mjs": "132e4bf96c52ee321635800b9f29f94fce4b39822b9b8a7d27bb3e30e272c19f",
+      "guards.mjs": "a6aba469129a017c43c010f60488620d957c173cf6050df3da835e3668b73e05",
+      "replenisher.mjs": "1a6b867ec848b73532d9a35c314a354bada9514ebf17068d3f761788d5594a7d",
+      "replenisher.test.mjs": "483b0b719909aa2202b2e1da4f300340fedc7ab9ed82086de7059fa00f8220c3",
+      "review-exhaustion.mjs": "3a298b74f520ff1fb7b69f27449c9044c1ae57a67b05246dfe6d5f6e0eb9e725",
+      "review-exhaustion.test.mjs": "af73430d989a696a7bfd3ba9055803d976e3850234d32e3aaad9efef052f496d"
+    },
+    "baseFiles": {
+      "autonomy.mjs": "3c87ab67e10b8dc0d54db066117af7671bc391d5684ef4f11ff80b898820d169",
+      "canonical-graph.mjs": "e2098af0f86b248764f3fdd571d2756dd920c5e3367e835bef8113f19e0a8c7d",
+      "canonical-graph.test.mjs": "803ebecf28082ee73bb00bfa2a74c3d8a5e9f93312fae800e709142749b619a0",
+      "controller.mjs": "78f581cc639b09be3a227b9456bf43f9a442612293193155d2bd877280e55df2",
+      "guards.mjs": "481cd339d4d23c4809b5c0266250ccbbc152f95ce97118b85110bfa454322f05",
+      "replenisher.mjs": "b0cd1175f66854632cccdd43947ea3ff81420a00bcc0024c33aff3622765421b",
+      "replenisher.test.mjs": "28be17fa88d8f5e132610084fe2ab4f4507aaf593c26a1d25be2c397c93acd1c",
+      "review-exhaustion.mjs": "6422940ecfddc8131dbbdae0db79945f65f7545ef08c7236d3af51f1f3d4763d",
+      "review-exhaustion.test.mjs": "24439993ec287784678f2241a67025eef598931c1dda627f1718692bee625392"
+    },
+    "northStar": {
+      "policy.mjs": {
+        "base3a02669": "322cb0968193a451b4a21320ebbd3b4b253658213f8c670ac18a2e5a13c7b330",
+        "now": "322cb0968193a451b4a21320ebbd3b4b253658213f8c670ac18a2e5a13c7b330"
+      },
+      "policy-params.json": {
+        "base3a02669": "325fd7cafa44dda0488363ce0042d8188d73d9917cbfd0de39fc11029710715e",
+        "now": "325fd7cafa44dda0488363ce0042d8188d73d9917cbfd0de39fc11029710715e"
+      },
+      "lanes.json": {
+        "base3a02669": "a292a5fc7cb6a399d25e132e227ba02e075208d4f47799626a7da1e0d9841cc5",
+        "now": "a292a5fc7cb6a399d25e132e227ba02e075208d4f47799626a7da1e0d9841cc5"
+      }
+    },
+    "artifactHashesComputedAtUtc": "2026-09-19T16:07:21.953Z"
+  },
+  "writtenAt": "2026-09-19T16:07:21.953Z"
+}

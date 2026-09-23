@@ -1,0 +1,96 @@
+COMMAND: /opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs
+EXIT: 1
+STDOUT:
+{
+  "synthetic": true,
+  "results": [
+    {
+      "kind": "semantic-version",
+      "expected": "Previously evaluated component/role/protocol/version identity rejected",
+      "pass": false,
+      "reuseAccepted": true,
+      "readinessAccepted": true,
+      "admitAccepted": true,
+      "integration": {
+        "ok": true,
+        "componentId": "SYN-COMMAND-semantic-version",
+        "integrated": false,
+        "eligible": true,
+        "admittedRoles": [
+          "ENGINEERING_ORCHESTRATION"
+        ],
+        "reason": "ROLE_SCOPED_ELIGIBILITY_ONLY",
+        "authorityGranted": [],
+        "note": "La elegibilidad por rol no integra ni concede autoridad productiva (§11.6.3/§11.6.4)."
+      },
+      "history": [
+        {
+          "componentVersion": "1.0.0",
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "REJECT"
+        },
+        {
+          "componentVersion": "2.0.0",
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "HOLD"
+        },
+        {
+          "componentVersion": "1.0.0",
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "ADMIT"
+        }
+      ]
+    },
+    {
+      "kind": "content-hash",
+      "expected": "Previously evaluated component/role/protocol/version identity rejected",
+      "pass": false,
+      "reuseAccepted": true,
+      "readinessAccepted": true,
+      "admitAccepted": true,
+      "integration": {
+        "ok": true,
+        "componentId": "SYN-COMMAND-content-hash",
+        "integrated": false,
+        "eligible": true,
+        "admittedRoles": [
+          "ENGINEERING_ORCHESTRATION"
+        ],
+        "reason": "ROLE_SCOPED_ELIGIBILITY_ONLY",
+        "authorityGranted": [],
+        "note": "La elegibilidad por rol no integra ni concede autoridad productiva (§11.6.3/§11.6.4)."
+      },
+      "history": [
+        {
+          "componentVersion": {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "REJECT"
+        },
+        {
+          "componentVersion": {
+            "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "HOLD"
+        },
+        {
+          "componentVersion": {
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "protocolId": "SYN-COMMAND-PROTOCOL",
+          "protocolVersion": "1.0.0",
+          "outcome": "ADMIT"
+        }
+      ]
+    }
+  ]
+}
+
+STDERR:

@@ -1,0 +1,27 @@
+{
+  "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+  "identifier": "LAT-114",
+  "status": "done",
+  "assigneeAgentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+  "executionState": {
+    "status": "completed",
+    "monitor": null,
+    "reviewRequest": null,
+    "currentStageId": null,
+    "lastDecisionId": "1911bf58-3070-4278-b41d-c22398987e1f",
+    "returnAssignee": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+    },
+    "currentStageType": null,
+    "completedStageIds": [
+      "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+      "94306103-7967-47a7-9ca4-78c860a19dc7"
+    ],
+    "currentStageIndex": null,
+    "currentParticipant": null,
+    "lastDecisionOutcome": "approved",
+    "changesRequestedCount": 0
+  }
+}

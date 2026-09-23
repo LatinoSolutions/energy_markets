@@ -1,0 +1,67 @@
+{
+  "verifiedAt": "2026-09-19T09:29:05.723Z",
+  "verified": [
+    {
+      "identifier": "LAT-92",
+      "status": "blocked",
+      "owner": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "blockedBy": [
+        {
+          "id": "1bccd784-b081-4234-8d18-2e32b527c9e7",
+          "identifier": "LAT-96",
+          "status": "in_review"
+        }
+      ]
+    },
+    {
+      "identifier": "LAT-93",
+      "status": "blocked",
+      "owner": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "blockedBy": [
+        {
+          "id": "ca7c3c88-807e-4616-ac00-4249f6870307",
+          "identifier": "LAT-95",
+          "status": "in_progress"
+        }
+      ]
+    },
+    {
+      "identifier": "LAT-94",
+      "status": "blocked",
+      "owner": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+      "blockedBy": [
+        {
+          "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+          "identifier": "LAT-92",
+          "status": "blocked"
+        },
+        {
+          "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+          "identifier": "LAT-93",
+          "status": "blocked"
+        }
+      ]
+    },
+    {
+      "identifier": "LAT-97",
+      "status": "blocked",
+      "owner": null,
+      "blockedBy": [
+        {
+          "id": "d7fc11d6-836c-4b84-b362-16b89e5c9a85",
+          "identifier": "LAT-92",
+          "status": "blocked"
+        },
+        {
+          "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610",
+          "identifier": "LAT-93",
+          "status": "blocked"
+        }
+      ]
+    }
+  ],
+  "nativeWakeSource": "/home/op/.paperclip/cli/current/node_modules/@paperclipai/server/dist/services/issue-dependency-wakeups.js; routes/issues.js done-transition wake",
+  "claim": "Native durable wiring verified; future completion/wake not claimed as already observed",
+  "continuousInteractiveMonitoring": "STOPPED",
+  "claudeOwnedSurfacesModified": false
+}

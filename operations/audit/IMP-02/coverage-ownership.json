@@ -1,0 +1,71 @@
+{
+  "artifactKind": "IMP-02_COVERAGE_OWNERSHIP_AUDIT",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-02-ST-1-v1.1",
+  "subtaskId": "ST-02.1",
+  "parentImp": "IMP-02",
+  "depId": "DEP-02",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "relationMonthlyQuarterly": {
+    "status": "MISSING",
+    "value": null,
+    "missing": {
+      "reason": "The corpus explicitly leaves the relation between Monthly and Quarterly obligations unresolved (additional, overlapping or alternative ways of covering the same need). No real mandate defines it.",
+      "inspectedSources": ["S-01 §4.1 L245", "S-01 §24 DEP-02 L2032", "S-07 p.3"],
+      "custodianRole": "Procurement mandate owner",
+      "nextRetrievalAction": "Retrieve the audited relation between Monthly and Quarterly obligations (additive, overlapping or alternative) and the resulting per-obligation fill assignment from the mandate."
+    }
+  },
+  "obligations": [],
+  "fills": [],
+  "invariants": {
+    "fillBelongsToAtMostOneObligation": true,
+    "noDoubleCountingAcrossOverlappingObligations": true,
+    "coverageChangesOnlyByFilledQuantity": true
+  },
+  "finding": "No real obligation set or fill ledger exists. No fill or coverage can be assigned, so no double-counting can occur yet; the invariant is enforced by the verifier for any future real or explicitly synthetic data.",
+  "syntheticExamples": [
+    {
+      "name": "single-assignment-valid",
+      "synthetic": true,
+      "expect": "valid",
+      "obligations": [
+        { "obligationId": "SYN-Q1", "fills": ["SYN-F1"] },
+        { "obligationId": "SYN-M1", "fills": ["SYN-F2"] }
+      ],
+      "fills": [
+        { "fillId": "SYN-F1", "quantity": 10, "unit": "MWh" },
+        { "fillId": "SYN-F2", "quantity": 5, "unit": "MWh" }
+      ]
+    },
+    {
+      "name": "duplicate-ownership",
+      "synthetic": true,
+      "expect": "rejects:DUPLICATE_OWNERSHIP",
+      "obligations": [
+        { "obligationId": "SYN-Q1", "fills": ["SYN-F1"] },
+        { "obligationId": "SYN-M1", "fills": ["SYN-F1"] }
+      ],
+      "fills": [
+        { "fillId": "SYN-F1", "quantity": 10, "unit": "MWh" }
+      ]
+    },
+    {
+      "name": "unknown-fill-reference",
+      "synthetic": true,
+      "expect": "rejects:UNKNOWN_FILL",
+      "obligations": [
+        { "obligationId": "SYN-Q1", "fills": ["SYN-F9"] }
+      ],
+      "fills": []
+    },
+    {
+      "name": "undocumented-missing-relation",
+      "synthetic": true,
+      "expect": "rejects:MISSING_NOT_DOCUMENTED",
+      "relationMonthlyQuarterly": { "status": "MISSING", "value": null, "missing": null },
+      "obligations": [],
+      "fills": []
+    }
+  ]
+}

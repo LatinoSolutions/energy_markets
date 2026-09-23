@@ -1,0 +1,62 @@
+{
+  "id": "f4b0f50b-b1a5-4ec2-97b3-7cc4fbb631e4",
+  "identifier": "LAT-114",
+  "status": "in_progress",
+  "assigneeAgentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+  "executionState": {
+    "status": "changes_requested",
+    "monitor": null,
+    "reviewRequest": null,
+    "currentStageId": "94306103-7967-47a7-9ca4-78c860a19dc7",
+    "lastDecisionId": "4f7ee584-3188-4cbb-8700-03ef303dffe8",
+    "returnAssignee": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e"
+    },
+    "currentStageType": "review",
+    "completedStageIds": [
+      "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139"
+    ],
+    "currentStageIndex": 1,
+    "currentParticipant": {
+      "type": "agent",
+      "userId": null,
+      "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+    },
+    "lastDecisionOutcome": "changes_requested",
+    "changesRequestedCount": 1
+  },
+  "executionPolicy": {
+    "mode": "normal",
+    "stages": [
+      {
+        "id": "c8c24f28-9fbf-4cec-8a2f-d6a5bb343139",
+        "type": "review",
+        "participants": [
+          {
+            "id": "6fb0dbb1-0f52-403b-a663-2a89d39b07c9",
+            "type": "agent",
+            "userId": null,
+            "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c"
+          }
+        ],
+        "approvalsNeeded": 1
+      },
+      {
+        "id": "94306103-7967-47a7-9ca4-78c860a19dc7",
+        "type": "review",
+        "participants": [
+          {
+            "id": "7e1b26dc-e74a-4a3d-926d-db7216b96969",
+            "type": "agent",
+            "userId": null,
+            "agentId": "2b6bf987-6800-4d4c-a23a-d470a4bb0ea6"
+          }
+        ],
+        "approvalsNeeded": 1
+      }
+    ],
+    "commentRequired": true
+  }
+}

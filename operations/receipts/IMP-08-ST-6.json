@@ -1,0 +1,258 @@
+{
+  "receiptKind": "ST_RECEIPT",
+  "schema": "SPEC-v1.1-20.2.8",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-08-ST-6-v1.1",
+    "subtaskId": "ST-08.6",
+    "parentImp": "IMP-08",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "projectName": "Energy Markets",
+    "parentIssueIdentifier": "LAT-91",
+    "subtaskIssueIdentifier": "LAT-229",
+    "subtaskIssueId": "2c466c2d-3345-404f-bae4-7b094a3231bd",
+    "nativeRoot": "LAT-91",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "objectProtocolVersion": "v1",
+    "executionInstance": "SPEC 86c4bd4e… + IMP-08 + scope[synthetic B/H/V calculation and mission-specific scoring, protocol v1] + version 1.1 staging; continuation of the same unaccepted instance"
+  },
+  "workerModelRoute": "DeepSeek V4.1 Flash via OpenRouter (Emergency Cheap Production Worker A) 2f30b8dd-306b-4735-a135-f8d3127c8c0e / opencode_local / openrouter/deepseek/deepseek-v4.1-flash; current run 37a82297-5535-4701-9161-9fb4edabbfff",
+  "workerRoute": {
+    "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+    "agentName": "Cheap Production Worker (DeepSeek V4.1 Flash via OpenRouter)",
+    "roleInThisSubtask": "routine author of a deterministic verification/receipt-staging packet; explicitly NOT the independent reviewer (SPEC 20.2.9)",
+    "adapter": "opencode_local",
+    "model": "openrouter/deepseek/deepseek-v4.1-flash",
+    "runId": "37a82297-5535-4701-9161-9fb4edabbfff"
+  },
+  "runHistory": [
+    {
+      "runId": "b3126ec2-d0f5-4a9d-9af6-c020882855e3",
+      "role": "author round 1 initial delivery",
+      "outcome": "completed"
+    },
+    {
+      "runId": "c6ece402-5b0a-43e9-a9af-53d759bc9e82",
+      "role": "author round-1 correction + first attachment republish",
+      "outcome": "completed"
+    },
+    {
+      "runId": "96a4192b-c07d-412c-bd5e-fa2f9b72f907",
+      "role": "author round-2 correction (rev3 publication)",
+      "outcome": "completed"
+    },
+    {
+      "runId": "63b12c2d-7602-434e-a6fe-56dc8fb8f0eb",
+      "role": "author round-3 delta (rev4)",
+      "outcome": "completed"
+    },
+    {
+      "runId": "8db2dadb-8b55-4863-b9c5-4858f1de7b35",
+      "role": "author recovery/round-4 correction (rev5)",
+      "outcome": "completed"
+    },
+    {
+      "runId": "37a82297-5535-4701-9161-9fb4edabbfff",
+      "role": "author round-5 correction (rev6: value rules + protocol v1 reconciliation)",
+      "outcome": "completed"
+    }
+  ],
+  "startingBaseline": {
+    "type": "content-hash (no commits created; commits are packet-prohibited and main is unborn)",
+    "contentHash": "f8bd70692842afd7f538d3ec6f1806c851e8625e093b9bb1a4ca690641d6376c",
+    "contentHashScope": "sha256 of operations/audit/IMP-08/ST-08.6/baseline-hashes.txt",
+    "host": "brunode",
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "branch": "main (unborn)",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "acceptedIMP01ReceiptSha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "currentAcceptedSemanticHashAlgorithmC": "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "baselineEvidence": "operations/audit/IMP-08/ST-08.6/baseline-hashes.txt"
+  },
+  "startingBaselineDetail": "All IMP-08 child ST receipts 1-5 present and pinned; ST-08.5 is the current accepted semantic version; ST-08.4 rev5 dossier approved; ST-08.6 path was empty before this packet. No commit/ref exists to pin.",
+  "resultingVersion": {
+    "type": "content-hash (no commits created)",
+    "contentHash": "4a75c62ebda8e115814f9f08236f89462f1497dd4b72f9f4c1172e4039e4fa82",
+    "algorithm": "sha256 over the sorted lines of '<file-sha256>  <repo-relative-path>' each terminated by a newline character, for the eleven ST-08.6 staging artifacts (baseline-hashes.txt, parent-gate-inputs.json, parent-gate-verification.md, proposed-imp-receipt.json, tests.tap, verification.txt, verify-delivery.mjs, authority-guard.mjs, authority-guard-probes.mjs, authority-guard-probes.txt, continuity-checkpoint.md)",
+    "scope": "operations/audit/IMP-08/ST-08.6/** staging artifacts plus operations/receipts/IMP-08-ST-6.json",
+    "note": "No product-code semantic version is produced by this verification/staging packet; the current accepted product semantic version remains ST-08.5 bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528."
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json sha256 78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "operations/receipts/IMP-08-ST-1.json sha256 1d2a6482e1c69b4f560d9d83a15b36a336687c132d47d9129211a1767d9e251f",
+    "operations/receipts/IMP-08-ST-2.json sha256 121eceafadd66b951c86c4a319b222c8780b8844d48941570b450f3f7abfb29d",
+    "operations/receipts/IMP-08-ST-3.json sha256 4de9409501404e63c9ce0b0caaf7004176db46906ecc8fc4e13655d67a820110",
+    "operations/receipts/IMP-08-ST-4.json sha256 43fe0b9b3dc145f42efadc64138f86f166cea33671e8e95d1eaa6b1aff889bf4",
+    "operations/receipts/IMP-08-ST-5.json sha256 ee42418ed1f9bbb4e7d014e2aa109a242db426c8ca07081a84b37820f5efee71",
+    "operations/audit/IMP-08/ST-08.5/manifest.json sha256 3cfe1efc19872838645e743bf6ec5177b9cac95b2ff95303bcb5bdf2eee5f209",
+    "operations/audit/IMP-08/ST-08.4/dossier.tar.gz sha256 c264868bcd09af798b8343097f94832e8df3987b5c5c891ff09c46e4fef1f4af",
+    "operations/audit/IMP-08/ST-08.4/version-binding.json sha256 5c0a062c06beda3637b2667b492cc1ff0ac25ee7b08bbc6228217a1348ec2c9e",
+    "operations/audit/IMP-08/fixture-oracle/{fixtures.json,verify.mjs}",
+    "Live Paperclip native lineage: LAT-126, LAT-157, LAT-178, LAT-195, LAT-191 issues, executionState and comments; LAT-170 operational provenance",
+    "Live Energy Markets project state: in_progress, pausedAt null"
+  ],
+  "artifactsChanged": [
+    "operations/audit/IMP-08/ST-08.6/baseline-hashes.txt",
+    "operations/audit/IMP-08/ST-08.6/parent-gate-inputs.json",
+    "operations/audit/IMP-08/ST-08.6/proposed-imp-receipt.json",
+    "operations/audit/IMP-08/ST-08.6/verify-delivery.mjs",
+    "operations/audit/IMP-08/ST-08.6/authority-guard.mjs",
+    "operations/audit/IMP-08/ST-08.6/authority-guard-probes.mjs",
+    "operations/audit/IMP-08/ST-08.6/authority-guard-probes.txt",
+    "operations/audit/IMP-08/ST-08.6/parent-gate-verification.md",
+    "operations/audit/IMP-08/ST-08.6/tests.tap",
+    "operations/audit/IMP-08/ST-08.6/verification.txt",
+    "operations/audit/IMP-08/ST-08.6/SHA256SUMS",
+    "operations/audit/IMP-08/ST-08.6/final-hashes.txt",
+    "operations/audit/IMP-08/ST-08.6/continuity-checkpoint.md",
+    "operations/audit/IMP-08/ST-08.6/evidence-bundle.tar.gz",
+    "operations/receipts/IMP-08-ST-6.json"
+  ],
+  "result": "Reconciled the full IMP-08 native lineage (ST-08.1..ST-08.5) with final independent approvals; independently reproduced all frozen parent acceptance tests from clean commands; mapped every SPEC 25.1 IMP-08 requirement to direct evidence; verified SPEC 20.2.10 prerequisites remain satisfied; and staged a conspicuously non-authoritative proposed IMP_RECEIPT plus a hash-bound Command parent-gate bundle. IMP-08 is NOT accepted by this packet and no dependency is unlocked.",
+  "testsRun": [
+    "hostname; pwd",
+    "sha256sum of SPEC, baseline manifest, IMP-01 receipt, IMP-08 ST receipts 1-5, ST-08.5 manifest, ST-08.4 dossier",
+    "/opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs",
+    "/opt/node/bin/node --test test/economic-calculation/*.test.mjs",
+    "/opt/node/bin/node --test test/contracts/*.test.mjs",
+    "/opt/node/bin/node --test operations/audit/IMP-08/ST-08.3/regression.test.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/ST-08.5/verify-delivery.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/ST-08.4/verify-st4.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/ST-08.6/authority-guard-probes.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/ST-08.6/verify-delivery.mjs",
+    "sha256sum -c operations/audit/IMP-08/ST-08.6/SHA256SUMS"
+  ],
+  "testResults": [
+    "hostname=brunode; pwd=/srv/hot-data/energy-markets/app",
+    "SPEC 86c4bd4e...; baseline 895539b7...; IMP-01 receipt 78d92de8...; ST-1 1d2a6482...; ST-2 121eceaf...; ST-3 4de94095...; ST-4 43fe0b9b...; ST-5 ee42418e...; ST-08.5 manifest 3cfe1efc...; ST-08.4 dossier c264868b...",
+    "oracle verify.mjs: exit 0; 35 fixtures; C01-C12 covered; 7/7 negative probes pass",
+    "economic tests: 56 pass, 0 fail",
+    "contract tests: 67 pass, 0 fail",
+    "ST-08.3 regression: 9 pass, 0 fail",
+    "ST-08.5 verify-delivery: PASS; artifacts=11; protectedHashes=9 unchanged; semanticHash=bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
+    "ST-08.4 verify-st4: PASS; pins=9 unchanged; payloadFiles=86; currentAcceptedST085_C=bc0ce6ad... A=96e73ef9...",
+    "authority-guard-probes: RESULT PASS; 38/38 negative probes rejected (incl. round-5 value escapes: result accepted/approved, dependencyUpdate 'DEP-13 satisfied', unresolvedLimits 'DEP-13 resolved', potentialUnlocks 'IMP-13 unlocked'); clean control ok; ST-08.6 lineage asserted pending",
+    "ST-08.6 verify-delivery: PASS; pins=11; proposal=PROPOSED_IMP_RECEIPT/non-authoritative; claims=0; sha256sum entries=12",
+    "sha256sum -c SHA256SUMS: all 12 entries OK"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-08/ST-08.6/parent-gate-verification.md",
+    "operations/audit/IMP-08/ST-08.6/parent-gate-inputs.json",
+    "operations/audit/IMP-08/ST-08.6/proposed-imp-receipt.json",
+    "operations/audit/IMP-08/ST-08.6/baseline-hashes.txt",
+    "operations/audit/IMP-08/ST-08.6/final-hashes.txt",
+    "operations/audit/IMP-08/ST-08.6/tests.tap",
+    "operations/audit/IMP-08/ST-08.6/verification.txt",
+    "operations/audit/IMP-08/ST-08.6/SHA256SUMS",
+    "operations/audit/IMP-08/ST-08.6/authority-guard.mjs",
+    "operations/audit/IMP-08/ST-08.6/authority-guard-probes.mjs",
+    "operations/audit/IMP-08/ST-08.6/authority-guard-probes.txt",
+    "operations/audit/IMP-08/ST-08.6/evidence-bundle.tar.gz",
+    "operations/receipts/IMP-08-ST-6.json",
+    "Issue documents on LAT-229: parent-gate-verification, st-receipt, continuity-checkpoint",
+    "Attachment-backed work products on LAT-229: evidence-bundle.tar.gz (artifact) and parent-gate-verification.md (readable verification)"
+  ],
+  "assumptions": [
+    "The non-git content-hash baseline is authoritative because main is unborn and commits are packet-prohibited.",
+    "ST-08.5 is the current accepted IMP-08 synthetic semantic version; earlier semantic hashes are superseded but preserved.",
+    "The board/user participant approval on LAT-178 was the configured native reviewer for that child because the Independent Reviewer quota was exhausted."
+  ],
+  "deviations": [
+    "Reviewer round 1 (decision 5431e57e) requested changes on criteria 5 and 7 only; no product-code rework was requested.",
+    "Criterion 5 round 1: the prior verifier guard only scanned claims[] and evaded accepted:true, parentAccepted:true, and dependencyStatus:{DEP-13:satisfied}. Corrected via authority-guard.mjs plus recorded negative probes.",
+    "Criterion 7 round 1: no attachment-backed deliverable existed (attachments=[] and work-products=[]). Corrected by uploading evidence-bundle.tar.gz and parent-gate-verification.md as attachment-backed work products.",
+    "Reviewer round 2 (decision 744b621f): _kind:'IMP_RECEIPT' and status:'accepted'/'approved' could still masquerade; the published st-receipt document was invalid JSON. Corrected with a context-aware guard and safe JSON republication.",
+    "Reviewer round 3 (decision c8856406, escalated): metadata.outcome/acceptanceStatus 'approved', a substring proposed-kind exemption, satisfiedDependencies:['DEP-13'] and string-form claims evaded the guard; the continuity-checkpoint document differed from its local file.",
+    "Round-3 corrections: schema/path-aware guard (exact PROPOSED_IMP_RECEIPT kind; outcome allowed only at nativeApproval.outcome; acceptanceStatus never accepted/approved; status allowed only at requiredStIdentities[*].status; non-empty claims of any type; satisfiedDependencies rejected) with 28 negative probes; reviewerLineage key moved to 'verdict'; checkpoint republished byte-exact with the fragile newline escape removed.",
+    "The round-1 deviations claim of 'None' was inaccurate and is superseded by this record.",
+    "No other deviation from the packet's allowed_paths or required outputs; no product code, prior receipt, test, shared office or timer surface was modified.",
+    "Reviewer round 4 (decision 01ce7d97, post-recovery re-review): the guard was still fail-open via a string-path allowlist spoof and alias keys (top-level verdict/parentVerdict 'approved', mutated ST-08.6 pending verdict, spoof key 'requiredStIdentities[99]', fulfilledDependencies:['DEP-13']); and the receipt recorded stale probe counts and incomplete rework-run provenance.",
+    "Round-4 corrections: explicit proposal schema (per-node key allowlist) + structural token-path validation; ST-08.6 lineage 'pending' asserted; 33 negative probes recorded; receipt testResults/runHistory/writtenByRun rebound to the actual rework runs and current bytes.",
+    "Reviewer round 5 (decision 43ec7f9f): the key-only schema was fail-open at value level (result accepted/approved; dependencyUpdate 'DEP-13 satisfied'; unresolvedLimits 'DEP-13 resolved'; potentialUnlocks 'IMP-13 unlocked') and the staged instance protocol drifted to v1.1.",
+    "Round-5 corrections: explicit value rules plus a negation-aware DEP/unlock scanner covering string-array elements; 38 negative probes; instance reconciled to protocol v1 (scope, objectProtocolVersion, executionInstance) with a verifier assertion that fails on any protocol v1.1 drift."
+  ],
+  "dependencyFindings": [
+    "REQUIRES=accepted IMP-01 remains satisfied (receipt pinned 78d92de8...).",
+    "SPEC 25.2 IMP-08 row: REQUIRES_AUDIT '--' and REQUIRES_EVIDENCE '--' for the implementation/fixtures objective; no DEP is satisfied.",
+    "Real campaign use still requires accepted IMP-05/07 before that run.",
+    "No unresolved applicable SPEC_CHANGE_REQUEST exists for IMP-08.",
+    "LAT-170 is operational routing provenance only, not an accepted ST or economic evidence."
+  ],
+  "failuresRetries": [
+    "Reviewer rounds 1 (5431e57e), 2 (744b621f), 3 (c8856406, escalated/re-authorized), 4 (01ce7d97) and 5 (43ec7f9f) returned changes_requested on criteria 5/6/7; each addressed in a bounded cycle. Semantic/product bytes unchanged throughout; all required commands ran clean and every expected count/hash matched."
+  ],
+  "noGuessQuestionsRaised": [],
+  "specChangeRequest": null,
+  "unresolvedLimits": [
+    "Synthetic engineering evidence only; does not satisfy DEP-13, a research PASS or production authority.",
+    "Disclosed historical lineage defect: ST-08.3 baseline reference 8d1ce8f2...df8b1b... vs accepted ST-08.2 recomputed content hash 8d1ce8f2...df1b1b...; predecessor bytes preserved, recorded for Command assessment.",
+    "ST-08.2/ST-08.3 semantic hashes are superseded by ST-08.5."
+  ],
+  "recommendedStatus": "in_review",
+  "review": {
+    "stage1": "One native independent review stage with Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c; approvalsNeeded 1; commentRequired true; maxReviewRounds 3; author differs",
+    "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "approvalsNeeded": 1,
+    "authorReviewerDistinct": true,
+    "status": "pending_native_review",
+    "rounds": [
+      {
+        "round": 1,
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "5431e57e",
+        "outcome": "changes_requested",
+        "commentId": "2eb4b305-993c-40de-9724-0fe534661ae4",
+        "findings": "Criterion 5: verifier guard not fail-closed (accepted:true, parentAccepted:true, dependencyStatus DEP-13 satisfied evaded it). Criterion 7: no attachment-backed deliverable. Semantic/product bytes declared sound; no product-code rework requested.",
+        "resolution": "Hardened authority-guard.mjs + recorded negative probes; published bundle and readable verification as attachment-backed work products; regenerated receipt/hashes/bundle/documents/checkpoint."
+      },
+      {
+        "round": 2,
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "744b621f",
+        "outcome": "changes_requested",
+        "commentId": "a79c38da-caf9-4b37-9faf-2a6c7bf32d33",
+        "findings": "Criterion 5: guard permitted _kind:'IMP_RECEIPT' (top-level and nested) and status:'accepted'/'approved' outside the allowed child lineage. Criterion 7: the published st-receipt document was invalid JSON due to a broken escaped newline. Semantic suites, lineage and attachments were verified sound.",
+        "resolution": "Context-aware guard with an explicit allowed child-lineage path plus exact receiptKind/_kind assertions and 23 recorded negative probes (case variants/aliases fail closed); st-receipt republished through safe JSON encoding with a parse-and-equality assertion; all artifacts regenerated to one bound version."
+      },
+      {
+        "round": 3,
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "c8856406",
+        "outcome": "changes_requested",
+        "commentId": "1b7b0004-3d2c-4df3-b24b-dd296b9b38d7",
+        "findings": "Guard evaded by metadata.outcome/acceptanceStatus 'approved', a substring-based proposed-kind exemption (PROPOSED_IMP_RECEIPT_ACCEPTED), satisfiedDependencies:['DEP-13'] and string-form metadata.claims. The continuity-checkpoint document differed from its local file due to a fragile newline escape.",
+        "resolution": "Schema/path-aware guard: exact proposed kind, outcome/status path allowlists, acceptanceStatus rejected always, non-empty claims of any container type, satisfiedDependencies rejected; 28 recorded negative probes; reviewerLineage key moved to 'verdict'; checkpoint republished byte-exact."
+      },
+      {
+        "round": 4,
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "01ce7d97",
+        "outcome": "changes_requested",
+        "commentId": "65533124-8c09-4fd4-960c-4a259986f465",
+        "findings": "Guard remained fail-open via string-path spoofing and alias keys: top-level verdict/parentVerdict 'approved', mutation of the pending ST-08.6 reviewerLineage verdict, a spoof key named 'requiredStIdentities[99]', and fulfilledDependencies:['DEP-13']. The receipt recorded stale probe counts (16/16) and incomplete rework-run provenance.",
+        "resolution": "Replaced the permissive alias scan and string-built path regexes with an explicit proposal schema (key allowlist per node) plus structural token-path validation; assert the ST-08.6 lineage stays pending; 33 recorded negative probes; receipt testResults/runHistory/runs rebound to current bytes."
+      },
+      {
+        "round": 5,
+        "reviewerAgentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+        "decisionId": "43ec7f9f",
+        "outcome": "changes_requested",
+        "commentId": "c2aab0ce-6a30-438d-8f3f-794c1c6f4959",
+        "findings": "The key allowlist remained fail-open at value level: acceptanceChecks[*].result='accepted', prerequisiteChecks[*].result='approved', dependencyUpdate='DEP-13 satisfied', unresolvedLimits[0]='DEP-13 resolved' and potentialUnlocks=['IMP-13 unlocked'] all evaded. The staged instance identity also drifted from the frozen protocol v1 to v1.1.",
+        "resolution": "Added explicit value/schema rules (result constrained; 64-hex sha256/contentHash; dependencyUpdate must state None; potentialUnlocks must state not granted; negation-aware DEP/unlock string scanner including string-array elements) with 38 recorded probes; reconciled the instance to protocol v1 and asserted the instance binding in the verifier."
+      }
+    ],
+    "note": "Worker PASS is a recommendation only. Child approval means parent-gate inputs are ready only; IMP-08 parent acceptance remains a separate bounded Tech Lead event under SPEC 20.2.10.",
+    "escalation": "Third technical return reached the native round cap and escalated to Command; the Office re-authorized one bounded rework cycle (comment 9e52e24b) for the same author and the same independent reviewer. This is not an approval."
+  },
+  "handoff": "Parent-gate inputs, readable verification and a non-authoritative proposed IMP_RECEIPT are staged under operations/audit/IMP-08/ST-08.6/ and published on LAT-229 (issue documents plus attachment-backed work products). After native child approval, Paperclip wakes the existing root-level Command/final-acceptance path for a separate SPEC 20.2.10 evaluation. No assign, poll or interactive wait.",
+  "receiptMeta": {
+    "specSection": "20.2.8",
+    "writtenByRun": "37a82297-5535-4701-9161-9fb4edabbfff",
+    "revision": "rev6 — reviewer round-1/2/3/4/5 corrections (structural+value schema guard; instance reconciled to protocol v1)",
+    "parentAcceptanceReminder": "No IMP_RECEIPT or parent acceptance is produced by this child."
+  }
+}

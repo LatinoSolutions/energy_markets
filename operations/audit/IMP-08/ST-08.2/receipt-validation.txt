@@ -1,0 +1,4 @@
+$ /opt/node/bin/node operations/audit/IMP-08/ST-08.2/validate-receipt.mjs
+validateStReceipt.ok = true
+linkStReceiptToPacket.ok = true
+EXIT_CODE=0

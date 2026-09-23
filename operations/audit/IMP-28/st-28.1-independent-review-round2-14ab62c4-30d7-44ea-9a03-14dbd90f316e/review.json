@@ -1,0 +1,102 @@
+{
+  "schema": "INDEPENDENT_REVIEW_v1",
+  "subtask": "ST-28.1",
+  "packet": "WP-IMP-28-ST-1-v1.1",
+  "parentImp": "IMP-28",
+  "workIssue": "LAT-114",
+  "semanticParentIssue": "LAT-113",
+  "programRoot": "LAT-91",
+  "round": 2,
+  "maxRounds": 3,
+  "reviewer": "0af74a08-cb39-4cf5-a94f-117b242ea08c (Independent Reviewer / Command Failover)",
+  "author": "2f30b8dd-306b-4735-a135-f8d3127c8c0e (Emergency Cheap Production Worker)",
+  "reviewedTarget": "src/role-evaluation/**, test/role-evaluation/**, operations/audit/IMP-28/**, operations/receipts/IMP-28-ST-1.json",
+  "outcome": "changes_requested",
+  "outcomeSummary": "Los cinco hallazgos de la ronda 1 (A, A2, B, C, D) quedan verificados como corregidos de forma independiente: el probe de la ronda 1 pasa entero, ambas suites están en verde y el manifiesto reproduce en disco. La ronda 2 sondeó un eje que la ronda 1 no cubrió —la versión como content-hash, forma que isVersionLike() admite de primera clase en este workspace no-git— y encontró un defecto nuevo y reproducible en el dedup de hallazgos previos (R2-B, bloqueante y delimitado) más un residuo de aislamiento de la misma clase que C (R2-C1, recomendado). Devuelto en ronda 2 de 3.",
+  "verificationPerformed": [
+    {
+      "check": "identidad de entorno y de entradas",
+      "command": "hostname; pwd; sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "result": "brunode, /srv/hot-data/energy-markets/app. SPEC=86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c y IMP-01=78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c coinciden exactamente con el packet."
+    },
+    {
+      "check": "suite del framework, ejecutada por el revisor",
+      "command": "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+      "result": "exit 0, 34/34 pass. Incluye los cuatro tests de regresión nuevos (A, A2, B, C)."
+    },
+    {
+      "check": "contratos aceptados preservados",
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "result": "exit 0, 67/67 pass; IMP-01 read-only intacto."
+    },
+    {
+      "check": "reejecución del probe independiente de la ronda 1",
+      "command": "/opt/node/bin/node operations/audit/IMP-28/st-28.1-independent-review-round1-.../reviewer-probe.mjs",
+      "result": "0 comprobaciones fallidas. A1, A2, B1 y C1 —que fallaban en la ronda 1— ahora pasan sobre el código actual; los D1-D8 siguen pasando (sin regresión)."
+    },
+    {
+      "check": "manifiesto de write set contra disco (hallazgo D)",
+      "command": "recomputación sha256 de las 26 entradas de operations/audit/IMP-28/write-set-manifest.json",
+      "result": "26 entradas, 0 discrepancias. La entrada de write-set-manifest.stdout.txt que no reproducía en la ronda 1 quedó resuelta vía selfStdoutOmitted."
+    },
+    {
+      "check": "ausencia de escrituras fuera de allowed_paths",
+      "command": "find src test operations docs -type f -newermt '2026-09-19 16:20' excluyendo los allowed_paths del packet",
+      "result": "Sólo aparecen artefactos de otros packets (IMP-08, IMP-26/ST-26.2 del run concurrente LAT-128). Ninguna escritura fuera de allowed_paths atribuible a ST-28.1."
+    },
+    {
+      "check": "probe adversarial nuevo de la ronda 2",
+      "command": "/opt/node/bin/node operations/audit/IMP-28/st-28.1-independent-review-round2-14ab62c4-30d7-44ea-9a03-14dbd90f316e/reviewer-probe-round2.mjs",
+      "result": "4 PASS, 2 FAIL. Los FAIL son R2-B y R2-C1 de este documento."
+    }
+  ],
+  "findings": [
+    {
+      "id": "R2-B",
+      "severity": "blocking",
+      "criterion": "acceptance 1 (identidad exacta de versión) y acceptance 5 (hallazgos/outcomes previos)",
+      "category": "pérdida silenciosa de un hallazgo previo por clave de dedup que destruye la identidad de versión",
+      "location": "src/role-evaluation/registry.mjs:371-383 (dedup de priorFindings en createNewEvaluationVersion), clave construida en la línea 377",
+      "claim": "createNewEvaluationVersion() preserva los HOLD/REJECT previos al saltar de versión, como declaran el comentario de las líneas 311-313 y el test «una nueva versión preserva HOLD/REJECT previos, evidencia y retirada/rollback».",
+      "refutation": "La clave de dedup es `${finding.componentVersion}:${finding.protocolVersion}:${finding.value}`, interpolación de plantilla directa. isVersionLike() admite como versión de primera clase tanto el semver textual como el objeto {contentHash}, y identities.mjs documenta esa segunda forma como la que exige este workspace no-git. Cuando la versión es un content-hash, la interpolación produce '[object Object]', de modo que dos versiones distintas colapsan en la misma clave. Observado con el probe R2-B: dos HOLD en versiones content-hash distintas (hash a… y hash b…) producen priorFindings=1 con refs=['SYN-HOLD-V1']; el HOLD de la segunda versión desaparece de la lista. El control R2-B-control muestra que el mismo escenario con versiones textuales (0.1.0 → 0.2.0 → 0.3.0) sí conserva los dos, lo que aísla la causa en la clave y no en la lógica de preservación.",
+      "delimitation": "El defecto está acotado a la vista derivada priorFindings. La preservación de fondo sí se sostiene: outcomeHistory conserva ambos HOLD con su evidencia, history() devuelve las dos versiones resueltas con su outcome propio y evidenceRefs acumula SYN-HOLD-V1 y SYN-HOLD-V2. No hay mutación de un outcome inmutable; hay omisión en la superficie que el framework anuncia como la de hallazgos previos.",
+      "whyItMatters": "En un framework de admisión por rol, la lista de hallazgos previos es justo la señal que no debe perderse: un REJECT anterior que desaparece de priorFindings al saltar de versión deja a un consumidor con la impresión de que esa versión nunca fue rechazada. El criterio 1 exige identidad exacta de componente/rol/protocolo/versión, y una clave que reduce dos versiones distintas al mismo literal no sostiene esa identidad. El propio módulo ya tiene el helper correcto —versionKey(), usado en las líneas 328 y 339-350 de la misma función— así que la corrección es de una línea.",
+      "requestedFix": "Construir la clave de dedup con versionKey() para componentVersion y protocolVersion (o con un serializado equivalente que distinga content-hashes), y añadir un test de regresión que registre dos HOLD/REJECT en versiones content-hash distintas y afirme que ambos sobreviven en priorFindings.",
+      "withinAllowedPaths": true
+    },
+    {
+      "id": "R2-C1",
+      "severity": "recommended",
+      "criterion": "acceptance 4 (higiene del registro; la propiedad de aislamiento que el propio autor testea)",
+      "category": "residuo del hallazgo C: el aislamiento se aplicó a la evidencia pero no a la versión-objeto",
+      "location": "src/role-evaluation/registry.mjs:176-195 (registerComponent, campo componentVersion) y deepFreeze en la línea 30-38",
+      "claim": "Tras la corrección de C, el registro no congela objetos propiedad del llamante: registerComponent clona el contrato y cloneEvidence() clona ahora las referencias de evidencia.",
+      "refutation": "record.componentVersion guarda la referencia recibida (evaluation.componentVersion), no una copia, y deepFreeze(record) recorre el registro y la congela. Observado con el probe R2-C1: tras registerComponent con componentVersion={contentHash:'aaa…'}, Object.isFrozen(callerVersion) === true. Es exactamente la clase de efecto colateral que C pedía eliminar, sobre otro campo. Delimitación: el gate §8.7 del llamante sí queda libre (R2-C2 observó frozen=false), así que el residuo se limita a la versión-objeto.",
+      "whyItMatters": "No incumple un criterio numerado por sí solo —igual que C en la ronda 1—, pero el test de aislamiento existente sigue sugiriendo una garantía más amplia de la que el registro ofrece, y un llamante que reutilice el mismo objeto de versión en dos roles se lo encuentra congelado sin pedirlo.",
+      "requestedFix": "Clonar componentVersion al almacenarlo (o clonar la evaluación completa antes de derivar los campos del registro) y extender el test de aislamiento para cubrir la versión-objeto.",
+      "withinAllowedPaths": true
+    }
+  ],
+  "upheld": [
+    "Hallazgo A corregido y verificado: createNewEvaluationVersion exige candidate.componentVersion equivalente a change.newVersion (VERSION_IDENTITY_MISMATCH). El probe R2-A confirma que la guarda también actúa con versiones content-hash, no sólo textuales.",
+    "Hallazgo A2 corregido y verificado: un cambio de protocolId/protocolVersion exige declaración explícita (PROTOCOL_CHANGE_NOT_DECLARED) y queda registrado en materialChange.protocolChanged/protocolChangeSummary.",
+    "Hallazgo B corregido y verificado: #store actualiza la entrada vigente de la cadena de versiones. El probe R2-D confirma además que una entrada histórica ya resuelta conserva su propio outcome al avanzar la versión vigente (REJECT en versionIndex 0, ADMIT en 1).",
+    "Hallazgo C corregido y verificado para la evidencia: cloneEvidence()/cloneEvidenceList() aíslan las referencias del llamante; el probe C1 de la ronda 1 pasa.",
+    "Hallazgo D corregido y verificado: el manifiesto reproduce en disco en sus 26 entradas mediante selfStdoutOmitted.",
+    "Sin regresión en lo que la ronda 1 ya daba por satisfecho: D1-D8 del probe original siguen pasando (sin rol por defecto para JEV, separación por rol de los outcomes, gate §8.7 obligatorio en Strategy/Evidence, validación separada en Execution/Governance sin conceder autoridad, NO_QUALIFYING_ROLE sin ADMIT, rechazo de procurement edge en engineering, outcome inmutable por versión).",
+    "ST_RECEIPT (operations/receipts/IMP-28-ST-1.json) completo para §20.2.8, honesto sobre alcance y explícito en no autoaprobarse; declara correctamente que no cierra DEP-28 ni admite ningún rol real.",
+    "Sin escrituras fuera de allowed_paths atribuibles a este packet; contratos aceptados de IMP-01 intactos."
+  ],
+  "notAssessed": [
+    "Valor empírico, capacidad real o admisión de cualquier componente externo: fuera del alcance del packet y explícitamente no evaluado por este framework.",
+    "DEP-28 factual (capacidad/valor y admisión real de rol): permanece abierto y no lo cierra ni esta ST ni esta revisión.",
+    "Código de IMP-27: referenciado sólo como gate externo por referencia aceptada; no se importó ni se revisó aquí.",
+    "Aceptación del padre IMP-28: corresponde a la §20.2.10 del Command, separada de estas dos etapas."
+  ],
+  "reviewLimits": [
+    "Revisión estructural sobre fixtures sintéticas; no se ejecutó ningún comparador real ni se tocó estado de oficina.",
+    "El workspace estuvo compartido con el run concurrente 5d2a6a2f (LAT-128); los ficheros de IMP-08/IMP-26 observados fuera de allowed_paths se atribuyen a ese trabajo, no a ST-28.1."
+  ],
+  "nextAction": "Devuelto al autor 2f30b8dd (ronda 2 de 3) para corregir R2-B (bloqueante, una línea con versionKey() más su test de regresión) y, si procede, R2-C1 (recomendado). Tras ello, reenviar a esta misma etapa 1 para review delta; luego etapa 2 Tech Lead 2b6bf987. Si hubiera una tercera devolución, escala al Command.",
+  "reviewedAtUtc": "2026-09-19T19:05:00Z"
+}

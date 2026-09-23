@@ -1,0 +1,50 @@
+COMMAND: /opt/node/bin/node --test test/role-evaluation/*.test.mjs
+EXIT: 0
+STDOUT:
+✔ el contrato materializa los catorce campos semánticos de §11.6.2 (4.981786ms)
+✔ la identidad exige componente/rol/protocolo/versión exactos (0.476548ms)
+✔ un contrato incompleto se rechaza y lista los campos faltantes (0.244801ms)
+✔ una lista obligatoria con minItems 0 debe declararse explícitamente (0.153139ms)
+✔ coste/latencia/carga preserva el desconocido explícito y no admite omisión (0.183727ms)
+✔ el camino de retirada/rollback es obligatorio (0.154632ms)
+✔ missingRoleEvaluationContent coincide con la validación (0.195368ms)
+✔ los outcomes de admisión por rol son ADMIT/HOLD/REJECT (1.128186ms)
+✔ HOLD se resuelve por namespace y no se confunde con research verdict (0.231817ms)
+✔ ningún outcome concede autoridad productiva (0.219113ms)
+✔ registra el mismo componente en varios roles como procesos independientes (1.717716ms)
+✔ rechaza evaluación incompleta y colisión de identidad componente/rol (0.284205ms)
+✔ JEV no recibe clasificación ni rol por defecto (0.144763ms)
+✔ EVALUATION-READY exige prerequisites y evidencia, no campos completos (0.547923ms)
+✔ Strategy/Evidence no alcanza readiness sin el gate aceptado de IMP-27/§8.7 (1.060709ms)
+✔ un outcome exige readiness y evidencia real (0.388112ms)
+✔ los outcomes de rol son independientes entre roles del mismo componente (0.994855ms)
+✔ un outcome por versión es inmutable y no se reescribe (0.246194ms)
+✔ una nueva versión preserva HOLD/REJECT previos, evidencia y retirada/rollback (0.590693ms)
+✔ no se crea versión sin cambio material ni repitiendo la misma versión (0.298542ms)
+✔ sin rol que admita, el componente queda fuera (no integración) (0.320945ms)
+✔ un componente desconocido se rechaza en integración y operaciones (0.136246ms)
+✔ engineering no puede presentar su valor como procurement edge (0.253417ms)
+✔ ninguna acción real obtiene autoridad; execution/governance exige validación separada (0.372231ms)
+✔ la evidencia es append-only y el registro no congela el objeto del llamante (0.288032ms)
+✔ A: la versión del contrato debe coincidir con newVersion (0.203253ms)
+✔ A2: un cambio de protocolo debe declararse explícitamente (0.238559ms)
+✔ B: history() refleja el outcome de cada versión, no una instantánea previa (0.203914ms)
+✔ C: la evidencia ingerida no congela objetos del llamante (0.181713ms)
+✔ R2-B: versiones content-hash distintas no colapsan priorFindings (0.38208ms)
+✔ CMD-1: una identidad evaluada no se rehabilita (semver y content-hash) (0.470797ms)
+✔ R2-C1: registrar y versionar no congelan objetos de versión del llamante (0.183115ms)
+✔ las cuatro clases candidatas de §11.6.1 quedan registradas (1.112847ms)
+✔ no existe un rol por defecto ni S6 (0.16972ms)
+✔ sólo Strategy/Evidence exige el gate §8.7 y sólo Execution/Governance la validación separada (0.154331ms)
+✔ sólo Strategy/Evidence puede reclamar procurement edge (0.195318ms)
+✔ un dominio de valor desconocido o ausente se rechaza (0.954138ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.74226
+
+STDERR:

@@ -1,0 +1,208 @@
+{
+  "receiptKind": "ST_RECEIPT",
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-08-ST-3-v1.1",
+    "subtaskId": "ST-08.3",
+    "parentImp": "IMP-08",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "projectName": "Energy Markets",
+    "programRoot": { "identifier": "LAT-91", "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3" },
+    "workIssue": { "identifier": "LAT-178", "id": "53cc7856-154b-4d65-be39-ddf8281042a5" },
+    "predecessorSubtask": { "identifier": "LAT-157", "receipt": "operations/receipts/IMP-08-ST-2.json" },
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode",
+    "executionInstance": "SPEC 86c4bd4e… + IMP-08 + scope[synthetic B/H/V calculation and mission-specific scoring, protocol v1] + version 1.1 corrective continuation"
+  },
+  "workerModelRoute": "Premium Production Worker A (Luna) 6c548bcb-e6aa-43ea-9c6c-319497cbe6a9 / codex_local / gpt-5.6-luna / high; corrective run 6c2d1408-a304-4bd7-8515-15d08decb8f0",
+  "workerRoute": {
+    "agentId": "6c548bcb-e6aa-43ea-9c6c-319497cbe6a9",
+    "agentName": "Premium Production Worker A (Luna)",
+    "roleInThisSubtask": "premium author; not the independent reviewer",
+    "adapter": "codex_local",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "high",
+    "runId": "6c2d1408-a304-4bd7-8515-15d08decb8f0"
+  },
+  "runHistory": [
+    {
+      "runId": "9cf8e5bf-a7e2-436c-b540-94b6a8e3e32a",
+      "phase": "initial implementation",
+      "status": "superseded",
+      "note": "Original ST-08.3 implementation run preserved as history."
+    },
+    {
+      "runId": "5f8809e5-58f7-4bd5-ad18-7ceac9f5a197",
+      "phase": "R1 corrective continuation",
+      "status": "superseded",
+      "note": "Functional corrections completed; receipt identity mismatch found in R2."
+    },
+    {
+      "runId": "94159bc6-39ef-494a-ab38-fc6b382e0457",
+      "phase": "R2 receipt identity correction",
+      "status": "superseded",
+      "note": "Receipt identity fields aligned; R3 required the regression to call the shared validator."
+    },
+    {
+      "runId": "6c2d1408-a304-4bd7-8515-15d08decb8f0",
+      "phase": "R3 shared validator correction",
+      "status": "current",
+      "note": "Current worker route and final receipt bytes."
+    }
+  ],
+  "startingBaseline": "baseline.json; reviewed ST-08.2 content 8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe; protected packet hashes verified before editing; non-git unborn main preserved",
+  "startingBaselineDetail": {
+    "declaredBaseline": "operations/audit/IMP-08/ST-08.3/baseline.json",
+    "versionIdentity": "content hashes; no commits created; branch main",
+    "liveHashCheckPerformedBeforeWriting": true,
+    "canonicalDocsMatchBaseline": true,
+    "acceptedOracleVerifiedUnchanged": true,
+    "commandEvidenceRevision": "3b159e73-7a11-4465-9f09-741a1a872099"
+  },
+  "resultingVersion": {
+    "type": "content-hash (no commits created; packet prohibits commits and push)",
+    "contentHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2",
+    "contentHashScope": "aggregate sha256 over sorted semantic paths: src/economic-calculation/*.mjs, test/economic-calculation/*.test.mjs and docs/economic-calculation.md; evidence and receipt hashes are recorded separately",
+    "supersededContentHashes": ["8d1ce8f29f8474379082df8b1b294dc1838ba753c2a6d1586b2136e2524416fe"],
+    "artifactHashes": {
+      "docs/economic-calculation.md": "adb7dca17dad1175214fed82a747495c2feb42208553cba618547e39052f847d",
+      "src/economic-calculation/benchmark.mjs": "0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1",
+      "src/economic-calculation/bhv.mjs": "ef20fbbf19d3484bc5a7d35f9e99c39778734e73ad853011358ca35c4d44203b",
+      "src/economic-calculation/index.mjs": "04217b163082ac848a5088a2120fb201d32b64ab9e6737b2179e7b20da2e8d66",
+      "src/economic-calculation/reference.mjs": "c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b",
+      "src/economic-calculation/scoring.mjs": "52ebf0a56bf6f027ea90be0e8623f10caaaaaf4a383dba8a574eab337ac2cbed",
+      "test/economic-calculation/benchmark.test.mjs": "8c52abe5f5c2cafe0036a3da263f313dff731450741f9409b27ab0e16d4d98d8",
+      "test/economic-calculation/bhv.test.mjs": "afbd61b7f52a71f292b40ff82c34118281b9974be6551eeea639a7c1ddb9ca19",
+      "test/economic-calculation/scoring.test.mjs": "80c5467ff16deedbfb4e4172026b189115074c8230e761ea6700c385b8378c01"
+    }
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md §§3,5.1–5.8,6.1,19.3–19.3.1,20.2.7–20.2.12,25.1 IMP-08,25.2.1–25.2.3",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json (accepted IMP-01)",
+    "operations/receipts/IMP-08-ST-1.json (accepted ST-08.1)",
+    "operations/receipts/IMP-08-ST-2.json (reviewed ST-08.2 history)",
+    "operations/audit/IMP-08/fixture-oracle/fixtures.json and independent-calculations.md (frozen read-only oracle)",
+    "LAT-176 Command evidence revision 3b159e73-7a11-4465-9f09-741a1a872099"
+  ],
+  "artifactsChanged": [
+    "src/economic-calculation/benchmark.mjs",
+    "src/economic-calculation/bhv.mjs",
+    "src/economic-calculation/index.mjs",
+    "src/economic-calculation/reference.mjs",
+    "src/economic-calculation/scoring.mjs",
+    "test/economic-calculation/bhv.test.mjs",
+    "test/economic-calculation/scoring.test.mjs",
+    "docs/economic-calculation.md",
+    "operations/audit/IMP-08/ST-08.3/baseline.json",
+    "operations/audit/IMP-08/ST-08.3/regression-expectations.md",
+    "operations/audit/IMP-08/ST-08.3/regression.test.mjs",
+    "operations/audit/IMP-08/ST-08.3/before-tests.txt",
+    "operations/audit/IMP-08/ST-08.3/after-tests.txt",
+    "operations/audit/IMP-08/ST-08.3/acceptance-matrix.md",
+    "operations/audit/IMP-08/ST-08.3/tests.tap",
+    "operations/audit/IMP-08/ST-08.3/contracts-tests.tap",
+    "operations/audit/IMP-08/ST-08.3/run-identity.mjs",
+    "operations/audit/IMP-08/ST-08.3/verify-delivery.mjs",
+    "operations/receipts/IMP-08-ST-3.json"
+  ],
+  "result": "Corrected the four independently reproduced ST-08.2 defects and addressed independent reviews R1–R3: exact captured-row product/date/accessibility selection with daily deduplication and conflict rejection; parseable official timestamps plus explicit validity exclusion including declaredValidity:null; explicit cost-list completeness/type handling with known-zero support; mission/count-bound Quarterly evidence validation reconciled to scoring.nTotal; and shared receipt run-identity validation exercised by both delivery verification and cloned-mismatch regressions. Inherited arithmetic behavior remains covered by the original suite. No real economic run or authority is claimed.",
+  "testsRun": [
+    "pwd && hostname",
+    "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/bootstrap/baseline-manifest.json operations/receipts/IMP-01-IMP_RECEIPT.json operations/receipts/IMP-08-ST-1.json operations/audit/IMP-08/fixture-oracle/fixtures.json operations/audit/IMP-08/fixture-oracle/independent-calculations.md operations/receipts/IMP-08-ST-2.json",
+    "/opt/node/bin/node --check src/economic-calculation/index.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs",
+    "/opt/node/bin/node --test test/economic-calculation/*.test.mjs",
+    "/opt/node/bin/node --test test/contracts/*.test.mjs",
+    "/opt/node/bin/node --test operations/audit/IMP-08/ST-08.3/regression.test.mjs",
+    "/opt/node/bin/node operations/audit/IMP-08/ST-08.3/verify-delivery.mjs"
+  ],
+  "testResults": [
+    "workspace and branch: brunode /srv/hot-data/energy-markets/app / main, exit 0",
+    "seven protected hashes: all match pins, exit 0",
+    "node check: exit 0",
+    "oracle verifier: exit 0; 35 fixtures; C01–C12 complete; negative probes PASS",
+    "contract suite: exit 0; 67 pass, 0 fail, 0 skipped",
+    "corrective regression suite: exit 0; 9 pass, 0 fail, 0 skipped; R1 count reconciliation, explicit null validity, R2 route alignment and R3 shared-validator mismatch regressions pass",
+    "delivery verifier: exit 0; receipt/linkage/protected hashes/manifest PASS"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-08/ST-08.3/baseline.json",
+    "operations/audit/IMP-08/ST-08.3/regression-expectations.md",
+    "operations/audit/IMP-08/ST-08.3/regression.test.mjs",
+    "operations/audit/IMP-08/ST-08.3/before-tests.txt",
+    "operations/audit/IMP-08/ST-08.3/after-tests.txt",
+    "operations/audit/IMP-08/ST-08.3/acceptance-matrix.md",
+    "operations/audit/IMP-08/ST-08.3/tests.tap",
+    "operations/audit/IMP-08/ST-08.3/contracts-tests.tap",
+    "operations/audit/IMP-08/ST-08.3/run-identity.mjs",
+    "operations/audit/IMP-08/ST-08.3/manifest.json",
+    "operations/audit/IMP-08/ST-08.3/verify-delivery.mjs",
+    "operations/audit/IMP-08/ST-08.3/verification.txt",
+    "operations/receipts/IMP-08-ST-3.json"
+  ],
+  "assumptions": [
+    "All calculation inputs are synthetic and explicit; H remains supplied all-in H, not a real ledger formula.",
+    "Legacy synthetic official rows without a declared validity field remain compatible when their value and provider timestamp are valid; an explicitly present null/invalid/unknown validity is excluded.",
+    "Quarterly evidence is admissible only when completed-quarter count equals scoring.nTotal; neutral zero campaigns remain in nTotal and distinct from n_nonzero.",
+    "A complete known-zero cost list is represented by costsComplete=true plus known finite zero entries.",
+    "Date keys in the captured-row pipeline are ISO-compatible and are selected with inclusive start/exclusive end semantics."
+  ],
+  "deviations": [],
+  "dependencyFindings": [
+    "REQUIRES=accepted IMP-01 and current SPEC — satisfied; all packet pins verified.",
+    "ST-08.1 and ST-08.2 history preserved; accepted oracle files unchanged.",
+    "REQUIRES_AUDIT=none and REQUIRES_EVIDENCE=none for this synthetic implementation scope; produced evidence is not treated as a prerequisite.",
+    "IMP-05/07 and their audits remain required before any real campaign; no real campaign was run.",
+    "Parent IMP-08 remains unaccepted until Command separately evaluates §20.2.10."
+  ],
+  "failuresRetries": [
+    {
+      "event": "Initial post-edit verification attempt failed",
+      "cause": "The first regression import used one directory level too few, and an inherited scoring assertion still used an unbound generic evidence flag.",
+      "resolution": "Corrected the import path and changed the affected test to mission-bound Quarterly evidence; reran the suites with 53/53 and 8/8 pass."
+    },
+    {
+      "event": "Prior recovery run before this implementation",
+      "cause": "The adapter requested unsupported gpt-6-luna before workspace work.",
+      "resolution": "Runtime was repaired to gpt-5.6-luna/high and this packet was retried on Luna; no prior deliverable changes were reused from that failed run."
+    },
+    {
+      "event": "Independent review R1 changes requested",
+      "cause": "Quarterly verdict accepted two scored values with metadata claiming eight completed quarters; explicit declaredValidity:null followed the legacy absent-field path.",
+      "resolution": "Reconciled evidence.quartersCompleted to scoring.nTotal, changed positive evidence to eight finite values with neutral zeros, added two-values-vs-eight and null-validity regressions, updated documentation and evidence, and reran all required suites."
+    },
+    {
+      "event": "Independent review R2 changes requested",
+      "cause": "workerRoute.runId retained the initial implementation run while workerModelRoute and receiptMeta.writtenByRun identified the R1 corrective run.",
+      "resolution": "Aligned all current route fields to corrective run 94159bc6-39ef-494a-ab38-fc6b382e0457, preserved the initial and R1 runs in runHistory, added verifier/regression mismatch checks, and reran declared verification."
+    },
+    {
+      "event": "Independent review R3 changes requested",
+      "cause": "R9 asserted cross-field consistency directly but did not call the delivery verifier's validator, so removal of verifier checks could go undetected.",
+      "resolution": "Extracted shared validateWorkerRouteIdentity, used it in verify-delivery and R9, added independent cloned mismatch rejection for workerRoute.runId, workerModelRoute and receiptMeta.writtenByRun, preserved run history, and reran declared verification."
+    }
+  ],
+  "noGuessQuestionsRaised": [],
+  "specChangeRequest": { "raised": false, "rationale": "The corrective requirements are implementable without changing frozen SPEC semantics." },
+  "recommendedStatus": "in_review",
+  "review": {
+    "stage1": "Board/user participant for owner-authorized R2/R3 child review because Independent Reviewer quota is exhausted; author/reviewer remain distinct, max three rounds",
+    "note": "Worker evidence is a recommendation only. Reviewer must independently run the required tests, inspect scope/hashes and verify corrective expectations. ST accepted is not IMP accepted.",
+    "status": "pending_native_review"
+  },
+  "handoff": {
+    "changes": "Corrected reference row selection/deduplication/validity, explicit H cost completeness/type rejection, and mission-bound Quarterly evidence gates.",
+    "risks": "Synthetic-only evidence; legacy rows without declared validity are accepted only when finite and timestamped; no real-market validity is asserted.",
+    "nextAction": "Native Board/user participant validates the final bytes, tests, receipt, manifest and frozen semantics; Command then evaluates the separate parent gate.",
+    "sourceHash": "140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2"
+  },
+  "receiptMeta": {
+    "specSection": "20.2.8",
+    "writtenByRun": "6c2d1408-a304-4bd7-8515-15d08decb8f0",
+    "revision": "corrective continuation of reviewed ST-08.2 content",
+    "parentAcceptanceReminder": "No IMP_RECEIPT or parent acceptance is produced by this child."
+  }
+}

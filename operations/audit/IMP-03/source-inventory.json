@@ -1,0 +1,268 @@
+{
+  "artifactKind": "IMP-03_SOURCE_INVENTORY",
+  "schemaVersion": "1.0",
+  "packetId": "WP-IMP-03-ST-1-v1.1",
+  "subtaskId": "ST-03.1",
+  "parentImp": "IMP-03",
+  "parentIssueIdentifier": "LAT-109",
+  "subtaskIssueIdentifier": "LAT-110",
+  "nativeRoot": "LAT-91",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "workspace": "/srv/hot-data/energy-markets/app",
+  "host": "brunode",
+  "branch": "main (empty repo, no commits; content-hash baseline per AGENTS.md:13-17)",
+  "inspectedAtUtc": "2026-09-19T15:00:00Z",
+  "scope": "P5 Gas Quarterly data audit (DEP-06/07) for P5 A0/A1 price, execution, accounting and S1 causal inputs.",
+  "authorityNote": "Historical reference files are provenance only; they are never extra requirements and never substitute for a real data source or an executable mandate (packet scope). Verified facts cite an inspected source, hash and exact locator. Absent real data remains explicitly MISSING; no availability, unit, permission, revision or PIT claim is inferred.",
+  "sources": [
+    {
+      "id": "S-01",
+      "path": "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+      "sha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+      "kind": "canonical_spec",
+      "readOnly": true,
+      "locatorsUsed": [
+        "§0.2 L44-54 reglas de autoridad",
+        "§0.3 L56-71 estados de madurez",
+        "§3.2 L197-198 los dos ejes de estados (disponibilidad y readiness)",
+        "§5.2 L311-361 referencia diaria oficial/provisional, ventana 17:05-17:15 y 17:00-17:15 CE(S)T, fallback nearby-60m",
+        "§5.3 L363-389 selección por fecha y ventanas B 1-0-1/3-1-3",
+        "§6.1 L518-536 cuatro semánticas temporales, UTC, dos vistas",
+        "§6.2 L538-544 missing/revisiones/proxies/fallbacks",
+        "§6.3 L546-566 Data Sufficiency Matrix, ocho campos y dos ejes",
+        "§6.4 L568-574 audit requerido; rango 2020-2026 como entrada por verificar",
+        "§8.1 L699-715 S1 observable inputs y refutación",
+        "§13.3 L1185-1189 P5.3 Population Gas Quarterly",
+        "§13.4 L1191-1200 P5.4 Episode/horizon BUY/WAIT",
+        "§13.5 L1202-1212 P5.5 single-layer S1 test",
+        "§13.6 L1214-1224 P5.6 execution and cost parity",
+        "§14.2 L1282-1300 P6.2 required input bundle",
+        "§14.4 L1317-1324 P6.4 immutable ledgers",
+        "§14.7 L1345-1348 P6.7 missing/revisions/proxies",
+        "§20.2.7-20.2.10 L1759-1833 WORK-PACKET/ST_RECEIPT/review/closure",
+        "§21 L1903-1943 Implementation Readiness Matrix (Data Sufficiency Matrix row)",
+        "§24 L2025-2059 DEP-05/06/07/08/09/12/17",
+        "§25.1-25.2 L2086-2177 IMP-03 objetivo, acceptance y dependencias"
+      ]
+    },
+    {
+      "id": "S-02",
+      "path": "operations/receipts/IMP-01-IMP_RECEIPT.json",
+      "sha256": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+      "kind": "accepted_prerequisite_receipt",
+      "readOnly": true,
+      "locatorsUsed": [
+        "outcome accepted; content version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+        "namespace separation and missing-reason preservation contracts"
+      ]
+    },
+    {
+      "id": "S-03",
+      "path": "operations/bootstrap/baseline-manifest.json",
+      "sha256": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+      "kind": "baseline_manifest",
+      "readOnly": true,
+      "locatorsUsed": ["files map and observedAt 2026-09-19T08:59:58Z"]
+    },
+    {
+      "id": "S-04",
+      "path": "src/contracts/index.mjs",
+      "sha256": "55c79769438ffa08fd2a60358714f7d69cea8fde4b22f548b18e679d230cd9c3",
+      "kind": "accepted_contract_surface",
+      "readOnly": true,
+      "locatorsUsed": ["accepted IMP-01 contract surface; consumed read-only for canonical namespace consistency"]
+    },
+    {
+      "id": "S-05",
+      "path": "/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md",
+      "sha256": "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "§1 L9-15 ventanas de settlement 17:05-17:15 CE(S)T (German power) y 17:00-17:15 CE(S)T (gas/THE)",
+        "§1 L43 referencia a EEX Settlement Pricing Procedure V5.36 (documento externo no presente)",
+        "§2 L44-73 referencia provisional derivada; fallback nearby-60m; 'never represented as an official settlement or as an executable market price'",
+        "§3 L74-98 selección oficial>derivado y benchmark 1-0-1/3-1-3",
+        "§4 L99-108 tabla de diferencias; datos = 'Entitled REST trades and top-of-book observations'",
+        "§4 L108 'the current credential historically received HTTP 403 for the settlement spr endpoint'",
+        "§5 L109-126 reconciliación y guard 0.01; 'not yet proven identical to EEX'"
+      ]
+    },
+    {
+      "id": "S-06",
+      "path": "/srv/hot-data/energy-markets/reference/plan/Power_Gas_Plan_Maestro_v1_1_2026-09-14.pdf",
+      "sha256": "85b2b8b09edc7414e32f66423712e685c76447569ced8e1fda0632608d3a999f",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.4 cantidades comunicadas: Gas Quarterly 60 MW, Gas Monthly 10 MW, Power Monthly 10 MW, Power Quarterly '10 Energy' unidad no explicitada",
+        "p.4 nota de unidades MW != MWh y horas/perfil de entrega pendientes"
+      ]
+    },
+    {
+      "id": "S-07",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P1-P4_Canonical_Decisions_v1_0_2026-09-16.pdf",
+      "sha256": "697def17ce9c795227aaf9fd2a41ba2519f777415c2d3872d9ddd51e56fb739e",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.8 P4.1 'Real inventory and historical coverage' incl. 'Historical coverage (including the currently communicated 2020-2026 range) by source'",
+        "p.8 P4.2 Point-in-time contract, cuatro semánticas, UTC",
+        "p.8 P4.3 missing/revisions/proxies y jerarquía ex ante",
+        "p.9 P4.4 Data Sufficiency Matrix, ocho campos y dos ejes",
+        "p.9 P4.5 minimal tooling (out of this ST scope)"
+      ]
+    },
+    {
+      "id": "S-08",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P5_Canonical_Decisions_v1_0_2026-09-16.pdf",
+      "sha256": "0ff9e0bf8e1b50264f56e96607eeab6bf7b5cecd3aa9f9c3ef71e5dc6e3ad730",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.5 P5.3 population = eligible Gas Quarterly campaigns; exact list populated later from audited dataset; insufficient -> HOLD",
+        "p.10 'The last 8 complete eligible Gas Quarterly campaigns form the final sealed OOS, covering at least two' (DEP-12)"
+      ]
+    },
+    {
+      "id": "S-09",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P6_Canonical_Decisions_v1_0_2026-09-16.pdf",
+      "sha256": "97513b334ddd7c7a632a1fbf63968aed6720f76c0d88e1d077550e2b90473e86",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.4 P6.2 canonical input bundle; point-in-time data manifest including availability/version metadata",
+        "p.9 P6.7 missing/revised/unavailable data; critical missing -> DATA_BLOCKED"
+      ]
+    },
+    {
+      "id": "S-10",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_Open_Points_v1_0_2026-09-16.pdf",
+      "sha256": "af5db8b876081c46dc3a23337aae130a09f81c8aebe283013b271b3e49c9a82e",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": ["p.6 open point 'Real historical coverage for 2020-2026 by source.' (audit pending)"]
+    },
+    {
+      "id": "S-11",
+      "path": "/srv/hot-data/energy-markets/reference/research/STRATEGY_RESEARCH_Resolucion_13_Preguntas_v0_1_2026-09-15.pdf",
+      "sha256": "eeda70c76706749fa20c9603fac0218a3e5eb5a74cb54534c58e7f714fff608a",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.2 'La historia disponible comunicada en esta sesión se acota a 2020-2026'; 2018 no disponible",
+        "p.2 Q02/Q03 requieren historia real por producto, campaña y variables; no basta con saber que existe"
+      ]
+    },
+    {
+      "id": "S-12",
+      "path": "/srv/hot-data/energy-markets/reference/research/RESEARCH_Fundamental_Price_Drivers_v0_1_2026-09-15.pdf",
+      "sha256": "d500535fa8e65b6eeddf4564383dfccb2d4e6a0a11b5c0ba4bc54a51f3a30ef8",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "documento de taxonomía de drivers (9 Power + 10 Gas + 4 extraordinarios); semántica STATE/CHANGE/SURPRISE; no contiene series de datos",
+        "usado sólo para marcar los inputs de drivers como opcionales/fuera del timing de P5"
+      ]
+    },
+    {
+      "id": "S-13",
+      "path": "/srv/hot-data/energy-markets/reference/research/Power_Gas_Cuaderno_Investigacion_13_Preguntas_v1_2026-09-14.pdf",
+      "sha256": "f814aed7d7999e83772c833591264cbf8f6e084506344142feacf5b41235d654",
+      "kind": "historical_provenance",
+      "readOnly": true,
+      "locatorsUsed": [
+        "p.2 'Obligaciones comunicadas; no reinterpretadas'; unidades, perfiles de entrega y cantidad por BUY siguen en el contrato del problema"
+      ]
+    }
+  ],
+  "dataArtifactsPresent": [],
+  "workspaceScan": {
+    "command": "find /srv/hot-data/energy-markets/app -type f -not -path '*/.git/*' | LC_ALL=C sort",
+    "finding": "No market data series, price file, trade/order-book extract, calendar file, contract specification, fee schedule or permission/entitlement record exists anywhere in the workspace. Only the canonical SPEC, accepted IMP-01 contracts/receipts, prior IMP-01/02/25/26 operations evidence, bootstrap files and tests are present. No database, parquet/CSV, credential store or data directory is present.",
+    "consequence": "No real series can be sampled, hashed or measured for coverage, resolution, missingness, revisions, units, timezone/DST, publication or policy-consumable time. Every such value is recorded as MISSING with a named custodian role and retrieval action."
+  },
+  "referenceScan": {
+    "scanCommand": "find /srv/hot-data/energy-markets/reference -type f | LC_ALL=C sort",
+    "fileCount": 18,
+    "citedCount": 9,
+    "notInspectedCount": 9,
+    "dispositionCheck": "Every one of the 18 files under /srv/hot-data/energy-markets/reference is dispositioned exactly once: 9 are cited in sources[] (S-05..S-13) with a hash and locators; the other 9 are listed in notInspected[] with their sha256 and a stated reason. verify.mjs re-enumerates the directory and fails if any file is missing from both lists or appears in both.",
+    "finding": "The 9 reference files actually inspected for this data audit (S-05..S-13) are historical research/provenance (methodology and external-system description). None contains a data series, product code, executable unit, fee, calendar or entitlement proof. The corpus itself states the 2020-2026 range is a communicated input subject to audit, not certified coverage (S-07 p.8; S-10 p.6; S-11 p.2). The remaining 9 files were not cited as evidence in this ST and carry no data source; their disposition is recorded in notInspected[].",
+    "externalSystemEvidence": "S-05 documents an external repository that ingests 'Entitled REST trades and top-of-book observations' and records HTTP 403 for the settlement spr endpoint. That repository, its data and its entitlements are NOT present or verifiable in this workspace; they are an audit finding with a named custodian, not an available source."
+  },
+  "notInspected": [
+    {
+      "id": "NP-01",
+      "path": "/srv/hot-data/energy-markets/reference/documentation/sortino-handout.pdf",
+      "sha256": "8359d64717cced29a90094ea62bdc32e43ffbd965be93487707e2974fc138d22",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "Scoring handout (Sortino/win-loss). Not a data source: no series, product, unit, calendar, fee or permission. Not cited in the matrix."
+    },
+    {
+      "id": "NP-02",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Master_Plan_P7_Canonical_Decisions_v1_0_2026-09-16.pdf",
+      "sha256": "269da0f07b2b2eb1302c36093db772151cc1a77f7c52646394243044412e5915",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "P7 architecture decisions (value/learning/autonomy). Planning decisions, not data; excluded from the P5 data audit. Not cited in the matrix."
+    },
+    {
+      "id": "NP-03",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_Revision_Action_Plan_v1_0_2026-09-16.pdf",
+      "sha256": "d3742e73bb42b919bdf7daf2b67ccae5bd5cbdff3e19774c27f437ceb8e81029",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "Revision action plan (R1-R3 tasks). Contains the 2020-2026 communicated range as an audit task, not data. Not cited in the matrix."
+    },
+    {
+      "id": "NP-04",
+      "path": "/srv/hot-data/energy-markets/reference/plan/PROCUREMENT_RESEARCH_v1_1_PATCH_DECISIONS_D1-D5.md",
+      "sha256": "41c67454486edce6023c854ce7a1a0a461ba473927c35d7913fb4535196f2c86",
+      "inspectionLevel": "header-and-structure-read",
+      "reason": "v1.1 patch decision packet (D1-D5 instructions). Frozen decisions already consolidated in SPEC v1.1 (S-01 §22); not a data source. Not cited in the matrix."
+    },
+    {
+      "id": "NP-05",
+      "path": "/srv/hot-data/energy-markets/reference/plan/accion_plan.md",
+      "sha256": "d46b5ad0cb81a30320644e8973590f805d3005e7d5c3a736e5d558fbc009b573",
+      "inspectionLevel": "read-in-full",
+      "reason": "Planning prose (recommended research order). No data series, contract, unit, calendar or fee. Not cited in the matrix."
+    },
+    {
+      "id": "NP-06",
+      "path": "/srv/hot-data/energy-markets/reference/research/ALEXANDRIA_MARKET_DYNAMICS_SENTIMENT_RESEARCH_IDEA_V1.pdf",
+      "sha256": "d822a5f1e223c2b0d0efa6c3fe422f1a0ab41e50371109d633c5d978d9f17d5b",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "Market dynamics research idea (Z_t framing). Conceptual, not a data series; Z is optional/out of P5 timing. Not cited in the matrix."
+    },
+    {
+      "id": "NP-07",
+      "path": "/srv/hot-data/energy-markets/reference/research/PROCUREMENT_RESEARCH_Global_Reward_Architecture_v1_0_2026-09-16.pdf",
+      "sha256": "c568a8dcefcdb1ed33e2e1e83e1ec3ebd8f29f4406130418fd53a3b43f2f6f11",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "Global reward architecture. Reward design, not procurement data; out of this ST scope. Not cited in the matrix."
+    },
+    {
+      "id": "NP-08",
+      "path": "/srv/hot-data/energy-markets/reference/research/STRATEGY_RESEARCH_Q02_Strategy_Catalogue_S1-S5_v0_1_2026-09-15.pdf",
+      "sha256": "030950c7feaddd9a6f814e07e7c0a1c482263f7bded7a1d30e1dea22c2242b92",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "S1-S5 strategy catalogue v0.1 (superseded semantics). Conceptual strategy definitions, not a data series. Not cited in the matrix."
+    },
+    {
+      "id": "NP-09",
+      "path": "/srv/hot-data/energy-markets/reference/research/STRATEGY_RESEARCH_Strategy_Catalogue_and_Learning_Architecture_v1_0_2026-09-15.pdf",
+      "sha256": "207bda4bdf78e161459cf41a56e936786af8c3bc679486226885dd64c08458c4",
+      "inspectionLevel": "text-extracted-keyword-scan",
+      "reason": "Strategy catalogue and learning architecture v1.0. Conceptual, not a data series. Not cited in the matrix."
+    }
+  ],
+  "unresolvedFacts": [
+    "Which exact Gas Quarterly products/contracts exist and their product codes.",
+    "Whether any accessible price/trade/order-book source exists at all, and its entitlement.",
+    "Actual historical coverage by source (the 2020-2026 range is unverified).",
+    "Frequency/resolution, units, timezone/DST handling, missingness and revision behaviour.",
+    "Publication and policy-consumable timestamps for any reference.",
+    "Permissions/rights to use each source.",
+    "Execution cost parameters (fees, spread/slippage, latency, fill rules, lots/rounding)."
+  ]
+}

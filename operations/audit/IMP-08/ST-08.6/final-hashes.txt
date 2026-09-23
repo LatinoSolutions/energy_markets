@@ -1,0 +1,19 @@
+# ST-08.6 final hashes (rev6, after reviewer rounds 1-5 corrections)
+# host brunode cwd /srv/hot-data/energy-markets/app atUtc 2026-09-22T11:04:54Z
+# algorithm: sha256sum
+# note: final-hashes.txt and the bundle tar are excluded from SHA256SUMS; the bundle excludes final-hashes.txt so its hash can be recorded here without circularity.
+
+f8bd70692842afd7f538d3ec6f1806c851e8625e093b9bb1a4ca690641d6376c  operations/audit/IMP-08/ST-08.6/baseline-hashes.txt
+69bc0318afe1cfacca42af27c78bdfd0451179fa36d5668eebbd6706b1689969  operations/audit/IMP-08/ST-08.6/parent-gate-inputs.json
+985745a22f5ae769446ebaa8081ca5ea5e91a5d4e2bd3fd695660c86b1a0a3c3  operations/audit/IMP-08/ST-08.6/parent-gate-verification.md
+15dc34151f0fb557c3bcc71361a302cb7afcc63f0a902833761f048b8a30707c  operations/audit/IMP-08/ST-08.6/proposed-imp-receipt.json
+56d5c31bd83a73d6d99e88bdced2703a2871cdb702723d137ce1a678601f8c38  operations/audit/IMP-08/ST-08.6/tests.tap
+56002ce6a4a82f8162ff16c059fb50ee9f0a07d822db6098cc3b322c47908c84  operations/audit/IMP-08/ST-08.6/verification.txt
+2e3b9f51436e1dc313c1a09148f4c4247d142fd9ed2561475985274a0795d7cd  operations/audit/IMP-08/ST-08.6/verify-delivery.mjs
+78e439ab39432bcffffe3bbc3e1b410b8f76c74644f5945c116da43bfeb12504  operations/audit/IMP-08/ST-08.6/authority-guard.mjs
+a48c9975c9c8e46e283619363b3a84fc7e5f660e8c0685cb560d6bfe2cdba1bc  operations/audit/IMP-08/ST-08.6/authority-guard-probes.mjs
+cc9f01fcb80a89361164c440aff82a22f10aba22b13fb03c688ed04e54f62dcd  operations/audit/IMP-08/ST-08.6/authority-guard-probes.txt
+3cc2b137c33fc9c8d77ba8206db55b3fc00506fed7574eef9e5d04e6ce0ad40b  operations/audit/IMP-08/ST-08.6/continuity-checkpoint.md
+3c10b23675f3664a20a922541e9720901ccb5cc3ce2e46d316076852d96691c4  operations/audit/IMP-08/ST-08.6/SHA256SUMS
+7e2c9a80fbae98c753e308384fe2dd71936ad77e021c331fe90a621a24928138  operations/receipts/IMP-08-ST-6.json
+d39e329d934bc4dc07310019c275739c5c5cba0b4c11d82245e39ae213cc4f18  operations/audit/IMP-08/ST-08.6/evidence-bundle.tar.gz

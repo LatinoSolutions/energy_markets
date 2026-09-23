@@ -1,0 +1,50 @@
+{
+  "runId": "3e153a12-fcf1-40fb-a73f-102710a0c7be",
+  "tests": [
+    {
+      "command": "hostname",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-0.txt",
+      "sha256": "9ca78feab77ec4931f40f64705430c6ae245ed4b8cefe3f2e62e78c613cc777a"
+    },
+    {
+      "command": "pwd",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-1.txt",
+      "sha256": "765ef551e3d428d20244eb00a62d8176a44fe6260256bd2f9c86993be3911885"
+    },
+    {
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-2.txt",
+      "sha256": "f3ebacebc8de6c8700b118cec3e99a3aa3b5b250ca5f7b96d1f37df189c26aec"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/role-evaluation/*.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-3.txt",
+      "sha256": "59f3efa406c05460b50e466e0f98e8ad0ca0f06babfeaa552371c69b6e2a0423"
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-4.txt",
+      "sha256": "ae2192a158994b58cd660464a8089072b5966cb824cd3f8d42f1763f413d17be"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/validate-receipt.mjs",
+      "exitCode": 0,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-5.txt",
+      "sha256": "271280e7cf541fd6eecfa7c3e80482f069c76c995b7127ba06c5d3a05bf732b0"
+    },
+    {
+      "command": "/opt/node/bin/node operations/audit/IMP-28/command-version-reuse-probe.mjs",
+      "exitCode": 1,
+      "output": "operations/audit/IMP-28/command-review-3e153a12-fcf1-40fb-a73f-102710a0c7be/check-6.txt",
+      "sha256": "45a6ab0e28045ee23f0c8ce578bc8f48e7ccb00ba49f7e5de59eb57a4a4e5035"
+    }
+  ],
+  "manifestEntries": 30,
+  "manifestMismatches": [],
+  "acceptedImp01HashMismatches": []
+}

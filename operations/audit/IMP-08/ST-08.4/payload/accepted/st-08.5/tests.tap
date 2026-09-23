@@ -1,0 +1,44 @@
+ST-08.5 required test execution (actual commands and observed outputs)
+Workspace: brunode /srv/hot-data/energy-markets/app / main
+
+$ hostname
+brunode
+exit=0
+
+$ pwd
+/srv/hot-data/energy-markets/app
+exit=0
+
+$ /opt/node/bin/node --check src/economic-calculation/bhv.mjs
+exit=0
+
+$ /opt/node/bin/node --test test/economic-calculation/*.test.mjs
+output: node:test default reporter; tests 56, pass 56, fail 0, cancelled 0, skipped 0
+included: ST-08.5 malformed complete cost elements; valid finite/known-zero controls; invalid base unit
+exit=0
+
+$ /opt/node/bin/node --test test/contracts/*.test.mjs
+output: node:test default reporter; tests 67, pass 67, fail 0, cancelled 0, skipped 0
+exit=0
+
+$ /opt/node/bin/node --test operations/audit/IMP-08/ST-08.3/regression.test.mjs
+output: node:test default reporter; tests 9, pass 9, fail 0, cancelled 0, skipped 0
+exit=0
+
+$ /opt/node/bin/node operations/audit/IMP-08/fixture-oracle/verify.mjs
+output: SPEC/protected inputs match; fixtures=35; C01-C12 complete; all seven negative probes PASS; RESULT exit=0
+exit=0
+
+$ /opt/node/bin/node operations/audit/IMP-08/ST-08.3/verify-delivery.mjs
+verify-delivery: FAIL: manifest content hash is stale
+exit=1
+Interpretation: expected historical limitation. ST-08.3 verifier is hash-pinned to the reviewed pre-ST-08.5 semantic bytes; its historical artifacts were not modified. The new ST-08.5 verifier validates the corrected delta.
+
+Required protected-hash command before/after:
+$ sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/bootstrap/baseline-manifest.json operations/receipts/IMP-01-IMP_RECEIPT.json operations/receipts/IMP-08-ST-1.json operations/audit/IMP-08/fixture-oracle/fixtures.json operations/audit/IMP-08/fixture-oracle/independent-calculations.md operations/receipts/IMP-08-ST-2.json operations/receipts/IMP-08-ST-3.json operations/audit/IMP-08/ST-08.3/manifest.json
+output: recorded in baseline-hashes.txt and final-hashes.txt; all nine listed hashes unchanged
+exit=0
+
+Additional required commands and outputs are retained verbatim in reproducer.txt:
+- LAT-194 exact reproducer with costsComplete=true: all malformed values return the established unavailable/rejected object; known-zero remains H=100; no throw.
+- ST-08.5 matrix: null, undefined, sparse hole, number, string, boolean, {}, missing value, NaN, Infinity, unknown/invalid status all fail closed; valid control returns H=102.5; no throw.

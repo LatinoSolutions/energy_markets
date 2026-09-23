@@ -1,0 +1,207 @@
+{
+  "artifactKind": "IMP-03_DATA_SUFFICIENCY_MATRIX_CONTRIBUTION",
+  "schemaVersion": "1.0",
+  "instance": "EEX THE trade and top-of-book factual audit 20260921",
+  "instanceVersion": 1,
+  "packetId": "WP-IMP-03-ST-2-v1.1",
+  "subtaskId": "ST-03.2",
+  "parentImp": "IMP-03",
+  "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+  "nativeRoot": "LAT-91",
+  "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+  "specVersion": "1.1",
+  "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+  "scope": "Scoped factual contribution for P5 Gas Quarterly arms A0 Calendar-only baseline and A1 S1 candidate, derived only from the observed EEX THE NatGas trade and top-of-book lake paths.",
+  "method": "One row per information requirement informed by this execution instance. Each row carries the eight frozen §6.3 fields with source locators and observed evidence. Requirements this lake does not inform are listed in notContributed and preserve the accepted ST-03.1 values unchanged.",
+  "fields": [
+    "requirement",
+    "missionAndCandidate",
+    "criticalVersusOptional",
+    "sourceType",
+    "historicalCoverage",
+    "pointInTimeValidity",
+    "availabilityStatus",
+    "shortValidationNote"
+  ],
+  "availabilityNamespace": ["AVAILABLE NOW", "FORWARD CAPTURE", "PROXY", "UNAVAILABLE"],
+  "readinessNamespace": ["DATA_READY", "DATA_PROVISIONAL", "FORWARD_ONLY", "DATA_BLOCKED"],
+  "guards": {
+    "universalCoveragePercentageUsed": false,
+    "inferredHistoryFromDeclaration": false,
+    "assumedFeesOrDefaults": false,
+    "fabricatedDataset": false,
+    "coveragePercent": null,
+    "isContributionNotFinalReadiness": true,
+    "reconciliationRequired": "Final candidate readiness requires Command reconciliation of this contribution with the ST-03.3 temporal contribution and the accepted ST-03.1 matrix."
+  },
+  "rows": [
+    {
+      "requirementId": "R-04",
+      "requirement": "Execution price series at eligible decision boundaries for the exact Gas Quarterly contract",
+      "missionAndCandidate": "Quarterly (Gas) / A0 Calendar-only baseline + A1 S1 candidate",
+      "criticalVersusOptional": "critical",
+      "sourceType": "market data: EEX THE NatGas derivative trade prints and top-of-book quotes, Parquet lake",
+      "historicalCoverage": {
+        "status": "VERIFIED",
+        "value": "Observed scope only: trade 2020-11-02..2026-07-28 (1464 partitions, 2801 files, 282693 rows, 51080320 bytes); top-of-book 2025-07-25..2026-07-28 (257 partitions, 9251 files, 94714717 rows, 7490373724 bytes).",
+        "evidence": {
+          "census": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json (censusTables) and coverage-summary.json",
+          "sampleLocators": [
+            {"path": "table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2023-09-13/pull_id=c741308e38162224bb3923b175d90d1685c92fe6760458d45fd087d381e0a22a/part.parquet", "rows": 148, "sha256": "926b2015c59328935e40d0a690cfdaa52aeee312dd679e573fc9cd3132a0e05f"},
+            {"path": "table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE/trd_date=2026-03-10/pull_id=12b71c32137b6670d493101e6f4396b884b461771460cf637570a11dfb31261b/part.parquet", "rows": 60000, "sha256": "930648f22228e886655b19a4cd5231ceae55851359bcfa088d65d96cbdbadf81"},
+            {"path": "table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE/trd_date=2025-09-08/pull_id=0dceaf9a18f2426033540eefe84836140ad2d859ddfc3516973a4ea9a4a60089/part.parquet", "rows": 60000, "sha256": "a173dfc63ecf186e33de6a1ef951162b6fab2f672fe32cab68a4daa0744d9810"}
+          ]
+        }
+      },
+      "pointInTimeValidity": {
+        "status": "NOT_DEMONSTRATED",
+        "value": null,
+        "reason": "The lake carries _retrieved_at_utc values in 2026 (bulk extraction, e.g. 2026-06-06T00:00:00Z and 2026-06-10T06:55:24Z) and Tm reference/occurrence timestamps. No publication-at-source or contemporaneous policy-consumable evidence exists, so decision-time (Replay) consumption at historical boundaries is not demonstrated (§6.1)."
+      },
+      "availabilityStatus": "AVAILABLE NOW",
+      "shortValidationNote": "Real EEX THE NatGas trade and top-of-book prices exist for the observed scope and are available for evaluation-view use. Decision-time availability is NOT_DEMONSTRATED: publication and policy-consumable timestamps are absent, so this evidence supports the requirement's availability but not yet Replay causality.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-08",
+      "requirement": "Units and contract specifications",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "market data instrument metadata carried per row (UOM, Currency, InstrumentISIN, ProductISIN, ExpiryDate, Maturity, InstrumentType, ShortCode, DisplayName)",
+      "historicalCoverage": {
+        "status": "PARTIAL",
+        "value": "Observed sample only: every inspected trade and top-of-book row carries UOM=MWh and Currency=EUR; exact identifiers observed include ProductISIN DE000A0MEW81/DE000A0MEW99 (and DE000A0G9FX0, DE000A0MEXA7 in trade) and InstrumentISIN per contract. Lot size, tick size and delivery profile are NOT present.",
+        "evidence": {
+          "sample": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json contentSamples[*].distinctIdentifiers",
+          "filesInspected": 41
+        }
+      },
+      "pointInTimeValidity": {"status": "NOT_DEMONSTRATED", "value": null},
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Partial observed evidence only: row-level units (MWh/EUR) and contract identifiers are present and reproducible in the observed sample, but the requirement is 'units AND contract specifications'. Lot size, tick, rounding and delivery profile are absent, so the full critical requirement is NOT available and R-08 remains in criticalMissing.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-09",
+      "requirement": "Publication / policy-consumable timestamps",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "lake lineage columns (_retrieved_at_utc, _response_sha256, _row_sha256) and per-row Tm",
+      "historicalCoverage": {
+        "status": "MISSING",
+        "value": null,
+        "missing": {
+          "reason": "Only occurrence time (Tm, UTC Z) and a 2026 bulk retrieval time are present. No EEX publication timestamp and no policy-consumable timestamp exist in the observed scope.",
+          "inspectedSources": ["source-inventory.json contentSamples[*].tmMin/tmMax and emptyValueCounts"],
+          "custodianRole": "Data owner/custodian (EEX feed provider)",
+          "nextRetrievalAction": "Provide source-row publication times and contemporaneous availability evidence for the exact series."
+        }
+      },
+      "pointInTimeValidity": {"status": "MISSING", "value": null},
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Tm (occurred/reference, UTC) is present in 100% of inspected sample rows; publication and policy-consumable times are absent, so the two PIT semantics required by §6.1 cannot be populated from this lake.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-10",
+      "requirement": "Missingness and revision/vintage history",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "lake row content (nullable identifier fields, UpdtAct/AgrsrAct, _row_sha256) with per-file footer census",
+      "historicalCoverage": {
+        "status": "VERIFIED",
+        "value": "Observed sample only: trade sample 1701 rows, 34 rows (~2%) missing DisplayName/ExpiryDate/InstrumentISIN/Maturity; 587 rows without Px (volume-only). Top-of-book sample 533108 rows, 153972 rows (~29%) missing DisplayName/ExpiryDate/InstrumentISIN/Maturity, with one-sided books (empty BidPx 64897, empty AskPx 42814). Duplicate _row_sha256 observed in top-of-book sample (167); duplicate TrdID in trade sample (34) coexists with UpdtAct New/Delete, suggesting update actions rather than proven duplication.",
+        "evidence": {
+          "sample": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json contentSamples[*].missingIdentifierCounts/emptyValueCounts/duplicateRowSha256/duplicateTrdIds"
+        }
+      },
+      "pointInTimeValidity": {"status": "NOT_DEMONSTRATED", "value": null},
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "Raw missingness is observable per requirement; a predeclared revision/vintage contract and lineage are absent. No missing-to-zero, forward-fill or silent exclusion is applied. Any revision hierarchy would need ex-ante declaration before use (§6.2).",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-11",
+      "requirement": "Timezone/DST/calendar semantics",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "per-row Tm timestamps and TrdDate partition keys",
+      "historicalCoverage": {
+        "status": "MISSING",
+        "value": null,
+        "missing": {
+          "reason": "Tm is stored with a UTC Z suffix and TrdDate is the market trade date, but no DST-transition sample, exchange calendar or timezone declaration is present to verify conversion semantics.",
+          "inspectedSources": ["source-inventory.json contentSamples[*].tmMin/tmMax"],
+          "custodianRole": "Data owner/custodian / exchange calendar custodian",
+          "nextRetrievalAction": "Provide a timestamped sample spanning a DST transition and the applicable exchange calendar."
+        }
+      },
+      "pointInTimeValidity": {"status": "NOT_DEMONSTRATED", "value": null},
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "UTC storage is observed; DST/calendar correctness is not verifiable from the observed scope and cannot be assumed.",
+      "consumers": ["A0", "A1"]
+    },
+    {
+      "requirementId": "R-12",
+      "requirement": "Permissions/rights/entitlements",
+      "missionAndCandidate": "Quarterly (Gas) / A0 + A1",
+      "criticalVersusOptional": "critical",
+      "sourceType": "entitlement/rights record",
+      "historicalCoverage": {
+        "status": "MISSING",
+        "value": null,
+        "missing": {
+          "reason": "Strictly from the in-scope table roots: the observed Parquet schemas and sampled rows carry only market-data fields and lineage columns (_pull_id, _request_path, _retrieved_at_utc, _response_sha256, _row_sha256, _api_category, _endpoint_family); no entitlement, license or rights field is present in any inspected schema or sample row.",
+          "inspectedSources": ["source-inventory.json censusTables[*].schemaVariants", "source-inventory.json contentSamples[*].distinctIdentifiers"],
+          "custodianRole": "Data owner/custodian (EEX feed provider) and procurement owner",
+          "nextRetrievalAction": "Provide a rights/entitlement record for this EEX THE data; provenance/permission ownership belongs to the sibling LAT-224 audit, not this packet."
+        }
+      },
+      "pointInTimeValidity": {"status": "MISSING", "value": null},
+      "availabilityStatus": "UNAVAILABLE",
+      "shortValidationNote": "No fabricated official/PIT/permission claim is made. Presence of files does not grant usage rights.",
+      "consumers": ["A0", "A1"]
+    }
+  ],
+  "notContributed": [
+    {"requirementId": "R-01", "reason": "Campaign list is not present in the EEX market-data lake."},
+    {"requirementId": "R-02", "reason": "Obligation/volume/delivery profile is not present in the lake."},
+    {"requirementId": "R-03", "reason": "Procurement calendar is not present in the lake."},
+    {"requirementId": "R-05", "reason": "S1 derived causal references are not present; the lake provides raw prices only."},
+    {"requirementId": "R-06", "reason": "The official EEX reference-price benchmark series is not this trade/top-of-book lake; no benchmark row is claimed."},
+    {"requirementId": "R-07", "reason": "Execution cost parameters are not present in the lake."},
+    {"requirementId": "R-13", "reason": "Forecast vintages are outside this lake."},
+    {"requirementId": "R-14", "reason": "Fundamental/extraordinary drivers are outside this lake."},
+    {"requirementId": "R-15", "reason": "Market Dynamics Z_t inputs are outside this lake."},
+    {"requirementId": "R-16", "reason": "Intraday Q07 resolution is a separate scope."},
+    {"requirementId": "R-17", "reason": "OOS reservation eligibility is a separate scope (IMP-09)."}
+  ],
+  "readinessContribution": {
+    "note": "This instance does not change candidate readiness. It contributes source evidence only; final readiness requires reconciliation of both ST-03.2 and ST-03.3 contributions with the accepted ST-03.1 matrix.",
+    "candidates": [
+      {
+        "candidate": "A0 Calendar-only baseline",
+        "mission": "Quarterly (Gas)",
+        "readiness": "DATA_BLOCKED",
+        "rationale": "R-04 now has an observed, source-linked price/quote series, but critical inputs R-01, R-02, R-03, R-06, R-07, R-08 (only partial units/identifier evidence; contract specification absent), R-09, R-10, R-11, R-12 and R-17 remain missing or not demonstrated. A critical requirement missing means the candidate is not DATA_READY (§6.3).",
+        "criticalMissing": ["R-01", "R-02", "R-03", "R-06", "R-07", "R-08", "R-09", "R-10", "R-11", "R-12", "R-17"],
+        "nowObserved": ["R-04"],
+        "partialEvidence": ["R-08"]
+      },
+      {
+        "candidate": "A1 S1 candidate",
+        "mission": "Quarterly (Gas)",
+        "readiness": "DATA_BLOCKED",
+        "rationale": "Inherits every critical gap of A0 and additionally lacks the S1 causal price reference (R-05); raw prices are present but S1 construction is not.",
+        "criticalMissing": ["R-01", "R-02", "R-03", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10", "R-11", "R-12", "R-17"],
+        "nowObserved": ["R-04"],
+        "partialEvidence": ["R-08"]
+      }
+    ]
+  },
+  "preserved": {
+    "acceptedSt03_1Matrix": "operations/audit/IMP-03/data-sufficiency-matrix.json",
+    "acceptedSt03_1MatrixSha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f",
+    "statement": "Not overwritten. This contribution is a new artifact under a disjoint write set."
+  }
+}

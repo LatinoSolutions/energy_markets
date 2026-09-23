@@ -1,0 +1,464 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-27-ST-1-v1.1",
+    "subtaskId": "ST-27.1",
+    "parentImp": "IMP-27",
+    "project": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "projectName": "Energy Markets",
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "semanticParentIssue": {
+      "identifier": "LAT-111",
+      "note": "IMP-27 parent acceptance se evalúa por separado (§20.2.10)."
+    },
+    "workIssue": {
+      "identifier": "LAT-112",
+      "id": "24c7a41f-6073-4210-8d3c-80510026f2d6"
+    },
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode",
+    "executionInstance": "SPEC 86c4bd4e… + IMP-27 + scope[Strategy Admission framework, framework instance v1.1, no real admission] + version 1"
+  },
+  "workerModelRoute": "Emergency Cheap Production Worker (OpenRouter) — DeepSeek V4.1 Flash, adapter opencode_local, run 7db6630d-dd38-4ce4-ae88-d8bcf707c896",
+  "workerRoute": {
+    "agentId": "2f30b8dd-306b-4735-a135-f8d3127c8c0e",
+    "agentName": "Emergency Cheap Production Worker (OpenRouter)",
+    "roleInThisSubtask": "routine author; explicitly NOT the independent reviewer of this ST (§20.2.9)",
+    "adapter": "opencode_local",
+    "provider": "OpenRouter",
+    "model": "DeepSeek V4.1 Flash",
+    "dispatchMode": "OFFICE-CONTINUITY dispatch -> cheap_or; native Paperclip assignment under owner-authorized Energy Markets scope; automated controller timer held OFF",
+    "runId": "7db6630d-dd38-4ce4-ae88-d8bcf707c896"
+  },
+  "startingBaseline": "operations/bootstrap/baseline-manifest.json sha256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 + accepted IMP-01 content version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c; non-git unborn main, 0 commits; declared hashes verified live before writing",
+  "startingBaselineDetail": {
+    "declaredBaseline": "operations/bootstrap/baseline-manifest.json SHA256 895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860 + accepted IMP-01 content version c7cdf47cb382472b3c17f61d43673a4d885d562c658b30bbd4824059d15a437c",
+    "versionIdentity": "content hashes (non-git workspace; branch main unborn, 0 commits, per AGENTS.md lines 13 and 17)",
+    "liveHashCheckPerformedBeforeWriting": true,
+    "specHashLive": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "imp01ReceiptHashLive": "78d92de81d8c480b7d96c7203fa2a0661e00e5fb98525aee8c385860a89b887c",
+    "baselineManifestHashLive": "895539b7312479a4350b7eeddf207c084090cf29abd391025dd763be00ca9860",
+    "canonicalDocsMatchBaseline": true,
+    "baselineDrift": [],
+    "allocatedOutputPathsPreexistingAtStart": [],
+    "allocatedOutputPathsObservedAbsentBeforeWriting": [
+      "src/strategy-admission",
+      "test/strategy-admission",
+      "operations/audit/IMP-27",
+      "operations/receipts/IMP-27-ST-1.json"
+    ]
+  },
+  "resultingVersion": {
+    "type": "content-hash (no commits created; commits are packet-prohibited and the branch remains unborn)",
+    "contentHash": "7c5ea00b0d4ac8079e6dfd92b6fa14eb62017fd2cb0925614d05cd390be61d19",
+    "contentHashScope": "aggregate sha256 over the 10 framework source/test files (sorted path + per-file sha256)",
+    "supersededContentHashes": [
+      {
+        "contentHash": "69cbeea29a4e70e192be37b2a7142d121a3ac102eb495371cf5e530f3bfb5284",
+        "note": "Round-0 version, superseded by the round-1 review correction. Recorded for traceability only; MUST NOT be accepted as current."
+      },
+      {
+        "contentHash": "c15a39ea8e52b4750d1ee53b44a851c9a90d0e9e819c8a56dddc064e00b4d399",
+        "note": "Round-1 version, superseded by the round-2 review correction. MUST NOT be accepted as current."
+      },
+      {
+        "contentHash": "162ebacba3ad49ce4683ef4598ddf9aeac1dfd68399335913bbe7851ae855586",
+        "note": "Round-2 version, superseded by the round-3 review correction. MUST NOT be accepted as current."
+      },
+      {
+        "contentHash": "d9552b6c3f880e9d948236af1330b3ecd49d0bead6d2f5daa7e032058d2d7386",
+        "note": "Round-3 version, superseded by the stage-2 Tech Lead corrections B1/B2. MUST NOT be accepted as current."
+      }
+    ],
+    "artifactHashes": {
+      "src/strategy-admission/channels.mjs": "aeb75f80794595b785c9fcd58d60ddbd58240bc9853c94e723e8d9ce27b210b1",
+      "src/strategy-admission/contract.mjs": "706d7366b06a58f7cb3e0542a11c6581aed82231eceef7d48d9e1d2a27ab8c7e",
+      "src/strategy-admission/lifecycle.mjs": "91604e4a5c3bfd93a63c5b036f843a9c39686e0d58b14454f1a630304e685a78",
+      "src/strategy-admission/registry.mjs": "e83980f272848300f94853e582f17514d270fa19c77806b80381f13a15a5d49e",
+      "src/strategy-admission/index.mjs": "acc8ae0162d5fc7b703e1b300e4f77035e5581b0d432c3a32447f144fb4f63d8",
+      "test/strategy-admission/fixtures.mjs": "dde7545148fb52c29e875e7e41832c712d16ad4e4a429c5555c5c31c38f6c789",
+      "test/strategy-admission/channels.test.mjs": "84eab5075cb50b51e0f2d5ae9aa97521eb183772ee254aa084cd0a2c3320f4dc",
+      "test/strategy-admission/contract.test.mjs": "13c59f691e3b38d277d0e3834cbfa7f32552fcaf998c37393d6702410a0daaac",
+      "test/strategy-admission/lifecycle.test.mjs": "a2f084fddc86c70ede95b6dc84cb6f5db6bf0059f4f80c90c66b2f843d9d37f2",
+      "test/strategy-admission/registry.test.mjs": "7a583a13ee5d5ed1e85e99e8e3f152612ce149e5f8d6b99a22189fbcbb78d693"
+    },
+    "receiptSelfHashOmitted": "this file's own hash is not embedded in itself; computed externally and reported in the handoff comment and continuity-checkpoint"
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md §§0.4, 3.1–3.4, 8.7 (8.7.1–8.7.4), 9, 10, 14, 15, 19, 20.2.7–20.2.10, 20.2.12, 25.1 IMP-27, 25.2.1, 25.2.2 IMP-27",
+    "operations/receipts/IMP-01-IMP_RECEIPT.json (accepted IMP-01; content version c7cdf47c…)",
+    "operations/bootstrap/baseline-manifest.json",
+    "accepted src/contracts modules read-only (identities.mjs, states.mjs, namespaces.mjs, economic-bundle.mjs, index.mjs)",
+    "test/contracts/*.test.mjs (pattern and preserved regression)",
+    "operations/packets/IMP-25-ST-1.md and operations/receipts/IMP-25-ST-1.json (receipt/format precedent)"
+  ],
+  "artifactsChanged": [
+    "src/strategy-admission/channels.mjs",
+    "src/strategy-admission/contract.mjs",
+    "src/strategy-admission/lifecycle.mjs",
+    "src/strategy-admission/registry.mjs",
+    "src/strategy-admission/index.mjs",
+    "test/strategy-admission/fixtures.mjs",
+    "test/strategy-admission/channels.test.mjs",
+    "test/strategy-admission/contract.test.mjs",
+    "test/strategy-admission/lifecycle.test.mjs",
+    "test/strategy-admission/registry.test.mjs",
+    "operations/audit/IMP-27/environment-and-inputs.txt",
+    "operations/audit/IMP-27/strategy-admission-tests.txt",
+    "operations/audit/IMP-27/strategy-admission-tests.tap",
+    "operations/audit/IMP-27/contracts-tests.txt",
+    "operations/audit/IMP-27/build-write-set-manifest.mjs",
+    "operations/audit/IMP-27/write-set-manifest.json",
+    "operations/audit/IMP-27/boundary-cases.json",
+    "operations/audit/IMP-27/acceptance-mapping.md",
+    "operations/audit/IMP-27/validate-receipt.mjs",
+    "operations/audit/IMP-27/receipt-validation.txt",
+    "operations/receipts/IMP-27-ST-1.json"
+  ],
+  "artifactsChangedDetail": {
+    "created": [
+      "src/strategy-admission/channels.mjs",
+      "src/strategy-admission/contract.mjs",
+      "src/strategy-admission/lifecycle.mjs",
+      "src/strategy-admission/registry.mjs",
+      "src/strategy-admission/index.mjs",
+      "test/strategy-admission/fixtures.mjs",
+      "test/strategy-admission/channels.test.mjs",
+      "test/strategy-admission/contract.test.mjs",
+      "test/strategy-admission/lifecycle.test.mjs",
+      "test/strategy-admission/registry.test.mjs",
+      "operations/audit/IMP-27/environment-and-inputs.txt",
+      "operations/audit/IMP-27/strategy-admission-tests.txt",
+      "operations/audit/IMP-27/strategy-admission-tests.tap",
+      "operations/audit/IMP-27/contracts-tests.txt",
+      "operations/audit/IMP-27/build-write-set-manifest.mjs",
+      "operations/audit/IMP-27/write-set-manifest.json",
+      "operations/audit/IMP-27/boundary-cases.json",
+      "operations/audit/IMP-27/acceptance-mapping.md",
+      "operations/audit/IMP-27/validate-receipt.mjs",
+      "operations/audit/IMP-27/receipt-validation.txt",
+      "operations/receipts/IMP-27-ST-1.json"
+    ],
+    "modified": [],
+    "deleted": [],
+    "outsideAllowedPaths": [],
+    "allowedPathsFromPacket": [
+      "src/strategy-admission/**",
+      "test/strategy-admission/**",
+      "operations/audit/IMP-27/**",
+      "operations/receipts/IMP-27-ST-1.json"
+    ],
+    "dirtyFilesPreserved": true,
+    "srcContractsIndexUntouched": true
+  },
+  "result": "Strategy Admission framework (framework instance v1.1) materializado sin admisión real. Un registro/proceso común recibe los tres canales canónicos de §8.7.1 y aplica el contrato §8.7.2 completo (24 campos semánticos, incluido intake channel/provenance). El lifecycle namespaced separa hitos de proceso (strategy_lifecycle), veredicto de research (research_verdict reusado) y admisión (strategy_admission). PASS no admite automáticamente: la admisión es una decisión explícita justificada, única por versión, y sólo otorga rol Evidence Generator, negando BUY/WAIT, sizing, órdenes y reward independiente. El ciclo de veredicto está cerrado: una misma versión/experimento recibe un único veredicto y reescribirlo (p.ej. FAIL→PASS) se rechaza exigiendo createNewVersion(); un experimentId ya veredictado no se reutiliza; y una admisión vigente no puede convivir con un veredicto refutatorio posterior. La defensa de no-reset normaliza ambas formas de versión admitidas por isVersionLike (string y {contentHash}) mediante versionKey, de modo que el reciclaje a una versión ya refutada se rechaza en las dos representaciones. Las dos puertas de entrada (register y createNewVersion) aplican las mismas invariantes: la Version del contrato §8.7.2 debe coincidir con la versión de la entrada y el contrato no puede declararse ya admitido. La evidencia es append-only y las decisiones de admisión no se sobrescriben. EXPERIMENT-READY valida la forma de cada prerequisite y rechaza false/null/vacíos y declaraciones de no satisfacción, conservando FORMALIZED; el framework no decide verdad factual, sólo la forma (la satisfacción factual la aporta la verificación externa citada). Una nueva versión conserva la identidad estable (strategyId, canonical name e intake channel) y toma su provenance del contrato entrante, de modo que record y contrato dan una única respuesta por versión. Los métodos de mutación clonan el contrato y las referencias de evidencia que almacenan (register clona el contrato; transition/recordVerdict/admit/createNewVersion/attachEvidence clonan la evidencia), de modo que esos objetos del llamante no se congelan; consumeOos sólo almacena un string. Limitación conocida y no bloqueante para el framework: los objetos de versión pasados a register()/createNewVersion() (p. ej. {contentHash}) se almacenan por referencia y quedan congelados por deepFreeze; la afirmación de no-congelado cubre contrato y evidencia, no los objetos de versión. Un cambio material crea una nueva versión/experimento y preserva FAIL/INVALID, provenance de evidencia y referencias de OOS consumido; el reset silencioso se rechaza. Todos los candidatos, experimentos y evidencias de test son sintéticos.",
+  "testsRun": [
+    {
+      "command": "hostname && pwd && git branch --show-current",
+      "result": "brunode / /srv/hot-data/energy-markets/app / main",
+      "requiredByPacket": true
+    },
+    {
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md operations/receipts/IMP-01-IMP_RECEIPT.json operations/bootstrap/baseline-manifest.json",
+      "result": "los tres hashes coinciden con los declarados en el packet",
+      "requiredByPacket": true
+    },
+    {
+      "command": "/opt/node/bin/node --test test/strategy-admission/*.test.mjs",
+      "result": "exit 0; 59 tests, 59 pass, 0 fail",
+      "requiredByPacket": true
+    },
+    {
+      "command": "/opt/node/bin/node --test test/contracts/*.test.mjs",
+      "result": "exit 0; 67 tests, 67 pass, 0 fail (contratos aceptados preservados)",
+      "requiredByPacket": true
+    },
+    {
+      "command": "/opt/node/bin/node --test --test-reporter=tap test/strategy-admission/*.test.mjs",
+      "result": "exit 0; TAP guardado en operations/audit/IMP-27/strategy-admission-tests.tap",
+      "requiredByPacket": false
+    }
+  ],
+  "testResults": [
+    "test/strategy-admission/*.test.mjs: 59 tests, 59 pass, 0 fail, exit 0",
+    "test/contracts/*.test.mjs: 67 tests, 67 pass, 0 fail, exit 0"
+  ],
+  "testResultsDetail": {
+    "nodeTestStrategyAdmission": {
+      "tests": 59,
+      "pass": 59,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0
+    },
+    "nodeTestContracts": {
+      "tests": 67,
+      "pass": 67,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "exitCode": 0
+    },
+    "observedStdoutSaved": [
+      "operations/audit/IMP-27/strategy-admission-tests.txt",
+      "operations/audit/IMP-27/contracts-tests.txt",
+      "operations/audit/IMP-27/strategy-admission-tests.tap"
+    ],
+    "notRun": [
+      "ningún candidato real, experimento económico, adquisición de datos ni run P6",
+      "ninguna mutación de API, tick de controller, cambio de timer o toggling de proyectos"
+    ],
+    "fixtureCaveat": "Los candidatos/evidencias de test son sintéticos y no acreditan edge, readiness real ni admisión real."
+  },
+  "evidenceProduced": [
+    "operations/audit/IMP-27/environment-and-inputs.txt",
+    "operations/audit/IMP-27/write-set-manifest.json",
+    "operations/audit/IMP-27/boundary-cases.json",
+    "operations/audit/IMP-27/acceptance-mapping.md",
+    "operations/audit/IMP-27/strategy-admission-tests.txt",
+    "operations/audit/IMP-27/strategy-admission-tests.tap",
+    "operations/audit/IMP-27/contracts-tests.txt",
+    "operations/audit/IMP-27/receipt-validation.txt"
+  ],
+  "evidenceProducedDetail": {
+    "sourceAndInputHashes": "operations/audit/IMP-27/environment-and-inputs.txt",
+    "writeSetManifest": "operations/audit/IMP-27/write-set-manifest.json (before/after; allocated paths absent at start; 0 writes outside allowed_paths)",
+    "boundaryCases": "operations/audit/IMP-27/boundary-cases.json (positivos y adversariales etiquetados sintéticos)",
+    "acceptanceMapping": "operations/audit/IMP-27/acceptance-mapping.md (packet criteria + parent IMP-27 context)",
+    "observedTestOutput": [
+      "operations/audit/IMP-27/strategy-admission-tests.txt",
+      "operations/audit/IMP-27/strategy-admission-tests.tap",
+      "operations/audit/IMP-27/contracts-tests.txt"
+    ],
+    "placeholdersUsed": false,
+    "secretsRecorded": false
+  },
+  "assumptions": [
+    "La serialización y los nombres de campo son IMPLEMENTATION DETAIL (§8.7.2); el contenido semántico se preserva campo por campo.",
+    "El packet autoriza explícitamente 'framework instance v1.1 only' (§25.2.1) sin evaluación de candidatos reales; DEP-29 permanece no producido.",
+    "El hash agregado de resultingVersion identifica el contenido del framework; no es un commit ni un receipt económico."
+  ],
+  "deviations": [
+    {
+      "item": "Se añadió operations/audit/IMP-27/build-write-set-manifest.mjs",
+      "rationale": "El packet exige un manifiesto before/after del write set; el generador queda dentro de allowed_paths y hace el manifiesto reproducible.",
+      "impact": "ninguno; aditivo dentro del write set declarado"
+    }
+  ],
+  "dependencyFindings": [
+    "REQUIRES: IMP-01 aceptado (LAT-92 done) y SPEC vigente satisfechos; hashes verificados en vivo.",
+    "REQUIRES_AUDIT: none para framework (§25.2.2 IMP-27).",
+    "REQUIRES_EVIDENCE: none para framework (§25.2.2 IMP-27).",
+    "PRODUCES_EVIDENCE: tests técnicos del proceso; no DEP-29, no edge, no admisión real."
+  ],
+  "dependencyFindingsDetail": {
+    "REQUIRES": "IMP-01 aceptado (LAT-92 done) y SPEC vigente — SATISFECHO. Hashes verificados en vivo contra los declarados en el packet.",
+    "REQUIRES_AUDIT": "none para framework — consistente con §25.2.2 IMP-27.",
+    "REQUIRES_EVIDENCE": "none para framework — consistente con §25.2.2 IMP-27.",
+    "projectOn": "Energy Markets es el proyecto del issue (96bbd5b1…). No se ejecutó ninguna acción que dependa de toggle de proyecto; el packet declara Project ON.",
+    "RESOLVES_AUDIT": "No aplica a esta ST: el framework no audita inputs de candidato real.",
+    "PRODUCES_EVIDENCE": "Tests técnicos del proceso (framework). No es DEP-29, no es edge y no es admisión real.",
+    "downstreamNote": "El uso del framework en rol Strategy/Evidence de IMP-28 y validaciones canónicas posteriores queda sujeto a sus propios REQUIRES* y gates. Un framework aceptado no hereda edge, admission ni authority."
+  },
+  "failuresRetries": [
+    {
+      "event": "Dos tests fallaron en la primera ejecución (parameters vacío tratado como faltante; history contaba mutaciones en vez de versiones)",
+      "cause": "Bug de implementación propio del framework, detectado por los propios tests",
+      "resolution": "Se corrigió la presencia de listas con minItems 0 y se separó la cadena de versiones del estado vigente; la segunda ejecución pasó 41/41",
+      "byThisSubtask": true
+    },
+    {
+      "event": "Review nativa ronda 1 (0af74a08) devolvió changes_requested: el ciclo de veredicto era reescribible (FAIL→PASS sobre el mismo experimento admitía sin nueva versión) y un FAIL posterior a la admisión dejaba la admisión en pie",
+      "cause": "recordVerdict() permitía un segundo veredicto para la misma versión/experimento y admit() sólo leía current.verdict, nunca verdictHistory",
+      "resolution": "recordVerdict() rechaza ahora un segundo veredicto para la misma versión/experimento (VERDICT_ALREADY_RECORDED) y exige createNewVersion(); admit() además escanea verdictHistory de la versión vigente. Añadidos tests adversariales y deduplicados priorFindings; register()/createNewVersion() clonan para no congelar el objeto del llamante",
+      "byThisSubtask": true
+    },
+    {
+      "event": "Review nativa ronda 2 (0af74a08) devolvió changes_requested: createNewVersion() era una segunda puerta sin las invariantes de register() — aceptaba un contrato con Version contradictoria (record.version 0.2.0 vs contract.version 9.9.9) y con admissionStatus ya ADMITTED sin rechazo",
+      "cause": "createNewVersion() validaba el contrato sólo con validateStrategyCandidate() y nunca comparaba candidate.version con change.newVersion ni exigía estado de admisión inicial",
+      "resolution": "createNewVersion() añade VERSION_MISMATCH (Version del contrato == change.newVersion) y NON_INITIAL_ADMISSION_STATUS reutilizando el mismo criterio que register(); 4 tests nuevos. No bloqueantes resueltos: EXPERIMENT_ID_REUSED impide reutilizar un experimentId ya veredictado y ADMISSION_ALREADY_DECIDED impide sobrescribir una admisión. Suite 50/50",
+      "byThisSubtask": true
+    },
+    {
+      "event": "Review nativa ronda 3 (0af74a08) devolvió changes_requested + escalada al Command: admit() comparaba versiones con === crudo, así que la defensa de no-reset sólo funcionaba para versiones string y se caía para {contentHash} (reciclaje a una versión refutada + PASS admitía)",
+      "cause": "registry.mjs comparaba entry.version === current.version; sobre objetos eso es identidad de referencia, no de versión, pese a que el módulo ya tenía versionKey() como normalizador",
+      "resolution": "El escaneo de admit() usa versionKey(entry.version) === versionKey(current.version); la defensa cubre ambas formas de versión. Test con {contentHash} añadido. No bloqueante resuelto: transition/recordVerdict/admit clonan los arrays del llamante antes de congelar. El Office reautorizó un ciclo acotado de rework (no es aprobación). Suite 52/52",
+      "byThisSubtask": true
+    },
+    {
+      "event": "Review de etapa 2 (Tech Lead 2b6bf987) devolvió changes_requested: B1 readiness aceptaba prerequisites explícitamente falsos ([false]); B2 createNewVersion almacenaba canonicalName/intakeChannel/provenance contradictorios con el record",
+      "cause": "validateExperimentReadiness() sólo comprobaba Array+length; createNewVersion() heredaba canonicalName/channel/provenance de current mientras sustituía contract con material de otra Strategy",
+      "resolution": "B1: cada prerequisite se valida estructuralmente (isSatisfiedPrerequisite); se rechazan false/null/vacíos/satisfied:false/status no satisfecho y se conserva FORMALIZED. B2: createNewVersion() exige canonicalName e intakeChannel estables y toma provenance del contrato entrante, dejando record y contrato consistentes; rechaza identidad de otra Strategy y preserva la versión previa. Precisión de receipt: la afirmación de no-congelado se acota y se extiende el clonado a attachEvidence/createNewVersion. Suite 59/59",
+      "byThisSubtask": true
+    }
+  ],
+  "postReviewCorrections": {
+    "requestedBy": "Native independent review round 1 — Independent Reviewer 0af74a08, decision 795d8484-89c0-4a3c-b8c5-15c89ccb8ad0, comment e53dc330-9895-4c12-8f07-8e1ea28eb96f, 2026-09-19T16:06:37Z",
+    "appliedByRun": "this run",
+    "appliedByAgent": "2f30b8dd-306b-4735-a135-f8d3127c8c0e (same author route)",
+    "corrections": [
+      {
+        "id": "B1-B2",
+        "kind": "blocking — verdict cycle closed",
+        "before": "recordVerdict() allowed rewriting the verdict of the same version/experiment; admit() read only current.verdict. FAIL→PASS on the same experiment admitted at versionIndex 0.",
+        "after": "recordVerdict() rejects a second verdict for a version/experiment that already has one (VERDICT_ALREADY_RECORDED) and requires createNewVersion() (§8.7.3 option (a)); admit() additionally rejects any version whose verdictHistory contains FAIL/INVALID (option (b) defense in depth). Verdicts now carry their `version`."
+      },
+      {
+        "id": "B3",
+        "kind": "blocking — adversarial coverage",
+        "before": "No test rewrote a verdict or recorded a post-admission verdict; the two blocking gaps passed green.",
+        "after": "Added 5 adversarial tests: FAIL→PASS rewrite rejected; post-admission FAIL rejected with admission intact; new version can PASS/admit while preserving the prior FAIL; priorFindings dedupe; register() does not freeze the caller's object. Suite now 46/46."
+      },
+      {
+        "id": "N1",
+        "kind": "non-blocking — priorFindings duplication",
+        "before": "priorFindings re-appended all FAIL/INVALID from the carried-over verdictHistory, duplicating a single FAIL after successive material changes.",
+        "after": "priorFindings deduplicated by version+experimentId+value."
+      },
+      {
+        "id": "N2",
+        "kind": "non-blocking — caller object frozen",
+        "before": "register() stored `contract: candidate` inside deepFreeze, freezing the caller's object.",
+        "after": "register() and createNewVersion() structuredClone before freezing; the caller's object is untouched."
+      }
+    ],
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "evidenceDiscarded": "none — prior evidence preserved; superseded resultingVersion recorded for traceability",
+    "scopeUnchanged": true
+  },
+  "postReviewCorrectionsRound2": {
+    "requestedBy": "Native independent review round 2 — Independent Reviewer 0af74a08, comment d08a257a-b9ba-494a-ac18-cd71768ba9c2, decision 616feb16-b6c0-43f0-b5c2-d7046c5b5b33, 2026-09-19T16:20:25Z (decision recorded 2026-09-19T19:25 after run recovery)",
+    "appliedByRun": "this run",
+    "corrections": [
+      {
+        "id": "B-r2",
+        "kind": "blocking — single root, two manifestations",
+        "before": "createNewVersion() accepted an arbitrary change.contract validated only by validateStrategyCandidate(). (a) candidate.version could contradict change.newVersion/record.version; (b) candidate.admissionStatus could declare ADMITTED_EVIDENCE_GENERATOR and was stored verbatim.",
+        "after": "createNewVersion() now rejects VERSION_MISMATCH (versionKey(candidate.version) !== versionKey(change.newVersion)) and NON_INITIAL_ADMISSION_STATUS, reusing register()'s invariant via a shared isInitialAdmissionStatus() helper. Two tests added."
+      },
+      {
+        "id": "NB1-r2",
+        "kind": "non-blocking — experimentId reuse",
+        "before": "A new version could re-enter UNDER_TEST with an experimentId already veredictado (FAIL then PASS under the same experiment id).",
+        "after": "transition() to UNDER_TEST rejects EXPERIMENT_ID_REUSED when the id appears in verdictHistory. Test added."
+      },
+      {
+        "id": "NB2-r2",
+        "kind": "non-blocking — admission overwrite",
+        "before": "A second admit() overwrote admissionDecision without history.",
+        "after": "admit() rejects ADMISSION_ALREADY_DECIDED; the admission decision is append-only. Test added."
+      }
+    ],
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "evidenceDiscarded": "none",
+    "scopeUnchanged": true,
+    "round": "review round 3 next (max 3)"
+  },
+  "postReviewCorrectionsRound3": {
+    "requestedBy": "Native independent review round 3 — Independent Reviewer 0af74a08, comment 1c254ae5-9684-4a6c-8731-d057bb8b3016, decision c49dde2e-c14e-4889-928e-b993291f90c8, 2026-09-19T19:41:37Z; bounded rework cycle re-authorized by the responsible user (OFFICE-REVIEW-EXHAUSTION-RECOVERY cycle 1, comment 00eaa481-36d5-4dcd-af36-537a4b052c07, 2026-09-19T21:17:05Z). NOT an approval.",
+    "appliedByRun": "this run",
+    "corrections": [
+      {
+        "id": "B-r3",
+        "kind": "blocking — no-reset invariant only held for string-form versions",
+        "before": "admit()'s refutation scan compared entry.version === current.version with raw ===. For {contentHash} versions that is reference identity, so recycling to a previously refuted contentHash and then recording PASS admitted the candidate (REFUTED_REQUIRES_NEW_VERSION did not fire).",
+        "after": "The scan now normalizes with versionKey(entry.version) === versionKey(current.version), reusing the module's existing normalizer. Recycling to a refuted version is rejected for both string and {contentHash} forms. Test added with {contentHash} versions."
+      },
+      {
+        "id": "NB-r3",
+        "kind": "non-blocking — caller arrays frozen in three more methods",
+        "before": "transition(), recordVerdict() and admit() stored caller evidence arrays inside deepFreeze without cloning.",
+        "after": "All three now structuredClone the caller's evidence arrays before freezing. Test added. (register()/createNewVersion() were already fixed in round 1.)"
+      }
+    ],
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "evidenceDiscarded": "none",
+    "scopeUnchanged": true,
+    "roundCapNote": "This was the round-3 return; the Office authorized exactly one bounded rework cycle for the reviewer's technical finding. Same independent reviewer re-reviews the delta."
+  },
+  "postReviewCorrectionsStage2": {
+    "requestedBy": "Native stage 2 review — Tech Lead 2b6bf987, decision 967984d6-ad14-404d-ac6b-5570a949074d, document stage2-review revision 5f9121b3-9b1d-41c9-91b4-431236df413c, 2026-09-19T21:33Z",
+    "appliedByRun": "this run",
+    "corrections": [
+      {
+        "id": "B1",
+        "kind": "blocking — readiness accepted explicitly false prerequisites",
+        "before": "validateExperimentReadiness() only checked Array+length, so [false] advanced to EXPERIMENT_READY on all three channels, including the Bru-supplied channel.",
+        "after": "Each prerequisite is validated structurally by isSatisfiedPrerequisite(): non-empty string or object with non-empty ref/id/reference that does not declare non-satisfaction (satisfied:false, met:false, UNSATISFIED/PENDING/FAILED status). Rejection preserves FORMALIZED. The framework validates form, not factual truth; the external verification it consumes is documented in the code comment. Adversarial tests added for all three channels plus direct lifecycle cases."
+      },
+      {
+        "id": "B2",
+        "kind": "blocking — new version stored contradictory identity/provenance",
+        "before": "createNewVersion() inherited canonicalName/channel/provenance from current while substituting contract, so a new version of A could carry B's canonicalName/intakeChannel/provenance, leaving two contradictory answers.",
+        "after": "createNewVersion() rejects canonicalName and intakeChannel changes (IDENTITY_MISMATCH, stable identity) and takes provenance from the incoming contract, so record and contract agree per version. Tests: contradictory identity rejected with prior version intact; channel change rejected; identity-preserving new version yields consistent record/contract and intact prior version."
+      },
+      {
+        "id": "R-precision",
+        "kind": "receipt precision",
+        "before": "result claimed no method freezes caller objects/arrays, while attachEvidence/createNewVersion still froze caller material.",
+        "after": "attachEvidence and createNewVersion now structuredClone the contract/evidence they store. Residual, reproducible for {contentHash} versions: register()/createNewVersion() store the version object by reference and deepFreeze freezes it. Per the stage-2 recheck this is non-blocking for the framework and no further implementation fix is requested; the result claim is narrowed to contract/evidence and this limitation is recorded explicitly (knownLimitations)."
+      }
+    ],
+    "knownLimitations": [
+      {
+        "id": "KL-version-object-freeze",
+        "severity": "non-blocking for framework",
+        "description": "register()/createNewVersion() store the caller's version object by reference; deepFreeze freezes it. Contracts and evidence refs are cloned; version objects are not.",
+        "impact": "A caller reusing its own {contentHash} version object after register/createNewVersion sees it frozen. No effect on framework invariants, hashes or stored records.",
+        "status": "known; no implementation fix requested by stage-2 recheck (R-precision only)"
+      }
+    ],
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "evidenceDiscarded": "none",
+    "scopeUnchanged": true,
+    "note": "Stage 1 remains completed (decision e28cc06f-a4fc-4fdf-8fb2-680c9c66097d); this rework does not reopen it. Stage 2 re-review is the live path."
+  },
+  "noGuessQuestionsRaised": [],
+  "specChangeRequest": {
+    "raised": false,
+    "rationale": "No se encontró contradicción canónica frozen; no fue necesaria ninguna edición fuera de allowed_paths."
+  },
+  "recommendedStatus": "in_review",
+  "review": {
+    "stage1": "Independent Reviewer 0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "stage2": "Tech Lead 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6",
+    "note": "El autor no aprueba ninguna review. ST accepted ≠ IMP accepted; el parent IMP-27 requiere aceptación separada (§20.2.10)."
+  },
+  "receiptMeta": {
+    "specSection": "20.2.8",
+    "writtenAtUtc": "2026-09-19T15:56:59Z",
+    "revisedAtUtc": "2026-09-19T22:19:13Z",
+    "revision": "stage-2 recheck R-precision only: receipt result narrowed and version-object freeze recorded as a known non-blocking limitation. No source/test change; code version unchanged (7c5ea00b...).",
+    "writtenByRun": "7db6630d-dd38-4ce4-ae88-d8bcf707c896",
+    "fieldsCovered": [
+      "packet/subtask/parent identity",
+      "worker/model route",
+      "starting baseline",
+      "resulting version",
+      "inputs actually used",
+      "artifacts changed",
+      "result",
+      "tests run",
+      "test results",
+      "evidence produced",
+      "assumptions",
+      "deviations",
+      "dependency findings",
+      "failures/retries",
+      "recommended status"
+    ]
+  }
+}

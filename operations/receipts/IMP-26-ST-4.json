@@ -1,0 +1,241 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC 20.2.8)",
+  "packetSubtaskParentIdentity": {
+    "packetId": "WP-IMP-26-ST-4-v1.1",
+    "subtaskId": "ST-26.4",
+    "parentImp": "IMP-26",
+    "parentImpIssue": {
+      "identifier": "LAT-94",
+      "id": "d65b29e7-e88d-4377-ad43-c49d3cc7e797"
+    },
+    "deliveryGateIssue": {
+      "identifier": "LAT-143",
+      "id": "2b7fb978-c1e0-4036-91fd-ed15cbecdf5d"
+    },
+    "workIssue": {
+      "identifier": "LAT-156",
+      "id": "f7eae6d5-1ddb-4b1a-8c63-6ea922892f69"
+    },
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "project": "Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "host": "brunode",
+    "workspace": "/srv/hot-data/energy-markets/app"
+  },
+  "workerModelRoute": "Premium Production Worker A (Luna), OA2, gpt-5.6-luna, adapter codex_local, run b2dda3c6-a453-49da-b953-f1a02706f57b; author only, not reviewer or approver.",
+  "startingBaseline": "operations/audit/IMP-26/ST-26.4/baseline.json; SPEC SHA256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c; pre-change A/B hashes 9cdc2799f6277d59194b456cba9f3efe214dfc5eaea92e642468033a1c070bfa and 6ffa9dec78c8d049bfa1bb6ce9b64c5cea276583858edd5640977f95c612e791; live policy-params drift recorded before implementation.",
+  "result": "Corrective A/B delivery and evidence hardening completed: project-derived authority/root, conditional frozen-conflict instructions, complete eleven-field binding, exact mixed-marker evidence preservation, stale-row full-issue project isolation, fail-closed verifier, post-C1 delta mapping, and scratch-only negative fixtures. Owner resolution restored policy-params.json to the exact frozen 3a02669 bytes; the refreshed target now satisfies North Star equality and is submitted to native Astra independent review. This is delivery evidence only, not ST acceptance or IMP-26 acceptance.",
+  "recommendedStatus": "in_review — owner-resolved delivery submitted to the native Astra independent review stage; no acceptance or live activation implied.",
+  "acceptanceConsequence": {
+    "sourceComment": "cc915247-c543-4d38-a780-203beff9ce79",
+    "outcome": "Owner resolution restored live policy-params.json to frozen 3a02669. AC4 is revalidated for this delivery target; ST-26.4 remains unaccepted pending native Astra review and cannot by itself unlock LAT-143 or support LAT-94 parent acceptance.",
+    "frozenBaselineAuthority": "Bru",
+    "protectedSurfaceOwner": "Claude",
+    "resolutionEvidence": "operations/audit/IMP-26/ST-26.4/frozen-policy-restore-20260921T013339Z/summary.txt",
+    "requiredNextAction": "Native Astra independent review of the refreshed target; no worker approval or parent acceptance is implied.",
+    "notEstablished": ["SPEC v1.1 contradiction", "policy waiver", "timer compliance", "parent acceptance"]
+  },
+  "inputsUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md sha256 86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "LAT-156 WORK-PACKET v1 and Command owner-release answer comment 1d79b3b5-2fe7-4810-ad6a-603ac20d83e0",
+    "operations/audit/IMP-26/ST-26.4/baseline.json",
+    "operations/bootstrap/CONCURRENT_OWNER_WORK.md, COMMAND_HANDOFF.md, IMP-26-BLOCKER-EVIDENCE-UPDATE.md",
+    "accepted prior IMP-26 ST-26.1–ST-26.3 artifacts and C1 approval at 5d49f1e, preserved as immutable inputs",
+    "/home/op/.paperclip/integrations/office-continuity/{command-question.mjs,command-question.test.mjs,controller.mjs,final-acceptance.mjs,autonomy-certification.test.mjs} and static relative-import closure",
+    "independent-review-round-1 findings and retained post-C1 working-tree diff against the 5d49f1e C1 approval reference; current HEAD and dirty status are recorded in git-state.txt",
+    "independent-review-round-2 findings and the owner-resolved evidence correction scope",
+    "owner resolution comment cc915247-c543-4d38-a780-203beff9ce79 and frozen-policy-restore-20260921T013339Z evidence"
+  ],
+  "artifactsChanged": [
+    "/home/op/.paperclip/integrations/office-continuity/command-question.mjs sha256 bebe21ba21abbf11ed0f6b3a80b413c4afa01f1e631b511569ae434ec52f4033",
+    "/home/op/.paperclip/integrations/office-continuity/command-question.test.mjs sha256 5aa22ea762952698c853b1bb28b2aa304300a9d786cdd86c2b5ed75ea27a1d20",
+    "operations/audit/IMP-26/ST-26.4/source-mapping.md sha256 e7c6b98a117f1e2da91c483773292e2a1e1dcd29b0f3ad75a031089f09f843a1",
+    "operations/audit/IMP-26/ST-26.4/synthetic-spec-change-artifact.md sha256 a43c031596eda6b7f795ce247b0cf86d012b3697705d2e8453872c05b6441338",
+    "operations/audit/IMP-26/ST-26.4/delta-review.md sha256 f17124382012837e11f914fe530eebb8f0a9d7917aae4c53bad21d7475f9da99",
+    "operations/audit/IMP-26/ST-26.4/manifest.json sha256 eb76c95b2da99105d8a323c09ed4ec38b6477a4bf536de9fe4161fb1ca1e1315",
+    "operations/audit/IMP-26/ST-26.4/tests.tap sha256 7fc473228dc9e49a89b69e31f0d6bdff3d3263dc2e5e51dd67226ecec060da06",
+    "operations/audit/IMP-26/ST-26.4/snapshot-tests.tap sha256 f0e0a56c4eed074503ee5d4b5cdd1613ae2188b0c6d0fbde47c06135e2af3e9c",
+    "operations/audit/IMP-26/ST-26.4/verify-delivery.mjs sha256 54745314f307e2117bfadcb367402d76c7f007d5466761bb76928cf65a1f1efd",
+    "operations/audit/IMP-26/ST-26.4/verify-delivery-negative.test.mjs sha256 f68281a3173826a8c9b920029b929e1d9879901855f40cb448532b62715ab9d0",
+    "operations/audit/IMP-26/ST-26.4/post-c1-diff.patch sha256 df865ef22cd306fd6f96660f6aa8a2aeb8c52fc713b6302d0bee42f21d7843b5",
+    "operations/audit/IMP-26/ST-26.4/negative-verifier-tests.tap sha256 6dd594b9589794bfe8ec61c1a54a5c3c86eaa0a40031043f8cc3d740733d448b",
+    "operations/audit/IMP-26/ST-26.4/runtime-delta-live.tap sha256 b8661a88184fe6726d2c1c7ff9a4622d4f96aa2a40dbd6f58bfa544570b4205a",
+    "operations/audit/IMP-26/ST-26.4/runtime-delta-snapshot.tap sha256 651e8f2a4e000e094616a7d8f71f15d44d28228e49266059e928db9096b5949f",
+    "operations/audit/IMP-26/ST-26.4/snapshot/liveness.test.mjs sha256 1a0a42c3902ada477f2f13d4c4d3334d269adf5a219632448434036cf9f18eea",
+    "operations/audit/IMP-26/ST-26.4/snapshot/temporal.test.mjs sha256 33efd9895e5f277fc052d0e0f513d812a7a2b82a410eb0c0e6594746d026e17a",
+    "operations/audit/IMP-26/ST-26.4/snapshot/stall-detector.test.mjs sha256 6759fadc405b3139b32f8b44ca72cee5039d1e51ce47a95146eb41674a1236e3",
+    "operations/audit/IMP-26/ST-26.4/snapshot/event-sink.test.mjs sha256 c9155f7274d102b27dcec30d9c7dff511eb787367db279420cc12acc95bd45e0",
+    "operations/audit/IMP-26/ST-26.4/snapshot/queue-snapshot.test.mjs sha256 a47a9c5b9d4997921476e6669a18cdf1fab85b98820e797abc791d041d673ae0",
+    "operations/audit/IMP-26/ST-26.4/git-state.txt sha256 a15ded2c9f957643a6ba890c7eec11a6243979600e658719eb8fa5bfa2ce6543",
+    "operations/audit/IMP-26/ST-26.4/continuity-checkpoint.md sha256 eb8e6a1b119840c53cb2f26bc82c64ce2160d1823866c1cb3d728e7d63ab8461",
+    "operations/audit/IMP-26/ST-26.4/delivery-receipt.md sha256 213c24bbcd85f99b21fc54e22cd9fa5c2b9aceb5ec207ce27f0392e5c84fbdcf",
+    "operations/audit/IMP-26/ST-26.4/verification.txt sha256 344b8146dc6a85106f858765d566b7e5730546abf06f63d557b1cabd03d0b06c",
+    "operations/audit/IMP-26/ST-26.4/frozen-policy-restore-20260921T013339Z/summary.txt sha256 44e87cd2f3bedf351c25e12cc40cf4b994ec0e4ac38d481765eac7f62166fd2e",
+    "operations/audit/IMP-26/ST-26.4/snapshot/**; 57 files listed in manifest.json"
+  ],
+  "testsRun": [
+    {
+      "id": "P1",
+      "command": "hostname",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "brunode"
+    },
+    {
+      "id": "P2",
+      "command": "pwd",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "/srv/hot-data/energy-markets/app"
+    },
+    {
+      "id": "P3",
+      "command": "git branch --show-current",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "main"
+    },
+    {
+      "id": "P4",
+      "command": "sha256sum docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c"
+    },
+    {
+      "id": "P5",
+      "command": "/opt/node/bin/node --test /home/op/.paperclip/integrations/office-continuity/command-question.test.mjs /home/op/.paperclip/integrations/office-continuity/project-scope.test.mjs /home/op/.paperclip/integrations/office-continuity/dispatcher.test.mjs /home/op/.paperclip/integrations/office-continuity/autonomy-certification.test.mjs /home/op/.paperclip/integrations/office-continuity/controller.test.mjs /home/op/.paperclip/integrations/office-continuity/replenisher.test.mjs /home/op/.paperclip/integrations/office-continuity/review-exhaustion.test.mjs /home/op/.paperclip/integrations/office-continuity/review-recovery.test.mjs /home/op/.paperclip/integrations/office-continuity/orphan-hold.test.mjs /home/op/.paperclip/integrations/office-continuity/imp-work-missing.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "296 pass / 0 fail / exit 0"
+    },
+    {
+      "id": "P6",
+      "command": "/opt/node/bin/node --test /home/op/.paperclip/integrations/office-continuity/command-question.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "7 pass / 0 fail / exit 0"
+    },
+    {
+      "id": "P7",
+      "command": "/opt/node/bin/node --test operations/audit/IMP-26/ST-26.4/snapshot/command-question.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/project-scope.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/dispatcher.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/autonomy-certification.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/controller.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/replenisher.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/review-exhaustion.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/review-recovery.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/orphan-hold.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/imp-work-missing.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "296 pass / 0 fail / exit 0"
+    },
+    {
+      "id": "P8",
+      "command": "/opt/node/bin/node operations/audit/IMP-26/ST-26.4/verify-delivery.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "receipt/manifest/source/TAP identity checks pass fail-closed; live policy-params equality matches frozen 3a02669"
+    },
+    {
+      "id": "P9",
+      "command": "/opt/node/bin/node --test operations/audit/IMP-26/ST-26.4/verify-delivery-negative.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "5 pass / 0 fail / exit 0; fabricated aggregate, TAP failure, tested-source identity, manifest negative-output identity and omitted runtime input rejected in scratch copies"
+    },
+    {
+      "id": "P10",
+      "command": "/opt/node/bin/node --test /home/op/.paperclip/integrations/office-continuity/command-question.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "7 pass / 0 fail / exit 0; stale fetched OFF and projectless issues cause zero comment fetches and zero mutations"
+    },
+    {
+      "id": "P11",
+      "command": "/opt/node/bin/node --test /home/op/.paperclip/integrations/office-continuity/dispatcher.test.mjs /home/op/.paperclip/integrations/office-continuity/liveness.test.mjs /home/op/.paperclip/integrations/office-continuity/temporal.test.mjs /home/op/.paperclip/integrations/office-continuity/stall-detector.test.mjs /home/op/.paperclip/integrations/office-continuity/event-sink.test.mjs /home/op/.paperclip/integrations/office-continuity/queue-snapshot.test.mjs /home/op/.paperclip/integrations/office-continuity/canonical-graph.test.mjs /home/op/.paperclip/integrations/office-continuity/imp-work-missing.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "129 pass / 0 fail / 0 skipped / exit 0; all eight named runtime inputs exist and closure output is retained in runtime-delta-live.tap"
+    },
+    {
+      "id": "P12",
+      "command": "/opt/node/bin/node --test operations/audit/IMP-26/ST-26.4/snapshot/dispatcher.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/liveness.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/temporal.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/stall-detector.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/event-sink.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/queue-snapshot.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/canonical-graph.test.mjs operations/audit/IMP-26/ST-26.4/snapshot/imp-work-missing.test.mjs",
+      "cwd": "/srv/hot-data/energy-markets/app",
+      "expected": "129 pass / 0 fail / 0 skipped / exit 0; all eight named runtime inputs exist and closure output is retained in runtime-delta-snapshot.tap"
+    }
+  ],
+  "testResults": [
+    "P1 hostname => brunode (PASS)",
+    "P2 pwd => /srv/hot-data/energy-markets/app (PASS)",
+    "P3 branch => main (PASS)",
+    "P4 SPEC SHA256 => expected (PASS)",
+    "P5 exact ten-file live suite => 296 tests, 296 pass, 0 fail, 0 skipped, exit 0 (PASS)",
+    "P6 targeted A/B suite => 7 tests, 7 pass, 0 fail, 0 skipped, exit 0 (PASS)",
+    "P7 exact ten-file snapshot suite => 296 tests, 296 pass, 0 fail, 0 skipped, exit 0 (PASS)",
+    "P8 verify-delivery => receipt/manifest/source/TAP identity checks pass fail-closed; exits 0 after owner-restored live policy-params equals frozen 3a02669",
+    "P9 negative verifier fixtures => 5 tests, 5 pass; fabricated aggregate, TAP failure, tested-source identity, manifest negative-output identity and omitted runtime input are rejected in scratch copies (PASS)",
+    "P10 stale-row isolation regressions => 2 tests, 2 pass within targeted 7-test command-question suite; zero comment fetches and zero create/patch/resume actions (PASS)",
+    "P11 runtime-delta live targeted closure => 129 tests, 129 pass, 0 fail/skipped, exit 0; exact command and output retained in runtime-delta-live.tap (PASS)",
+    "P12 runtime-delta snapshot targeted closure => 129 tests, 129 pass, 0 fail/skipped, exit 0; all eight named inputs exist and closure output is retained in runtime-delta-snapshot.tap (PASS)"
+  ],
+  "evidenceProduced": [
+    "operations/audit/IMP-26/ST-26.4/source-mapping.md",
+    "operations/audit/IMP-26/ST-26.4/synthetic-spec-change-artifact.md",
+    "operations/audit/IMP-26/ST-26.4/delta-review.md",
+    "operations/audit/IMP-26/ST-26.4/manifest.json",
+    "operations/audit/IMP-26/ST-26.4/baseline.json",
+    "operations/audit/IMP-26/ST-26.4/tests.tap",
+    "operations/audit/IMP-26/ST-26.4/snapshot-tests.tap",
+    "operations/audit/IMP-26/ST-26.4/verify-delivery.mjs",
+    "operations/audit/IMP-26/ST-26.4/verify-delivery-negative.test.mjs",
+    "operations/audit/IMP-26/ST-26.4/post-c1-diff.patch",
+    "operations/audit/IMP-26/ST-26.4/snapshot/**",
+    "operations/audit/IMP-26/ST-26.4/continuity-checkpoint.md",
+    "operations/receipts/IMP-26-ST-4.json",
+    "operations/audit/IMP-26/ST-26.4/verification.txt",
+    "operations/audit/IMP-26/ST-26.4/runtime-delta-live.tap",
+    "operations/audit/IMP-26/ST-26.4/runtime-delta-snapshot.tap",
+    "Paperclip issue document st-26-4-delivery-receipt",
+    "Paperclip work product current frozen target manifest/snapshot reference"
+  ],
+  "assumptions": [
+    "Command’s explicit two-file release supersedes the earlier Claude hold for this packet only.",
+    "The snapshot and restored live tree use frozen 3a02669 bytes for policy.mjs, policy-params.json and lanes.json; restoration is evidenced and is not a worker policy mutation.",
+    "Existing accepted receipts, C1 scope, owner policy, timer state and routing configuration remain immutable inputs.",
+    "Synthetic SPEC_CHANGE_REQUEST fixtures are labeled synthetic and are not real contradictions or authority decisions."
+  ],
+  "deviations": [
+    "The live office tree was already dirty; all unrelated source/config drift was preserved and disclosed.",
+    "Owner restoration resolved the prior live policy-params.json drift to frozen 3a02669; before/after bytes and full-suite evidence are retained under frozen-policy-restore-20260921T013339Z.",
+    "No controller tick, timer action, live Paperclip issue mutation, live worker resume, or live continuation sequence was run.",
+    "The initial injected test attempt failed because its synthetic API callback returned no full issue; the fixture was corrected and the targeted test then passed 4/4."
+  ],
+  "dependencyFindings": [
+    "SPEC prerequisite exact SHA256 satisfied.",
+    "Accepted IMP-01 and IMP-25 and scoped DEP-27 evidence are consumed as packet inputs only; no new parent acceptance or global DEP closure is claimed.",
+    "Explicit owner release is recorded; no unresolved applicable SPEC_CHANGE_REQUEST blocks the A/B implementation branch.",
+    "Owner resolution restored live policy-params.json to the exact frozen 3a02669 bytes; the restoration evidence and before/after hashes are retained under frozen-policy-restore-20260921T013339Z.",
+    "Native Astra independent review remains the required reviewer after the owner-resolved gate; actual author/reviewer independence is preserved."
+  ],
+  "failuresRetries": [
+    "One earlier test-fixture failure was corrected after diagnosis; no production retry beyond the bounded technical retry.",
+    "The first-round reviewer identified verifier false-green behavior; fail-closed checks and four scratch-only negative fixtures now reject it, including an inconsistent manifest negative-output identity.",
+    "Round-2 provenance correction distinguishes the retained dirty working-tree diff from the independent committed-HEAD comparison and maps included runtime closure to exact retained targeted outputs.",
+    "Round-3 evidence correction aligns source-mapping.md with the retained dirty working-tree provenance and maps named lock-holder cases to the exact 296-test controller suite; the 129-test runtime outputs remain unchanged.",
+    "Round-2 publication correction adds the current issue delivery document and discoverable frozen-target work product while preserving prior artifacts.",
+    "The delivery verifier was refreshed after owner resolution to require live North Star equality and owner restoration evidence; its post-resolution run must be exit 0.",
+    "No live API/provider/timer failure occurred because no live mutation or controller tick was invoked."
+  ],
+  "deliveryIdentity": {
+    "manifestSha256": "eb76c95b2da99105d8a323c09ed4ec38b6477a4bf536de9fe4161fb1ca1e1315",
+    "snapshotAggregateContentHash": "4517b15eeda9997132bedbdceeecfdf7300812e7ecabf9192f3ee999ac4bd526",
+    "sourceHashes": {
+      "command-question.mjs": "bebe21ba21abbf11ed0f6b3a80b413c4afa01f1e631b511569ae434ec52f4033",
+      "command-question.test.mjs": "5aa22ea762952698c853b1bb28b2aa304300a9d786cdd86c2b5ed75ea27a1d20"
+    },
+    "liveTestsOutputSha256": "7fc473228dc9e49a89b69e31f0d6bdff3d3263dc2e5e51dd67226ecec060da06",
+    "snapshotTestsOutputSha256": "f0e0a56c4eed074503ee5d4b5cdd1613ae2188b0c6d0fbde47c06135e2af3e9c",
+    "negativeVerifierTestsOutputSha256": "6dd594b9589794bfe8ec61c1a54a5c3c86eaa0a40031043f8cc3d740733d448b",
+    "verifierScriptSha256": "54745314f307e2117bfadcb367402d76c7f007d5466761bb76928cf65a1f1efd",
+    "northStarLive": {
+      "policy.mjs": "322cb0968193a451b4a21320ebbd3b4b253658213f8c670ac18a2e5a13c7b330",
+      "policy-params.json": "325fd7cafa44dda0488363ce0042d8188d73d9917cbfd0de39fc11029710715e",
+      "lanes.json": "a292a5fc7cb6a399d25e132e227ba02e075208d4f47799626a7da1e0d9841cc5"
+    },
+    "gateStatus": "in_review",
+    "unresolvedOwnerAction": "Owner resolution is recorded; native Astra independent review must assess the refreshed target. No acceptance or live activation is implied."
+  },
+  "resultingVersion": {
+    "type": "content-hash (no commits; non-git workspace)",
+    "contentHash": "e5865df74b98cb1b93d61c323c809344025c60b3f4d2f508ae626cf1658a5d22",
+    "contentHashScope": "sha256 over sorted path + sha256 pairs for all operations/audit/IMP-26/ST-26.4 files except IMP-26-ST-4.json and verification.txt, including the frozen snapshot closure"
+  }
+}

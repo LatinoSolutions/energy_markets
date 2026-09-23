@@ -1,0 +1,569 @@
+{
+  "schema": "ST_RECEIPT v1 (SPEC §20.2.8)",
+  "identity": {
+    "packetId": "WP-IMP-25-ST-1-v1.1",
+    "subtaskId": "ST-25.1",
+    "parentImp": "IMP-25",
+    "parentImpIssue": {
+      "identifier": "LAT-93",
+      "id": "8e97305f-cb5e-4d3c-9dbc-09adb3792610"
+    },
+    "workIssue": {
+      "identifier": "LAT-95",
+      "id": "ca7c3c88-807e-4616-ac00-4249f6870307"
+    },
+    "programRoot": {
+      "identifier": "LAT-91",
+      "id": "9a134853-ded2-4aa9-8b48-fa19cd2eafd3"
+    },
+    "specId": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md",
+    "specVersion": "1.1",
+    "specSha256": "86c4bd4eeb5f9d0ebad94763128b221eb64525a2b7fff1007dab0af88b39cb6c",
+    "specHashVerifiedLive": true,
+    "sourceSections": [
+      "20.2",
+      "24 DEP-27",
+      "25.1 IMP-25",
+      "25.2 IMP-25"
+    ],
+    "projectId": "96bbd5b1-94da-4781-8c2b-455fdfb28d1a",
+    "projectName": "Energy Markets",
+    "projectStateVerifiedViaApi": "on",
+    "workspace": "/srv/hot-data/energy-markets/app",
+    "host": "brunode",
+    "executionInstance": "SPEC 86c4bd4e… + IMP-25 + scope[office capability audit, inspected surface per evidence.json.depResolution.claimedScope] + protocol v1"
+  },
+  "workerRoute": {
+    "agentId": "0af74a08-cb39-4cf5-a94f-117b242ea08c",
+    "agentName": "Independent Reviewer (Command Failover)",
+    "roleInThisSubtask": "Opus hard-reasoning AUTHOR/auditor — explicitly NOT the independent reviewer of this same ST (packet scope line; §20.2.9)",
+    "lane": "review_ant",
+    "resource": "ant",
+    "adapter": "claude_local",
+    "model": "claude-opus-5[1m]",
+    "effort": "high",
+    "runId": "e25b1fbf-bfaf-4626-9f76-9327183435cd",
+    "priorRunOnThisIssue": "220c07ff-bca7-40fb-a15a-c7fab4849e8b (workspace recovery only, no audit deliverable)",
+    "dispatchMode": "native Paperclip assignment under Director coordination; automated controller timer held"
+  },
+  "startingBaseline": {
+    "declaredBaseline": "operations/bootstrap/baseline-manifest.json (observedAt 2026-09-19T08:59:58.093194+00:00, host brunode)",
+    "versionIdentity": "content hashes (non-git workspace; branch main unborn, 0 commits, per AGENTS.md lines 13 and 17)",
+    "liveHashCheckPerformedBeforeWriting": true,
+    "canonicalDocsMatchBaseline": true,
+    "baselineDrift": [
+      {
+        "file": "AGENTS.md",
+        "baseline": "098043d5ae10ccaf766f34f8c3d0484517d0116d5f2a75817bb6c12ef5e55e38",
+        "live": "f3c40b2ba61a98cc32c6d3dc88c2b7fc7616e1a45fe203933f009ec55a3319ae",
+        "cause": "Director added the bootstrap .git technical finding (now line 17) at 09:03, after the 08:59:58Z manifest snapshot. Not modified by this subtask.",
+        "action": "recorded, not reconciled — AGENTS.md is outside this packet's allowed_paths"
+      }
+    ],
+    "officeSourceHashesRecorded": 20,
+    "note": "Full input/source hash inventory in operations/audit/IMP-25/evidence.json#inputHashes."
+  },
+  "resultingVersion": {
+    "type": "content-hash (no commits created; commits are packet-prohibited and the branch remains unborn)",
+    "artifacts": {
+      "operations/audit/IMP-25/capability-mapping.md": "37c5dfc444e8459ce48ac1fbb50022725c3c53556d126265264e3d75f9c91068",
+      "operations/audit/IMP-25/evidence.json": "1294e71387d5bb6b5fb79629fd0e8738343f6ef4dbc2f8f71ae14e5b8c8970c8",
+      "operations/audit/IMP-25/tests-tap.txt": "7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a"
+    },
+    "artifactHashesComputedAtUtc": "2026-09-19T11:28:42Z",
+    "supersededHashes": {
+      "note": "Recorded for traceability ONLY. These are superseded and MUST NOT be accepted as current (Director instruction 842408ac: unchanged stale hashes must not be accepted).",
+      "preCorrection_0919T0916": {
+        "operations/audit/IMP-25/capability-mapping.md": "af145e9dbad20a1bb4058071f9699c8775a16e7a090985b5a6808d86fdb903c4",
+        "operations/audit/IMP-25/evidence.json": "b21b1eef6db40fb3decea3f2a006bf8d0a81a9bc0fdbdbde6396721f9f62d5f2",
+        "operations/audit/IMP-25/tests-tap.txt": "unchanged — tests were not rerun and the TAP file was not edited"
+      },
+      "postCorrectionPreSupplement_0919T0920": {
+        "operations/audit/IMP-25/capability-mapping.md": "7dd76e2cf5189d5f34bc2e3d73301c237d5351459dda66c80f35cacd2452537e",
+        "operations/audit/IMP-25/evidence.json": "7f824a815b5697a03fb5bbb3ebbddecd2f8bcff89bdbe2d81953658ff885d5ee",
+        "operations/receipts/IMP-25-ST-1.json": "9ecb4811fff07fca2e03d777c9e647d7964d2165237b7c7c65c95fa1c54984af",
+        "note": "These are the hashes the reviewer verified in run 2d0fee68. They are superseded by the post-review supplement §10/§11."
+      },
+      "postSupplementPreRound2_0919T0936": {
+        "operations/audit/IMP-25/capability-mapping.md": "2527c5afb5241bf5cf002302c0882ee4ad12bb812ebb715c92ea02e36fa550cd",
+        "operations/audit/IMP-25/evidence.json": "06602870d852addd9577ad4ec865d0a321a604f591c1e65686af520364fd0cbc",
+        "operations/receipts/IMP-25-ST-1.json": "78a9f35996ed5efa9b9f45f3979b60f77fe9a1daf91d90f61f982d10c2e34982",
+        "note": "Round-1-supplement set, verified by the reviewer in round 2. Superseded by the round-2 corrections below; MUST NOT be accepted as current."
+      },
+      "postRound2PreRound3_0919T0950": {
+        "operations/audit/IMP-25/capability-mapping.md": "7f9d15da01cf98d7a8a08b0c5161d14a9d5b7997ee601a39b2019715efb6f0d1",
+        "operations/audit/IMP-25/evidence.json": "e8fb067658462992cd2aa449894cb75ce853d611ea4bd03f614f2307f990621d",
+        "operations/audit/IMP-25/tests-tap.txt": "7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a",
+        "operations/receipts/IMP-25-ST-1.json": "3b78b816592454c98bf5e55e27bb3cdd45518a4ad0dfd6c3a13fcb18c0f8c21c",
+        "note": "The exact hashes the reviewer verified in round 3 (run f58bee06). Superseded by the round-3 G9 entry-condition correction; must not be accepted as current."
+      }
+    },
+    "receiptSelfHashOmitted": "this file's own hash is not embedded in itself; compute externally if needed",
+    "receiptSelfHashNote": "This receipt's own sha256 is reported in the resubmission comment and the continuity-checkpoint; it cannot be embedded in itself."
+  },
+  "inputsActuallyUsed": [
+    "docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md §§20.2 (full), 24 DEP-27 row, 25.1 IMP-25 row, 25.2.1, 25.2.2 IMP-25/IMP-26 rows, 25.2.3",
+    "AGENTS.md (Energy Markets project instructions, live)",
+    "operations/packets/IMP-25-ST-1.md (the packet)",
+    "operations/bootstrap/baseline-manifest.json",
+    "/home/op/.paperclip/integrations/office-continuity: controller.mjs, replenisher.mjs, project-gate.mjs, packet.mjs, final-acceptance.mjs, notify.mjs, pcapi.mjs, review-recovery.mjs, queue-snapshot.mjs, handoff.mjs, command-question.mjs, lanes.json, controller-state.json, queue-snapshot.json, CONTINUITY_STATUS.md",
+    "/home/op/office-continuity/project-switch (directory listing; vendored patch surface)",
+    "Agent instruction files for all 12 agents under /home/op/.paperclip/instances/default/companies/0cd3e396-…/agents/*/instructions/AGENTS.md",
+    "Live read-only API: GET /companies/{c}/projects/execution, /companies/{c}/projects, /companies/{c}/issues, /companies/{c}/agents, /agents/{id}, /issues/{taskId}",
+    "systemd --user unit/timer state, loginctl user linger, run environment PAPERCLIP_WORKSPACE_*"
+  ],
+  "artifactsChanged": {
+    "created": [
+      "operations/audit/IMP-25/capability-mapping.md",
+      "operations/audit/IMP-25/evidence.json",
+      "operations/audit/IMP-25/tests-tap.txt",
+      "operations/receipts/IMP-25-ST-1.json"
+    ],
+    "modified": [],
+    "deleted": [],
+    "outsideAllowedPaths": [],
+    "officeFilesWritten": [],
+    "apiMutationsIssued": 0,
+    "allowedPathsFromPacket": [
+      "operations/audit/IMP-25/**",
+      "operations/receipts/IMP-25-ST-1.json"
+    ],
+    "dirtyFilesPreserved": true,
+    "unownedFileObservedAndLeftUntouched": {
+      "path": "operations/bootstrap/canonical-imp-rows.json",
+      "sha256": "38572df5dd736c0f9d49c8a2ccaf2d6c53330d13732212461b48cda21d674d9d",
+      "mtimeUtc": "2026-09-19T09:06:10Z",
+      "rehashedAt": "2026-09-19T09:17Z",
+      "rehashUnchanged": true,
+      "author": "Director, in the user task, via literal extraction of 29 paired SPEC rows — per Director comment 842408ac on LAT-95. NOT observable by this audit directly.",
+      "correctedFrom": "Earlier receipt field concurrentRunArtifactLeftUntouched attributed this file to LAT-96 / run c85ee7fc. That was an inference from the shared-workspace notice, not an observation, and is withdrawn.",
+      "touchedByThisSubtask": false
+    }
+  },
+  "result": "Factual read-only audit of the existing Paperclip office completed and reconciled against §20.2. Produced a per-requirement capability mapping (PRESENT / PARTIAL / ABSENT with file:line evidence), the requested ON/OFF · routing · READY · dispatch/recovery · reviews · ST/IMP receipts · continuation contrasts, an explicit unknowns and audit-scope section, and a 10-item gap register (G1-G10) naming the smallest sufficient extension surface for IMP-26 without implementing any of it. Central finding: controller.mjs:291 filters the backlog to children of a module-constant ROOT (pcapi.mjs:5) that is the Alexandria program root, so all 6 Energy issues (0 of which are ROOT children, against 64 Alexandria children) are structurally invisible to the controller; combined with the hardcoded Alexandria refill prompt (replenisher.mjs:317-323, whose line 323 still asserts 'Energy Markets (OFF)') and the Alexandria-inherited parentId/goalId (controller.mjs:827-828), restarting the held continuity timer would, by code-and-state derivation, emit a refill ticket filed under the wrong parent and goal that instructs Command to work the Alexandria backlog while forbidding it to touch the only ON project. Counterweight finding: project ON/OFF gating, per-project workspaces, native review stages, quota review recovery, the Hermes path and Energy-aware worker instructions for all six canonical lane agents already exist and were verified live — IMP-26 must extend, not rebuild.",
+  "testsRun": [
+    {
+      "command": "/opt/node/bin/node --test project-gate.test.mjs packet.test.mjs",
+      "cwd": "/home/op/.paperclip/integrations/office-continuity",
+      "mutating": false,
+      "requiredByPacket": true
+    },
+    {
+      "command": "/opt/node/bin/node --test --test-reporter=tap project-gate.test.mjs packet.test.mjs",
+      "cwd": "/home/op/.paperclip/integrations/office-continuity",
+      "purpose": "capture the observed TAP required by the packet evidence field"
+    },
+    {
+      "command": "GET /api/companies/{c}/projects/execution",
+      "purpose": "verify Project ON through the API as the packet dependencies field requires"
+    },
+    {
+      "command": "systemctl --user show latinosolutions-continuity.timer/.service; loginctl show-user op -p Linger",
+      "purpose": "verify timer and user linger dependencies"
+    },
+    {
+      "command": "sha256sum over workspace files, 20 office sources and 12 agent instruction files",
+      "purpose": "source hashes and baseline comparison"
+    }
+  ],
+  "testResults": {
+    "nodeTest": {
+      "tests": 31,
+      "pass": 31,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 68.97,
+      "exitCode": 0
+    },
+    "breakdown": {
+      "packet.test.mjs": "12/12 pass",
+      "project-gate.test.mjs": "19/19 pass"
+    },
+    "observedTapSaved": "operations/audit/IMP-25/tests-tap.txt",
+    "apiProjectState": "Energy Markets on (pausedAt null); Alexandria off (pausedAt 2026-09-19T08:58:23.200Z, manual) — Project ON verified",
+    "projectWorkspace": "resolved natively via executionWorkspacePolicy workspaceStrategy project_primary to /srv/hot-data/energy-markets/app (PAPERCLIP_WORKSPACE_SOURCE=project_primary)",
+    "systemd": "latinosolutions-continuity.timer inactive/dead but UnitFileState=enabled, last trigger 2026-09-19 08:59:02 UTC; service WorkingDirectory=/home/op/.paperclip/integrations/office-continuity; awareness timer active; hermes-director and hermes-gateway active running",
+    "userLinger": "Linger=yes (/var/lib/systemd/linger/op present)",
+    "sourceHashes": "20 office sources + 12 agent instruction files + 17 workspace files recorded in evidence.json",
+    "notRun": [
+      "switch-test.mjs live integration (packet prohibition: no test that toggles Alexandria)",
+      "any mutating controller tick"
+    ],
+    "fixtureCaveat": "project-gate.test.mjs asserts the fixture string 'projects: Alexandria ON, Energy Markets OFF'; that is a pure-function fixture, not a live claim. Live state is the inverse. The test is correct as written."
+  },
+  "evidenceProduced": {
+    "capabilityMapping": "operations/audit/IMP-25/capability-mapping.md — §20.2 requirement-by-requirement table with file:line evidence, the §20.2.7 20-field reconciliation (semantic completeness vs automated enforcement, kept separate), the G1-G10 gap register, the do-not-rebuild list, the requested contrasts, explicit unknowns, the concurrent-work preservation record, and the section 9 log of Director pre-review corrections C1-C4",
+    "machineReadable": "operations/audit/IMP-25/evidence.json — input/source/artifact hashes, live API and systemd observations with timestamps, test results, gaps with file:line, boundary cases, workspace integrity, DEP-27 scope claim and non-claims",
+    "observedTap": "operations/audit/IMP-25/tests-tap.txt — full TAP with node version, cwd, timestamp and the two tested modules' hashes",
+    "placeholdersUsed": false,
+    "secretsRecorded": false
+  },
+  "assumptions": [
+    "The packet's 'Native parent is program root for existing controller convention' is read as: LAT-95's native parentId is LAT-91 (the Energy program root), while the semantic parent IMP is IMP-25/LAT-93. Both are recorded in identity. No issue re-parenting was attempted.",
+    "'Read only actual office controller, project switch, queue, instructions, routes, native review, receipt/recovery and systemd' is read as an exhaustive scope boundary; surfaces outside it (e.g. the lat40-deferred and go-usage timers, Paperclip server internals) were deliberately left uninspected and are listed as unknowns rather than silently omitted.",
+    "Content hashes are the version identity for this non-git workspace (AGENTS.md lines 13 and 17). No commit was created and the unborn main branch was left unborn.",
+    "The derived refill failure scenario is presented as a code-and-state derivation, not an observed execution, because executing it would require a mutating controller tick that the packet prohibits.",
+    "'Project ON must be verified through API' was satisfied by GET /companies/{c}/projects/execution, the same route the office's own gate uses (project-gate.mjs:43)."
+  ],
+  "deviations": [
+    {
+      "item": "Extra artifact operations/audit/IMP-25/tests-tap.txt",
+      "rationale": "The packet's tests field requires 'save observed TAP' but names only capability-mapping.md and evidence.json in acceptance. The TAP file is inside allowed_paths (operations/audit/IMP-25/**) and is the literal observed output.",
+      "impact": "none; additive within the declared write set"
+    },
+    {
+      "item": "AGENTS.md baseline hash mismatch not reconciled",
+      "rationale": "AGENTS.md is outside allowed_paths and the change predates this run. Recorded as baselineDrift instead of corrected.",
+      "impact": "none on the audit; the three canonical documents including the declared SPEC hash match the baseline exactly"
+    }
+  ],
+  "dependencyFindings": {
+    "REQUIRES": "Current verified SPEC and its sections — SATISFIED. Live SHA256 of the SPEC equals the packet-declared 86c4bd4e…; §§20.2, 24 DEP-27, 25.1 and 25.2 were read in full from that verified file.",
+    "REQUIRES_AUDIT": "none per packet — consistent with §25.2.2 IMP-25 ('DEP-27 es lo que audita'). Access was available throughout; no access blocker arose.",
+    "REQUIRES_EVIDENCE": "none per packet — consistent with the IMP-25 row.",
+    "projectOn": "VERIFIED through the API (Energy Markets state on).",
+    "RESOLVES_AUDIT": {
+      "dep": "DEP-27",
+      "claim": "PARTIAL — resolved only for the interfaces, workflow, configuration and state actually inspected and enumerated in evidence.json#depResolution.claimedScope.",
+      "explicitNonClaims": [
+        "DEP-27 is NOT closed as a whole ID (§25.2.1: a lesser-scope DEP claim does not close the global ID).",
+        "Identifying G1-G10 does NOT resolve them (§25.2.2 IMP-25: 'una brecha no se declara resuelta por identificarla').",
+        "No capability is asserted to work that was not inspected (§25.1 IMP-25: 'Audit aceptado no afirma capacidad inexistente')."
+      ]
+    },
+    "PRODUCES_EVIDENCE": "Factual reconciliation of the mapping and the limits of the audit — delivered. Engineering evidence only; explicitly not procurement evidence and not edge (§25.2.2 IMP-25).",
+    "downstreamNote": "IMP-26 is UNLOCKED by IMP-25 only 'sujeto a scope auditado suficiente'. This ST contributes the audited scope but does not make IMP-26 eligible: IMP-26 additionally REQUIRES IMP-01 and IMP-25 both accepted (§25.2.2 IMP-26), and neither parent is accepted. IMP-01 is in flight as LAT-96."
+  },
+  "failuresRetries": [
+    {
+      "event": "Prior run 155523de failed workspace_validation_failed",
+      "cause": "/srv/hot-data/energy-markets/app had no .git at 09:02:28Z; claude_local requires git metadata even for a non_git_path workspace",
+      "resolution": "Director initialized an empty repository (unborn main, no commits/remotes/worktrees) before this run; recorded in AGENTS.md line 17",
+      "byThisSubtask": false
+    },
+    {
+      "event": "Recovery run 220c07ff",
+      "cause": "handed LAT-95 back after repairing the workspace; POST /recovery-actions/resolve returned 404 (action already restored)",
+      "resolution": "outcome recorded as an issue comment; no audit deliverable produced in that run",
+      "byThisSubtask": false
+    },
+    {
+      "event": "GET /api/companies/{c}/workspaces and /api/workspaces/{id} returned [] and HTTP 404",
+      "cause": "those routes are not part of this server's API surface",
+      "resolution": "workspace facts obtained from GET /companies/{c}/projects (executionWorkspacePolicy) and the run environment instead; no guess recorded",
+      "byThisSubtask": true
+    }
+  ],
+  "postDraftCorrections": {
+    "requestedBy": "Director",
+    "viaComments": [
+      {
+        "id": "fb3550bd-5da5-430d-b33e-7629c6afc64b",
+        "atUtc": "2026-09-19T09:12:29.594Z",
+        "items": [
+          "C1",
+          "C2",
+          "C3"
+        ]
+      },
+      {
+        "id": "842408ac-a426-49b9-a71f-57ad58671078",
+        "atUtc": "2026-09-19T09:16:35.283Z",
+        "items": [
+          "C4",
+          "recompute output hashes",
+          "no need to rerun unchanged deterministic tests"
+        ]
+      }
+    ],
+    "appliedWindowUtc": {
+      "from": "2026-09-19T09:17:00Z",
+      "to": "2026-09-19T09:21:00Z"
+    },
+    "appliedByRun": "5300481b-82af-44d4-bbe7-188ceda364ae (correction heartbeat; same agent 0af74a08, same adapter/model/effort route as the authoring run e25b1fbf-bfaf-4626-9f76-9327183435cd)",
+    "corrections": [
+      {
+        "id": "C1",
+        "kind": "audit accuracy",
+        "before": "Evidence window stated as 09:06Z-09:18Z; 09:18Z was a prestated future end (server time at draft inspection was 09:11:58Z).",
+        "after": "Observed window 09:06Z-09:12Z only, matching evidence.json#audit.evidenceWindowUtc which was already correct; the correction run is recorded separately as correctionWindowUtc."
+      },
+      {
+        "id": "C2",
+        "kind": "audit accuracy",
+        "before": "§20.2.7 described as 19 fields; totals typed 8/19, untyped 9.",
+        "after": "20 fields, counted live from the verified SPEC table (Packet ID through Expected handoff format); totals typed 8/20, partial 2/20, untyped prose 10/20. The §4 table already listed all 20 rows; only the totals and surrounding prose were wrong. No semantic requirement changed."
+      },
+      {
+        "id": "C3",
+        "kind": "finding precision",
+        "before": "Missing typed fields presented in a way that reads as a §20.2.7 compliance failure.",
+        "after": "Split explicitly: semantic completeness (SPEC requirement; §20.2.7 is a 'contrato semántico' that does not select a storage format, so packet prose satisfies it — this packet is 20/20) vs automated enforcement absence (what packet.mjs cannot detect — the only thing G7 now claims)."
+      },
+      {
+        "id": "C4",
+        "kind": "provenance",
+        "before": "artifactsChanged.concurrentRunArtifactLeftUntouched attributed operations/bootstrap/canonical-imp-rows.json to LAT-96 / run c85ee7fc.",
+        "after": "Replaced by unownedFileObservedAndLeftUntouched: authorship recorded as not observable by this audit; per Director comment 842408ac the file was produced by the Director in the user task via literal extraction of 29 paired SPEC rows. Observed facts (path, hash, mtime, untouched) unchanged and re-verified."
+      }
+    ],
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "evidenceDiscarded": "none — all original observations preserved; only overstated or misattributed claims were rewritten",
+    "gapsSeveritiesOrStatusChanged": false,
+    "centralFindingChanged": false,
+    "liveReverification": {
+      "atUtc": "2026-09-19T09:17:48Z",
+      "route": "GET /companies/{c}/projects/execution",
+      "energyMarkets": {
+        "state": "on",
+        "pausedAt": null
+      },
+      "alexandria": {
+        "state": "off",
+        "pausedAt": "2026-09-19T08:58:23.200Z"
+      }
+    },
+    "testsRerun": false,
+    "testsRerunRationale": "Director instruction in 842408ac: no need to rerun otherwise unchanged deterministic tests. Nothing they cover changed; the saved TAP in tests-tap.txt and its module hashes stand as the observed result.",
+    "outputHashesRecomputed": true
+  },
+  "postReviewSupplement": {
+    "requestedBy": "Native independent review, Tech Lead Astra (2b6bf987-6800-4d4c-a23a-d470a4bb0ea6), run 2d0fee68-5c00-406d-bc39-2f0ee3fbb5b7, decision changes_requested at 2026-09-19T09:27:18Z; document independent-review revision 56ae1f62-de70-4600-98c6-9b73021c04b7",
+    "appliedByRun": "5228c431-454e-4b6a-b5c7-9e0365d6ba84",
+    "appliedByAgent": "0af74a08-cb39-4cf5-a94f-117b242ea08c (same author, same claude_local / claude-opus-5[1m] route)",
+    "appliedWindowUtc": {
+      "from": "2026-09-19T09:28:14Z",
+      "to": "2026-09-19T09:35:14Z"
+    },
+    "changesRequested": [
+      {
+        "id": "R1",
+        "ask": "Preserve original evidence; add a separately timestamped read-only delta for the five changed code sources (controller.mjs, replenisher.mjs, queue-snapshot.mjs, review-recovery.mjs, command-question.mjs); refresh hashes/line references; record which of G1-G10 remain, change or become unknown. resources.json drift is advisory only.",
+        "doneIn": [
+          "capability-mapping.md §10",
+          "evidence.json#postAuditSourceDelta"
+        ],
+        "outcome": "All 20 inspected sources re-hashed at 09:28:14.312Z: 6 changed, 14 byte-identical. All ten gaps reproduce; none changed severity, none became unknown, none is resolved. Three locators corrected (G2 317-323→338-344, G3 827/828→872/873, G10 105→101) and G4 re-pinned. Original §1-§9 evidence left intact.",
+        "extra": "queue-snapshot.mjs changed TWICE inside the review window (reviewer saw 2290a88e… at 09:26:34.118Z; 40c35bf8… at 09:26:49.802Z). Drift is live and ongoing, so IMP-26 must bind against stated hashes, not bare line numbers.",
+        "resourcesJson": "Advisory only. Cited by no gap, content not read into the audit, no budget/quota/routing/reserve policy inspected, reinterpreted, altered or claimed."
+      },
+      {
+        "id": "R2",
+        "ask": "Record explicitly that an already-running Alexandria review may finish while OFF blocks new work; distinguish owner authorization from inspected native/controller enforcement and from remaining unknowns; do not toggle Alexandria or run a mutating tick.",
+        "doneIn": [
+          "capability-mapping.md §11",
+          "evidence.json#offBoundary"
+        ],
+        "outcome": "Three layers separated. (A) Owner authorization = a rule addressed to agents, not an enforcement mechanism. (B) Native: budgets.js:736-738 blocks NEW invocations only and cancels nothing in flight; blocked paths are wake enqueue (heartbeat.js:14261), queued-run claim (:9529, run cancelled), scheduled retry (:8139), liveness continuation (run-liveness-continuations.js:59-61), handoff wake (:7016) and checkout (routes/issues.js:9016). Not blocked: the live process and its writes — pausedAt gates exist in exactly two places in routes/issues.js (3871, 9016); comments/documents/decisions are ungated. (C) Controller: project-gate.mjs (unchanged) gates dispatch, reopen, nudges, recovery GET, wake follow-ups, dead-execution and handoff, so a quota-stranded Alexandria review is NOT restored while OFF.",
+        "accurateStatement": "What may finish is the SINGLE RUN already executing, including its writes — not the review STAGE across runs.",
+        "liveInstance": "At 09:31:26.995Z, 2 live runs, both Energy Markets; ZERO Alexandria runs in flight, so the allowance is currently vacuous.",
+        "newUnknown": "routes/issues.js:1521-1556 wakes the return assignee on changes_requested; that enqueue throws conflict while OFF (heartbeat.js:14261). Whether the throw is caught (decision persists) or propagates (decision write fails) was NOT determined and is not claimed. IMP-26 should settle it by test.",
+        "gapAccounting": "The run/stage distinction is folded into G5 (no eligibility model beyond the project dimension). No new gap, no count or severity change."
+      }
+    ],
+    "boundariesRespected": {
+      "alexandriaToggled": false,
+      "alexandriaWorkExecuted": false,
+      "mutatingTickRun": false,
+      "officeFilesModified": 0,
+      "officeCodeRoutingQuotaBudgetFilesModified": 0,
+      "apiMutationsDuringSupplement": 0,
+      "writeSet": [
+        "operations/audit/IMP-25/capability-mapping.md",
+        "operations/audit/IMP-25/evidence.json",
+        "operations/receipts/IMP-25-ST-1.json"
+      ],
+      "secretsPrinted": false
+    },
+    "liveReverification": {
+      "projectsExecutionAt": "2026-09-19T09:31:09.197Z",
+      "energyMarkets": {
+        "state": "on",
+        "pausedAt": null
+      },
+      "alexandria": {
+        "state": "off",
+        "pausedAt": "2026-09-19T08:58:23.200Z",
+        "pauseReason": "manual"
+      },
+      "timerAt": "2026-09-19T09:31:17Z",
+      "timer": {
+        "ActiveState": "inactive",
+        "UnitFileState": "enabled",
+        "LastTriggerUSec": "2026-09-19 08:59:02 UTC",
+        "Linger": "yes"
+      },
+      "note": "An initial GET at 09:30:39Z returned 500 because the URL omitted the company scope; the correctly scoped GET /api/companies/{companyId}/projects/execution returned 200. No server fault is claimed and none was observed."
+    },
+    "testsRerun": false,
+    "testsRerunRationale": "Reviewer's explicit instruction, and project-gate.mjs and packet.mjs — the only modules the 31 tests exercise — are byte-identical to the audit. The saved TAP (7b60a1df…) stands as the observed result; tests-tap.txt was not edited.",
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "evidenceDiscarded": "none",
+    "gapsSeveritiesOrStatusChanged": false,
+    "centralFindingChanged": false,
+    "recommendedStatusUnchanged": "in_review — worker completion remains a recommendation only (§20.2.8)"
+  },
+  "noGuessQuestionsRaised": [],
+  "specChangeRequest": {
+    "raised": false,
+    "rationale": "No genuine canonical contradiction found. Every finding is a materialization gap between §20.2 and the existing office — precisely what IMP-25 is chartered to map and IMP-26 to close (§20.2.15; §24 DEP-27). §20.2.12 not activated."
+  },
+  "recommendedStatus": {
+    "value": "in_review",
+    "meaning": "Worker completion is a RECOMMENDATION only (§20.2.8: 'Un PASS del worker es una recomendación'). This is not ST acceptance, not IMP-25 acceptance, and not closure of DEP-27.",
+    "reviewRequested": "Native independent review by Tech Lead Astra (2b6bf987-6800-4d4c-a23a-d470a4bb0ea6), already configured as the single review stage on LAT-95 with approvalsNeeded 1, maxReviewRounds 3.",
+    "reviewerInstruction": "Review the existing output; do not regenerate an architecture (packet scope line). The author acted as auditor, not as independent reviewer of this ST.",
+    "afterApproval": "Tech Lead evaluates the IMP-25 parent gate SEPARATELY per §20.2.10 and writes a full scoped IMP_RECEIPT linked to tests and reviews, or records the unmet criteria. The audit legitimately identifies gaps; DEP-27 can close only for the factual inspected scope. Do not close the program root LAT-91.",
+    "round": "Review round 3 of max 3 (second resubmission after changes_requested).",
+    "note": "Worker completion is a recommendation only (§20.2.8). Parent IMP-25 (LAT-93) remains unaccepted and must be evaluated separately per §20.2.10; no IMP_RECEIPT is claimed. LAT-97 stays gated; LAT-91 stays open."
+  },
+  "receiptMeta": {
+    "writtenAt": "2026-09-19T09:13Z",
+    "revisedAt": "2026-09-19T09:20Z",
+    "revision": "post-Director-pre-review corrections C1-C4; see postDraftCorrections. Recommended status unchanged (in_review).",
+    "writtenByRun": "e25b1fbf-bfaf-4626-9f76-9327183435cd",
+    "specSection": "20.2.8",
+    "fieldsCovered": [
+      "packet/subtask/parent identity",
+      "worker/model route",
+      "starting baseline",
+      "resulting version",
+      "inputs actually used",
+      "artifacts changed",
+      "result",
+      "tests run",
+      "test results",
+      "evidence produced",
+      "assumptions",
+      "deviations",
+      "dependency findings",
+      "failures/retries",
+      "recommended status"
+    ]
+  },
+  "postReviewRound2Corrections": {
+    "requestedBy": "Independent review round 2 - Tech Lead Astra (agent 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6), run 014f43d9, issue document independent-review-round-2; native decision changes_requested 2026-09-19T09:43:07.959Z (second requested-change decision, next round is 3 of max 3).",
+    "appliedByRun": "4b09c083-0d24-4415-b568-32f6e55ae19d",
+    "appliedByAgent": "0af74a08-cb39-4cf5-a94f-117b242ea08c (author; same adapter/model/effort route as the audit and the supplement)",
+    "appliedWindowUtc": "2026-09-19T09:43:54Z - 2026-09-19T09:50:31Z",
+    "nature": "Withdrawal of two FALSE ABSENCE claims. Unlike the round-1 items, these were not drift or wording problems: G9 and G10 asserted that capabilities are absent which are present at the audits own original hashes. The reviewer is correct on both counts and was independently re-verified here.",
+    "corrections": [
+      {
+        "id": "R3",
+        "gap": "G10",
+        "falseClaim": "§20.2.11 blocker types (Audit-dependent, Evidence-dependent, Normal dependency, SPEC contradiction) unrepresented / have no representation; and (in §10.2) G10 reproduces after the drift.",
+        "verified": "All six §20.2.11 meanings are represented: guards.mjs:119-128 dependencyKind (SPEC_CHANGE_REQUEST 121, AUDIT_DEPENDENT 122, EVIDENCE_DEPENDENT 123, HUMAN_DECISION 124, COMMAND_QUESTION 125, NORMAL_DEPENDENCY 126) over the markers at guards.mjs:77-83; queue-snapshot.mjs:107-110 and :120; tool/provider/worker failure via the evaluation.diagnostic branch at :112-116; consumed by controller.mjs:933 and board-sim.mjs:444 into autonomy.mjs:165-168.",
+        "narrowedTo": "Binding, not vocabulary: (1) kinds are recognised from free-text descriptor prose and are not derived from the packets REQUIRES_AUDIT/REQUIRES_EVIDENCE (packet.mjs parses neither); (2) no eligibility or dispatch path consults dependencyKind - only Queue rendering and autonomy diagnosis do; (3) §20.2.11 branch scope is unmodelled (narrow instance of G5); (4) precedence defect at guards.mjs:109 before :126, so an ordinary dependency with unrecognised descriptor prose is classified HUMAN_DECISION.",
+        "severityChange": "none (low)"
+      },
+      {
+        "id": "R4",
+        "gap": "G9",
+        "falseClaim": "ABSENT / no symbol found; a branch-stopping SPEC contradiction has no path; command-question.mjs:104 shows the nearest primitive excludes architectural change; must not reuse [COMMAND-QUESTION]; and (in §10.2) G9 reproduces unchanged.",
+        "verified": "command-question.mjs:106 directs a SPEC_CHANGE_REQUEST: comment when the answer would change frozen architecture; :161-165 findCommandAnswer flags specChange; :242-266 converts the source descriptor to SPEC_CHANGE_REQUEST, leaves the issue blocked and cancels the leftover ticket; guards.mjs:78,103 then hold every controller path off it and command-question.mjs:133-138 stops further tickets; queue-snapshot.mjs:108 and autonomy.mjs:166 surface it. The line-104 wording scopes the ordinary question and does not negate the exception two lines below.",
+        "narrowedTo": "The primitive carries a reason, not the §20.2.12 contract: none of the 11 required fields is captured, the payload is a 400-character whitespace-collapsed excerpt (command-question.mjs:251), there is no SPEC/IMP identity or project binding, and there is no routing to an architecture/research authority distinct from the human gate. Explicitly NOT claimed to satisfy §20.2.12. ROUND-3 CORRECTION: the clause formerly appended here - 'and entry is single-path (requires an open [COMMAND-QUESTION] and a Command answer)' - is FALSE and WITHDRAWN; see postReviewRound3Correction. No ticket is required before conversion; entry is narrow in author and source state instead.",
+        "severityChange": "none (medium)",
+        "supersededAdvice": "The earlier extension instruction (must not reuse [COMMAND-QUESTION]) is withdrawn; extending that conversion path is now the recommended minimal route.",
+        "roundThreeSupersededClause": "'entry is single-path (requires an open [COMMAND-QUESTION] and a Command answer)' - retained for traceability only; must not be accepted. Disproved at command-question.mjs d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c."
+      }
+    ],
+    "method": "Read-only re-inspection plus a bounded pure-function reproduction over synthetic in-memory rows (dependencyKind, blockedKind, findCommandAnswer). No office file written, no API mutation, no controller tick, no live switch action, no issue fixture.",
+    "sourceHashesAtCorrection": {
+      "guards.mjs": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b",
+      "queue-snapshot.mjs": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f",
+      "command-question.mjs": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c",
+      "reHashedAtUtc": "2026-09-19T09:43:54Z",
+      "note": "Identical to the hashes cited in the round-2 review and to the §10.1 supplement baseline, so the correction is anchored to the same bytes the reviewer inspected."
+    },
+    "filesEdited": [
+      "operations/audit/IMP-25/capability-mapping.md (§2 rows 20.2.11/20.2.12, §5 G9/G10, §10.2 rows and net effect, new §12)",
+      "operations/audit/IMP-25/evidence.json (gaps G9/G10 with supersededClaim, postAuditSourceDelta.gapEffects/netEffect, new roundTwoCorrections)",
+      "operations/receipts/IMP-25-ST-1.json (this block and resultingVersion)"
+    ],
+    "historicalEvidencePreserved": true,
+    "falseClaimsExplicitlySuperseded": true,
+    "specChanged": false,
+    "semanticRequirementsChanged": false,
+    "gapCountChanged": false,
+    "severitiesChanged": false,
+    "centralFindingChanged": false,
+    "testsRerun": false,
+    "testsRerunRationale": "project-gate.mjs and packet.mjs - the only modules the 31 tests exercise - remain byte-identical to the audit; the reviewer instructed that unchanged tests not be rerun. tests-tap.txt was not edited (hash unchanged).",
+    "newObservationRecorded": "guards.mjs:109 precedence defect (ordinary dependency read as a human gate), found while correcting G10 and folded into it rather than raised as a new gap."
+  },
+  "postReviewRound3Correction": {
+    "requestedBy": "Independent review round 3 - Tech Lead Astra (agent 2b6bf987-6800-4d4c-a23a-d470a4bb0ea6), run f58bee06-dda4-414a-9ac0-74ba3326253e, issue document independent-review-round-3; native decision changes_requested d7570507-2b2d-41a7-a3c9-7215aa20be6f at 2026-09-19T09:59:42.803Z (third requested-change decision, maxReviewRounds=3).",
+    "continuationAuthority": "Responsible user I84aMJhYXgQM0RprhDchZAQP68Y0AgCO, comment 1d7fe4ab-35db-4727-84bf-ab5961c7b257 at 2026-09-19T11:21:44.361Z (OFFICE-DIRECTOR-ADMIN-002): an explicit HUMAN decision to continue the native circuit, expressly NOT an approval, no change to SPEC, acceptance criteria or artifacts. The packet returns to the stored returnAssignee (Opus) for correction and back to native review by Tech Lead Astra.",
+    "appliedByAgent": "0af74a08-cb39-4cf5-a94f-117b242ea08c (author; same adapter/model/effort route as the audit, the supplement and round 2)",
+    "appliedWindowUtc": "2026-09-19T11:22:11Z - 2026-09-19T11:3xZ",
+    "nature": "Withdrawal of ONE FALSE PRECONDITION introduced by the round-2 narrowing of G9: that the existing SPEC_CHANGE_REQUEST conversion requires an open [COMMAND-QUESTION] ticket. The reviewer is correct. Verified by independent re-inspection of the same bytes and by my own bounded reproduction, not accepted on trust.",
+    "corrections": [
+      {
+        "id": "R5",
+        "gap": "G9",
+        "falseClaim": "Entry is single-path: the conversion requires an open [COMMAND-QUESTION] ticket plus a Command answer; therefore IMP-26 must add a second entry point that does not require an open [COMMAND-QUESTION].",
+        "verified": "No ticket predicate exists on the conversion path. command-question.mjs:228-241 selects gate-eligible blocked rows that isCommandQuestion and reads their comments; :242-260 converts as soon as answer.specChange is true; ticketsForSource is first called at :261, AFTER applied.push({step:'spec_change'}), inside if (ok && leftover && budget) - optional cleanup. The open-ticket lookup at :325 belongs to Phase A, reached only when findCommandAnswer returned nothing.",
+        "ownReproduction": "/opt/node/bin/node, ESM import of runCommandQuestion + real buildProjectGate, injected in-memory api/mutate, synthetic objects only. Positive case with backlog.allIssues = [] (ZERO [COMMAND-QUESTION] tickets): applied=[{step:'spec_change'}], diagnostic COMMAND_SPEC_CHANGE_REQUESTED, exactly one mutation on the SOURCE issue, descriptor rewritten to 'SPEC_CHANGE_REQUEST: ...' - 8/8 assertions passed. Boundary probes P1-P9 - 12/12 assertions passed. No real API, controller tick, file edit, issue fixture or mutation.",
+        "actualEntryConditions": "(1) source in the controller's blocked list AND gate-eligible (project ON, scoped); (2) on refetch !mustNeverTouch and status==='blocked'; (3) isCommandQuestion: non-empty descriptor, not humanRequired, not starting with 'OFFICE-CONTINUITY', matching /\\b(no_guess|Command|Tech Lead)\\b/i; (4) the FIRST non-deleted post-block comment authored by an agent in commandAgentIds matches /\\bSPEC_CHANGE_REQUEST\\b/i; (5) maxPerTick and mutation budget available. Ticket existence appears in none of them.",
+        "narrowedTo": "Entry is narrow in AUTHOR and SOURCE STATE, not in ticket existence: only a recognised Command agent's post-block comment on an already-blocked Command-question source in an ON project converts (probes P3, P5, P6). A worker or Astra meeting a contradiction outside that state still has no modelled route in; a hand-written SPEC_CHANGE_REQUEST descriptor is recognised by guards.mjs:78,103 but nothing creates or validates one.",
+        "revisedMinimalExtension": "Structured payload carrying the 11 §20.2.12 fields (or an artifact id) bound to SPEC version + IMP/Subtask + project, plus widening WHO may raise a contradiction and FROM WHAT STATE, plus architecture/research authority routing distinct from the human gate. Do NOT build a 'ticket-free' entry point: it already exists. Reuse the existing conversion path unchanged.",
+        "preserved": "The valid core of G9 - the missing full 11-field canonical contract, the <=400-char excerpt payload, the absent SPEC/IMP identity and project binding, and the absent separate authority routing.",
+        "severityChange": "none (medium)"
+      }
+    ],
+    "method": "Read-only re-inspection of command-question.mjs, guards.mjs and project-gate.mjs, plus two bounded pure-function reproductions over synthetic in-memory objects with injected api/mutate closures. No office file written, no API mutation, no controller tick, no live switch action, no issue fixture.",
+    "sourceHashesAtCorrection": {
+      "command-question.mjs": "d8bb5d7d302839b449c90e66ad7638f16989e6549d269d00275768d75f0c613c",
+      "guards.mjs": "987411e0cb0b35a19709171b018a93ce283bc3a68fb83cde77b24525395d198b",
+      "queue-snapshot.mjs": "40c35bf8653cd3956bda6465b5b0a270b15daf75ebb7896f8417594d2c9baf8f",
+      "autonomy.mjs": "84df72e4f4810c022e86a201b4f414a8450b4e76bb0db55fe69529450b9572d1",
+      "hashedAt": "2026-09-19T11:22:11Z",
+      "note": "Unchanged from rounds 1-3 and from the §10.1 baseline: the correction is anchored to the same bytes the reviewer inspected."
+    },
+    "artifactsChanged": [
+      "operations/audit/IMP-25/capability-mapping.md",
+      "operations/audit/IMP-25/evidence.json",
+      "operations/receipts/IMP-25-ST-1.json",
+      "issue document continuity-checkpoint"
+    ],
+    "testsRerun": "None. The reviewer explicitly did not request a rerun and the two tested modules are byte-identical; project-gate.test.mjs and packet.test.mjs remain 31/31 pass in tests-tap.txt (sha256 7b60a1df022139859a00854313c260cc7c020baec9396a25648373a8f7f9d14a, unchanged).",
+    "scopeUnchanged": [
+      "gap count 10",
+      "all severities",
+      "G1-G8 and G10",
+      "§3 central finding",
+      "§4 field reconciliation",
+      "§6 contrasts",
+      "§7 unknowns",
+      "§8",
+      "§9",
+      "§10",
+      "§11",
+      "§12.1",
+      "the valid remainder of §12.2",
+      "depResolution",
+      "the absence of a SPEC_CHANGE_REQUEST for this ST - this was a factual accuracy error inside my own audit, not a canonical contradiction"
+    ],
+    "boundariesRespected": [
+      "Only allowed_paths written: operations/audit/IMP-25/** and operations/receipts/IMP-25-ST-1.json",
+      "No office file, controller code, policy, budget, quota, provider or routing change",
+      "No timer action; latinosolutions-continuity.timer left exactly as found (inactive/dead, disabled)",
+      "No commits, push, branches, worktrees, agents, subagents, deploy, purchases or trading",
+      "No architecture regenerated; no self-approval - returned to native independent review"
+    ],
+    "effectOnConclusion": "None. G9 stays Medium with its valid core intact; only the shape of the required IMP-26 extension changes. G1-G3 remain the critical finding. The audit still concludes the office must be extended, not rebuilt.",
+    "recommendedStatus": "in_review - author correction complete; native independent review by Tech Lead Astra required. IMP-25 parent LAT-93 remains unaccepted and no IMP_RECEIPT is written by this run.",
+    "liveVerification": {
+      "observedAtUtc": "2026-09-19T11:28:12Z",
+      "route": "GET /api/companies/{companyId}/projects/execution (the same route project-gate.mjs:43 uses); read-only",
+      "projects": "Alexandria 69d82bcd-56b4-4cb8-831e-d5a54b9859d1 = off; Energy Markets 96bbd5b1-94da-4781-8c2b-455fdfb28d1a = on",
+      "timer": "latinosolutions-continuity.timer ActiveState=inactive, SubState=dead, UnitFileState=disabled - unchanged, left exactly as found; no timer action taken (OWNER-IMP26-BLOCKER-20260919: OFF until the ten scope/isolation requirements and the observed Energy-only sequence pass)",
+      "linger": "Linger=yes for user op",
+      "note": "Confirms the round-3 reviewer's live observation is still current at correction time. GET /api/projects/execution (without the company segment) returns HTTP 500 and GET /api/projects returns 404; only the companies-scoped route is valid. Recorded as an observation, not a gap - it is outside this packet's scope."
+    }
+  }
+}

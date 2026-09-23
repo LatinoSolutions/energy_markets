@@ -1,0 +1,16 @@
+# IMP-01 / ST-01.1 — verificación del autor de los probes r3 de Command (round 4)
+# timestamp_utc: 2026-09-19T10:22:41Z
+# comando: /opt/node/bin/node --test operations/audit/IMP-01/st-01.1-command-r3-c3.mjs
+# Nota: no modifica los ficheros de Command (st-01.1-command-r3-c3.*).
+
+✔ positive control: supported synthetic bundle (2.162674ms)
+✔ C3: malformed required execution/source version references are rejected (0.480897ms)
+✔ C3: missing obligation value inside a nonempty object is not known content (0.15894ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57.795454

@@ -1,0 +1,9 @@
+verify-delivery: PASS
+semanticFiles=9
+deliverables=21
+protectedHashes=7 unchanged
+receiptValidation=true
+receiptLinkage=true
+workerRouteIdentity=true
+initialRunHistory=true
+contentHash=140c8128eec122c295ac5b19ca1636a59674b8ea9f6706a827e21ba2bb5fc6f2

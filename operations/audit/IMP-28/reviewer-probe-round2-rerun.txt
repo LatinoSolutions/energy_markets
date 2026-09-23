@@ -1,0 +1,21 @@
+[PASS] R2-A el fix A también rechaza la divergencia cuando la versión es content-hash
+        esperado: ok=false con VERSION_IDENTITY_MISMATCH
+        observado: ok=false, code=VERSION_IDENTITY_MISMATCH
+[PASS] R2-B dos HOLD de versiones content-hash distintas se conservan ambos como hallazgos previos
+        esperado: priorFindings incluye SYN-HOLD-V1 y SYN-HOLD-V2 (2 hallazgos)
+        observado: priorFindings=2, refs=["SYN-HOLD-V1","SYN-HOLD-V2"]
+[PASS] R2-B-control (delimitación) con versiones textuales el dedup conserva los dos HOLD
+        esperado: priorFindings=2
+        observado: priorFindings=2
+[PASS] R2-C1 registerComponent no congela el objeto de versión del llamante
+        esperado: Object.isFrozen(callerVersion) === false
+        observado: frozen=false
+[PASS] R2-C2 markEvaluationReady no congela el objeto de gate §8.7 del llamante
+        esperado: Object.isFrozen(callerGate) === false
+        observado: frozen=false
+[PASS] R2-D la entrada histórica de una versión resuelta conserva su propio outcome
+        esperado: history[0].outcome.value === 'REJECT' y history[1].outcome.value === 'ADMIT'
+        observado: len=2, [0]=REJECT, [1]=ADMIT
+
+reviewer-probe ronda 2: 0 comprobación(es) fallida(s).
+PROBE_R2_EXIT=0
