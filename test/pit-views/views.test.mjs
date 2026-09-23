@@ -8,18 +8,21 @@ import {
   auditedManifestRecords as publicAuditedManifestRecords,
   buildPitManifest as publicBuildPitManifest,
   buildPitManifestFromAudit as publicBuildPitManifestFromAudit,
+  buildPitRecord as publicBuildPitRecord,
   buildRevision,
   IMP03_REQUIREMENT_VIEW_SCOPES,
+  isConsumableAtBoundary as publicIsConsumableAtBoundary,
   presentInMarketZone,
   readDecisionView,
   readEvaluationView,
   toUtcTimestamp,
+  verifyAcceptedArtifact,
   viewsAt,
 } from "../../src/pit-views/index.mjs";
 // Costuras de tests con raíz de confianza sintética; no son superficie pública.
 import { auditedManifestRecordsAt, buildPitManifestAt, buildPitManifestFromAuditAt } from "../../src/pit-views/views.mjs";
 import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
-import { ATTESTATION_PATH, fixtureRepo, VALUE_ATTESTATION_PATH } from "./fixture-repo.mjs";
+import { ATTESTATION_PATH, FIXTURE_SCOPE, fixtureRepo, VALUE_ATTESTATION_PATH } from "./fixture-repo.mjs";
 
 // Con `repoRoot` (repo git sintético) los tests usan la costura `*At`; sin él,
 // la API pública con la raíz de confianza fija del repo real.
@@ -95,8 +98,8 @@ const EEX_ARTIFACT = JSON.parse(EEX_BYTES.toString("utf8"));
 // registrados en un IMP_RECEIPT sintético. Sirve para ejercitar el camino de
 // consumo demostrado y la ingesta EEX; no acredita nada del repo real.
 function syntheticRepo({ attestations = [], valueAttestations = [], extraArtifacts = [] } = {}) {
-  const content = JSON.stringify({ artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId: "AUDIT-FIXTURE", attestations });
-  const valueContent = JSON.stringify({ artifactKind: "PIT_VALUE_ATTESTATIONS", auditId: "AUDIT-FIXTURE", attestations: valueAttestations });
+  const content = JSON.stringify({ artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId: "AUDIT-FIXTURE", scope: FIXTURE_SCOPE, attestations });
+  const valueContent = JSON.stringify({ artifactKind: "PIT_VALUE_ATTESTATIONS", auditId: "AUDIT-FIXTURE", scope: FIXTURE_SCOPE, attestations: valueAttestations });
   const { repoRoot, refs } = fixtureRepo({
     artifacts: [
       { path: PRIOR_REF.path, content: PRIOR_BYTES },
@@ -1493,4 +1496,103 @@ test("P-001.1: un valor sin procedencia publicado después del asOf no se mencio
   });
   const before = readEvaluationView(outcome.manifest, "2026-06-01T00:00:00Z");
   assert.equal(before.unavailable.some((row) => row.revisionId === "b1"), false);
+});
+
+// --- Review 8 (2026-09-23): el bloque audit sólo se deriva del artifact
+// verificado en disco con receipt DEP-06/07 de IMP-03 ---
+
+test("review 8: buildPitManifest público rechaza un bloque audit en memoria; nada se presenta como AUDIT_OBSERVED", () => {
+  const outcome = publicBuildPitManifest({
+    manifestId: "M",
+    manifestVersion: "v1",
+    records: [{
+      key: "R-08",
+      viewScope: "decision",
+      audit: { requirementId: "R-08", semantics: { occurredReferenceTime: { status: "OBSERVED", value: "inventado" } } },
+    }],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "UNVERIFIED_AUDIT_BLOCK"));
+  const noRequirement = publicBuildPitRecord({ key: "X", viewScope: "decision", audit: { semantics: { a: { status: "OBSERVED" } } } });
+  assert.equal(noRequirement.ok, false);
+  assert.equal(noRequirement.errors[0].code, "INVALID_AUDIT_BLOCK");
+});
+
+test("review 8: una provenance armada a mano con path/hash reales no acredita el bloque audit", () => {
+  const outcome = publicBuildPitRecord({
+    key: "R-08",
+    viewScope: "decision",
+    audit: {
+      artifact: { ...PRIOR_REF, receiptPath: "operations/receipts/IMP-03-IMP_RECEIPT.json", impIdentity: "IMP-03" },
+      requirementId: "R-08",
+    },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "UNVERIFIED_AUDIT_BLOCK");
+});
+
+test("repo real review 8: con provenance verificada el bloque audit y la razón salen de la entrada en disco, no del llamante", () => {
+  const verified = verifyAcceptedArtifact(PRIOR_REF);
+  assert.equal(verified.ok, true);
+  const reference = { artifact: verified.provenance, requirementId: "R-08" };
+  const outcome = publicBuildPitRecord({ key: "R-08", viewScope: "decision", audit: reference });
+  assert.equal(outcome.ok, true);
+  const diskEntry = PRIOR_ARTIFACT.entries.find((entry) => entry.requirementId === "R-08");
+  assert.deepEqual(outcome.record.audit.semantics.policyConsumableTime, diskEntry.policyConsumableTime);
+  assert.deepEqual(outcome.record.audit.evidence, diskEntry.evidence ?? null);
+  assert.equal(outcome.record.audit.artifact.impIdentity, "IMP-03");
+  assert.equal(outcome.record.audit.artifact.dependency, "DEP-06/07");
+  assert.match(outcome.record.reason, /policyConsumableTime/);
+
+  const otherKey = publicBuildPitRecord({ key: "R-09", viewScope: "decision", audit: reference });
+  assert.equal(otherKey.errors[0].code, "AUDIT_KEY_MISMATCH");
+  const callerReason = publicBuildPitRecord({ key: "R-08", viewScope: "decision", audit: reference, reason: "OBSERVED por el llamante" });
+  assert.equal(callerReason.errors[0].code, "AUDIT_REASON_FROM_CALLER");
+  const withValue = publicBuildPitRecord({ key: "R-08", viewScope: "decision", audit: reference, revisionId: "v1", value: 1 });
+  assert.ok(withValue.errors.some((e) => e.code === "AUDIT_RECORD_WITH_VALUE"));
+  const unknownRequirement = publicBuildPitRecord({ key: "R-99", viewScope: "decision", audit: { ...reference, requirementId: "R-99" } });
+  assert.equal(unknownRequirement.errors[0].code, "UNVERIFIED_AUDIT_BLOCK");
+});
+
+test("repo real review 8: una copia de un record auditado con semánticas adulteradas no entra al manifest", () => {
+  const ingestion = auditedManifestRecords({ artifactRef: PRIOR_REF });
+  const original = ingestion.records.find((record) => record.key === "R-08");
+  const forged = {
+    ...original,
+    reason: undefined,
+    audit: { ...original.audit, semantics: { ...original.audit.semantics, policyConsumableTime: { status: "OBSERVED", value: "inventado" } } },
+  };
+  const outcome = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [forged] });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "UNVERIFIED_AUDIT_BLOCK");
+  // El record original (verificado) sí entra tal cual.
+  const accepted = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [original] });
+  assert.equal(accepted.ok, true);
+  assert.deepEqual(accepted.manifest.records[0].audit, original.audit);
+});
+
+test("review 8: el manifiesto temporal registrado por el receipt aceptado de otro IMP no se ingiere como resultado DEP-06/07", () => {
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: PRIOR_REF.path, content: PRIOR_BYTES }], imp: "IMP-08" });
+  const outcome = auditedManifestRecords({ artifactRef: refs[0], repoRoot });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "NOT_DEP_06_07_AUDIT");
+});
+
+test("review 8: un receipt IMP-03 sin claims DEP-06/07 no acredita el manifiesto temporal", () => {
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: PRIOR_REF.path, content: PRIOR_BYTES }], claims: [] });
+  const outcome = auditedManifestRecords({ artifactRef: refs[0], repoRoot });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "NOT_DEP_06_07_AUDIT");
+});
+
+test("review 8: los records del manifest conservan la marca; su copia por spread no es consumible", () => {
+  const { repoRoot, consumptionAttestationRefs, valueAttestationRefs } = attested(
+    [{ ...BASE.consumableEvidence, key: BASE.key, revisionId: "v1", valueSha256: canonicalValueSha256(BASE.value).sha256, consumableAtUtc: BASE.consumableAtUtc }],
+    valueAttestationsFor([BASE]),
+  );
+  const built = buildPitManifest({ repoRoot, manifestId: "M", manifestVersion: "v1", records: [BASE], consumptionAttestationRefs, valueAttestationRefs });
+  assert.equal(built.ok, true);
+  const [record] = built.manifest.records;
+  assert.equal(publicIsConsumableAtBoundary(record, "2026-04-02T00:00:00Z").consumable, true);
+  assert.equal(publicIsConsumableAtBoundary({ ...record }, "2026-04-02T00:00:00Z").consumable, false);
 });

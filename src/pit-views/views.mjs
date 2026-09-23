@@ -13,6 +13,7 @@ import {
   buildPitRecord,
   deepFreeze,
   isConsumableAtBoundary,
+  isVerifiedPitRecord,
   isProxyAdmissibleAtBoundary,
   loadConsumptionAttestationsAt,
   loadValueAttestationsAt,
@@ -20,8 +21,9 @@ import {
   PER_VERSION_EVIDENCE_DEPENDENCY,
   semanticsOf,
   sourceRankOf,
+  withEvaluationClock,
 } from "./pit-record.mjs";
-import { DEFAULT_REPO_ROOT, trustRootNotConfigurable, verifyAcceptedArtifactAt } from "./audited-artifacts.mjs";
+import { DEFAULT_REPO_ROOT, dep0607AuditRegistration, trustRootNotConfigurable, verifyAcceptedArtifactAt } from "./audited-artifacts.mjs";
 import { toUtcTimestamp } from "./time.mjs";
 
 const VIEW_KINDS = ["decision", "evaluation"];
@@ -100,32 +102,6 @@ export const IMP03_REQUIREMENT_VIEW_SCOPES = Object.freeze({
   "R-17": "decision",
 });
 
-const AUDITED_SEMANTIC_KEYS = [
-  "occurredReferenceTime",
-  "publicationSourceAvailabilityTime",
-  "policyConsumableTime",
-  "revisionVersion",
-];
-
-// Vocabulario de ST-03.3 (EEX-THE-20260921/ST-03.3/temporal-manifest.json
-// `statusVocabulary`); el manifiesto previo de IMP-03 usa un subconjunto.
-const AUDITED_STATUSES = ["OBSERVED", "PARTIAL", "HISTORICAL_ASSERTION", "MISSING", "NOT_DEMONSTRATED"];
-
-function auditedReasonOf(entry) {
-  const parts = [];
-  for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
-    const semantic = entry[semanticKey];
-    const detail = [semantic.value, semantic.reason, semantic.note]
-      .filter((text) => typeof text === "string" && text.length > 0)
-      .join(" — ");
-    parts.push(detail.length > 0 ? `${semanticKey} ${semantic.status}: ${detail}` : `${semanticKey} ${semantic.status}`);
-  }
-  if (typeof entry.note === "string" && entry.note.length > 0) {
-    parts.push(`note: ${entry.note}`);
-  }
-  return parts.join(" | ");
-}
-
 // Puente de ingesta del manifiesto temporal auditado de IMP-03
 // (artifactKind IMP-03_TEMPORAL_MANIFEST). Cada entrada es un requisito, no
 // una fila de datos: el audit no entrega timestamps por versión ni valores
@@ -136,9 +112,11 @@ function auditedReasonOf(entry) {
 // de la entrada y la procedencia verificada del artifact.
 //
 // §25.2 ("source/evidence y receipt aceptado"): el artifact se lee de disco
-// desde `artifactRef.path`, su sha256 se recalcula y debe estar registrado en
-// un IMP_RECEIPT aceptado. No se acepta un `artifact` en memoria: sería una
-// segunda verdad sin procedencia comprobada.
+// desde `artifactRef.path`, su sha256 se recalcula y debe estar registrado por
+// el IMP_RECEIPT aceptado de IMP-03 con sus claims audit DEP-06/07 (§25.2.2
+// fila IMP-03). No se acepta un `artifact` en memoria: sería una segunda
+// verdad sin procedencia comprobada. buildPitRecord deriva el bloque audit de
+// la entrada leída de disco; aquí sólo se clasifica cada requisito.
 function callerChoseTrustRoot(options) {
   return options !== null && typeof options === "object" && Object.hasOwn(options, "repoRoot");
 }
@@ -162,7 +140,7 @@ export function auditedManifestRecordsAt(trustRoot, { artifactRef, ...rest } = {
   if (!verified.ok) {
     return verified;
   }
-  const { artifact } = verified;
+  const { artifact, provenance } = verified;
   if (!artifact || typeof artifact !== "object" || artifact.artifactKind !== "IMP-03_TEMPORAL_MANIFEST"
     || !Array.isArray(artifact.entries)) {
     return {
@@ -170,12 +148,10 @@ export function auditedManifestRecordsAt(trustRoot, { artifactRef, ...rest } = {
       errors: [{ field: "artifact", code: "INVALID_AUDITED_ARTIFACT", message: "Se espera el artifact IMP-03_TEMPORAL_MANIFEST completo con su lista entries." }],
     };
   }
-  const vocabulary = Array.isArray(artifact.statusVocabulary) ? artifact.statusVocabulary : AUDITED_STATUSES;
-  const provenance = {
-    ...verified.provenance,
-    packetId: artifact.packetId ?? null,
-    subtaskId: artifact.subtaskId ?? null,
-  };
+  const accredited = dep0607AuditRegistration(provenance);
+  if (!accredited.ok) {
+    return accredited;
+  }
 
   const errors = [];
   const records = [];
@@ -192,34 +168,10 @@ export function auditedManifestRecordsAt(trustRoot, { artifactRef, ...rest } = {
       return;
     }
     seen.add(requirementId);
-    const badSemantic = AUDITED_SEMANTIC_KEYS.find((semanticKey) => {
-      const status = entry[semanticKey]?.status;
-      return !AUDITED_STATUSES.includes(status) || !vocabulary.includes(status);
-    });
-    if (badSemantic !== undefined) {
-      errors.push({ field: `${field}.${badSemantic}`, code: "UNKNOWN_AUDITED_STATUS", message: `Status auditado "${entry[badSemantic]?.status}" fuera del vocabulario; no se descarta en silencio.` });
-      return;
-    }
-
-    const semantics = {};
-    for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
-      semantics[semanticKey] = entry[semanticKey];
-    }
     const outcome = buildPitRecord({
       key: requirementId,
       viewScope: IMP03_REQUIREMENT_VIEW_SCOPES[requirementId],
-      revisionId: null,
-      value: null,
-      reason: auditedReasonOf(entry),
-      audit: {
-        artifact: provenance,
-        requirementId,
-        requirement: entry.requirement ?? null,
-        criticalVersusOptional: entry.criticalVersusOptional ?? null,
-        note: entry.note ?? null,
-        evidence: entry.evidence ?? null,
-        semantics,
-      },
+      audit: { artifact: provenance, requirementId },
     });
     if (outcome.ok) {
       records.push(outcome.record);
@@ -335,6 +287,12 @@ export function buildPitManifestAt(trustRoot, {
   const builtRecords = [];
   if (Array.isArray(records)) {
     records.forEach((entry, index) => {
+      // Un record auditado ya verificado (adaptador de IMP-03) entra tal cual:
+      // su bloque audit se derivó de disco y no se reconstruye desde una copia.
+      if (isVerifiedPitRecord(entry) && entry.audit !== undefined) {
+        builtRecords.push(entry);
+        return;
+      }
       const outcome = buildPitRecord(entry, recordContext);
       if (outcome.ok) {
         builtRecords.push(outcome.record);
@@ -636,10 +594,7 @@ export function buildPitManifestAt(trustRoot, {
 
   // El manifest es inmutable: records (con su reloj de evaluación) y receipts
   // quedan congelados; una versión no se reescribe por referencia (§6.2).
-  const manifestRecords = builtRecords.map((record) => ({
-    ...record,
-    effectiveAtUtc: effectiveAtByIdentity.get(record) ?? null,
-  }));
+  const manifestRecords = builtRecords.map((record) => withEvaluationClock(record, effectiveAtByIdentity.get(record) ?? null));
   const manifest = deepFreeze({
     manifestId,
     manifestVersion,

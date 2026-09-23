@@ -582,3 +582,97 @@ test("validación adversarial: dos consumos atestados con valores distintos para
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "AUDITED_VALUE_CONFLICT"));
 });
+
+// --- Review 8 (2026-09-23): predicados públicos sólo sobre records verificados ---
+
+test("review 8: isConsumableAtBoundary rechaza un objeto fabricado con auditLinked y valueProvenance", () => {
+  const fabricated = {
+    key: "X",
+    viewScope: "decision",
+    valueStatus: "PRESENT",
+    value: 1,
+    publishedAtUtc: "2026-01-01T00:00:00Z",
+    consumableAtUtc: "2026-01-01T00:00:00Z",
+    consumableFromUtc: "2026-01-01T00:00:00Z",
+    consumableEvidence: { source: "s", locator: "l", auditLinked: true },
+    valueProvenance: {},
+    proxy: false,
+  };
+  const verdict = isConsumableAtBoundary(fabricated, "2026-06-01T00:00:00Z");
+  assert.equal(verdict.consumable, false);
+  assert.match(verdict.reason, /buildPitRecord/);
+});
+
+test("review 8: una copia por spread de un record demostrado pierde la marca y deja de ser consumible", () => {
+  const { record } = buildPitRecord(validInput(), AUDITED);
+  assert.equal(record.consumability, "demonstrated");
+  assert.equal(isConsumableAtBoundary(record, "2026-04-02T00:00:00Z").consumable, true);
+  assert.equal(isConsumableAtBoundary({ ...record }, "2026-04-02T00:00:00Z").consumable, false);
+});
+
+test("review 8: isProxyAdmissibleAtBoundary no admite un proxy fabricado con declaración permitida", () => {
+  const fabricated = {
+    proxy: true,
+    proxyId: "P",
+    proxyDeclaration: { allowed: true, fallbackRank: 1, declaredAtUtc: "2026-01-01T00:00:00Z" },
+  };
+  assert.equal(isProxyAdmissibleAtBoundary(fabricated, "2026-06-01T00:00:00Z").admissible, false);
+});
+
+// --- Review 8: las atestaciones deben estar acreditadas como DEP-06/07 ---
+
+test("review 8: un artifact de atestaciones registrado por el receipt aceptado de otro IMP no acredita DEP-06/07", () => {
+  const outcome = verifiedRegistry([ATTESTATION], { imp: "IMP-08" });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+  const values = verifiedValueRegistry([VALUE_ATTESTATION], { imp: "IMP-08" });
+  assert.equal(values.ok, false);
+  assert.equal(values.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+});
+
+test("review 8: el receipt de IMP-03 con DEP-06/07 unresolved (como el real) no acredita atestaciones", () => {
+  const outcome = verifiedRegistry([ATTESTATION], {
+    claims: (claims) => claims.map((claim) => ({ ...claim, result: "unresolved" })),
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+});
+
+test("review 8: falta el claim DEP-07 → no acreditado", () => {
+  const outcome = verifiedRegistry([ATTESTATION], { claims: (claims) => claims.filter((claim) => claim.dep === "DEP-06") });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+});
+
+test("review 8: el claim debe citar este artifact exacto como evidencia", () => {
+  const outcome = verifiedRegistry([ATTESTATION], {
+    claims: (claims) => claims.map((claim) => ({ ...claim, evidenceArtifacts: [{ path: "otro/artifact.json", sha256: "c".repeat(64) }] })),
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+});
+
+test("review 8: el scope del artifact debe ser el scope del claim", () => {
+  const otherScope = verifiedRegistry([ATTESTATION], { scope: "Q07 intradía" });
+  assert.equal(otherScope.ok, false);
+  assert.equal(otherScope.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+  const noScope = verifiedRegistry([ATTESTATION], { scope: null });
+  assert.equal(noScope.ok, false);
+  assert.equal(noScope.errors[0].code, "MISSING_DEP_SCOPE");
+});
+
+test("review 8: una key atestada fuera de coveredKeys del claim no se acredita", () => {
+  const outcome = verifiedRegistry([ATTESTATION], {
+    claims: (claims) => claims.map((claim) => ({ ...claim, coveredKeys: ["OTRA.key"] })),
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "DEP_06_07_NOT_ACCREDITED");
+});
+
+test("review 8: la procedencia de la atestación nombra el receipt IMP-03, la dependencia y el scope acreditados", () => {
+  const { record } = buildPitRecord(validInput(), AUDITED);
+  assert.equal(record.consumableEvidence.attestationArtifact.impIdentity, "IMP-03");
+  assert.equal(record.consumableEvidence.attestationArtifact.dependency, "DEP-06/07");
+  assert.equal(typeof record.consumableEvidence.attestationArtifact.scope, "string");
+  assert.equal(record.valueProvenance.attestationArtifact.dependency, "DEP-06/07");
+});

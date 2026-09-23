@@ -31,6 +31,30 @@ import { fileURLToPath } from "node:url";
 export const DEFAULT_REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 const RECEIPTS_DIR = "operations/receipts";
+
+// §6.2: un artifact verificado no se reescribe en memoria después de leerlo.
+export function deepFreeze(value) {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+  for (const nested of Object.values(value)) {
+    deepFreeze(nested);
+  }
+  return Object.freeze(value);
+}
+
+// Provenance devuelta por verifyAcceptedArtifact → { artifact leído de disco,
+// todos los receipts aceptados que lo registran con sus claims }. Sólo este
+// módulo la llena: un objeto provenance armado a mano no está en el mapa y no
+// acredita nada (review IMP-06 #8, 2026-09-23).
+const VERIFIED_ARTIFACTS = new WeakMap();
+
+export function verifiedArtifactOf(provenance) {
+  if (provenance === null || typeof provenance !== "object") {
+    return null;
+  }
+  return VERIFIED_ARTIFACTS.get(provenance) ?? null;
+}
 const SHA256_HEX = /^[0-9a-fA-F]{64}$/;
 
 function sha256Of(bytes) {
@@ -104,7 +128,8 @@ function acceptedArtifactRegistry(trustRoot) {
     if (!isCommittedUnchanged(trustRoot, receiptPath)) {
       continue;
     }
-    const origin = { receiptPath, impIdentity, acceptedAtUtc: receipt.acceptedAtUtc };
+    const claims = Array.isArray(receipt.claims) ? receipt.claims : [];
+    const origin = { receiptPath, impIdentity, acceptedAtUtc: receipt.acceptedAtUtc, claims };
     for (const entry of Array.isArray(receipt.evidenceTestHashes) ? receipt.evidenceTestHashes : []) {
       if (typeof entry?.path === "string" && typeof entry?.sha256 === "string") {
         registry.push({ path: entry.path, sha256: entry.sha256.toLowerCase(), ...origin });
@@ -177,8 +202,9 @@ export function verifyAcceptedArtifactAt(repoRoot, ref) {
   if (actualSha256 !== ref.sha256.toLowerCase()) {
     return failure("ARTIFACT_HASH_MISMATCH", `El sha256 declarado para "${relativePath}" no coincide con su contenido (${actualSha256}).`);
   }
-  const registered = acceptedArtifactRegistry(rootReal)
-    .find((entry) => entry.path === relativePath && entry.sha256 === actualSha256);
+  const registrations = acceptedArtifactRegistry(rootReal)
+    .filter((entry) => entry.path === relativePath && entry.sha256 === actualSha256);
+  const registered = registrations[0];
   if (registered === undefined) {
     return failure(
       "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT",
@@ -191,15 +217,93 @@ export function verifyAcceptedArtifactAt(repoRoot, ref) {
   } catch {
     return failure("ARTIFACT_NOT_JSON", `"${relativePath}" no es JSON.`);
   }
-  return {
-    ok: true,
+  deepFreeze(artifact);
+  const provenance = Object.freeze({
+    path: relativePath,
+    sha256: actualSha256,
+    receiptPath: registered.receiptPath,
+    impIdentity: registered.impIdentity,
+    acceptedAtUtc: registered.acceptedAtUtc,
+  });
+  VERIFIED_ARTIFACTS.set(provenance, deepFreeze({
     artifact,
-    provenance: {
+    registrations: registrations.map((entry) => ({
       path: relativePath,
       sha256: actualSha256,
-      receiptPath: registered.receiptPath,
-      impIdentity: registered.impIdentity,
-      acceptedAtUtc: registered.acceptedAtUtc,
-    },
-  };
+      receiptPath: entry.receiptPath,
+      impIdentity: entry.impIdentity,
+      acceptedAtUtc: entry.acceptedAtUtc,
+      claims: structuredClone(entry.claims),
+    })),
+  }));
+  return { ok: true, artifact, provenance };
+}
+
+// Acreditación DEP-06/07 (§25.2.1: "Cada claim debe indicar scope, ...,
+// contenido satisfecho, resultado, source/evidence y receipt aceptado";
+// §25.2.2 fila IMP-03 RESOLVES_AUDIT "DEP-06/07 en los requisitos realmente
+// auditados"; fila IMP-06 REQUIRES_AUDIT "DEP-06/07 [manifest, metadata y
+// evidencia temporal realmente utilizadas]"). Que un artifact esté en algún
+// receipt aceptado no basta: debe registrarlo el receipt aceptado del
+// productor de DEP-06/07 y ese receipt debe declarar los claims DEP-06 y
+// DEP-07 (review IMP-06 #8, 2026-09-23).
+export const DEP_06_07_PRODUCER = "IMP-03";
+const DEP_06_07 = ["DEP-06", "DEP-07"];
+
+function depFailure(field, code, message) {
+  return { ok: false, errors: [{ field, code, message }] };
+}
+
+// Resultado auditado de IMP-03 (manifiesto temporal): basta con que el receipt
+// del productor declare los claims audit DEP-06/07, sea cual sea su resultado
+// (un resultado "unresolved" se materializa como tal: §25.2.1 "Un resultado
+// negativo se conserva como hallazgo y blocker").
+export function dep0607AuditRegistration(provenance, field = "artifactRef") {
+  const verified = verifiedArtifactOf(provenance);
+  if (verified === null) {
+    return depFailure(field, "UNVERIFIED_ARTIFACT", "La procedencia no proviene de verifyAcceptedArtifact; no acredita nada (§25.2).");
+  }
+  const registration = verified.registrations.find((entry) => entry.impIdentity === DEP_06_07_PRODUCER
+    && DEP_06_07.every((dep) => entry.claims.some((claim) => claim?.dep === dep && claim?.kind === "audit")));
+  if (registration === undefined) {
+    return depFailure(field, "NOT_DEP_06_07_AUDIT", `"${provenance.path}" no está registrado por el IMP_RECEIPT aceptado de ${DEP_06_07_PRODUCER} con claims audit DEP-06 y DEP-07 (§25.2.2 fila IMP-03).`);
+  }
+  return { ok: true, artifact: verified.artifact, registration };
+}
+
+// Evidencia por versión (atestaciones): el claim debe acreditar que DEP-06 y
+// DEP-07 están satisfechas para ese scope, citar este artifact exacto como
+// evidencia y cubrir cada key atestada.
+// PLACEHOLDER de contrato (no canónico): la SPEC no fija la serialización del
+// claim. Forma asumida sobre el `claims` existente de los IMP_RECEIPT
+// (operations/receipts/IMP-03-IMP_RECEIPT.json: dep, kind, scope, content,
+// result, evidence), con `result: "satisfied"` (vocabulario usado en los
+// receipts del repo) más `evidenceArtifacts: [{path, sha256}]` y
+// `coveredKeys: [key]`. El artifact de atestaciones declara el mismo `scope`.
+export function dep0607EvidenceRegistration(provenance, { scope, keys }, field = "artifactRef") {
+  const verified = verifiedArtifactOf(provenance);
+  if (verified === null) {
+    return depFailure(field, "UNVERIFIED_ARTIFACT", "La procedencia no proviene de verifyAcceptedArtifact; no acredita nada (§25.2).");
+  }
+  if (typeof scope !== "string" || scope.trim().length === 0) {
+    return depFailure(field, "MISSING_DEP_SCOPE", `"${provenance.path}" no declara el scope DEP-06/07 que atesta (§25.2.1).`);
+  }
+  const claimCovers = (claim, dep) => claim?.dep === dep
+    && claim?.kind === "audit"
+    && claim?.result === "satisfied"
+    && claim?.scope === scope
+    && Array.isArray(claim?.evidenceArtifacts)
+    && claim.evidenceArtifacts.some((ref) => ref?.path === provenance.path && typeof ref?.sha256 === "string" && ref.sha256.toLowerCase() === provenance.sha256)
+    && Array.isArray(claim?.coveredKeys)
+    && keys.every((key) => claim.coveredKeys.includes(key));
+  const registration = verified.registrations.find((entry) => entry.impIdentity === DEP_06_07_PRODUCER
+    && DEP_06_07.every((dep) => entry.claims.some((claim) => claimCovers(claim, dep))));
+  if (registration === undefined) {
+    return depFailure(
+      field,
+      "DEP_06_07_NOT_ACCREDITED",
+      `"${provenance.path}" no está acreditado por un IMP_RECEIPT aceptado de ${DEP_06_07_PRODUCER} con claims DEP-06 y DEP-07 satisfechos para el scope "${scope}", que citen este artifact y cubran sus keys (§25.2.1, §25.2.2 filas IMP-03 e IMP-06).`,
+    );
+  }
+  return { ok: true, artifact: verified.artifact, registration };
 }

@@ -23,7 +23,14 @@
 
 import { createHash } from "node:crypto";
 
-import { DEFAULT_REPO_ROOT, trustRootNotConfigurable, verifyAcceptedArtifactAt } from "./audited-artifacts.mjs";
+import {
+  deepFreeze,
+  DEFAULT_REPO_ROOT,
+  dep0607AuditRegistration,
+  dep0607EvidenceRegistration,
+  trustRootNotConfigurable,
+  verifyAcceptedArtifactAt,
+} from "./audited-artifacts.mjs";
 import { toUtcTimestamp } from "./time.mjs";
 
 export const VIEW_SCOPES = ["decision", "evaluation"];
@@ -47,15 +54,7 @@ function isNonEmptyString(value) {
 
 // §6.2: una versión no se reescribe. El record guarda una copia congelada del
 // contenido; mutar el objeto del llamante después no altera el histórico.
-export function deepFreeze(value) {
-  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
-    return value;
-  }
-  for (const nested of Object.values(value)) {
-    deepFreeze(nested);
-  }
-  return Object.freeze(value);
-}
+export { deepFreeze };
 
 // Sólo dato JSON: null, boolean, string, número finito, arrays y objetos
 // planos. Map/Set/Date guardan su contenido fuera de las propiedades y
@@ -176,11 +175,13 @@ function frozenCopy(value) {
 //
 // PLACEHOLDER de contrato (no canónico): la SPEC no fija el formato de estos
 // artifacts. Forma asumida:
-//   { artifactKind: "PIT_VALUE_ATTESTATIONS", auditId, attestations: [{ key,
+//   { artifactKind: "PIT_VALUE_ATTESTATIONS", auditId, scope, attestations: [{ key,
 //     revisionId, revisionOf|null, valueSha256, publishedAtUtc,
 //     revisionEffectiveAtUtc|null, source|path, locator, sha256 }] }
-//   { artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId, attestations:
+//   { artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId, scope, attestations:
 //     [{ key, revisionId, valueSha256, consumableAtUtc, source|path, locator, sha256 }] }
+// Además del receipt aceptado, el artifact debe estar acreditado como evidencia
+// DEP-06/07 del scope y keys que atesta (dep0607EvidenceRegistration).
 // Quién los produce: DEP-06/07 del audit IMP-03 (§25.2.2 fila IMP-03
 // "Produce DEP-06/07"; fila IMP-06 "Consume DEP-06/07 ... Los inputs no
 // demostrablemente consumibles siguen unavailable"). Hoy no existen: ver
@@ -192,7 +193,8 @@ const VERIFIED_VALUE_REGISTRIES = new WeakSet();
 // verificado en el repo el 2026-09-23: IMP-03 aceptado sólo como "negative
 // audit only" (operations/receipts/IMP-03-IMP_RECEIPT.json); ST-03.3
 // (operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/ST_RECEIPT.json) sigue
-// `in_review` y su temporal-manifest marca publicationSourceAvailabilityTime
+// `in_review`, los claims DEP-06 y DEP-07 del IMP_RECEIPT de IMP-03 tienen
+// result "unresolved", y el temporal-manifest de ST-03.3 marca publicationSourceAvailabilityTime
 // MISSING y policyConsumableTime MISSING/NOT_DEMONSTRATED en R-01..R-17. Hasta
 // que un receipt aceptado registre atestaciones por versión, todo valor queda
 // unavailable en ambas vistas.
@@ -202,7 +204,7 @@ export const PER_VERSION_EVIDENCE_DEPENDENCY = Object.freeze({
   consumer: "IMP-06",
   artifacts: Object.freeze(["PIT_VALUE_ATTESTATIONS", "PIT_CONSUMPTION_ATTESTATIONS"]),
   source: "SPEC v1.1.1 §6.1, §6.4, §24 DEP-07, §25.2.2 filas IMP-03 e IMP-06",
-  status: "not_produced: ST-03.3 in_review; IMP-03 aceptado sólo como negative audit",
+  status: "not_produced: ST-03.3 in_review; IMP-03 aceptado sólo como negative audit (claims DEP-06/07 unresolved)",
 });
 
 const ATTESTATION_KINDS = {
@@ -291,6 +293,24 @@ function loadAttestationsAt(trustRoot, refs, kind, marks) {
       errors.push({ field: `${field}.attestations`, code: "INVALID_AUDITED_EVIDENCE", message: "attestations debe ser una lista." });
       return;
     }
+    // §25.2.1/§25.2.2: el artifact vale como evidencia DEP-06/07 sólo si el
+    // receipt aceptado de IMP-03 lo acredita para su scope y sus keys.
+    const attestedKeys = [...new Set(artifact.attestations.map((raw) => raw?.key))];
+    const accreditation = dep0607EvidenceRegistration(provenance, { scope: artifact.scope, keys: attestedKeys }, field);
+    if (!accreditation.ok) {
+      errors.push(...accreditation.errors);
+      return;
+    }
+    const { registration } = accreditation;
+    const attestationArtifact = {
+      path: registration.path,
+      sha256: registration.sha256,
+      receiptPath: registration.receiptPath,
+      impIdentity: registration.impIdentity,
+      acceptedAtUtc: registration.acceptedAtUtc,
+      dependency: "DEP-06/07",
+      scope: artifact.scope,
+    };
     artifact.attestations.forEach((raw, index) => {
       const entryField = `${field}.attestations[${index}]`;
       const normalized = normalizeAttestation(raw, kind);
@@ -298,7 +318,7 @@ function loadAttestationsAt(trustRoot, refs, kind, marks) {
         errors.push({ field: entryField, code: "INVALID_AUDITED_EVIDENCE", message: `La atestación requiere ${ATTESTATION_KINDS[kind].required}.` });
         return;
       }
-      const entry = { auditId: artifact.auditId, ...normalized, attestationArtifact: provenance };
+      const entry = { auditId: artifact.auditId, ...normalized, attestationArtifact };
       const conflict = conflictOf(entries, entry, kind);
       if (conflict !== null) {
         errors.push({ field: entryField, ...conflict });
@@ -452,15 +472,28 @@ export function buildPitRecord(input, context = {}) {
     }
   }
 
-  // Resultado auditado de IMP-03 (§25.2 IMP-06): se conserva íntegro y
-  // congelado. Sólo lo produce el adaptador del manifiesto auditado.
+  // Resultado auditado de IMP-03 (§25.2.2 fila IMP-06: "materializa los
+  // resultados auditados"). El llamante no aporta el contenido del audit: sólo
+  // la referencia { artifact: provenance de verifyAcceptedArtifact, requirementId }.
+  // El bloque (semánticas, evidencia, nota) y la razón se derivan de la entrada
+  // leída de disco de un manifiesto registrado por el receipt DEP-06/07 de
+  // IMP-03; un bloque en memoria no puede presentarse como AUDIT_OBSERVED
+  // (review IMP-06 #8, 2026-09-23).
   let audit = null;
+  let auditedReason = null;
   if (input.audit !== undefined && input.audit !== null) {
-    const copied = typeof input.audit === "object" ? frozenCopy(input.audit) : { ok: false };
-    if (copied.ok && copied.copy.semantics && typeof copied.copy.semantics === "object") {
-      audit = copied.copy;
+    const derived = auditBlockFromVerifiedArtifact(input.audit, input.key);
+    if (!derived.ok) {
+      fail(errors, "audit", derived.code, derived.message);
     } else {
-      fail(errors, "audit", "INVALID_AUDIT_BLOCK", "El bloque audit debe ser un objeto serializable con sus semánticas auditadas.");
+      audit = derived.audit;
+      auditedReason = derived.reason;
+    }
+    if (valuePresent) {
+      fail(errors, "value", "AUDIT_RECORD_WITH_VALUE", "Una entrada auditada de IMP-03 no trae valor PIT; no se le adjunta uno (§6.2/§6.5).");
+    }
+    if (input.reason !== undefined && input.reason !== null) {
+      fail(errors, "reason", "AUDIT_REASON_FROM_CALLER", "La razón de una entrada auditada se deriva del artifact; no la aporta el llamante (§6.2).");
     }
   }
 
@@ -701,13 +734,122 @@ export function buildPitRecord(input, context = {}) {
   if (valuePresent) {
     record.value = valueCopy;
   }
-  if (typeof input.reason === "string" && input.reason.length > 0) {
+  if (auditedReason !== null) {
+    record.reason = auditedReason;
+  } else if (typeof input.reason === "string" && input.reason.length > 0) {
     record.reason = input.reason;
   }
   if (audit !== null) {
     record.audit = audit;
   }
-  return { ok: true, record: deepFreeze(record) };
+  deepFreeze(record);
+  VERIFIED_RECORDS.add(record);
+  return { ok: true, record };
+}
+
+// Records producidos por buildPitRecord (o derivados con withEvaluationClock).
+// Los predicados públicos sólo responden por ellos: un objeto armado a mano
+// con `auditLinked: true` no es un record verificado (review IMP-06 #8).
+const VERIFIED_RECORDS = new WeakSet();
+
+export function isVerifiedPitRecord(record) {
+  return record !== null && typeof record === "object" && VERIFIED_RECORDS.has(record);
+}
+
+// Copia del record con el reloj de evaluación fijado por el manifest. Sólo
+// acepta records verificados; la copia hereda la marca. No se exporta desde
+// index.mjs.
+export function withEvaluationClock(record, effectiveAtUtc) {
+  if (!isVerifiedPitRecord(record)) {
+    return null;
+  }
+  const derived = deepFreeze({ ...record, effectiveAtUtc });
+  VERIFIED_RECORDS.add(derived);
+  return derived;
+}
+
+const AUDITED_SEMANTIC_KEYS = [
+  "occurredReferenceTime",
+  "publicationSourceAvailabilityTime",
+  "policyConsumableTime",
+  "revisionVersion",
+];
+
+// Vocabulario de ST-03.3 (EEX-THE-20260921/ST-03.3/temporal-manifest.json
+// `statusVocabulary`); el manifiesto previo de IMP-03 usa un subconjunto.
+const AUDITED_STATUSES = ["OBSERVED", "PARTIAL", "HISTORICAL_ASSERTION", "MISSING", "NOT_DEMONSTRATED"];
+
+function auditedReasonOf(entry) {
+  const parts = [];
+  for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
+    const semantic = entry[semanticKey];
+    const detail = [semantic.value, semantic.reason, semantic.note]
+      .filter((text) => typeof text === "string" && text.length > 0)
+      .join(" — ");
+    parts.push(detail.length > 0 ? `${semanticKey} ${semantic.status}: ${detail}` : `${semanticKey} ${semantic.status}`);
+  }
+  if (typeof entry.note === "string" && entry.note.length > 0) {
+    parts.push(`note: ${entry.note}`);
+  }
+  return parts.join(" | ");
+}
+
+function auditFailure(code, message) {
+  return { ok: false, code, message };
+}
+
+function auditBlockFromVerifiedArtifact(reference, key) {
+  if (typeof reference !== "object" || !isNonEmptyString(reference.requirementId)) {
+    return auditFailure("INVALID_AUDIT_BLOCK", "audit debe ser { artifact: provenance verificada, requirementId }.");
+  }
+  const accredited = dep0607AuditRegistration(reference.artifact, "audit.artifact");
+  if (!accredited.ok) {
+    return auditFailure("UNVERIFIED_AUDIT_BLOCK", accredited.errors[0].message);
+  }
+  const { artifact, registration } = accredited;
+  if (artifact?.artifactKind !== "IMP-03_TEMPORAL_MANIFEST" || !Array.isArray(artifact.entries)) {
+    return auditFailure("UNVERIFIED_AUDIT_BLOCK", "El artifact verificado no es un IMP-03_TEMPORAL_MANIFEST con entries.");
+  }
+  const { requirementId } = reference;
+  if (key !== requirementId) {
+    return auditFailure("AUDIT_KEY_MISMATCH", `El record "${key}" no es el requisito auditado "${requirementId}".`);
+  }
+  const matches = artifact.entries.filter((entry) => entry?.requirementId === requirementId);
+  if (matches.length !== 1) {
+    return auditFailure("UNVERIFIED_AUDIT_BLOCK", `El artifact verificado contiene ${matches.length} entradas para "${requirementId}"; se exige exactamente una.`);
+  }
+  const [entry] = matches;
+  const vocabulary = Array.isArray(artifact.statusVocabulary) ? artifact.statusVocabulary : AUDITED_STATUSES;
+  const badSemantic = AUDITED_SEMANTIC_KEYS.find((semanticKey) => {
+    const status = entry[semanticKey]?.status;
+    return !AUDITED_STATUSES.includes(status) || !vocabulary.includes(status);
+  });
+  if (badSemantic !== undefined) {
+    return auditFailure("UNKNOWN_AUDITED_STATUS", `${requirementId}.${badSemantic}: status auditado "${entry[badSemantic]?.status}" fuera del vocabulario; no se descarta en silencio.`);
+  }
+  const semantics = {};
+  for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
+    semantics[semanticKey] = entry[semanticKey];
+  }
+  const audit = deepFreeze(structuredClone({
+    artifact: {
+      path: registration.path,
+      sha256: registration.sha256,
+      receiptPath: registration.receiptPath,
+      impIdentity: registration.impIdentity,
+      acceptedAtUtc: registration.acceptedAtUtc,
+      dependency: "DEP-06/07",
+      packetId: artifact.packetId ?? null,
+      subtaskId: artifact.subtaskId ?? null,
+    },
+    requirementId,
+    requirement: entry.requirement ?? null,
+    criticalVersusOptional: entry.criticalVersusOptional ?? null,
+    note: entry.note ?? null,
+    evidence: entry.evidence ?? null,
+    semantics,
+  }));
+  return { ok: true, audit, reason: auditedReasonOf(entry) };
 }
 
 // Proxy admisible en la decision view de un boundary (§6.2): declarado,
@@ -715,7 +857,10 @@ export function buildPitRecord(input, context = {}) {
 // record no-proxy es siempre admisible. Un proxy sin declaración adjunta
 // (manifest armado a mano) no es admisible.
 export function isProxyAdmissibleAtBoundary(record, boundaryUtc) {
-  if (record?.proxy !== true) {
+  if (!isVerifiedPitRecord(record)) {
+    return { admissible: false, reason: "no es un record producido por buildPitRecord; nada verificado (§6.1/§25.2)" };
+  }
+  if (record.proxy !== true) {
     return { admissible: true, reason: null };
   }
   const declaration = record.proxyDeclaration;
@@ -740,7 +885,10 @@ export function isProxyAdmissibleAtBoundary(record, boundaryUtc) {
 // Posición en la jerarquía de fuentes fijada ex ante (§6.2): oficial = 0,
 // proxy = fallbackRank de su declaración. Menor rango = preferido.
 export function sourceRankOf(record) {
-  if (record?.proxy !== true) {
+  if (!isVerifiedPitRecord(record)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  if (record.proxy !== true) {
     return 0;
   }
   return record.proxyDeclaration?.fallbackRank ?? Number.POSITIVE_INFINITY;
@@ -751,6 +899,11 @@ export function sourceRankOf(record) {
 export function isConsumableAtBoundary(record, boundaryUtc) {
   if (!record || typeof boundaryUtc !== "string") {
     return { consumable: false, reason: "registro o boundary ausente" };
+  }
+  // Sólo records del constructor verificado: los campos auditLinked /
+  // valueProvenance de un objeto ajeno no prueban nada (review IMP-06 #8).
+  if (!isVerifiedPitRecord(record)) {
+    return { consumable: false, reason: "no es un record producido por buildPitRecord; consumo no demostrado (§6.1/§25.2)" };
   }
   const normalizedBoundary = toUtcTimestamp(boundaryUtc);
   if (!normalizedBoundary.ok) {
