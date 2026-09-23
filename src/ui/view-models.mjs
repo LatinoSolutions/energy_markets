@@ -247,7 +247,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     // UI01-01c (review 2026-09-23): la lane decision sólo puede contener keys
     // de la decision view del manifest (§6.1/§14.3); un key de evaluation
     // presentado como punto de decisión es información futura al decidir. La
-    // lane evaluation es exploratoria y puede levar keys de ambos scopes.
+    // lane evaluation es exploratoria y puede llevar keys de ambos scopes.
     if (expectedViewScope !== null) {
       const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
       if (record?.viewScope !== expectedViewScope) {
