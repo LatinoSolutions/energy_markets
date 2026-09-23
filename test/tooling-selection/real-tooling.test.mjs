@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 
 import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
+import { selectDailyReference } from "../../src/economic-calculation/index.mjs";
 import { deriveToolingDecision, selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { isCapabilityAssessmentUsable, validateCapabilityAssessment } from "../../src/tooling-selection/capability.mjs";
 import {
@@ -383,6 +384,36 @@ test("DEP-10: una lectura divergente o sin top-of-book impide el REUSE del entor
   assert.equal(missing.ok, false);
   const notCovered = missing.errors.find((error) => error.code === "KEY_OUTPUTS_NOT_COVERED");
   assert.deepEqual(notCovered.uncoveredKeyOutputs, Object.keys(EEX_READ_ENVIRONMENT_TOP_OF_BOOK_COLUMNS));
+});
+
+// Review IMP-04 2026-09-23 (revisión 9): la lectura del settlement oficial
+// necesita el timestamp de proveedor de la fila elegida, porque §5.3 decide
+// «entre correcciones oficiales prevalece el timestamp de proveedor más
+// reciente». La lista anterior (precio, fecha e instrumento) no permitía
+// aplicar la selección y ningún test la contrastaba contra la SPEC ni contra
+// el contrato real de selectDailyReference().
+test("DEP-10: la lectura del settlement oficial exige el timestamp de proveedor de §5.3", () => {
+  const spec = readFileSync(SPEC_PATH, "utf8");
+  assert.ok(spec.includes("entre correcciones oficiales prevalece el timestamp de proveedor más reciente"));
+
+  const required = REFERENCE_READ_REQUIRED_OUTPUTS["reference.read.official"];
+  assert.ok(required.includes("official.providerTimestamp"), JSON.stringify(required));
+
+  // El contrato requerido no puede ser más laxo que la función real que aplica
+  // §5.3: selectDailyReference() elige por providerTimestamp y lo devuelve.
+  const selected = selectDailyReference({
+    officialRows: [
+      { value: 102, providerTimestamp: "2026-01-05T17:30:00Z" },
+      { value: 103, providerTimestamp: "2026-01-06T09:00:00Z" },
+    ],
+  });
+  assert.equal(selected.value, 103);
+  assert.equal(selected.providerTimestamp, "2026-01-06T09:00:00Z");
+
+  // Adversarial: la interfaz anterior (sin timestamp) no cubre la capacidad.
+  const previousInterface = ["official.dailySettlementPrice", "official.tradeDate", "official.instrument"];
+  const exposesAll = required.every((outputId) => previousInterface.includes(outputId));
+  assert.equal(exposesAll, false, "sin official.providerTimestamp no se cubre la selección de §5.3");
 });
 
 // P-005: la fuente oficial de settlement se busca primero en fuentes canónicas.

@@ -42,7 +42,7 @@ export const IMP05_CAPABILITY_SOURCES = Object.freeze({
   "official.value_0_01.treatment": "§25.1 IMP-05 acceptance «caso 0.01 investigado»; §5.4 0.01 como caso de audit, no regla canónica de rechazo; §19.3.1 «Oficial 0.01»",
   "reference.read.trades": "§25.1 IMP-05 input «Referencias por fecha»; §5.2 precios de trades p_i; §6.5 raíz eex_derivative_trade",
   "reference.read.top_of_book": "§25.1 IMP-05 input «Referencias por fecha»; §5.2 bid_j/ask_j; §6.5 raíz eex_derivative_top_of_book",
-  "reference.read.official": "§25.2.2 IMP-05 REQUIRES_AUDIT DEP-06/07 «referencias y metadata utilizadas»; §5.3 R_d^official; §6.5 inventario sólo con raíces trade y top_of_book",
+  "reference.read.official": "§25.2.2 IMP-05 REQUIRES_AUDIT DEP-06/07 «referencias y metadata utilizadas»; §5.3 R_d^official y «entre correcciones oficiales prevalece el timestamp de proveedor más reciente»; §6.5 inventario sólo con raíces trade y top_of_book",
 });
 
 // La decisión técnica aplica "al soporte que consuma esa herramienta" (§25.2.2
@@ -160,13 +160,17 @@ const IN_REPO_BENCHMARK = Object.freeze({
 // fecha exactos» dentro de la ventana 17:05–17:15 (Power) / 17:00–17:15 (Gas):
 // hacen falta precio o bid/ask, hora, instrumento, producto (ShortCode +
 // Maturity), fecha de negociación y hash de fila para deduplicar. §5.3
-// R_d^official es el settlement diario oficial.
+// R_d^official es el settlement diario oficial y «entre correcciones oficiales
+// prevalece el timestamp de proveedor más reciente»: sin ese timestamp no se
+// puede aplicar la selección, así que el lector oficial debe exponerlo.
 // Review IMP-04 2026-09-23 (revisión 7): se declaraba reference.read.trades
 // sobre una interfaz que sólo entrega velas 4H.
+// Review IMP-04 2026-09-23 (revisión 9): reference.read.official omitía el
+// timestamp de proveedor de §5.3 y ningún test lo detectaba.
 export const REFERENCE_READ_REQUIRED_OUTPUTS = Object.freeze({
   "reference.read.trades": Object.freeze(["trade.price", "trade.eventTime", "trade.instrument", "trade.shortCode", "trade.maturity", "trade.tradeDate", "trade.rowHash"]),
   "reference.read.top_of_book": Object.freeze(["topOfBook.bid", "topOfBook.ask", "topOfBook.eventTime", "topOfBook.instrument", "topOfBook.shortCode", "topOfBook.maturity", "topOfBook.tradeDate", "topOfBook.rowHash"]),
-  "reference.read.official": Object.freeze(["official.dailySettlementPrice", "official.tradeDate", "official.instrument"]),
+  "reference.read.official": Object.freeze(["official.dailySettlementPrice", "official.providerTimestamp", "official.tradeDate", "official.instrument"]),
 });
 
 // Salidas de la interfaz real del lector EEX, leídas del script (bytes con el

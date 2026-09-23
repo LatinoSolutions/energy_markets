@@ -63,7 +63,12 @@ valores diferentes"):
   hora, instrumento, ShortCode+Maturity, fecha de negociación y hash de fila
   (`REFERENCE_READ_REQUIRED_OUTPUTS`).
 - **Lectura del settlement oficial:** `reference.read.official` (§5.3, §25.2.2
-  IMP-05 REQUIRES_AUDIT DEP-06/07).
+  IMP-05 REQUIRES_AUDIT DEP-06/07). Exige precio de settlement, **timestamp de
+  proveedor**, fecha de negociación e instrumento: §5.3 decide «entre
+  correcciones oficiales prevalece el timestamp de proveedor más reciente» y el
+  contrato real de `selectDailyReference()` elige por ese campo y lo devuelve.
+  Revisión 9: la lista anterior omitía el timestamp y ningún test la
+  contrastaba contra la SPEC ni contra el contrato real; ahora lo hace.
 
 ## Uso autorizado de los datos EEX (P-005)
 
@@ -179,7 +184,7 @@ pregunta a Bru por ese único dato.
   - cualquier selección distinta de la derivada;
   - un record cuyos `requiredCapabilities`, `targetAssessment`, `auditTrace`, `rationale` o `authority` contradigan la auditoría.
 - El conjunto auditado es fijo: los tres componentes del inventario de §6.5 (benchmark, script EEX y su entorno de lectura). Un test lo comprueba, y quitar un componente da `INVENTORY_NOT_AUDITED`.
-- Las capacidades de lectura se comprueban contra la interfaz real: un test lee el script (hash `01353f73…`) y extrae los campos que emite; otro ejecuta `DESCRIBE` con el DuckDB del venv sobre las particiones reales con hash y comprueba cada columna atribuida al entorno; y se exige que un componente declare `reference.read.*` sólo si expone los campos de `REFERENCE_READ_REQUIRED_OUTPUTS` (§5.2/§5.3).
+- Las capacidades de lectura se comprueban contra la interfaz real: un test lee el script (hash `01353f73…`) y extrae los campos que emite; otro ejecuta `DESCRIBE` con el DuckDB del venv sobre las particiones reales con hash y comprueba cada columna atribuida al entorno; y se exige que un componente declare `reference.read.*` sólo si expone los campos de `REFERENCE_READ_REQUIRED_OUTPUTS` (§5.2/§5.3). Para `reference.read.official` el contrato incluye el timestamp de proveedor de §5.3 y un test lo liga a la SPEC y a `selectDailyReference()`.
 
 ## Hashes de procedencia (bytes en este worktree)
 
