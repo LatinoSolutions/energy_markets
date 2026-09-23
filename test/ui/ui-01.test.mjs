@@ -997,6 +997,45 @@ test("replay: una lane/class de evento divergente de la lane canónica queda fai
   assert.match(renderReplayPage(simulatedVm), /data-state="ERROR"/);
 });
 
+// UI01-11 (review de cambio 2026-09-23): los flags data-real/data-hypothetical
+// del render se derivan de la clase canónica, no de flags declarados por el
+// llamador: HUMAN_INTERVENTION nunca es real ni hipotético (§26.3) y una
+// authorization de intervención —que jamás fue validada por el boundary— no
+// se exhibe como factual (§26.5).
+test("replay: una intervención humana con flags/authorization forjados queda fail-closed sin refs factuales", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.interventions[0].isReal = true;
+  forged.timeline.interventions[0].isHypothetical = true;
+  forged.timeline.interventions[0].authorization = {
+    authorityRef: "FAKE.authority@v1",
+    receipt: { receiptRef: "FAKE.receipt@v1", receiptSha256: "e".repeat(64) },
+  };
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "INTERVENTION_AUTHORIZATION_NOT_BOUND" && error.field === "interventions.HUM-1.authorization"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("FAKE.authority"));
+  assert.ok(!html.includes("FAKE.receipt"));
+  assert.ok(!html.includes('data-real="true"'));
+  // sin authorization declarada, una intervención humana con flags del
+  // llamador no deja de ser HUMAN_INTERVENTION: los flags se derivan, no se
+  // copian (§26.3)
+  const flagged = JSON.parse(JSON.stringify(timeline));
+  flagged.timeline.interventions[0].isReal = true;
+  flagged.timeline.interventions[0].isHypothetical = true;
+  const flaggedVm = buildReplayViewModel({ timeline: flagged, exposure, backendIndex });
+  assert.equal(flaggedVm.ok, true, JSON.stringify(flaggedVm.errors ?? "?"));
+  const flaggedHtml = renderReplayPage(flaggedVm);
+  const interventionSection = flaggedHtml.match(/<section class="events intervention-events"[^>]*>([\s\S]*?)<\/section>/)[1];
+  assert.ok(interventionSection.includes("HUM-1"));
+  assert.ok(!interventionSection.includes('data-real="true"'));
+  assert.ok(!interventionSection.includes('data-hypothetical="true"'));
+  assert.ok(!interventionSection.includes('data-authority='));
+  assert.ok(!interventionSection.includes('data-receipt-'));
+});
+
 // UI01-10 (review de cambio 2026-09-23): una exposición declarada con
 // `exposure.exposure === null` degrada a ERROR sin excepción (mismo invariante
 // fail-closed que UI01-04a; §26.5 / estados de error del brief).

@@ -511,6 +511,14 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
         errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_DECISION_SCOPE", message: "la actuación se vincula a la recomendación conocida al decidir; la referee no es una versión del decision view (§26.3)" });
       }
       bindAuthorizationOrigin(lane, event);
+      // UI01-11 (review de cambio 2026-09-23): una intervención humana nunca
+      // es un acto REAL (bindAuthorizationOrigin sólo corre en class REAL,
+      // §26.3), así que una authorization ahí declarada jamás fue validada
+      // por el boundary; pasada cruda al render exponía refs
+      // data-authority/data-receipt-* factuales sin respaldo (§26.5).
+      if (lane === "interventions" && event?.authorization !== undefined && event.authorization !== null) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization`, code: "INTERVENTION_AUTHORIZATION_NOT_BOUND", message: "una intervención humana no es un acto REAL; su authorization no fue validada por el boundary y no se exhibe como factual (§26.3/§26.5)" });
+      }
     }
   }
   if (errors.length > 0) {
@@ -531,7 +539,11 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     decision: { boundary: t.decision.boundary, points: t.decision.points, suppressed: t.decision.suppressed, unavailable: t.decision.unavailable },
     evaluation: { asOf: t.evaluation.asOf, points: t.evaluation.points, pendingRevisions: t.evaluation.pendingRevisions, unavailable: t.evaluation.unavailable },
     executions: t.executions.map((event) => ({ ...event, isHypothetical: imaginary(event), isReal: realityCheck(event) })),
-    interventions: t.interventions,
+    // UI01-11 (review de cambio 2026-09-23): los flags que el render muestra
+    // (data-real/data-hypothetical) se derivan de la clase canónica, no del
+    // flag declarado por el llamador; HUMAN_INTERVENTION nunca es real ni
+    // hipotético (§26.3).
+    interventions: t.interventions.map((event) => ({ ...event, isHypothetical: false, isReal: false })),
     exposure: exposure.exposure,
   };
 }
