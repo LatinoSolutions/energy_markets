@@ -23,10 +23,12 @@ test("una divergencia impide la reconciliación", () => {
   assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
 });
 
-// Exactitud: criterio provisional (la SPEC v1.1.1 no fija tolerancia para
-// salidas de tooling; analogía con §14.8, §19.3.1 y §19.3). Casos de las
-// revisiones IMP-04 2026-09-23: (102 vs 1000000, tol 1000000), (1 vs 1000000,
-// tol 999999), (100 vs 0, tol 100) reconciliaban.
+// Exactitud: decisión de ingeniería derivada del contrato (la SPEC v1.1.1
+// reconcilia "exactamente" en todo el pipeline económico — §14.8, §19.3.1,
+// §19.3 — y la independencia de la reconciliación exige replicar el
+// componente bit a bit). Casos de las revisiones IMP-04 2026-09-23: (102 vs
+// 1000000, tol 1000000), (1 vs 1000000, tol 999999), (100 vs 0, tol 100)
+// reconciliaban.
 for (const [observed, expected, tolerance] of [
   [105.05, 105, 0.1],
   [102, 1000000, 1000000],

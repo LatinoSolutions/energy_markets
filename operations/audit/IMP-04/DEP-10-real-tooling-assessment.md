@@ -49,10 +49,13 @@ valores diferentes"):
   - `benchmark.calendar.missing_dates` (§25.2.2 IMP-05 "calendario de benchmark", §5.3);
   - `benchmark.status.provisional` (§5.4 `BENCHMARK_PROVISIONAL`);
   - `benchmark.window.boundaries` y `benchmark.window.derive` (§25.1 "fronteras correctas" y "1-0-1/3-1-3", §5.3);
-  - `reference.select` (§5.3) y `reference.select.group_by_date_instrument`
+  - `reference.select` (§5.3), `reference.select.group_by_date_instrument`
     (§5.3 «Para cada fecha de negociación d se selecciona una referencia»;
     revisión 10: `selectDailyReference()` tomaba el máximo timestamp global de
-    filas mezcladas) y `reference.proxy` (§5.2);
+    filas mezcladas) y `reference.select.validity_guard` (§5.3 «existe fila
+    oficial válida» + §19.3.1 «contrastar validez aplicable»; revisión 11: el
+    selector promovía por defecto una fila sin `declaredValidity`) y
+    `reference.proxy` (§5.2);
   - **obtener T̂/M̂ desde filas** (§5.2 «filas accesibles y deduplicadas del producto y fecha exactos»; revisión 8):
     `reference.proxy.rows.exact_product_date`, `reference.proxy.rows.deduplicate`,
     `reference.proxy.window.strict` (17:05/17:00–17:15 CE(S)T con conversión UTC/DST),
@@ -122,31 +125,44 @@ Inspeccionado con `DESCRIBE` del DuckDB del venv sobre tres particiones reales
 
 | Componente | Cubre | No cubre (verificado en código/esquema) | Derechos / IP | Usable |
 |---|---|---|---|---|
-| `economic-calculation.benchmark` (`benchmark.mjs`, `reference.mjs`; IMP-08) | calculate, coverage, window.boundaries, reference.select, reference.proxy (combina medias dadas), 0.01 (por validez declarada) | calendar.missing_dates; status.provisional; window.derive; official_proxy; version; `reference.select.group_by_date_instrument` (revisión 10: `selectDailyReference()` no acota por fecha/instrumento); y las cinco capacidades de filas del proxy: `proxyReference()` recibe `tradesMean`/`midpointsMean` ya calculadas. Existen piezas reutilizables (`isWithinWindow()`, `isWithinFallbackWindow()`, filtro de producto y dedup por fecha de `selectBenchmarkReferences()`), pero operan sobre referencias diarias u horas locales, no sobre filas intradía con Tm UTC | Código propio; IP none | sí |
+| `economic-calculation.benchmark` (`benchmark.mjs`, `reference.mjs`; IMP-08) | calculate, coverage, window.boundaries, reference.select, reference.proxy (combina medias dadas), 0.01 (por validez declarada) | calendar.missing_dates; status.provisional; window.derive; official_proxy; version; `reference.select.group_by_date_instrument` (revisión 10: `selectDailyReference()` no acota por fecha/instrumento); `reference.select.validity_guard` (revisión 11: el default de compatibilidad de `declaredValidity()` PROMUEVE una fila sin `declaredValidity`, reproducido con la fila 0.01 del review); y las cinco capacidades de filas del proxy: `proxyReference()` recibe `tradesMean`/`midpointsMean` ya calculadas. Existen piezas reutilizables (`isWithinWindow()`, `isWithinFallbackWindow()`, filtro de producto y dedup por fecha de `selectBenchmarkReferences()`), pero operan sobre referencias diarias u horas locales, no sobre filas intradía con Tm UTC | Código propio; IP none | sí |
 | `power-markets-explorer.venv-data.duckdb` (entorno de lectura) | reference.read.trades y reference.read.top_of_book (columnas verificadas en el esquema real) | official (el lago no tiene settlement); filtros, ventana, dedup y medias son del soporte de cálculo | permitted (P-005); IP none (juicio de audit) | sí |
 | `power-markets-explorer.generate_eex_snapshot` | ninguna capacidad de IMP-05 (declara sólo `eex.snapshot.candles_4h`) | trades: su interfaz sólo emite velas 4H; top_of_book y official tampoco | permitted (P-005); IP none (juicio de audit) | sí |
 
 ## Decisión factual
 
 1. **Cálculo de IMP-05: EXTEND `economic-calculation.benchmark`**
-   - Se añaden exactamente 11 capacidades: `benchmark.calendar.missing_dates`,
+   - Se añaden exactamente 12 capacidades: `benchmark.calendar.missing_dates`,
      `benchmark.status.provisional`, `benchmark.window.derive`,
      `reference.select.group_by_date_instrument`,
+     `reference.select.validity_guard`,
      `reference.proxy.rows.exact_product_date`, `reference.proxy.rows.deduplicate`,
      `reference.proxy.window.strict`, `reference.proxy.means`,
      `reference.proxy.window.fallback`, `reconciliation.official_proxy` y
      `benchmark.version`. La versión anterior decía que bastaban 5; omitía
-     obtener las medias desde filas (revisión 8) y la agrupación por
-     fecha/instrumento de la selección oficial (revisión 10).
-   - Lo cubierto se reconcilia de forma exacta: 14 salidas reales contra los
+     obtener las medias desde filas (revisión 8), la agrupación por
+     fecha/instrumento de la selección oficial (revisión 10) y el guard de
+     validez declarada de la fila oficial (revisión 11).
+   - El guard de validez (`reference.select.validity_guard`, §5.3 «existe fila
+     oficial válida» + §19.3.1 «contrastar validez aplicable») es el caso del
+     review: el componente PROMUEVE por defecto una fila oficial sin
+     `declaredValidity` (default de compatibilidad de `declaredValidity()`,
+     reproducido con la fila 0.01 del review: con proxy 100 devuelve 0.01 como
+     `official`). El fixture `official001MissingValidityValue` registra ese
+     comportamiento observado con cómputo manual independiente y declara que
+     la capacidad NO está demostrada: exigir el campo en la interfaz del
+     lector no hace que el selector rechace una fila que llegue sin él.
+     Implementar el guard es trabajo de IMP-05.
+   - Lo cubierto se reconcilia de forma exacta: 15 salidas reales contra los
      fixtures documentales de §19.3.1 (B=105, count 2, coverage 2/3, corrección
      102→103 da 106.5, proxy 101, oficial más reciente 103, ventana [inicio,fin),
-     0.01 declarado válido se selecciona y con validez `unknown` cae a 100
-     `trades-only`).
+     0.01 declarado válido se selecciona, con validez `unknown` cae a 100
+     `trades-only` y sin declaración se promueve — comportamiento observado,
+     no capacidad).
    - **Juicio de auditoría, no cita de la SPEC:** el componente es "casi
      suficiente"; lo que falta son reglas cerradas de §5.2/§5.3/§5.4 sobre
      entradas o salidas que ya maneja (`extensionRationale`).
-   - Implementar las 11 capacidades es trabajo de IMP-05, no de IMP-04.
+   - Implementar las 12 capacidades es trabajo de IMP-05, no de IMP-04.
 2. **Lectura de filas EEX (trades y top-of-book): REUSE
    `power-markets-explorer.venv-data.duckdb`**
    - Único componente usable que cubre ambas. El script EEX no cubre ninguna.
@@ -157,10 +173,19 @@ Inspeccionado con `DESCRIBE` del DuckDB del venv sobre tres particiones reales
      coinciden con lo escrito (`buildEexReadEnvironmentReconciliation`).
 3. **Lectura del settlement oficial: BLOQUEADA
    (`BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE`)**
-   - Ningún componente inventariado la cubre y todos son usables: la derivación
-     llega a BUILD y falla por `MISSING_NECESSITY`. No se construye un lector
-     sin saber qué feed, formato ni entitlement leer (§6.4: construir sólo si el
-     audit demuestra necesidad).
+   - Ningún componente del inventario auditado la cubre y todos son usables:
+     la derivación llega a BUILD y falla por `MISSING_NECESSITY`. No se
+     construye un lector sin saber qué feed, formato ni entitlement leer
+     (§6.4: construir sólo si el audit demuestra necesidad).
+   - El bloqueo distingue tres estados (revisión 11): (a) el hecho auditado
+     dentro del inventario de §6.5 (ningún componente cubre
+     `reference.read.official`, verificado contra assessments e interfaz
+     real); (b) lo desconocido FUERA del inventario (la completitud del
+     inventario descansa en §6.5/U-AUDIT, no en un escaneo del entorno:
+     componentes no inventariados son DESCONOCIDOS, no ausentes); y (c) la
+     dependencia externa P-007 (fuente autorizada de settlement, esperando al
+     cliente), que bloquea IMP-05 pero NO declara un reader oficial
+     disponible ni fabrica su formato/entitlement.
    - IMP-05 puede avanzar con B provisional: §5.4 y §25.2.2 IMP-05 («Un
      benchmark aún provisional conserva esa condición»).
 
@@ -235,7 +260,18 @@ node --test test/tooling-selection/real-tooling.test.mjs
   no procedencia criptográfica: la evidencia sigue siendo declarada por el
   llamador. Verificación por ejecución/hash de artefacto queda fuera de una
   librería pura y no es parte de este corte.
-- Tolerancia: la SPEC v1.1.1 no fija tolerancia para reconciliar salidas de tooling. Se aplica exactitud como **criterio provisional**, por analogía con §14.8 (volumen y costes "reconcilian exactamente"), §19.3.1 ("reconciliación exacta de unidades") y §19.3 (sin epsilons en scoring). Confirmarlo o fijar un margen es decisión de Bru; un margen canónico iría por §20.2.12.
+- Tolerancia: la reconciliación de salidas clave es EXACTA. Es una decisión de
+  ingeniería (no una pendiente del owner): la SPEC v1.1.1 reconcilia
+  "exactamente" en todo el pipeline económico — §14.8 (volumen y costes
+  "reconcilian exactamente una vez"), §19.3.1 ("la conversión y la
+  reconciliación exacta de unidades forman parte de estas comprobaciones") y
+  §19.3 (scoring "sin epsilon ni PASS artificial") — y la independencia que
+  exige el criterio de IMP-04 sólo se prueba si el recálculo replica el
+  componente bit a bit: cualquier margen > 0 aprobaría un componente que se
+  desvía de su propio cómputo independiente (revisión 6: tolerancia 999999
+  reconciliaba 1 contra 1000000). Un margen canónico distinto requeriría
+  SPEC_CHANGE_REQUEST (§20.2.12); aquí no se relajó ninguna tolerancia para
+  hacer pasar resultados.
 - §6.4 backtesting: la auditoría de capacidades/permisos del backtesting
   existente se cierra en el alcance auditado con el hallazgo AUSENTE (no hay
   componente). Su "resolución" para un futuro consumidor de backtesting

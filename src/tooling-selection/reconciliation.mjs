@@ -5,14 +5,20 @@
 // vale si está permitido por derechos y su valor esperado se inspeccionó o
 // calculó de forma independiente ANTES de automatizar (§14.8/§19.3.1). Esta
 // función no ejecuta el componente, no atribuye edge y no concede autoridad.
-//
-// Comparación EXACTA, sin tolerancia. PROVISIONAL, pendiente de confirmar por
-// Bru: la SPEC v1.1.1 no fija tolerancia para reconciliar salidas de tooling.
-// Se aplica por analogía con §14.8 (volumen y costes "reconcilian
-// exactamente"), §19.3.1 ("reconciliación exacta de unidades") y §19.3 (en
-// scoring "No se añaden epsilons"). Cualquier cota > 0 aprobaba divergencias de
-// casi el 100 % (review IMP-04 2026-09-23: esperado 1000000, tolerancia 999999,
-// observado 1).
+// Comparación EXACTA, sin tolerancia. DECISIÓN DE INGENIERÍA (derivada del
+// contrato, no pendiente de decisión externa): el criterio de IMP-04 es que
+// las "salidas clave pueden reconciliarse independientemente" (§25.1 IMP-04)
+// y la SPEC v1.1.1 reconcilia "exactamente" en todo el pipeline económico —
+// §14.8 (volumen y costes "reconcilian exactamente una vez"), §19.3.1 ("la
+// conversión y la reconciliación exacta de unidades forman parte de estas
+// comprobaciones") y §19.3 (scoring "sin epsilon ni PASS artificial"). La
+// independencia de la reconciliación exige que el recálculo replique el
+// componente bit a bit: cualquier margen > 0 permitiría aprobar un
+// componente que produce valores distintos de su cómputo independiente y
+// transferiría el desvío a IMP-05 sin trazabilidad (revisión 6: esperado
+// 1000000 con tolerancia 999999 reconciliaba un observado 1). Si un
+// consumidor futuro necesitara un margen, debe venir por SPEC_CHANGE_REQUEST
+// (§20.2.12) con evidencia, no como parámetro local.
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -74,7 +80,7 @@ function validateFixture(fixture) {
     return fail("FIXTURE_NOT_INDEPENDENT", `El fixture "${outputId}" no declara cómputo/inspección independiente previa.`);
   }
   if (fixture.tolerance !== undefined && fixture.tolerance !== 0) {
-    return fail("INVALID_TOLERANCE", `El fixture "${outputId}" declara tolerancia ${String(fixture.tolerance)}: la reconciliación es exacta (criterio provisional por analogía con SPEC §14.8, §19.3.1).`, { outputId, tolerance: fixture.tolerance });
+    return fail("INVALID_TOLERANCE", `El fixture "${outputId}" declara tolerancia ${String(fixture.tolerance)}: la reconciliación es exacta (decisión de ingeniería derivada del contrato de reconciliación de la SPEC, véase cabecera del módulo).`, { outputId, tolerance: fixture.tolerance });
   }
   if (!isReconcilableValue(fixture.expectedValue)) {
     return fail("INVALID_EXPECTED_VALUE", `El fixture "${outputId}" no declara un valor esperado reconciliable (número finito, texto, booleano o lista no vacía de ellos).`, { outputId });

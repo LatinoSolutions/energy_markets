@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 
 import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
-import { selectDailyReference } from "../../src/economic-calculation/index.mjs";
+import { proxyReference, selectDailyReference } from "../../src/economic-calculation/index.mjs";
 import { deriveToolingDecision, selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { isCapabilityAssessmentUsable, validateCapabilityAssessment } from "../../src/tooling-selection/capability.mjs";
 import {
@@ -44,6 +44,7 @@ const EXPECTED_ADDITIONS = [
   "benchmark.status.provisional",
   "benchmark.window.derive",
   "reference.select.group_by_date_instrument",
+  "reference.select.validity_guard",
   "reference.proxy.rows.exact_product_date",
   "reference.proxy.rows.deduplicate",
   "reference.proxy.window.strict",
@@ -303,6 +304,10 @@ test("DEP-10: las salidas reales del componente coinciden con los fixtures docum
       official001Value: 0.01,
       official001UnknownValidityValue: 100,
       official001UnknownValiditySource: "trades-only",
+      // Revisión 11: el componente PROMUEVE la fila 0.01 sin declaredValidity
+      // (default de compatibilidad); el fixture lo registra como comportamiento
+      // observado y la capacidad de guard de §5.3 queda en los añadidos.
+      official001MissingValidityValue: 0.01,
     },
   );
   const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
@@ -365,6 +370,58 @@ test("DEP-10: la selección de §5.3 por fecha e instrumento no está cubierta y
   assert.equal(selection.decision, TOOLING_DECISION.EXTEND);
   assert.ok(selection.additions.includes("reference.select.group_by_date_instrument"), JSON.stringify(selection.additions));
   assert.equal(selection.auditTrace.find((entry) => entry.componentId === REAL_BENCHMARK_COMPONENT_ID).missing.includes("reference.select.group_by_date_instrument"), true);
+});
+
+// Review IMP-04 2026-09-23 (revisión 11): el selector de referencia trata una
+// fila oficial SIN declaredValidity como válida (default de compatibilidad de
+// declaredValidity(), reproducido: con proxy 100 y fila oficial 0.01 sin
+// validez devuelve 0.01 como `official`). §5.3 selecciona «existe fila oficial
+// válida» y §19.3.1 pide «contrastar validez aplicable»: una fila sin
+// declaración de validez no acredita validez, así que el guard que la exija
+// es una capacidad que el componente NO demuestra — se registra en los
+// añadidos del EXTEND, no como cobertura.
+test("DEP-10: el guard de validez declarada de §5.3 no está demostrado y se añade al EXTEND", () => {
+  const spec = readFileSync(SPEC_PATH, "utf8");
+  assert.ok(spec.includes("existe fila oficial válida"));
+  assert.ok(spec.includes("Probar el guard reportado y contrastar validez aplicable"));
+
+  // Reproducción del review: sin proxy la fila sin validez se selecciona como
+  // oficial; con proxy el resultado del componente es el mismo valor 0.01
+  // como `official` (el proxy no lo descarta).
+  const withoutProxy = selectDailyReference({
+    officialRows: [{ value: 0.01, providerTimestamp: "2026-01-05T17:30:00Z" }],
+  });
+  assert.equal(withoutProxy.source, "official");
+  assert.equal(withoutProxy.value, 0.01);
+  const withProxy = selectDailyReference({
+    officialRows: [{ value: 0.01, providerTimestamp: "2026-01-05T17:30:00Z" }],
+    proxy: proxyReference({ tradesMean: 100 }),
+  });
+  assert.equal(withProxy.source, "official");
+  assert.equal(withProxy.value, 0.01);
+
+  // La capacidad requerida existe con fuente, no está cubierta y es añadido.
+  assert.ok(IMP05_CALCULATION_CAPABILITIES.includes("reference.select.validity_guard"));
+  assert.match(IMP05_CAPABILITY_SOURCES["reference.select.validity_guard"], /§5\.3/);
+  const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
+  assert.ok(!benchmark.declaredCapabilities.includes("reference.select.validity_guard"));
+  assert.ok(
+    benchmark.limitations.some((limitation) => limitation.includes("reference.select.validity_guard")),
+    "la limitación del componente registra el guard pendiente",
+  );
+  const { selection } = calculationSelection();
+  assert.equal(selection.decision, TOOLING_DECISION.EXTEND);
+  assert.ok(selection.additions.includes("reference.select.validity_guard"), JSON.stringify(selection.additions));
+  assert.equal(selection.auditTrace.find((entry) => entry.componentId === REAL_BENCHMARK_COMPONENT_ID).missing.includes("reference.select.validity_guard"), true);
+
+  // La reconciliación expone el comportamiento observado (0.01 promovido) y
+  // el fixture declara explícitamente que la capacidad de guard NO está
+  // demostrada: el assessment no puede atribuir esa cobertura.
+  const reconciliation = buildRealToolingReconciliation();
+  const observed = reconciliation.outputs.find((output) => output.outputId === "official001MissingValidityValue");
+  assert.equal(observed.value, 0.01);
+  const fixtureEntry = reconciliation.fixtures.find((item) => item.outputId === "official001MissingValidityValue");
+  assert.match(fixtureEntry.independentComputation, /NO está demostrada/);
 });
 
 // Con el uso autorizado (P-005) y el esquema inspeccionado, el entorno de
@@ -518,6 +575,31 @@ test("DEP-10: la lectura del settlement oficial queda BLOQUEADA por fuente no id
   assert.ok(text("/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md").includes("HTTP 403 for the settlement spr endpoint"));
   assert.ok(text("docs/canonical/v1_1_1/sources/AUDIT_INPUTS_ENERGY_MARKETS.md").includes("fuente oficial de settlement y sus revisiones/publication timestamps"));
   assert.ok(text(SPEC_PATH).includes("con un feed oficial o externo autorizado"));
+});
+
+// Review IMP-04 2026-09-23 (revisión 11): el bloqueo no debe equiparar
+// inventario incompleto con ausencia ni convertir la dependencia externa en
+// disponibilidad. Distingue: (a) hecho auditado dentro del inventario de
+// §6.5; (b) desconocido fuera del inventario (completitud descansando en
+// §6.5/U-AUDIT); (c) la dependencia externa P-007, que bloquea IMP-05 pero
+// no declara un reader oficial disponible.
+test("DEP-10: el bloqueo oficial distingue auditar dentro del inventario, desconocido fuera y la dependencia externa P-007", () => {
+  const { officialRead } = deriveRealImp05ToolingDecisions();
+  assert.equal(officialRead.ok, false);
+  const status = officialRead.capabilityStatus["reference.read.official"];
+  assert.match(status.auditedWithinInventory, /no cubierta por ningún componente del inventario auditado/);
+  assert.match(status.unknownOutsideInventory, /DESCONOCIDA, no ausente/);
+  assert.match(status.unknownOutsideInventory, /§6\.5\/U-AUDIT/);
+  assert.equal(status.externalDependency, "P-007");
+  assert.equal(officialRead.externalDependency.id, "P-007");
+  assert.equal(officialRead.externalDependency.waitingOn, "cliente");
+  assert.equal(officialRead.externalDependency.blocks, "IMP-05");
+  assert.match(officialRead.externalDependency.note, /no se declara reader oficial disponible/);
+  // Ningún assessment real declara reference.read.official: la capacidad no
+  // se presenta como disponible.
+  for (const assessment of REAL_TOOLING_ASSESSMENTS) {
+    assert.ok(!assessment.declaredCapabilities.includes("reference.read.official"), assessment.componentId);
+  }
 });
 
 test("DEP-10: una salida divergente del componente real impide la selección", () => {

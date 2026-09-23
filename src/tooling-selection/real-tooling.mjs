@@ -34,6 +34,7 @@ export const IMP05_CAPABILITY_SOURCES = Object.freeze({
   "benchmark.window.boundaries": "§25.1 IMP-05 acceptance «fronteras correctas»; §5.3 «El extremo inicial se incluye y el final se excluye»",
   "benchmark.window.derive": "§25.1 IMP-05 MUST NOT CHANGE «1-0-1/3-1-3»; §5.3 tabla [S-1 mes,S) y [Q-4 meses,Q-1 mes)",
   "reference.select": "§5.3 «La fila oficial válida tiene prioridad; entre correcciones oficiales prevalece el timestamp de proveedor más reciente»",
+  "reference.select.validity_guard": "§5.3 «existe fila oficial válida»: la fila se selecciona sólo si su validez es declarada utilizable; una fila oficial sin declaración de validez no se selecciona como oficial (§19.3.1 «Oficial 0.01»: «Probar el guard reportado y contrastar validez aplicable»; revisión 11: sin este guard selectDailyReference() promueve por defecto una fila sin declaredValidity, y §5.3/§19.3.1 no lo admiten)",
   "reference.select.group_by_date_instrument": "§5.3 «Para cada fecha de negociación d se selecciona una referencia»: la corrección oficial más reciente se elige dentro de las filas de la fecha e instrumento pedidos, no entre filas mezcladas de otras fechas o instrumentos",
   "reference.proxy": "§5.2 R̂_d=0.75T̂+0.25M̂; §19.3.1 «Proxy 101»",
   "reference.proxy.rows.exact_product_date": "§5.2 «El proxy utiliza filas accesibles y deduplicadas del producto y fecha exactos»",
@@ -66,6 +67,7 @@ export const IMP05_CALCULATION_CAPABILITIES = Object.freeze([
   "benchmark.window.derive",
   "reference.select",
   "reference.select.group_by_date_instrument",
+  "reference.select.validity_guard",
   "reference.proxy",
   "reference.proxy.rows.exact_product_date",
   "reference.proxy.rows.deduplicate",
@@ -153,6 +155,11 @@ const IN_REPO_BENCHMARK = Object.freeze({
   limitations: Object.freeze([
     "La aceptación IMP-08 es implementación/fixtures sintéticos; no acredita benchmark de campaña real (DEP-08/09 pendientes).",
     "official.value_0_01.treatment cubre el tratamiento por validez declarada (0.01 válido se selecciona; validez unknown cae a proxy). classifyOfficialValidity() devuelve canonicalRejectionRule \"none\" para toda entrada, así que no es evidencia. Contrastar el guard reportado con la fuente aplicable (§19.3.1, §25.2.2 IMP-05) es trabajo de IMP-05 y exige reference.read.official.",
+    // Review IMP-04 2026-09-23 (revisión 11): el default de compatibilidad de
+    // declaredValidity() promueve una fila sin declaración. No es una
+    // capacidad demostrada: es desconocida como guard de §5.3 y entra en los
+    // añadidos del EXTEND.
+    "reference.select.validity_guard no está demostrada en el componente: declaredValidity() promueve por defecto una fila oficial sin declaredValidity (revisión 11, reproducido con fila 0.01), y §5.3 exige «fila oficial válida» con validez declarada. La extensión debe exigir declaración explícita utilizable antes de seleccionar.",
   ]),
   evidenceRefs: Object.freeze([
     Object.freeze({ kind: "accepted-receipt", ref: "operations/receipts/IMP-08-IMP_RECEIPT.json", sha256: "43b56173f021331a889393d3697f1ca8bdf40491e450798238044ac8decc9625" }),
@@ -395,6 +402,13 @@ const OFFICIAL_0_01_ROWS = Object.freeze([
 const OFFICIAL_0_01_UNKNOWN_ROWS = Object.freeze([
   Object.freeze({ value: 0.01, providerTimestamp: "2026-01-05T17:30:00Z", declaredValidity: "unknown-under-explicit-fixture-assumption" }),
 ]);
+// Revisión 11: fila oficial SIN declaración de validez. El componente la
+// promueve por defecto (default de compatibilidad de declaredValidity());
+// el fixture registra ese comportamiento observado y la capacidad de guard
+// de §5.3 queda como añadido del EXTEND, no como capacidad cubierta.
+const OFFICIAL_0_01_MISSING_VALIDITY_ROWS = Object.freeze([
+  Object.freeze({ value: 0.01, providerTimestamp: "2026-01-05T17:30:00Z" }),
+]);
 
 function fixture(outputId, expectedValue, independentComputation) {
   return Object.freeze({ outputId, expectedValue, permitted: true, independentComputation });
@@ -415,6 +429,13 @@ const REAL_RECONCILIATION_FIXTURES = Object.freeze([
   fixture("official001Value", 0.01, "§5.4: 0.01 declarado válido se selecciona tal cual (sin proxy de respaldo); no es regla canónica rechazarlo"),
   fixture("official001UnknownValidityValue", 100, "§5.3/§5.4: 0.01 con validez unknown no es fila oficial válida; se usa la derivada (trades 100)"),
   fixture("official001UnknownValiditySource", "trades-only", "§5.2: sólo trades → etiqueta trades-only"),
+  // Review IMP-04 2026-09-23 (revisión 11): el componente PROMUEVE una fila
+  // sin declaración de validez (default de compatibilidad); §5.3 exige fila
+  // oficial VÁLIDA. El valor esperado registra el comportamiento real del
+  // componente con cómputo manual independiente (fixture documental
+  // sintético de §19.3.1); la capacidad de guard conforme a §5.3 es un
+  // añadido del EXTEND, no una capacidad cubierta.
+  fixture("official001MissingValidityValue", 0.01, "SINTHETIC §19.3.1: fila 0.01 SIN declaredValidity; el componente la promueve por defecto (comportamiento observado, con el default documentado en declaredValidity()), así que el valor observado es 0.01 como oficial. La capacidad de guard de §5.3 (reference.select.validity_guard) NO está demostrada: es añadido del EXTEND"),
 ]);
 
 // Ejecuta el componente real y devuelve la evidencia cruda de reconciliación
@@ -438,6 +459,9 @@ export function buildRealToolingReconciliation({ componentId = REAL_BENCHMARK_CO
   const proxy = proxyReference({ tradesMean: 100, midpointsMean: 104 });
   const official001 = selectDailyReference({ officialRows: OFFICIAL_0_01_ROWS });
   const official001Unknown = selectDailyReference({ officialRows: OFFICIAL_0_01_UNKNOWN_ROWS, proxy: proxyReference({ tradesMean: 100 }) });
+  // Revisión 11: fila sin declaración de validez — el componente la promueve
+  // por defecto; el guard conforme a §5.3 es un añadido del EXTEND.
+  const official001Missing = selectDailyReference({ officialRows: OFFICIAL_0_01_MISSING_VALIDITY_ROWS, proxy: proxyReference({ tradesMean: 100 }) });
 
   return {
     componentId,
@@ -456,6 +480,7 @@ export function buildRealToolingReconciliation({ componentId = REAL_BENCHMARK_CO
       { outputId: "official001Value", value: official001.value },
       { outputId: "official001UnknownValidityValue", value: official001Unknown.value },
       { outputId: "official001UnknownValiditySource", value: official001Unknown.source },
+      { outputId: "official001MissingValidityValue", value: official001Missing.value },
     ],
     fixtures: REAL_RECONCILIATION_FIXTURES.map((item) => ({ ...item, expectedValue: Array.isArray(item.expectedValue) ? [...item.expectedValue] : item.expectedValue })),
   };
@@ -568,6 +593,13 @@ export const OFFICIAL_SETTLEMENT_SOURCE_SEARCH = Object.freeze([
 // feed, formato ni entitlement leer no es necesidad demostrada (§6.4), así que
 // queda bloqueado (fail-closed). IMP-05 puede seguir con B provisional (§5.4,
 // §25.2.2 IMP-05 «Un benchmark aún provisional conserva esa condición»).
+// Revisión 11: el bloqueo distingue tres estados que no se equiparan —
+// (a) hecho auditado DENTRO del inventario de §6.5 (ningún componente cubre
+// la capacidad), (b) desconocido FUERA del inventario (su completitud
+// descansa en §6.5/U-AUDIT, no en un escaneo del entorno: los componentes no
+// inventariados son desconocidos, no ausentes) y (c) la dependencia externa
+// P-007 (fuente autorizada de settlement, esperando al cliente), que bloquea
+// IMP-05 pero NO convierte la capacidad en disponible ni fabrica su formato.
 function deriveOfficialReadDecision() {
   const derived = deriveToolingDecision({
     requiredCapabilities: IMP05_OFFICIAL_READ_CAPABILITIES,
@@ -580,8 +612,19 @@ function deriveOfficialReadDecision() {
   return {
     ok: false,
     code: "BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE",
-    message: "Ningún componente auditado lee settlement oficial y ninguna fuente canónica identifica el feed oficial autorizado: no se construye un lector para una fuente desconocida.",
+    message: "Ningún componente del inventario auditado (§6.5) lee settlement oficial y ninguna fuente canónica identifica el feed oficial autorizado: no se construye un lector para una fuente desconocida.",
     uncoveredCapabilities: [...IMP05_OFFICIAL_READ_CAPABILITIES],
+    capabilityStatus: Object.fromEntries(IMP05_OFFICIAL_READ_CAPABILITIES.map((capability) => [capability, {
+      auditedWithinInventory: "no cubierta por ningún componente del inventario auditado de §6.5 (hecho, verificado contra assessments e interfaz real)",
+      unknownOutsideInventory: "componentes fuera del inventario de §6.5 no están auditados: su existencia es DESCONOCIDA, no ausente; la completitud del inventario descansa en §6.5/U-AUDIT",
+      externalDependency: "P-007",
+    }])),
+    externalDependency: {
+      id: "P-007",
+      waitingOn: "cliente",
+      blocks: "IMP-05",
+      note: "La capacidad de leer/verificar la fuente oficial sigue sin demostrarse (REF: P-007, solicitud ya enviada); no se declara reader oficial disponible ni se fabrica formato/entitlement.",
+    },
     derivationCode: derived.code,
     sourceSearch: OFFICIAL_SETTLEMENT_SOURCE_SEARCH,
     auditTrace: derived.auditTrace,
