@@ -169,3 +169,54 @@ test("las capacidades requeridas duplicadas se rechazan", () => {
   assert.equal(derived.ok, false);
   assert.equal(derived.code, "DUPLICATE_REQUIRED_CAPABILITIES");
 });
+
+// Review IMP-04 2026-09-23: validateToolingSelection aceptaba EXTEND aunque
+// otro componente usable cubriera todas las capacidades requeridas; §6.4
+// exige reutilizar el componente suficiente antes que extender uno casi
+// suficiente.
+test("EXTEND se rechaza cuando otro componente usable ya cubre todas las capacidades", () => {
+  const extendable = makeAssessment({ minimallyExtendable: true });
+  const sufficient = makeAssessment({
+    componentId: "SYN-TOOL-B",
+    declaredCapabilities: [...BENCHMARK, "intraday.audit"],
+  });
+  const required = [...BENCHMARK, "intraday.audit"];
+  const selection = {
+    requiredCapabilities: required,
+    decision: TOOLING_DECISION.EXTEND,
+    selectionBasis: SELECTION_BASIS.AUDIT,
+    targetComponentId: "SYN-TOOL-A",
+    additions: ["intraday.audit"],
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
+    evidenceRefs: SELECTION_EVIDENCE,
+    grantsProductionAuthority: false,
+  };
+  const outcome = validateToolingSelection(selection, { requiredCapabilities: required, assessments: [extendable, sufficient] });
+  assert.equal(outcome.ok, false);
+  const rejection = outcome.errors.find((error) => error.code === "REUSE_AVAILABLE");
+  assert.ok(rejection);
+  assert.deepEqual(rejection.candidateComponentIds, ["SYN-TOOL-B"]);
+
+  const withoutSufficient = validateToolingSelection(
+    selection,
+    { requiredCapabilities: required, assessments: [extendable, makeAssessment({ componentId: "SYN-TOOL-B", declaredCapabilities: ["other.capability"] })] },
+  );
+  assert.equal(withoutSufficient.ok, true, JSON.stringify(withoutSufficient));
+});
+
+test("EXTEND del propio componente suficiente se rechaza: REUSE es la decisión mínima", () => {
+  const sufficient = makeAssessment({ minimallyExtendable: true });
+  const selection = {
+    requiredCapabilities: BENCHMARK,
+    decision: TOOLING_DECISION.EXTEND,
+    selectionBasis: SELECTION_BASIS.AUDIT,
+    targetComponentId: "SYN-TOOL-A",
+    additions: [],
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
+    evidenceRefs: SELECTION_EVIDENCE,
+    grantsProductionAuthority: false,
+  };
+  const outcome = validateToolingSelection(selection, { requiredCapabilities: BENCHMARK, assessments: [sufficient] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "REUSE_AVAILABLE"));
+});

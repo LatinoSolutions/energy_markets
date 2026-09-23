@@ -84,14 +84,33 @@ export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures
     // propia magnitud esperada: una cota >= |esperado| aprobaría cualquier
     // divergencia hasta el 100% (repaso del audit 2026-09-23: observado 102,
     // esperado 1000000 y tolerancia 1000000 producían REUSE). Cuando el valor
-    // esperado es 0 no hay magnitud que acotar y la comparación es exacta.
-    if (fixture.tolerance !== undefined && isFiniteNumber(fixture.expectedValue) && fixture.expectedValue !== 0
-      && fixture.tolerance >= Math.abs(fixture.expectedValue)) {
-      return fail("INVALID_TOLERANCE", `El fixture "${fixture.outputId}" declara una tolerancia que iguala o supera la magnitud del valor esperado; aprobaría una discrepancia total.`, { outputId: fixture.outputId, expectedValue: fixture.expectedValue, tolerance: fixture.tolerance });
+    // esperado es 0 no hay magnitud que acotar y la comparación es exacta;
+    // una tolerancia positiva lo permitiría todo (review IMP-04 2026-09-23:
+    // esperado 0 y tolerancia 100 reconciliaban un observado de 100).
+    if (fixture.tolerance !== undefined && isFiniteNumber(fixture.expectedValue)) {
+      const exceedsExpectedMagnitude = fixture.expectedValue !== 0
+        ? fixture.tolerance >= Math.abs(fixture.expectedValue)
+        : fixture.tolerance > 0;
+      if (exceedsExpectedMagnitude) {
+        const message = fixture.expectedValue === 0
+          ? `El fixture "${fixture.outputId}" espera 0: no hay magnitud que acotar y la comparación es exacta; una tolerancia positiva no es válida.`
+          : `El fixture "${fixture.outputId}" declara una tolerancia que iguala o supera la magnitud del valor esperado; aprobaría una discrepancia total.`;
+        return fail("INVALID_TOLERANCE", message, { outputId: fixture.outputId, expectedValue: fixture.expectedValue, tolerance: fixture.tolerance });
+      }
     }
   }
 
-  const observedById = new Map(outputs.map((output) => [output?.outputId, output?.value]));
+  // Review IMP-04 2026-09-23: con `Map(outputs.map(...))` las salidas
+  // duplicadas con el mismo outputId se reducían a la última y contradicciones
+  // (p. ej. B=999 y B=102) reconciliaban. Cada salida clave se produce una vez:
+  // un outputId repetido es ambigüedad de procedencia y se rechaza.
+  const observedById = new Map();
+  for (const output of outputs) {
+    if (observedById.has(output?.outputId)) {
+      return fail("DUPLICATE_COMPONENT_OUTPUTS", `La salida "${output?.outputId ?? "(sin id)"}" del componente aparece más de una vez; versiones duplicadas o contradictorias no se reducen a la última.`, { outputId: output?.outputId ?? null });
+    }
+    observedById.set(output?.outputId, output?.value);
+  }
   const comparisons = [];
   const mismatches = [];
 

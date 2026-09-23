@@ -67,6 +67,70 @@ test("una discrepancia dentro de una cota legítima sigue reconciliando", () => 
   assert.equal(result.reconciled, true);
 });
 
+// Reproducción del review IMP-04 2026-09-23: esperado 0 con tolerancia 100
+// reconciliaba un observado de 100 pese a que con esperado 0 la comparación
+// debe ser exacta (no hay magnitud que acotar).
+test("un esperado 0 no admite tolerancia positiva: la comparación es exacta", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 100 }),
+    fixtures: makeFixtures({ expectedValue: 0, tolerance: 100 }),
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "INVALID_TOLERANCE");
+  assert.equal(result.outputId, "SYN-output-B");
+});
+
+test("un esperado 0 compara exacto sin tolerancia declarada", () => {
+  const exact = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 0 }),
+    fixtures: makeFixtures({ expectedValue: 0 }),
+  });
+  assert.equal(exact.reconciled, true);
+
+  const divergent = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 0.5 }),
+    fixtures: makeFixtures({ expectedValue: 0 }),
+  });
+  assert.equal(divergent.reconciled, false);
+  assert.ok(divergent.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
+});
+
+// Reproducción del review IMP-04 2026-09-23: dos salidas con el mismo
+// outputId (999 y 102) se reducían a la última y reconciliaban contra el
+// fixture esperado 102.
+test("salidas duplicadas y contradictorias con el mismo outputId no se reducen a la última", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: [
+      { outputId: "SYN-output-B", value: 999 },
+      { outputId: "SYN-output-B", value: 102 },
+    ],
+    fixtures: makeFixtures({ expectedValue: 102 }),
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "DUPLICATE_COMPONENT_OUTPUTS");
+  assert.equal(result.outputId, "SYN-output-B");
+});
+
+test("salidas duplicadas aunque coincidentes se rechazan: la salida clave se produce una vez", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: [
+      { outputId: "SYN-output-B", value: 105 },
+      { outputId: "SYN-output-B", value: 105 },
+    ],
+    fixtures: makeFixtures(),
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "DUPLICATE_COMPONENT_OUTPUTS");
+});
+
 test("una tolerancia negativa se rechaza explícitamente", () => {
   const result = reconcileKeyOutputs({
     componentId: "SYN-TOOL-A",

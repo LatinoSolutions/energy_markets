@@ -283,6 +283,21 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
         errors.push({ field: "decision", code: "REUSE_NOT_SUFFICIENT", message: "REUSE exige que el componente cubra todas las capacidades requeridas.", missing: coverage.missing });
       }
       if (selection.decision === TOOLING_DECISION.EXTEND) {
+        // §6.4: la selección mínima reutiliza un componente suficiente antes
+        // que extender uno casi suficiente; si la auditoría muestra un
+        // componente usable que ya cubre todas las capacidades requeridas,
+        // EXTEND no es mínima (review IMP-04 2026-09-23).
+        const reuseCandidates = assessments
+          .filter((assessment) => isCapabilityAssessmentUsable(assessment).usable)
+          .filter((assessment) => evaluateCapabilityCoverage(assessment, requiredCapabilities).sufficient);
+        if (reuseCandidates.length > 0) {
+          errors.push({
+            field: "decision",
+            code: "REUSE_AVAILABLE",
+            message: "Existe un componente usable que cubre todas las capacidades requeridas: la selección mínima es REUSE, no EXTEND (§6.4).",
+            candidateComponentIds: reuseCandidates.map((assessment) => assessment.componentId),
+          });
+        }
         if (coverage.covered.length === 0) {
           errors.push({ field: "decision", code: "EXTEND_NOT_BASED_ON_EXISTING", message: "EXTEND exige que el componente ya cubra parte de lo requerido." });
         }
