@@ -13,6 +13,7 @@
 //   - unknown/missing/not-yet-closed queda explícito y fail-closed.
 
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
+import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import {
@@ -70,7 +71,25 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [] } = {})
     if (!bound.ok) {
       return unavailableItem(row.label, bound.reason);
     }
-    return boundItem(row.label, bound.bound, { arm: row.arm ?? null, measure: row.measure ?? null });
+    // UI01-05c (review de cambio 2026-09-23): las etiquetas arm/measure que el
+    // render exhibe como factuales (data-arm/data-measure) sólo se presentan
+    // si el registro canónico para el que se ató el hash las declara a su vez;
+    // el boundary no expone un catálogo de brazos/comparadores aparte, así que
+    // una Etiqueta sin respaldo en el registro resuelto no es factual (§26.5).
+    const resolved = resolveBackendRecord(backendIndex, row.recordKey, row.revisionId);
+    const recordValue = resolved?.value;
+    const recordArm = recordValue !== null && typeof recordValue === "object" ? recordValue.arm ?? null : null;
+    const recordMeasure = recordValue !== null && typeof recordValue === "object" ? recordValue.measure ?? null : null;
+    const declaredArm = row.arm ?? null;
+    const declaredMeasure = row.measure ?? null;
+    if (declaredArm !== null || declaredMeasure !== null) {
+      const armBacked = typeof declaredArm === "string" && declaredArm === recordArm;
+      const measureBacked = typeof declaredMeasure === "string" && declaredMeasure === recordMeasure;
+      if (!armBacked || !measureBacked) {
+        return unavailableItem(row.label, `el arm/measure declarado ("${declaredArm ?? "ausente"}"/"${declaredMeasure ?? "ausente"}") no coincide con el que expone el registro canónico del manifest verificado; una etiqueta sin respaldo del boundary no se rinde como factual (§26.5)`);
+      }
+    }
+    return boundItem(row.label, bound.bound, { arm: declaredArm, measure: declaredMeasure });
   });
   return {
     ok: true,
@@ -242,7 +261,24 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     return unexpectedTimeline([{ field: "(timeline)", code: "TIMELINE_SHAPE_UNRECOGNIZED", message: "El timeline no declara las lanes del boundary (§26.3)." }]);
   }
   const errors = [];
-  const bindPoint = (point, landmark, expectedViewScope, expectedClockOf) => {
+  // UI01-05a (review de cambio 2026-09-23): la exposición sólo puede renderizar
+  // facts "conocidos al decidir" si su boundary es exactamente el decision
+  // boundary del timeline; una exposición proyectada a un boundary posterior
+  // convierte un outcome no cerrado en AVAILABLE y la página de Replay rinde
+  // un valor futuro como factual (§26.3/§25.1 IMP-29).
+  const exposureBoundaryUtc = toUtcTimestamp(exposure.exposure.boundaryUtc);
+  const decisionBoundaryUtc = toUtcTimestamp(t.decision.boundary);
+  if (!exposureBoundaryUtc.ok || !decisionBoundaryUtc.ok || exposureBoundaryUtc.utc !== decisionBoundaryUtc.utc) {
+    errors.push({ field: "exposure.exposure.boundaryUtc", code: "EXPOSURE_BOUNDARY_NOT_ALIGNED", message: "la exposición declarada no usa el mismo boundary de decisión del timeline; la página de Replay no puede presentar como conocido al decidir lo que cerró después (§26.3/§25.1)" });
+  }
+  const bindPoint = (point, landmark, expectedLane, expectedViewScope, expectedClockOf, expectedClockKind) => {
+    // UI01-05b (review de cambio 2026-09-23): la lane exhibida por el render
+    // (lane-<lane>) se deriva de la lane conciliada; una etiqueta distinta del
+    // llamador no renombra la semántica temporal (§26.3).
+    if (point?.lane !== expectedLane) {
+      errors.push({ field: `${landmark}.${point?.key ?? "(sin key)"}`, code: "POINT_LANE_MISMATCH", message: `el punto declara lane "${point?.lane ?? "ausente"}" y concilia en la lane ${expectedLane}; la semántica temporal la fija el boundary (§26.3)` });
+      return;
+    }
     const bound = bindRecord(backendIndex, { recordKey: point.key, revisionId: point.revisionId, value: point.value });
     if (!bound.ok) {
       errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `el punto no se concilia con el manifest backend verificado: ${bound.reason} (§26.5); un valor no registrado no es factual` });
@@ -252,26 +288,30 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     // de la decision view del manifest (§6.1/§14.3); un key de evaluation
     // presentado como punto de decisión es información futura al decidir. La
     // lane evaluation es exploratoria y puede llevar keys de ambos scopes.
-    if (expectedViewScope !== null) {
-      const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
-      if (record?.viewScope !== expectedViewScope) {
-        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_SCOPE_MISMATCH", message: `el punto "${point.key}" proviene de la vista "${record?.viewScope ?? "sin scope"}" y no encuadra en la lane ${expectedViewScope} del replay (§6.1/§26.3)` });
-        return;
-      }
-    }
-    // UI01-01c-r (review 2026-09-23): el reloj mostrado no es del llamador;
-    // se deriva del registro verificado (decision: consumo demostrado,
-    // evaluation: reloj de contenido; §6.1/§26.3).
     const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
-    if (expectedClockOf !== null && record !== null) {
+    if (expectedViewScope !== null && record?.viewScope !== expectedViewScope) {
+      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_SCOPE_MISMATCH", message: `el punto "${point.key}" proviene de la vista "${record?.viewScope ?? "sin scope"}" y no encuadra en la lane ${expectedViewScope} del replay (§6.1/§26.3)` });
+      return;
+    }
+    if (record !== null) {
+      // UI01-01c-r (review 2026-09-23): el reloj mostrado no es del llamador;
+      // se deriva del registro verificado (decision: consumo demostrado,
+      // evaluation: reloj de contenido; §6.1/§26.3).
       const canonicalClock = expectedClockOf(record);
       if (typeof canonicalClock !== "string" || point.clock !== canonicalClock) {
         errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_NOT_FROM_RECORD", message: `el reloj del punto "${point.key}" debe derivarse del registro verificado del manifest; un clock declarado no informa el boundary (§26.3/§26.5)` });
       }
+      // UI01-05b: el tipo de reloj exhibido (data-clock-kind) también se deriva
+      // de la lane canónica; decision consume (policy-consumable), evaluation
+      // recibe contenido por su reloj efectivo (evaluation-effective). Un
+      // clockKind declarado que contradiga la lane no se muestra (§26.3).
+      if (point.clockKind !== expectedClockKind) {
+        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_KIND_NOT_DERIVED", message: `el tipo de reloj del punto "${point.key}" debe derivarse de la lane canónica (${expectedClockKind}); un clockKind declarado por el llamador no informa el boundary (§26.3/§26.5)` });
+      }
     }
   };
-  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points", "decision", (record) => record.consumableFromUtc));
-  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points", null, (record) => record.effectiveAtUtc));
+  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points", "decision", "decision", (record) => record.consumableFromUtc, "policy-consumable"));
+  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points", "evaluation", null, (record) => record.effectiveAtUtc, "evaluation-effective"));
   const bindProvenance = (field, landmark) => {
     const provenance = field?.provenance;
     if (provenance === undefined || provenance === null) {

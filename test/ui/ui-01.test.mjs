@@ -480,12 +480,14 @@ test("backtests: sin runs canónicos, todo se declara pendiente, nada fabricado"
 
 test("backtests: un dato entra sólo si el manifest verificado respalda su hash", () => {
   const { backendIndex } = scenarios();
+  // sin etiquetas arm/measure declaradas: el valor hash-bound entra sin
+  // metadata de comparador (el boundary no expone un catálogo de brazos)
   const good = buildBacktestsViewModel({
     backendIndex,
     rows: [{
       label: "B G0BQ 202604",
-      arm: "A0",
-      measure: "B",
+      arm: null,
+      measure: null,
       recordKey: EVALUATION_BENCHMARK.key,
       revisionId: EVALUATION_BENCHMARK.revisionId,
       value: EVALUATION_BENCHMARK.value,
@@ -497,8 +499,8 @@ test("backtests: un dato entra sólo si el manifest verificado respalda su hash"
     backendIndex,
     rows: [{
       label: "B G0BQ 202604 (forjado)",
-      arm: "A0",
-      measure: "B",
+      arm: null,
+      measure: null,
       recordKey: EVALUATION_BENCHMARK.key,
       revisionId: EVALUATION_BENCHMARK.revisionId,
       value: 999.99,
@@ -508,9 +510,10 @@ test("backtests: un dato entra sólo si el manifest verificado respalda su hash"
   assert.equal(forged.rows[0].status, "UNAVAILABLE");
   assert.match(forged.rows[0].reason, /no coincide con el contenido registrado/);
   const renderHtml = renderBacktestsPage(good);
-  assert.match(renderHtml, /data-arm="A0"/);
-  assert.match(renderHtml, /data-measure="B"/);
   assert.match(renderHtml, /provenance/);
+  // sin etiquetas declaradas no se imprimen atributos de brazo ni comparador
+  assert.ok(!renderHtml.includes("data-arm="));
+  assert.ok(!renderHtml.includes("data-measure="));
 });
 
 // ---------- Research / Strategy Lab ----------
@@ -717,4 +720,137 @@ test("replay: una exposición parcial (subconjunto de secciones §26.2) queda fa
   assert.match(html, /data-state="ERROR"/);
   assert.match(html, /omite las secciones canónicas/);
   assert.ok(!html.includes("<li class=\"exposure-field"));
+});
+
+// UI01-05a (review de cambio 2026-09-23): la exposición sólo es renderizable
+// sobre el decision boundary del timeline; una exposición proyectada a un
+// boundary posterior convierte un outcome no cerrado en AVAILABLE y la página
+// rinde el valor futuro como factual al decidir (§26.3/§25.1 IMP-29).
+test("replay: una exposición con boundary distinto del decision boundary queda fail-closed", () => {
+  const { manifest, timeline, backendIndex } = scenarios();
+  const laterExposure = buildExposure({
+    boundaryUtc: "2026-12-31T00:00:00Z",
+    observations: [{
+      field: "outcomes",
+      condition: EXPOSURE_CONDITION.AVAILABLE,
+      value: EVALUATION_BENCHMARK.value,
+      provenance: {
+        sourceKind: EXPOSURE_SOURCE_KIND.OUTCOME,
+        recordKey: EVALUATION_BENCHMARK.key,
+        revisionId: EVALUATION_BENCHMARK.revisionId,
+        valueSha256: canonicalValueSha256(EVALUATION_BENCHMARK.value).sha256,
+      },
+    }],
+    backendManifest: manifest,
+  });
+  assert.equal(laterExposure.ok, true, JSON.stringify(laterExposure.errors ?? "?"));
+  // en el boundary posterior el outcome SÍ queda AVAILABLE: por eso la página
+  // no puede renderizarla sobre un timeline decidido antes del cierre
+  const outcome = laterExposure.exposure.fields.find((field) => field.field === "outcomes");
+  assert.equal(outcome.condition, EXPOSURE_CONDITION.AVAILABLE);
+  const vm = buildReplayViewModel({ timeline, exposure: laterExposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "EXPOSURE_BOUNDARY_NOT_ALIGNED");
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("25.7"));
+  assert.ok(!html.includes("<li class=\"exposure-field"));
+});
+
+// UI01-05b (review de cambio 2026-09-23): el tipo de reloj exhibido y la lane
+// del punto se derivan de la lane canónica (decision → policy-consumable,
+// evaluation → evaluation-effective); un clockKind o lane declarado por el
+// llamador que contradiga la lane no se rinde (§26.3).
+test("replay: un clockKind/lane de punto no derivado de la lane canónica queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenarios();
+  // un punto de decisión etiquetado con el reloj de evaluación
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.decision.points[0].clockKind = "evaluation-effective";
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "POINT_CLOCK_KIND_NOT_DERIVED"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes('data-clock-kind="evaluation-effective"'));
+  // idem en la lane evaluation con el reloj de consumo
+  const forgedEvaluation = JSON.parse(JSON.stringify(timeline));
+  forgedEvaluation.timeline.evaluation.points[0].clockKind = "policy-consumable";
+  const evaluationVm = buildReplayViewModel({ timeline: forgedEvaluation, exposure, backendIndex });
+  assert.equal(evaluationVm.ok, false);
+  assert.ok(evaluationVm.errors.some((error) => error.code === "POINT_CLOCK_KIND_NOT_DERIVED"));
+  // la lane exhibida tampoco se renombra: un point.lane forjado no se rinde
+  const forgedLane = JSON.parse(JSON.stringify(timeline));
+  forgedLane.timeline.decision.points[0].lane = "banana";
+  const laneVm = buildReplayViewModel({ timeline: forgedLane, exposure, backendIndex });
+  assert.equal(laneVm.ok, false);
+  assert.ok(laneVm.errors.some((error) => error.code === "POINT_LANE_MISMATCH"));
+  assert.ok(!renderReplayPage(laneVm).includes("lane-banana"));
+});
+
+// UI01-05c (review de cambio 2026-09-23): las etiquetas arm/measure de la
+// fila de Backtests se exhiben como factuales (data-arm/data-measure) sólo si
+// el registro canónico que respalda el hash las declara; sin respaldo del
+// boundary, la fila no se rinde como dato de comparador (§26.5).
+const BASETEST_COMPARISON = {
+  key: "BT.G0BQ.202604.comparison",
+  viewScope: "evaluation",
+  occurredAtUtc: "2026-06-30T17:20:00Z",
+  publishedAtUtc: "2026-07-01T06:05:00Z",
+  consumableAtUtc: "2026-07-01T06:35:00Z",
+  consumableEvidence: { source: "fixture://ingest-log", locator: "row @ fixture", sha256: "a".repeat(64) },
+  revisionId: "bt-v1",
+  value: { arm: "A0", measure: "B", economicValue: 25.1 },
+};
+
+test("backtests: las etiquetas arm/measure sólo se rinden si el registro canónico las respalda", () => {
+  const { backendIndex } = scenarios({ extraRecords: [BASETEST_COMPARISON] });
+  const backed = buildBacktestsViewModel({
+    backendIndex,
+    rows: [{
+      label: "B G0BQ 202604",
+      arm: BASETEST_COMPARISON.value.arm,
+      measure: BASETEST_COMPARISON.value.measure,
+      recordKey: BASETEST_COMPARISON.key,
+      revisionId: BASETEST_COMPARISON.revisionId,
+      value: BASETEST_COMPARISON.value,
+    }],
+  });
+  assert.equal(backed.ok, true, JSON.stringify(backed.errors ?? "?"));
+  assert.equal(backed.rows[0].status, "BOUND");
+  const backedHtml = renderBacktestsPage(backed);
+  assert.match(backedHtml, /data-arm="A0"/);
+  assert.match(backedHtml, /data-measure="B"/);
+  // etiquetas forjadas sobre un registro hash-bound: la fila no se rinde
+  const forgedLabels = buildBacktestsViewModel({
+    backendIndex,
+    rows: [{
+      label: "B G0BQ 202604 (forjado)",
+      arm: "A9-FAKE",
+      measure: "ZZZ",
+      recordKey: EVALUATION_BENCHMARK.key,
+      revisionId: EVALUATION_BENCHMARK.revisionId,
+      value: EVALUATION_BENCHMARK.value,
+    }],
+  });
+  assert.equal(forgedLabels.ok, true);
+  assert.equal(forgedLabels.rows[0].status, "UNAVAILABLE");
+  assert.match(forgedLabels.rows[0].reason, /no coincide con el que expone el registro canónico/);
+  const forgedHtml = renderBacktestsPage(forgedLabels);
+  // la etiqueta forjada sólo aparece citada dentro de la razón visible (state
+  // UNAVAILABLE), nunca como atributo factual de brazo/comparador
+  assert.ok(!forgedHtml.includes('data-arm='));
+  assert.ok(!forgedHtml.includes('data-measure='));
+  // y un registro cuyo valor no declara arm/measure tampoco respalda etiqueta alguna
+  const unbacked = buildBacktestsViewModel({
+    backendIndex,
+    rows: [{
+      label: "B G0BQ 202604 (sin respaldo)",
+      arm: "A0",
+      measure: "B",
+      recordKey: EVALUATION_BENCHMARK.key,
+      revisionId: EVALUATION_BENCHMARK.revisionId,
+      value: EVALUATION_BENCHMARK.value,
+    }],
+  });
+  assert.equal(unbacked.rows[0].status, "UNAVAILABLE");
 });
