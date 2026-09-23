@@ -9,7 +9,14 @@
 // revisions futuras en State histórico, outcomes futuros usados para decidir y
 // confusión decision/evaluation).
 
-import { buildPitRecord, isConsumableAtBoundary, semanticsOf } from "./pit-record.mjs";
+import {
+  buildPitRecord,
+  isConsumableAtBoundary,
+  isProxyAdmissibleAtBoundary,
+  normalizeAuditedEvidence,
+  normalizeProxyDeclarations,
+  semanticsOf,
+} from "./pit-record.mjs";
 import { isUtcAnchored, toUtcTimestamp } from "./time.mjs";
 
 const VIEW_KINDS = ["decision", "evaluation"];
@@ -164,6 +171,8 @@ export function buildPitManifestFromAudit({
   viewScopeByRequirement = {},
   extraRecords = [],
   revisions = [],
+  auditedEvidence = [],
+  proxyDeclarations = [],
 } = {}) {
   const ingestion = auditedManifestRecords({ entries, defaultViewScope, viewScopeByRequirement });
   if (!ingestion.ok) {
@@ -183,11 +192,30 @@ export function buildPitManifestFromAudit({
     manifestVersion,
     records: [...ingestion.records, ...extraRecords],
     revisions,
+    auditedEvidence,
+    proxyDeclarations,
   });
 }
 
-export function buildPitManifest({ manifestId, manifestVersion, records = [], revisions = [] } = {}) {
+// `auditedEvidence`: evidencia verificada por el audit (§6.4) contra la que se
+// vincula por hash el consumo de cada record. `proxyDeclarations`: proxies
+// predeclarados/permitidos (§6.2). Ambos vienen de fuera del módulo; sin ellos
+// ningún consumo queda demostrado y ningún proxy es admisible.
+export function buildPitManifest({
+  manifestId,
+  manifestVersion,
+  records = [],
+  revisions = [],
+  auditedEvidence = [],
+  proxyDeclarations = [],
+} = {}) {
   const errors = [];
+  const evidenceRegistry = normalizeAuditedEvidence(auditedEvidence);
+  const proxyRegistry = normalizeProxyDeclarations(proxyDeclarations);
+  if (!evidenceRegistry.ok || !proxyRegistry.ok) {
+    return { ok: false, errors: [...(evidenceRegistry.errors ?? []), ...(proxyRegistry.errors ?? [])] };
+  }
+  const recordContext = { auditedEvidence: evidenceRegistry.entries, proxyDeclarations: proxyRegistry.declarations };
   if (typeof manifestId !== "string" || manifestId.trim().length === 0) {
     errors.push({ field: "manifestId", code: "MISSING_MANIFEST_ID", message: "El manifest no declara su identidad." });
   }
@@ -204,7 +232,7 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
   const builtRecords = [];
   if (Array.isArray(records)) {
     records.forEach((entry, index) => {
-      const outcome = buildPitRecord(entry);
+      const outcome = buildPitRecord(entry, recordContext);
       if (outcome.ok) {
         builtRecords.push(outcome.record);
       } else {
@@ -234,18 +262,87 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
     identity.set(composite, record);
   }
 
-  // Trazabilidad: revisionOf debe apuntar a versiones existentes del mismo key.
+  // Trazabilidad: revisionOf debe apuntar a versiones existentes del mismo key
+  // y el lineage debe respetar el tiempo (§6.1/§6.2): la revisión se publica
+  // estrictamente después de la versión que corrige, y si declara consumo, se
+  // consume estrictamente después de todo ancestro que lo declare. Si no, una
+  // vista por reloj podría mostrar v2 antes que v1. Una revisión o una versión
+  // corregida sin publicación no se puede situar en el tiempo: se rechaza.
+  // Cada versión se revisa a lo sumo una vez: dos revisiones de la misma
+  // versión (fork) son doble verdad sobre cuál la sucede.
+  const revisedBy = new Map();
   if (!conflicting) {
     for (const record of builtRecords) {
       if (record.revisionOf === null) {
         continue;
       }
-      if (!identity.has(`${record.key}::${record.revisionOf}`)) {
+      const predecessor = identity.get(`${record.key}::${record.revisionOf}`);
+      if (predecessor === undefined) {
         errors.push({
           field: "records",
           code: "DANGLING_REVISION_OF",
           message: `La versión "${record.revisionId}" de "${record.key}" declara revisionOf "${record.revisionOf}" sin record previo.`,
         });
+        continue;
+      }
+      const priorRevision = revisedBy.get(`${record.key}::${record.revisionOf}`);
+      if (priorRevision !== undefined) {
+        errors.push({
+          field: "records",
+          code: "LINEAGE_FORK",
+          message: `"${record.revisionOf}" de "${record.key}" es revisada por "${priorRevision}" y por "${record.revisionId}"; el lineage es lineal (§6.2).`,
+        });
+        continue;
+      }
+      revisedBy.set(`${record.key}::${record.revisionOf}`, record.revisionId);
+      if (record.publishedAtUtc === null) {
+        errors.push({
+          field: "records",
+          code: "REVISION_WITHOUT_PUBLICATION",
+          message: `La revisión "${record.revisionId}" de "${record.key}" no tiene publicación/availability en origen; su lineage no se puede ordenar.`,
+        });
+        continue;
+      }
+      if (predecessor.publishedAtUtc === null) {
+        errors.push({
+          field: "records",
+          code: "LINEAGE_ORDER_UNVERIFIABLE",
+          message: `"${record.revisionId}" revisa "${predecessor.revisionId}" de "${record.key}", que no tiene publicación: el orden del lineage no es verificable.`,
+        });
+        continue;
+      }
+      if (Date.parse(record.publishedAtUtc) <= Date.parse(predecessor.publishedAtUtc)) {
+        errors.push({
+          field: "records",
+          code: "LINEAGE_ORDER_INCOHERENT",
+          message: `"${record.revisionId}" de "${record.key}" se publica antes o a la vez que "${predecessor.revisionId}", la versión que revisa.`,
+        });
+        continue;
+      }
+    }
+  }
+
+  // Orden de consumo contra toda la cadena de ancestros, no sólo el padre: un
+  // eslabón intermedio sin consumo no puede dejar que v3 sea consumible antes
+  // que v1. Se recorre sólo con lineage ya válido (publicación estrictamente
+  // creciente por eslabón => sin ciclos).
+  if (errors.length === 0) {
+    for (const record of builtRecords) {
+      if (record.revisionOf === null || record.consumableAtUtc === null) {
+        continue;
+      }
+      let ancestor = identity.get(`${record.key}::${record.revisionOf}`);
+      while (ancestor !== undefined) {
+        if (ancestor.consumableAtUtc !== null
+          && Date.parse(record.consumableAtUtc) <= Date.parse(ancestor.consumableAtUtc)) {
+          errors.push({
+            field: "records",
+            code: "LINEAGE_ORDER_INCOHERENT",
+            message: `"${record.revisionId}" de "${record.key}" es consumible antes o a la vez que su ancestro "${ancestor.revisionId}".`,
+          });
+          break;
+        }
+        ancestor = ancestor.revisionOf === null ? undefined : identity.get(`${record.key}::${ancestor.revisionOf}`);
       }
     }
   }
@@ -338,6 +435,25 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
     record.effectiveAtUtc = receipt !== undefined ? receipt.effectiveAtUtc : record.publishedAtUtc;
   }
 
+  // El reloj de evaluación también respeta el lineage: un receipt no puede
+  // hacer efectiva una revisión antes (o a la vez) que la versión que corrige.
+  for (const record of builtRecords) {
+    if (record.revisionOf === null || typeof record.effectiveAtUtc !== "string") {
+      continue;
+    }
+    const predecessor = identity.get(`${record.key}::${record.revisionOf}`);
+    if (typeof predecessor.effectiveAtUtc !== "string") {
+      continue;
+    }
+    if (Date.parse(record.effectiveAtUtc) <= Date.parse(predecessor.effectiveAtUtc)) {
+      errors.push({
+        field: "revisions",
+        code: "LINEAGE_ORDER_INCOHERENT",
+        message: `"${record.revisionId}" de "${record.key}" es efectiva en evaluación antes o a la vez que "${predecessor.revisionId}", la versión que revisa.`,
+      });
+    }
+  }
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -389,12 +505,16 @@ function parseUtcBoundary(value, field, code) {
 // DECISION-TIME VIEW (§6.1): en cada boundary expone únicamente las versiones
 // realmente conocidas/consumibles. La policy observa exclusivamente esta vista
 // (§14.3): el benchmark cerrado y los outcomes viven en la evaluación y nunca
-// aparecen aquí. Tres guardas de §19.2:
-//  1. publicado después del boundary => no entra por publicación.
-//  2. consumable > boundary o consumo no demostrado => no entra: publicado
-//     pero aún no consumible NO entra (§6.1).
-//  3. versiones reemplazadas no reaparecen: el State histórico es invariante
-//     ante revisiones posteriores (§14.7).
+// aparecen aquí. Guardas de §19.2:
+//  1. versiones publicadas después del boundary no existen para esta vista:
+//     no aparecen ni en `visible` ni en `suppressed`. La respuesta de un
+//     boundary histórico sólo depende de hechos anteriores a él, así que
+//     agregar revisiones futuras al manifest no la cambia (§6.1, §14.7).
+//  2. publicado pero con consumo no demostrado en el boundary => suppressed
+//     (§6.1: publicado no significa disponible para la policy).
+//  3. proxy no predeclarado/permitido en el boundary => suppressed (§6.2).
+//  4. versiones reemplazadas por una más reciente consumible no se reportan:
+//     su valor queda en la vista de evaluación (§6.2).
 export function readDecisionView(manifest, boundaryUtc) {
   const boundary = parseUtcBoundary(boundaryUtc, "boundary", "INVALID_BOUNDARY");
   if (!boundary.ok) {
@@ -412,79 +532,46 @@ export function readDecisionView(manifest, boundaryUtc) {
   const uniqueKeys = [...new Set(decisionRecords.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
-    const keyRecords = decisionRecords.filter((record) => record.key === key);
-    const timeline = timelineForKey(keyRecords, key, "consumableFromUtc");
-    const effective = effectiveEntry(timeline, "consumableFromUtc", boundary.ms);
-    // Versiones sin reloj de decisión (consumo no demostrado o valor ausente)
-    // no están en el timeline pero igual se reportan como unavailable. Las
-    // versiones ya reemplazadas en el mismo boundary no se reportan: no
-    // informan la decisión y su valor queda en la vista de evaluación (§6.2).
+    // Los records sin publicación (entradas auditadas MISSING o contenido sin
+    // publicación) no tienen reloj: no son futuros ni pasados y se reportan en
+    // `suppressed` en todo boundary. Las revisiones siempre tienen publicación
+    // (lo exige el manifest), así que nunca entran por esta vía.
+    const existingAtBoundary = decisionRecords.filter((record) => record.key === key
+      && (record.publishedAtUtc === null || Date.parse(record.publishedAtUtc) <= boundary.ms));
 
-    if (effective !== null) {
-      // §14.3 paso 2: exponer sólo lo que satisface P4 en este boundary exacto.
-      // La consumibilidad se exige también a la versión vigente: un dato cuyo
-      // consumo no está demostrado no entra aunque su reloj sea antiguo.
-      const consumabilityNow = isConsumableAtBoundary(effective.record, boundary.iso);
-      if (consumabilityNow.consumable) {
-        visible.push({
-          key,
-          value: effective.record.value,
-          revisionId: effective.record.revisionId,
-          consumableFromUtc: effective.consumableFromUtc,
-          semantics: semanticsOf(effective.record),
-          proxy: effective.record.proxy,
-          proxyId: effective.record.proxyId,
-        });
-      } else {
-        // Razón del record (§6.2): la trazabilidad del faltante auditado no
-        // se sustituye por un texto genérico; la guarda específica lo
-        // complementa también en la versión vigente por reloj.
-        const effectiveReason = typeof effective.record.reason === "string" && effective.record.reason.length > 0
-          ? effective.record.reason
-          : null;
-        suppressed.push({
-          key,
-          revisionId: effective.record.revisionId,
-          reason: effectiveReason !== null ? `${effectiveReason}; ${consumabilityNow.reason}` : consumabilityNow.reason,
-        });
-      }
-    }
-
-    for (const record of keyRecords) {
-      if (effective !== null && record === effective.record) {
+    const admissible = [];
+    for (const record of existingAtBoundary) {
+      const consumability = isConsumableAtBoundary(record, boundary.iso);
+      const proxy = isProxyAdmissibleAtBoundary(record, boundary.iso);
+      if (consumability.consumable && proxy.admissible) {
+        admissible.push(record);
         continue;
       }
       // Razón del record (§6.2): la trazabilidad del faltante auditado no se
       // sustituye por un texto genérico; la guarda específica lo complementa.
+      const guardReason = consumability.consumable ? proxy.reason : consumability.reason;
       const recordReason = typeof record.reason === "string" && record.reason.length > 0 ? record.reason : null;
-      const publication = record.publishedAtUtc === null ? null : Date.parse(record.publishedAtUtc);
-      if (publication !== null && publication > boundary.ms) {
-        suppressed.push({
-          key,
-          revisionId: record.revisionId,
-          reason: recordReason !== null ? `${recordReason}; publicado después del boundary` : "publicado después del boundary",
-        });
-        continue;
-      }
-      const consumability = isConsumableAtBoundary(record, boundary.iso);
-      if (!consumability.consumable) {
-        suppressed.push({
-          key,
-          revisionId: record.revisionId,
-          reason: recordReason !== null ? `${recordReason}; ${consumability.reason}` : consumability.reason,
-        });
-        continue;
-      }
-      // Las versiones posteriores no existían aún para la policy: no son un
-      // "cambio retrospectivo"; simplemente no informan este boundary (§14.7).
-      if (effective === null || Date.parse(record.consumableFromUtc) > boundary.ms) {
-        suppressed.push({
-          key,
-          revisionId: record.revisionId,
-          reason: recordReason !== null ? `${recordReason}; no conocida en este boundary` : "no conocida en este boundary",
-        });
-      }
+      suppressed.push({
+        key,
+        revisionId: record.revisionId,
+        reason: recordReason !== null ? `${recordReason}; ${guardReason}` : guardReason,
+      });
     }
+
+    const timeline = timelineForKey(admissible, key, "consumableFromUtc");
+    const effective = effectiveEntry(timeline, "consumableFromUtc", boundary.ms);
+    if (effective === null) {
+      continue;
+    }
+    visible.push({
+      key,
+      value: effective.record.value,
+      revisionId: effective.record.revisionId,
+      consumableFromUtc: effective.consumableFromUtc,
+      semantics: semanticsOf(effective.record),
+      proxy: effective.record.proxy,
+      proxyId: effective.record.proxyId,
+    });
   }
 
   return { ok: true, view: "decision", boundary: boundary.iso, visible, suppressed };

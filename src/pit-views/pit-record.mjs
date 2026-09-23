@@ -24,6 +24,8 @@ import { toUtcTimestamp } from "./time.mjs";
 
 export const VIEW_SCOPES = ["decision", "evaluation"];
 
+const SHA256_PATTERN = /^[0-9a-fA-F]{64}$/;
+
 function normalizeUtc(value) {
   if (value === undefined || value === null) {
     return { ok: true, utc: null };
@@ -39,7 +41,90 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export function buildPitRecord(input) {
+// Registro de evidencia verificada por el audit (§6.4: la auditoría verifica
+// publicación y consumo; DEP-07 §25.2 IMP-06: "evidencia temporal realmente
+// utilizada"). Cada entrada es una atestación: el audit `auditId` verificó que
+// la versión `key`/`revisionId` era consumible en `consumableAtUtc`, con el
+// artifact `source`@`locator` de hash `sha256`. Un hash de archivo solo no
+// prueba el consumo de cualquier dato en cualquier instante. Acepta `path`
+// porque es el campo de los artifacts auditados de IMP-03.
+export function normalizeAuditedEvidence(list = []) {
+  if (!Array.isArray(list)) {
+    return { ok: false, errors: [{ field: "auditedEvidence", code: "INVALID_AUDITED_EVIDENCE", message: "auditedEvidence debe ser una lista." }] };
+  }
+  const errors = [];
+  const entries = [];
+  list.forEach((raw, index) => {
+    const source = raw?.source ?? raw?.path;
+    const consumableAt = normalizeUtc(raw?.consumableAtUtc);
+    if (!isNonEmptyString(raw?.auditId) || !isNonEmptyString(source) || !isNonEmptyString(raw?.locator)
+      || typeof raw?.sha256 !== "string" || !SHA256_PATTERN.test(raw.sha256)
+      || !isNonEmptyString(raw?.key) || !isNonEmptyString(raw?.revisionId)
+      || !consumableAt.ok || consumableAt.utc === null) {
+      errors.push({
+        field: `auditedEvidence[${index}]`,
+        code: "INVALID_AUDITED_EVIDENCE",
+        message: "La evidencia auditada requiere auditId, source/path, locator, sha256 de 64 hex, key, revisionId y consumableAtUtc con zona explícita.",
+      });
+      return;
+    }
+    const sha256 = raw.sha256.toLowerCase();
+    const conflicting = entries.find((entry) => entry.source === source && entry.locator === raw.locator && entry.sha256 !== sha256);
+    if (conflicting !== undefined) {
+      errors.push({
+        field: `auditedEvidence[${index}]`,
+        code: "AUDITED_EVIDENCE_CONFLICT",
+        message: `El audit declara dos hashes distintos para ${source} @ ${raw.locator}.`,
+      });
+      return;
+    }
+    entries.push({
+      auditId: raw.auditId,
+      source,
+      locator: raw.locator,
+      sha256,
+      key: raw.key,
+      revisionId: raw.revisionId,
+      consumableAtUtc: consumableAt.utc,
+    });
+  });
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, entries };
+}
+
+// Declaraciones de proxy (§6.2: "Los proxies deben estar predeclarados,
+// identificados, permitidos y ser point-in-time válidos"). La declaración la
+// aporta la Candidate Policy / ledger; este módulo sólo la exige y la aplica.
+export function normalizeProxyDeclarations(list = []) {
+  if (!Array.isArray(list)) {
+    return { ok: false, errors: [{ field: "proxyDeclarations", code: "INVALID_PROXY_DECLARATION", message: "proxyDeclarations debe ser una lista." }] };
+  }
+  const errors = [];
+  const declarations = [];
+  list.forEach((raw, index) => {
+    const declaredAt = normalizeUtc(raw?.declaredAtUtc);
+    if (!isNonEmptyString(raw?.key) || !isNonEmptyString(raw?.proxyId) || typeof raw?.allowed !== "boolean"
+      || !declaredAt.ok || declaredAt.utc === null) {
+      errors.push({
+        field: `proxyDeclarations[${index}]`,
+        code: "INVALID_PROXY_DECLARATION",
+        message: "La declaración de proxy requiere key, proxyId, allowed booleano y declaredAtUtc con zona explícita.",
+      });
+      return;
+    }
+    if (declarations.some((entry) => entry.key === raw.key && entry.proxyId === raw.proxyId)) {
+      errors.push({
+        field: `proxyDeclarations[${index}]`,
+        code: "DUPLICATE_PROXY_DECLARATION",
+        message: `El proxy "${raw.proxyId}" de "${raw.key}" se declara más de una vez.`,
+      });
+      return;
+    }
+    declarations.push({ key: raw.key, proxyId: raw.proxyId, allowed: raw.allowed, declaredAtUtc: declaredAt.utc });
+  });
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, declarations };
+}
+
+export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations = [] } = {}) {
   const errors = [];
 
   if (!input || typeof input !== "object") {
@@ -99,8 +184,8 @@ export function buildPitRecord(input) {
   // verificable (`consumableAtUtc` + `consumableEvidence`). Un timestamp de
   // consumo declarado sin evidencia que lo respalde es una afirmación suelta:
   // §6.1 "Si no existe prueba suficiente, el dato se trata como unavailable
-  // para Replay". El módulo exige que la referencia de evidencia exista y esté
-  // bien formada; verificar su contenido es trabajo del audit (§6.4).
+  // para Replay". El módulo valida la forma de la referencia y la vincula con
+  // la atestación del audit (§6.4) más abajo; no inspecciona el artifact.
   if (input.consumableAtAnyBoundary === true) {
     fail(
       errors,
@@ -116,7 +201,10 @@ export function buildPitRecord(input) {
       fail(errors, "consumableAtUtc", consumable.code, "policy-consumable time debe tener zona explícita (se normaliza a UTC).");
     }
   }
-  const SHA256_PATTERN = /^[0-9a-fA-F]{64}$/;
+  const evidenceRegistry = normalizeAuditedEvidence(auditedEvidence);
+  if (!evidenceRegistry.ok) {
+    errors.push(...evidenceRegistry.errors);
+  }
   let consumableEvidence = null;
   if (input.consumableEvidence !== undefined && input.consumableEvidence !== null) {
     const evidence = input.consumableEvidence;
@@ -131,15 +219,62 @@ export function buildPitRecord(input) {
         "La evidencia de consumo requiere source y locator no vacíos, y sha256 hexadecimal de 64 caracteres cuando se declara (§6.1).",
       );
     } else {
-      consumableEvidence = { source: evidence.source, locator: evidence.locator };
+      consumableEvidence = { source: evidence.source, locator: evidence.locator, auditLinked: false, auditId: null };
       if (evidence.sha256 !== undefined && evidence.sha256 !== null) {
         consumableEvidence.sha256 = evidence.sha256.toLowerCase();
       }
     }
   }
 
+  // Vínculo con el audit (§6.4, DEP-07): source+locator sólo son la dirección
+  // de la evidencia; lo que la acredita es una atestación del audit para esta
+  // misma versión (key, revisionId), este mismo instante de consumo y el mismo
+  // hash. Sin atestación el consumo no está demostrado (unavailable, §6.1);
+  // con atestación y hash distinto es evidencia adulterada: se rechaza.
+  if (consumableEvidence !== null && evidenceRegistry.ok && consumable.ok) {
+    const audited = evidenceRegistry.entries.find(
+      (entry) => entry.source === consumableEvidence.source
+        && entry.locator === consumableEvidence.locator
+        && entry.key === input.key
+        && entry.revisionId === revisionId
+        && entry.consumableAtUtc === consumable.utc,
+    );
+    if (audited !== undefined && consumableEvidence.sha256 !== undefined && consumableEvidence.sha256 !== audited.sha256) {
+      fail(
+        errors,
+        "consumableEvidence",
+        "EVIDENCE_HASH_MISMATCH",
+        `El hash de la evidencia de consumo no coincide con el verificado por el audit ${audited.auditId} (§6.4).`,
+      );
+    } else if (audited !== undefined && consumableEvidence.sha256 === audited.sha256) {
+      consumableEvidence.auditLinked = true;
+      consumableEvidence.auditId = audited.auditId;
+    }
+  }
+
+  // §6.2: "Los proxies deben estar predeclarados, identificados, permitidos y
+  // ser point-in-time válidos". Un proxyId suelto no identifica nada: debe
+  // existir una declaración para este key. Si la declaración lo permite y en
+  // qué instante se declaró se evalúa por boundary en la decision view.
+  const proxyRegistry = normalizeProxyDeclarations(proxyDeclarations);
+  if (!proxyRegistry.ok) {
+    errors.push(...proxyRegistry.errors);
+  }
+  let proxyDeclaration = null;
   if (input.proxy === true && !isNonEmptyString(input.proxyId)) {
     fail(errors, "proxyId", "MISSING_PROXY_ID", "Un proxy debe estar identificado; no se relabela como oficial (§6.2).");
+  } else if (input.proxy === true && proxyRegistry.ok) {
+    const declared = proxyRegistry.declarations.find(
+      (entry) => entry.key === input.key && entry.proxyId === input.proxyId,
+    );
+    if (declared === undefined) {
+      fail(errors, "proxyId", "PROXY_NOT_DECLARED", `El proxy "${input.proxyId}" no está predeclarado para "${input.key}" (§6.2).`);
+    } else {
+      proxyDeclaration = { allowed: declared.allowed, declaredAtUtc: declared.declaredAtUtc };
+    }
+  }
+  if (input.proxy !== true && input.proxyId !== undefined && input.proxyId !== null) {
+    fail(errors, "proxyId", "PROXY_ID_WITHOUT_PROXY", "Un proxyId exige proxy: true; no se mezcla un dato proxy con uno oficial (§6.2).");
   }
 
   if (errors.length > 0) {
@@ -162,12 +297,11 @@ export function buildPitRecord(input) {
     return { ok: false, errors };
   }
 
-  // Consumo demostrado exige las cuatro piezas de §6.1: valor presente,
-  // publicación en origen (no se puede consumir lo que nunca se publicó),
-  // timestamp de consumo y evidencia contemporánea verificable de ese consumo.
-  // El timestamp sin evidencia no demuestra nada: la evidencia es la prueba,
-  // el timestamp es sólo su instante. Sin cualquiera de las piezas, unavailable.
-  const consumability = valuePresent && published.utc !== null && consumable.utc !== null && consumableEvidence !== null
+  // Consumo demostrado exige las piezas de §6.1: valor presente, publicación
+  // en origen, timestamp de consumo y evidencia contemporánea vinculada al
+  // audit por hash (§6.4). Sin cualquiera de las piezas, unavailable.
+  const evidenceLinked = consumableEvidence !== null && consumableEvidence.auditLinked === true;
+  const consumability = valuePresent && published.utc !== null && consumable.utc !== null && evidenceLinked
     ? "demonstrated"
     : "unavailable";
 
@@ -189,6 +323,7 @@ export function buildPitRecord(input) {
     revisionOf,
     proxy: input.proxy === true,
     proxyId: input.proxyId ?? null,
+    proxyDeclaration,
   };
   if (valuePresent) {
     record.value = input.value;
@@ -211,6 +346,29 @@ export function buildPitRecord(input) {
   return { ok: true, record };
 }
 
+// Proxy admisible en la decision view de un boundary (§6.2): declarado,
+// permitido y declarado antes o en el boundary (predeclarado ex ante). Un
+// record no-proxy es siempre admisible. Un proxy sin declaración adjunta
+// (manifest armado a mano) no es admisible.
+export function isProxyAdmissibleAtBoundary(record, boundaryUtc) {
+  if (record?.proxy !== true) {
+    return { admissible: true, reason: null };
+  }
+  const declaration = record.proxyDeclaration;
+  if (!declaration || typeof declaration.declaredAtUtc !== "string") {
+    return { admissible: false, reason: "proxy sin declaración previa (§6.2)" };
+  }
+  // Primero el instante: una declaración posterior al boundary no existe en
+  // él, así que su contenido (permitido o no) no puede afectar la respuesta.
+  if (Date.parse(declaration.declaredAtUtc) > Date.parse(boundaryUtc)) {
+    return { admissible: false, reason: "proxy no predeclarado en este boundary (§6.2)" };
+  }
+  if (declaration.allowed !== true) {
+    return { admissible: false, reason: "proxy declarado pero no permitido (§6.2)" };
+  }
+  return { admissible: true, reason: null };
+}
+
 // Prueba de consumo en un boundary (§6.1: sólo se expone información cuyo
 // consumo real en ese momento pueda demostrarse).
 export function isConsumableAtBoundary(record, boundaryUtc) {
@@ -227,15 +385,24 @@ export function isConsumableAtBoundary(record, boundaryUtc) {
   if (record.publishedAtUtc === null) {
     return { consumable: false, reason: "sin publicación en origen; disponibilidad no demostrada (§6.1)" };
   }
+  if (Date.parse(record.publishedAtUtc) > boundary) {
+    return { consumable: false, reason: "no publicado en este boundary (§6.1)" };
+  }
   if (record.consumableAtUtc === null) {
     return { consumable: false, reason: "consumo no demostrado (§6.1)" };
   }
-  if (record.consumableEvidence === null) {
+  // Consumo posterior al boundary: la razón no distingue "llegará a ser
+  // consumible" de "nunca demostrado", ni mira la evidencia de ese consumo
+  // futuro; la respuesta en un boundary histórico sólo depende de hechos
+  // anteriores a él (§6.1, §14.7).
+  if (Date.parse(record.consumableAtUtc) > boundary) {
+    return { consumable: false, reason: "consumo no demostrado en este boundary (§6.1)" };
+  }
+  if (record.consumableEvidence === null || record.consumableEvidence === undefined) {
     return { consumable: false, reason: "consumo sin evidencia contemporánea verificable; no demostrado (§6.1)" };
   }
-  const consumable = Date.parse(record.consumableAtUtc);
-  if (consumable > boundary) {
-    return { consumable: false, reason: "aún no consumible en este boundary" };
+  if (record.consumableEvidence.auditLinked !== true) {
+    return { consumable: false, reason: "evidencia de consumo sin vínculo comprobado con el audit (hash); no demostrado (§6.1/§6.4)" };
   }
   return { consumable: true, reason: null };
 }

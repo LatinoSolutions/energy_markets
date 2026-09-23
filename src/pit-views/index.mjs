@@ -10,6 +10,9 @@ export {
 export {
   buildPitRecord,
   isConsumableAtBoundary,
+  isProxyAdmissibleAtBoundary,
+  normalizeAuditedEvidence,
+  normalizeProxyDeclarations,
   semanticsOf,
   VIEW_SCOPES,
 } from "./pit-record.mjs";
