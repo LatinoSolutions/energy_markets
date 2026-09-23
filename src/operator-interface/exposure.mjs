@@ -108,6 +108,42 @@ function fail(field, code, message) {
   return { ok: false, errors: [{ field, code, message }] };
 }
 
+// OI29-10 (review 2026-09-23; §26.3): cada sección observa una vista canónica
+// concreta (§6.1). El sourceKind declarado sólo es veraz si el registro
+// referenciado pertenece a la vista canónica de su sección: una recomendación
+// proviene del Decision-time view; outcomes y benchmark cerrado, de la
+// Evaluation view. Un registro decision no es un outcome ni un registro de
+// evaluación una recomendación, por más que el llamador lo rotule (§25.1).
+const SOURCE_KIND_VIEW_SCOPES = Object.freeze(new Map([
+  [EXPOSURE_SOURCE_KIND.MARKET_CONTEXT, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.CAMPAIGN_IDENTITY, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.PROCUREMENT_WINDOW, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.POLICY_AUTHORITY, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.PROCUREMENT_STATE, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.RECOMMENDATION, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.EXECUTION, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.STRATEGY_EVIDENCE, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.QUALITY_PROVENANCE, ["decision"]],
+  // §26.3: el benchmark cerrado acompaña la evaluación posterior (Evaluation
+  // view); un proxy declarado al decidir es contenido del Decision-time view.
+  [EXPOSURE_SOURCE_KIND.PROXY_BENCHMARK, ["decision", "evaluation"]],
+  [EXPOSURE_SOURCE_KIND.WORKING_MODE, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.HUMAN_INTERVENTION, ["decision"]],
+  [EXPOSURE_SOURCE_KIND.GOVERNANCE_STATE, ["decision"]],
+  // §26.3: los outcomes provienen de la Evaluation view; el registro decision
+  // no es un outcome.
+  [EXPOSURE_SOURCE_KIND.OUTCOME, ["evaluation"]],
+]));
+
+function viewScopeOfSourceKind(sourceKind) {
+  return SOURCE_KIND_VIEW_SCOPES.get(sourceKind) ?? null;
+}
+
+function sourceKindMatchesViewScope(sourceKind, recordViewScope) {
+  const allowed = viewScopeOfSourceKind(sourceKind);
+  return allowed !== null && allowed.includes(recordViewScope);
+}
+
 function deepFreeze(value) {
   if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
     return value;
@@ -179,6 +215,14 @@ function validateProvenance(provenance, field, errors, backendIndex) {
   }
   const resolved = requireBackendRecord(backendIndex, provenance, errors, "el valor mostrado no remite a un registro/versión canónico");
   if (resolved === null) {
+    return null;
+  }
+  if (!sourceKindMatchesViewScope(provenance.sourceKind, resolved.viewScope)) {
+    errors.push({
+      field: "provenance.sourceKind",
+      code: "SOURCE_KIND_VIEW_SCOPE_MISMATCH",
+      message: `"${provenance.sourceKind}" no proviene de la vista canónica del registro referenciado ("${resolved.viewScope}"); la sección observa una vista distinta (§26.3).`,
+    });
     return null;
   }
   return deepFreeze({
@@ -358,6 +402,14 @@ function validateProvenanceWithoutValue(provenance, field, errors, backendIndex)
   if (resolved === null) {
     return null;
   }
+  if (!sourceKindMatchesViewScope(provenance.sourceKind, resolved.viewScope)) {
+    errors.push({
+      field: "provenance.sourceKind",
+      code: "SOURCE_KIND_VIEW_SCOPE_MISMATCH",
+      message: `"${provenance.sourceKind}" no proviene de la vista canónica del registro referenciado ("${resolved.viewScope}"); la sección observa una vista distinta (§26.3).`,
+    });
+    return null;
+  }
   return deepFreeze({
     sourceKind: provenance.sourceKind,
     recordKey: provenance.recordKey,
@@ -369,15 +421,18 @@ function validateProvenanceWithoutValue(provenance, field, errors, backendIndex)
 
 // OI29-05 (review 2026-09-23): el reloj de disponibilidad depende del scope de
 // la vista canónica del registro (§6.1/§26.3). En el Decision-time view la
-// policy consume en su reloj de consumo: un dato publicado pero aún no
-// consumible no entra (§25.1 IMP-06/IMP-29). El reloj de contenido
+// policy consume en su reloj de consumo demostrado: un dato publicado pero
+// aún no consumible (o sin consumo demostrado) no entra (§25.1 IMP-06/IMP-29). El reloj de contenido
 // (receipt/publicación) sólo rige los registros de la Evaluation view.
+// OI29-09 (review 2026-09-23): en decision el reloj es el consumo DEMOSTRADO
+// (consumableFromUtc, §6.1), no la declarativa consumableAtUtc: un valor sin
+// evidencia de consumo demostrado no era conocido por la policy en el boundary.
 function availabilityClockOf(backendRecord) {
   if (backendRecord === null) {
     return null;
   }
   if (backendRecord.viewScope === "decision") {
-    return typeof backendRecord.consumableAtUtc === "string" ? backendRecord.consumableAtUtc : null;
+    return typeof backendRecord.consumableFromUtc === "string" ? backendRecord.consumableFromUtc : null;
   }
   if (typeof backendRecord.effectiveAtUtc === "string") {
     return backendRecord.effectiveAtUtc;
@@ -392,7 +447,7 @@ function notYetClosedReason(viewScope, availabilityUtc) {
       : `la versión canónica referida tiene contenido disponible desde ${availabilityUtc}, posterior al boundary; sólo evaluación posterior (§26.3)`;
   }
   return availabilityUtc === null
-    ? "la versión canónica referida no declara consumo demostrado por la policy (§6.1/§26.3); lo publicado pero aún no consumible no entra (§25.1 IMP-29)"
+    ? "la versión canónica referida no declara consumo demostrado por la policy (§6.1/§26.3); lo publicado pero no demostrado consumible no entra (§25.1 IMP-29)"
     : `la versión canónica referida es consumible por la policy desde ${availabilityUtc}, posterior al boundary; lo publicado pero aún no consumible no entra (§6.1/§25.1/§26.3)`;
 }
 

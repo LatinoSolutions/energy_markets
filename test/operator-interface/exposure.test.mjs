@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
+import { readDecisionView } from "../../src/pit-views/index.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELDS,
@@ -373,4 +374,96 @@ test("boundary sin zona explícita se rechaza", () => {
   const outcome = buildExposure({ boundaryUtc: "2026-04-01T07:00:00" });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.errors[0].code, "NOT_UTC_ANCHORED");
+});
+
+// OI29-09 (§6.1/§26.6): el consumo declarado (consumableAtUtc) no basta; el
+// reloj de decisión es el consumo DEMOSTRADO (consumableFromUtc). Un registro
+// con valor y timestamp de consumo pero sin evidencia de consumo queda
+// unavailable en la vista canónica (§6.1) y no se expone AVAILABLE: esa
+// coerción escondería una condición unavailable (§26.2).
+function nondemonstratedRecord() {
+  return {
+    key: "G0BQ.202604.nodemo",
+    viewScope: "decision",
+    occurredAtUtc: "2026-03-31T17:15:00Z",
+    publishedAtUtc: "2026-03-31T18:00:00Z",
+    consumableAtUtc: "2026-04-01T06:00:00Z",
+    revisionId: "v1",
+    value: 24.35,
+  };
+}
+
+test("un registro decision sin consumo demostrado no se expone como AVAILABLE", () => {
+  const record = nondemonstratedRecord();
+  const { manifest } = backendFor([record]);
+  // Coherencia con la vista canónica: sin evidencia, el valor no es consumible
+  // al boundary; la decisión lo declara como unavailable (§6.1).
+  const decisionView = readDecisionView(manifest, "2026-04-01T07:00:00Z");
+  assert.equal(decisionView.ok, true);
+  assert.equal(decisionView.visible.length, 0);
+
+  const outcome = buildExposure({
+    boundaryUtc: "2026-04-01T07:00:00Z",
+    backendManifest: manifest,
+    observations: [{
+      field: "recommendation",
+      condition: EXPOSURE_CONDITION.AVAILABLE,
+      value: 24.35,
+      provenance: provenance(EXPOSURE_SOURCE_KIND.RECOMMENDATION, record),
+    }],
+  });
+  assert.equal(outcome.ok, true);
+  const recommendation = outcome.exposure.fields.find((f) => f.field === "recommendation");
+  assert.equal(recommendation.condition, EXPOSURE_CONDITION.NOT_YET_CLOSED, JSON.stringify(recommendation));
+  assert.equal(recommendation.value, undefined);
+  assert.ok(recommendation.reason.includes("consumo demostrado"), recommendation.reason);
+  assert.ok(outcome.exposure.hasUnavailableContent, true);
+});
+
+// OI29-10 (§26.3/§25.1): el sourceKind declarado no se acepta sólo por forma;
+// se contrasta con la vista canónica del registro referenciado. Un benchmark
+// cerrado (Evaluation view) no puede mostrarse como recomendación y un
+// registro decision no puede mostrarse como outcome.
+test("un registro de la evaluation view no se rotula como recomendación", () => {
+  const { index } = backendFor([EVALUATION_BENCHMARK]);
+  const outcome = buildExposureField({
+    field: "recommendation",
+    condition: EXPOSURE_CONDITION.AVAILABLE,
+    value: EVALUATION_BENCHMARK.value,
+    provenance: provenance(EXPOSURE_SOURCE_KIND.RECOMMENDATION, EVALUATION_BENCHMARK),
+  }, { backendIndex: index });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "SOURCE_KIND_VIEW_SCOPE_MISMATCH");
+});
+
+test("un registro del decision view no se rotula como outcome", () => {
+  const { index } = backendFor([DECISION_BASE]);
+  const outcome = buildExposureField({
+    field: "outcomes",
+    condition: EXPOSURE_CONDITION.AVAILABLE,
+    value: DECISION_BASE.value,
+    provenance: provenance(EXPOSURE_SOURCE_KIND.OUTCOME, DECISION_BASE),
+  }, { backendIndex: index });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "SOURCE_KIND_VIEW_SCOPE_MISMATCH");
+});
+
+test("las vistas canónicas admiten las secciones correspondientes a su sourceKind", () => {
+  const decision = { ...DECISION_BASE };
+  const { index } = backendFor([decision, EVALUATION_BENCHMARK]);
+  const decisionOutcome = buildExposureField({
+    field: "recommendation",
+    condition: EXPOSURE_CONDITION.AVAILABLE,
+    value: decision.value,
+    provenance: provenance(EXPOSURE_SOURCE_KIND.RECOMMENDATION, decision),
+  }, { backendIndex: index });
+  assert.equal(decisionOutcome.ok, true);
+
+  const evaluationOutcome = buildExposureField({
+    field: "outcomes",
+    condition: EXPOSURE_CONDITION.AVAILABLE,
+    value: EVALUATION_BENCHMARK.value,
+    provenance: provenance(EXPOSURE_SOURCE_KIND.OUTCOME, EVALUATION_BENCHMARK),
+  }, { backendIndex: index });
+  assert.equal(evaluationOutcome.ok, true);
 });
