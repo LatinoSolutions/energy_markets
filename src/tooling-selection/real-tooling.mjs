@@ -165,7 +165,7 @@ const IN_REPO_BENCHMARK = Object.freeze({
     Object.freeze({ kind: "accepted-receipt", ref: "operations/receipts/IMP-08-IMP_RECEIPT.json", sha256: "43b56173f021331a889393d3697f1ca8bdf40491e450798238044ac8decc9625" }),
     Object.freeze({ kind: "source", ref: "src/economic-calculation/benchmark.mjs", sha256: "0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1" }),
     Object.freeze({ kind: "source", ref: "src/economic-calculation/reference.mjs", sha256: "c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b" }),
-    Object.freeze({ kind: "source", ref: "src/economic-calculation/index.mjs", sha256: "04217b163082ac848a5088a2120fb201d32b64ab9e6737b2179e7b20da2e8d66" }),
+    Object.freeze({ kind: "source", ref: "src/economic-calculation/index.mjs", sha256: "a832aaae9cc7c3b63ec5a919cdb70f20081ad37f6553e99ec8c88e367b18b7aa" }),
   ]),
 });
 
