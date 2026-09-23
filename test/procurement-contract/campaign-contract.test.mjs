@@ -11,6 +11,7 @@ import {
   convertMwToMwh,
   createGasQuarterlyFicha,
   createGasQuarterlyValidationFicha,
+  deriveQuarterlyEpisodeDeadline,
   episodeObligationIdFor,
   evaluateImp02Acceptance,
   IMP02_REQUIRED_FACT_IDS,
@@ -20,6 +21,9 @@ import {
   validateCampaignContract,
   validateQuarterlyEpisodeSequence,
 } from "../../src/procurement-contract/index.mjs";
+import { EEX_QUARTERLY_DEADLINE_EVIDENCE } from "../../src/procurement-contract/eex-deadline-evidence.mjs";
+
+const EVIDENCE_2021Q1 = EEX_QUARTERLY_DEADLINE_EVIDENCE["2021Q1"];
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..");
@@ -346,21 +350,130 @@ test("un deadline fuera de la ventana de trading del episodio no determina deadl
   }
 });
 
-// El deadline del episodio 2021Q1 (trading en sep/oct/nov-2020, gap dic-2020,
-// entrega 2021Q1) sólo instancia el cierre dentro de su ventana de trading; con
-// fecha instanciable y dentro de la ventana el deadline queda determinado.
-test("un deadline real dentro de la ventana de trading del episodio se determina", () => {
-  for (const deadlineValue of ["2020-09-01", "2020-11-30", "2020-11-30T23:00Z"]) {
-    const ficha = createGasQuarterlyValidationFicha("2021Q1");
-    Object.assign(fact(ficha, "campaign.calendar.deadline"), {
-      availability: "AVAILABLE_NOW",
-      value: deadlineValue,
-      source: { authority: "Bru (owner)", locator: "fixture sintético" },
-      reason: null,
-    });
+// Regresión de los hallazgos del review 204302 (IMP02-DEADLINE-DERIVABLE y
+// IMP02-DEADLINE-WINDOW-PERMISSIVE, §13.4): el deadline del episodio se deriva
+// de la evidencia EEX del lago (fila real G0BQ 202101 del 2020-11-30) y una
+// fecha cualquiera dentro de la ventana, aun con provenance, es fail-closed si
+// no es el último día efectivo respaldado por evidencia.
+
+function episodeWithDeadline(maturity, { value, source = { authority: "Bru (owner)", locator: "fixture sintético" }, evidenceTradeRows } = {}) {
+  const ficha = createGasQuarterlyValidationFicha(maturity);
+  Object.assign(fact(ficha, "campaign.calendar.deadline"), {
+    availability: "AVAILABLE_NOW",
+    value,
+    unit: null,
+    source,
+    evidenceTradeRows,
+    reason: null,
+  });
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  return ficha;
+}
+
+test("deriveQuarterlyEpisodeDeadline: la fila real del 2020-11-30 instancia L y determina:true (positivo)", () => {
+  const derived = deriveQuarterlyEpisodeDeadline("2021Q1", EVIDENCE_2021Q1.tradeRows);
+  assert.equal(derived.determined, true);
+  assert.equal(derived.deadline, "2020-11-30");
+  assert.equal(derived.lastWindowDay, "2020-11-30");
+  assert.equal(derived.evidence[0].TrdID, "1966");
+  assert.equal(derived.reason, null);
+});
+
+test("deriveQuarterlyEpisodeDeadline: día anterior a L es fail-closed, y maturity/producto/ExpiryDate/provenance ajenos no cuentan", () => {
+  const row = EVIDENCE_2021Q1.tradeRows[0];
+  // 2020-10-15 dentro de la ventana pero anterior a L → fail-closed.
+  const midWindow = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, TrdDate: "2020-10-15", TrdID: "TEST" }]);
+  assert.equal(midWindow.determined, false);
+  assert.ok(midWindow.reason.includes("anterior al último día calendario"));
+  // Último trade el 27-nov sin evidencia del 30 → fail-closed.
+  const noEvidenceAtL = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, TrdDate: "2020-11-27", TrdID: "TEST-27" }]);
+  assert.equal(noEvidenceAtL.determined, false);
+  // Maturity de otro quarter (202104) o ProductISIN ajeno no sustentan 2021Q1.
+  const otherMaturity = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, Maturity: "202104" }]);
+  assert.equal(otherMaturity.determined, false);
+  const otherProduct = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, ProductISIN: "DE000A0G9FX0" }]);
+  assert.equal(otherProduct.determined, false);
+  // ExpiryDate anterior al candidato → no es evidencia positiva (contrato expirado).
+  const earlyExpiry = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, ExpiryDate: "2020-11-27" }]);
+  assert.equal(earlyExpiry.determined, false);
+  // Sin integridad row-level del lake → sin evidencia.
+  const noProvenance = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, _row_sha256: "" }]);
+  assert.equal(noProvenance.determined, false);
+  // Fecha en diciembre (gap) → fuera de la ventana de trading, no cuenta.
+  const inGap = deriveQuarterlyEpisodeDeadline("2021Q1", [{ ...row, TrdDate: "2020-12-15", ExpiryDate: "2021-03-29" }]);
+  assert.equal(inGap.determined, false);
+  assert.ok(inGap.reason.includes("Sin evidencia positiva"));
+});
+
+test("un deadline dentro de la ventana pero sin evidencia EEX no determina deadline (fail-closed)", () => {
+  for (const deadlineValue of ["2020-09-01", "2020-10-15", "2020-11-30", "2020-11-30T23:00Z"]) {
+    const ficha = episodeWithDeadline("2021Q1", { value: deadlineValue });
     const outcome = resolveObligationDeadline(ficha);
-    assert.equal(outcome.determined, true, deadlineValue);
-    assert.equal(outcome.deadline, deadlineValue, deadlineValue);
+    assert.equal(outcome.determined, false, deadlineValue);
+    assert.equal(outcome.deadline, null, deadlineValue);
+    assert.ok(outcome.reason.includes("no queda respaldado por evidencia de trading"), deadlineValue);
+    assert.equal(ficha.acceptanceCriterion.deadline.determined, false, deadlineValue);
+    assert.equal(ficha.acceptanceCriterion.criterionMet, false, deadlineValue);
+    assert.ok(ficha.acceptanceCriterion.deadline.blockedBy.includes("campaign.calendar.deadline"));
+  }
+});
+
+test("el deadline del episodio es el último día efectivo respaldado por evidencia EEX (§13.4/P-006)", () => {
+  // Positivo: la fecha derivada de la fila real se instancia.
+  const determinedFicha = episodeWithDeadline("2021Q1", {
+    value: "2020-11-30",
+    source: fact(createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1), "campaign.calendar.deadline").source,
+    evidenceTradeRows: EVIDENCE_2021Q1.tradeRows,
+  });
+  const outcome = resolveObligationDeadline(determinedFicha);
+  assert.equal(outcome.determined, true);
+  assert.equal(outcome.deadline, "2020-11-30");
+  assert.equal(determinedFicha.acceptanceCriterion.deadline.determined, true);
+  assert.ok(!determinedFicha.acceptanceCriterion.deadline.blockedBy.includes("campaign.calendar.deadline"));
+  assert.equal(determinedFicha.acceptanceCriterion.criterionMet, true);
+  assert.deepEqual(validateCampaignContract(determinedFicha).errors, []);
+
+  // Con evidencia el deadline debe coincidir exactamente con la derivada.
+  const wrongValue = episodeWithDeadline("2021Q1", { value: "2020-10-15", evidenceTradeRows: EVIDENCE_2021Q1.tradeRows });
+  const wrongOutcome = resolveObligationDeadline(wrongValue);
+  assert.equal(wrongOutcome.determined, false);
+  assert.ok(wrongOutcome.reason.includes("no coincide con el último día efectivo derivado"));
+});
+
+test("la ficha de episodio con evidencia publica la fecha derivada con provenance y ruleText conservado", () => {
+  const ficha = createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1);
+  const deadline = fact(ficha, "campaign.calendar.deadline");
+  assert.equal(deadline.value, "2020-11-30");
+  assert.equal(deadline.ruleText, "Exact target position by the end of the final effective trading day");
+  assert.equal(deadline.source.rowSha256, EVIDENCE_2021Q1.tradeRows[0]._row_sha256);
+  assert.equal(deadline.source.pullId, EVIDENCE_2021Q1.tradeRows[0]._pull_id);
+  assert.equal(deadline.source.requestPath, EVIDENCE_2021Q1.tradeRows[0]._request_path);
+  assert.equal(deadline.source.responseSha256, EVIDENCE_2021Q1.tradeRows[0]._response_sha256);
+  assert.equal(deadline.source.trdId, "1966");
+  assert.equal(deadline.source.instrumentIsin, "DE000C273M16");
+  assert.equal(deadline.source.expiryDate, "2020-12-29");
+  assert.equal(deadline.source.parquetSha256, EVIDENCE_2021Q1.lake.parquetSha256);
+  assert.equal(deadline.source.clientRule.quote, deadline.ruleText);
+  assert.equal(deadline.source.identityInference.derived, true);
+  assert.deepEqual(deadline.evidenceTradeRows, EVIDENCE_2021Q1.tradeRows);
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+  // La ficha sin evidencia sigue publicando la regla, no la fecha.
+  const withoutEvidence = createGasQuarterlyValidationFicha("2021Q1");
+  assert.equal(fact(withoutEvidence, "campaign.calendar.deadline").value, deadline.ruleText);
+  assert.equal(resolveObligationDeadline(withoutEvidence).determined, false);
+});
+
+test("una evidencia que no deriva el deadline impide construir la ficha instanciada (fail-closed)", () => {
+  const row = EVIDENCE_2021Q1.tradeRows[0];
+  for (const broken of [
+    [{ ...row, TrdDate: "2020-10-15" }],
+    [{ ...row, TrdDate: "2020-11-27" }],
+    [{ ...row, Maturity: "202104" }],
+    [{ ...row, _row_sha256: "" }],
+    [],
+  ]) {
+    assert.throws(() => createGasQuarterlyValidationFicha("2021Q1", { ...EVIDENCE_2021Q1, tradeRows: broken }), TypeError, JSON.stringify(broken));
   }
 });
 
@@ -1283,5 +1396,5 @@ test("el artefacto publicado del episodio 2021Q1 se valida y coincide con el bui
   const outcome = validateCampaignContract(artifact);
   assert.equal(outcome.ok, true);
   assert.equal(outcome.campaignIdentified, true);
-  assert.deepEqual(artifact, createGasQuarterlyValidationFicha("2021Q1"));
+  assert.deepEqual(artifact, createGasQuarterlyValidationFicha("2021Q1", EVIDENCE_2021Q1));
 });

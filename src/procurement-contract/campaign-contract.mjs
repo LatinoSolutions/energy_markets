@@ -1013,6 +1013,144 @@ function episodeDeadlineWindow(maturity) {
   };
 }
 
+// Derivador determinista del deadline de un episodio Quarterly desde la
+// evidencia de trades EEX del lake (revisión 204302; §13.4/deadline, P-006).
+// L = último día calendario del mes −2 antes del inicio del quarter (reutiliza
+// episodeDeadlineWindow). El candidato es el mayor TrdDate de la ventana con
+// evidencia POSITIVA de Exchange del instrumento/maturity exactos
+// (NATGAS/THE, ProductISIN DE000A0MEW99, Maturity YYYY{01|04|07|10} del
+// quarter) con ExpiryDate ≥ su TrdDate e integridad row-level del lake
+// (_row_sha256/_pull_id/_request_path/_response_sha256). Un trade en L prueba
+// Exchange Day y tradabilidad ese día; sólo candidate == L determina el
+// deadline. Último trade anterior a L → fail-closed ("días finales sin
+// evidencia positiva de Exchange Day"); la ausencia de trades no prueba que no
+// fuera Exchange Day, así que se completa con heurística de fines de semana.
+const QUARTER_FIRST_MONTH = { 1: "01", 2: "04", 3: "07", 4: "10" };
+const DEADLINE_EVIDENCE_EXCHANGE = { Cmdty: "NATGAS", Area: "THE", ProductISIN: "DE000A0MEW99", TrdType: "Exchange" };
+
+function plainIsoCalendarDay(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !isRealIsoCalendarDate(value)) {
+    return null;
+  }
+  return value;
+}
+
+function tradeRowHasLakeIntegrity(row) {
+  return ["_row_sha256", "_pull_id", "_request_path", "_response_sha256"]
+    .every((field) => isNonEmptyString(row?.[field]));
+}
+
+function positiveExchangeEvidence(row, expectedMaturity, window) {
+  if (!row || typeof row !== "object") {
+    return false;
+  }
+  if (plainIsoCalendarDay(row.TrdDate) === null) {
+    return false;
+  }
+  const tradeDay = Date.UTC(Number(row.TrdDate.slice(0, 4)), Number(row.TrdDate.slice(5, 7)) - 1, Number(row.TrdDate.slice(8, 10)));
+  const expiryDay = plainIsoCalendarDay(row.ExpiryDate);
+  return window.startsAt <= tradeDay && tradeDay < window.endsExclusive
+    && tradeRowHasLakeIntegrity(row)
+    && row.Cmdty === DEADLINE_EVIDENCE_EXCHANGE.Cmdty
+    && row.Area === DEADLINE_EVIDENCE_EXCHANGE.Area
+    && row.ProductISIN === DEADLINE_EVIDENCE_EXCHANGE.ProductISIN
+    && row.TrdType === DEADLINE_EVIDENCE_EXCHANGE.TrdType
+    && row.Maturity === expectedMaturity
+    && expiryDay !== null
+    && Date.UTC(Number(expiryDay.slice(0, 4)), Number(expiryDay.slice(5, 7)) - 1, Number(expiryDay.slice(8, 10))) >= tradeDay;
+}
+
+export function deriveQuarterlyEpisodeDeadline(maturity, tradeRows) {
+  const window = episodeDeadlineWindow(maturity);
+  if (!window) {
+    return {
+      determined: false,
+      deadline: null,
+      lastWindowDay: null,
+      evidence: [],
+      reason: `La maturity "${maturity}" no es YYYYQn (Q1–Q4); sin episodio determinista el deadline no es derivable (P-006 punto 6).`,
+    };
+  }
+  const lastCalendarWindowDayDate = new Date(window.endsExclusive - 86400000);
+  const pad2 = (value) => String(value).padStart(2, "0");
+  const lastCalendarWindowDay = `${lastCalendarWindowDayDate.getUTCFullYear()}-${pad2(lastCalendarWindowDayDate.getUTCMonth() + 1)}-${pad2(lastCalendarWindowDayDate.getUTCDate())}`;
+  const expectedMaturity = `${maturity.slice(0, 4)}${QUARTER_FIRST_MONTH[Number(maturity.slice(5))]}`;
+  const rows = Array.isArray(tradeRows) ? tradeRows : [];
+  const evidence = rows.filter((row) => positiveExchangeEvidence(row, expectedMaturity, window));
+  if (evidence.length === 0) {
+    return {
+      determined: false,
+      deadline: null,
+      lastWindowDay: lastCalendarWindowDay,
+      evidence: [],
+      reason: `Sin evidencia positiva de trade Exchange del instrumento/maturity exactos (${expectedMaturity}, NATGAS/THE, DE000A0MEW99) dentro de la ventana de trading; fail-closed.`,
+    };
+  }
+  const candidate = evidence.map((row) => row.TrdDate).sort().at(-1);
+  if (candidate !== lastCalendarWindowDay) {
+    return {
+      determined: false,
+      deadline: null,
+      lastWindowDay: lastCalendarWindowDay,
+      evidence: [],
+      reason: `El último trade con evidencia es ${candidate}, anterior al último día calendario de la ventana (${lastCalendarWindowDay}); días finales sin evidencia positiva de Exchange Day: fail-closed, sin heurística de fines de semana.`,
+    };
+  }
+  return {
+    determined: true,
+    deadline: lastCalendarWindowDay,
+    lastWindowDay: lastCalendarWindowDay,
+    evidence: evidence.filter((row) => row.TrdDate === candidate),
+    reason: null,
+  };
+}
+
+// Fact de deadline instanciada desde evidencia EEX (DERIVADA, no escrita a
+// mano): el valor es la fecha derivada; la regla de cierre del paquete cliente
+// se conserva como ruleText; el provenance lleva hashes del lake y de la fila,
+// el TrdID/InstrumentISIN/ExpiryDate del trade y la inferencia de identidad
+// quarter marcada como derivada (prescripción review 204302 punto 2).
+export function quarterlyDeadlineFact(maturity, evidence) {
+  const derived = deriveQuarterlyEpisodeDeadline(maturity, evidence?.tradeRows);
+  if (!derived.determined) {
+    throw new TypeError(`La evidencia aportada no instancia el deadline del episodio ${maturity}: ${derived.reason}`);
+  }
+  const row = derived.evidence[0];
+  const lake = evidence?.lake && typeof evidence.lake === "object" ? evidence.lake : {};
+  return {
+    factId: "campaign.calendar.deadline",
+    section: "Calendario",
+    availability: "AVAILABLE_NOW",
+    value: derived.deadline,
+    unit: null,
+    ruleText: CLIENT_PACKAGE_SOURCES.deadline.quote,
+    source: {
+      authority: `Lake EEX (evidencia de mercado, ${isNonEmptyString(lake.table) ? lake.table : "eex_derivative_trade"}); ${CLIENT_PACKAGE_CONFIRMATION.authority}`,
+      locator: `table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=${row.TrdDate}/pull_id=${row._pull_id}/part.parquet`,
+      parquetSha256: isNonEmptyString(lake.parquetSha256) ? lake.parquetSha256 : null,
+      pullId: row._pull_id,
+      requestPath: row._request_path,
+      responseSha256: row._response_sha256,
+      rowSha256: row._row_sha256,
+      trdId: row.TrdID,
+      instrumentIsin: row.InstrumentISIN,
+      expiryDate: row.ExpiryDate,
+      clientRule: {
+        authority: CLIENT_PACKAGE_SOURCES.deadline.authority,
+        locator: "01_campaigns/01_shared_campaign_rules.md §1–§2; 01_campaigns/gas_quarterly.md \"Completion requirement\"",
+        quote: CLIENT_PACKAGE_SOURCES.deadline.quote,
+      },
+      identityInference: {
+        derived: true,
+        description: `Maturity ${row.Maturity} del producto Quarterly = ${maturity}; derivada del patrón DisplayName del lake ("G0BQ Qn-YY" con Maturity igual al primer mes del quarter), sin especificación oficial de contrato EEX contrastada`,
+        basis: "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json quarterlyEvidence.eex_derivative_trade.quarterTokenDisplayNames",
+      },
+    },
+    evidenceTradeRows: derived.evidence,
+    reason: null,
+  };
+}
+
 export function resolveObligationDeadline(ficha) {
   const deadline = (ficha?.facts ?? []).find((fact) => fact.factId === "campaign.calendar.deadline");
   if (deadline?.availability === "AVAILABLE_NOW" && isNonEmptyString(deadline.value) && hasProvenance(deadline)) {
@@ -1051,6 +1189,25 @@ export function resolveObligationDeadline(ficha) {
           determined: false,
           deadline: null,
           reason: `El deadline "${deadline.value}" cae fuera de la ventana de trading del episodio ${episode.maturity}; la convención 3-1-3 deja el último día efectivo de trading en los meses cuarto a segundo previos al quarter (01_shared_campaign_rules.md §1; gas_quarterly.md "Trading-window convention"); no se renombra la fecha del cierre.`,
+        };
+      }
+      // P-006 (endurecimiento; prescripción review 204302 punto 3): el deadline
+      // instanciado debe ser el ÚLTIMO día efectivo de trading respaldado por
+      // evidencia, no cualquier fecha dentro de la ventana. Fail-closed sin
+      // evidencia (la forma válida no demuestra Exchange Day ni tradabilidad).
+      const derived = deriveQuarterlyEpisodeDeadline(episode.maturity, deadline.evidenceTradeRows);
+      if (!derived.determined) {
+        return {
+          determined: false,
+          deadline: null,
+          reason: `El deadline "${deadline.value}" no queda respaldado por evidencia de trading: ${derived.reason} (§13.4; regla del paquete cliente "final effective trading day").`,
+        };
+      }
+      if (deadline.value !== derived.deadline) {
+        return {
+          determined: false,
+          deadline: null,
+          reason: `El deadline "${deadline.value}" no coincide con el último día efectivo derivado de la evidencia (${derived.deadline}); §13.4: el cierre del episodio es la fecha derivada, no otra fecha dentro de la ventana.`,
         };
       }
     }
@@ -1211,7 +1368,7 @@ export function createGasQuarterlyFicha() {
 // exactamente 60 MW en su ventana; Monthly y Quarterly no comparten coverage.
 // No fabrica fills, campaña live ni ownership inexistente (P-006 punto 8): el
 // volumen ejecutado del episodio parte de la apertura documentada.
-export function createGasQuarterlyValidationFicha(maturity) {
+export function createGasQuarterlyValidationFicha(maturity, deadlineEvidence = null) {
   const campaignId = researchCampaignIdFor("Gas", "Quarterly", maturity);
   if (campaignId === null) {
     throw new TypeError("La maturity del episodio debe ser YYYYQn (Q1–Q4); sin ella no hay identidad determinista (P-006 punto 6).");
@@ -1219,6 +1376,14 @@ export function createGasQuarterlyValidationFicha(maturity) {
   if (quarterIndex(maturity) < quarterIndex(VALIDATION_EPISODE_FIRST_MATURITY)) {
     throw new TypeError(`La maturity ${maturity} precede al horizonte histórico de validación (${VALIDATION_EPISODE_FIRST_MATURITY}); no se fabrica un episodio fuera del horizonte documentado (P-006 puntos 2, 7).`);
   }
+  // Deadline del episodio (§13.4/P-006): sin evidencia EEX el fact publica la
+  // regla documentada, no la fecha; con evidencia que derive el último día
+  // efectivo se instancia la fecha derivada con su provenance (hashes del lake).
+  // La evidencia la aporta el caller (fixture/datos del lake); builders/tests
+  // no leen el lago de 93 GB.
+  const deadlineFact = deadlineEvidence === null
+    ? null
+    : quarterlyDeadlineFact(maturity, deadlineEvidence);
   const confirmed = confirmedQuantityFor("Gas", "Quarterly");
   const campaignSource = {
     ...OWNER_P006_CONFIRMATION,
@@ -1369,7 +1534,7 @@ export function createGasQuarterlyValidationFicha(maturity) {
       source: CLIENT_PACKAGE_SOURCES.decisionOpportunities,
       reason: null,
     },
-    {
+    deadlineFact !== null ? deadlineFact : {
       factId: "campaign.calendar.deadline",
       section: "Calendario",
       availability: "AVAILABLE_NOW",

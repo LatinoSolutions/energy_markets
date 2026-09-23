@@ -209,13 +209,63 @@
       "factId": "campaign.calendar.deadline",
       "section": "Calendario",
       "availability": "AVAILABLE_NOW",
-      "value": "Exact target position by the end of the final effective trading day",
+      "value": "2020-11-30",
       "unit": null,
+      "ruleText": "Exact target position by the end of the final effective trading day",
       "source": {
-        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
-        "locator": "01_campaigns/gas_quarterly.md \"Completion requirement\"; ESTADO_INPUTS.csv fila \"Terminal requirement\"",
-        "quote": "Exact target position by the end of the final effective trading day"
+        "authority": "Lake EEX (evidencia de mercado, eex_derivative_trade); Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2020-11-30/pull_id=d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b/part.parquet",
+        "parquetSha256": "65966b6e0ad593473de9f366ee20e100af8c0417700c0715bf7872a468219a18",
+        "pullId": "d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b",
+        "requestPath": "/trd/derivatives/NATGAS/THE/2020-11-30",
+        "responseSha256": "4170d7e9258dd331d7bd9add1077c129a998af549bfd802469ed18db43da3136",
+        "rowSha256": "8c9ab52167f581e2414258526ba4630fd8fd0dc7e0842ce14304e4fe585fc0b2",
+        "trdId": "1966",
+        "instrumentIsin": "DE000C273M16",
+        "expiryDate": "2020-12-29",
+        "clientRule": {
+          "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+          "locator": "01_campaigns/01_shared_campaign_rules.md §1–§2; 01_campaigns/gas_quarterly.md \"Completion requirement\"",
+          "quote": "Exact target position by the end of the final effective trading day"
+        },
+        "identityInference": {
+          "derived": true,
+          "description": "Maturity 202101 del producto Quarterly = 2021Q1; derivada del patrón DisplayName del lake (\"G0BQ Qn-YY\" con Maturity igual al primer mes del quarter), sin especificación oficial de contrato EEX contrastada",
+          "basis": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json quarterlyEvidence.eex_derivative_trade.quarterTokenDisplayNames"
+        }
       },
+      "evidenceTradeRows": [
+        {
+          "_pull_id": "d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b",
+          "_request_path": "/trd/derivatives/NATGAS/THE/2020-11-30",
+          "_retrieved_at_utc": "2026-06-06T00:00:00.0000000+00:00",
+          "_response_sha256": "4170d7e9258dd331d7bd9add1077c129a998af549bfd802469ed18db43da3136",
+          "_row_sha256": "8c9ab52167f581e2414258526ba4630fd8fd0dc7e0842ce14304e4fe585fc0b2",
+          "_api_category": "market-data",
+          "_endpoint_family": "trd",
+          "AgrsrAct": "SELL",
+          "Area": "THE",
+          "Cmdty": "NATGAS",
+          "Currency": "EUR",
+          "ExpiryDate": "2020-12-29",
+          "FromBrokenSpread": "false",
+          "InstrumentISIN": "DE000C273M16",
+          "InstrumentType": "Simple Instrument",
+          "Maturity": "202101",
+          "ProductISIN": "DE000A0MEW99",
+          "Px": "15.15",
+          "ShortCode": "G0BQ",
+          "Sz": "3",
+          "Tm": "2020-11-30T16:39:10.124829Z",
+          "TrdDate": "2020-11-30",
+          "TrdID": "1966",
+          "TrdType": "Exchange",
+          "TrdVol": "6477.0",
+          "UOM": "MWh",
+          "UpdtAct": "New",
+          "VolumeOnly": ""
+        }
+      ],
       "reason": null
     },
     {
@@ -357,18 +407,16 @@
       "reason": null
     },
     "deadline": {
-      "determined": false,
-      "value": null,
-      "blockedBy": [
-        "campaign.calendar.deadline"
-      ],
-      "reason": "No determinable: el calendario publica la regla de cierre del episodio, no la fecha instanciada; §13.4 exige instanciar las fechas reales desde el Procurement Contract y no se infieren."
+      "determined": true,
+      "value": "2020-11-30",
+      "blockedBy": [],
+      "reason": null
     },
     "coverageOwnership": {
       "determined": true,
       "blockedBy": [],
       "reason": null
     },
-    "criterionMet": false
+    "criterionMet": true
   }
 }
