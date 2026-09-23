@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildEligibilityRegister, OOS_PRODUCT, OOS_MISSION } from "../../src/oos-reservation/register-builder.mjs";
-import { reserveSealedOos, CHRONOLOGICAL_RESERVATION_BASIS } from "../../src/oos-reservation/reservation.mjs";
+import { evaluateImp09Acceptance, reserveSealedOos, CHRONOLOGICAL_RESERVATION_BASIS } from "../../src/oos-reservation/reservation.mjs";
 import { IMP09_SPEC_IDENTITY } from "../../src/oos-reservation/campaign-register.mjs";
 
 // Prescripción audit IMP-09 (pasos 3 y 6): builder determinista del registro
@@ -81,17 +81,22 @@ test("la derivaciónvable reproducible: mismo input → mismo registro hash", ()
   assert.equal(first.registerHash, second.registerHash);
 });
 
-test("el registro derivado alimenta la reserva: RESERVED con 8 episodios en ≥2 años", () => {
+test("el registro derivado NO sella: su base es PROXY, no la elegibilidad auditada (§25.1)", () => {
   const built = buildEligibilityRegister(syntheticInput({ from: "2021-01-01", to: "2023-08-31" }));
+  // El builder marca cada episodio derivado como PROXY (no es la determinación
+  // del mandato), de modo que la reserva no lo confunde con el registro auditado.
+  assert.ok(built.register.every((episode) => episode.eligibilityBasis === "PROXY"));
   const reservation = reserveSealedOos({
     campaigns: built.register,
     reservationBasis: CHRONOLOGICAL_RESERVATION_BASIS,
     spec: IMP09_SPEC_IDENTITY,
     reservationBinding: { cutoffIso: "2023-08-31", sourceHashes: { clientPackageCampaignRules: "a".repeat(64), eexEvidence: "c".repeat(64), exchangeCalendar: "d".repeat(64) } },
   });
-  assert.equal(reservation.decision, "RESERVED");
-  assert.equal(reservation.sealedOosCount, 8);
-  assert.ok(reservation.span.coversMinYears);
+  assert.equal(reservation.decision, "HOLD");
+  assert.equal(reservation.eligibilityBasis, "PROXY");
+  assert.deepEqual(reservation.blockedBy, ["ELIGIBILITY_BASIS_NOT_AUDITED"]);
+  assert.equal(reservation.sealedOosCount, 0);
+  assert.equal(evaluateImp09Acceptance(reservation).criterionMet, false);
 });
 
 test("sin calendario oficial el builder no deriva nada (HOLD, prescripción paso 2)", () => {

@@ -61,6 +61,7 @@ export function buildQuarterlyRegisterEvaluation({ evidence, evidenceHash, calen
     cutoffIso,
     register: {
       episodeCount: built.register.length,
+      eligibilityBasis: built.eligibilityBasis,
       eligibleCount: built.register.filter((episode) => episode.eligibility === "ELIGIBLE").length,
       eligibleComplete: built.register.filter((episode) => episode.eligibility === "ELIGIBLE" && episode.completeness === "COMPLETE").map((episode) => ({
         maturity: episode.maturity,
@@ -71,6 +72,7 @@ export function buildQuarterlyRegisterEvaluation({ evidence, evidenceHash, calen
     },
     reservation: {
       decision: reservation.decision,
+      eligibilityBasis: reservation.eligibilityBasis,
       blockedBy: reservation.blockedBy,
       reason: reservation.reason,
       sealedOosCount: reservation.sealedOosCount,

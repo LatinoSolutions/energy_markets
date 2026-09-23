@@ -22,6 +22,11 @@ export const REGISTER_START_QUARTER = { year: 2021, quarter: 1 };
 export const OOS_PRODUCT = "Gas";
 export const OOS_MISSION = "Quarterly";
 
+// La elegibilidad que produce este builder se deriva de presencias del lago
+// (trades en ventana, TOB <= 11:00 Berlin), no de la determinación del mandato:
+// su base es PROXY. Sólo un registro auditado (AUDITED) puede sellar el OOS.
+export const DERIVED_ELIGIBILITY_BASIS = "PROXY";
+
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
 function isSha256Hex(value) {
@@ -133,7 +138,7 @@ export function buildEligibilityRegister(input = {}) {
   }
 
   if (errors.length > 0) {
-    return { ok: false, register: [], errors, blockedBy: [...new Set(errors.map((error) => error.code))], registerHash: null };
+    return { ok: false, register: [], eligibilityBasis: null, errors, blockedBy: [...new Set(errors.map((error) => error.code))], registerHash: null };
   }
 
   const exchangeDays = calendar.exchangeDays.slice().sort(compareIsoDates);
@@ -172,6 +177,12 @@ export function buildEligibilityRegister(input = {}) {
       maturity,
       eligibility: tradedInWindow && deadline !== null ? "ELIGIBLE" : "INELIGIBLE",
       completeness: complete ? "COMPLETE" : "INCOMPLETE",
+      // REGLA 2/3: la elegibilidad derivada de presencias del lago NO es la
+      // determinación del mandato; la reconciliación R-17 la registra como PROXY
+      // (operations/audit/IMP-09/R01-R17-reconciliation.json). El registro
+      // derivado se marca PROXY para que la reserva no lo confunda con el
+      // auditado (§25.1 input "Eligibility auditada"; §13.3 dataset auditado).
+      eligibilityBasis: DERIVED_ELIGIBILITY_BASIS,
       windowStart: window.startIso,
       deadline,
       provenance: {
@@ -195,5 +206,5 @@ export function buildEligibilityRegister(input = {}) {
   if (ineligible.length > 0) {
     blockedBy.push("COMPUTED_ELIGIBILITY_GAPS");
   }
-  return { ok: true, register, errors, blockedBy, registerHash: contentHashOf(register) };
+  return { ok: true, register, eligibilityBasis: DERIVED_ELIGIBILITY_BASIS, errors, blockedBy, registerHash: contentHashOf(register) };
 }

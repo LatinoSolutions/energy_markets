@@ -20,6 +20,7 @@ import {
   compareIsoDates,
   parseIsoDate,
   quarterIndex,
+  resolveEligibilityBasis,
   validateEligibilityRegister,
   validateSpecIdentity,
 } from "./campaign-register.mjs";
@@ -203,6 +204,7 @@ function baseResult(overrides) {
     product: "Gas",
     mission: "Quarterly",
     reservationBasis: null,
+    eligibilityBasis: null,
     decision: "HOLD",
     sealedOosCount: 0,
     sealedOosCampaignIds: [],
@@ -227,6 +229,11 @@ function baseResult(overrides) {
 // historia es insuficiente o si un solapamiento queda sin resolución real.
 export function reserveSealedOos(input = {}) {
   const errors = [];
+  // §25.1 input "Eligibility auditada": la base se propaga a todo resultado
+  // (manifest y acceptance) para que un registro derivado (PROXY) no se
+  // confunda con el auditado.
+  const eligibilityBasis = resolveEligibilityBasis(input.campaigns);
+  const result = (overrides) => baseResult({ eligibilityBasis, ...overrides });
 
   const calibrationArtifacts = declaredCalibrationArtifacts(input);
   if (calibrationArtifacts.length > 0) {
@@ -250,7 +257,7 @@ export function reserveSealedOos(input = {}) {
   errors.push(...registerOutcome.errors);
 
   if (errors.length > 0) {
-    return baseResult({
+    return result({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -283,7 +290,7 @@ export function reserveSealedOos(input = {}) {
       // reales y ninguno se esconde (§13.8).
       blockedBy.push("INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS");
     }
-    return baseResult({
+    return result({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -303,7 +310,7 @@ export function reserveSealedOos(input = {}) {
     }));
 
   if (ordered.length < SEALED_OOS_CAMPAIGN_COUNT) {
-    return baseResult({
+    return result({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -320,7 +327,7 @@ export function reserveSealedOos(input = {}) {
   const span = computeOosSpan(sealed);
 
   if (!span.coversMinYears) {
-    return baseResult({
+    return result({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -352,7 +359,7 @@ export function reserveSealedOos(input = {}) {
     }
   }
   if (bindingErrors.length > 0 || errors.length > 0) {
-    return baseResult({
+    return result({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -371,7 +378,7 @@ export function reserveSealedOos(input = {}) {
   const resolution = resolveOverlaps(overlaps, input.overlapResolutions, { boundaryIso: sealed[0].windowStart });
 
   if (!resolution.ok) {
-    return baseResult({
+    return result({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -395,8 +402,28 @@ export function reserveSealedOos(input = {}) {
     }
   }
 
+  // §25.1 input "Eligibility auditada" + §13.3 (lista del dataset auditado): la
+  // reserva sella sobre la determinación del mandato. Un registro derivado
+  // (PROXY) es evidencia, no la determinación: aunque tenga 8 campañas
+  // completas, no puede producir RESERVED ni criterionMet. Fail-closed.
+  if (eligibilityBasis !== "AUDITED") {
+    pushError(errors, "ELIGIBILITY_BASIS_NOT_AUDITED", `La reserva declara una base de elegibilidad ${eligibilityBasis}; §25.1 exige "Eligibility auditada". Un registro derivado (PROXY) no sella el OOS.`);
+    return result({
+      reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
+      reservationBasis: input.reservationBasis,
+      spec: input.spec ?? IMP09_SPEC_IDENTITY,
+      excludedCampaigns,
+      registerAbsence: input.registerAbsence ?? null,
+      span,
+      errors,
+      blockedBy: [...new Set(errors.map((error) => error.code))],
+      reason: "HOLD: la elegibilidad no proviene del registro auditado del mandato (base PROXY); no se sella una reserva sobre elegibilidad derivada (§25.1/§13.3).",
+    });
+  }
+
   const manifestCore = {
     reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
+    eligibilityBasis,
     sealedOosCampaignIds: sealed.map((episode) => episode.campaignId),
     developmentCampaignIds: development.map((episode) => episode.campaignId),
     span,
@@ -404,7 +431,7 @@ export function reserveSealedOos(input = {}) {
     reservationBinding: { cutoffIso: binding.cutoffIso, sourceHashes: binding.sourceHashes },
   };
 
-  return baseResult({
+  return result({
     reservationId: manifestCore.reservationId,
     reservationBasis: input.reservationBasis,
     spec: input.spec ?? IMP09_SPEC_IDENTITY,
@@ -503,7 +530,10 @@ export function isReservationIntact(reservation) {
 // acredita edge ni cierra DEP-12 por encima de lo reservado.
 export function evaluateImp09Acceptance(reservation) {
   const blockedBy = [...new Set(reservation?.blockedBy ?? [])];
+  // §25.1 input "Eligibility auditada": sin base AUDITED no hay acceptance,
+  // aunque la reserva declare RESERVED por otra vía.
   const criterionMet = reservation?.decision === "RESERVED"
+    && reservation.eligibilityBasis === "AUDITED"
     && reservation.sealedOosCount === SEALED_OOS_CAMPAIGN_COUNT
     && reservation.span?.coversMinYears === true
     && reservation.chronologicalSplit?.protectedBoundary === "SEALED"
@@ -512,6 +542,7 @@ export function evaluateImp09Acceptance(reservation) {
     acceptanceTest: IMP09_ACCEPTANCE_TEST,
     source: "SPEC v1.1.1 §25.1 IMP-09",
     decision: reservation?.decision ?? null,
+    eligibilityBasis: reservation?.eligibilityBasis ?? null,
     criterionMet,
     sealedOosCount: reservation?.sealedOosCount ?? 0,
     blockedBy,

@@ -46,7 +46,7 @@ export function quarterlyWindow(year, quarter) {
   };
 }
 
-export function gasQuarterlyCampaign({ year, quarter, eligibility = "ELIGIBLE", completeness = "COMPLETE", ...overrides } = {}) {
+export function gasQuarterlyCampaign({ year, quarter, eligibility = "ELIGIBLE", completeness = "COMPLETE", eligibilityBasis = "AUDITED", ...overrides } = {}) {
   const maturity = `${year}Q${quarter}`;
   const { windowStart, deadline } = quarterlyWindow(year, quarter);
   return {
@@ -56,6 +56,7 @@ export function gasQuarterlyCampaign({ year, quarter, eligibility = "ELIGIBLE", 
     maturity,
     eligibility,
     completeness,
+    eligibilityBasis,
     windowStart,
     deadline,
     provenance: { ...SYNTHETIC_PROVENANCE },

@@ -40,6 +40,23 @@ test("materializa la reserva de las últimas 8 Gas Quarterly elegibles con split
   assert.equal(result.contentHash.length, 64);
 });
 
+test("sólo la elegibilidad auditada sella: una base PROXY fuerza HOLD (§25.1/§13.3)", () => {
+  const audited = reserveSealedOos(validReservationInput());
+  assert.equal(audited.decision, "RESERVED");
+  assert.equal(audited.eligibilityBasis, "AUDITED");
+
+  const input = validReservationInput();
+  input.campaigns = input.campaigns.map((campaign) => ({ ...campaign, eligibilityBasis: "PROXY" }));
+  const derived = reserveSealedOos(input);
+  assert.equal(derived.decision, "HOLD");
+  assert.equal(derived.eligibilityBasis, "PROXY");
+  assert.deepEqual(derived.blockedBy, ["ELIGIBILITY_BASIS_NOT_AUDITED"]);
+  assert.deepEqual(derived.sealedOosCampaignIds, []);
+  const verdict = evaluateImp09Acceptance(derived);
+  assert.equal(verdict.criterionMet, false);
+  assert.equal(verdict.eligibilityBasis, "PROXY");
+});
+
 test("sin 8 campañas completas y elegibles permanece HOLD, sin reserva ficticia (§13.8)", () => {
   const input = validReservationInput();
   input.campaigns = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 7 });

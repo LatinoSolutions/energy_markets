@@ -5,6 +5,7 @@ import {
   chronologicalEligibleComplete,
   parseIsoDate,
   quarterIndex,
+  resolveEligibilityBasis,
   validateEligibilityRegister,
 } from "../../src/oos-reservation/campaign-register.mjs";
 import { gasQuarterlyCampaign, gasQuarterlyRegister, quarterlyWindow } from "./fixtures.mjs";
@@ -63,6 +64,28 @@ test("etiqueta ELIGIBLE sin evidencia se rechaza (H2: no hay etiquetas a secas)"
   const outcome = validateEligibilityRegister([withoutEligibilityEvidence]);
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "ELIGIBILITY_WITHOUT_EVIDENCE"));
+});
+
+test("etiqueta ELIGIBLE sin base de elegibilidad se rechaza (§25.1/§13.3)", () => {
+  const withoutBasis = gasQuarterlyCampaign({ year: 2021, quarter: 1 });
+  delete withoutBasis.eligibilityBasis;
+  const outcome = validateEligibilityRegister([withoutBasis]);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "ELIGIBILITY_BASIS_NOT_DECLARED"));
+});
+
+test("una base de elegibilidad desconocida no se acepta", () => {
+  const unknownBasis = gasQuarterlyCampaign({ year: 2021, quarter: 1, eligibilityBasis: "GUESS" });
+  const outcome = validateEligibilityRegister([unknownBasis]);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "ELIGIBILITY_BASIS_NOT_DECLARED"));
+});
+
+test("resolveEligibilityBasis distingue el registro auditado del derivado", () => {
+  assert.equal(resolveEligibilityBasis(gasQuarterlyRegister({ year: 2021, quarter: 1, count: 2 })), "AUDITED");
+  const derived = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 2 }).map((episode) => ({ ...episode, eligibilityBasis: "PROXY" }));
+  assert.equal(resolveEligibilityBasis(derived), "PROXY");
+  assert.equal(resolveEligibilityBasis([]), "UNDECLARED");
 });
 
 test("etiqueta COMPLETE sin evidencia se rechaza (H2: no hay etiquetas a secas)", () => {

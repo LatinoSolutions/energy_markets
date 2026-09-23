@@ -4,8 +4,18 @@
   "parentImp": "IMP-09",
   "workId": "energy-markets-IMP-09-20260923-212852-openrouter",
   "createdAtUtc": "2026-09-23T22:38:18Z",
-  "updatedAtUtc": "2026-09-23T23:30:56Z",
+  "updatedAtUtc": "2026-09-23T23:51:38Z",
   "revisions": [
+    {
+      "revision": 4,
+      "atUtc": "2026-09-23T23:51:38Z",
+      "reason": "Corrección HALLAZGO OOS-PROXY-01: el builder derivado marca su elegibilidad como PROXY y la reserva/acceptance exige base AUDITED (§25.1 input \"Eligibility auditada\"; §13.3 dataset auditado). Antes, un registro derivado con cobertura TOB suficiente podía emitir RESERVED + criterionMet sin distinguirse del registro auditado. Se actualizan los hashes de register-builder.mjs, evaluate-quarterly-register.mjs y el artefacto de evaluación; la decisión del caso real no cambia (HOLD / INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS, base PROXY).",
+      "changedSources": [
+        { "path": "src/oos-reservation/register-builder.mjs", "previousSha256": "9f0aea4a068574037b3cfcb630f5ce3f5eb5c1b7d8ed2a02023a9bdac5964937", "sha256": "313b6265474978fd798cd67f4f898fcfab5f7bb2467775ec412452b2cdf43fd4" },
+        { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs", "previousSha256": "e677e312b93e679aa0ff601698bf27ee11767c4255f3ed7a4465a802780ed419", "sha256": "c64610cf58f0d13ad6e5b7044ad34977d7c3bf7f357778b814d036a9f1120901" },
+        { "path": "operations/audit/IMP-09/eex-quarterly-register-eval.json", "previousSha256": "7ddc4816bc03cc871e684d5914620c1715fdd304c9ea502f6cd9f5e424b12abe", "sha256": "af06ed7cedd1fcbbf31f8b7d5c00ccab2bfda7624f0eaeef6313d4aa96377349" }
+      ]
+    },
     {
       "revision": 3,
       "atUtc": "2026-09-23T23:30:56Z",
@@ -54,7 +64,7 @@
           { "path": "client-inputs/full-package/01_campaigns/campaign_rules.csv", "sha256": "bbd5ffa35fbac490e0943f632df00a949c515d3bca70f14da0bc0fd6d86036ad" },
           { "path": "src/procurement-contract/campaign-contract.mjs (OWNER_P006_CONFIRMATION, identidad determinista del episodio)", "sha256": "2aeb94c46fbde5c3e2268a6a8ffd61df6621830a861dbc51ee383589e560872a" },
           { "path": "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", "sha256": "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" },
-          { "path": "src/oos-reservation/register-builder.mjs", "sha256": "9f0aea4a068574037b3cfcb630f5ce3f5eb5c1b7d8ed2a02023a9bdac5964937", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz" },
+          { "path": "src/oos-reservation/register-builder.mjs", "sha256": "313b6265474978fd798cd67f4f898fcfab5f7bb2467775ec412452b2cdf43fd4", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz. Marca el registro derivado como eligibilityBasis PROXY (OOS-PROXY-01)" },
           { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days EEX 2020-2026, derivado del Holiday Calendar continuo + xlsx oficial 2026 PARSEADO)", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" }
         ],
         "limits": "La lista derivada es una derivación de evidencia verificada, no una declaración nueva del procurement owner: lo disponible AHORA es identidad y ventana; la elegibilidad calculada es materia de R-17. El data-readiness del candidato NO cambia: eso es la matriz, que queda intacta."
@@ -75,7 +85,7 @@
         "sources": [
           { "path": "operations/audit/IMP-09/eex-quarterly-episode-evidence.json (+ SHA256SUMS; presencias y conteos, nunca precios; foto _logs/extract.complete sha256=502c6f4f31be110196824e768636eb69d665d126c98520c14b8e531819442321)", "sha256": "46bfd9c565317630a792670ea9a02375b07aaaea85a84a693b5af7d3d19c8a91" },
           { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days Gas Futures EEX 2020-2026)", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" },
-          { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs (evaluación determinista evidencia->builder->reserva; sin reloj: reproducible byte a byte)", "sha256": "e677e312b93e679aa0ff601698bf27ee11767c4255f3ed7a4465a802780ed419" },
+          { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs (evaluación determinista evidencia->builder->reserva; sin reloj: reproducible byte a byte)", "sha256": "c64610cf58f0d13ad6e5b7044ad34977d7c3bf7f357778b814d036a9f1120901" },
           { "path": "client-inputs/full-package/01_campaigns/01_shared_campaign_rules.md", "sha256": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4" },
           { "path": "operations/audit/IMP-03/data-sufficiency-matrix.json", "sha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f" }
         ],
@@ -84,7 +94,7 @@
           "blockedBy": ["INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"],
           "observed": "Con evidencia local (TOB 2025-07-25..2026-07-28) y calendario oficial corregido (Boxing Day 26-12 holiday de la regla continua del PDF): 23 quarters ELIGIBLE en su ventana; ELIGIBLE+COMPLETE = 2026Q1, 2026Q2 y 2026Q3 (2026Q2 queda COMPLETE: 2025-12-26 ya no es Exchange Day). La secuencia es contigua; < 8 de §13.8 -> HOLD INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS sin reserva ficticia."
         },
-        "limits": "Ningún precio, fee ni outcome: la evidencia registra presencias y conteos. La matriz aceptada NO se edita: esta contribución es un añadido append-only y no declara cierre de DEP-06/07 por encima de lo derivable."
+        "limits": "Ningún precio, fee ni outcome: la evidencia registra presencias y conteos. La base de elegibilidad derivada es PROXY, no la determinación del mandato: la reserva exige base AUDITED y permanece HOLD con PROXY (OOS-PROXY-01). La matriz aceptada NO se edita: esta contribución es un añadido append-only y no declara cierre de DEP-06/07 por encima de lo derivable."
       }
     }
   ],

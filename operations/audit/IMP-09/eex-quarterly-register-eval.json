@@ -3,6 +3,7 @@
   "cutoffIso": "2026-07-28",
   "register": {
     "episodeCount": 23,
+    "eligibilityBasis": "PROXY",
     "eligibleCount": 23,
     "eligibleComplete": [
       {
@@ -25,6 +26,7 @@
   },
   "reservation": {
     "decision": "HOLD",
+    "eligibilityBasis": "PROXY",
     "blockedBy": [
       "INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"
     ],
@@ -35,6 +37,7 @@
     "acceptanceTest": "≥2 años; chronological split y overlaps resueltos por estructura real; historia insuficiente → HOLD. La reserva precede a features/references/parameters; cierre P6 no es prerequisite para reservar.",
     "source": "SPEC v1.1.1 §25.1 IMP-09",
     "decision": "HOLD",
+    "eligibilityBasis": "PROXY",
     "criterionMet": false,
     "sealedOosCount": 0,
     "blockedBy": [

@@ -5,6 +5,7 @@
 
 export {
   COMPLETENESS_STATUSES,
+  ELIGIBILITY_BASES,
   ELIGIBILITY_STATUSES,
   IMP09_SPEC_IDENTITY,
   OOS_MISSION,
@@ -14,6 +15,7 @@ export {
   compareIsoDates,
   parseIsoDate,
   quarterIndex,
+  resolveEligibilityBasis,
   validateEligibilityRegister,
   validateSpecIdentity,
 } from "./campaign-register.mjs";

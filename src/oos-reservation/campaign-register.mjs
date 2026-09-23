@@ -15,6 +15,14 @@ import { isCanonicalMaturity, researchCampaignIdFor } from "../procurement-contr
 export const ELIGIBILITY_STATUSES = ["ELIGIBLE", "INELIGIBLE"];
 export const COMPLETENESS_STATUSES = ["COMPLETE", "INCOMPLETE"];
 
+// §25.1 IMP-09 input "Eligibility auditada" y §13.3 ("La lista exacta de
+// campañas y fechas proviene del dataset auditado"): la etiqueta ELIGIBLE debe
+// declarar de dónde sale. AUDITED = determinación del mandato (registro
+// auditado); PROXY = derivada de las presencias del lago, que la reconciliación
+// R-17 registra como PROXY y NO es la determinación del mandato. Sin esta base,
+// el registro derivado se confundiría con el auditado.
+export const ELIGIBILITY_BASES = ["AUDITED", "PROXY"];
+
 // §13.3/§15.2: la población del primer experimento es exclusivamente Gas
 // Quarterly. Otra Mission o producto no completa la muestra ni se mezcla.
 export const OOS_PRODUCT = "Gas";
@@ -142,6 +150,12 @@ function validateEpisode(episode, errors) {
   } else if (episode.eligibility === "ELIGIBLE" && !hasEvidenceRef(episode.eligibilityEvidence)) {
     pushError(errors, "ELIGIBILITY_WITHOUT_EVIDENCE", `La campaña "${campaignId}" declara ELIGIBLE sin evidencia (authority + locator) del audit; una etiqueta sin evidencia no sostiene la población (§13.3).`, campaignId);
   }
+  // §25.1/§13.3: una etiqueta ELIGIBLE sin base distingue mal el registro
+  // auditado del derivado. La base debe ser AUDITED (mandato) o PROXY
+  // (derivación); sin ella no se acepta la elegibilidad.
+  if (episode.eligibility === "ELIGIBLE" && !ELIGIBILITY_BASES.includes(episode.eligibilityBasis)) {
+    pushError(errors, "ELIGIBILITY_BASIS_NOT_DECLARED", `La campaña "${campaignId}" declara ELIGIBLE sin base de elegibilidad válida (${ELIGIBILITY_BASES.join(" | ")}); un registro derivado (PROXY) no puede presentarse como auditado (§25.1/§13.3).`, campaignId);
+  }
   if (!COMPLETENESS_STATUSES.includes(episode.completeness)) {
     pushError(errors, "INVALID_COMPLETENESS_STATUS", `La completitud de "${campaignId}" debe ser ${COMPLETENESS_STATUSES.join(" | ")}.`, campaignId);
   } else if (episode.completeness === "COMPLETE" && !hasEvidenceRef(episode.completenessEvidence)) {
@@ -209,6 +223,27 @@ export function chronologicalEligibleComplete(campaigns) {
     .filter((episode) => episode?.eligibility === "ELIGIBLE" && episode?.completeness === "COMPLETE")
     .slice()
     .sort((left, right) => quarterIndex(left.maturity) - quarterIndex(right.maturity));
+}
+
+// Base de elegibilidad de la población elegible: AUDITED sólo si cada campaña
+// elegible declara la determinación del mandato. Cualquier PROXY (derivación del
+// lago) o una base no declarada impiden el sello (§25.1/§13.3). No mira las
+// campañas INELIGIBLE: no sostienen la reserva.
+export function resolveEligibilityBasis(campaigns) {
+  if (!Array.isArray(campaigns)) {
+    return "UNDECLARED";
+  }
+  const eligible = campaigns.filter((episode) => episode && typeof episode === "object" && episode.eligibility === "ELIGIBLE");
+  if (eligible.length === 0) {
+    return "UNDECLARED";
+  }
+  if (eligible.every((episode) => episode.eligibilityBasis === "AUDITED")) {
+    return "AUDITED";
+  }
+  if (eligible.some((episode) => episode.eligibilityBasis === "PROXY")) {
+    return "PROXY";
+  }
+  return "UNDECLARED";
 }
 
 // Identidad de la SPEC que gobierna la reserva. Debe coincidir con la SPEC
