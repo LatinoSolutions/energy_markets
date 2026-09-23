@@ -1,8 +1,8 @@
 {
   "artifactKind": "IMP-09_EEX_OFFICIAL_EXCHANGE_CALENDAR",
   "scope": "EEX Natural Gas (derivatives/Futures) Exchange Days 2020-2026",
-  "method": "Días hábiles Mon-Fri del calendario gregoriano menos el holiday set OFICIAL del Gas Futures EEX (PDF Holiday Calendar: regla continua 'applicable continuously for all years until further notice'; fechas de Pascua por el algoritmo Gregoriano anónimo). Verificación: el set de 2026 derivado coincide exactamente con el xlsx oficial de NaturalGasTradingCalendar2026 (New Year 01-01, Good Friday 03-04, Easter Monday 06-04, Labour Day 01-05, Christmas Day 25-12).",
-  "notes": "24 y 26 (31) diciembre: 24-12 y 31-12 tienen orderbook 08:00-13:00 CET para Gas y Freight derivatives (siguen siendo Exchange Days); el corte de IMP-09 (TOB <= 11:00 Berlin) queda dentro de dicha ventana. Sin heurísticas: ni particiones del lake ni fines de semana deducidos.",
+  "method": "Días hábiles Mon-Fri del calendario gregoriano menos el holiday set OFICIAL del Gas Futures EEX (PDF Holiday Calendar: regla continua 'applicable continuously for all years until further notice', columna Natural Gas: 01-01, Good Friday, Easter Monday, 01-05, 25-12 y Boxing Day 26-12; fechas de Pascua por el algoritmo Gregoriano anónimo). Verificación: el holiday set de 2026 derivado, restringido a días de intercambio (lun-vie), coincide exactamente con la columna 'Exchange Holidays - Natural Gas Futures' de la hoja '2026 Natural Gas Holidays' del xlsx oficial, PARSEADA por este script.",
+  "notes": "24-12 y 31-12: orderbook 08:00-13:00 CET para Gas derivatives (siguen siendo Exchange Days); el corte de IMP-09 (TOB <= 11:00 Berlin) queda dentro de dicha ventana. Boxing Day (26-12) es holiday de Natural Gas segun la regla continua del PDF; en 2026 cae en sabado y por eso no figura en la columna de exchange holidays de Futures del xlsx, que registra 'Boxing Day 2026-12-28' solo como Bank Holiday de Natural Gas Spot. Sin heuristicas: ni particiones del lake ni fines de semana deducidos.",
   "retrievedAtUtc": "2026-09-23T22:51:00Z",
   "sources": [
     {
@@ -16,58 +16,72 @@
       "sha256": "ac0b9544e71437e032bfcbebb3e18cf7c85a71c198e8d9439f14307a13f81537"
     }
   ],
+  "verifiedXlsx2026ExchangeHolidays": [
+    "2026-01-01",
+    "2026-04-03",
+    "2026-04-06",
+    "2026-05-01",
+    "2026-12-25"
+  ],
   "holidaysByYear": {
     "2020": {
       "New Year's Day": "2020-01-01",
       "Good Friday": "2020-04-10",
       "Easter Monday": "2020-04-13",
       "Labour Day": "2020-05-01",
-      "Christmas Day": "2020-12-25"
+      "Christmas Day": "2020-12-25",
+      "Boxing Day": "2020-12-26"
     },
     "2021": {
       "New Year's Day": "2021-01-01",
       "Good Friday": "2021-04-02",
       "Easter Monday": "2021-04-05",
       "Labour Day": "2021-05-01",
-      "Christmas Day": "2021-12-25"
+      "Christmas Day": "2021-12-25",
+      "Boxing Day": "2021-12-26"
     },
     "2022": {
       "New Year's Day": "2022-01-01",
       "Good Friday": "2022-04-15",
       "Easter Monday": "2022-04-18",
       "Labour Day": "2022-05-01",
-      "Christmas Day": "2022-12-25"
+      "Christmas Day": "2022-12-25",
+      "Boxing Day": "2022-12-26"
     },
     "2023": {
       "New Year's Day": "2023-01-01",
       "Good Friday": "2023-04-07",
       "Easter Monday": "2023-04-10",
       "Labour Day": "2023-05-01",
-      "Christmas Day": "2023-12-25"
+      "Christmas Day": "2023-12-25",
+      "Boxing Day": "2023-12-26"
     },
     "2024": {
       "New Year's Day": "2024-01-01",
       "Good Friday": "2024-03-29",
       "Easter Monday": "2024-04-01",
       "Labour Day": "2024-05-01",
-      "Christmas Day": "2024-12-25"
+      "Christmas Day": "2024-12-25",
+      "Boxing Day": "2024-12-26"
     },
     "2025": {
       "New Year's Day": "2025-01-01",
       "Good Friday": "2025-04-18",
       "Easter Monday": "2025-04-21",
       "Labour Day": "2025-05-01",
-      "Christmas Day": "2025-12-25"
+      "Christmas Day": "2025-12-25",
+      "Boxing Day": "2025-12-26"
     },
     "2026": {
       "New Year's Day": "2026-01-01",
       "Good Friday": "2026-04-03",
       "Easter Monday": "2026-04-06",
       "Labour Day": "2026-05-01",
-      "Christmas Day": "2026-12-25"
+      "Christmas Day": "2026-12-25",
+      "Boxing Day": "2026-12-26"
     }
   },
-  "exchangeDayCount": 1798,
+  "exchangeDayCount": 1794,
   "exchangeDays": [
     "2020-01-02",
     "2020-01-03",
@@ -837,7 +851,6 @@
     "2022-12-21",
     "2022-12-22",
     "2022-12-23",
-    "2022-12-26",
     "2022-12-27",
     "2022-12-28",
     "2022-12-29",
@@ -1094,7 +1107,6 @@
     "2023-12-20",
     "2023-12-21",
     "2023-12-22",
-    "2023-12-26",
     "2023-12-27",
     "2023-12-28",
     "2023-12-29",
@@ -1351,7 +1363,6 @@
     "2024-12-20",
     "2024-12-23",
     "2024-12-24",
-    "2024-12-26",
     "2024-12-27",
     "2024-12-30",
     "2024-12-31",
@@ -1607,7 +1618,6 @@
     "2025-12-22",
     "2025-12-23",
     "2025-12-24",
-    "2025-12-26",
     "2025-12-29",
     "2025-12-30",
     "2025-12-31",

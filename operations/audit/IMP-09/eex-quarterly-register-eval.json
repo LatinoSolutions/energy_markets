@@ -1,6 +1,6 @@
 {
   "artifactKind": "IMP-09_QUARTERLY_REGISTER_EVALUATION",
-  "createdAtUtc": "2026-09-23T22:57:07.711Z",
+  "createdAtUtc": "2026-09-23T23:13:24.521Z",
   "cutoffIso": "2026-07-28",
   "register": {
     "episodeCount": 23,
@@ -10,6 +10,11 @@
         "maturity": "2026Q1",
         "windowStart": "2025-09-01",
         "deadline": "2025-11-28"
+      },
+      {
+        "maturity": "2026Q2",
+        "windowStart": "2025-12-01",
+        "deadline": "2026-02-27"
       },
       {
         "maturity": "2026Q3",
@@ -22,10 +27,9 @@
   "reservation": {
     "decision": "HOLD",
     "blockedBy": [
-      "NON_CONTIGUOUS_ELIGIBLE_SEQUENCE",
       "INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"
     ],
-    "reason": "HOLD: el registro auditado no satisface su forma o su secuencia; no se materializa ninguna reserva.",
+    "reason": "HOLD: §13.8 exige las últimas 8 campañas Gas Quarterly completas y elegibles; el registro auditado aporta 3. Bajo el mínimo no se acorta el estándar ni se sustituye la población.",
     "sealedOosCount": 0
   },
   "acceptance": {
@@ -35,14 +39,13 @@
     "criterionMet": false,
     "sealedOosCount": 0,
     "blockedBy": [
-      "NON_CONTIGUOUS_ELIGIBLE_SEQUENCE",
       "INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"
     ],
-    "reason": "HOLD: el registro auditado no satisface su forma o su secuencia; no se materializa ninguna reserva."
+    "reason": "HOLD: §13.8 exige las últimas 8 campañas Gas Quarterly completas y elegibles; el registro auditado aporta 3. Bajo el mínimo no se acorta el estándar ni se sustituye la población."
   },
   "hashes": {
     "eexEvidence": "46bfd9c565317630a792670ea9a02375b07aaaea85a84a693b5af7d3d19c8a91",
-    "exchangeCalendar": "15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72",
+    "exchangeCalendar": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5",
     "clientPackageCampaignRules": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4"
   }
 }

@@ -4,6 +4,19 @@
   "parentImp": "IMP-09",
   "workId": "energy-markets-IMP-09-20260923-212852-openrouter",
   "createdAtUtc": "2026-09-23T22:38:18Z",
+  "updatedAtUtc": "2026-09-23T23:13:24Z",
+  "revisions": [
+    {
+      "revision": 2,
+      "atUtc": "2026-09-23T23:13:24Z",
+      "reason": "Corrección del calendario oficial (HALLAZGO IMP09-CALENDAR-BOXING-DAY): el holiday set omitía Boxing Day (26-12) pese a estar marcado X para Natural Gas en la regla continua del PDF oficial. Se regeneró operations/audit/IMP-09/eex-exchange-calendar.json con el parser del xlsx (HALLAZGO IMP09-CALENDAR-FALSE-VERIFICATION) y se actualizaron los hashes derivados y el resultado calculado. El hash anterior del calendario era 15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72.",
+      "changedSources": [
+        { "path": "operations/audit/IMP-09/eex-exchange-calendar.json", "previousSha256": "15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" },
+        { "path": "operations/audit/IMP-09/build-eex-exchange-calendar.py", "previousSha256": "eef34294f47e42706b9c379c6aaa454559035804e5897e966fe7ae84a0bc944a", "sha256": "a337dc17575ae758fc4be1f8352f4e9f02508406e40c4daf12c10623a38a006b" },
+        { "path": "operations/audit/IMP-09/eex-quarterly-register-eval.json", "previousSha256": "851b0055ee6471bce5f8bf6a69502a1b8f40dad1f998b7b3d237e06bc4ba7eed", "sha256": "ea9efc8d6e4d25dfc51803fe3c8ec9c0e8e20abdd26a4556d74922e4a4ab0231" }
+      ]
+    }
+  ],
   "appendOnly": {
     "isAppendOnly": true,
     "rule": "Esta contribución es posterior a la matriz IMP-03 aceptada y a su paquete. La matriz nunca se edita: cualquier nueva evidencia entra por añadidos aquí, con su fuente y su hash. Artefactos stale no sellan nada (SPEC v1.1.1 §6.3; guardrail 15 del scope)."
@@ -33,7 +46,7 @@
           { "path": "src/procurement-contract/campaign-contract.mjs (OWNER_P006_CONFIRMATION, identidad determinista del episodio)", "sha256": "2aeb94c46fbde5c3e2268a6a8ffd61df6621830a861dbc51ee383589e560872a" },
           { "path": "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", "sha256": "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" },
           { "path": "src/oos-reservation/register-builder.mjs", "sha256": "9f0aea4a068574037b3cfcb630f5ce3f5eb5c1b7d8ed2a02023a9bdac5964937", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz" },
-          { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days EEX 2020-2026, derivado del Holiday Calendar continuo + xlsx oficial 2026 verificado)", "sha256": "15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72" }
+          { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days EEX 2020-2026, derivado del Holiday Calendar continuo + xlsx oficial 2026 PARSEADO)", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" }
         ],
         "limits": "La lista derivada es una derivación de evidencia verificada, no una declaración nueva del procurement owner: lo disponible AHORA es identidad y ventana; la elegibilidad calculada es materia de R-17. El data-readiness del candidato NO cambia: eso es la matriz, que queda intacta."
       }
@@ -52,15 +65,15 @@
         "expectedOutcome": "Con la evidencia local, no hay 8 campañas ELIGIBLE+COMPLETE (§13.8): el resultado correcto de IMP-09 es HOLD INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS, sin reserva ficticia.",
         "sources": [
           { "path": "operations/audit/IMP-09/eex-quarterly-episode-evidence.json (+ SHA256SUMS; presencias y conteos, nunca precios; foto _logs/extract.complete sha256=502c6f4f31be110196824e768636eb69d665d126c98520c14b8e531819442321)", "sha256": "46bfd9c565317630a792670ea9a02375b07aaaea85a84a693b5af7d3d19c8a91" },
-          { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days Gas Futures EEX 2020-2026)", "sha256": "15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72" },
+          { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days Gas Futures EEX 2020-2026)", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" },
           { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs (evaluación determinista evidencia->builder->reserva)", "sha256": "c627a1f39f6b6b969182f1b963b57efc42bebad9767475946c9340ae17c5a968" },
           { "path": "client-inputs/full-package/01_campaigns/01_shared_campaign_rules.md", "sha256": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4" },
           { "path": "operations/audit/IMP-03/data-sufficiency-matrix.json", "sha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f" }
         ],
         "results": {
           "decision": "HOLD",
-          "blockedBy": ["NON_CONTIGUOUS_ELIGIBLE_SEQUENCE", "INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"],
-          "observed": "Con evidencia local (TOB 2025-07-25..2026-07-28) y calendario oficial: 23 quarters ELIGIBLE en su ventana; ELIGIBLE+COMPLETE = 2026Q1 y 2026Q3 (2026Q2 queda INCOMPLETE por TOB ausente el 2025-12-26 - Registro de Exchange Day sin TOB -; no se inventa cobertura). < 8 de §13.8 -> HOLD sin reserva ficticia."
+          "blockedBy": ["INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"],
+          "observed": "Con evidencia local (TOB 2025-07-25..2026-07-28) y calendario oficial corregido (Boxing Day 26-12 holiday de la regla continua del PDF): 23 quarters ELIGIBLE en su ventana; ELIGIBLE+COMPLETE = 2026Q1, 2026Q2 y 2026Q3 (2026Q2 queda COMPLETE: 2025-12-26 ya no es Exchange Day). La secuencia es contigua; < 8 de §13.8 -> HOLD INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS sin reserva ficticia."
         },
         "limits": "Ningún precio, fee ni outcome: la evidencia registra presencias y conteos. La matriz aceptada NO se edita: esta contribución es un añadido append-only y no declara cierre de DEP-06/07 por encima de lo derivable."
       }
