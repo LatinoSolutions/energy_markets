@@ -8,6 +8,7 @@
 // cuando la evidencia no alcanza para elegir.
 
 import {
+  validateEvidenceRef,
   evaluateCapabilityCoverage,
   isCapabilityAssessmentUsable,
   validateCapabilityAssessment,
@@ -70,6 +71,12 @@ function validateBuildNecessity(buildNecessity) {
   }
   if (!isNonEmptyList(buildNecessity.evidenceRefs)) {
     return fail("MISSING_NECESSITY_EVIDENCE", "La necesidad de construir exige evidencia de auditoría.");
+  }
+  for (const ref of buildNecessity.evidenceRefs) {
+    const outcome = validateEvidenceRef(ref);
+    if (!outcome.ok) {
+      return fail("INVALID_NECESSITY_EVIDENCE", "La evidencia de necesidad de construir no satisface su contrato.", { errors: outcome.errors });
+    }
   }
   return { ok: true };
 }
@@ -142,7 +149,14 @@ export function deriveToolingDecision({ requiredCapabilities = [], assessments =
   };
 }
 
-function validateReconciliation(reconciliation, componentEvaluated) {
+// §25.1 IMP-04 / DEP-10: la reconciliación que sostiene una selección debe ser
+// verificable, no declarada. Se exige: componentes producidos por
+// `reconcileKeyOutputs` (comparaciones contra fixtures permitidos con cómputo
+// independiente), cobertura de TODAS las salidas clave declaradas por la
+// interfaz real del componente evaluado, sin divergencias y sin rechazo.
+// Un objeto `{componentId, reconciled: true}` sin comparaciones es fabricado
+// y no sostiene la decisión.
+function validateReconciliation(reconciliation, targetAssessment) {
   const errors = [];
   if (!reconciliation || typeof reconciliation !== "object" || Array.isArray(reconciliation)) {
     return { ok: false, errors: [{ field: "reconciliation", code: "MISSING_RECONCILIATION", message: "Reutilizar/extender exige reconciliar de forma independiente las salidas clave del componente evaluado." }] };
@@ -153,8 +167,33 @@ function validateReconciliation(reconciliation, componentEvaluated) {
   if (reconciliation.rejected === true) {
     errors.push({ field: "reconciliation.rejected", code: "RECONCILIATION_REJECTED", message: "La reconciliación fue rechazada y no puede sostener la decisión.", reason: reconciliation.reason ?? null });
   }
-  if (componentEvaluated !== null && reconciliation.componentId !== componentEvaluated) {
+  if (targetAssessment !== null && reconciliation.componentId !== targetAssessment.componentId) {
     errors.push({ field: "reconciliation.componentId", code: "RECONCILIATION_COMPONENT_MISMATCH", message: "La reconciliación no corresponde al componente evaluado." });
+  }
+  const comparisons = reconciliation.comparisons;
+  if (!Array.isArray(comparisons) || comparisons.length === 0) {
+    errors.push({ field: "reconciliation.comparisons", code: "RECONCILIATION_WITHOUT_COMPARISONS", message: "Una reconciliación sin comparaciones observado/esperado es fabricada: no sostiene la decisión." });
+    return { ok: false, errors };
+  }
+  for (const comparison of comparisons) {
+    if (!comparison || typeof comparison !== "object" || Array.isArray(comparison)) {
+      errors.push({ field: "reconciliation.comparisons", code: "INVALID_COMPARISON", message: "Cada comparación debe registrar observado, esperado y resultado." });
+      continue;
+    }
+    if (comparison.agreed !== true) {
+      errors.push({ field: "reconciliation.comparisons", code: "COMPARISON_NOT_AGREED", message: "Toda comparación debe haber coincidido para reconciliar.", outputId: comparison.outputId ?? null });
+    }
+  }
+  if (Array.isArray(reconciliation.mismatches) && reconciliation.mismatches.length > 0) {
+    errors.push({ field: "reconciliation.mismatches", code: "RECONCILIATION_MISMATCHES", message: "La reconciliación registra divergencias y no puede sostener la decisión." });
+  }
+  const keyOutputs = targetAssessment?.interfaceContract?.outputs ?? null;
+  if (Array.isArray(keyOutputs) && keyOutputs.length > 0) {
+    const covered = new Set(comparisons.filter((comparison) => comparison?.agreed === true).map((comparison) => comparison?.outputId));
+    const uncovered = keyOutputs.filter((outputId) => !covered.has(outputId));
+    if (uncovered.length > 0) {
+      errors.push({ field: "reconciliation.comparisons", code: "KEY_OUTPUTS_NOT_COVERED", message: "Las comparaciones no cubren todas las salidas clave declaradas por la interfaz del componente evaluado.", uncoveredKeyOutputs: uncovered });
+    }
   }
   return { ok: errors.length === 0, errors };
 }
@@ -182,6 +221,13 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
   }
   if (!isNonEmptyList(selection.evidenceRefs)) {
     errors.push({ field: "evidenceRefs", code: "MISSING_EVIDENCE", message: "La selección exige fuentes de auditoría." });
+  } else {
+    for (const ref of selection.evidenceRefs) {
+      const outcome = validateEvidenceRef(ref);
+      if (!outcome.ok) {
+        errors.push(...outcome.errors);
+      }
+    }
   }
 
   const target = selection.targetComponentId ? assessmentById(assessments, selection.targetComponentId) : null;
@@ -211,7 +257,7 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
         }
       }
     }
-    const reconciliationOutcome = validateReconciliation(selection.reconciliation, selection.targetComponentId ?? null);
+    const reconciliationOutcome = validateReconciliation(selection.reconciliation, target);
     if (!reconciliationOutcome.ok) {
       errors.push(...(reconciliationOutcome.errors ?? [reconciliationOutcome]));
     }
@@ -265,6 +311,20 @@ export function selectMinimumTooling({ requiredCapabilities = [], assessments = 
     grantsProductionAuthority: false,
     authority: NO_PRODUCTION_AUTHORITY,
   };
+
+  // Entregable IMP-04 (§25.1/§25.2.2): el record conserva el capability
+  // assessment del componente elegido y la decisión fundamentada
+  // reutilizar/extender/construir. No expone IP: sólo lo ya declarado
+  // auditadamente en el assessment.
+  if (derived.decision !== TOOLING_DECISION.BUILD) {
+    selection.targetAssessment = assessmentById(assessments, derived.targetComponentId);
+    selection.rationale = derived.decision === TOOLING_DECISION.REUSE
+      ? "Auditoría: exactamente un componente usable cubre todas las capacidades requeridas."
+      : "Auditoría: exactamente un componente casi suficiente cubre parte de lo requerido; se añade sólo lo que falta.";
+  } else {
+    selection.targetAssessment = null;
+    selection.rationale = "Auditoría: ningún componente usable es suficiente o casi suficiente; la necesidad de construir está demostrada.";
+  }
 
   const validation = validateToolingSelection(selection, { requiredCapabilities, assessments });
   if (!validation.ok) {

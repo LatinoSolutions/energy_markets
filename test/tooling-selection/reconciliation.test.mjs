@@ -61,3 +61,36 @@ test("un fixture sin cómputo independiente previo se rechaza", () => {
   });
   assert.equal(result.code, "FIXTURE_NOT_INDEPENDENT");
 });
+
+test("los fixtures deben cubrir todas las salidas clave declaradas por la interfaz", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs(),
+    fixtures: makeFixtures(),
+    keyOutputs: ["SYN-output-B", "SYN-output-C"],
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "KEY_OUTPUTS_NOT_COVERED");
+  assert.deepEqual(result.uncoveredKeyOutputs, ["SYN-output-C"]);
+});
+
+test("la cobertura completa de salidas clave reconcilia", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs(),
+    fixtures: makeFixtures(),
+    keyOutputs: ["SYN-output-B"],
+  });
+  assert.equal(result.reconciled, true);
+});
+
+test("keyOutputs inválida se rechaza explícitamente", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs(),
+    fixtures: makeFixtures(),
+    keyOutputs: [],
+  });
+  assert.equal(result.code, "INVALID_KEY_OUTPUTS");
+});

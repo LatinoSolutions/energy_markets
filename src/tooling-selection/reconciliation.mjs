@@ -10,6 +10,10 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isNonEmptyStringList(value) {
+  return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+}
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -38,7 +42,10 @@ function fail(code, message, details = {}) {
 // `fixtures`: [{ outputId, expectedValue, permitted, independentComputation,
 //   tolerance? }]. `permitted` y `independentComputation` son condiciones
 // duras: sin ellas el fixture no es utilizable.
-export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures = [] } = {}) {
+// `keyOutputs`: salidas clave declaradas por la interfaz real del componente
+// (§25.1 IMP-04: "interfaces reales"). Exigir su cobertura impide que un
+// subconjunto arbitrario de fixtures produzca `reconciled: true`.
+export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures = [], keyOutputs = null } = {}) {
   if (!isNonEmptyString(componentId)) {
     return fail("MISSING_COMPONENT_ID", "La reconciliación exige la identidad del componente evaluado.");
   }
@@ -47,6 +54,9 @@ export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures
   }
   if (!Array.isArray(fixtures) || fixtures.length === 0) {
     return fail("MISSING_FIXTURES", "La reconciliación exige fixtures permitidos.");
+  }
+  if (keyOutputs !== null && !isNonEmptyStringList(keyOutputs)) {
+    return fail("INVALID_KEY_OUTPUTS", "Las salidas clave declaradas por la interfaz deben ser una lista no vacía de identificadores.");
   }
 
   for (const fixture of fixtures) {
@@ -64,6 +74,17 @@ export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures
   const observedById = new Map(outputs.map((output) => [output?.outputId, output?.value]));
   const comparisons = [];
   const mismatches = [];
+
+  // §25.1 IMP-04: cada salida clave declarada por la interfaz del componente
+  // debe estar cubierta por un fixture permitido. Un subconjunto arbitrario no
+  // reconcilia "las salidas clave": reconcilia lo que conviene.
+  if (keyOutputs !== null) {
+    const fixtureIds = new Set(fixtures.map((fixture) => fixture?.outputId));
+    const uncovered = keyOutputs.filter((outputId) => !fixtureIds.has(outputId));
+    if (uncovered.length > 0) {
+      return fail("KEY_OUTPUTS_NOT_COVERED", "Los fixtures aportados no cubren todas las salidas clave declaradas por la interfaz del componente.", { uncoveredKeyOutputs: uncovered });
+    }
+  }
 
   for (const fixture of fixtures) {
     const tolerance = fixture.tolerance ?? 0;
