@@ -6,12 +6,13 @@
 // calculó de forma independiente ANTES de automatizar (§14.8/§19.3.1). Esta
 // función no ejecuta el componente, no atribuye edge y no concede autoridad.
 //
-// Comparación EXACTA, sin tolerancia: SPEC v1.1.1 §14.8 ("reconcilian
-// exactamente"), §19.3.1 ("La conversión y la reconciliación exacta ... forman
-// parte de estas comprobaciones") y §19.3 ("No se añaden epsilons ni valores
-// numéricos artificiales"). Cualquier cota > 0 aprobaba divergencias de hasta
+// Comparación EXACTA, sin tolerancia. PROVISIONAL, pendiente de confirmar por
+// Bru: la SPEC v1.1.1 no fija tolerancia para reconciliar salidas de tooling.
+// Se aplica por analogía con §14.8 (volumen y costes "reconcilian
+// exactamente"), §19.3.1 ("reconciliación exacta de unidades") y §19.3 (en
+// scoring "No se añaden epsilons"). Cualquier cota > 0 aprobaba divergencias de
 // casi el 100 % (review IMP-04 2026-09-23: esperado 1000000, tolerancia 999999,
-// observado 1). Un margen distinto de 0 requeriría §20.2.12.
+// observado 1).
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -73,7 +74,7 @@ function validateFixture(fixture) {
     return fail("FIXTURE_NOT_INDEPENDENT", `El fixture "${outputId}" no declara cómputo/inspección independiente previa.`);
   }
   if (fixture.tolerance !== undefined && fixture.tolerance !== 0) {
-    return fail("INVALID_TOLERANCE", `El fixture "${outputId}" declara tolerancia ${String(fixture.tolerance)}: la reconciliación es exacta (SPEC §14.8, §19.3.1).`, { outputId, tolerance: fixture.tolerance });
+    return fail("INVALID_TOLERANCE", `El fixture "${outputId}" declara tolerancia ${String(fixture.tolerance)}: la reconciliación es exacta (criterio provisional por analogía con SPEC §14.8, §19.3.1).`, { outputId, tolerance: fixture.tolerance });
   }
   if (!isReconcilableValue(fixture.expectedValue)) {
     return fail("INVALID_EXPECTED_VALUE", `El fixture "${outputId}" no declara un valor esperado reconciliable (número finito, texto, booleano o lista no vacía de ellos).`, { outputId });

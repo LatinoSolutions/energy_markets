@@ -407,3 +407,16 @@ test("un mismo componente auditado dos veces se rechaza", () => {
   assert.equal(derived.ok, false);
   assert.equal(derived.code, "DUPLICATE_ASSESSMENTS");
 });
+
+test("el record de selección está congelado en profundidad y no congela los objetos del llamador", () => {
+  const assessment = makeAssessment();
+  const reconciliation = makeReconciliationEvidence("SYN-TOOL-A");
+  const result = selectMinimumTooling({ requiredCapabilities: BENCHMARK, assessments: [assessment], reconciliation, evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(result.ok, true);
+  assert.throws(() => result.selection.additions.push("evil"), TypeError);
+  assert.throws(() => { result.selection.reconciliation.outputs[0].value = 999; }, TypeError);
+  assert.throws(() => { result.selection.targetAssessment.usageRights.status = "unknown"; }, TypeError);
+  assert.equal(Object.isFrozen(assessment), false);
+  assert.equal(Object.isFrozen(reconciliation.outputs[0]), false);
+  assert.equal(validateToolingSelection(result.selection, { requiredCapabilities: BENCHMARK, assessments: [assessment] }).ok, true);
+});

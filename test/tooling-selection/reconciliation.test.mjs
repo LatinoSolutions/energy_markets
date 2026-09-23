@@ -23,8 +23,8 @@ test("una divergencia impide la reconciliación", () => {
   assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
 });
 
-// SPEC v1.1.1 §14.8 ("reconcilian exactamente"), §19.3.1 ("reconciliación
-// exacta") y §19.3 ("No se añaden epsilons"): no hay tolerancia. Casos de las
+// Exactitud: criterio provisional (la SPEC v1.1.1 no fija tolerancia para
+// salidas de tooling; analogía con §14.8, §19.3.1 y §19.3). Casos de las
 // revisiones IMP-04 2026-09-23: (102 vs 1000000, tol 1000000), (1 vs 1000000,
 // tol 999999), (100 vs 0, tol 100) reconciliaban.
 for (const [observed, expected, tolerance] of [

@@ -67,6 +67,14 @@ function sameStringSet(left, right) {
   return left.every((item) => rightSet.has(item));
 }
 
+function deepFreeze(value) {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    Object.values(value).forEach(deepFreeze);
+  }
+  return value;
+}
+
 function assessmentById(assessments, componentId) {
   return assessments.find((assessment) => assessment.componentId === componentId) ?? null;
 }
@@ -513,5 +521,9 @@ export function selectMinimumTooling({ requiredCapabilities = [], assessments = 
   if (!validation.ok) {
     return fail("INVALID_SELECTION", "La selección derivada no satisface el contrato de IMP-04.", { errors: validation.errors });
   }
-  return { ok: true, selection: Object.freeze(selection) };
+  // Congelado en profundidad sobre una copia: IMP-05 consume el record y no
+  // puede alterarlo después de validado (validación adversarial IMP-04
+  // 2026-09-23: `selection.additions.push(...)` funcionaba), ni se congelan
+  // los objetos del llamador.
+  return { ok: true, selection: deepFreeze(structuredClone(selection)) };
 }

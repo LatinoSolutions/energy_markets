@@ -68,7 +68,7 @@ citada existe. Se separa en los dos soportes que IMP-05 consume (§25.2.2 IMP-04
 
 1. **Soporte de cálculo de IMP-05: EXTEND `economic-calculation.benchmark`**
    - Se añaden sólo `benchmark.calendar.missing_dates`, `benchmark.status.provisional`, `benchmark.window.derive`, `reconciliation.official_proxy` y `benchmark.version`.
-   - Lo cubierto se reconcilia de forma exacta: 14 salidas reales contra los fixtures documentales de §19.3.1, sin tolerancia (§14.8, §19.3.1):
+   - Lo cubierto se reconcilia de forma exacta: 14 salidas reales contra los fixtures documentales de §19.3.1, sin tolerancia (criterio provisional, ver Límites):
      - B=105, count 2, coverage 2/3;
      - corrección 102→103 da B=106.5;
      - proxy 101;
@@ -122,7 +122,7 @@ node --test test/tooling-selection/real-tooling.test.mjs
   no procedencia criptográfica: la evidencia sigue siendo declarada por el
   llamador. Verificación por ejecución/hash de artefacto queda fuera de una
   librería pura y no es parte de este corte.
-- Tolerancia: la SPEC la fija en exactitud. §14.8 dice "reconcilian exactamente"; §19.3.1, "reconciliación exacta"; §19.3, "No se añaden epsilons". Un margen distinto requeriría §20.2.12.
+- Tolerancia: la SPEC v1.1.1 no fija tolerancia para reconciliar salidas de tooling. Se aplica exactitud como **criterio provisional**, por analogía con §14.8 (volumen y costes "reconcilian exactamente"), §19.3.1 ("reconciliación exacta de unidades") y §19.3 (sin epsilons en scoring). Confirmarlo o fijar un margen es decisión de Bru; un margen canónico iría por §20.2.12.
 - §6.4 backtesting: la auditoría de capacidades/permisos del backtesting
   existente se cierra en el alcance auditado con el hallazgo AUSENTE (no hay
   componente). Su "resolución" para un futuro consumidor de backtesting

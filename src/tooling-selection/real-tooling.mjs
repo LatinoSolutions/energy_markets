@@ -32,7 +32,7 @@ export const IMP05_CAPABILITY_SOURCES = Object.freeze({
   "official.value_0_01.treatment": "§25.1 IMP-05 acceptance «caso 0.01 investigado»; §5.4 0.01 como caso de audit, no regla canónica de rechazo; §19.3.1 «Oficial 0.01»",
   "reference.read.trades": "§25.1 IMP-05 input «Referencias por fecha»; §5.2 precios de trades p_i; §6.5 raíz eex_derivative_trade",
   "reference.read.top_of_book": "§25.1 IMP-05 input «Referencias por fecha»; §5.2 bid_j/ask_j; §6.5 raíz eex_derivative_top_of_book",
-  "reference.read.official": "§25.2.2 IMP-05 REQUIRES_AUDIT DEP-06/07 «referencias y metadata utilizadas»; §5.3 R_d^official; §5.4 feed oficial «pendiente»",
+  "reference.read.official": "§25.2.2 IMP-05 REQUIRES_AUDIT DEP-06/07 «referencias y metadata utilizadas»; §5.3 R_d^official; §6.5 inventario sólo con raíces trade y top_of_book",
 });
 
 // La decisión técnica aplica "al soporte que consuma esa herramienta" (§25.2.2
