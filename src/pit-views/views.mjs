@@ -11,11 +11,13 @@
 
 import {
   buildPitRecord,
+  deepFreeze,
   isConsumableAtBoundary,
   isProxyAdmissibleAtBoundary,
   normalizeAuditedEvidence,
   normalizeProxyDeclarations,
   semanticsOf,
+  sourceRankOf,
 } from "./pit-record.mjs";
 import { isUtcAnchored, toUtcTimestamp } from "./time.mjs";
 
@@ -64,128 +66,169 @@ export function buildRevision(input) {
 // `revisions` son los receipts de trazabilidad del cambio. Nada aquí declara
 // cobertura real: el contenido lo aporta el manifest auditado (§25.2 IMP-06).
 
-// Puente de ingesta desde el manifiesto temporal auditado de IMP-03
-// (IMP-03_TEMPORAL_MANIFEST): las entradas auditadas se materializan como
-// records del contrato, sin inventar valores. Una semántica MISSING no
-// aporta timestamp ni valor: el record queda faltante explícito y conserva
-// su razón auditada (§6.2). HISTORICAL_ASSERTION (R-06/R-11) es procedencia
-// documental del audit, no dato temporal ni valor de mercado: no se relabela
-// (§6.2) y no se usa como occurred/publication/consumable. El artifact no
-// declara viewScope por entrada: el lote lo declara (el scope del audit es
-// la toma de decisión P5, §6.5; se permite override por requisito).
-export function auditedManifestRecords({ entries, defaultViewScope, viewScopeByRequirement = {} } = {}) {
-  const errors = [];
-  if (!Array.isArray(entries)) {
-    return { ok: false, errors: [{ field: "entries", code: "INVALID_ENTRIES", message: "entries debe ser la lista del manifiesto auditado." }] };
+// Vista a la que alimenta cada requisito auditado de IMP-03. No es default por
+// lote: cada requisito tiene su scope fijo y uno sin clasificar se rechaza.
+//  - R-06 (Benchmark B) = evaluation: data-sufficiency-matrix.json R-06
+//    pointInTimeValidity.note "B is evaluation-view only; it must never be
+//    visible to the decision policy"; SPEC v1.1.1 §5.3 ("B cerrado/revisado
+//    pertenece a la evaluation view") y §14.2 ("consumida únicamente para
+//    evaluación").
+//  - Resto = decision: §6.1 define la evaluation view como "outcomes,
+//    benchmark cerrado y revisiones de evaluación" y ninguno de estos
+//    requisitos es uno de ellos (clasificación derivada de §6.1, no una
+//    asignación fila a fila del audit).
+export const IMP03_REQUIREMENT_VIEW_SCOPES = Object.freeze({
+  "R-01": "decision",
+  "R-02": "decision",
+  "R-03": "decision",
+  "R-04": "decision",
+  "R-05": "decision",
+  "R-06": "evaluation",
+  "R-07": "decision",
+  "R-08": "decision",
+  "R-09": "decision",
+  "R-10": "decision",
+  "R-11": "decision",
+  "R-12": "decision",
+  "R-13": "decision",
+  "R-14": "decision",
+  "R-15": "decision",
+  "R-16": "decision",
+  "R-17": "decision",
+});
+
+const AUDITED_SEMANTIC_KEYS = [
+  "occurredReferenceTime",
+  "publicationSourceAvailabilityTime",
+  "policyConsumableTime",
+  "revisionVersion",
+];
+
+// Vocabulario de ST-03.3 (EEX-THE-20260921/ST-03.3/temporal-manifest.json
+// `statusVocabulary`); el manifiesto previo de IMP-03 usa un subconjunto.
+const AUDITED_STATUSES = ["OBSERVED", "PARTIAL", "HISTORICAL_ASSERTION", "MISSING", "NOT_DEMONSTRATED"];
+
+const SHA256_HEX = /^[0-9a-fA-F]{64}$/;
+
+function auditedReasonOf(entry) {
+  const parts = [];
+  for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
+    const semantic = entry[semanticKey];
+    const detail = [semantic.value, semantic.reason, semantic.note]
+      .filter((text) => typeof text === "string" && text.length > 0)
+      .join(" — ");
+    parts.push(detail.length > 0 ? `${semanticKey} ${semantic.status}: ${detail}` : `${semanticKey} ${semantic.status}`);
   }
-  if (defaultViewScope !== "decision" && defaultViewScope !== "evaluation") {
+  if (typeof entry.note === "string" && entry.note.length > 0) {
+    parts.push(`note: ${entry.note}`);
+  }
+  return parts.join(" | ");
+}
+
+// Puente de ingesta del manifiesto temporal auditado de IMP-03
+// (artifactKind IMP-03_TEMPORAL_MANIFEST). Cada entrada es un requisito, no
+// una fila de datos: el audit no entrega timestamps por versión ni valores
+// PIT, así que ningún texto del audit se convierte en reloj ni en valor
+// (§6.2: no se relabela; §6.5: retrieval no prueba publicación ni consumo).
+// La entrada se materializa como record unavailable que conserva íntegras
+// las cuatro semánticas (status, value, reason, note, evidence), la evidencia
+// de la entrada y la procedencia del artifact (`artifactRef` path + sha256).
+export function auditedManifestRecords({ artifact, artifactRef } = {}) {
+  if (!artifact || typeof artifact !== "object" || artifact.artifactKind !== "IMP-03_TEMPORAL_MANIFEST"
+    || !Array.isArray(artifact.entries)) {
     return {
       ok: false,
-      errors: [{ field: "defaultViewScope", code: "MISSING_VIEW_SCOPE", message: "El lote debe declarar defaultViewScope: decision o evaluation (el artifact IMP-03 no trae viewScope por entrada)." }],
+      errors: [{ field: "artifact", code: "INVALID_AUDITED_ARTIFACT", message: "Se espera el artifact IMP-03_TEMPORAL_MANIFEST completo con su lista entries." }],
     };
   }
-  const SEMANTIC_TO_FIELD = {
-    occurredReferenceTime: "occurredAtUtc",
-    publicationSourceAvailabilityTime: "publishedAtUtc",
-    policyConsumableTime: "consumableAtUtc",
+  if (!artifactRef || typeof artifactRef.path !== "string" || artifactRef.path.length === 0
+    || typeof artifactRef.sha256 !== "string" || !SHA256_HEX.test(artifactRef.sha256)) {
+    return {
+      ok: false,
+      errors: [{ field: "artifactRef", code: "MISSING_ARTIFACT_REF", message: "artifactRef requiere path y sha256 del artifact auditado (trazabilidad §6.2)." }],
+    };
+  }
+  const vocabulary = Array.isArray(artifact.statusVocabulary) ? artifact.statusVocabulary : AUDITED_STATUSES;
+  const provenance = {
+    path: artifactRef.path,
+    sha256: artifactRef.sha256.toLowerCase(),
+    packetId: artifact.packetId ?? null,
+    subtaskId: artifact.subtaskId ?? null,
   };
+
+  const errors = [];
   const records = [];
-  entries.forEach((entry, index) => {
-    const semanticFields = {};
-    for (const [semanticKey, field] of Object.entries(SEMANTIC_TO_FIELD)) {
-      const semantic = entry[semanticKey];
-      if (semantic?.status === "PRESENT" && typeof semantic.value === "string" && semantic.value.length > 0) {
-        semanticFields[field] = semantic.value;
-      }
+  const seen = new Set();
+  artifact.entries.forEach((entry, index) => {
+    const field = `entries[${index}](${entry?.requirementId ?? "?"})`;
+    const requirementId = entry?.requirementId;
+    if (typeof requirementId !== "string" || !Object.hasOwn(IMP03_REQUIREMENT_VIEW_SCOPES, requirementId)) {
+      errors.push({ field, code: "UNCLASSIFIED_REQUIREMENT", message: `El requisito "${requirementId}" no tiene viewScope canónico; no se presume.` });
+      return;
     }
-    // Aserción histórica del audit: procedencia documental, no timestamp.
-    let assertion = null;
-    for (const semanticKey of Object.keys(SEMANTIC_TO_FIELD)) {
-      const semantic = entry[semanticKey];
-      if (semantic?.status === "HISTORICAL_ASSERTION" && semantic.value != null) {
-        assertion = {
-          assertion: semantic.value,
-          semantic: semanticKey,
-          evidence: semantic.evidence ?? null,
-          specLocator: semantic.specLocator ?? entry.specLocator ?? null,
-        };
-        break;
-      }
+    if (seen.has(requirementId)) {
+      errors.push({ field, code: "DUPLICATE_REQUIREMENT", message: `El requisito "${requirementId}" aparece más de una vez en el artifact.` });
+      return;
     }
-    // Razón auditada del faltante (§6.2): trazabilidad del missing.
-    let reason = null;
-    for (const semanticKey of Object.keys(SEMANTIC_TO_FIELD)) {
-      const semantic = entry[semanticKey];
-      if (semantic?.status === "MISSING" && typeof semantic.reason === "string" && semantic.reason.length > 0) {
-        reason = semantic.reason;
-        break;
-      }
+    seen.add(requirementId);
+    const badSemantic = AUDITED_SEMANTIC_KEYS.find((semanticKey) => {
+      const status = entry[semanticKey]?.status;
+      return !AUDITED_STATUSES.includes(status) || !vocabulary.includes(status);
+    });
+    if (badSemantic !== undefined) {
+      errors.push({ field: `${field}.${badSemantic}`, code: "UNKNOWN_AUDITED_STATUS", message: `Status auditado "${entry[badSemantic]?.status}" fuera del vocabulario; no se descarta en silencio.` });
+      return;
     }
-    const viewScope = viewScopeByRequirement[entry.requirementId] ?? defaultViewScope;
-    const recordInput = {
-      key: entry.requirementId,
-      viewScope,
+
+    const semantics = {};
+    for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
+      semantics[semanticKey] = entry[semanticKey];
+    }
+    const outcome = buildPitRecord({
+      key: requirementId,
+      viewScope: IMP03_REQUIREMENT_VIEW_SCOPES[requirementId],
       revisionId: null,
       value: null,
-      occurredAtUtc: semanticFields.occurredAtUtc ?? null,
-      publishedAtUtc: semanticFields.publishedAtUtc ?? null,
-      consumableAtUtc: semanticFields.consumableAtUtc ?? null,
-    };
-    if (typeof entry.requirement === "string" && entry.requirement.length > 0) {
-      recordInput.label = entry.requirement;
-    }
-    if (reason !== null && assertion !== null) {
-      recordInput.reason = `${reason} | HISTORICAL_ASSERTION (${assertion.semantic}): ${assertion.assertion}`;
-    } else if (reason !== null) {
-      recordInput.reason = reason;
-    } else if (assertion !== null) {
-      recordInput.reason = `HISTORICAL_ASSERTION (${assertion.semantic}): ${assertion.assertion}`;
-    }
-    if (assertion !== null) {
-      recordInput.historicalAssertion = {
-        assertion: assertion.assertion,
-        semantic: assertion.semantic,
-        specLocator: assertion.specLocator,
-        evidence: assertion.evidence,
-      };
-    }
-    const outcome = buildPitRecord(recordInput);
+      reason: auditedReasonOf(entry),
+      audit: {
+        artifact: provenance,
+        requirementId,
+        requirement: entry.requirement ?? null,
+        criticalVersusOptional: entry.criticalVersusOptional ?? null,
+        note: entry.note ?? null,
+        evidence: entry.evidence ?? null,
+        semantics,
+      },
+    });
     if (outcome.ok) {
       records.push(outcome.record);
     } else {
-      errors.push(...outcome.errors.map((e) => ({ ...e, field: `entries[${index}](${entry.requirementId ?? "?"}).${e.field}` })));
+      errors.push(...outcome.errors.map((e) => ({ ...e, field: `${field}.${e.field}` })));
     }
   });
-  return { ok: true, records, errors };
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+  return { ok: true, records };
 }
 
 // Materializa el manifiesto PIT auditado: records desde el artifact IMP-03
 // más los records enriquecidos del lote, en un buildPitManifest con sus dos
-// vistas. Las razones auditadas viajan dentro de los records; el manifiesto
-// resultante no declara coberturas nuevas.
+// vistas. Un record extra no puede cambiar la vista de un requisito auditado
+// (buildPitManifest exige un único viewScope por key).
 export function buildPitManifestFromAudit({
   manifestId,
   manifestVersion,
-  entries,
-  defaultViewScope,
-  viewScopeByRequirement = {},
+  artifact,
+  artifactRef,
   extraRecords = [],
   revisions = [],
   auditedEvidence = [],
   proxyDeclarations = [],
 } = {}) {
-  const ingestion = auditedManifestRecords({ entries, defaultViewScope, viewScopeByRequirement });
+  const ingestion = auditedManifestRecords({ artifact, artifactRef });
   if (!ingestion.ok) {
     return ingestion;
-  }
-  // Un record de ingesta rechazado por el contrato PIT no se descarta en
-  // silencio: el manifiesto no se construye y el error sube al caller (§6.2:
-  // nada se excluye sin trazabilidad).
-  if (ingestion.errors.length > 0) {
-    return {
-      ok: false,
-      errors: ingestion.errors.map((error) => ({ ...error, field: `entries.${error.field}` })),
-    };
   }
   return buildPitManifest({
     manifestId,
@@ -262,6 +305,38 @@ export function buildPitManifest({
     identity.set(composite, record);
   }
 
+  // §14.2/§14.3: un key alimenta una sola vista. Si dos versiones del mismo
+  // key declaran vistas distintas, un record extra podría meter el benchmark
+  // en la decisión: doble verdad, se rechaza.
+  const scopeByKey = new Map();
+  for (const record of builtRecords) {
+    const prior = scopeByKey.get(record.key);
+    if (prior !== undefined && prior !== record.viewScope) {
+      errors.push({
+        field: "records",
+        code: "VIEW_SCOPE_CONFLICT",
+        message: `"${record.key}" se declara en las vistas ${prior} y ${record.viewScope}; un key alimenta una sola vista (§14.3).`,
+      });
+      conflicting = true;
+      break;
+    }
+    scopeByKey.set(record.key, record.viewScope);
+  }
+  // Un requisito auditado de IMP-03 conserva su vista canónica aunque llegue
+  // por buildPitManifest sin pasar por el adaptador (R-06 nunca en decisión).
+  for (const record of builtRecords) {
+    const canonicalScope = IMP03_REQUIREMENT_VIEW_SCOPES[record.key];
+    if (canonicalScope !== undefined && canonicalScope !== record.viewScope) {
+      errors.push({
+        field: "records",
+        code: "VIEW_SCOPE_CONFLICT",
+        message: `"${record.key}" pertenece a la vista ${canonicalScope} (IMP03_REQUIREMENT_VIEW_SCOPES), no a ${record.viewScope}.`,
+      });
+      conflicting = true;
+      break;
+    }
+  }
+
   // Trazabilidad: revisionOf debe apuntar a versiones existentes del mismo key
   // y el lineage debe respetar el tiempo (§6.1/§6.2): la revisión se publica
   // estrictamente después de la versión que corrige, y si declara consumo, se
@@ -295,6 +370,16 @@ export function buildPitManifest({
         continue;
       }
       revisedBy.set(`${record.key}::${record.revisionOf}`, record.revisionId);
+      // §6.2: un proxy no se relabela como oficial. El lineage vive dentro de
+      // una misma fuente; cambiar de fuente es fallback, no revisión.
+      if (predecessor.proxy !== record.proxy || predecessor.proxyId !== record.proxyId) {
+        errors.push({
+          field: "records",
+          code: "LINEAGE_SOURCE_MISMATCH",
+          message: `"${record.revisionId}" de "${record.key}" revisa "${predecessor.revisionId}" de otra fuente; una revisión no cambia de fuente (§6.2).`,
+        });
+        continue;
+      }
       if (record.publishedAtUtc === null) {
         errors.push({
           field: "records",
@@ -407,6 +492,7 @@ export function buildPitManifest({
   // puede hacer efectiva una revisión antes de que su versión se publique.
   const sortedRevisions = [...builtRevisions]
     .sort((left, right) => left.effectiveAtUtc.localeCompare(right.effectiveAtUtc));
+  const effectiveAtByIdentity = new Map();
   for (const record of builtRecords) {
     const receipt = record.revisionId === null
       ? undefined
@@ -432,20 +518,22 @@ export function buildPitManifest({
       });
       continue;
     }
-    record.effectiveAtUtc = receipt !== undefined ? receipt.effectiveAtUtc : record.publishedAtUtc;
+    effectiveAtByIdentity.set(record, receipt !== undefined ? receipt.effectiveAtUtc : record.publishedAtUtc);
   }
 
   // El reloj de evaluación también respeta el lineage: un receipt no puede
   // hacer efectiva una revisión antes (o a la vez) que la versión que corrige.
   for (const record of builtRecords) {
-    if (record.revisionOf === null || typeof record.effectiveAtUtc !== "string") {
+    const recordEffective = effectiveAtByIdentity.get(record);
+    if (record.revisionOf === null || typeof recordEffective !== "string") {
       continue;
     }
     const predecessor = identity.get(`${record.key}::${record.revisionOf}`);
-    if (typeof predecessor.effectiveAtUtc !== "string") {
+    const predecessorEffective = effectiveAtByIdentity.get(predecessor);
+    if (typeof predecessorEffective !== "string") {
       continue;
     }
-    if (Date.parse(record.effectiveAtUtc) <= Date.parse(predecessor.effectiveAtUtc)) {
+    if (Date.parse(recordEffective) <= Date.parse(predecessorEffective)) {
       errors.push({
         field: "revisions",
         code: "LINEAGE_ORDER_INCOHERENT",
@@ -458,38 +546,47 @@ export function buildPitManifest({
     return { ok: false, errors };
   }
 
+  // El manifest es inmutable: records (con su reloj de evaluación) y receipts
+  // quedan congelados; una versión no se reescribe por referencia (§6.2).
+  const manifestRecords = builtRecords.map((record) => ({
+    ...record,
+    effectiveAtUtc: effectiveAtByIdentity.get(record) ?? null,
+  }));
   return {
     ok: true,
-    manifest: {
+    manifest: deepFreeze({
       manifestId,
       manifestVersion,
-      records: builtRecords,
+      records: manifestRecords,
       revisions: sortedRevisions,
-    },
+    }),
   };
 }
 
 
 // Relojes separados por vista (§6.1: las dos vistas no comparten reloj):
-//  - decision: orden por consumableFromUtc (consumo demostrado). Sin consumo
-//    demostrado no hay reloj de decisión: unavailable (§25.1 IMP-06).
-//  - evaluation: orden por record.effectiveAtUtc (publicación/receipt),
-//    calculado en el manifest.
-function timelineForKey(records, key, clockField) {
-  const entries = records
-    .filter((record) => record.key === key)
-    .map((record, index) => ({ record, index, [clockField]: record[clockField] }))
-    .filter((entry) => typeof entry[clockField] === "string")
-    .sort((left, right) => left[clockField].localeCompare(right[clockField]) || left.index - right.index);
-  return entries;
+//  - decision: consumableFromUtc (consumo demostrado).
+//  - evaluation: effectiveAtUtc (receipt o publicación), fijado en el manifest.
+function latestBy(records, clockField) {
+  let latest = null;
+  for (const record of records) {
+    if (latest === null || record[clockField].localeCompare(latest[clockField]) > 0) {
+      latest = record;
+    }
+  }
+  return latest;
 }
 
-// Versión vigente hasta un instante (inclusive): la más reciente por el reloj
-// de la vista. Las anteriores quedan superseded versionadas: nunca desaparecen
-// (§6.2).
-function effectiveEntry(timeline, clockField, cutoffMs) {
-  const known = timeline.filter((entry) => Date.parse(entry[clockField]) <= cutoffMs);
-  return known.length > 0 ? known[known.length - 1] : null;
+// Jerarquía de fuentes fijada ex ante (§6.2): gana la fuente de menor rango que
+// tenga contenido en el instante (oficial = 0, proxies por fallbackRank); sólo
+// dentro de esa fuente decide el reloj. Un proxy posterior nunca desplaza a la
+// oficial disponible, y el orden no depende del resultado económico.
+function selectBySourceHierarchy(records, clockField) {
+  if (records.length === 0) {
+    return null;
+  }
+  const bestRank = Math.min(...records.map(sourceRankOf));
+  return latestBy(records.filter((record) => sourceRankOf(record) === bestRank), clockField);
 }
 
 function parseUtcBoundary(value, field, code) {
@@ -502,19 +599,38 @@ function parseUtcBoundary(value, field, code) {
   return { ok: true, ms: Date.parse(value), iso: new Date(Date.parse(value)).toISOString() };
 }
 
+function withRecordReason(record, guardReason) {
+  const recordReason = typeof record.reason === "string" && record.reason.length > 0 ? record.reason : null;
+  return recordReason !== null ? `${recordReason}; ${guardReason}` : guardReason;
+}
+
+// Un record habla en la decision view de un boundary sólo si lo que dice es un
+// hecho anterior o igual a él (§6.1 "publicado no significa disponible";
+// criterio IMP-06 §25.1 "un dato publicado pero aún no consumible no entra;
+// revisión futura no cambia State histórico"):
+//  - sin reloj alguno (entrada auditada, faltante sin publicación): hecho del
+//    audit, independiente del tiempo;
+//  - consumo declarado en o antes del boundary.
+// Una versión publicada pero consumible después (o nunca demostrada) no se
+// menciona: añadirla al manifest no cambia la respuesta histórica.
+function speaksAtBoundary(record, boundaryMs) {
+  if (record.publishedAtUtc === null && record.consumableAtUtc === null) {
+    return true;
+  }
+  return record.consumableAtUtc !== null && Date.parse(record.consumableAtUtc) <= boundaryMs;
+}
+
 // DECISION-TIME VIEW (§6.1): en cada boundary expone únicamente las versiones
 // realmente conocidas/consumibles. La policy observa exclusivamente esta vista
-// (§14.3): el benchmark cerrado y los outcomes viven en la evaluación y nunca
-// aparecen aquí. Guardas de §19.2:
-//  1. versiones publicadas después del boundary no existen para esta vista:
-//     no aparecen ni en `visible` ni en `suppressed`. La respuesta de un
-//     boundary histórico sólo depende de hechos anteriores a él, así que
-//     agregar revisiones futuras al manifest no la cambia (§6.1, §14.7).
-//  2. publicado pero con consumo no demostrado en el boundary => suppressed
-//     (§6.1: publicado no significa disponible para la policy).
-//  3. proxy no predeclarado/permitido en el boundary => suppressed (§6.2).
-//  4. versiones reemplazadas por una más reciente consumible no se reportan:
-//     su valor queda en la vista de evaluación (§6.2).
+// (§14.3): los keys de viewScope "evaluation" (benchmark, outcomes) nunca
+// aparecen. Salida:
+//  - visible: por key, la versión elegida por jerarquía de fuentes ex ante y,
+//    dentro de la fuente, la más reciente por consumo (§6.2).
+//  - suppressed: records que hablan en el boundary (ver speaksAtBoundary) y no
+//    son admisibles, con su razón auditada + la guarda (§6.2).
+//  - unavailable: keys sin versión consumible en el boundary (§6.1). El set de
+//    keys es el esquema del manifest: una revisión de un key existente no lo
+//    cambia; incorporar un key nuevo sí lo lista como unavailable.
 export function readDecisionView(manifest, boundaryUtc) {
   const boundary = parseUtcBoundary(boundaryUtc, "boundary", "INVALID_BOUNDARY");
   if (!boundary.ok) {
@@ -523,68 +639,54 @@ export function readDecisionView(manifest, boundaryUtc) {
 
   const visible = [];
   const suppressed = [];
+  const unavailable = [];
 
-  // §14.2/§14.3: sólo los inputs de decisión entran; benchmark/outcomes
-  // (viewScope "evaluation") quedan fuera de la vista de decisión. La guarda
-  // exige "decision" explícito, no la mera ausencia de "evaluation": así un
-  // manifest mal formado tampoco cuela un benchmark en la decisión.
+  // Exige "decision" explícito: un manifest mal formado tampoco cuela un
+  // benchmark sin scope en la decisión.
   const decisionRecords = manifest.records.filter((record) => record.viewScope === "decision");
   const uniqueKeys = [...new Set(decisionRecords.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
-    // Los records sin publicación (entradas auditadas MISSING o contenido sin
-    // publicación) no tienen reloj: no son futuros ni pasados y se reportan en
-    // `suppressed` en todo boundary. Las revisiones siempre tienen publicación
-    // (lo exige el manifest), así que nunca entran por esta vía.
-    const existingAtBoundary = decisionRecords.filter((record) => record.key === key
-      && (record.publishedAtUtc === null || Date.parse(record.publishedAtUtc) <= boundary.ms));
+    const speaking = decisionRecords.filter((record) => record.key === key && speaksAtBoundary(record, boundary.ms));
 
     const admissible = [];
-    for (const record of existingAtBoundary) {
+    for (const record of speaking) {
       const consumability = isConsumableAtBoundary(record, boundary.iso);
       const proxy = isProxyAdmissibleAtBoundary(record, boundary.iso);
       if (consumability.consumable && proxy.admissible) {
         admissible.push(record);
         continue;
       }
-      // Razón del record (§6.2): la trazabilidad del faltante auditado no se
-      // sustituye por un texto genérico; la guarda específica lo complementa.
       const guardReason = consumability.consumable ? proxy.reason : consumability.reason;
-      const recordReason = typeof record.reason === "string" && record.reason.length > 0 ? record.reason : null;
-      suppressed.push({
-        key,
-        revisionId: record.revisionId,
-        reason: recordReason !== null ? `${recordReason}; ${guardReason}` : guardReason,
-      });
+      suppressed.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, guardReason) });
     }
 
-    const timeline = timelineForKey(admissible, key, "consumableFromUtc");
-    const effective = effectiveEntry(timeline, "consumableFromUtc", boundary.ms);
-    if (effective === null) {
+    const selected = selectBySourceHierarchy(admissible, "consumableFromUtc");
+    if (selected === null) {
+      unavailable.push({ key, reason: "sin versión consumible demostrada en este boundary (§6.1)" });
       continue;
     }
     visible.push({
       key,
-      value: effective.record.value,
-      revisionId: effective.record.revisionId,
-      consumableFromUtc: effective.consumableFromUtc,
-      semantics: semanticsOf(effective.record),
-      proxy: effective.record.proxy,
-      proxyId: effective.record.proxyId,
+      value: selected.value,
+      revisionId: selected.revisionId,
+      consumableFromUtc: selected.consumableFromUtc,
+      semantics: semanticsOf(selected),
+      proxy: selected.proxy,
+      proxyId: selected.proxyId,
+      sourceRank: sourceRankOf(selected),
     });
   }
 
-  return { ok: true, view: "decision", boundary: boundary.iso, visible, suppressed };
+  return { ok: true, view: "decision", boundary: boundary.iso, visible, suppressed, unavailable };
 }
 
 // EVALUATION VIEW (§6.1): outcomes, benchmark cerrado y revisiones de
-// evaluación, con su condición posterior explícita. Requiere asOfUtc: la
-// vista es versionada, no un estado flotante. La versión vigente se selecciona
-// por el reloj de contenido (receipt/publicación), nunca por el reloj de
-// consumo de la policy: así una revisión no aparece como actual mientras
-// pendingRevisions la declara pendiente. Los contenidos sin publicación ni
-// receipt, y los faltantes de valor, se reportan explícitamente como
-// unavailable en vez de mostrarse con un valor indefinido (§6.1/§6.2).
+// evaluación, versionada por asOfUtc. Reloj de contenido (receipt o
+// publicación), nunca el de consumo de la policy. Selección por la misma
+// jerarquía de fuentes ex ante (§6.2); los proxies no permitidos no se usan.
+// Faltantes, observaciones del audit sin valor y contenido sin reloj se
+// reportan en `unavailable` con su razón auditada (§6.1/§6.2).
 export function readEvaluationView(manifest, asOfUtc) {
   const asOf = parseUtcBoundary(asOfUtc, "asOf", "INVALID_AS_OF");
   if (!asOf.ok) {
@@ -593,66 +695,71 @@ export function readEvaluationView(manifest, asOfUtc) {
 
   const current = [];
   const superseded = [];
+  const outranked = [];
   const unavailable = [];
 
   const uniqueKeys = [...new Set(manifest.records.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
     const keyRecords = manifest.records.filter((record) => record.key === key);
-    // §6.1: la evaluación no confía en un `effectiveAtUtc` suelto; el contenido
-    // debe tener publicación/availability en origen para situarse en el tiempo.
-    const contentRecords = keyRecords.filter(
-      (record) => record.valueStatus === "PRESENT"
-        && typeof record.publishedAtUtc === "string"
-        && typeof record.effectiveAtUtc === "string",
-    );
-    const timeline = timelineForKey(contentRecords, key, "effectiveAtUtc");
-    const effective = effectiveEntry(timeline, "effectiveAtUtc", asOf.ms);
-
-    if (effective !== null) {
-      current.push({
-        key,
-        value: effective.record.value,
-        revisionId: effective.record.revisionId,
-        publishedAtUtc: effective.record.publishedAtUtc,
-        consumableAtUtc: effective.record.consumableAtUtc,
-        effectiveAtUtc: effective.effectiveAtUtc,
-        semantics: semanticsOf(effective.record),
-        proxy: effective.record.proxy,
-        proxyId: effective.record.proxyId,
-        condition: effective.record.revisionOf === null ? "base" : `revised from ${effective.record.revisionOf}`,
-      });
-      // Las versiones anteriores se conservan versionadas (§6.2).
-      for (const entry of timeline) {
-        if (entry !== effective && Date.parse(entry.effectiveAtUtc) <= asOf.ms) {
-          superseded.push({
-            key,
-            revisionId: entry.record.revisionId,
-            value: entry.record.value,
-            effectiveAtUtc: entry.effectiveAtUtc,
-            supersededBy: effective.record.revisionId,
-          });
+    const content = [];
+    for (const record of keyRecords) {
+      if (record.valueStatus === "AUDIT_OBSERVED") {
+        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "observado por el audit sin versión PIT materializada (§6.5)") });
+      } else if (record.valueStatus !== "PRESENT") {
+        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "valor ausente; faltante explícito (§6.2)") });
+      } else if (typeof record.publishedAtUtc !== "string" || typeof record.effectiveAtUtc !== "string") {
+        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)") });
+      } else if (Date.parse(record.effectiveAtUtc) <= asOf.ms) {
+        // §6.2: el proxy debe estar predeclarado y permitido en el asOf; una
+        // declaración posterior no existe todavía para esta versión de la vista.
+        const proxy = isProxyAdmissibleAtBoundary(record, asOf.iso);
+        if (proxy.admissible) {
+          content.push(record);
+        } else {
+          unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, proxy.reason) });
         }
       }
     }
 
-    // Faltantes explícitos: valor ausente o contenido sin reloj de evaluación
-    // (sin publicación ni receipt). Nunca se muestran como actuales (§6.1/§6.2).
-    for (const record of keyRecords) {
-      // Razón del record (§6.2): la trazabilidad del faltante auditado no se
-      // sustituye por un texto genérico; la guarda específica lo complementa.
-      const recordReason = typeof record.reason === "string" && record.reason.length > 0 ? record.reason : null;
-      if (record.valueStatus === "MISSING") {
-        unavailable.push({
+    const selected = selectBySourceHierarchy(content, "effectiveAtUtc");
+    if (selected === null) {
+      continue;
+    }
+    current.push({
+      key,
+      value: selected.value,
+      revisionId: selected.revisionId,
+      publishedAtUtc: selected.publishedAtUtc,
+      consumableAtUtc: selected.consumableAtUtc,
+      effectiveAtUtc: selected.effectiveAtUtc,
+      semantics: semanticsOf(selected),
+      proxy: selected.proxy,
+      proxyId: selected.proxyId,
+      sourceRank: sourceRankOf(selected),
+      condition: selected.revisionOf === null ? "base" : `revised from ${selected.revisionOf}`,
+    });
+    // Versiones anteriores de la misma fuente: superseded (§6.2). Contenido de
+    // otra fuente con peor rango: outranked, no reemplazo.
+    for (const record of content) {
+      if (record === selected) {
+        continue;
+      }
+      if (sourceRankOf(record) === sourceRankOf(selected)) {
+        superseded.push({
           key,
           revisionId: record.revisionId,
-          reason: recordReason !== null ? `${recordReason}; valor ausente; faltante explícito (§6.2)` : "valor ausente; faltante explícito (§6.2)",
+          value: record.value,
+          effectiveAtUtc: record.effectiveAtUtc,
+          supersededBy: selected.revisionId,
         });
-      } else if (typeof record.publishedAtUtc !== "string" || typeof record.effectiveAtUtc !== "string") {
-        unavailable.push({
+      } else {
+        outranked.push({
           key,
           revisionId: record.revisionId,
-          reason: recordReason !== null ? `${recordReason}; sin publicación ni receipt; contenido no disponible para evaluación (§6.1)` : "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)",
+          proxyId: record.proxyId,
+          sourceRank: sourceRankOf(record),
+          outrankedBy: selected.revisionId,
         });
       }
     }
@@ -672,6 +779,7 @@ export function readEvaluationView(manifest, asOfUtc) {
     asOf: asOf.iso,
     current,
     superseded,
+    outranked,
     unavailable,
     appliedRevisions,
     pendingRevisions,

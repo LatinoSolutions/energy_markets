@@ -99,7 +99,7 @@ test("proxy sin identificador se rechaza; el proxy declarado conserva su id", ()
   assert.equal(anonymous.errors[0].code, "MISSING_PROXY_ID");
   const declared = buildPitRecord(validInput({ proxy: true, proxyId: "PROXY-TRADES-MID-0.75/0.25" }), {
     ...AUDITED,
-    proxyDeclarations: [{ key: "G0BQ.202604.reference", proxyId: "PROXY-TRADES-MID-0.75/0.25", allowed: true, declaredAtUtc: "2026-01-01T00:00:00Z" }],
+    proxyDeclarations: [{ key: "G0BQ.202604.reference", proxyId: "PROXY-TRADES-MID-0.75/0.25", allowed: true, fallbackRank: 1, declaredAtUtc: "2026-01-01T00:00:00Z" }],
   });
   assert.equal(declared.ok, true);
   assert.equal(declared.record.proxy, true);
@@ -288,7 +288,7 @@ test("un proxyId no predeclarado se rechaza: un id suelto no identifica un proxy
   assert.ok(outcome.errors.some((e) => e.code === "PROXY_NOT_DECLARED"));
   const otherKey = buildPitRecord(validInput({ proxy: true, proxyId: PROXY_ID }), {
     ...AUDITED,
-    proxyDeclarations: [{ key: "otra-serie", proxyId: PROXY_ID, allowed: true, declaredAtUtc: "2026-01-01T00:00:00Z" }],
+    proxyDeclarations: [{ key: "otra-serie", proxyId: PROXY_ID, allowed: true, fallbackRank: 1, declaredAtUtc: "2026-01-01T00:00:00Z" }],
   });
   assert.equal(otherKey.ok, false);
   assert.ok(otherKey.errors.some((e) => e.code === "PROXY_NOT_DECLARED"));
@@ -303,7 +303,7 @@ test("proxyId sin proxy: true se rechaza: no se mezcla dato proxy con oficial", 
 test("isProxyAdmissibleAtBoundary exige declaración permitida y previa al boundary", () => {
   const build = (declaration) => buildPitRecord(validInput({ proxy: true, proxyId: PROXY_ID }), {
     ...AUDITED,
-    proxyDeclarations: [{ key: "G0BQ.202604.reference", proxyId: PROXY_ID, ...declaration }],
+    proxyDeclarations: [{ key: "G0BQ.202604.reference", proxyId: PROXY_ID, fallbackRank: 1, ...declaration }],
   }).record;
   const allowed = build({ allowed: true, declaredAtUtc: "2026-03-01T00:00:00Z" });
   assert.equal(isProxyAdmissibleAtBoundary(allowed, "2026-04-02T00:00:00Z").admissible, true);

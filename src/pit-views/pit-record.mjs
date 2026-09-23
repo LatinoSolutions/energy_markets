@@ -10,9 +10,10 @@
 // rechaza ni se presume consumible.
 //
 // §25.2 IMP-06: el módulo materializa los resultados auditados sin declarar
-// nuevas coberturas. Por eso un input auditado MISSING (sin `value` y con
-// `revisionId` MISSING, como las entradas del manifiesto temporal de IMP-03)
-// se conserva como record `unavailable`; no se rechaza por faltarle la versión.
+// nuevas coberturas. Por eso una entrada del manifiesto temporal de IMP-03 (sin
+// `value` ni `revisionId`) se conserva como record `unavailable` con su bloque
+// `audit` íntegro (las cuatro semánticas con status/valor/razón/evidencia); no
+// se rechaza por faltarle la versión ni se reduce a un MISSING genérico.
 //
 // §6.1/§14.2: no todo dato alimenta la decisión. El benchmark cerrado y los
 // outcomes son "consumida únicamente para evaluación" (§14.2) y "permanece
@@ -39,6 +40,49 @@ function fail(errors, field, code, message) {
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+// §6.2: una versión no se reescribe. El record guarda una copia congelada del
+// contenido; mutar el objeto del llamante después no altera el histórico.
+export function deepFreeze(value) {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+  for (const nested of Object.values(value)) {
+    deepFreeze(nested);
+  }
+  return Object.freeze(value);
+}
+
+// Sólo primitivos, arrays y objetos planos: Map/Set/Date guardan su contenido
+// fuera de las propiedades y Object.freeze no los protege. Un ciclo no es un
+// valor versionable: se rechaza en vez de desbordar la pila.
+function isPlainData(value, ancestors = new Set()) {
+  if (value === null || typeof value !== "object") {
+    return typeof value !== "function" && typeof value !== "symbol";
+  }
+  if (ancestors.has(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    return false;
+  }
+  ancestors.add(value);
+  const plain = Object.values(value).every((nested) => isPlainData(nested, ancestors));
+  ancestors.delete(value);
+  return plain;
+}
+
+function frozenCopy(value) {
+  if (!isPlainData(value)) {
+    return { ok: false };
+  }
+  try {
+    return { ok: true, copy: deepFreeze(structuredClone(value)) };
+  } catch {
+    return { ok: false };
+  }
 }
 
 // Registro de evidencia verificada por el audit (§6.4: la auditoría verifica
@@ -94,6 +138,10 @@ export function normalizeAuditedEvidence(list = []) {
 // Declaraciones de proxy (§6.2: "Los proxies deben estar predeclarados,
 // identificados, permitidos y ser point-in-time válidos"). La declaración la
 // aporta la Candidate Policy / ledger; este módulo sólo la exige y la aplica.
+// `fallbackRank` (entero >= 1, único por key) es la posición del proxy en la
+// jerarquía de fallback fijada ex ante (§6.2: "su jerarquía se fija ex ante y
+// no se selecciona según el resultado económico"). La fuente oficial es rango
+// 0: un proxy es fallback, no se relabela como oficial ni la desplaza (§6.2).
 export function normalizeProxyDeclarations(list = []) {
   if (!Array.isArray(list)) {
     return { ok: false, errors: [{ field: "proxyDeclarations", code: "INVALID_PROXY_DECLARATION", message: "proxyDeclarations debe ser una lista." }] };
@@ -103,11 +151,12 @@ export function normalizeProxyDeclarations(list = []) {
   list.forEach((raw, index) => {
     const declaredAt = normalizeUtc(raw?.declaredAtUtc);
     if (!isNonEmptyString(raw?.key) || !isNonEmptyString(raw?.proxyId) || typeof raw?.allowed !== "boolean"
+      || !Number.isInteger(raw?.fallbackRank) || raw.fallbackRank < 1
       || !declaredAt.ok || declaredAt.utc === null) {
       errors.push({
         field: `proxyDeclarations[${index}]`,
         code: "INVALID_PROXY_DECLARATION",
-        message: "La declaración de proxy requiere key, proxyId, allowed booleano y declaredAtUtc con zona explícita.",
+        message: "La declaración de proxy requiere key, proxyId, allowed booleano, fallbackRank entero >= 1 y declaredAtUtc con zona explícita.",
       });
       return;
     }
@@ -119,7 +168,21 @@ export function normalizeProxyDeclarations(list = []) {
       });
       return;
     }
-    declarations.push({ key: raw.key, proxyId: raw.proxyId, allowed: raw.allowed, declaredAtUtc: declaredAt.utc });
+    if (declarations.some((entry) => entry.key === raw.key && entry.fallbackRank === raw.fallbackRank)) {
+      errors.push({
+        field: `proxyDeclarations[${index}]`,
+        code: "DUPLICATE_FALLBACK_RANK",
+        message: `Dos proxies de "${raw.key}" comparten fallbackRank ${raw.fallbackRank}; la jerarquía ex ante debe ser total (§6.2).`,
+      });
+      return;
+    }
+    declarations.push({
+      key: raw.key,
+      proxyId: raw.proxyId,
+      allowed: raw.allowed,
+      fallbackRank: raw.fallbackRank,
+      declaredAtUtc: declaredAt.utc,
+    });
   });
   return errors.length > 0 ? { ok: false, errors } : { ok: true, declarations };
 }
@@ -157,6 +220,27 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
   // §6.2: missing nunca se inventa. Un `value` ausente/null se conserva como
   // faltante explícito en vez de exponerse como valor indefinido.
   const valuePresent = input.value !== undefined && input.value !== null;
+  let valueCopy = null;
+  if (valuePresent) {
+    const copied = frozenCopy(input.value);
+    if (copied.ok) {
+      valueCopy = copied.copy;
+    } else {
+      fail(errors, "value", "INVALID_VALUE", "El valor debe ser dato plano (primitivos, arrays, objetos planos) para conservarse como versión inmutable (§6.2).");
+    }
+  }
+
+  // Resultado auditado de IMP-03 (§25.2 IMP-06): se conserva íntegro y
+  // congelado. Sólo lo produce el adaptador del manifiesto auditado.
+  let audit = null;
+  if (input.audit !== undefined && input.audit !== null) {
+    const copied = typeof input.audit === "object" ? frozenCopy(input.audit) : { ok: false };
+    if (copied.ok && copied.copy.semantics && typeof copied.copy.semantics === "object") {
+      audit = copied.copy;
+    } else {
+      fail(errors, "audit", "INVALID_AUDIT_BLOCK", "El bloque audit debe ser un objeto serializable con sus semánticas auditadas.");
+    }
+  }
 
   // §6.1: la versión concreta del valor. Un valor presente exige versión; una
   // entrada auditada MISSING puede no tenerla y se conserva como unavailable.
@@ -270,7 +354,7 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
     if (declared === undefined) {
       fail(errors, "proxyId", "PROXY_NOT_DECLARED", `El proxy "${input.proxyId}" no está predeclarado para "${input.key}" (§6.2).`);
     } else {
-      proxyDeclaration = { allowed: declared.allowed, declaredAtUtc: declared.declaredAtUtc };
+      proxyDeclaration = { allowed: declared.allowed, fallbackRank: declared.fallbackRank, declaredAtUtc: declared.declaredAtUtc };
     }
   }
   if (input.proxy !== true && input.proxyId !== undefined && input.proxyId !== null) {
@@ -309,6 +393,18 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
   // consumible para la policy. Sin consumo demostrado no hay reloj de decisión.
   const consumableFromUtc = consumability === "demonstrated" ? consumable.utc : null;
 
+  // Sin valor materializado, el status distingue "el audit observó contenido
+  // (OBSERVED/PARTIAL) sin fila PIT versionada" de "no hay nada" (§6.2, §6.5).
+  // Ninguno de los dos es consumible.
+  const auditObserved = audit !== null
+    && Object.values(audit.semantics).some((semantic) => semantic?.status === "OBSERVED" || semantic?.status === "PARTIAL");
+  let valueStatus = "MISSING";
+  if (valuePresent) {
+    valueStatus = "PRESENT";
+  } else if (auditObserved) {
+    valueStatus = "AUDIT_OBSERVED";
+  }
+
   const record = {
     key: input.key,
     viewScope,
@@ -318,7 +414,7 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
     consumableEvidence,
     consumability,
     consumableFromUtc,
-    valueStatus: valuePresent ? "PRESENT" : "MISSING",
+    valueStatus,
     revisionId,
     revisionOf,
     proxy: input.proxy === true,
@@ -326,24 +422,15 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
     proxyDeclaration,
   };
   if (valuePresent) {
-    record.value = input.value;
+    record.value = valueCopy;
   }
   if (typeof input.reason === "string" && input.reason.length > 0) {
     record.reason = input.reason;
   }
-  // Procedencia de audit (§6.2): una aserción histórica declarada por el
-  // manifiesto auditado viaja con el record para no perder trazabilidad. No es
-  // un timestamp ni un valor: se conserva tal cual para lectura/verificación.
-  if (input.historicalAssertion && typeof input.historicalAssertion === "object"
-    && isNonEmptyString(input.historicalAssertion.assertion)) {
-    record.historicalAssertion = {
-      assertion: input.historicalAssertion.assertion,
-      semantic: input.historicalAssertion.semantic ?? null,
-      specLocator: input.historicalAssertion.specLocator ?? null,
-      evidence: input.historicalAssertion.evidence ?? null,
-    };
+  if (audit !== null) {
+    record.audit = audit;
   }
-  return { ok: true, record };
+  return { ok: true, record: deepFreeze(record) };
 }
 
 // Proxy admisible en la decision view de un boundary (§6.2): declarado,
@@ -369,6 +456,15 @@ export function isProxyAdmissibleAtBoundary(record, boundaryUtc) {
   return { admissible: true, reason: null };
 }
 
+// Posición en la jerarquía de fuentes fijada ex ante (§6.2): oficial = 0,
+// proxy = fallbackRank de su declaración. Menor rango = preferido.
+export function sourceRankOf(record) {
+  if (record?.proxy !== true) {
+    return 0;
+  }
+  return record.proxyDeclaration?.fallbackRank ?? Number.POSITIVE_INFINITY;
+}
+
 // Prueba de consumo en un boundary (§6.1: sólo se expone información cuyo
 // consumo real en ese momento pueda demostrarse).
 export function isConsumableAtBoundary(record, boundaryUtc) {
@@ -379,7 +475,10 @@ export function isConsumableAtBoundary(record, boundaryUtc) {
   if (!Number.isFinite(boundary)) {
     return { consumable: false, reason: "boundary no parseable" };
   }
-  if (record.valueStatus === "MISSING") {
+  if (record.valueStatus === "AUDIT_OBSERVED") {
+    return { consumable: false, reason: "observado por el audit sin versión PIT materializada; no consumible (§6.1/§6.5)" };
+  }
+  if (record.valueStatus !== "PRESENT") {
     return { consumable: false, reason: "valor ausente; faltante explícito (§6.2)" };
   }
   if (record.publishedAtUtc === null) {

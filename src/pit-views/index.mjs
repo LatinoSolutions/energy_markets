@@ -14,6 +14,7 @@ export {
   normalizeAuditedEvidence,
   normalizeProxyDeclarations,
   semanticsOf,
+  sourceRankOf,
   VIEW_SCOPES,
 } from "./pit-record.mjs";
 
@@ -22,6 +23,7 @@ export {
   buildPitManifest,
   buildPitManifestFromAudit,
   buildRevision,
+  IMP03_REQUIREMENT_VIEW_SCOPES,
   readDecisionView,
   readEvaluationView,
   viewsAt,

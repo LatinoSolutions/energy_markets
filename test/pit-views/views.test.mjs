@@ -1,11 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   auditedManifestRecords,
   buildPitManifest,
   buildPitManifestFromAudit,
   buildRevision,
+  IMP03_REQUIREMENT_VIEW_SCOPES,
   presentInMarketZone,
   readDecisionView,
   readEvaluationView,
@@ -126,11 +130,12 @@ test("revisionOf colgante se rechaza: la cadena de versiones es trazable", () =>
 
 // --- Aceptación: publicado pero aún no consumible NO entra ---
 
-test("consumible después del boundary: no entra, la razón se preserva", () => {
+test("publicado pero consumible después del boundary: no entra ni se menciona; el key queda unavailable", () => {
   const view = readDecisionView(buildManifest().manifest, "2026-03-31T18:30:00Z");
   assert.equal(view.visible.length, 0);
-  assert.deepEqual(view.suppressed, [
-    { key: BASE.key, revisionId: "v1", reason: "consumo no demostrado en este boundary (§6.1)" },
+  assert.deepEqual(view.suppressed, []);
+  assert.deepEqual(view.unavailable, [
+    { key: BASE.key, reason: "sin versión consumible demostrada en este boundary (§6.1)" },
   ]);
 });
 
@@ -151,7 +156,8 @@ test("sin prueba de consumo demostrado: el record se conserva unavailable y no e
   assert.equal(record.consumability, "unavailable");
   const view = readDecisionView(outcome.manifest, "2026-04-01T23:00:00Z");
   assert.equal(view.visible.length, 0);
-  assert.match(view.suppressed[0].reason, /no demostrado/);
+  assert.deepEqual(view.suppressed, []);
+  assert.deepEqual(view.unavailable.map((row) => row.key), [BASE.key]);
   // La evaluación usa el reloj de contenido (publicación/receipt), no el de
   // consumo: el dato publicado es visible ahí como outcome (§6.1 vistas
   // separadas), mientras la decisión lo mantiene unavailable.
@@ -513,83 +519,152 @@ test("readDecisionView rechaza boundary no parseable y exige vista separada", ()
 
 // --- Materialización del manifiesto auditado de IMP-03 (§25.1/§25.2 IMP-06) ---
 
-// Fixture con la misma forma que operations/audit/IMP-03/temporal-manifest.json
-// (IMP-03_TEMPORAL_MANIFEST): 17 entradas R-01..R-17, semánticas MISSING con
-// razón auditada y HISTORICAL_ASSERTION en R-06/R-11. Copia sintética mínima:
-// el test no lee el artifact real, la forma la fija el artifact auditado.
-const AUDITED_ENTRIES = [
-  {
-    requirementId: "R-01",
-    requirement: "Eligible Gas Quarterly campaign list and exact campaign dates",
-    occurredReferenceTime: { status: "MISSING", value: null, reason: "No campaign dataset exists; exact list is populated later from the audited dataset (S-08 p.5)." },
-    publicationSourceAvailabilityTime: { status: "MISSING", value: null },
-    policyConsumableTime: { status: "MISSING", value: null },
-    revisionVersion: { status: "MISSING", value: null },
-  },
-  {
-    requirementId: "R-04",
-    requirement: "Execution price series at eligible decision boundaries for the exact Gas Quarterly contract",
-    occurredReferenceTime: { status: "MISSING", value: null, reason: "No price/trade/order-book series present in the workspace." },
-    publicationSourceAvailabilityTime: { status: "MISSING", value: null },
-    policyConsumableTime: { status: "MISSING", value: null },
-    revisionVersion: { status: "MISSING", value: null },
-  },
-  {
-    requirementId: "R-06",
-    requirement: "Benchmark B reference prices (official EEX settlement or derived provisional) per trading date",
-    occurredReferenceTime: {
-      status: "HISTORICAL_ASSERTION",
-      value: "One reference per trading date (methodology only)",
-      evidence: { path: "reference/documentation/eex-reference-price.md", sha256: "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260", locator: "§3 L74-98" },
-    },
-    publicationSourceAvailabilityTime: { status: "MISSING", value: null, note: "EEX official publication timing is described as a rule, not demonstrated by a present feed." },
-    policyConsumableTime: { status: "MISSING", value: null },
-    revisionVersion: { status: "MISSING", value: null },
-  },
+// Artifacts auditados reales, leídos del repo y anclados a su sha256: el
+// manifiesto IMP-03 original (write-set-manifest.json) y la instancia EEX THE
+// de ST-03.3 (su SHA256SUMS). No son copias sintéticas.
+const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const IMP03_ARTIFACTS = [
+  { path: "operations/audit/IMP-03/temporal-manifest.json", sha256: "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578" },
+  { path: "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/temporal-manifest.json", sha256: "288e405f5bb033ea9eb602c7b28dae54dfc7de9881393b393aed2ccee2f8f77a" },
 ];
 
-test("auditedManifestRecords materializa el manifiesto auditado de IMP-03 sin inventar valores", () => {
-  const outcome = auditedManifestRecords({ entries: AUDITED_ENTRIES, defaultViewScope: "decision" });
-  assert.equal(outcome.ok, true);
-  assert.equal(outcome.errors.length, 0);
-  assert.equal(outcome.records.length, 3);
-  const r01 = outcome.records.find((record) => record.key === "R-01");
-  // MISSING: sin timestamp ni valor; la razón auditada se preserva (§6.2).
-  assert.equal(r01.valueStatus, "MISSING");
-  assert.equal(r01.occurredAtUtc, null);
-  assert.equal(r01.publishedAtUtc, null);
-  assert.equal(r01.consumableAtUtc, null);
-  assert.equal(r01.consumability, "unavailable");
-  assert.equal(r01.reason, "No campaign dataset exists; exact list is populated later from the audited dataset (S-08 p.5).");
-  const r06 = outcome.records.find((record) => record.key === "R-06");
-  // HISTORICAL_ASSERTION: procedencia documental conservada, no se relabela
-  // como timestamp ni como valor de mercado (§6.2).
-  assert.equal(r06.occurredAtUtc, null);
-  assert.equal(r06.valueStatus, "MISSING");
-  assert.equal(r06.historicalAssertion.assertion, "One reference per trading date (methodology only)");
-  assert.equal(r06.historicalAssertion.evidence.sha256, "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260");
+function loadAuditedArtifact(ref) {
+  const bytes = readFileSync(`${REPO_ROOT}${ref.path}`);
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), ref.sha256, `${ref.path} no coincide con su hash auditado`);
+  return JSON.parse(bytes.toString("utf8"));
+}
+
+const [PRIOR_REF, EEX_REF] = IMP03_ARTIFACTS;
+const PRIOR_ARTIFACT = loadAuditedArtifact(PRIOR_REF);
+const EEX_ARTIFACT = loadAuditedArtifact(EEX_REF);
+const SEMANTIC_KEYS = ["occurredReferenceTime", "publicationSourceAvailabilityTime", "policyConsumableTime", "revisionVersion"];
+
+for (const [ref, artifact] of [[PRIOR_REF, PRIOR_ARTIFACT], [EEX_REF, EEX_ARTIFACT]]) {
+  test(`auditedManifestRecords materializa las ${artifact.entries.length} entradas de ${ref.path} sin perder ninguna semántica`, () => {
+    const outcome = auditedManifestRecords({ artifact, artifactRef: ref });
+    assert.equal(outcome.ok, true, JSON.stringify(outcome.errors));
+    assert.equal(outcome.records.length, artifact.entries.length);
+    for (const entry of artifact.entries) {
+      const record = outcome.records.find((candidate) => candidate.key === entry.requirementId);
+      // Cada semántica viaja íntegra: status, value, reason, note y evidencia.
+      for (const semanticKey of SEMANTIC_KEYS) {
+        assert.deepEqual(record.audit.semantics[semanticKey], entry[semanticKey], `${entry.requirementId}.${semanticKey}`);
+      }
+      assert.deepEqual(record.audit.evidence, entry.evidence ?? null);
+      assert.equal(record.audit.artifact.sha256, ref.sha256);
+      // El audit no entrega relojes por versión: ningún texto se vuelve reloj.
+      assert.equal(record.occurredAtUtc, null);
+      assert.equal(record.publishedAtUtc, null);
+      assert.equal(record.consumableAtUtc, null);
+      assert.equal(record.consumability, "unavailable");
+      assert.equal("value" in record, false);
+    }
+  });
+}
+
+test("EEX ST-03.3: OBSERVED/PARTIAL se conservan como AUDIT_OBSERVED con su valor y evidencia (review 5, R-08)", () => {
+  const { records } = auditedManifestRecords({ artifact: EEX_ARTIFACT, artifactRef: EEX_REF });
+  const r08 = records.find((record) => record.key === "R-08");
+  assert.equal(r08.valueStatus, "AUDIT_OBSERVED");
+  assert.equal(r08.audit.semantics.occurredReferenceTime.status, "OBSERVED");
+  assert.match(r08.audit.semantics.occurredReferenceTime.value, /UOM=MWh, Currency=EUR/);
+  assert.match(r08.reason, /occurredReferenceTime OBSERVED: Per-row UOM=MWh, Currency=EUR/);
+  assert.match(r08.reason, /revisionVersion PARTIAL/);
+  // R-04: la evidencia de muestra del audit (digest por archivo) se conserva.
+  const r04 = records.find((record) => record.key === "R-04");
+  assert.equal(r04.valueStatus, "AUDIT_OBSERVED");
+  assert.deepEqual(r04.audit.evidence, EEX_ARTIFACT.entries.find((entry) => entry.requirementId === "R-04").evidence);
+  // R-10 PARTIAL también es observación, no faltante vacío.
+  assert.equal(records.find((record) => record.key === "R-10").valueStatus, "AUDIT_OBSERVED");
+  // Una entrada sin observaciones sigue siendo MISSING.
+  assert.equal(records.find((record) => record.key === "R-01").valueStatus, "MISSING");
+  const expectedObserved = EEX_ARTIFACT.entries
+    .filter((entry) => SEMANTIC_KEYS.some((key) => ["OBSERVED", "PARTIAL"].includes(entry[key].status)))
+    .map((entry) => entry.requirementId);
+  assert.deepEqual(records.filter((record) => record.valueStatus === "AUDIT_OBSERVED").map((record) => record.key), expectedObserved);
 });
 
-test("auditedManifestRecords exige defaultViewScope: el artifact no trae viewScope por entrada", () => {
-  const outcome = auditedManifestRecords({ entries: AUDITED_ENTRIES });
+test("las vistas muestran la observación auditada como unavailable, no como valor ni como faltante vacío", () => {
+  const outcome = buildPitManifestFromAudit({ manifestId: "PIT-EEX", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF });
+  assert.equal(outcome.ok, true);
+  const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(pair.decision.visible.length, 0);
+  assert.equal(pair.evaluation.current.length, 0);
+  const decisionR08 = pair.decision.suppressed.find((row) => row.key === "R-08");
+  assert.match(decisionR08.reason, /UOM=MWh, Currency=EUR/);
+  assert.match(decisionR08.reason, /observado por el audit sin versión PIT materializada/);
+  const evaluationR08 = pair.evaluation.unavailable.find((row) => row.key === "R-08");
+  assert.match(evaluationR08.reason, /UOM=MWh, Currency=EUR/);
+});
+
+test("R-06 (Benchmark B) se clasifica evaluation por el audit y nunca entra a la decisión (review 5)", () => {
+  assert.equal(IMP03_REQUIREMENT_VIEW_SCOPES["R-06"], "evaluation");
+  for (const [ref, artifact] of [[PRIOR_REF, PRIOR_ARTIFACT], [EEX_REF, EEX_ARTIFACT]]) {
+    const { manifest } = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifact, artifactRef: ref });
+    assert.equal(manifest.records.find((record) => record.key === "R-06").viewScope, "evaluation");
+    const decision = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+    const decisionKeys = [...decision.suppressed, ...decision.unavailable, ...decision.visible].map((row) => row.key);
+    assert.equal(decisionKeys.includes("R-06"), false);
+    assert.ok(readEvaluationView(manifest, "2026-04-02T00:00:00Z").unavailable.some((row) => row.key === "R-06"));
+  }
+});
+
+test("una versión con valor de R-06 declarada como decision se rechaza: un key alimenta una sola vista", () => {
+  const benchmarkInDecision = {
+    ...BASE, key: "R-06", viewScope: "decision", revisionId: "b1", value: 25.7,
+  };
+  const outcome = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF,
+    extraRecords: [benchmarkInDecision], auditedEvidence: attestationsFor([benchmarkInDecision]),
+  });
   assert.equal(outcome.ok, false);
-  assert.equal(outcome.errors[0].code, "MISSING_VIEW_SCOPE");
+  assert.ok(outcome.errors.some((e) => e.code === "VIEW_SCOPE_CONFLICT"));
+  // Declarada como evaluation, la versión con valor queda sólo en evaluación.
+  const benchmark = { ...benchmarkInDecision, viewScope: "evaluation" };
+  const accepted = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF,
+    extraRecords: [benchmark], auditedEvidence: attestationsFor([benchmark]),
+  });
+  assert.equal(accepted.ok, true);
+  const pair = viewsAt(accepted.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(pair.decision.visible.some((row) => row.key === "R-06"), false);
+  assert.equal(pair.evaluation.current.find((row) => row.key === "R-06").value, 25.7);
+});
+
+test("auditedManifestRecords exige el artifact completo, su procedencia y requisitos clasificados", () => {
+  assert.equal(auditedManifestRecords({ artifact: { entries: [] }, artifactRef: EEX_REF }).errors[0].code, "INVALID_AUDITED_ARTIFACT");
+  assert.equal(auditedManifestRecords({ artifact: EEX_ARTIFACT }).errors[0].code, "MISSING_ARTIFACT_REF");
+  const unknownRequirement = { ...EEX_ARTIFACT, entries: [...EEX_ARTIFACT.entries, { ...EEX_ARTIFACT.entries[0], requirementId: "R-99" }] };
+  assert.ok(auditedManifestRecords({ artifact: unknownRequirement, artifactRef: EEX_REF }).errors.some((e) => e.code === "UNCLASSIFIED_REQUIREMENT"));
+  const duplicated = { ...EEX_ARTIFACT, entries: [...EEX_ARTIFACT.entries, EEX_ARTIFACT.entries[0]] };
+  assert.ok(auditedManifestRecords({ artifact: duplicated, artifactRef: EEX_REF }).errors.some((e) => e.code === "DUPLICATE_REQUIREMENT"));
+});
+
+test("un status auditado fuera del vocabulario rechaza la ingesta: no se descarta en silencio", () => {
+  const hostile = {
+    ...EEX_ARTIFACT,
+    entries: [{ ...EEX_ARTIFACT.entries[0], occurredReferenceTime: { status: "PRESENT", value: "2026-03-31T17:15:00" } }],
+  };
+  const outcome = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifact: hostile, artifactRef: EEX_REF });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "UNKNOWN_AUDITED_STATUS" && e.field.includes("R-01")));
 });
 
 test("buildPitManifestFromAudit construye el manifiesto con las dos vistas desde el audit", () => {
   const outcome = buildPitManifestFromAudit({
     manifestId: "PIT-MANIFEST-IMP-03",
     manifestVersion: "v1",
-    entries: AUDITED_ENTRIES,
-    defaultViewScope: "decision",
+    artifact: PRIOR_ARTIFACT,
+    artifactRef: PRIOR_REF,
   });
   assert.equal(outcome.ok, true);
-  assert.equal(outcome.manifest.records.length, 3);
+  assert.equal(outcome.manifest.records.length, 17);
   const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
   // Nada es consumible: el audit no demostró consumo. Todo queda unavailable
   // con su razón auditada visible; no se declara cobertura nueva (§25.2).
   assert.equal(pair.decision.visible.length, 0);
-  assert.equal(pair.decision.suppressed.length, 3);
+  assert.equal(pair.decision.suppressed.length, 16);
+  assert.equal(pair.decision.unavailable.length, 16);
   const r04 = pair.decision.suppressed.find((row) => row.key === "R-04");
   assert.match(r04.reason, /No price\/trade\/order-book series present in the workspace/);
   assert.ok(pair.evaluation.unavailable.some((row) => row.key === "R-04" && /No price\/trade\/order-book series/.test(row.reason)));
@@ -693,10 +768,9 @@ test("receipt sin revisesRevisionId sobre un record con revisionOf se rechaza (l
   assert.ok(outcome.errors.some((e) => e.code === "REVISION_LINEAGE_MISMATCH"));
 });
 
-test("la versión vigente por reloj pero no consumible también preserva la razón auditada", () => {
-  // Rama de review: record vigente por consumableFromUtc pero cuya
-  // consumibilidad falla en el boundary exacto. La razón auditada no se
-  // sustituye por el texto genérico de la guarda (§6.2).
+test("versión publicada pero aún no consumible no habla en la decisión; su razón sigue en el manifest", () => {
+  // §25.1 IMP-06: "un dato publicado pero aún no consumible no entra". La
+  // razón no se pierde: viaja en el record del manifest.
   const delayed = {
     ...BASE,
     key: "R-04.exec",
@@ -707,10 +781,11 @@ test("la versión vigente por reloj pero no consumible también preserva la raz�
   const manifest = buildManifest({ records: [delayed] }).manifest;
   const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
   assert.equal(view.visible.length, 0);
-  const suppressed = view.suppressed.find((row) => row.key === "R-04.exec");
-  assert.ok(suppressed);
-  assert.match(suppressed.reason, /No price\/trade\/order-book series present in the workspace/);
-  assert.match(suppressed.reason, /consumo no demostrado en este boundary/);
+  assert.deepEqual(view.suppressed, []);
+  assert.deepEqual(view.unavailable.map((row) => row.key), ["R-04.exec"]);
+  assert.match(manifest.records[0].reason, /No price\/trade\/order-book series present in the workspace/);
+  // Una vez consumible, la versión es visible.
+  assert.equal(readDecisionView(manifest, "2026-04-05T06:00:00Z").visible[0].revisionId, "v1");
 });
 
 test("un receipt duplicado (mismo key y revisionId) se rechaza: cada revisión se registra una vez", () => {
@@ -728,28 +803,6 @@ test("un receipt duplicado (mismo key y revisionId) se rechaza: cada revisión s
   });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "DUPLICATE_REVISION_RECEIPT"));
-});
-
-test("buildPitManifestFromAudit no descarta entradas inválidas en silencio: el error sube al caller", () => {
-  const badEntries = [
-    ...AUDITED_ENTRIES,
-    {
-      requirementId: "R-99",
-      requirement: "Entrada hostil con timestamp sin zona",
-      occurredReferenceTime: { status: "PRESENT", value: "2026-03-31T17:15:00" },
-      publicationSourceAvailabilityTime: { status: "MISSING", value: null },
-      policyConsumableTime: { status: "MISSING", value: null },
-      revisionVersion: { status: "MISSING", value: null },
-    },
-  ];
-  const outcome = buildPitManifestFromAudit({
-    manifestId: "PIT-MANIFEST-IMP-03",
-    manifestVersion: "v1",
-    entries: badEntries,
-    defaultViewScope: "decision",
-  });
-  assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((e) => e.code === "NOT_UTC_ANCHORED" && e.field.includes("R-99")));
 });
 
 // --- Review: un boundary histórico no depende de revisiones posteriores (§6.1/§14.7) ---
@@ -778,12 +831,15 @@ test("un record aún no consumible no revela si su consumo futuro está demostra
   const a = decisionAt([BASE, future], boundary);
   const b = decisionAt([BASE, never], boundary);
   const c = decisionAt([BASE, unlinked], boundary);
+  const withoutV2 = decisionAt([BASE], boundary);
   assert.equal(a.visible[0].revisionId, "v1");
-  assert.deepEqual(a.suppressed, [{ key: BASE.key, revisionId: "v2", reason: "consumo no demostrado en este boundary (§6.1)" }]);
-  // "nunca declarado" usa su propio texto; lo que importa es que el consumo
-  // futuro con y sin evidencia auditada da la misma respuesta.
-  assert.deepEqual(c, a);
-  assert.equal(b.visible[0].revisionId, "v1");
+  assert.deepEqual(a.suppressed, []);
+  // Review 5: v2 publicada pero aún no consumible no revela su revisionId.
+  // Consumo futuro, nunca declarado o con evidencia no auditada: la
+  // respuesta es la misma que sin v2.
+  assert.deepEqual(a, withoutV2);
+  assert.deepEqual(b, withoutV2);
+  assert.deepEqual(c, withoutV2);
 });
 
 test("agregar cualquier número de revisiones futuras no cambia ningún boundary histórico", () => {
@@ -833,7 +889,7 @@ test("la fila visible identifica el audit que vinculó la evidencia", () => {
 const PROXY = { ...BASE, key: "G0BQ.202604.proxy-reference", proxy: true, proxyId: "PROXY-TRADES-MID-0.75/0.25" };
 
 function proxyDeclaration(overrides = {}) {
-  return { key: PROXY.key, proxyId: PROXY.proxyId, allowed: true, declaredAtUtc: "2026-03-01T00:00:00Z", ...overrides };
+  return { key: PROXY.key, proxyId: PROXY.proxyId, allowed: true, fallbackRank: 1, declaredAtUtc: "2026-03-01T00:00:00Z", ...overrides };
 }
 
 test("proxy con proxyId no predeclarado rechaza el manifest", () => {
@@ -865,7 +921,7 @@ test("proxy declarado después del boundary no entra en ese boundary (predeclara
 
 test("un proxy no permitido no tapa a la versión oficial anterior del mismo key", () => {
   const official = { ...BASE, key: PROXY.key };
-  const proxyRevision = { ...PROXY, revisionId: "v2-proxy", revisionOf: "v1", publishedAtUtc: "2026-04-05T00:00:00Z", consumableAtUtc: "2026-04-05T01:00:00Z" };
+  const proxyRevision = { ...PROXY, revisionId: "v2-proxy", publishedAtUtc: "2026-04-05T00:00:00Z", consumableAtUtc: "2026-04-05T01:00:00Z" };
   const manifest = buildManifest({
     records: [official, proxyRevision],
     proxyDeclarations: [proxyDeclaration({ allowed: false })],
@@ -876,7 +932,7 @@ test("un proxy no permitido no tapa a la versión oficial anterior del mismo key
 });
 
 test("declaraciones de proxy mal formadas o duplicadas rechazan el manifest", () => {
-  const bad = buildManifest({ records: [BASE], proxyDeclarations: [{ key: PROXY.key, proxyId: PROXY.proxyId, allowed: "yes", declaredAtUtc: "2026-03-01T00:00:00Z" }] });
+  const bad = buildManifest({ records: [BASE], proxyDeclarations: [{ key: PROXY.key, proxyId: PROXY.proxyId, allowed: "yes", fallbackRank: 1, declaredAtUtc: "2026-03-01T00:00:00Z" }] });
   assert.equal(bad.ok, false);
   assert.ok(bad.errors.some((e) => e.code === "INVALID_PROXY_DECLARATION"));
   const dup = buildManifest({ records: [BASE], proxyDeclarations: [proxyDeclaration(), proxyDeclaration()] });
@@ -980,4 +1036,152 @@ test("fork: dos revisiones de la misma versión se rechazan (lineage lineal)", (
   const outcome = buildManifest({ records });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "LINEAGE_FORK"));
+});
+
+// --- Review 5: jerarquía de fuentes fijada ex ante (§6.2) ---
+
+const OFFICIAL = { ...BASE, key: PROXY.key };
+const LATER_PROXY = { ...PROXY, revisionId: "p1", publishedAtUtc: "2026-04-05T00:00:00Z", consumableAtUtc: "2026-04-05T01:00:00Z", value: 99 };
+
+test("un proxy allowed posterior no sustituye a la versión oficial disponible del mismo key", () => {
+  const manifest = buildManifest({ records: [OFFICIAL, LATER_PROXY], proxyDeclarations: [proxyDeclaration()] }).manifest;
+  const decision = readDecisionView(manifest, "2026-04-06T00:00:00Z");
+  assert.deepEqual(decision.visible.map((row) => [row.revisionId, row.proxy, row.sourceRank]), [["v1", false, 0]]);
+  const evaluation = readEvaluationView(manifest, "2026-04-06T00:00:00Z");
+  assert.equal(evaluation.current[0].revisionId, "v1");
+  assert.deepEqual(evaluation.outranked.map((row) => [row.revisionId, row.sourceRank]), [["p1", 1]]);
+  assert.equal(evaluation.superseded.length, 0);
+});
+
+test("sin versión oficial consumible, el proxy entra como fallback identificado", () => {
+  const manifest = buildManifest({ records: [OFFICIAL, LATER_PROXY], proxyDeclarations: [proxyDeclaration()] }).manifest;
+  // Antes del consumo oficial (06:00Z del 1-abr) no hay oficial; el proxy aún no existe.
+  assert.equal(readDecisionView(manifest, "2026-04-01T05:00:00Z").visible.length, 0);
+  const onlyProxy = buildManifest({ records: [LATER_PROXY], proxyDeclarations: [proxyDeclaration()] }).manifest;
+  const view = readDecisionView(onlyProxy, "2026-04-06T00:00:00Z");
+  assert.deepEqual(view.visible.map((row) => [row.revisionId, row.proxyId]), [["p1", PROXY.proxyId]]);
+});
+
+test("entre proxies manda el fallbackRank declarado, no el más reciente", () => {
+  const second = { ...PROXY, proxyId: "PROXY-B", revisionId: "pb1", publishedAtUtc: "2026-04-01T00:00:00Z", consumableAtUtc: "2026-04-01T06:00:00Z", value: 10 };
+  const first = { ...PROXY, proxyId: "PROXY-A", revisionId: "pa1", publishedAtUtc: "2026-04-05T00:00:00Z", consumableAtUtc: "2026-04-05T01:00:00Z", value: 20 };
+  const declarations = [
+    proxyDeclaration({ proxyId: "PROXY-A", fallbackRank: 1 }),
+    proxyDeclaration({ proxyId: "PROXY-B", fallbackRank: 2 }),
+  ];
+  const manifest = buildManifest({ records: [second, first], proxyDeclarations: declarations }).manifest;
+  assert.equal(readDecisionView(manifest, "2026-04-02T00:00:00Z").visible[0].revisionId, "pb1");
+  assert.equal(readDecisionView(manifest, "2026-04-06T00:00:00Z").visible[0].revisionId, "pa1");
+});
+
+test("la jerarquía exige fallbackRank entero y único por key", () => {
+  const missingRank = buildManifest({ records: [BASE], proxyDeclarations: [proxyDeclaration({ fallbackRank: undefined })] });
+  assert.ok(missingRank.errors.some((e) => e.code === "INVALID_PROXY_DECLARATION"));
+  const official = buildManifest({ records: [BASE], proxyDeclarations: [proxyDeclaration({ fallbackRank: 0 })] });
+  assert.ok(official.errors.some((e) => e.code === "INVALID_PROXY_DECLARATION"));
+  const tie = buildManifest({ records: [BASE], proxyDeclarations: [proxyDeclaration(), proxyDeclaration({ proxyId: "PROXY-B" })] });
+  assert.ok(tie.errors.some((e) => e.code === "DUPLICATE_FALLBACK_RANK"));
+});
+
+test("una revisión no cambia de fuente: proxy que revisa a la oficial se rechaza", () => {
+  const relabel = { ...LATER_PROXY, revisionOf: "v1" };
+  const outcome = buildManifest({ records: [OFFICIAL, relabel], proxyDeclarations: [proxyDeclaration()] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "LINEAGE_SOURCE_MISMATCH"));
+});
+
+test("evaluación: un proxy no permitido no se usa como contenido vigente", () => {
+  const manifest = buildManifest({ records: [LATER_PROXY], proxyDeclarations: [proxyDeclaration({ allowed: false })] }).manifest;
+  const evaluation = readEvaluationView(manifest, "2026-04-06T00:00:00Z");
+  assert.equal(evaluation.current.length, 0);
+  assert.match(evaluation.unavailable[0].reason, /no permitido/);
+});
+
+// --- Review 5: suppressed no revela versiones publicadas aún no consumibles ---
+
+test("revisión publicada antes del boundary y consumible después no cambia la respuesta histórica", () => {
+  const boundary = "2026-04-25T00:00:00Z";
+  const publishedNotConsumable = { ...revisedRecords()[1], publishedAtUtc: "2026-04-20T10:00:00Z", consumableAtUtc: "2026-04-30T00:00:00Z" };
+  const before = decisionAt([BASE], boundary);
+  const after = decisionAt([BASE, publishedNotConsumable], boundary);
+  assert.deepEqual(after, before);
+  assert.equal(JSON.stringify(after).includes("\"v2\""), false);
+  // En su consumo sí entra.
+  assert.equal(decisionAt([BASE, publishedNotConsumable], "2026-04-30T00:00:00Z").visible[0].revisionId, "v2");
+});
+
+test("sobre el audit real: agregar una versión futura de R-04 no cambia la decisión histórica", () => {
+  const boundary = "2026-04-02T00:00:00Z";
+  const base = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF });
+  // R-04 ya tiene una entrada auditada; una versión con valor publicada antes
+  // del boundary pero consumible después no debe asomar.
+  const futureR04 = { ...BASE, key: "R-04", revisionId: "r04-v1", publishedAtUtc: "2026-04-01T00:00:00Z", consumableAtUtc: "2026-04-03T00:00:00Z" };
+  const extended = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF,
+    extraRecords: [futureR04], auditedEvidence: attestationsFor([futureR04]),
+  });
+  assert.equal(extended.ok, true);
+  const plain = (manifest) => JSON.parse(JSON.stringify(readDecisionView(manifest, boundary)));
+  assert.deepEqual(plain(extended.manifest), plain(base.manifest));
+  assert.equal(readDecisionView(extended.manifest, "2026-04-03T00:00:00Z").visible[0].revisionId, "r04-v1");
+});
+
+// --- Review 5: el valor de una versión es inmutable (§6.2) ---
+
+test("mutar el objeto del llamante después de construir el manifest no cambia ninguna vista", () => {
+  const value = { price: 24.35, legs: [1, 2] };
+  const input = { ...BASE, value };
+  const manifest = buildManifest({ records: [input] }).manifest;
+  const before = JSON.parse(JSON.stringify(viewsAt(manifest, "2026-04-02T00:00:00Z")));
+  value.price = 999;
+  value.legs.push(3);
+  input.publishedAtUtc = "2020-01-01T00:00:00Z";
+  assert.deepEqual(JSON.parse(JSON.stringify(viewsAt(manifest, "2026-04-02T00:00:00Z"))), before);
+});
+
+test("el manifest y los valores expuestos por las vistas están congelados", () => {
+  const manifest = buildManifest({ records: [{ ...BASE, value: { price: 24.35 } }] }).manifest;
+  assert.ok(Object.isFrozen(manifest));
+  assert.ok(Object.isFrozen(manifest.records));
+  assert.ok(Object.isFrozen(manifest.records[0]));
+  const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+  assert.throws(() => { view.visible[0].value.price = 1; }, TypeError);
+  assert.throws(() => { manifest.records[0].effectiveAtUtc = "2020-01-01T00:00:00.000Z"; }, TypeError);
+  assert.equal(readEvaluationView(manifest, "2026-04-02T00:00:00Z").current[0].value.price, 24.35);
+});
+
+test("un valor no serializable se rechaza en vez de guardarse por referencia", () => {
+  const outcome = buildManifest({ records: [{ ...BASE, value: { compute: () => 1 } }] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "INVALID_VALUE"));
+});
+
+// --- Validación adversarial: bordes residuales de review 5 ---
+
+test("R-06 en decisión se rechaza también por buildPitManifest directo, sin el adaptador", () => {
+  const benchmark = { ...BASE, key: "R-06", viewScope: "decision", revisionId: "b1" };
+  const outcome = buildManifest({ records: [benchmark] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "VIEW_SCOPE_CONFLICT"));
+});
+
+test("evaluación: un proxy declarado después del asOf no es contenido vigente en ese asOf", () => {
+  const manifest = buildManifest({
+    records: [LATER_PROXY],
+    proxyDeclarations: [proxyDeclaration({ declaredAtUtc: "2026-06-01T00:00:00Z" })],
+  }).manifest;
+  const early = readEvaluationView(manifest, "2026-04-06T00:00:00Z");
+  assert.equal(early.current.length, 0);
+  assert.match(early.unavailable[0].reason, /no predeclarado/);
+  assert.equal(readEvaluationView(manifest, "2026-06-01T00:00:00Z").current[0].revisionId, "p1");
+});
+
+test("valores Map/Set/Date o cíclicos se rechazan: no se pueden congelar como versión", () => {
+  const cyclic = { a: 1 };
+  cyclic.self = cyclic;
+  for (const value of [new Map([["d", 1]]), { nested: new Set([1]) }, new Date("2026-04-01T00:00:00Z"), cyclic]) {
+    const outcome = buildManifest({ records: [{ ...BASE, value }] });
+    assert.equal(outcome.ok, false);
+    assert.ok(outcome.errors.some((e) => e.code === "INVALID_VALUE"));
+  }
 });
