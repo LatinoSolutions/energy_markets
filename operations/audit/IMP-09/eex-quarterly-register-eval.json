@@ -1,6 +1,5 @@
 {
   "artifactKind": "IMP-09_QUARTERLY_REGISTER_EVALUATION",
-  "createdAtUtc": "2026-09-23T23:13:24.521Z",
   "cutoffIso": "2026-07-28",
   "register": {
     "episodeCount": 23,

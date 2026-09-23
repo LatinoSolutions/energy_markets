@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   CHRONOLOGICAL_RESERVATION_BASIS,
+  GAS_QUARTERLY_ELIGIBILITY_AUDIT,
   computeOosSpan,
   evaluateImp09Acceptance,
   isReservationIntact,
@@ -135,6 +136,15 @@ test("el registro real sin campaign register auditado produce HOLD con la ausenc
   assert.ok(result.registerAbsence);
   assert.ok(result.registerAbsence.sources.some((source) => source.includes("IMP-03")));
   assert.equal(evaluateImp09Acceptance(result).criterionMet, false);
+});
+
+test("la ausencia documentada del registro Gas Quarterly no afirma lo ya superado por la derivación", () => {
+  // Regresión de comentario stale (guardrail 15 / REGLA 3): el registro ya es
+  // derivable con register-builder; la constante sólo conserva la ausencia de la
+  // matriz IMP-03 en el corte original. No puede decir que "aún no ha sido derivado".
+  const reason = GAS_QUARTERLY_ELIGIBILITY_AUDIT.documentedAbsence.reason;
+  assert.ok(reason.includes("register-builder"));
+  assert.equal(reason.includes("aún no ha sido derivado"), false);
 });
 
 test("computeOosSpan verifica los años calendario de la evidencia reservada", () => {

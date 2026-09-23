@@ -4,8 +4,17 @@
   "parentImp": "IMP-09",
   "workId": "energy-markets-IMP-09-20260923-212852-openrouter",
   "createdAtUtc": "2026-09-23T22:38:18Z",
-  "updatedAtUtc": "2026-09-23T23:13:24Z",
+  "updatedAtUtc": "2026-09-23T23:30:56Z",
   "revisions": [
+    {
+      "revision": 3,
+      "atUtc": "2026-09-23T23:30:56Z",
+      "reason": "El artefacto de evaluación IMP-09 se hace determinista: evaluate-quarterly-register.mjs se separa en función pura + CLI y deja de estampar createdAtUtc, de modo que regenerarlo reproduce byte a byte el archivo pinneado por SHA256SUMS (antes el reloj rompía su hash). La decisión no cambia: sigue HOLD / INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS con sealedOosCount 0. Se actualizan los hashes del script y del artefacto.",
+      "changedSources": [
+        { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs", "previousSha256": "c627a1f39f6b6b969182f1b963b57efc42bebad9767475946c9340ae17c5a968", "sha256": "e677e312b93e679aa0ff601698bf27ee11767c4255f3ed7a4465a802780ed419" },
+        { "path": "operations/audit/IMP-09/eex-quarterly-register-eval.json", "previousSha256": "ea9efc8d6e4d25dfc51803fe3c8ec9c0e8e20abdd26a4556d74922e4a4ab0231", "sha256": "7ddc4816bc03cc871e684d5914620c1715fdd304c9ea502f6cd9f5e424b12abe" }
+      ]
+    },
     {
       "revision": 2,
       "atUtc": "2026-09-23T23:13:24Z",
@@ -66,7 +75,7 @@
         "sources": [
           { "path": "operations/audit/IMP-09/eex-quarterly-episode-evidence.json (+ SHA256SUMS; presencias y conteos, nunca precios; foto _logs/extract.complete sha256=502c6f4f31be110196824e768636eb69d665d126c98520c14b8e531819442321)", "sha256": "46bfd9c565317630a792670ea9a02375b07aaaea85a84a693b5af7d3d19c8a91" },
           { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days Gas Futures EEX 2020-2026)", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" },
-          { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs (evaluación determinista evidencia->builder->reserva)", "sha256": "c627a1f39f6b6b969182f1b963b57efc42bebad9767475946c9340ae17c5a968" },
+          { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs (evaluación determinista evidencia->builder->reserva; sin reloj: reproducible byte a byte)", "sha256": "e677e312b93e679aa0ff601698bf27ee11767c4255f3ed7a4465a802780ed419" },
           { "path": "client-inputs/full-package/01_campaigns/01_shared_campaign_rules.md", "sha256": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4" },
           { "path": "operations/audit/IMP-03/data-sufficiency-matrix.json", "sha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f" }
         ],

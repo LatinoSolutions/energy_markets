@@ -60,17 +60,20 @@ const ACCESS_PURPOSES = {
 
 // Registro de elegibilidad real del caso Gas Quarterly. El paquete verificado
 // del cliente permite DERIVAR el registro (regla 3-1-3 delineada en
-// 01_shared_campaign_rules.md §1) pero la elegibilidad/completitud calculadas
-// exigen evidencia del lago EEX y el calendario oficial de Exchange Days.
-// Hasta que existan, no se materializa una lista: se conserva la ausencia con
-// su acción de recuperación apuntando a los artefactos derivables
-// (register-builder.mjs y las fuentes de evidencia citadas abajo); no se
-// inventa una lista ni se presentan fixtures sintéticos como evidencia.
+// 01_shared_campaign_rules.md §1) y el builder determinista ya lo materializa
+// sobre la evidencia EEX fijada y el calendario oficial de Exchange Days
+// (operations/audit/IMP-09/evaluate-quarterly-register.mjs). Esta constante NO
+// materializa ese registro derivado: conserva la ausencia registrada en el corte
+// original de la matriz IMP-03 (R-01/R-17 UNAVAILABLE) para el camino estático
+// reserveGasQuarterlySealedOos. La elegibilidad derivada sigue siendo PROXY y,
+// con la evidencia local, aporta 3 campañas completas y elegibles (< 8), por lo
+// que el resultado correcto es HOLD sin reserva ficticia. No se inventa una
+// lista ni se presentan fixtures sintéticos como evidencia.
 export const GAS_QUARTERLY_ELIGIBILITY_AUDIT = {
   scope: "P5 Gas Quarterly",
   campaigns: [],
   documentedAbsence: {
-    reason: "El campaign register aún no ha sido derivado: exige la evidencia EEX fijada (operations/audit/IMP-09/eex-quarterly-episode-evidence.json), el calendario oficial de Exchange Days (operations/audit/IMP-09/eex-exchange-calendar.json), las reglas de campaña del paquete del cliente (01_campaigns/*) y la fuente P-006. La matriz IMP-03 (R-01, R-17) registra la elegibilidad como no disponible en el corte original; la reconciliación append-only posterior (operations/audit/IMP-09/R01-R17-reconciliation.json) acredita R-01 como derivable y R-17 como elegibilidad calculada.",
+    reason: "El registro derivado del caso Gas Quarterly ya existe (src/oos-reservation/register-builder.mjs sobre operations/audit/IMP-09/eex-quarterly-episode-evidence.json + eex-exchange-calendar.json + reglas de campaña del paquete del cliente + P-006), pero esta constante no lo materializa: conserva la ausencia registrada en el corte original de la matriz IMP-03 (R-01/R-17 UNAVAILABLE). La reconciliación append-only posterior (operations/audit/IMP-09/R01-R17-reconciliation.json) acredita R-01 como derivable y R-17 como elegibilidad calculada (PROXY); con la evidencia local el registro derivado aporta 3 campañas completas y elegibles (< 8) → HOLD sin reserva ficticia.",
     sources: [
       "operations/audit/IMP-09/R01-R17-reconciliation.json (contribución posterior al paquete, sin editar la matriz)",
       "operations/audit/IMP-09/eex-quarterly-episode-evidence.json + SHA256SUMS (presencias, nunca precios)",
