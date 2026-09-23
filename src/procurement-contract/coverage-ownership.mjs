@@ -19,19 +19,27 @@ function isMissing(value) {
 }
 
 // §4.3: remaining = opening − executed, sólo con magnitudes compatibles.
-// Sin unidad común no hay resta: no se infiere unidad ni se convierte.
-export function computeRemainingVolume({ openingObligation, executedVolume, unit } = {}) {
+// Cada magnitud declara su propia unidad para poder comprobar compatibilidad;
+// sin unidades iguales no hay resta, no se infiere unidad ni se convierte
+// (§4.1: MW y MWh son magnitudes distintas).
+export function computeRemainingVolume({ openingObligation, executedVolume, openingUnit, executedUnit } = {}) {
   if (!isFiniteNumber(openingObligation) || !isFiniteNumber(executedVolume)) {
     return { computed: false, remainingVolume: null, unit: null, code: "MISSING_MAGNITUDES", reason: "Faltan obligación de apertura o volumen ejecutado finitos; el restante no es computable." };
   }
-  if (!isNonEmptyString(unit)) {
-    return { computed: false, remainingVolume: null, unit: null, code: "MISSING_UNIT", reason: "Sin unidad común no se resta ni se convierte." };
+  if (openingObligation < 0 || executedVolume < 0) {
+    return { computed: false, remainingVolume: null, unit: null, code: "NEGATIVE_MAGNITUDE", reason: "La obligación de apertura y el volumen ejecutado no pueden ser negativos (§4.3)." };
+  }
+  if (!isNonEmptyString(openingUnit) || !isNonEmptyString(executedUnit)) {
+    return { computed: false, remainingVolume: null, unit: null, code: "MISSING_UNIT", reason: "Cada magnitud debe declarar su unidad; sin ellas no se resta ni se convierte." };
+  }
+  if (openingUnit !== executedUnit) {
+    return { computed: false, remainingVolume: null, unit: null, code: "UNIT_MISMATCH", reason: `Obligación (${openingUnit}) y volumen ejecutado (${executedUnit}) no comparten unidad; no se convierten (§4.1).` };
   }
   const remainingVolume = openingObligation - executedVolume;
   if (remainingVolume < 0) {
-    return { computed: false, remainingVolume: null, unit, code: "CONSERVATION_VIOLATION", reason: `El volumen ejecutado (${executedVolume}) excede la obligación de apertura (${openingObligation}).` };
+    return { computed: false, remainingVolume: null, unit: openingUnit, code: "CONSERVATION_VIOLATION", reason: `El volumen ejecutado (${executedVolume}) excede la obligación de apertura (${openingObligation}).` };
   }
-  return { computed: true, remainingVolume, unit, code: null, reason: null };
+  return { computed: true, remainingVolume, unit: openingUnit, code: null, reason: null };
 }
 
 // §4.3/§14.5: reconcilia apertura = ejecutado + restante y clasifica cobertura.
@@ -110,8 +118,13 @@ export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fi
     }
   }
 
+  // §4.3/DEP-02: la relación Monthly/Quarterly debe declararse explícitamente.
+  // Su ausencia total es un faltante no documentado, no una ausencia de
+  // obligaciones: no se asume "sin solapamiento".
   const relation = relationMonthlyQuarterly;
-  if (relation?.availability === "UNAVAILABLE" && !isNonEmptyString(relation.reason)) {
+  if (isMissing(relation) || typeof relation !== "object") {
+    errors.push({ code: "MISSING_NOT_DOCUMENTED", message: "Falta la relación Monthly/Quarterly; su ausencia debe quedar documentada explícitamente (§4.3/DEP-02)." });
+  } else if (relation.availability === "UNAVAILABLE" && !isNonEmptyString(relation.reason)) {
     errors.push({ code: "MISSING_NOT_DOCUMENTED", message: "La relación Monthly/Quarterly está UNAVAILABLE sin razón documentada." });
   }
 
@@ -123,6 +136,9 @@ export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fi
 export function applyFilledQuantity({ openingObligation, executedVolume, filledQuantity, unit } = {}) {
   if (!isFiniteNumber(openingObligation) || !isFiniteNumber(executedVolume) || !isFiniteNumber(filledQuantity)) {
     return { updated: false, code: "MISSING_MAGNITUDES", reason: "Faltan magnitudes finitas para aplicar un fill." };
+  }
+  if (openingObligation < 0 || executedVolume < 0 || filledQuantity < 0) {
+    return { updated: false, code: "NEGATIVE_MAGNITUDE", reason: "Coverage sólo avanza por filled quantity efectiva; magnitudes negativas no son un fill válido (§14.5)." };
   }
   if (!isNonEmptyString(unit)) {
     return { updated: false, code: "MISSING_UNIT", reason: "Sin unidad no se actualiza coverage." };

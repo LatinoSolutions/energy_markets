@@ -9,7 +9,7 @@ import {
 } from "../../src/procurement-contract/coverage-ownership.mjs";
 
 test("el volumen restante se deriva sólo con magnitudes y unidad compatibles", () => {
-  const outcome = computeRemainingVolume({ openingObligation: 100, executedVolume: 40, unit: "MWh" });
+  const outcome = computeRemainingVolume({ openingObligation: 100, executedVolume: 40, openingUnit: "MWh", executedUnit: "MWh" });
   assert.equal(outcome.computed, true);
   assert.equal(outcome.remainingVolume, 60);
   assert.equal(outcome.unit, "MWh");
@@ -22,14 +22,33 @@ test("sin unidad el volumen restante no se computa ni se convierte", () => {
   assert.equal(outcome.code, "MISSING_UNIT");
 });
 
+test("unidades incompatibles no producen un restante aparentemente válido", () => {
+  const outcome = computeRemainingVolume({ openingObligation: 100, executedVolume: 40, openingUnit: "MW", executedUnit: "MWh" });
+  assert.equal(outcome.computed, false);
+  assert.equal(outcome.remainingVolume, null);
+  assert.equal(outcome.code, "UNIT_MISMATCH");
+});
+
 test("magnitudes no finitas dejan el restante no computable", () => {
-  const outcome = computeRemainingVolume({ openingObligation: 100, executedVolume: null, unit: "MWh" });
+  const outcome = computeRemainingVolume({ openingObligation: 100, executedVolume: null, openingUnit: "MWh", executedUnit: "MWh" });
   assert.equal(outcome.computed, false);
   assert.equal(outcome.code, "MISSING_MAGNITUDES");
 });
 
+test("una obligación de apertura negativa no reconcilia", () => {
+  const outcome = computeRemainingVolume({ openingObligation: -100, executedVolume: 40, openingUnit: "MWh", executedUnit: "MWh" });
+  assert.equal(outcome.computed, false);
+  assert.equal(outcome.code, "NEGATIVE_MAGNITUDE");
+});
+
+test("un volumen ejecutado negativo no reconcilia", () => {
+  const outcome = computeRemainingVolume({ openingObligation: 100, executedVolume: -40, openingUnit: "MWh", executedUnit: "MWh" });
+  assert.equal(outcome.computed, false);
+  assert.equal(outcome.code, "NEGATIVE_MAGNITUDE");
+});
+
 test("ejecutado mayor que la obligación se rechaza por conservación", () => {
-  const outcome = computeRemainingVolume({ openingObligation: 40, executedVolume: 100, unit: "MWh" });
+  const outcome = computeRemainingVolume({ openingObligation: 40, executedVolume: 100, openingUnit: "MWh", executedUnit: "MWh" });
   assert.equal(outcome.computed, false);
   assert.equal(outcome.code, "CONSERVATION_VIOLATION");
 });
@@ -109,11 +128,29 @@ test("la relación Monthly/Quarterly sin razón documentada se rechaza", () => {
   assert.ok(outcome.errors.some((error) => error.code === "MISSING_NOT_DOCUMENTED"));
 });
 
+test("la ausencia total de la relación Monthly/Quarterly se documenta, no se asume", () => {
+  const outcome = mapCoverageOwnership({ obligations: [], fills: [] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "MISSING_NOT_DOCUMENTED"));
+});
+
 test("un partial fill conserva el residual no ejecutado", () => {
   const outcome = applyFilledQuantity({ openingObligation: 100, executedVolume: 40, filledQuantity: 15, unit: "MWh" });
   assert.equal(outcome.updated, true);
   assert.equal(outcome.executedVolume, 55);
   assert.equal(outcome.remainingVolume, 45);
+});
+
+test("un fill negativo no reduce el volumen ejecutado", () => {
+  const outcome = applyFilledQuantity({ openingObligation: 100, executedVolume: 40, filledQuantity: -15, unit: "MWh" });
+  assert.equal(outcome.updated, false);
+  assert.equal(outcome.code, "NEGATIVE_MAGNITUDE");
+});
+
+test("un volumen ejecutado negativo no admite fills", () => {
+  const outcome = applyFilledQuantity({ openingObligation: 100, executedVolume: -10, filledQuantity: 5, unit: "MWh" });
+  assert.equal(outcome.updated, false);
+  assert.equal(outcome.code, "NEGATIVE_MAGNITUDE");
 });
 
 test("un fill no puede exceder la obligación de apertura", () => {
