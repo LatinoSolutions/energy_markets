@@ -1,11 +1,13 @@
 // Vistas decision-time y evaluation separadas. Fuente: SPEC v1.1.1
 // §6.1 (dos vistas; revisión no viaja al pasado; published ≠ consumible),
-// §6.2 (revisions crean versiones nuevas, nunca reescriben el histórico),
-// §14.3 P6.3 paso 2 (sólo datos que satisfacen P4 en el boundary exacto),
-// §14.6/§14.7 (la revisión cambia la versión de evaluación, nunca la decision
-// view histórica ni el execution ledger) y §19.2 (detectar revisions futuras
-// en State histórico, outcomes futuros usados para decidir y confusión
-// decision/evaluation).
+// §6.2 (revisions crean versiones nuevas, nunca reescriben el histórico;
+// missing con razón preservada), §14.2/§14.3 (el benchmark se consume
+// únicamente para evaluación y la policy observa exclusivamente el historical
+// decision view), §14.3 P6.3 paso 2 (sólo datos que satisfacen P4 en el
+// boundary exacto), §14.6/§14.7 (la revisión cambia la versión de evaluación,
+// nunca la decision view histórica ni el execution ledger) y §19.2 (detectar
+// revisions futuras en State histórico, outcomes futuros usados para decidir y
+// confusión decision/evaluation).
 
 import { buildPitRecord, isConsumableAtBoundary, semanticsOf } from "./pit-record.mjs";
 import { isUtcAnchored, toUtcTimestamp } from "./time.mjs";
@@ -82,18 +84,20 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
   }
 
   // Identidad: (key, revisionId) es única; un mismo revisionId con valores
-  // distintos no reescribe el histórico (§6.2).
+  // distintos no reescribe el histórico (§6.2). Las entradas auditadas MISSING
+  // (revisionId null) se agrupan bajo su propia identidad: dos faltantes del
+  // mismo key siguen siendo una ambigüedad, no una versión nueva.
   const identity = new Map();
   let conflicting = false;
   for (const record of builtRecords) {
-    const composite = `${record.key}::${record.revisionId}`;
+    const composite = `${record.key}::${record.revisionId ?? "__MISSING_VERSION__"}`;
     const prior = identity.get(composite);
     if (prior !== undefined) {
       conflicting = true;
       errors.push({
         field: "records",
         code: "DUPLICATE_REVISION",
-        message: `La versión "${record.revisionId}" de "${record.key}" aparece más de una vez; las revisiones crean versiones nuevas, no reescrituras.`,
+        message: `La versión "${record.revisionId ?? "MISSING"}" de "${record.key}" aparece más de una vez; las revisiones crean versiones nuevas, no reescrituras.`,
       });
       break;
     }
@@ -145,16 +149,41 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
   // Reloj de evaluación por record (§6.2): el sello del receipt de revisión
   // cuando el manifest lo declara; si no, la publicación en origen. Es el
   // reloj de contenido vigente, independiente de cuándo la policy pudo
-  // consumirlo (las dos vistas no comparten reloj, §6.1).
+  // consumirlo (las dos vistas no comparten reloj, §6.1). `occurredAtUtc` no
+  // es disponibilidad: nunca sustituye la publicación (§6.1). Un receipt no
+  // puede hacer efectiva una revisión antes de que su versión se publique.
   const sortedRevisions = [...builtRevisions]
     .sort((left, right) => left.effectiveAtUtc.localeCompare(right.effectiveAtUtc));
   for (const record of builtRecords) {
-    const receipt = sortedRevisions.find(
-      (revision) => revision.key === record.key && revision.revisionId === record.revisionId,
-    );
-    record.effectiveAtUtc = receipt !== undefined
-      ? receipt.effectiveAtUtc
-      : (record.publishedAtUtc ?? record.occurredAtUtc);
+    const receipt = record.revisionId === null
+      ? undefined
+      : sortedRevisions.find(
+        (revision) => revision.key === record.key && revision.revisionId === record.revisionId,
+      );
+    // §6.1: una revisión no puede ser efectiva sin publicación/availability en
+    // origen. Sin ella no se conoce cuándo existió la versión: el receipt no
+    // sustituye la publicación.
+    if (receipt !== undefined && record.publishedAtUtc === null) {
+      errors.push({
+        field: "revisions",
+        code: "REVISION_WITHOUT_PUBLICATION",
+        message: `La revisión "${receipt.revisionId}" de "${record.key}" no tiene publicación/availability en origen.`,
+      });
+      continue;
+    }
+    if (receipt !== undefined && Date.parse(receipt.effectiveAtUtc) < Date.parse(record.publishedAtUtc)) {
+      errors.push({
+        field: "revisions",
+        code: "REVISION_EFFECTIVE_BEFORE_PUBLICATION",
+        message: `La revisión "${receipt.revisionId}" de "${record.key}" se declara efectiva antes de publicarse su versión.`,
+      });
+      continue;
+    }
+    record.effectiveAtUtc = receipt !== undefined ? receipt.effectiveAtUtc : record.publishedAtUtc;
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
   }
 
   return {
@@ -170,12 +199,12 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
 
 
 // Relojes separados por vista (§6.1: las dos vistas no comparten reloj):
-//  - decision: orden por consumableFromUtc (consumo demostrado, o publicación
-//    para consumableAtAnyBoundary). Sin consumo demostrado no hay reloj de
-//    decisión: unavailable (§25.1 IMP-06).
-//  - evaluation: orden por record.effectiveAtUtc, calculado en el manifest.
-function timelineForKey(manifest, key, clockField) {
-  const entries = manifest.records
+//  - decision: orden por consumableFromUtc (consumo demostrado). Sin consumo
+//    demostrado no hay reloj de decisión: unavailable (§25.1 IMP-06).
+//  - evaluation: orden por record.effectiveAtUtc (publicación/receipt),
+//    calculado en el manifest.
+function timelineForKey(records, key, clockField) {
+  const entries = records
     .filter((record) => record.key === key)
     .map((record, index) => ({ record, index, [clockField]: record[clockField] }))
     .filter((entry) => typeof entry[clockField] === "string")
@@ -202,7 +231,9 @@ function parseUtcBoundary(value, field, code) {
 }
 
 // DECISION-TIME VIEW (§6.1): en cada boundary expone únicamente las versiones
-// realmente conocidas/consumibles. Tres guardas de §19.2:
+// realmente conocidas/consumibles. La policy observa exclusivamente esta vista
+// (§14.3): el benchmark cerrado y los outcomes viven en la evaluación y nunca
+// aparecen aquí. Tres guardas de §19.2:
 //  1. publicado después del boundary => no entra por publicación.
 //  2. consumable > boundary o consumo no demostrado => no entra: publicado
 //     pero aún no consumible NO entra (§6.1).
@@ -217,16 +248,21 @@ export function readDecisionView(manifest, boundaryUtc) {
   const visible = [];
   const suppressed = [];
 
-  const uniqueKeys = [...new Set(manifest.records.map((record) => record.key))];
+  // §14.2/§14.3: sólo los inputs de decisión entran; benchmark/outcomes
+  // (viewScope "evaluation") quedan fuera de la vista de decisión. La guarda
+  // exige "decision" explícito, no la mera ausencia de "evaluation": así un
+  // manifest mal formado tampoco cuela un benchmark en la decisión.
+  const decisionRecords = manifest.records.filter((record) => record.viewScope === "decision");
+  const uniqueKeys = [...new Set(decisionRecords.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
-    const timeline = timelineForKey(manifest, key, "consumableFromUtc");
+    const keyRecords = decisionRecords.filter((record) => record.key === key);
+    const timeline = timelineForKey(keyRecords, key, "consumableFromUtc");
     const effective = effectiveEntry(timeline, "consumableFromUtc", boundary.ms);
-    // Versiones sin reloj de decisión (consumo no demostrado) no están en el
-    // timeline pero igual se reportan como unavailable. Las versiones ya
-    // reemplazadas en el mismo boundary no se reportan: no informan la
-    // decisión y su valor queda en la vista de evaluación (§6.2).
-    const keyRecords = manifest.records.filter((record) => record.key === key);
+    // Versiones sin reloj de decisión (consumo no demostrado o valor ausente)
+    // no están en el timeline pero igual se reportan como unavailable. Las
+    // versiones ya reemplazadas en el mismo boundary no se reportan: no
+    // informan la decisión y su valor queda en la vista de evaluación (§6.2).
 
     if (effective !== null) {
       // §14.3 paso 2: exponer sólo lo que satisface P4 en este boundary exacto.
@@ -282,7 +318,9 @@ export function readDecisionView(manifest, boundaryUtc) {
 // vista es versionada, no un estado flotante. La versión vigente se selecciona
 // por el reloj de contenido (receipt/publicación), nunca por el reloj de
 // consumo de la policy: así una revisión no aparece como actual mientras
-// pendingRevisions la declara pendiente.
+// pendingRevisions la declara pendiente. Los contenidos sin publicación ni
+// receipt, y los faltantes de valor, se reportan explícitamente como
+// unavailable en vez de mostrarse con un valor indefinido (§6.1/§6.2).
 export function readEvaluationView(manifest, asOfUtc) {
   const asOf = parseUtcBoundary(asOfUtc, "asOf", "INVALID_AS_OF");
   if (!asOf.ok) {
@@ -291,36 +329,63 @@ export function readEvaluationView(manifest, asOfUtc) {
 
   const current = [];
   const superseded = [];
+  const unavailable = [];
 
   const uniqueKeys = [...new Set(manifest.records.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
-    const timeline = timelineForKey(manifest, key, "effectiveAtUtc");
+    const keyRecords = manifest.records.filter((record) => record.key === key);
+    // §6.1: la evaluación no confía en un `effectiveAtUtc` suelto; el contenido
+    // debe tener publicación/availability en origen para situarse en el tiempo.
+    const contentRecords = keyRecords.filter(
+      (record) => record.valueStatus === "PRESENT"
+        && typeof record.publishedAtUtc === "string"
+        && typeof record.effectiveAtUtc === "string",
+    );
+    const timeline = timelineForKey(contentRecords, key, "effectiveAtUtc");
     const effective = effectiveEntry(timeline, "effectiveAtUtc", asOf.ms);
-    if (effective === null) {
-      continue;
+
+    if (effective !== null) {
+      current.push({
+        key,
+        value: effective.record.value,
+        revisionId: effective.record.revisionId,
+        publishedAtUtc: effective.record.publishedAtUtc,
+        consumableAtUtc: effective.record.consumableAtUtc,
+        effectiveAtUtc: effective.effectiveAtUtc,
+        semantics: semanticsOf(effective.record),
+        proxy: effective.record.proxy,
+        proxyId: effective.record.proxyId,
+        condition: effective.record.revisionOf === null ? "base" : `revised from ${effective.record.revisionOf}`,
+      });
+      // Las versiones anteriores se conservan versionadas (§6.2).
+      for (const entry of timeline) {
+        if (entry !== effective && Date.parse(entry.effectiveAtUtc) <= asOf.ms) {
+          superseded.push({
+            key,
+            revisionId: entry.record.revisionId,
+            value: entry.record.value,
+            effectiveAtUtc: entry.effectiveAtUtc,
+            supersededBy: effective.record.revisionId,
+          });
+        }
+      }
     }
-    current.push({
-      key,
-      value: effective.record.value,
-      revisionId: effective.record.revisionId,
-      publishedAtUtc: effective.record.publishedAtUtc,
-      consumableAtUtc: effective.record.consumableAtUtc,
-      effectiveAtUtc: effective.effectiveAtUtc,
-      semantics: semanticsOf(effective.record),
-      proxy: effective.record.proxy,
-      proxyId: effective.record.proxyId,
-      condition: effective.record.revisionOf === null ? "base" : `revised from ${effective.record.revisionOf}`,
-    });
-    // Las versiones anteriores se conservan versionadas (§6.2).
-    for (const entry of timeline) {
-      if (entry !== effective && Date.parse(entry.effectiveAtUtc) <= asOf.ms) {
-        superseded.push({
+
+    // Faltantes explícitos: valor ausente o contenido sin reloj de evaluación
+    // (sin publicación ni receipt). Nunca se muestran como actuales (§6.1/§6.2).
+    for (const record of keyRecords) {
+      if (record.valueStatus === "MISSING") {
+        unavailable.push({
           key,
-          revisionId: entry.record.revisionId,
-          value: entry.record.value,
-          effectiveAtUtc: entry.effectiveAtUtc,
-          supersededBy: effective.record.revisionId,
+          revisionId: record.revisionId,
+          reason: "valor ausente; faltante explícito (§6.2)",
+        });
+      } else if (typeof record.publishedAtUtc !== "string" || typeof record.effectiveAtUtc !== "string") {
+        unavailable.push({
+          key,
+          revisionId: record.revisionId,
+          reason: "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)",
         });
       }
     }
@@ -340,6 +405,7 @@ export function readEvaluationView(manifest, asOfUtc) {
     asOf: asOf.iso,
     current,
     superseded,
+    unavailable,
     appliedRevisions,
     pendingRevisions,
   };

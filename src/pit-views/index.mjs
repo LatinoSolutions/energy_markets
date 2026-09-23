@@ -11,6 +11,7 @@ export {
   buildPitRecord,
   isConsumableAtBoundary,
   semanticsOf,
+  VIEW_SCOPES,
 } from "./pit-record.mjs";
 
 export {

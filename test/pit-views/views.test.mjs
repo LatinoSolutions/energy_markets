@@ -19,6 +19,7 @@ import {
 
 const BASE = {
   key: "G0BQ.202604.reference",
+  viewScope: "decision",
   occurredAtUtc: "2026-03-31T17:15:00Z",
   publishedAtUtc: "2026-03-31T18:00:00Z",
   consumableAtUtc: "2026-04-01T06:00:00Z",
@@ -28,6 +29,7 @@ const BASE = {
 
 const WITH_BENCHMARK = {
   key: "B.G0BQ.202604.closed",
+  viewScope: "evaluation",
   occurredAtUtc: "2026-06-30T17:15:00Z",
   publishedAtUtc: "2026-07-01T06:00:00Z",
   consumableAtUtc: "2026-07-01T06:30:00Z",
@@ -276,6 +278,7 @@ test("occurred futoro no bloquea: el vintage consumible entonces es input de dec
   const outcome = buildManifest({
     records: [{
       key: "forecast.202606.settlement",
+      viewScope: "decision",
       occurredAtUtc: "2026-06-30T17:15:00Z",
       publishedAtUtc: "2026-04-01T06:00:00Z",
       consumableAtUtc: "2026-04-01T06:30:00Z",
@@ -346,15 +349,128 @@ test("viewsAt entrega las dos vistas separadas para el mismo boundary", () => {
   assert.equal(pair.evaluation.current.length, 1);
 });
 
-test("el benchmark cerrado entra por su propia semántica temporal en ambas vistas", () => {
+test("el benchmark cerrado permanece en la vista de evaluación y nunca en la decisión (§14.2/§14.3)", () => {
   const manifest = buildManifest({ records: [BASE, WITH_BENCHMARK] }).manifest;
   const early = viewsAt(manifest, "2026-05-01T00:00:00Z");
   assert.equal(early.decision.visible.length, 1); // sólo el precio
   assert.equal(early.evaluation.current.length, 1);
 
   const afterClose = viewsAt(manifest, "2026-07-02T00:00:00Z");
-  assert.equal(afterClose.decision.visible.length, 2);
+  // El benchmark ya está cerrado/publicado, pero la policy observa sólo el
+  // historical decision view: no entra a la decisión ni después del cierre.
+  assert.equal(afterClose.decision.visible.length, 1);
   assert.equal(afterClose.evaluation.current.length, 2);
+  assert.deepEqual(
+    afterClose.evaluation.current.map((row) => row.key).sort(),
+    [BASE.key, WITH_BENCHMARK.key].sort(),
+  );
+});
+
+test("sin publicación no se usa occurredAtUtc para mostrar contenido en evaluación (§6.1)", () => {
+  const outcome = buildManifest({
+    records: [{
+      key: "outcome.202606.settlement",
+      viewScope: "decision",
+      occurredAtUtc: "2026-06-30T17:15:00Z",
+      publishedAtUtc: undefined,
+      consumableAtUtc: undefined,
+      revisionId: "v1",
+      value: 25.1,
+    }],
+  });
+  assert.equal(outcome.ok, true);
+  const evaluation = readEvaluationView(outcome.manifest, "2026-12-31T00:00:00Z");
+  assert.equal(evaluation.current.length, 0);
+  assert.equal(evaluation.unavailable.length, 1);
+  assert.match(evaluation.unavailable[0].reason, /sin publicación/);
+  assert.equal(readDecisionView(outcome.manifest, "2026-12-31T00:00:00Z").visible.length, 0);
+});
+
+test("un receipt no puede hacer efectiva una revisión antes de publicarse la versión (§6.1)", () => {
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    revisesRevisionId: "v1",
+    effectiveAtUtc: "2026-04-20T09:00:00Z",
+  });
+  const outcome = buildManifest({ records: revisedRecords(), revisions: [receipt.revision] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "REVISION_EFFECTIVE_BEFORE_PUBLICATION"));
+});
+
+test("una revisión sin publicación en origen no se materializa: el receipt no sustituye la publicación (§6.1)", () => {
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    revisesRevisionId: "v1",
+    effectiveAtUtc: "2026-04-20T10:30:00Z",
+  });
+  const records = revisedRecords().map((record) => (
+    record.revisionId === "v2" ? { ...record, publishedAtUtc: null, consumableAtUtc: null } : record
+  ));
+  const outcome = buildManifest({ records, revisions: [receipt.revision] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "REVISION_WITHOUT_PUBLICATION"));
+});
+
+test("entradas auditadas MISSING se materializan como unavailable en ambas vistas (§25.2)", () => {
+  const missing = {
+    key: "R-04",
+    viewScope: "decision",
+    revisionId: null,
+    value: null,
+    occurredAtUtc: null,
+    publishedAtUtc: null,
+    consumableAtUtc: null,
+    reason: "No price/trade/order-book series present.",
+  };
+  const outcome = buildManifest({ records: [BASE, missing] });
+  assert.equal(outcome.ok, true);
+  const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(pair.decision.visible.length, 1);
+  assert.ok(pair.decision.suppressed.some((row) => row.key === "R-04" && /valor ausente/.test(row.reason)));
+  assert.equal(pair.evaluation.current.length, 1);
+  assert.ok(pair.evaluation.unavailable.some((row) => row.key === "R-04"));
+});
+
+test("un registro consumible sin value no se expone visible y se marca el faltante (§6.2)", () => {
+  const outcome = buildManifest({
+    records: [BASE, { ...BASE, key: "G0BQ.202604.volume", revisionId: "vol-v1", value: undefined }],
+  });
+  assert.equal(outcome.ok, true);
+  const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(pair.decision.visible.length, 1);
+  assert.ok(pair.decision.suppressed.some((row) => row.key === "G0BQ.202604.volume" && /valor ausente/.test(row.reason)));
+  assert.ok(pair.evaluation.unavailable.some((row) => row.key === "G0BQ.202604.volume"));
+});
+
+test("readDecisionView sólo admite viewScope 'decision' explícito: un benchmark no declarado no entra", () => {
+  const decisionRecord = {
+    key: "price", viewScope: "decision", value: 1, valueStatus: "PRESENT",
+    occurredAtUtc: null, publishedAtUtc: "2026-04-01T00:00:00.000Z",
+    consumableAtUtc: "2026-04-01T06:00:00.000Z", consumableFromUtc: "2026-04-01T06:00:00.000Z",
+    effectiveAtUtc: "2026-04-01T00:00:00.000Z", revisionId: "v1", revisionOf: null,
+    proxy: false, proxyId: null,
+  };
+  const undeclaredBenchmark = { ...decisionRecord, key: "bench", value: 2, revisionId: "b1", viewScope: undefined };
+  const manifest = { manifestId: "M", manifestVersion: "v1", records: [decisionRecord, undeclaredBenchmark], revisions: [] };
+  const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+  assert.deepEqual(view.visible.map((row) => row.key), ["price"]);
+});
+
+test("readEvaluationView no muestra contenido sin publicación aunque traiga effectiveAtUtc (§6.1)", () => {
+  const record = {
+    key: "outcome", viewScope: "evaluation", value: 9, valueStatus: "PRESENT",
+    occurredAtUtc: "2026-06-30T17:15:00.000Z", publishedAtUtc: null,
+    consumableAtUtc: null, consumableFromUtc: null,
+    effectiveAtUtc: "2026-06-30T17:15:00.000Z", revisionId: "v1", revisionOf: null,
+    proxy: false, proxyId: null,
+  };
+  const manifest = { manifestId: "M", manifestVersion: "v1", records: [record], revisions: [] };
+  const view = readEvaluationView(manifest, "2026-12-31T00:00:00Z");
+  assert.equal(view.current.length, 0);
+  assert.equal(view.unavailable.length, 1);
+  assert.match(view.unavailable[0].reason, /sin publicación/);
 });
 
 test("readDecisionView rechaza boundary no parseable y exige vista separada", () => {

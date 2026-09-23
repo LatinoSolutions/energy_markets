@@ -8,8 +8,21 @@
 // existe prueba suficiente, el dato se trata como unavailable"; §25.1 IMP-06:
 // "los inputs no demostrablemente consumibles siguen unavailable"), nunca se
 // rechaza ni se presume consumible.
+//
+// §25.2 IMP-06: el módulo materializa los resultados auditados sin declarar
+// nuevas coberturas. Por eso un input auditado MISSING (sin `value` y con
+// `revisionId` MISSING, como las entradas del manifiesto temporal de IMP-03)
+// se conserva como record `unavailable`; no se rechaza por faltarle la versión.
+//
+// §6.1/§14.2: no todo dato alimenta la decisión. El benchmark cerrado y los
+// outcomes son "consumida únicamente para evaluación" (§14.2) y "permanece
+// separado" (§14.3): su `viewScope` es "evaluation" y nunca entran a la
+// decision-time view. `viewScope` es obligatorio: no hay default que pueda
+// meter un benchmark sin declarar en la vista de decisión.
 
 import { toUtcTimestamp } from "./time.mjs";
+
+export const VIEW_SCOPES = ["decision", "evaluation"];
 
 function normalizeUtc(value) {
   if (value === undefined || value === null) {
@@ -22,13 +35,17 @@ function fail(errors, field, code, message) {
   errors.push({ field, code, message });
 }
 
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 export function buildPitRecord(input) {
   const errors = [];
 
   if (!input || typeof input !== "object") {
     return { ok: false, errors: [{ field: "record", code: "MISSING_RECORD", message: "Registro PIT ausente." }] };
   }
-  if (typeof input.key !== "string" || input.key.trim().length === 0) {
+  if (!isNonEmptyString(input.key)) {
     fail(errors, "key", "MISSING_KEY", "El registro no declara su clave de serie/campo.");
   }
 
@@ -41,25 +58,63 @@ export function buildPitRecord(input) {
     fail(errors, "publishedAtUtc", published.code, "publication/availability time debe tener zona explícita (se normaliza a UTC).");
   }
 
+  // §14.2/§14.3: el dato declara explícitamente a qué vista alimenta. No hay
+  // default: un benchmark/outcome sin declarar terminaría en la decision view,
+  // justo lo que §14.3 prohíbe. La ausencia de viewScope es un error, no una
+  // presunción de "decision".
+  const viewScope = input.viewScope;
+  if (viewScope === undefined || viewScope === null) {
+    fail(errors, "viewScope", "MISSING_VIEW_SCOPE", `El registro debe declarar viewScope: ${VIEW_SCOPES.join(" o ")}.`);
+  } else if (!VIEW_SCOPES.includes(viewScope)) {
+    fail(errors, "viewScope", "INVALID_VIEW_SCOPE", `viewScope debe ser uno de: ${VIEW_SCOPES.join(", ")}.`);
+  }
+
+  // §6.2: missing nunca se inventa. Un `value` ausente/null se conserva como
+  // faltante explícito en vez de exponerse como valor indefinido.
+  const valuePresent = input.value !== undefined && input.value !== null;
+
+  // §6.1: la versión concreta del valor. Un valor presente exige versión; una
+  // entrada auditada MISSING puede no tenerla y se conserva como unavailable.
+  let revisionId = null;
+  if (input.revisionId !== undefined && input.revisionId !== null) {
+    if (typeof input.revisionId !== "string") {
+      fail(errors, "revisionId", "INVALID_REVISION", "revisionId debe ser una identidad de versión no vacía.");
+    } else if (input.revisionId.trim().length > 0) {
+      revisionId = input.revisionId;
+    }
+  }
+  if (valuePresent && revisionId === null) {
+    fail(errors, "revisionId", "MISSING_REVISION", "Un valor presente requiere declarar su versión/revision.");
+  }
+
+  const revisionOf = input.revisionOf ?? null;
+  if (revisionOf !== null && !isNonEmptyString(revisionOf)) {
+    fail(errors, "revisionOf", "INVALID_REVISION_REF", "revisionOf debe ser identidad de revisión o null.");
+  }
+  if (revisionId === null && revisionOf !== null) {
+    fail(errors, "revisionOf", "REVISION_OF_WITHOUT_REVISION", "Una versión MISSING no puede declarar lineage.");
+  }
+
+  // §6.1: consumo demostrado únicamente con evidencia contemporánea
+  // (`consumableAtUtc`). No existe consumibilidad genérica "en todo boundary":
+  // presumirla convertiría publicación en consumo sin prueba.
+  if (input.consumableAtAnyBoundary === true) {
+    fail(
+      errors,
+      "consumableAtAnyBoundary",
+      "UNSUPPORTED_CONSUMABILITY",
+      "La consumibilidad debe demostrarse con consumableAtUtc; no se acepta consumo genérico en todo boundary (§6.1).",
+    );
+  }
   let consumable = { ok: true, utc: null };
-  let consumability;
   if (input.consumableAtUtc !== undefined && input.consumableAtUtc !== null) {
     consumable = normalizeUtc(input.consumableAtUtc);
     if (!consumable.ok) {
       fail(errors, "consumableAtUtc", consumable.code, "policy-consumable time debe tener zona explícita (se normaliza a UTC).");
     }
-    consumability = "demonstrated";
-  } else if (input.consumableAtAnyBoundary === true) {
-    consumability = "any-boundary";
-  } else {
-    consumability = "unavailable";
   }
 
-  if (typeof input.revisionId !== "string" || input.revisionId.trim().length === 0) {
-    fail(errors, "revisionId", "MISSING_REVISION", "El registro no declara la versión/revision del valor.");
-  }
-
-  if (input.proxy === true && (typeof input.proxyId !== "string" || input.proxyId.trim().length === 0)) {
+  if (input.proxy === true && !isNonEmptyString(input.proxyId)) {
     fail(errors, "proxyId", "MISSING_PROXY_ID", "Un proxy debe estar identificado; no se relabela como oficial (§6.2).");
   }
 
@@ -83,27 +138,32 @@ export function buildPitRecord(input) {
     return { ok: false, errors };
   }
 
+  // Consumo demostrado exige las tres piezas de §6.1: valor presente,
+  // publicación en origen (no se puede consumir lo que nunca se publicó) y
+  // evidencia contemporánea de consumo. Sin cualquiera de ellas, unavailable.
+  const consumability = valuePresent && published.utc !== null && consumable.utc !== null
+    ? "demonstrated"
+    : "unavailable";
+
   // Reloj de la vista decision-time: instante desde el que esta versión es
-  // consumible para la policy. Con consumo demostrado es consumableAtUtc; con
-  // consumableAtAnyBoundary es su publicación (no puede consumirse antes de
-  // existir); unavailable no tiene reloj: no entra en ninguna decisión.
-  const consumableFromUtc = consumable.utc
-    ?? (consumability === "any-boundary" ? published.utc : null);
+  // consumible para la policy. Sin consumo demostrado no hay reloj de decisión.
+  const consumableFromUtc = consumability === "demonstrated" ? consumable.utc : null;
 
   const record = {
     key: input.key,
+    viewScope,
     occurredAtUtc: occurred.utc,
     publishedAtUtc: published.utc,
     consumableAtUtc: consumable.utc,
-    consumableAtAnyBoundary: input.consumableAtAnyBoundary === true,
     consumability,
     consumableFromUtc,
-    revisionId: input.revisionId,
-    revisionOf: input.revisionOf ?? null,
+    valueStatus: valuePresent ? "PRESENT" : "MISSING",
+    revisionId,
+    revisionOf,
     proxy: input.proxy === true,
     proxyId: input.proxyId ?? null,
   };
-  if (input.value !== undefined) {
+  if (valuePresent) {
     record.value = input.value;
   }
   if (typeof input.reason === "string" && input.reason.length > 0) {
@@ -122,8 +182,11 @@ export function isConsumableAtBoundary(record, boundaryUtc) {
   if (!Number.isFinite(boundary)) {
     return { consumable: false, reason: "boundary no parseable" };
   }
-  if (record.consumableAtAnyBoundary === true) {
-    return { consumable: true, reason: null };
+  if (record.valueStatus === "MISSING") {
+    return { consumable: false, reason: "valor ausente; faltante explícito (§6.2)" };
+  }
+  if (record.publishedAtUtc === null) {
+    return { consumable: false, reason: "sin publicación en origen; disponibilidad no demostrada (§6.1)" };
   }
   if (record.consumableAtUtc === null) {
     return { consumable: false, reason: "consumo no demostrado (§6.1)" };

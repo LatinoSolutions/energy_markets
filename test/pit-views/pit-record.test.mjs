@@ -12,6 +12,7 @@ import {
 function validInput(overrides = {}) {
   return {
     key: "G0BQ.202604.reference",
+    viewScope: "decision",
     occurredAtUtc: "2026-03-31T17:15:00Z",
     publishedAtUtc: "2026-03-31T18:00:00Z",
     consumableAtUtc: "2026-04-01T06:00:00Z",
@@ -41,15 +42,13 @@ test("sin policy-consumable time demostrado el registro se conserva como unavail
   const record = outcome.record;
   assert.equal(record.consumability, "unavailable");
   assert.equal(record.consumableAtUtc, null);
-  assert.equal(record.consumableAtAnyBoundary, false);
   assert.equal(record.consumableFromUtc, null);
 });
 
-test("consumableAtAnyBoundary=true es la forma explícita de consumo siempre disponible", () => {
+test("consumible 'en todo boundary' se rechaza: publicación no prueba consumo de la policy (§6.1)", () => {
   const outcome = buildPitRecord(validInput({ consumableAtUtc: undefined, consumableAtAnyBoundary: true }));
-  assert.equal(outcome.ok, true);
-  assert.equal(outcome.record.consumableAtUtc, null);
-  assert.equal(outcome.record.consumableAtAnyBoundary, true);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "UNSUPPORTED_CONSUMABILITY"));
 });
 
 test("timestamps sin zona explícita se rechazan: presumir UTC ocultaría su origen", () => {
@@ -105,15 +104,60 @@ test("sin prueba de consumo el dato es unavailable para la policy, no consumible
   assert.match(outcome.reason, /no demostrado/);
 });
 
-test("consumableFromUtc separa los relojes: consumo demostrado vs any-boundary vs unavailable", () => {
+test("consumableFromUtc separa los relojes: consumo demostrado vs unavailable", () => {
   const demonstrated = buildPitRecord(validInput()).record;
   assert.equal(demonstrated.consumableFromUtc, "2026-04-01T06:00:00.000Z");
-  const anyBoundary = buildPitRecord(validInput({
-    consumableAtUtc: undefined,
-    consumableAtAnyBoundary: true,
-  })).record;
-  // El límite es su publicación: no puede consumirse antes de existir (§6.1).
-  assert.equal(anyBoundary.consumableFromUtc, "2026-03-31T18:00:00.000Z");
   const unavailable = buildPitRecord(validInput({ consumableAtUtc: undefined })).record;
   assert.equal(unavailable.consumableFromUtc, null);
+});
+
+test("entrada auditada MISSING sin versión ni valor se conserva unavailable, no se rechaza (§25.2)", () => {
+  const outcome = buildPitRecord({
+    key: "R-01",
+    viewScope: "decision",
+    revisionId: null,
+    value: null,
+    occurredAtUtc: null,
+    publishedAtUtc: null,
+    consumableAtUtc: null,
+    reason: "MISSING",
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.record.revisionId, null);
+  assert.equal(outcome.record.valueStatus, "MISSING");
+  assert.equal(outcome.record.consumability, "unavailable");
+  assert.equal(outcome.record.consumableFromUtc, null);
+});
+
+test("sin viewScope el registro se rechaza: no se presume input de decisión (§14.2/§14.3)", () => {
+  const outcome = buildPitRecord(validInput({ viewScope: undefined }));
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "MISSING_VIEW_SCOPE"));
+});
+
+test("consumo sin publicación en origen no se demuestra: el registro queda unavailable (§6.1)", () => {
+  const outcome = buildPitRecord(validInput({ publishedAtUtc: null }));
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.record.consumability, "unavailable");
+  assert.equal(outcome.record.consumableFromUtc, null);
+  const atBoundary = isConsumableAtBoundary(outcome.record, "2026-04-02T00:00:00Z");
+  assert.equal(atBoundary.consumable, false);
+  assert.match(atBoundary.reason, /sin publicación/);
+});
+
+test("un registro consumible sin value queda unavailable y no expone un valor indefinido (§6.2)", () => {
+  const outcome = buildPitRecord(validInput({ value: undefined }));
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.record.valueStatus, "MISSING");
+  assert.equal(outcome.record.consumability, "unavailable");
+  assert.equal("value" in outcome.record, false);
+  const atBoundary = isConsumableAtBoundary(outcome.record, "2026-04-02T00:00:00Z");
+  assert.equal(atBoundary.consumable, false);
+  assert.match(atBoundary.reason, /valor ausente/);
+});
+
+test("un valor presente sin versión se rechaza: el contenido no se materializa sin revisionId", () => {
+  const outcome = buildPitRecord(validInput({ revisionId: undefined }));
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "MISSING_REVISION"));
 });
