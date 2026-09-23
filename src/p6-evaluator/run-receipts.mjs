@@ -58,7 +58,29 @@ export function materializeRunReceipt({ bundle, replayOutcome }) {
     return { ok: false, code: "MISSING_REPLAY_OUTCOME", message: "El receipt se materializa a partir del outcome real de runP6Replay; no se fabrica un receipt sin replay (§14.1)." };
   }
   const replay = replayOutcome.replay;
+  // §14.9/§14.10: la forma mínima del outcome se valida antes de tocarla; sin
+  // ledgers/coverage/status/receipt no hay nada que materializar (y evita
+  // fabricar un receipt desde un objeto a medias).
+  if (!replay || typeof replay !== "object" || Array.isArray(replay)
+    || !replay.receipt || typeof replay.receipt !== "object" || Array.isArray(replay.receipt)
+    || !replay.ledgers || typeof replay.ledgers !== "object" || Array.isArray(replay.ledgers)
+    || !Array.isArray(replay.ledgers.decision)
+    || !Array.isArray(replay.ledgers.execution)
+    || !Array.isArray(replay.ledgers.coverage)
+    || !replay.terminalCoverage || typeof replay.terminalCoverage !== "object" || Array.isArray(replay.terminalCoverage)
+    || !replay.status || typeof replay.status !== "object" || Array.isArray(replay.status)) {
+    return { ok: false, code: "MALFORMED_REPLAY_OUTCOME", message: "El outcome de runP6Replay debe exponer replay.receipt, ledgers (decision/execution/coverage), terminalCoverage y status; sin esa forma no se materializa un receipt (§14.9/§14.10)." };
+  }
   const baseReceipt = replay.receipt;
+
+  // §14.9: el receipt declara los inputs/versiones que produjeron los ledgers.
+  // Aceptar un outcome de otro bundle dejaría un receipt que declara inputs
+  // que no produjeron sus ledgers (incoherencia interna); fail-closed antes de
+  // fabricarlo.
+  if (typeof bundle.contentHash !== "string" || bundle.contentHash.length === 0
+    || baseReceipt.frozenBundleContentHash !== bundle.contentHash) {
+    return { ok: false, code: "BUNDLE_OUTCOME_MISMATCH", message: "El replay no corresponde al frozen bundle: receipt.frozenBundleContentHash debe igualar bundle.contentHash; un receipt que declara inputs distintos de los que produjeron los ledgers rompe la trazabilidad (§14.9)." };
+  }
 
   // §14.9: content hash del input dataset manifest congelado. El manifest PIT
   // es la fuente declarada en el receipt (datasetManifestId/Version); aquí se

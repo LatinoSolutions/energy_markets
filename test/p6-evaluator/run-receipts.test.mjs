@@ -317,3 +317,47 @@ test("§14.9/§14.1: la materialización no recalcula ni repara: requiere replay
   assert.ok(brokenOutcome.outputBundle.receipt.invalidityReasons.length > 0);
   assert.equal(receiptIdentityOf(brokenOutcome.outputBundle.receipt), brokenOutcome.receiptId);
 });
+
+test("§14.9: la materialización rechaza un outcome que no corresponde al frozen bundle (binding bundle↔replay)", () => {
+  // Repro del defecto IMP14-BIND-01: aceptar el outcome de otro bundle dejaría
+  // un receipt con hashes de inputs que no produjeron sus ledgers.
+  const dates = ["2026-01-05"];
+  const bundleA = frozenBundle({ dates });
+  // B se congela con otro precio (otro input → otro contentHash), no mutando
+  // un bundle ya congelado: el hash de identidad se fija al construir.
+  const inputB = fixtureInput({ dates });
+  inputB.priceObservations = [{ timestamp: "2026-01-05T09:55:00Z", bestAsk: 41.5 }];
+  const bundleB = buildReplayBundle(inputB);
+  assert.equal(bundleB.ok, true);
+  assert.notEqual(bundleA.bundle.contentHash, bundleB.bundle.contentHash);
+
+  const replayB = runP6Replay(bundleB.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
+  assert.equal(replayB.ok, true);
+
+  const crossed = buildOutputBundle({ bundle: bundleA.bundle, replayOutcome: replayB });
+  assert.equal(crossed.ok, false, "un outcome de otro bundle no debe materializar un receipt");
+  assert.equal(crossed.code, "BUNDLE_OUTCOME_MISMATCH");
+
+  // El outcome del propio bundle sí materializa (el binding no es un bloqueo ciego).
+  const replayA = runP6Replay(bundleA.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
+  assert.equal(buildOutputBundle({ bundle: bundleA.bundle, replayOutcome: replayA }).ok, true);
+});
+
+test("§14.9: la materialización rechaza un outcome malformado (fail-closed, sin fabricar receipt)", () => {
+  const bundle = frozenBundle();
+  const malformed = buildOutputBundle({ bundle: bundle.bundle, replayOutcome: { ok: true, replay: { receipt: {} } } });
+  assert.equal(malformed.ok, false);
+  assert.equal(malformed.code, "MALFORMED_REPLAY_OUTCOME");
+
+  // Outcome con forma mínima pero sin el hash del bundle: no se puede atar al
+  // bundle materializado, así que también se rechaza.
+  const unbound = buildOutputBundle({
+    bundle: bundle.bundle,
+    replayOutcome: {
+      ok: true,
+      replay: { receipt: {}, ledgers: { decision: [], execution: [], coverage: [] }, terminalCoverage: {}, status: {} },
+    },
+  });
+  assert.equal(unbound.ok, false);
+  assert.equal(unbound.code, "BUNDLE_OUTCOME_MISMATCH");
+});
