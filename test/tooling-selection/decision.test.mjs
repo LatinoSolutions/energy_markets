@@ -9,7 +9,7 @@ import {
   selectMinimumTooling,
   validateToolingSelection,
 } from "../../src/tooling-selection/decision.mjs";
-import { makeAssessment, makeReconciliationEvidence, SELECTION_EVIDENCE } from "./fixtures.mjs";
+import { inventoryOf, makeAssessment, makeReconciliationEvidence, SELECTION_EVIDENCE } from "./fixtures.mjs";
 
 const BENCHMARK = ["benchmark.calculate", "reference.proxy"];
 
@@ -41,13 +41,14 @@ test("BUILD sólo con necesidad demostrada por la auditoría", () => {
   const partial = makeAssessment({ declaredCapabilities: ["benchmark.calculate"], minimallyExtendable: false });
   const required = ["intraday.audit"];
 
-  const withoutNecessity = deriveToolingDecision({ requiredCapabilities: required, assessments: [partial] });
+  const withoutNecessity = deriveToolingDecision({ requiredCapabilities: required, assessments: [partial], auditInventory: inventoryOf([partial]) });
   assert.equal(withoutNecessity.ok, false);
   assert.equal(withoutNecessity.code, "MISSING_NECESSITY");
 
   const withNecessity = deriveToolingDecision({
     requiredCapabilities: required,
     assessments: [partial],
+    auditInventory: inventoryOf([partial]),
     buildNecessity: { demonstrated: true, rationale: "Synthetic audit found no usable component.", evidenceRefs: [{ kind: "audit", ref: "SYN-NEC-1" }] },
   });
   assert.equal(withNecessity.ok, true);
@@ -74,7 +75,7 @@ test("BUILD con necesidad demostrada se rechaza si ya existe un componente usabl
 
 test("derechos no permitidos o IP implícita excluyen al componente de REUSE/EXTEND", () => {
   const denied = makeAssessment({ usageRights: { status: "denied", evidenceRef: "SYN-RIGHTS-1" } });
-  const deniedOutcome = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [denied] });
+  const deniedOutcome = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [denied], auditInventory: inventoryOf([denied]) });
   assert.equal(deniedOutcome.ok, false);
   assert.equal(deniedOutcome.code, "MISSING_NECESSITY");
 
@@ -294,7 +295,7 @@ test("derechos denegados o IP implícita auditados no bloquean un BUILD con nece
     { ipExposure: { assessment: "implicit", rationale: "Synthetic exposure." } },
   ]) {
     const excluded = makeAssessment(overrides);
-    const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [excluded], buildNecessity: NECESSITY });
+    const derived = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [excluded], buildNecessity: NECESSITY, auditInventory: inventoryOf([excluded]) });
     assert.equal(derived.ok, true, JSON.stringify(derived));
     assert.equal(derived.decision, TOOLING_DECISION.BUILD);
   }
@@ -419,4 +420,68 @@ test("el record de selección está congelado en profundidad y no congela los ob
   assert.equal(Object.isFrozen(assessment), false);
   assert.equal(Object.isFrozen(reconciliation.outputs[0]), false);
   assert.equal(validateToolingSelection(result.selection, { requiredCapabilities: BENCHMARK, assessments: [assessment] }).ok, true);
+});
+
+// Review IMP-04 2026-09-23 (revisión 7): BUILD se aprobaba con cualquier
+// assessment no vacío. El inventario del soporte fija qué componentes son
+// pertinentes; se valida siempre que se aporta y es obligatorio para BUILD.
+test("auditInventory: contrato, componentes ajenos y componentes sin auditar", () => {
+  const partial = makeAssessment({ declaredCapabilities: ["benchmark.calculate"], minimallyExtendable: false });
+  const required = ["intraday.audit"];
+  const derive = (auditInventory, assessments = [partial]) => deriveToolingDecision({ requiredCapabilities: required, assessments, buildNecessity: NECESSITY, auditInventory });
+
+  assert.equal(derive({ componentIds: [], evidenceRefs: [{ kind: "audit", ref: "I" }] }).code, "INVALID_AUDIT_INVENTORY");
+  assert.equal(derive({ componentIds: ["SYN-TOOL-A", "SYN-TOOL-A"], evidenceRefs: [{ kind: "audit", ref: "I" }] }).code, "INVALID_AUDIT_INVENTORY");
+  assert.equal(derive({ componentIds: ["SYN-TOOL-A"], evidenceRefs: [] }).code, "MISSING_AUDIT_INVENTORY_EVIDENCE");
+  assert.equal(derive({ componentIds: ["SYN-TOOL-A"], evidenceRefs: [null] }).code, "INVALID_AUDIT_INVENTORY_EVIDENCE");
+  assert.equal(derive([]).code, "MISSING_AUDIT_INVENTORY");
+
+  const foreign = makeAssessment({ componentId: "SYN-FOREIGN", declaredCapabilities: ["other.capability"] });
+  const notInventoried = derive(inventoryOf([partial]), [partial, foreign]);
+  assert.equal(notInventoried.code, "ASSESSMENT_NOT_INVENTORIED");
+  assert.deepEqual(notInventoried.componentIds, ["SYN-FOREIGN"]);
+
+  const built = derive(inventoryOf([partial]));
+  assert.equal(built.ok, true);
+  assert.equal(built.decision, TOOLING_DECISION.BUILD);
+});
+
+test("auditInventory aportado también se exige completo para REUSE/EXTEND", () => {
+  const sufficient = makeAssessment();
+  const unaudited = makeAssessment({ componentId: "SYN-TOOL-B" });
+  const outcome = deriveToolingDecision({ requiredCapabilities: BENCHMARK, assessments: [sufficient], auditInventory: inventoryOf([sufficient, unaudited]) });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.code, "INVENTORY_NOT_AUDITED");
+  assert.deepEqual(outcome.componentIds, ["SYN-TOOL-B"]);
+});
+
+test("BUILD: cualquier componente inventariado con derechos pendientes deja el audit abierto", () => {
+  const partial = makeAssessment({ declaredCapabilities: ["benchmark.calculate"], minimallyExtendable: false });
+  const pending = makeAssessment({ componentId: "SYN-TOOL-P", declaredCapabilities: ["other.capability"], ipExposure: { assessment: "unknown", rationale: "Synthetic pending." } });
+  const derived = deriveToolingDecision({ requiredCapabilities: ["intraday.audit"], assessments: [partial, pending], buildNecessity: NECESSITY, auditInventory: inventoryOf([partial, pending]) });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
+  assert.deepEqual(derived.candidateComponentIds, ["SYN-TOOL-P"]);
+  assert.deepEqual(derived.blockedCapabilities, []);
+  assert.deepEqual(derived.uncoveredCapabilities, ["intraday.audit"]);
+});
+
+test("validateToolingSelection: un BUILD exige el inventario y el record debe declarar el mismo", () => {
+  const partial = makeAssessment({ declaredCapabilities: ["benchmark.calculate"], minimallyExtendable: false });
+  const required = ["intraday.audit"];
+  const inventory = inventoryOf([partial]);
+  const result = selectMinimumTooling({ requiredCapabilities: required, assessments: [partial], buildNecessity: NECESSITY, auditInventory: inventory, evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(validateToolingSelection(result.selection, { requiredCapabilities: required, assessments: [partial], auditInventory: inventory }).ok, true);
+
+  const withoutInventory = validateToolingSelection(result.selection, { requiredCapabilities: required, assessments: [partial] });
+  assert.equal(withoutInventory.ok, false);
+  assert.ok(withoutInventory.errors.some((error) => error.code === "MISSING_AUDIT_INVENTORY"));
+
+  const tampered = validateToolingSelection(
+    { ...result.selection, auditInventory: { componentIds: ["SYN-OTHER"], evidenceRefs: [{ kind: "audit", ref: "Y" }] } },
+    { requiredCapabilities: required, assessments: [partial], auditInventory: inventory },
+  );
+  assert.equal(tampered.ok, false);
+  assert.ok(tampered.errors.some((error) => error.field === "auditInventory" && error.code === "RECORD_CONTRADICTS_AUDIT"));
 });

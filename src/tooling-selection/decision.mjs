@@ -111,6 +111,40 @@ function validateBuildNecessity(buildNecessity) {
   return { ok: true };
 }
 
+// §25.1 IMP-04 "nueva plataforma sólo si audit demuestra necesidad": la
+// necesidad sólo se demuestra si se auditaron TODOS los componentes que el
+// inventario (con evidencia) reporta para el soporte, y ninguno más. Sin eso,
+// un único assessment irrelevante bastaba para construir (review IMP-04
+// 2026-09-23, acceptance.test.mjs:80).
+function validateAuditInventory(auditInventory, assessments) {
+  if (!auditInventory || typeof auditInventory !== "object" || Array.isArray(auditInventory)) {
+    return fail("MISSING_AUDIT_INVENTORY", "La decisión exige el inventario de componentes existentes para el soporte, con evidencia.");
+  }
+  const { componentIds, evidenceRefs } = auditInventory;
+  if (!isNonEmptyList(componentIds) || !componentIds.every(isNonEmptyString) || hasDuplicates(componentIds)) {
+    return fail("INVALID_AUDIT_INVENTORY", "auditInventory.componentIds debe ser una lista no vacía de identificadores sin repetir.");
+  }
+  if (!isNonEmptyList(evidenceRefs)) {
+    return fail("MISSING_AUDIT_INVENTORY_EVIDENCE", "El inventario exige la fuente que lo reporta.");
+  }
+  for (const ref of evidenceRefs) {
+    const outcome = validateEvidenceRef(ref);
+    if (!outcome.ok) {
+      return fail("INVALID_AUDIT_INVENTORY_EVIDENCE", "La evidencia del inventario no satisface su contrato.", { errors: outcome.errors });
+    }
+  }
+  const auditedIds = assessments.map((assessment) => assessment.componentId);
+  const notAudited = componentIds.filter((componentId) => !auditedIds.includes(componentId));
+  if (notAudited.length > 0) {
+    return fail("INVENTORY_NOT_AUDITED", "Hay componentes del inventario sin capability assessment: la auditoría está incompleta.", { componentIds: notAudited });
+  }
+  const notInventoried = auditedIds.filter((componentId) => !componentIds.includes(componentId));
+  if (notInventoried.length > 0) {
+    return fail("ASSESSMENT_NOT_INVENTORIED", "Hay assessments de componentes que el inventario no reporta: no se decide sobre componentes ajenos al soporte.", { componentIds: notInventoried });
+  }
+  return { ok: true };
+}
+
 function describeCoverage(assessment, requiredCapabilities) {
   const usability = isCapabilityAssessmentUsable(assessment);
   const coverage = evaluateCapabilityCoverage(assessment, requiredCapabilities);
@@ -164,7 +198,7 @@ function blockedPendingRights(blocking, capabilities, auditTrace) {
 // Deriva la decisión de las capacidades auditadas y de la necesidad
 // demostrada. Falla (sin `decision`) cuando el audit es ambiguo, insuficiente o
 // tiene derechos pendientes: no se elige por preferencia ni por conveniencia.
-export function deriveToolingDecision({ requiredCapabilities = [], assessments = [], buildNecessity = null } = {}) {
+export function deriveToolingDecision({ requiredCapabilities = [], assessments = [], buildNecessity = null, auditInventory = null } = {}) {
   const requiredOutcome = validateRequiredCapabilities(requiredCapabilities);
   if (!requiredOutcome.ok) {
     return requiredOutcome;
@@ -184,6 +218,11 @@ export function deriveToolingDecision({ requiredCapabilities = [], assessments =
   const componentIds = assessments.map((assessment) => assessment.componentId);
   if (hasDuplicates(componentIds)) {
     return fail("DUPLICATE_ASSESSMENTS", "Un componente no puede auditarse dos veces en el mismo conjunto.");
+  }
+
+  const inventoryOutcome = auditInventory === null ? null : validateAuditInventory(auditInventory, assessments);
+  if (inventoryOutcome !== null && !inventoryOutcome.ok) {
+    return inventoryOutcome;
   }
 
   const auditTrace = assessments.map((assessment) => describeCoverage(assessment, requiredCapabilities));
@@ -234,6 +273,18 @@ export function deriveToolingDecision({ requiredCapabilities = [], assessments =
   const covering = existingCoverage(auditTrace, requiredCapabilities);
   if (covering.length > 0) {
     return existingCoverageNotResolved(covering, requiredCapabilities, auditTrace);
+  }
+  if (auditInventory === null) {
+    return fail("MISSING_AUDIT_INVENTORY", "Construir exige demostrar que se auditaron todos los componentes existentes del soporte: falta el inventario con evidencia.", { auditTrace });
+  }
+  // §6.4 sólo pide demostrar necesidad para construir: con un componente
+  // inventariado de derechos pendientes su assessment no está cerrado y la
+  // necesidad no queda demostrada, aunque hoy no cubra nada. EXTEND no exige
+  // demostrar necesidad (sí casi suficiencia y reconciliación), por eso ahí sólo
+  // bloquea el pendiente que cubre lo que se añadiría (review IMP-04 2026-09-23).
+  const pendingRights = auditTrace.filter((entry) => entry.rightsUnresolved);
+  if (pendingRights.length > 0) {
+    return blockedPendingRights(pendingRights, requiredCapabilities, auditTrace);
   }
   const necessityOutcome = validateBuildNecessity(buildNecessity);
   if (!necessityOutcome.ok) {
@@ -318,7 +369,7 @@ function validateReconciliation(reconciliation, targetAssessment, coveredCapabil
 // Valida una decisión de selección ya emitida contra los hechos auditados.
 // Un BUILD no puede coexistir con un componente usable que cubra lo requerido;
 // un REUSE/EXTEND exige derechos, IP nula y reconciliación independiente.
-export function validateToolingSelection(selection, { requiredCapabilities = [], assessments = [] } = {}) {
+export function validateToolingSelection(selection, { requiredCapabilities = [], assessments = [], auditInventory = null } = {}) {
   const errors = [];
   if (!selection || typeof selection !== "object" || Array.isArray(selection)) {
     return { ok: false, errors: [{ field: "(selection)", code: "MISSING_SELECTION", message: "Selección de herramienta ausente." }] };
@@ -427,7 +478,7 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
   // punto, elegir por preferencia entre varios suficientes, BUILD sin
   // componentes auditados y assessments del objetivo sin contrato (versión,
   // derechos, evidenceRefs) (review IMP-04 2026-09-23).
-  const derived = deriveToolingDecision({ requiredCapabilities, assessments, buildNecessity: selection.buildNecessity ?? null });
+  const derived = deriveToolingDecision({ requiredCapabilities, assessments, buildNecessity: selection.buildNecessity ?? null, auditInventory });
   if (!derived.ok) {
     const { ok: _ok, auditTrace: _trace, ...details } = derived;
     errors.push({ field: "decision", ...details });
@@ -443,7 +494,7 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
         expected: { decision: derived.decision, targetComponentId: derived.targetComponentId, additions: derived.additions },
       });
     } else {
-      errors.push(...validateRecordFacts(selection, derived, requiredCapabilities, assessments));
+      errors.push(...validateRecordFacts(selection, derived, requiredCapabilities, assessments, auditInventory));
     }
   }
 
@@ -455,7 +506,7 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
 // lo mismo que los hechos auditados (validación adversarial IMP-04
 // 2026-09-23: un REUSE con `requiredCapabilities`, `targetAssessment`,
 // `auditTrace`, `rationale` y `authority` falsos pasaba).
-function validateRecordFacts(selection, derived, requiredCapabilities, assessments) {
+function validateRecordFacts(selection, derived, requiredCapabilities, assessments, auditInventory) {
   const errors = [];
   const mismatch = (field, message) => errors.push({ field, code: "RECORD_CONTRADICTS_AUDIT", message });
   if (!sameStringSet(selection.requiredCapabilities, requiredCapabilities)) {
@@ -467,6 +518,9 @@ function validateRecordFacts(selection, derived, requiredCapabilities, assessmen
   const expectedTarget = derived.decision === TOOLING_DECISION.BUILD ? null : assessmentById(assessments, derived.targetComponentId);
   if (!isDeepStrictEqual(selection.targetAssessment, expectedTarget)) {
     mismatch("targetAssessment", "El assessment del record debe ser el auditado del componente elegido.");
+  }
+  if (!isDeepStrictEqual(selection.auditInventory ?? null, auditInventory)) {
+    mismatch("auditInventory", "El inventario del record debe ser el mismo con el que se auditó.");
   }
   if (!isDeepStrictEqual(selection.auditTrace, derived.auditTrace)) {
     mismatch("auditTrace", "La traza de cobertura del record no coincide con la auditoría.");
@@ -486,13 +540,13 @@ function explainDecision(derived, requiredCapabilities) {
     const target = derived.auditTrace.find((entry) => entry.componentId === derived.targetComponentId);
     return `Auditoría de [${auditedIds}]: ningún componente usable es suficiente; ${derived.targetComponentId} cubre [${target.covered.join(", ")}] y es casi suficiente; se añade sólo [${derived.additions.join(", ")}].`;
   }
-  return `Auditoría de [${auditedIds}]: ningún componente usable es suficiente o casi suficiente y ninguno con derechos pendientes cubre lo requerido; necesidad: ${derived.buildNecessity.rationale}`;
+  return `Auditoría completa del inventario [${auditedIds}]: ningún componente usable es suficiente o casi suficiente, ninguno cubre parte de lo requerido y ninguno tiene derechos pendientes; necesidad: ${derived.buildNecessity.rationale}`;
 }
 
 // Ensambla y congela la decisión. Aplica el MUST NOT CHANGE de IMP-04: sin
 // preferencia, sin autoridad productiva y sin exposición de IP implícita.
-export function selectMinimumTooling({ requiredCapabilities = [], assessments = [], buildNecessity = null, reconciliation = null, evidenceRefs = [] } = {}) {
-  const derived = deriveToolingDecision({ requiredCapabilities, assessments, buildNecessity });
+export function selectMinimumTooling({ requiredCapabilities = [], assessments = [], buildNecessity = null, auditInventory = null, reconciliation = null, evidenceRefs = [] } = {}) {
+  const derived = deriveToolingDecision({ requiredCapabilities, assessments, buildNecessity, auditInventory });
   if (!derived.ok) {
     return derived;
   }
@@ -506,6 +560,7 @@ export function selectMinimumTooling({ requiredCapabilities = [], assessments = 
     buildNecessity: derived.decision === TOOLING_DECISION.BUILD ? derived.buildNecessity : null,
     reconciliation,
     evidenceRefs: [...evidenceRefs],
+    auditInventory,
     grantsProductionAuthority: false,
     authority: NO_PRODUCTION_AUTHORITY,
   };
@@ -517,7 +572,7 @@ export function selectMinimumTooling({ requiredCapabilities = [], assessments = 
   selection.auditTrace = derived.auditTrace;
   selection.rationale = explainDecision(derived, requiredCapabilities);
 
-  const validation = validateToolingSelection(selection, { requiredCapabilities, assessments });
+  const validation = validateToolingSelection(selection, { requiredCapabilities, assessments, auditInventory });
   if (!validation.ok) {
     return fail("INVALID_SELECTION", "La selección derivada no satisface el contrato de IMP-04.", { errors: validation.errors });
   }

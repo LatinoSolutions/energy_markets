@@ -57,3 +57,11 @@ export function makeFixtures(overrides = {}) {
 }
 
 export const SELECTION_EVIDENCE = [{ kind: "audit", ref: "SYN-AUDIT-SELECTION-1" }];
+
+// Inventario sintético del soporte: exactamente los componentes auditados.
+export function inventoryOf(assessments) {
+  return {
+    componentIds: assessments.map((assessment) => assessment.componentId),
+    evidenceRefs: [{ kind: "audit", ref: "SYN-INVENTORY-1" }],
+  };
+}

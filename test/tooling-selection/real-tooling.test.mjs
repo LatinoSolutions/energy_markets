@@ -1,18 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
 import { deriveToolingDecision, selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { isCapabilityAssessmentUsable, validateCapabilityAssessment } from "../../src/tooling-selection/capability.mjs";
 import {
+  EEX_READ_ENVIRONMENT_TRADE_COLUMNS,
+  EEX_READER_INTERFACE_OUTPUTS,
   IMP05_CALCULATION_CAPABILITIES,
   IMP05_CAPABILITY_SOURCES,
   IMP05_REFERENCE_READ_CAPABILITIES,
   REAL_BENCHMARK_COMPONENT_ID,
   REAL_EEX_READER_COMPONENT_ID,
+  REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID,
   REAL_SELECTION_EVIDENCE,
   REAL_TOOLING_ASSESSMENTS,
+  REAL_TOOLING_INVENTORY,
+  REFERENCE_READ_REQUIRED_OUTPUTS,
   buildRealToolingReconciliation,
   deriveRealImp05ToolingDecisions,
 } from "../../src/tooling-selection/real-tooling.mjs";
@@ -30,6 +36,9 @@ const EXPECTED_ADDITIONS = [
 ];
 
 const SPEC_PATH = "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md";
+const EEX_SCRIPT_PATH = "/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py";
+const EEX_VENV_SITE_PACKAGES = "/home/op/apps/power-markets-explorer/.venv-data/lib/python3.13/site-packages";
+const INVENTORY_IDS = [REAL_BENCHMARK_COMPONENT_ID, REAL_EEX_READER_COMPONENT_ID, REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID];
 
 function assessmentFor(componentId) {
   return REAL_TOOLING_ASSESSMENTS.find((assessment) => assessment.componentId === componentId) ?? null;
@@ -39,6 +48,7 @@ function calculationSelection(overrides = {}) {
   return selectMinimumTooling({
     requiredCapabilities: IMP05_CALCULATION_CAPABILITIES,
     assessments: REAL_TOOLING_ASSESSMENTS,
+    auditInventory: REAL_TOOLING_INVENTORY,
     reconciliation: buildRealToolingReconciliation(),
     evidenceRefs: REAL_SELECTION_EVIDENCE,
     ...overrides,
@@ -70,13 +80,102 @@ test("IMP-05: la reconciliación official/proxy, el caso 0.01 y la lectura de re
 });
 
 // Validación adversarial IMP-04 2026-09-23: quitar un componente del conjunto
-// cambia la decisión (sin el lector EEX, la lectura saldría BUILD). El
-// conjunto real debe contener las dos herramientas que reporta §6.5.
-test("DEP-10: el conjunto auditado contiene las herramientas reportadas en SPEC §6.5", () => {
+// cambia la decisión. El inventario real es lo que reporta §6.5 «Tooling y
+// benchmark» (script EEX «y su entorno de lectura», benchmark en repo), y la
+// decisión exige haberlo auditado todo.
+test("DEP-10: el inventario y el conjunto auditado son las herramientas reportadas en SPEC §6.5", () => {
   const spec = readFileSync(SPEC_PATH, "utf8");
   assert.ok(spec.includes("src/economic-calculation/benchmark.mjs"));
-  assert.ok(spec.includes("/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py"));
-  assert.deepEqual(REAL_TOOLING_ASSESSMENTS.map((assessment) => assessment.componentId), [REAL_BENCHMARK_COMPONENT_ID, REAL_EEX_READER_COMPONENT_ID]);
+  assert.ok(spec.includes(`${EEX_SCRIPT_PATH}\` y su entorno de lectura como herramientas existentes`));
+  assert.deepEqual([...REAL_TOOLING_INVENTORY.componentIds], INVENTORY_IDS);
+  assert.equal(REAL_TOOLING_INVENTORY.evidenceRefs[0].sha256, createHash("sha256").update(readFileSync(SPEC_PATH)).digest("hex"));
+  assert.deepEqual(REAL_TOOLING_ASSESSMENTS.map((assessment) => assessment.componentId), [...REAL_TOOLING_INVENTORY.componentIds]);
+});
+
+// Review IMP-04 2026-09-23 (revisión 7): sin auditar el lector EEX, la lectura
+// salía BUILD con un assessment irrelevante. Con el inventario, retirar un
+// componente inventariado deja la auditoría incompleta.
+test("DEP-10: retirar del audit un componente inventariado impide decidir, también BUILD", () => {
+  const onlyBenchmark = REAL_TOOLING_ASSESSMENTS.filter((assessment) => assessment.componentId === REAL_BENCHMARK_COMPONENT_ID);
+  const outcome = deriveToolingDecision({
+    requiredCapabilities: IMP05_REFERENCE_READ_CAPABILITIES,
+    assessments: onlyBenchmark,
+    auditInventory: REAL_TOOLING_INVENTORY,
+    buildNecessity: { demonstrated: true, rationale: "Autodeclarada.", evidenceRefs: [{ kind: "audit", ref: "X" }] },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.code, "INVENTORY_NOT_AUDITED");
+  assert.deepEqual(outcome.componentIds, [REAL_EEX_READER_COMPONENT_ID, REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID]);
+
+  const withoutInventory = deriveToolingDecision({
+    requiredCapabilities: IMP05_REFERENCE_READ_CAPABILITIES,
+    assessments: onlyBenchmark,
+    buildNecessity: { demonstrated: true, rationale: "Autodeclarada.", evidenceRefs: [{ kind: "audit", ref: "X" }] },
+  });
+  assert.equal(withoutInventory.ok, false);
+  assert.equal(withoutInventory.code, "MISSING_AUDIT_INVENTORY");
+});
+
+// Review IMP-04 2026-09-23 (revisión 7): la capacidad se comprueba contra la
+// interfaz REAL del script, no contra la clasificación declarada.
+test("DEP-10: la interfaz real del lector EEX son velas 4H, leída del script con el hash evaluado", () => {
+  const scriptBytes = readFileSync(EEX_SCRIPT_PATH);
+  const reader = assessmentFor(REAL_EEX_READER_COMPONENT_ID);
+  assert.equal(createHash("sha256").update(scriptBytes).digest("hex"), reader.componentVersion.contentHash, "el script cambió: rehacer el assessment");
+
+  const script = scriptBytes.toString("utf8");
+  const dictKeys = (opening) => {
+    const start = script.indexOf(opening);
+    assert.ok(start >= 0, opening);
+    const body = script.slice(start + opening.length, script.indexOf("}", start));
+    return [...body.matchAll(/"(\w+)":/g)].map((match) => match[1]);
+  };
+  const instrumentKeys = dictKeys("instruments[key] = {").filter((key) => key !== "candles4h");
+  const candleKeys = dictKeys("candle = {");
+  assert.deepEqual(candleKeys, ["time", "open", "high", "low", "close", "volume"]);
+  assert.match(script, /floor\(epoch\(event_time\) \/ 14400\)/, "las velas agregan en cubos de 4H");
+  assert.deepEqual(
+    [...EEX_READER_INTERFACE_OUTPUTS],
+    [...instrumentKeys.map((key) => `instrument.${key}`), ...candleKeys.map((key) => `instrument.candles4h.${key}`)],
+  );
+  assert.deepEqual([...reader.interfaceContract.outputs], [...EEX_READER_INTERFACE_OUTPUTS]);
+});
+
+// Validación adversarial IMP-04 2026-09-23: §6.5 también reporta «su entorno
+// de lectura». Es el venv del script (DuckDB 1.5.5 + pyarrow 25.0.1); su
+// read_parquet expone las columnas por trade que el QUERY selecciona.
+test("DEP-10: el entorno de lectura (venv DuckDB) expone precio y hora por trade, verificado contra el script y el venv", () => {
+  const environment = assessmentFor(REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID);
+  const record = readFileSync(`${EEX_VENV_SITE_PACKAGES}/duckdb-1.5.5.dist-info/RECORD`);
+  assert.equal(createHash("sha256").update(record).digest("hex"), environment.componentVersion.contentHash, "DuckDB instalado cambió: rehacer el assessment");
+  for (const ref of environment.evidenceRefs) {
+    if (ref.ref.startsWith("/")) {
+      assert.equal(createHash("sha256").update(readFileSync(ref.ref)).digest("hex"), ref.sha256, ref.ref);
+    }
+  }
+
+  const script = readFileSync(EEX_SCRIPT_PATH, "utf8");
+  const baseSelect = script.slice(script.indexOf("WITH base AS ("), script.indexOf("FROM read_parquet(?"));
+  for (const column of Object.values(EEX_READ_ENVIRONMENT_TRADE_COLUMNS)) {
+    assert.match(baseSelect, new RegExp(`^\\s+${column},`, "m"), `el QUERY lee ${column} de read_parquet`);
+  }
+  assert.deepEqual([...environment.interfaceContract.outputs], Object.keys(EEX_READ_ENVIRONMENT_TRADE_COLUMNS));
+  assert.deepEqual([...environment.declaredCapabilities], ["reference.read.trades"]);
+  const usability = isCapabilityAssessmentUsable(environment);
+  assert.equal(usability.usable, false, "licencias del motor no acreditan derechos sobre los datos");
+  assert.equal(usability.rightsUnresolved, true);
+});
+
+test("DEP-10: ningún componente real declara una capacidad de lectura que su interfaz no expone", () => {
+  for (const assessment of REAL_TOOLING_ASSESSMENTS) {
+    for (const capability of IMP05_REFERENCE_READ_CAPABILITIES) {
+      const requiredOutputs = REFERENCE_READ_REQUIRED_OUTPUTS[capability];
+      const exposesAll = requiredOutputs.every((outputId) => assessment.interfaceContract.outputs.includes(outputId));
+      assert.equal(assessment.declaredCapabilities.includes(capability), exposesAll, `${assessment.componentId} / ${capability}`);
+    }
+  }
+  const reader = assessmentFor(REAL_EEX_READER_COMPONENT_ID);
+  assert.ok(!reader.declaredCapabilities.includes("reference.read.trades"));
 });
 
 test("DEP-10: los assessments reales son válidos; el benchmark es usable y el lector EEX no", () => {
@@ -142,19 +241,23 @@ test("DEP-10: el soporte de cálculo de IMP-05 es EXTEND del benchmark en repo, 
   assert.ok(selection.rationale.includes(REAL_BENCHMARK_COMPONENT_ID));
 });
 
-// La ausencia de un lector con derechos acreditados bloquea IMP-05: no se
-// construye un lector nuevo mientras el único existente tenga derechos unknown.
+// El script EEX sólo da velas 4H; el entorno de lectura sí cubre trades, pero
+// con derechos unknown sobre el lago. Top-of-book y oficial no los cubre
+// ningún componente auditado. No se construye ni extiende mientras tanto.
 test("DEP-10: la lectura de referencias reales queda BLOQUEADA por derechos pendientes, aun con necesidad declarada", () => {
   const { referenceRead } = deriveRealImp05ToolingDecisions();
   assert.equal(referenceRead.ok, false);
   assert.equal(referenceRead.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
-  assert.deepEqual(referenceRead.candidateComponentIds, [REAL_EEX_READER_COMPONENT_ID]);
+  assert.deepEqual(referenceRead.candidateComponentIds, [REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID]);
   assert.deepEqual(referenceRead.blockedCapabilities, ["reference.read.trades"]);
   assert.deepEqual(referenceRead.uncoveredCapabilities, ["reference.read.top_of_book", "reference.read.official"]);
+  const readerTrace = referenceRead.auditTrace.find((entry) => entry.componentId === REAL_EEX_READER_COMPONENT_ID);
+  assert.deepEqual(readerTrace.covered, []);
 
   const withSelfDeclaredNecessity = deriveToolingDecision({
     requiredCapabilities: IMP05_REFERENCE_READ_CAPABILITIES,
     assessments: REAL_TOOLING_ASSESSMENTS,
+    auditInventory: REAL_TOOLING_INVENTORY,
     buildNecessity: { demonstrated: true, rationale: "Autodeclarada.", evidenceRefs: [{ kind: "audit", ref: "X" }] },
   });
   assert.equal(withSelfDeclaredNecessity.ok, false);

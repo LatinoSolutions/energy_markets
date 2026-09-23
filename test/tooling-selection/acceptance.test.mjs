@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
+import { deriveToolingDecision, selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
-import { makeAssessment, makeFixtures, makeReconciliationEvidence, SELECTION_EVIDENCE } from "./fixtures.mjs";
+import { inventoryOf, makeAssessment, makeFixtures, makeReconciliationEvidence, SELECTION_EVIDENCE } from "./fixtures.mjs";
 
 // Acceptance de IMP-04 §25.1: "Salidas clave pueden reconciliarse
 // independientemente; nueva plataforma sólo si audit demuestra necesidad".
@@ -77,20 +77,76 @@ test("acceptance: una plataforma nueva no procede si un componente con derechos 
   assert.deepEqual(result.candidateComponentIds, ["SYN-TOOL-A"]);
 });
 
-test("acceptance: una plataforma nueva sólo procede si la auditoría demuestra necesidad", () => {
+// Review IMP-04 2026-09-23 (revisión 7): un BUILD con un único assessment
+// irrelevante y necesidad declarada se aprobaba sin comprobar que el audit
+// cubriera todos los componentes pertinentes. El criterio «nueva plataforma
+// sólo si audit demuestra necesidad» (§25.1 IMP-04) se prueba aquí contra el
+// inventario del soporte: todos auditados, ninguno ajeno, ninguno con derechos
+// pendientes y ninguno que cubra parte de lo requerido.
+test("acceptance: una plataforma nueva sólo procede si la auditoría del inventario completo demuestra necesidad", () => {
   const insufficient = makeAssessment({ declaredCapabilities: ["other.capability"], minimallyExtendable: false });
   const required = ["benchmark.calculate"];
+  const necessity = { demonstrated: true, rationale: "Synthetic audit: no usable component covers it.", evidenceRefs: [{ kind: "audit", ref: "SYN-NEC-1" }] };
 
-  const rejected = selectMinimumTooling({ requiredCapabilities: required, assessments: [insufficient], evidenceRefs: SELECTION_EVIDENCE });
+  const rejected = selectMinimumTooling({ requiredCapabilities: required, assessments: [insufficient], auditInventory: inventoryOf([insufficient]), evidenceRefs: SELECTION_EVIDENCE });
   assert.equal(rejected.ok, false);
+  assert.equal(rejected.code, "MISSING_NECESSITY");
+
+  // Necesidad declarada pero sin inventario: no hay forma de saber si el
+  // componente auditado es el único pertinente.
+  const withoutInventory = selectMinimumTooling({ requiredCapabilities: required, assessments: [insufficient], buildNecessity: necessity, evidenceRefs: SELECTION_EVIDENCE });
+  assert.equal(withoutInventory.ok, false);
+  assert.equal(withoutInventory.code, "MISSING_AUDIT_INVENTORY");
+
+  // El inventario reporta otro componente que no se auditó: el assessment
+  // irrelevante no demuestra necesidad.
+  const relevantButUnaudited = makeAssessment({ componentId: "SYN-TOOL-RELEVANT" });
+  const incomplete = selectMinimumTooling({
+    requiredCapabilities: required,
+    assessments: [insufficient],
+    buildNecessity: necessity,
+    auditInventory: inventoryOf([insufficient, relevantButUnaudited]),
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(incomplete.ok, false);
+  assert.equal(incomplete.code, "INVENTORY_NOT_AUDITED");
+  assert.deepEqual(incomplete.componentIds, ["SYN-TOOL-RELEVANT"]);
+
+  // Auditado el componente pertinente, cubre lo requerido: la decisión es
+  // reutilizarlo, no construir, aunque la necesidad se declare.
+  const complete = deriveToolingDecision({
+    requiredCapabilities: required,
+    assessments: [insufficient, relevantButUnaudited],
+    buildNecessity: necessity,
+    auditInventory: inventoryOf([insufficient, relevantButUnaudited]),
+  });
+  assert.equal(complete.ok, true);
+  assert.equal(complete.decision, TOOLING_DECISION.REUSE);
+  assert.equal(complete.targetComponentId, "SYN-TOOL-RELEVANT");
+
+  // Un inventario pertinente con derechos pendientes deja el audit abierto,
+  // aunque ese componente no cubra nada todavía.
+  const pendingRights = makeAssessment({ componentId: "SYN-TOOL-PENDING", declaredCapabilities: ["other.capability"], usageRights: { status: "unknown", evidenceRef: "SYN-RIGHTS-PENDING" } });
+  const openAudit = selectMinimumTooling({
+    requiredCapabilities: required,
+    assessments: [insufficient, pendingRights],
+    buildNecessity: necessity,
+    auditInventory: inventoryOf([insufficient, pendingRights]),
+    evidenceRefs: SELECTION_EVIDENCE,
+  });
+  assert.equal(openAudit.ok, false);
+  assert.equal(openAudit.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
+  assert.deepEqual(openAudit.candidateComponentIds, ["SYN-TOOL-PENDING"]);
 
   const accepted = selectMinimumTooling({
     requiredCapabilities: required,
     assessments: [insufficient],
-    buildNecessity: { demonstrated: true, rationale: "Synthetic audit: no usable component covers it.", evidenceRefs: [{ kind: "audit", ref: "SYN-NEC-1" }] },
+    buildNecessity: necessity,
+    auditInventory: inventoryOf([insufficient]),
     evidenceRefs: SELECTION_EVIDENCE,
   });
   assert.equal(accepted.ok, true);
+  assert.deepEqual(accepted.selection.auditInventory, inventoryOf([insufficient]));
   assert.equal(accepted.selection.decision, TOOLING_DECISION.BUILD);
   assert.equal(accepted.selection.targetAssessment, null);
   assert.ok(accepted.selection.rationale.includes("Synthetic audit: no usable component covers it."));
@@ -202,6 +258,7 @@ test("acceptance: evidenceRefs inválidos (incluido [null]) no aprueban la selec
     requiredCapabilities: ["benchmark.calculate"],
     assessments: [makeAssessment({ declaredCapabilities: ["other.capability"], minimallyExtendable: false })],
     buildNecessity: { demonstrated: true, rationale: "Synthetic.", evidenceRefs: [null] },
+    auditInventory: inventoryOf([makeAssessment()]),
     evidenceRefs: SELECTION_EVIDENCE,
   });
   assert.equal(malformedNecessity.ok, false);

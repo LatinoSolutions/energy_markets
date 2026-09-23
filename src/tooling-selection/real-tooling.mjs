@@ -121,10 +121,37 @@ const IN_REPO_BENCHMARK = Object.freeze({
   ]),
 });
 
+// Campos que la interfaz de un lector debe exponer para cubrir cada capacidad
+// de lectura. §5.2: T̂ es la media de los precios p_i de los trades del
+// producto y fecha exactos dentro de la ventana 17:05–17:15 (Power) /
+// 17:00–17:15 (Gas), así que hacen falta precio y hora de CADA trade; M̂ usa
+// m_j=(bid_j+ask_j)/2; §5.3 R_d^official es el settlement diario oficial.
+// Review IMP-04 2026-09-23 (revisión 7): se declaraba reference.read.trades
+// sobre una interfaz que sólo entrega velas 4H.
+export const REFERENCE_READ_REQUIRED_OUTPUTS = Object.freeze({
+  "reference.read.trades": Object.freeze(["trade.price", "trade.eventTime", "trade.instrument"]),
+  "reference.read.top_of_book": Object.freeze(["topOfBook.bid", "topOfBook.ask", "topOfBook.eventTime", "topOfBook.instrument"]),
+  "reference.read.official": Object.freeze(["official.dailySettlementPrice", "official.tradeDate", "official.instrument"]),
+});
+
+// Salidas de la interfaz real del lector EEX, leídas del script (bytes con el
+// hash de componentVersion): el JSON escrito por main() tiene, por
+// instrumento, los campos de `instruments[key] = {...}` y velas
+// `candle = {...}` agregadas en cubos de 4H (bucket_time = 14400 s).
+export const EEX_READER_INTERFACE_OUTPUTS = Object.freeze([
+  "instrument.symbol", "instrument.label", "instrument.productCode", "instrument.productISIN",
+  "instrument.commodity", "instrument.contractType", "instrument.deliveryStart", "instrument.deliveryEnd",
+  "instrument.marketZone", "instrument.currency", "instrument.unit", "instrument.trades",
+  "instrument.candles4h.time", "instrument.candles4h.open", "instrument.candles4h.high",
+  "instrument.candles4h.low", "instrument.candles4h.close", "instrument.candles4h.volume",
+]);
+
 // Herramienta 2: script de lectura EEX reportado por el audit. Su QUERY lee y
 // deduplica filas de `eex_derivative_trade` (DEBM/DEBQ/G0BM/G0BQ, sin Delete),
-// pero sólo emite velas 4H; no lee top-of-book ni settlements oficiales. SPEC
-// §6.5: "La presencia de archivos no acredita derechos/entitlements".
+// pero su interfaz sólo emite velas 4H: precio y hora de cada trade no salen
+// del script, así que NO cubre reference.read.trades. Tampoco lee top-of-book
+// ni settlements oficiales. SPEC §6.5: "La presencia de archivos no acredita
+// derechos/entitlements".
 const EEX_READER = Object.freeze({
   componentId: "power-markets-explorer.generate_eex_snapshot",
   componentVersion: Object.freeze({
@@ -134,9 +161,13 @@ const EEX_READER = Object.freeze({
   role: "Lectura/compactado de particiones Parquet EEX de trades a snapshot JSON de velas 4H.",
   interfaceContract: Object.freeze({
     inputs: Object.freeze(["/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=POWER/area=DE/**/*.parquet", "/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=NATGAS/area=THE/**/*.parquet"]),
-    outputs: Object.freeze(["public/eex-deby-candles.json", "static-dist/eex-deby-candles.json"]),
+    outputs: EEX_READER_INTERFACE_OUTPUTS,
+    outputFiles: Object.freeze(["public/eex-deby-candles.json", "static-dist/eex-deby-candles.json"]),
+    capabilityOutputs: Object.freeze({
+      "eex.snapshot.candles_4h": EEX_READER_INTERFACE_OUTPUTS,
+    }),
   }),
-  declaredCapabilities: Object.freeze(["reference.read.trades", "eex.snapshot.build"]),
+  declaredCapabilities: Object.freeze(["eex.snapshot.candles_4h"]),
   usageRights: Object.freeze({
     status: "unknown",
     evidenceRef: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md:626#la-presencia-de-archivos-no-acredita-derechos-entitlements",
@@ -148,7 +179,8 @@ const EEX_READER = Object.freeze({
   minimallyExtendable: false,
   limitations: Object.freeze([
     "Derechos/entitlements del lago EEX pendientes (DEP-06/07/10); el audit no acreditó permiso de uso.",
-    "reference.read.trades es parcial: lee y deduplica trades, pero agrega a velas 4H; no expone precios de la ventana 17:05–17:15 de §5.2.",
+    "No cubre reference.read.trades: lee y deduplica trades internamente (CTE valid_trades), pero su interfaz sólo expone velas 4H; sin precio ni hora por trade no se puede calcular T̂ en la ventana 17:05–17:15 de §5.2.",
+    "Exponer los trades deduplicados sería una extensión del script, no evaluada como mínima: sus derechos siguen unknown y top-of-book/oficial no los lee.",
   ]),
   evidenceRefs: Object.freeze([
     Object.freeze({ kind: "source", ref: "/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py", sha256: "01353f730d1bcba4a6cf83098b43914ee743212006aedf7ce8e548a95e491740" }),
@@ -156,10 +188,86 @@ const EEX_READER = Object.freeze({
   ]),
 });
 
-export const REAL_TOOLING_ASSESSMENTS = Object.freeze([IN_REPO_BENCHMARK, EEX_READER]);
+// Herramienta 3: "su entorno de lectura" (SPEC §6.5 «Tooling y benchmark»).
+// HIPÓTESIS, no nombrada por §6.5 ni U-AUDIT: es el venv `.venv-data` del
+// proyecto (DuckDB 1.5.5 MIT, pyarrow 25.0.1 Apache-2.0), porque el script
+// importa duckdb y el python3 del sistema no lo tiene. Su read_parquet sobre la raíz de trades
+// expone las columnas por trade que el script selecciona en el CTE `base`
+// (Px, Tm, InstrumentISIN…), así que SÍ cubre reference.read.trades como motor
+// de lectura. Top-of-book no se declara: §6.5 reporta "top-of-book añade
+// bid/ask", pero no se inspeccionó su esquema (derechos unknown); es hipótesis.
+export const EEX_READ_ENVIRONMENT_TRADE_COLUMNS = Object.freeze({
+  "trade.price": "Px",
+  "trade.eventTime": "Tm",
+  "trade.instrument": "InstrumentISIN",
+  "trade.tradeDate": "TrdDate",
+  "trade.tradeId": "TrdID",
+  "trade.size": "Sz",
+  "trade.updateAction": "UpdtAct",
+  "trade.retrievedAt": "_retrieved_at_utc",
+  "trade.rowHash": "_row_sha256",
+});
+
+const EEX_READ_ENVIRONMENT = Object.freeze({
+  componentId: "power-markets-explorer.venv-data.duckdb",
+  componentVersion: Object.freeze({
+    contentHash: "585ea64989741e6a35be3d3912dc8158c6ecac777857e666464428945a12fe8f",
+    algorithm: "sha256 de duckdb-1.5.5.dist-info/RECORD (manifest de archivos instalados con sus hashes)",
+  }),
+  role: "Entorno de lectura del script EEX (identificación como .venv-data: hipótesis): DuckDB read_parquet sobre las particiones Parquet del lago EEX.",
+  interfaceContract: Object.freeze({
+    inputs: Object.freeze(["/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=POWER/area=DE/**/*.parquet", "/srv/hot-data/EEX/table=eex_derivative_trade/cmdty=NATGAS/area=THE/**/*.parquet"]),
+    outputs: Object.freeze(Object.keys(EEX_READ_ENVIRONMENT_TRADE_COLUMNS)),
+    capabilityOutputs: Object.freeze({
+      "reference.read.trades": Object.freeze(["trade.price", "trade.eventTime", "trade.instrument"]),
+    }),
+  }),
+  declaredCapabilities: Object.freeze(["reference.read.trades"]),
+  usageRights: Object.freeze({
+    status: "unknown",
+    // Las licencias del motor (MIT/Apache-2.0) no acreditan derechos sobre los
+    // datos que lee.
+    evidenceRef: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md:626#la-presencia-de-archivos-no-acredita-derechos-entitlements",
+  }),
+  ipExposure: Object.freeze({
+    assessment: "unknown",
+    rationale: "Motor open-source (DuckDB MIT, pyarrow Apache-2.0), pero lee un producto de datos EEX cuyos entitlements e IP no están auditados.",
+  }),
+  minimallyExtendable: false,
+  limitations: Object.freeze([
+    "Derechos/entitlements del lago EEX pendientes (DEP-06/07/10): leer los archivos no acredita permiso.",
+    "Que .venv-data sea el entorno de lectura que reporta §6.5 es hipótesis: ni la SPEC ni U-AUDIT lo nombran.",
+    "reference.read.top_of_book no se declara: el esquema de eex_derivative_top_of_book no se inspeccionó; §6.5 sólo reporta que añade bid/ask.",
+    "reference.read.official no aplica: §6.5 reporta sólo raíces trade y top_of_book, sin settlement oficial.",
+    "Leer trades no aplica la ventana 17:05–17:15 ni el producto/fecha exactos de §5.2: esa consulta es trabajo de IMP-05.",
+  ]),
+  evidenceRefs: Object.freeze([
+    Object.freeze({ kind: "source", ref: "/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py", sha256: "01353f730d1bcba4a6cf83098b43914ee743212006aedf7ce8e548a95e491740" }),
+    Object.freeze({ kind: "installed-package", ref: "/home/op/apps/power-markets-explorer/.venv-data/lib/python3.13/site-packages/duckdb-1.5.5.dist-info/RECORD", sha256: "585ea64989741e6a35be3d3912dc8158c6ecac777857e666464428945a12fe8f" }),
+    Object.freeze({ kind: "installed-package", ref: "/home/op/apps/power-markets-explorer/.venv-data/lib/python3.13/site-packages/pyarrow-25.0.1.dist-info/RECORD", sha256: "c2658c5e3b843700ad96e5173d6006a889edeaa2f4a8351118f64fb25a3b55ca" }),
+    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+  ]),
+});
+
+export const REAL_TOOLING_ASSESSMENTS = Object.freeze([IN_REPO_BENCHMARK, EEX_READER, EEX_READ_ENVIRONMENT]);
 
 export const REAL_BENCHMARK_COMPONENT_ID = "economic-calculation.benchmark";
 export const REAL_EEX_READER_COMPONENT_ID = "power-markets-explorer.generate_eex_snapshot";
+export const REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID = "power-markets-explorer.venv-data.duckdb";
+
+// Inventario del tooling existente para IMP-05: SPEC v1.1.1 §6.5 «Tooling y
+// benchmark» reporta el script EEX «y su entorno de lectura» y el benchmark
+// de `src/economic-calculation/benchmark.mjs` (U-AUDIT, sources/
+// AUDIT_INPUTS_ENERGY_MARKETS.md:100); los `Program.fs`/
+// `HighResolutionProcurementModel.fs` externos «no se localizaron en el
+// alcance del audit». Sin este inventario completo no se demuestra necesidad
+// de construir (§25.1 IMP-04).
+export const REAL_TOOLING_INVENTORY = Object.freeze({
+  componentIds: Object.freeze([REAL_BENCHMARK_COMPONENT_ID, REAL_EEX_READER_COMPONENT_ID, REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID]),
+  evidenceRefs: Object.freeze([
+    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md#6.5-tooling-y-benchmark", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+  ]),
+});
 
 export const REAL_SELECTION_EVIDENCE = Object.freeze([
   Object.freeze({ kind: "accepted-receipt", ref: "operations/receipts/IMP-08-IMP_RECEIPT.json", sha256: "43b56173f021331a889393d3697f1ca8bdf40491e450798238044ac8decc9625" }),
@@ -260,12 +368,14 @@ export function deriveRealImp05ToolingDecisions() {
     calculation: selectMinimumTooling({
       requiredCapabilities: IMP05_CALCULATION_CAPABILITIES,
       assessments: REAL_TOOLING_ASSESSMENTS,
+      auditInventory: REAL_TOOLING_INVENTORY,
       reconciliation: buildRealToolingReconciliation(),
       evidenceRefs: REAL_SELECTION_EVIDENCE,
     }),
     referenceRead: deriveToolingDecision({
       requiredCapabilities: IMP05_REFERENCE_READ_CAPABILITIES,
       assessments: REAL_TOOLING_ASSESSMENTS,
+      auditInventory: REAL_TOOLING_INVENTORY,
     }),
   };
 }
