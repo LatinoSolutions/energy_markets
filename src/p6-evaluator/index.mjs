@@ -23,3 +23,15 @@ export {
   receiptIdentityOf,
   outputBundleDigestsOf,
 } from "./run-receipts.mjs";
+// Campaña manual end-to-end y closure gate P6 (IMP-15).
+export {
+  evaluateCampaignManually,
+  evaluateCampaignFromRun,
+  compareManualVsEvaluator,
+  manualComparisonDigest,
+} from "./manual-campaign.mjs";
+export {
+  evaluateP6ClosureGate,
+  materializeP6ClosureReceipt,
+  MANUAL_FIXTURE_IDS,
+} from "./closure-gate.mjs";
