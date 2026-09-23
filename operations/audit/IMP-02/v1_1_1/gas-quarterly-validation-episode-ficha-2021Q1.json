@@ -1,0 +1,422 @@
+{
+  "artifactKind": "IMP-02_GAS_QUARTERLY_VALIDATION_EPISODE_FICHA",
+  "schemaVersion": "1.1.1",
+  "spec": {
+    "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
+    "version": "1.1.1",
+    "sha256": "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3"
+  },
+  "product": "Gas",
+  "mission": "Quarterly",
+  "episode": {
+    "kind": "VALIDATION_EPISODE",
+    "maturity": "2021Q1",
+    "method": "Each historical contract maturity forms a validation episode under the current mandate (01_campaigns/gas_quarterly.md \"Validation interpretation\"; P-006 puntos 2-4, 7)"
+  },
+  "guards": {
+    "totalObligationIsPerBuySizing": false,
+    "benchmarkWindowIsExecutionPermission": false,
+    "unknownTerminalRuleFabricatesCloseOutFill": false,
+    "assumedMwToMwhConversion": false,
+    "missionsShareCoverage": false,
+    "selectiveEpisodeEvaluation": false
+  },
+  "facts": [
+    {
+      "factId": "campaign.identity.campaignId",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "GAS-Q-2021Q1",
+      "unit": null,
+      "source": {
+        "authority": "Bru (owner); aclaración P-006, 23-sep-2026",
+        "locator": "Decision del owner 23-sep-2026 sobre semántica rolling/validación de IMP-02 (puntos 1-6); 01_campaigns/campaign_rules.csv fila \"Fundamental,Gas Quarterly\" (episodio 2021Q1)",
+        "quote": "La identidad de una campaña de research puede ser determinista por producto + período/maturity (por ejemplo GAS-Q-YYYYQn)"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.identity.productContract",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "NATGAS / THE Quarterly EEX futures",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv filas \"Product mapping — Gas Quarterly\" y \"Physical/financial procurement relationship\"; 01_campaigns/gas_quarterly.md \"Relevant EEX product class\"",
+        "quote": "NATGAS / THE Quarterly EEX futures"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.identity.productFamily",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "Gas",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "01_campaigns/campaign_rules.csv fila \"Fundamental,Gas Quarterly\"; 00_LEEME.md tabla de Missions; §4.1 tabla de cantidades confirmadas",
+        "quote": "Fundamental,Gas Quarterly,NATGAS / THE Quarterly,60,3-1-3,0,11:00 Europe/Berlin,1,12,Q1 2021,Exact target by final effective trading day,Any trigger hard-rejects candidate"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.identity.mission",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "Quarterly",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "01_campaigns/campaign_rules.csv fila \"Fundamental,Gas Quarterly\"; 00_LEEME.md tabla de Missions; §4.1 tabla de cantidades confirmadas",
+        "quote": "Fundamental,Gas Quarterly,NATGAS / THE Quarterly,60,3-1-3,0,11:00 Europe/Berlin,1,12,Q1 2021,Exact target by final effective trading day,Any trigger hard-rejects candidate"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.identity.hubMarket",
+      "section": "Identidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "NATGAS / THE Quarterly EEX futures",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Product mapping — Gas Quarterly\"; 01_campaigns/gas_quarterly.md \"Relevant EEX product class\"",
+        "quote": "NATGAS / THE Quarterly EEX futures"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.totalVolumeKnown",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": 60,
+      "unit": "MW",
+      "source": {
+        "authority": "Bru (owner)",
+        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
+        "quote": "Confirmación de Bru, 2026-09-22"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.unit",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": "MW",
+      "unit": null,
+      "source": {
+        "authority": "Bru (owner)",
+        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22 (columna Unidad: MW); 01_campaigns/campaign_rules.csv fila \"Fundamental,Gas Quarterly\" (Target MW)",
+        "quote": "MW"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.deliveryPeriod",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": "3-1-3: three calendar months trading, one calendar month gap, three calendar months delivery",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv filas \"Delivery profile / MWh conversion\" y \"Quarterly calendar rule\"; 01_campaigns/01_shared_campaign_rules.md §1",
+        "quote": "3-1-3: three calendar months trading, one calendar month gap, three calendar months delivery"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.settlement",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": "Out of scope. Mandate is limited to procuring the specified EEX futures positions; downstream physical need does not alter validator mechanics.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Physical/financial procurement relationship\" (estado AUSENCIA CONFIRMADA); 00_LEEME.md \"Immediate scope\"",
+        "quote": "Out of scope. Mandate is limited to procuring the specified EEX futures positions; downstream physical need does not alter validator mechanics."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.validity",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": "Current Fundamental procurement case as of 2026-09-23, unless a narrower validity statement is given.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "00_LEEME.md \"Source basis and validity\"",
+        "quote": "Current Fundamental procurement case as of 2026-09-23, unless a narrower validity statement is given."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.campaignLink",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": "GAS-Q-2021Q1",
+      "unit": null,
+      "source": {
+        "authority": "Bru (owner); aclaración P-006, 23-sep-2026",
+        "locator": "Decision del owner 23-sep-2026 sobre semántica rolling/validación de IMP-02 (puntos 1-6); 01_campaigns/campaign_rules.csv fila \"Fundamental,Gas Quarterly\" (episodio 2021Q1)",
+        "quote": "La identidad de una campaña de research puede ser determinista por producto + período/maturity (por ejemplo GAS-Q-YYYYQn)"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.obligation.amendments",
+      "section": "Obligación",
+      "availability": "AVAILABLE_NOW",
+      "value": "Target is fixed once campaign starts; portfolio/mandate change triggers new strategy development + verification under new mandate.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Target changes during campaign\"; 01_campaigns/01_shared_campaign_rules.md §7",
+        "quote": "Target is fixed once campaign starts; portfolio/mandate change triggers new strategy development + verification under new mandate."
+      },
+      "documentedAbsence": true,
+      "reason": null
+    },
+    {
+      "factId": "campaign.calendar.openClose",
+      "section": "Calendario",
+      "availability": "AVAILABLE_NOW",
+      "value": "For Quarterly, the strategy may trade during the fourth, third, and second calendar months before the quarter begins. The calendar month immediately before quarterly delivery is the gap month.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Quarterly calendar rule\"; 01_campaigns/gas_quarterly.md \"Trading-window convention\"; 01_campaigns/01_shared_campaign_rules.md §1",
+        "quote": "For Quarterly, the strategy may trade during the fourth, third, and second calendar months before the quarter begins. The calendar month immediately before quarterly delivery is the gap month."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.calendar.decisionOpportunities",
+      "section": "Calendario",
+      "availability": "AVAILABLE_NOW",
+      "value": "The strategy is invoked once per eligible trading day at 11:00 Europe/Berlin.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv filas \"Decision frequency\" y \"Decision time\"; 01_campaigns/01_shared_campaign_rules.md §4",
+        "quote": "The strategy is invoked once per eligible trading day at 11:00 Europe/Berlin."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.calendar.deadline",
+      "section": "Calendario",
+      "availability": "AVAILABLE_NOW",
+      "value": "2020-11-30",
+      "unit": null,
+      "ruleText": "Exact target position by the end of the final effective trading day",
+      "source": {
+        "authority": "Lake EEX (evidencia de mercado, eex_derivative_trade); Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2020-11-30/pull_id=d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b/part.parquet",
+        "parquetSha256": "65966b6e0ad593473de9f366ee20e100af8c0417700c0715bf7872a468219a18",
+        "pullId": "d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b",
+        "requestPath": "/trd/derivatives/NATGAS/THE/2020-11-30",
+        "responseSha256": "4170d7e9258dd331d7bd9add1077c129a998af549bfd802469ed18db43da3136",
+        "rowSha256": "8c9ab52167f581e2414258526ba4630fd8fd0dc7e0842ce14304e4fe585fc0b2",
+        "trdId": "1966",
+        "instrumentIsin": "DE000C273M16",
+        "expiryDate": "2020-12-29",
+        "clientRule": {
+          "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+          "locator": "01_campaigns/01_shared_campaign_rules.md §1–§2; 01_campaigns/gas_quarterly.md \"Completion requirement\"",
+          "quote": "Exact target position by the end of the final effective trading day"
+        },
+        "identityInference": {
+          "derived": true,
+          "description": "Maturity 202101 del producto Quarterly = 2021Q1; derivada del patrón DisplayName del lake (\"G0BQ Qn-YY\" con Maturity igual al primer mes del quarter), sin especificación oficial de contrato EEX contrastada",
+          "basis": "operations/audit/IMP-03/EEX-THE-20260921/ST-03.2/source-inventory.json quarterlyEvidence.eex_derivative_trade.quarterTokenDisplayNames"
+        }
+      },
+      "evidenceTradeRows": [
+        {
+          "_pull_id": "d1d9d1850f55944080d9d4af82ba9c47da9b9706f630005c4394f2dd9c4c476b",
+          "_request_path": "/trd/derivatives/NATGAS/THE/2020-11-30",
+          "_retrieved_at_utc": "2026-06-06T00:00:00.0000000+00:00",
+          "_response_sha256": "4170d7e9258dd331d7bd9add1077c129a998af549bfd802469ed18db43da3136",
+          "_row_sha256": "8c9ab52167f581e2414258526ba4630fd8fd0dc7e0842ce14304e4fe585fc0b2",
+          "_api_category": "market-data",
+          "_endpoint_family": "trd",
+          "AgrsrAct": "SELL",
+          "Area": "THE",
+          "Cmdty": "NATGAS",
+          "Currency": "EUR",
+          "ExpiryDate": "2020-12-29",
+          "FromBrokenSpread": "false",
+          "InstrumentISIN": "DE000C273M16",
+          "InstrumentType": "Simple Instrument",
+          "Maturity": "202101",
+          "ProductISIN": "DE000A0MEW99",
+          "Px": "15.15",
+          "ShortCode": "G0BQ",
+          "Sz": "3",
+          "Tm": "2020-11-30T16:39:10.124829Z",
+          "TrdDate": "2020-11-30",
+          "TrdID": "1966",
+          "TrdType": "Exchange",
+          "TrdVol": "6477.0",
+          "UOM": "MWh",
+          "UpdtAct": "New",
+          "VolumeOnly": ""
+        }
+      ],
+      "reason": null
+    },
+    {
+      "factId": "campaign.calendar.pauseExclusion",
+      "section": "Calendario",
+      "availability": "AVAILABLE_NOW",
+      "value": "3-1-3: three calendar months trading, one calendar month gap, three calendar months delivery",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Quarterly calendar rule\"; 01_campaigns/gas_quarterly.md \"Trading-window convention\"; 01_campaigns/01_shared_campaign_rules.md §1",
+        "quote": "3-1-3: three calendar months trading, one calendar month gap, three calendar months delivery"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.feasibility.lots",
+      "section": "Factibilidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "1 MW minimum and 1 MW increments.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Lot / quantity increment\"; 01_campaigns/01_shared_campaign_rules.md §5",
+        "quote": "1 MW minimum and 1 MW increments."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.feasibility.rounding",
+      "section": "Factibilidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "Trade/target quantity in MW; minimum increment 1 MW",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Position vs price units\"",
+        "quote": "Trade/target quantity in MW; minimum increment 1 MW"
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.feasibility.terminalCoverageRule",
+      "section": "Factibilidad",
+      "availability": "AVAILABLE_NOW",
+      "value": "Final effective position must equal target exactly by end of final effective trading day.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Terminal requirement\"; 01_campaigns/01_shared_campaign_rules.md §3",
+        "quote": "Final effective position must equal target exactly by end of final effective trading day."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.execution.contract",
+      "section": "Ejecución",
+      "availability": "AVAILABLE_NOW",
+      "value": "Assume full requested quantity fills at simulated execution price; no partial-fill model.",
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv filas \"TOB reference timestamp\", \"Simulated execution side\", \"Virtual slippage\", \"Backtest fill quantity\", \"Normal daily quantity cap\", \"Other execution fees\"",
+        "quote": "Assume full requested quantity fills at simulated execution price; no partial-fill model."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.coverage.executedVolume",
+      "section": "Estado de cobertura",
+      "availability": "AVAILABLE_NOW",
+      "value": 0,
+      "unit": "MW",
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Initial position\"; 01_campaigns/01_shared_campaign_rules.md §3",
+        "quote": "0 MW at start of each episode/campaign."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.coverage.remainingVolume",
+      "section": "Estado de cobertura",
+      "availability": "AVAILABLE_NOW",
+      "value": 60,
+      "unit": "MW",
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "Derivada: apertura 60 MW − ejecutado 0 MW (§4.3); posición inicial 0 MW documentada."
+      },
+      "reason": null
+    },
+    {
+      "factId": "campaign.coverage.fillToObligationAssignment",
+      "section": "Estado de cobertura",
+      "availability": "AVAILABLE_NOW",
+      "value": [],
+      "unit": null,
+      "source": {
+        "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
+        "locator": "ESTADO_INPUTS.csv fila \"Initial position\"; 01_campaigns/01_shared_campaign_rules.md §3",
+        "quote": "0 MW at start of each episode/campaign."
+      },
+      "reason": null
+    }
+  ],
+  "coverageOwnership": {
+    "mapState": "MATERIALIZED",
+    "obligationId": "OBL-GAS-Q-2021Q1",
+    "assignments": [],
+    "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23); Bru (owner); aclaración P-006, 23-sep-2026",
+    "locator": "ESTADO_INPUTS.csv fila \"Initial position\" (episodio 2021Q1); decision del owner 23-sep-2026 (puntos 5-6)",
+    "relationMonthlyQuarterly": {
+      "availability": "AVAILABLE_NOW",
+      "relationType": "ADDITIONAL",
+      "value": "Monthly y Quarterly son campañas/mandatos separados y no comparten coverage: compras/fills de Quarterly no reducen Monthly y viceversa.",
+      "authority": "Bru (owner); aclaración P-006, 23-sep-2026",
+      "locator": "Decision del owner 23-sep-2026 (punto 5); §4.1 \"Monthly y Quarterly son Mission de primera clase, con contratos y poblaciones de evaluación separados\"; 00_LEEME.md \"Immediate scope\""
+    }
+  },
+  "acceptanceCriterion": {
+    "acceptanceTest": "Se determina remaining volume/deadline sin inferir unidades; una cobertura no pertenece dos veces a obligaciones.",
+    "source": "SPEC v1.1.1 §25.1 IMP-02",
+    "contractValid": true,
+    "campaignIdentified": true,
+    "auditedContract": {
+      "determined": true,
+      "blockedBy": [],
+      "documentedAbsences": [
+        "campaign.obligation.amendments"
+      ],
+      "reason": null
+    },
+    "remainingVolume": {
+      "determined": true,
+      "value": 60,
+      "unit": "MW",
+      "blockedBy": [],
+      "reason": null
+    },
+    "deadline": {
+      "determined": true,
+      "value": "2020-11-30",
+      "blockedBy": [],
+      "reason": null
+    },
+    "coverageOwnership": {
+      "determined": true,
+      "blockedBy": [],
+      "reason": null
+    },
+    "criterionMet": true
+  }
+}
