@@ -91,6 +91,19 @@ function hasProvenance(entry) {
     && isNonEmptyString(source.locator);
 }
 
+// Instancia H2 (audit IMP-09): la etiqueta ELIGIBLE/COMPLETE no se acepta a
+// secas. Cada afirmación debe venir acompañada de la evidencia declarada del
+// audit (authority + locator); sin ella la etiqueta es un placeholder.
+// Fuente: SPEC v1.1.1 §13.3 (la lista proviene del dataset auditado) y §15.2
+// (conserva evidencia propia).
+function hasEvidenceRef(evidence) {
+  return evidence !== null
+    && typeof evidence === "object"
+    && !Array.isArray(evidence)
+    && isNonEmptyString(evidence.authority)
+    && isNonEmptyString(evidence.locator);
+}
+
 function pushError(errors, code, message, campaignId = null) {
   errors.push({ code, campaignId, message });
 }
@@ -126,9 +139,13 @@ function validateEpisode(episode, errors) {
 
   if (!ELIGIBILITY_STATUSES.includes(episode.eligibility)) {
     pushError(errors, "INVALID_ELIGIBILITY_STATUS", `La elegibilidad de "${campaignId}" debe ser ${ELIGIBILITY_STATUSES.join(" | ")}.`, campaignId);
+  } else if (episode.eligibility === "ELIGIBLE" && !hasEvidenceRef(episode.eligibilityEvidence)) {
+    pushError(errors, "ELIGIBILITY_WITHOUT_EVIDENCE", `La campaña "${campaignId}" declara ELIGIBLE sin evidencia (authority + locator) del audit; una etiqueta sin evidencia no sostiene la población (§13.3).`, campaignId);
   }
   if (!COMPLETENESS_STATUSES.includes(episode.completeness)) {
     pushError(errors, "INVALID_COMPLETENESS_STATUS", `La completitud de "${campaignId}" debe ser ${COMPLETENESS_STATUSES.join(" | ")}.`, campaignId);
+  } else if (episode.completeness === "COMPLETE" && !hasEvidenceRef(episode.completenessEvidence)) {
+    pushError(errors, "COMPLETENESS_WITHOUT_EVIDENCE", `La campaña "${campaignId}" declara COMPLETE sin evidencia (authority + locator) del audit; una etiqueta sin evidencia no sostiene la población (§13.3).`, campaignId);
   }
 
   const windowStart = parseIsoDate(episode.windowStart);

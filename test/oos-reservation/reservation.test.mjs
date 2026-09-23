@@ -87,7 +87,7 @@ test("un solapamiento resuelto con estructura real sella la reserva", () => {
   input.campaigns = withWindowOverlap(input.campaigns, "2021Q3", "2021Q4");
   const ordered = chronologicalEligibleComplete(input.campaigns);
   const overlaps = detectOverlaps({ sealedOos: ordered.slice(-8), development: ordered.slice(0, -8) });
-  input.overlapResolutions = realDurationResolution(overlaps, "EMBARGO", { embargoDays: 10 });
+   input.overlapResolutions = realDurationResolution(overlaps, "EMBARGO", { embargoDays: 184 });
   const result = reserveSealedOos(input);
   assert.equal(result.decision, "RESERVED");
   assert.equal(result.overlapResolutions.length, 1);
@@ -187,4 +187,72 @@ test("evaluateImp09Acceptance sólo acredita la reserva materializada", () => {
 test("la identidad de la SPEC es la vigente v1.1.1", () => {
   assert.equal(IMP09_SPEC_IDENTITY.version, "1.1.1");
   assert.equal(CHRONOLOGICAL_RESERVATION_BASIS, "CHRONOLOGICAL_ELIGIBLE");
+});
+
+test("un hueco en la secuencia elegible mantiene HOLD (un quarter omitido desplaza el corte)", () => {
+  const input = validReservationInput();
+  input.campaigns = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 11 })
+    .filter((campaign) => campaign.maturity !== "2021Q2");
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
+  assert.ok(result.errors.some((error) => error.code === "NON_CONTIGUOUS_ELIGIBLE_SEQUENCE"));
+});
+
+test("BINDING: sin fecha de corte el manifest queda HOLD (§25.1/DEP-12)", () => {
+  const input = validReservationInput();
+  delete input.reservationBinding.cutoffIso;
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
+  assert.ok(result.errors.some((error) => error.code === "MISSING_CUTOFF_DATE"));
+});
+
+test("BINDING: sin hashes de fuentes el manifest queda HOLD", () => {
+  const input = validReservationInput();
+  delete input.reservationBinding.sourceHashes;
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
+  assert.ok(result.errors.some((error) => error.code === "MISSING_SOURCE_HASHES"));
+});
+
+test("BINDING: cambiar cualquier hash de fuente cambia el contentHash", () => {
+  const a = reserveSealedOos(validReservationInput());
+  const input2 = validReservationInput();
+  input2.reservationBinding.sourceHashes.exchangeCalendar = "e".repeat(64);
+  const b = reserveSealedOos(input2);
+  assert.equal(a.decision, "RESERVED");
+  assert.equal(b.decision, "RESERVED");
+  assert.notEqual(a.contentHash, b.contentHash);
+  // El binding queda visible en el manifest sellado.
+  assert.equal(a.reservationBinding.cutoffIso, "2026-09-23");
+  assert.equal(Object.keys(a.reservationBinding.sourceHashes).length, 4);
+});
+
+test("2026Q4 fuera de la foto: un quarter posterior al corte no es elegible con esta evidencia", () => {
+  const input = validReservationInput();
+  input.campaigns = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 24 });
+  input.reservationBinding = { cutoffIso: "2026-07-28", sourceHashes: { eexEvidence: "f".repeat(64), exchangeCalendar: "1".repeat(64) } };
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
+  assert.ok(result.errors.some((error) => error.code === "ELIGIBLE_EPISODE_AFTER_CUTOFF"));
+});
+
+test("H5: un BOUNDARY_CHANGE resuelto aplica la frontera revisada al manifest y cambia el hash", () => {
+  const build = (actionConfig) => {
+    const input = validReservationInput();
+    input.campaigns = withNestedWindowOverlap(input.campaigns, "2022Q1", "2023Q1");
+    const ordered = chronologicalEligibleComplete(input.campaigns);
+    input.overlapResolutions = realDurationResolution(
+      detectOverlaps({ sealedOos: ordered.slice(-8), development: ordered.slice(0, -8) }),
+      "BOUNDARY_CHANGE",
+      actionConfig,
+    );
+    return reserveSealedOos(input);
+  };
+  const revision = build({ revisedBoundary: "2022-01-01" });
+  assert.equal(revision.decision, "RESERVED");
+  assert.equal(revision.chronologicalSplit.protectedFromIso, "2022-01-01");
+  assert.equal(revision.reservationBinding.cutoffIso, "2026-09-23");
+  const referencia = build({ revisedBoundary: "2022-06-01" });
+  assert.equal(referencia.chronologicalSplit.protectedFromIso, "2022-06-01");
+  assert.notEqual(revision.contentHash, referencia.contentHash);
 });

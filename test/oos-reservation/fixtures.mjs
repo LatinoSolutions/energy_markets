@@ -11,6 +11,18 @@ const SYNTHETIC_PROVENANCE = {
   locator: "test/oos-reservation/fixtures.mjs",
 };
 
+const SYNTHETIC_EVIDENCE = {
+  authority: "SYNTHETIC evidence fixture — presupone el audit completo",
+  locator: "test/oos-reservation/fixtures.mjs",
+};
+
+const SYNTHETIC_SOURCE_HASHES = {
+  clientPackageCampaignRules: "a".repeat(64),
+  p006Source: "b".repeat(64),
+  eexEvidence: "c".repeat(64),
+  exchangeCalendar: "d".repeat(64),
+};
+
 function isoDate(year, month, day) {
   return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
 }
@@ -47,6 +59,8 @@ export function gasQuarterlyCampaign({ year, quarter, eligibility = "ELIGIBLE", 
     windowStart,
     deadline,
     provenance: { ...SYNTHETIC_PROVENANCE },
+    eligibilityEvidence: { ...SYNTHETIC_EVIDENCE },
+    completenessEvidence: { ...SYNTHETIC_EVIDENCE },
     ...overrides,
   };
 }
@@ -76,6 +90,10 @@ export function validReservationInput() {
     campaigns: gasQuarterlyRegister({ year: 2021, quarter: 1, count: 10 }),
     reservationBasis: "CHRONOLOGICAL_ELIGIBLE",
     overlapResolutions: [],
+    reservationBinding: {
+      cutoffIso: "2026-09-23",
+      sourceHashes: { ...SYNTHETIC_SOURCE_HASHES },
+    },
     createdAtUtc: "2026-09-23T12:00:00Z",
   };
 }

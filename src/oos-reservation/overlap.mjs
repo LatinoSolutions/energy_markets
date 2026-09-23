@@ -8,8 +8,12 @@
 //
 // La resolución NO la decide este módulo: sólo comprueba que cada solapamiento
 // detectado por la estructura real venga acompañado de una intervención con
-// fundamento auditado. Sin fundamento, o con un embargo sin duración real, el
-// solapamiento queda abierto y la reserva no se materializa.
+// fundamento auditado Y que esa intervención cubra de verdad el solapamiento
+// detectado (§25.1 IMP-09: "overlaps resueltos por estructura real"). Una
+// intervención con la forma correcta cuyo intervalo/días/frontera no alcanzan a
+// cubrir el solapamiento no resuelve: HOLD, sin excepción. Sin fundamento, o con
+// un embargo sin duración real, el solapamiento queda abierto y la reserva no se
+// materializa.
 
 import { compareIsoDates, parseIsoDate } from "./campaign-register.mjs";
 
@@ -39,6 +43,18 @@ function hasBasis(resolution) {
 // Solapamiento inclusivo de dos intervalos cerrados [start, end].
 function intervalsOverlap(leftStart, leftEnd, rightStart, rightEnd) {
   return compareIsoDates(leftStart, rightEnd) <= 0 && compareIsoDates(rightStart, leftEnd) <= 0;
+}
+
+// Días entre dos fechas ISO inclusivas: se cuentan ambos extremos.
+function inclusiveLengthDays(startIso, endIso) {
+  const start = parseIsoDate(startIso);
+  const end = parseIsoDate(endIso);
+  if (!start.ok || !end.ok) {
+    return null;
+  }
+  const startUtc = Date.UTC(start.year, start.month - 1, start.day);
+  const endUtc = Date.UTC(end.year, end.month - 1, end.day);
+  return Math.round((endUtc - startUtc) / (24 * 60 * 60 * 1000)) + 1;
 }
 
 function overlap(kind, between, start, end, reason) {
@@ -163,10 +179,76 @@ function resolutionIsComplete(resolution, errors) {
   return true;
 }
 
+// §25.1 IMP-09/§13.8/§15.2: la forma correcta no basta; la intervención debe
+// cubrir el solapamiento detectado por la estructura real:
+// - PURGE: el intervalo purgado debe CONTENER el intervalo del solapamiento.
+// - EMBARGO: los días de embargo deben cubrir desde el inicio del solapamiento
+//   a través de todo el solapamiento y, si la frontera reservada queda después,
+//   hasta la frontera (material embargado hasta que deja de contaminar).
+// - BOUNDARY_CHANGE: la frontera revisada debe quedar DESPUÉS del fin del
+//   solapamiento; todo el material solapado debe quedar en development.
+function resolutionCoversOverlap(resolution, detected, boundaryIso, errors) {
+  const interval = detected.interval;
+  if (resolution.action === "PURGE") {
+    const purged = resolution.purgedInterval;
+    const contains = compareIsoDates(purged.start, interval.start) <= 0
+      && compareIsoDates(purged.end, interval.end) >= 0;
+    if (!contains) {
+      errors.push({
+        code: "RESOLUTION_DOES_NOT_COVER_OVERLAP",
+        message: `El purge "${resolution.basis.locator}" purga ${purged.start}..${purged.end} pero el solapamiento detectado alcanza ${interval.start}..${interval.end}; la intervención no cubre el solapamiento (§25.1: overlaps resueltos por estructura real).`,
+      });
+      return false;
+    }
+    return true;
+  }
+  if (resolution.action === "EMBARGO") {
+    const embargoStart = parseIsoDate(interval.start);
+    if (!embargoStart.ok || parseIsoDate(interval.end).ok === false) {
+      errors.push({ code: "RESOLUTION_DOES_NOT_COVER_OVERLAP", message: "El solapamiento detectado no declara un intervalo ISO válido; no se puede verificar la cobertura del embargo." });
+      return false;
+    }
+    let required = inclusiveLengthDays(interval.start, interval.end);
+    let embargoEndIso = interval.end;
+    if (boundaryIso && parseIsoDate(boundaryIso).ok && compareIsoDates(boundaryIso, interval.end) > 0) {
+      required = Math.max(required, inclusiveLengthDays(interval.start, boundaryIso) ?? required);
+      embargoEndIso = boundaryIso;
+    }
+    if (resolution.embargoDays < required) {
+      errors.push({
+        code: "RESOLUTION_DOES_NOT_COVER_OVERLAP",
+        message: `El embargo de ${resolution.embargoDays} días no cubre el solapamiento ${interval.start}..${embargoEndIso} (exige ${required} días desde el inicio del solapamiento, hasta la frontera cuando queda después); §13.8/§15.2 no permiten una intervención menor.`,
+      });
+      return false;
+    }
+    return true;
+  }
+  if (resolution.action === "BOUNDARY_CHANGE") {
+    if (boundaryIso && !parseIsoDate(boundaryIso).ok) {
+      errors.push({ code: "RESOLUTION_DOES_NOT_COVER_OVERLAP", message: "La frontera reservada no declara una fecha ISO válida; no se puede verificar la cobertura del cambio de frontera." });
+      return false;
+    }
+    if (compareIsoDates(resolution.revisedBoundary, interval.end) <= 0) {
+      errors.push({
+        code: "RESOLUTION_DOES_NOT_COVER_OVERLAP",
+        message: `La frontera revisada (${resolution.revisedBoundary}) no queda después del fin del solapamiento (${interval.end}); el cambio de frontera no cubre el solapamiento (§13.8).`,
+      });
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
 // Empareja cada solapamiento detectado con su intervención auditada. Devuelve
-// los resueltos, los abiertos y los errores de forma de las intervenciones.
-export function resolveOverlaps(overlaps, resolutions = []) {
+// los resueltos, los abiertos y los errores de forma y de COBERTURA de las
+// intervenciones. boundaryIso es la frontera protegida de la reserva (la
+// primera ventana sellada); es la referencia contra la que el embargo debe
+// cubrir y la frontera revisada debe superar. Sin frontera, la cobertura de
+// embargo se exige sólo sobre el propio intervalo del solapamiento.
+export function resolveOverlaps(overlaps, resolutions = [], options = {}) {
   const declared = Array.isArray(resolutions) ? resolutions : [];
+  const boundaryIso = options?.boundaryIso ?? null;
   const errors = [];
   const resolved = [];
   const unresolved = [];
@@ -183,7 +265,11 @@ export function resolveOverlaps(overlaps, resolutions = []) {
       unresolved.push(detected);
       continue;
     }
-    resolved.push({ ...detected, action: match.action, basis: match.basis });
+    if (!resolutionCoversOverlap(match, detected, boundaryIso, errors)) {
+      unresolved.push(detected);
+      continue;
+    }
+    resolved.push({ ...detected, action: match.action, basis: match.basis, ...(match.action === "BOUNDARY_CHANGE" ? { revisedBoundary: match.revisedBoundary } : {}) });
   }
 
   for (const resolution of declared) {

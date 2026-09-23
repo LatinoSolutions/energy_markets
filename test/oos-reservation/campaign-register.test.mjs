@@ -57,6 +57,29 @@ test("sin provenance auditada no se sostiene la elegibilidad", () => {
   assert.ok(outcome.errors.some((error) => error.code === "MISSING_PROVENANCE"));
 });
 
+test("etiqueta ELIGIBLE sin evidencia se rechaza (H2: no hay etiquetas a secas)", () => {
+  const withoutEligibilityEvidence = gasQuarterlyCampaign({ year: 2021, quarter: 1 });
+  delete withoutEligibilityEvidence.eligibilityEvidence;
+  const outcome = validateEligibilityRegister([withoutEligibilityEvidence]);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "ELIGIBILITY_WITHOUT_EVIDENCE"));
+});
+
+test("etiqueta COMPLETE sin evidencia se rechaza (H2: no hay etiquetas a secas)", () => {
+  const withoutCompletenessEvidence = gasQuarterlyCampaign({ year: 2021, quarter: 2 });
+  withoutCompletenessEvidence.completenessEvidence = null;
+  const outcome = validateEligibilityRegister([withoutCompletenessEvidence]);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "COMPLETENESS_WITHOUT_EVIDENCE"));
+});
+
+test("evidencia sin authority y locator no cuenta como evidencia", () => {
+  const incomplete = gasQuarterlyCampaign({ year: 2021, quarter: 3, eligibilityEvidence: { authority: "SYN", locator: " " } });
+  const outcome = validateEligibilityRegister([incomplete]);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "ELIGIBILITY_WITHOUT_EVIDENCE"));
+});
+
 test("la selección cronológica excluye no elegibles e incompletas", () => {
   const register = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 4 });
   register[1].eligibility = "INELIGIBLE";
