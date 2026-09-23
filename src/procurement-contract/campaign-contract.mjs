@@ -936,9 +936,82 @@ function resolveFactAvailability(fact) {
 
 // §4.1/§4.2: la ficha no fija el deadline salvo que el calendario lo aporte.
 // §13.4: "Las fechas reales se instancian desde el Procurement Contract".
-// Un deadline determinado es una fecha en formato ISO 8601; el texto de la
-// regla de cierre del paquete cliente no lo es y no se reporta como fecha.
+// Un deadline determinado es una fecha REAL del calendario: la forma ISO 8601
+// no basta (§13.4 exige instanciar fechas reales; el texto de la regla de
+// cierre del paquete cliente no lo es y no se reporta como fecha).
 const ISO_8601_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/;
+const ISO_8601_TIME_PART = /^T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:\d{2})?$/;
+
+// La forma ISO 8601 sin calendario real deja pasar imposibles ("2026-13-45").
+// La fecha es real sólo si el calendario la round-trippea exactamente (meses
+// 01–12 y días presentes en ese mes, incluido el 29 de febrero bisiesto).
+function isRealIsoCalendarDate(datePart) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+  if (!match) {
+    return false;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const roundTrip = new Date(Date.UTC(year, month - 1, day));
+  return roundTrip.getUTCFullYear() === year && roundTrip.getUTCMonth() === month - 1 && roundTrip.getUTCDate() === day;
+}
+
+function isRealIsoTimeOfDay(timePart) {
+  const match = ISO_8601_TIME_PART.exec(timePart);
+  if (!match) {
+    return false;
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const seconds = match[3] === undefined ? 0 : Number(match[3]);
+  return hours <= 23 && minutes <= 59 && seconds <= 59;
+}
+
+// §13.4: el deadline del episodio es una fecha real instanciable del calendario
+// (fecha con horas/minutos/segundos reales si trae hora). La forma ISO sola no
+// instancia una fecha; los imposibles de calendario quedan sin determinar.
+function resolvesToRealCalendarDate(value) {
+  if (!ISO_8601_DATE_PATTERN.test(value)) {
+    return false;
+  }
+  if (!isRealIsoCalendarDate(value.slice(0, 10))) {
+    return false;
+  }
+  const timePart = value.length > 10 ? value.slice(10) : null;
+  return timePart === null || isRealIsoTimeOfDay(timePart);
+}
+
+// Ventana de trading del episodio (convención documentada 3-1-3; §25.1/§25.2 y
+// paquete cliente: campaign calendar rule de 01_shared_campaign_rules.md §1 /
+// gas_quarterly.md "Trading-window convention", openClose.quote): el strategy
+// sólo puede tradear en los meses cuarto, tercero y segundo previos al inicio
+// del quarter de la maturity; el mes inmediatamente anterior a la entrega es el
+// gap. El deadline ("Exact target position by the end of the final effective
+// trading day", deadline.quote) sólo puede caer dentro de esa ventana de
+// trading; un deadline en el gap, en la entrega o ajeno al episodio no
+// instancia el cierre real del episodio.
+function episodeDeadlineWindow(maturity) {
+  if (!isCanonicalMaturity("Quarterly", maturity)) {
+    return null;
+  }
+  const year = Number(maturity.slice(0, 4));
+  const quarter = Number(maturity.slice(5));
+  // Índice absoluto de mes desde el año 0; se convierte a año/mes con
+  // división y módulo (no con anclas de Date.UTC, que duplicarían la base).
+  const monthIndexOf = (month) => {
+    const normalized = Math.floor(month / 12);
+    return { year: normalized, month: month - normalized * 12 };
+  };
+  const firstTradingMonthIndex = year * 12 + (quarter - 1) * 3 - 4;
+  const gapMonthIndex = year * 12 + (quarter - 1) * 3 - 1;
+  const firstTrading = monthIndexOf(firstTradingMonthIndex);
+  const gap = monthIndexOf(gapMonthIndex);
+  return {
+    startsAt: Date.UTC(firstTrading.year, firstTrading.month, 1),
+    endsExclusive: Date.UTC(gap.year, gap.month, 1),
+  };
+}
 
 export function resolveObligationDeadline(ficha) {
   const deadline = (ficha?.facts ?? []).find((fact) => fact.factId === "campaign.calendar.deadline");
@@ -950,6 +1023,36 @@ export function resolveObligationDeadline(ficha) {
         ruleText: deadline.value,
         reason: `El calendario publica la regla de cierre ("${deadline.value}"), no la fecha instanciada del episodio; §13.4: las fechas reales se instancian desde el Procurement Contract y no se infieren.`,
       };
+    }
+    if (!resolvesToRealCalendarDate(deadline.value)) {
+      return {
+        determined: false,
+        deadline: null,
+        reason: `El valor "${deadline.value}" tiene forma de fecha ISO 8601 pero no instancia una fecha real del calendario; §13.4: las fechas reales se instancian desde el Procurement Contract y no se reportan fechas imposibles.`,
+      };
+    }
+    // P-006 (punto 3) y convención 3-1-3 documentada (§4.1/§13.4; openClose):
+    // el deadline del episodio es el fin del último día efectivo de trading en
+    // su ventana; una ficha editada a mano no puede atribuir al episodio un
+    // deadline ajeno a esa ventana.
+    const episode = ficha?.episode;
+    if (episode?.kind === "VALIDATION_EPISODE") {
+      const window = episodeDeadlineWindow(episode.maturity);
+      if (window === null) {
+        return {
+          determined: false,
+          deadline: null,
+          reason: `La maturity del episodio ("${episode.maturity}") no es YYYYQn (Q1–Q4); sin episodio determinista el deadline no atribuye un cierre real (P-006 puntos 2, 6).`,
+        };
+      }
+      const calendarDay = Date.UTC(Number(deadline.value.slice(0, 4)), Number(deadline.value.slice(5, 7)) - 1, Number(deadline.value.slice(8, 10)));
+      if (calendarDay < window.startsAt || calendarDay >= window.endsExclusive) {
+        return {
+          determined: false,
+          deadline: null,
+          reason: `El deadline "${deadline.value}" cae fuera de la ventana de trading del episodio ${episode.maturity}; la convención 3-1-3 deja el último día efectivo de trading en los meses cuarto a segundo previos al quarter (01_shared_campaign_rules.md §1; gas_quarterly.md "Trading-window convention"); no se renombra la fecha del cierre.`,
+        };
+      }
     }
     return { determined: true, deadline: deadline.value, reason: null };
   }

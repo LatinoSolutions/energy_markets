@@ -302,6 +302,68 @@ test("el deadline no se infiere cuando el calendario no lo aporta", () => {
   assert.equal(ruleCriterion.criterionMet, false);
 });
 
+// Regresión del review energy-markets-IMP-02-20260923-195314
+// (HALLAZGO_TECNICO IMP02-DEADLINE-ISO-CALENDAR, §13.4): la forma ISO 8601 no
+// instancia una fecha; "2026-13-45" no existe en el calendario y no es un
+// deadline determinado.
+test("una fecha imposible de calendario no determina deadline ni criterio", () => {
+  for (const impossible of ["2026-13-45", "2021-02-30", "2021-02-29", "0000-00-00"]) {
+    const ficha = createGasQuarterlyFicha();
+    Object.assign(fact(ficha, "campaign.calendar.deadline"), {
+      availability: "AVAILABLE_NOW",
+      value: impossible,
+      source: { authority: "Bru (owner)", locator: "fixture sintético" },
+      reason: null,
+    });
+    const outcome = resolveObligationDeadline(ficha);
+    assert.equal(outcome.determined, false, impossible);
+    assert.equal(outcome.deadline, null, impossible);
+    assert.ok(outcome.reason.includes("no instancia una fecha real"), outcome.reason);
+    const criterion = evaluateImp02Acceptance(ficha);
+    assert.equal(criterion.criterionMet, false, impossible);
+    assert.equal(criterion.deadline.determined, false, impossible);
+  }
+});
+
+// Regresión del review 195314: un deadline válido-pero-ajeno a la maturity
+// (convención 3-1-3 del paquete cliente) no instancia el cierre del episodio.
+test("un deadline fuera de la ventana de trading del episodio no determina deadline ni criterio", () => {
+  for (const deadlineValue of ["1999-01-01", "2020-12-31", "2021-01-01", "2026-12-31"]) {
+    const ficha = createGasQuarterlyValidationFicha("2021Q1");
+    Object.assign(fact(ficha, "campaign.calendar.deadline"), {
+      availability: "AVAILABLE_NOW",
+      value: deadlineValue,
+      source: { authority: "Bru (owner)", locator: "fixture sintético" },
+      reason: null,
+    });
+    const outcome = resolveObligationDeadline(ficha);
+    assert.equal(outcome.determined, false, deadlineValue);
+    assert.equal(outcome.deadline, null, deadlineValue);
+    assert.ok(outcome.reason.includes("ventana de trading"), outcome.reason);
+    const criterion = evaluateImp02Acceptance(ficha);
+    assert.equal(criterion.criterionMet, false, deadlineValue);
+    assert.equal(criterion.deadline.determined, false, deadlineValue);
+  }
+});
+
+// El deadline del episodio 2021Q1 (trading en sep/oct/nov-2020, gap dic-2020,
+// entrega 2021Q1) sólo instancia el cierre dentro de su ventana de trading; con
+// fecha instanciable y dentro de la ventana el deadline queda determinado.
+test("un deadline real dentro de la ventana de trading del episodio se determina", () => {
+  for (const deadlineValue of ["2020-09-01", "2020-11-30", "2020-11-30T23:00Z"]) {
+    const ficha = createGasQuarterlyValidationFicha("2021Q1");
+    Object.assign(fact(ficha, "campaign.calendar.deadline"), {
+      availability: "AVAILABLE_NOW",
+      value: deadlineValue,
+      source: { authority: "Bru (owner)", locator: "fixture sintético" },
+      reason: null,
+    });
+    const outcome = resolveObligationDeadline(ficha);
+    assert.equal(outcome.determined, true, deadlineValue);
+    assert.equal(outcome.deadline, deadlineValue, deadlineValue);
+  }
+});
+
 test("una fact de texto con valor no textual se rechaza", () => {
   const ficha = createGasQuarterlyFicha();
   fact(ficha, "campaign.obligation.unit").value = { invented: "objeto" };
