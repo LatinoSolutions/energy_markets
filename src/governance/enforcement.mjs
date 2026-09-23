@@ -9,7 +9,7 @@
 // puntuación de la policy para autorizar. La decisión es estructural:
 // autoriza o rechaza (fail-closed); no existe un canal "penalizar y permitir".
 
-import { AUTONOMY_LEVELS, GATE_KINDS, validateEnvelopeShape, envelopeVersionKeyOf } from "./envelope.mjs";
+import { AUTONOMY_LEVELS, validateEnvelopeShape, envelopeVersionKeyOf } from "./envelope.mjs";
 
 export const CONTROLLER_KIND = "EXTERNAL_ENVELOPE_CONTROLLER";
 
@@ -22,6 +22,27 @@ export const LEVELS_WITH_BUY_AUTHORITY = ["A2", "A3", "A4"];
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+// §17: los gate results que el input declara deben venir de una evaluación
+// EXTERNA ATRIBUIDA. Quien propone la acción no puede atestiguar sus propios
+// gates de admisión; un PASSED sin atribución o auto-declarado no satisface
+// ningún hard-gate (fail-closed; corrección IMP23-GATE-PROV-02, revisión
+// IMP-23).
+const POLICY_SELF_EVALUATION_ROLES = ["POLICY", "CANDIDATE_POLICY"];
+
+function declaredExternalEvaluation(evaluation) {
+  const attribution = evaluation?.evaluatedBy ?? null;
+  if (!attribution || typeof attribution !== "object" || Array.isArray(attribution)) {
+    return null;
+  }
+  if (!isNonEmptyString(attribution.authority) || !isNonEmptyString(attribution.locator)) {
+    return null;
+  }
+  if (!isNonEmptyString(attribution.role) || POLICY_SELF_EVALUATION_ROLES.includes(attribution.role)) {
+    return null;
+  }
+  return { authority: attribution.authority, locator: attribution.locator, role: attribution.role };
 }
 
 function pushRejection(reasons, code, message, field) {
@@ -58,13 +79,21 @@ export function createExternalEnvelopeController({ envelope, atUtc } = {}) {
     if (evaluation === null || !["PASSED", "FAILED"].includes(evaluation.result)) {
       return { exists: true, evaluated: false, gate };
     }
-    return { exists: true, evaluated: true, result: evaluation.result, gate };
+    const externalEvaluation = declaredExternalEvaluation(evaluation);
+    if (externalEvaluation === null) {
+      return { exists: true, evaluated: false, gate, notAttributed: true };
+    }
+    return { exists: true, evaluated: true, result: evaluation.result, gate, by: externalEvaluation };
   }
 
   function gateBlocking(reasons, gateId, dataState) {
     const state = gateState(gateId, dataState);
     if (!state.exists) {
       pushRejection(reasons, "UNDECLARED_GATE", `El envelope no declara el gate "${gateId}"; ninguna decisión extra-envelope (§17).`, "dataState.gateResults");
+      return true;
+    }
+    if (state.notAttributed === true) {
+      pushRejection(reasons, "GATE_EVALUATION_NOT_ATTRIBUTED", `El resultado del gate "${gateId}" no declara atribución de una evaluación externa (evaluatedBy con authority/locator/role externo); la policy no atestigua sus propios gates (§17).`, "dataState.gateResults");
       return true;
     }
     if (!state.evaluated) {
@@ -80,7 +109,14 @@ export function createExternalEnvelopeController({ envelope, atUtc } = {}) {
 
   function checkAdmissionGates(reasons, dataState) {
     let blocked = false;
-    for (const gate of activeEnvelope.gates.filter((g) => g.kind === GATE_KINDS.DATA_VALIDITY || g.kind === GATE_KINDS.OOD)) {
+    // §17: la admisión de datos/estado se comprueba por los gates de validez
+    // de datos y OOD declarados. (Corrección: GATE_KINDS es un array canónico
+    // de tipos; la selección de los de admisión no es acceso por propiedad —
+    // el filtro anterior resolvía `undefined` y NINGÚN gate bloqueaba,
+    // repro del hallazgo IMP23-GATE-PROV-02).
+    const ADMISSION_GATE_KINDS = ["DATA_VALIDITY", "OOD"];
+    const admissionGates = activeEnvelope.gates.filter((g) => ADMISSION_GATE_KINDS.includes(g.kind));
+    for (const gate of admissionGates) {
       blocked = gateBlocking(reasons, gate.gateId, dataState) || blocked;
     }
     return blocked;
@@ -128,6 +164,10 @@ export function createExternalEnvelopeController({ envelope, atUtc } = {}) {
         pushRejection(reasons, "POLICY_VERSION_NOT_AUTHORIZED", `La Policy Version "${String(policyVersion)}" no está autorizada por este envelope (§17).`, "policyVersion");
       } else if (authorization.status !== "VALID") {
         pushRejection(reasons, "POLICY_VERSION_RETIRED", `La Policy Version "${policyVersion}" está RETIRED bajo este envelope: haber sido aprobada en el pasado no basta (§18.3).`, "policyVersion");
+      } else if (envelopeVersionKeyOf({ envelopeVersion: authorization.underEnvelopeVersion }) !== envelopeVersionKey) {
+        // §18.3: la validez se declara bajo cada envelope concreto. Una
+        // autorización ligada a otro envelope no confiere autoridad aquí.
+        pushRejection(reasons, "AUTHORIZATION_UNDER_OTHER_ENVELOPE", `La autorización de "${policyVersion}" es para otro envelope (${authorization.underEnvelopeVersion}); sólo opera bajo el envelope activo (§17/§18.3).`, "policyVersion");
       } else if (input.envelopeVersionKey !== envelopeVersionKey) {
         pushRejection(reasons, "ENVELOPE_CONTEXT_MISMATCH", "El acto declaró otra versión de envelope; el enforcement sólo opera bajo el envelope activo (§17).", "envelopeVersionKey");
       }

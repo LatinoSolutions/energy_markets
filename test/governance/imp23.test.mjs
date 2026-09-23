@@ -19,6 +19,7 @@ import {
   resolveRollbackTarget,
   TRANSITION_TYPES,
 } from "../../src/governance/index.mjs";
+import { STATE_NAMESPACES } from "../../src/contracts/states.mjs";
 
 const FIXTURE_PROVENANCE = { authority: "fixture sintético de test (no es límite real ni aprobación real)", locator: "test/governance/imp23.test.mjs" };
 
@@ -58,6 +59,7 @@ function fixtureEnvelope({
   rollbackBaseline = null,
   rollbackBaselineAuthorizationRef = null,
   safeNonActionState = null,
+  oodThreshold = { value: null, status: "EVIDENCE_PENDING", reason: "fixture: umbral OOD empírico no producido (§17)" },
 } = {}) {
   return buildEnvelope({
     envelopeVersion,
@@ -72,7 +74,7 @@ function fixtureEnvelope({
         gateId: "G-OOD",
         kind: "OOD",
         hardGate: true,
-        threshold: { value: null, status: "EVIDENCE_PENDING", reason: "fixture: umbral OOD empírico no producido (§17)" },
+        threshold: oodThreshold,
         provenance: FIXTURE_PROVENANCE,
       },
     ],
@@ -95,10 +97,12 @@ function validityEntry(policyVersion, underEnvelopeVersion, currentValid) {
 }
 
 function passedDataState() {
+  // §17: cada PASSED declara la atribución de una evaluación EXTERNA
+  // (evaluatedBy con authority/locator/role), no de quien propone la acción.
   return {
     gateResults: [
-      { gateId: "G-DATA-VALIDITY", result: "PASSED" },
-      { gateId: "G-OOD", result: "PASSED" },
+      { gateId: "G-DATA-VALIDITY", result: "PASSED", evaluatedBy: { authority: "fixture: capa de datos externa sintética (no es evaluación real)", locator: "test/governance/imp23.test.mjs", role: "DATA_LAYER" } },
+      { gateId: "G-OOD", result: "PASSED", evaluatedBy: { authority: "fixture: capa de datos externa sintética (no es evaluación real)", locator: "test/governance/imp23.test.mjs", role: "DATA_LAYER" } },
     ],
   };
 }
@@ -572,4 +576,134 @@ test("IMP-23: el registro de transiciones es append-only y content-addressed; la
   // Un objeto que no es un receipt no entra.
   const notReceipt = registry.register({ receipt: { artifactKind: "GOVERNANCE_TRANSITION_RECEIPT" } });
   assert.equal(notReceipt.ok, false);
+});
+
+// --- Correcciones de revisión IMP-23 (fallas de fail-closed / doble verdad) ---
+
+test("IMP-23: el envelope construido es inmutable en profundidad; retocar el snapshot no relaja el envelope activo (§17, corrección ENV-MUT-01)", () => {
+  const { envelope, controller } = buildController();
+  assert.equal(Object.isFrozen(envelope), true);
+  assert.equal(Object.isFrozen(envelope.quantityLimits), true);
+  assert.equal(Object.isFrozen(envelope.quantityLimits[0].provenance), true);
+  assert.equal(Object.isFrozen(envelope.gates), true);
+  assert.equal(Object.isFrozen(envelope.gates[1].threshold), true);
+  assert.equal(Object.isFrozen(envelope.allowedActions), true);
+
+  const attackBefore = controller.authorizeAction({
+    policyVersion: "v1.0",
+    action: "BUY",
+    quantityMw: 5000,
+    envelopeVersionKey: envelope.versionKey,
+    dataState: passedDataState(),
+  });
+  assert.equal(attackBefore.status, "REJECTED");
+
+  // Intento de relajar límites, action space y gates vía la referencia viva:
+  // el freeze profundo lo impide. Para el compra forjado se reusa el helper
+  // de arriba (copiado para cada intento, sin depender del orden).
+  assert.throws(() => { envelope.quantityLimits[0].maxValueMw = 100000; }, TypeError);
+  assert.throws(() => { envelope.quantityLimits[1].maxValueMw = 100000; }, TypeError);
+  assert.throws(() => { envelope.allowedActions.push("EMIT_ORDER_UNBOUNDED"); }, TypeError);
+  assert.throws(() => { envelope.gates[0].hardGate = false; }, TypeError);
+  assert.throws(() => { envelope.gates.push({ gateId: "G-TAMPER", kind: "DATA_VALIDITY", hardGate: true, provenance: FIXTURE_PROVENANCE }); }, TypeError);
+
+  // El contentHash y el decisión son los mismos que antes del intento: el
+  // objeto no cambió bajo el controller (§17: misma versión activa).
+  const attackAfter = controller.authorizeAction({
+    policyVersion: "v1.0",
+    action: "BUY",
+    quantityMw: 5000,
+    envelopeVersionKey: envelope.versionKey,
+    dataState: passedDataState(),
+  });
+  assert.equal(attackAfter.status, "REJECTED");
+  assert.deepEqual(attackAfter.reasons.map((reason) => reason.code), attackBefore.reasons.map((reason) => reason.code));
+  assert.equal(JSON.stringify(controller.activeEnvelopeSnapshot()), JSON.stringify(controller.activeEnvelopeSnapshot()));
+});
+
+test("IMP-23: un PASSED sin atribución o auto-declarado por la policy no satisface un hard-gate de admisión (§17, corrección GATE-PROV-02)", () => {
+  const { envelope, controller } = buildController();
+  const key = envelope.versionKey;
+  const buy5 = (dataState) => controller.authorizeAction({
+    policyVersion: "v1.0",
+    action: "BUY",
+    quantityMw: 5,
+    envelopeVersionKey: key,
+    dataState,
+  });
+
+  forged: {
+    // gateResults provistos por el llamador SIN evaluatedBy: no satisface el
+    // hard-gate; fail-closed (antes el PASSED forjado pasaba a AUTHORIZED).
+    const forged = buy5({
+      gateResults: [
+        { gateId: "G-DATA-VALIDITY", result: "PASSED" },
+        { gateId: "G-OOD", result: "PASSED", evaluatedBy: { authority: "x", locator: "y", role: "DATA_LAYER" } },
+      ],
+    });
+    assert.equal(forged.status, "REJECTED");
+    assert.ok(forged.reasons.some((reason) => reason.code === "GATE_EVALUATION_NOT_ATTRIBUTED"));
+  }
+
+  selfDeclared: {
+    // Auto-evaluación declarada por la policy proponente: no independencia,
+    // no admisión (§17: el controlador es EXTERNO a la policy).
+    const selfDeclared = buy5({
+      gateResults: [
+        { gateId: "G-DATA-VALIDITY", result: "PASSED", evaluatedBy: { authority: "policy activa", locator: "código de la policy", role: "POLICY" } },
+        { gateId: "G-OOD", result: "PASSED", evaluatedBy: { authority: "candidate", locator: "misma CANDIDATE_POLICY", role: "CANDIDATE_POLICY" } },
+      ],
+    });
+    assert.equal(selfDeclared.status, "REJECTED");
+    assert.ok(selfDeclared.reasons.some((reason) => reason.code === "GATE_EVALUATION_NOT_ATTRIBUTED"));
+  }
+
+  // Con la evaluación external declarada y atribuida la misma cantidad se
+  // autoriza: la puerta del gate es por procedencia, no un bloqueo clásico.
+  const legitimate = buy5(passedDataState());
+  assert.equal(legitimate.status, "AUTHORIZED");
+});
+
+test("IMP-23: un umbral numérico es representable; el APPROVED declara su aprobación (§17/§25.2, corrección THRESHOLD-NUM-04)", () => {
+  // Umbral numérico real del OOD gate (§17) con su aprobación explícita.
+  const numericApproved = fixtureEnvelope({
+    oodThreshold: { value: 0.25, status: "APPROVED", approvalRef: "FIXTURE-APPROVAL-1" },
+  });
+  assert.equal(numericApproved.ok, true, JSON.stringify(numericApproved.errors ?? null));
+
+  // APPROVED sin approvalRef: el umbral numérico aprobado sin referencia no
+  // existe (misma regla que quantityLimits, §17).
+  const numericWithoutApprovalRef = fixtureEnvelope({
+    oodThreshold: { value: 0.25, status: "APPROVED" },
+  });
+  assert.equal(numericWithoutApprovalRef.ok, false);
+  assert.ok(numericWithoutApprovalRef.errors.some((error) => error.code === "MISSING_THRESHOLD_APPROVAL_REF"));
+
+  // EVIDENCE_PENDING con valor presente exige razón documentada; el valor
+  // presente no se convierte en aprobado por sí solo (§17: no se inventan).
+  const pendingNumericWithoutReason = fixtureEnvelope({
+    oodThreshold: { value: 0.25, status: "EVIDENCE_PENDING" },
+  });
+  assert.equal(pendingNumericWithoutReason.ok, false);
+  assert.ok(pendingNumericWithoutReason.errors.some((error) => error.code === "MISSING_REASON"));
+});
+
+test("IMP-23: TRANSITION_TYPES es el namespace canónico governance_event del contrato de estados; una sola verdad §18.4 (correctión TRANS-DUP-03)", () => {
+  assert.equal(TRANSITION_TYPES, STATE_NAMESPACES.governance_event.values);
+  assert.deepEqual(TRANSITION_TYPES, ["PROMOTE", "HOLD", "DEMOTE", "HALT", "ROLLBACK"]);
+});
+
+test("IMP-23: una autorización de policy declarada bajo otro envelope no autoriza bajo el activo (§18.3, nota de revisión)", () => {
+  const built = buildController({
+    authorizedPolicyVersions: [{ policyVersion: "v1.0", underEnvelopeVersion: "v0.0", status: "VALID" }],
+  });
+  const result = built.controller.authorizeAction({
+    policyVersion: "v1.0",
+    action: "BUY",
+    quantityMw: 5,
+    envelopeVersionKey: built.envelope.versionKey,
+    dataState: passedDataState(),
+  });
+  assert.equal(result.status, "REJECTED");
+  assert.ok(result.reasons.some((reason) => reason.code === "AUTHORIZATION_UNDER_OTHER_ENVELOPE"));
 });

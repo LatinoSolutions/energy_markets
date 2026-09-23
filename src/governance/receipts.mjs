@@ -11,10 +11,14 @@
 // run receipts de IMP-14).
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
+import { STATE_NAMESPACES, resolveState } from "../contracts/states.mjs";
 
 export const GOVERNANCE_RECEIPT_KIND = "GOVERNANCE_TRANSITION_RECEIPT";
 
-export const TRANSITION_TYPES = ["PROMOTE", "HOLD", "DEMOTE", "HALT", "ROLLBACK"];
+// Una sola verdad: la lista canónica de §18.4 vive en el contrato de estados
+// (src/contracts/states.mjs, aceptado en IMP-01); el receipt la CONSUME, no
+// la redeclara (corrección IMP23-TRANS-DUP-03, revisión IMP-23).
+export const TRANSITION_TYPES = STATE_NAMESPACES.governance_event.values;
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -24,8 +28,9 @@ function isNonEmptyString(value) {
 // es un receipt. Fail-closed.
 export function buildGovernanceReceipt(input = {}) {
   const transitionType = input.transitionType ?? null;
-  if (!TRANSITION_TYPES.includes(transitionType)) {
-    return { ok: false, code: "INVALID_TRANSITION_TYPE", message: `Los tipos declarados son ${TRANSITION_TYPES.join(", ")} (§18.4).` };
+  const canonicalTransition = transitionType === null ? null : resolveState("governance_event", transitionType);
+  if (canonicalTransition === null || !canonicalTransition.ok) {
+    return { ok: false, code: "INVALID_TRANSITION_TYPE", message: `Los tipos declarados son ${TRANSITION_TYPES.join(", ")} (§18.4, namespace governance_event).` };
   }
   if (!isNonEmptyString(input.triggerGate) && !isNonEmptyString(input.triggerEvidenceRef)) {
     return { ok: false, code: "MISSING_TRIGGER", message: "El receipt declara el gate/evidencia que desencadena la transición (§18.4)." };

@@ -44,6 +44,10 @@ function isFinitePositive(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function isPlainTextOrNull({ value, reason }) {
   return isNonEmptyString(value) || (value === null && isNonEmptyString(reason));
 }
@@ -143,12 +147,21 @@ function validateGates(gates, errors) {
       errors.push({ field: `gates.${gate.gateId}.hardGate`, code: "GATE_NOT_HARD", message: "Un gate del envelope es hard: su breach puede causar HALT/DEMOTE sin consentimiento de policy (§17/§18.3)." });
     }
     if (gate.threshold !== undefined) {
-      const thresholdOk = isPlainTextOrNull({ value: gate.threshold.value ?? null, reason: gate.threshold.reason ?? null });
-      if (!thresholdOk) {
-        errors.push({ field: `gates.${gate.gateId}.threshold`, code: "INVALID_THRESHOLD", message: "El umbral es texto, valor numérico o explicit-pending con razón (§25.2 nota IMP-23)." });
+      const rawValue = gate.threshold?.value ?? null;
+      // §17: el OOD gate declara su umbral. Un valor numérico (p.ej. OOD
+      // score) es representable igual que texto; null sin razón no existe.
+      const thresholdValueOk = isFiniteNumber(rawValue) || isPlainTextOrNull({ value: rawValue, reason: gate.threshold?.reason ?? null });
+      if (!thresholdValueOk) {
+        errors.push({ field: `gates.${gate.gateId}.threshold`, code: "INVALID_THRESHOLD", message: "El umbral es un valor numérico, texto explícito, o explicit-pending con razón (§25.2 nota IMP-23)." });
       }
       if (!LIMIT_STATUSES.includes(gate.threshold?.status)) {
         errors.push({ field: `gates.${gate.gateId}.threshold.status`, code: "INVALID_THRESHOLD_STATUS", message: `El status del umbral debe ser ${LIMIT_STATUSES.join(" | ")}.` });
+      }
+      if (gate.threshold?.status === "APPROVED" && !isNonEmptyString(gate.threshold.approvalRef)) {
+        errors.push({ field: `gates.${gate.gateId}.threshold.approvalRef`, code: "MISSING_THRESHOLD_APPROVAL_REF", message: "Un umbral APPROVED declara su aprobación con referencia explícita (§17: gates declarados con su aprobación)." });
+      }
+      if (gate.threshold?.status === "EVIDENCE_PENDING" && rawValue !== null && !isNonEmptyString(gate.threshold.reason)) {
+        errors.push({ field: `gates.${gate.gateId}.threshold.reason`, code: "MISSING_REASON", message: "Un umbral presente aún no aprobado ocupa pending con su razón (§17: no se inventan valores)." });
       }
     }
     if (!(gate.provenance && isNonEmptyString(gate.provenance.authority) && isNonEmptyString(gate.provenance.locator))) {
@@ -220,6 +233,22 @@ export function envelopeVersionKeyOf(envelope) {
     : `hash:${envelope.envelopeVersion.contentHash}`;
 }
 
+// §17: "no puede relajarlo ni reescribirlo". El freeze debe ser PROFUNDO:
+// los arrays anidados (quantityLimits, gates, allowedActions) y la
+// provenance interna quedan igualmente sellados; si el caller conserva la
+// referencia viva no puede mutar el envelope que el controller ejecuta
+// (corrección a IMP23-ENV-MUT-01, revisión IMP-23).
+function deepFreeze(value) {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+  Object.freeze(value);
+  for (const key of Object.keys(value)) {
+    deepFreeze(value[key]);
+  }
+  return value;
+}
+
 // Construye y congela el envelope (§17). Fail-closed: un envelope inválido
 // no existe como autoridad.
 export function buildEnvelope(input = {}) {
@@ -246,7 +275,7 @@ export function buildEnvelope(input = {}) {
   }
   return {
     ok: true,
-    envelope: Object.freeze({
+    envelope: deepFreeze({
       ...envelope,
       contentHash: contentHashOf(envelope),
       versionKey: envelopeVersionKeyOf(envelope),
@@ -269,7 +298,7 @@ export function buildEnvelopeChangeProposal({ trigger, proposedChanges } = {}) {
     proposal: Object.freeze({
       class: "ENVELOPE_CHANGE_PROPOSAL",
       trigger,
-      proposedChanges,
+      proposedChanges: deepFreeze({ ...proposedChanges }),
       appliedToActiveEnvelope: false,
       authorityGranted: false,
     }),
