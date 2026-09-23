@@ -495,6 +495,32 @@ export function buildPitRecord(input, context = {}) {
     if (input.reason !== undefined && input.reason !== null) {
       fail(errors, "reason", "AUDIT_REASON_FROM_CALLER", "La razón de una entrada auditada se deriva del artifact; no la aporta el llamante (§6.2).");
     }
+    // Revisión 9 (2026-09-23): el resultado auditado no hereda atributos del
+    // llamante. Las cuatro semánticas de la entrada viajan en el audit como
+    // texto del artifact (MISSING en R-01..R-17 salvo las aserciones
+    // históricas), nunca como reloj ni versión del record (§6.5: retrieval no
+    // prueba publicación ni consumo histórico; §6.2: no se relabela). Un
+    // record auditado nace sin ellos; un campo aportado se rechaza en vez de
+    // atribuirse a la entrada en disco, porque la vista histórica lo mostraría
+    // como revisión/timestamps del resultado auditado sin evidencia propia.
+    const attributedFromCaller = [
+      ["occurredAtUtc", input.occurredAtUtc],
+      ["publishedAtUtc", input.publishedAtUtc],
+      ["consumableAtUtc", input.consumableAtUtc],
+      ["consumableEvidence", input.consumableEvidence],
+      ["revisionId", input.revisionId],
+      ["revisionOf", input.revisionOf],
+    ];
+    for (const [field, provided] of attributedFromCaller) {
+      if (provided !== undefined && provided !== null) {
+        fail(
+          errors,
+          field,
+          "AUDIT_FIELD_FROM_CALLER",
+          `La entrada auditada se materializa sólo con su bloque audit derivado del artifact; "${field}" aportado por el llamante no se atribuye al resultado auditado sin evidencia propia en el artifact (§6.2/§6.5).`,
+        );
+      }
+    }
   }
 
   // §6.1: la versión concreta del valor. Un valor presente exige versión; una

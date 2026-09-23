@@ -21,6 +21,7 @@ import {
 } from "../../src/pit-views/index.mjs";
 // Costuras de tests con raíz de confianza sintética; no son superficie pública.
 import { auditedManifestRecordsAt, buildPitManifestAt, buildPitManifestFromAuditAt } from "../../src/pit-views/views.mjs";
+import { verifyAcceptedArtifactAt } from "../../src/pit-views/audited-artifacts.mjs";
 import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
 import { ATTESTATION_PATH, FIXTURE_SCOPE, fixtureRepo, VALUE_ATTESTATION_PATH } from "./fixture-repo.mjs";
 
@@ -1632,4 +1633,100 @@ test("review 8: los records del manifest conservan la marca; su copia por spread
   const [record] = built.manifest.records;
   assert.equal(publicIsConsumableAtBoundary(record, "2026-04-02T00:00:00Z").consumable, true);
   assert.equal(publicIsConsumableAtBoundary({ ...record }, "2026-04-02T00:00:00Z").consumable, false);
+});
+
+// --- Review 9 (2026-09-23): el resultado auditado no hereda atributos del
+// llamante; la ingesta impide atribuir al audit campos sin evidencia propia ---
+
+test("review 9 (reproducción del revisor): buildPitRecord rechaza tiempos, evidencia y versión aportados por el llamante junto al bloque audit", () => {
+  const verified = verifyAcceptedArtifact(PRIOR_REF);
+  assert.equal(verified.ok, true);
+  const invented = publicBuildPitRecord({
+    key: "R-08",
+    viewScope: "decision",
+    audit: { artifact: verified.provenance, requirementId: "R-08" },
+    occurredAtUtc: "2026-01-01T00:00:00Z",
+    publishedAtUtc: "2026-01-01T01:00:00Z",
+    consumableAtUtc: "2026-01-01T02:00:00Z",
+    consumableEvidence: { source: "fixture://llamante", locator: "inventado", sha256: "c".repeat(64) },
+    revisionId: "v1-inventada",
+    revisionOf: "base",
+  });
+  assert.equal(invented.ok, false);
+  for (const field of ["occurredAtUtc", "publishedAtUtc", "consumableAtUtc", "consumableEvidence", "revisionId", "revisionOf"]) {
+    assert.ok(
+      invented.errors.some((error) => error.field === field && error.code === "AUDIT_FIELD_FROM_CALLER"),
+      `falta AUDIT_FIELD_FROM_CALLER en ${field}: ${JSON.stringify(invented.errors)}`,
+    );
+  }
+});
+
+test("review 9 (repo sintético, cuatro semánticas MISSING): la entrada auditada nace sin reloj ni versión y la vista histórica no muestra una revisión inventada", () => {
+  const synthetic = JSON.stringify({
+    artifactKind: "IMP-03_TEMPORAL_MANIFEST",
+    packetId: "P",
+    subtaskId: "S",
+    entries: [{
+      requirementId: "R-08",
+      requirement: "req",
+      criticalVersusOptional: "critical",
+      occurredReferenceTime: { status: "MISSING" },
+      publicationSourceAvailabilityTime: { status: "MISSING" },
+      policyConsumableTime: { status: "MISSING" },
+      revisionVersion: { status: "MISSING" },
+    }],
+  });
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: "evidence/four-missing.json", content: synthetic }] });
+  const ingestion = auditedManifestRecordsAt(repoRoot, { artifactRef: refs[0] });
+  assert.equal(ingestion.ok, true, JSON.stringify(ingestion.errors ?? []));
+  const [record] = ingestion.records;
+  assert.equal(record.valueStatus, "MISSING");
+  assert.equal(record.revisionId, null);
+  assert.equal(record.occurredAtUtc, null);
+  assert.equal(record.publishedAtUtc, null);
+  assert.equal(record.consumableAtUtc, null);
+  assert.equal(record.consumableEvidence, null);
+
+  // La vía del revisor: record verificado con campos del llamante. Ahora se
+  // rechaza en la creación, así que ningún manifest puede contener la revisión
+  // inventada.
+  const verified = verifyAcceptedArtifactAt(repoRoot, refs[0]);
+  assert.equal(verified.ok, true);
+  const enriched = publicBuildPitRecord({
+    key: "R-08",
+    viewScope: "decision",
+    audit: { artifact: verified.provenance, requirementId: "R-08" },
+    occurredAtUtc: "2026-01-01T00:00:00Z",
+    publishedAtUtc: "2026-01-01T01:00:00Z",
+    consumableAtUtc: "2026-01-01T02:00:00Z",
+    revisionId: "v1-inventada",
+  });
+  assert.equal(enriched.ok, false);
+  assert.ok(enriched.errors.some((error) => error.code === "AUDIT_FIELD_FROM_CALLER"));
+
+  const built = buildPitManifestAt(repoRoot, { manifestId: "M", manifestVersion: "v1", records: ingestion.records });
+  assert.equal(built.ok, true, JSON.stringify(built.errors ?? []));
+  const decision = readDecisionView(built.manifest, "2026-09-01T00:00:00Z");
+  assert.equal(decision.visible.length, 0);
+  assert.ok(decision.suppressed.some((row) => row.key === "R-08"));
+  assert.ok(decision.suppressed.every((row) => row.revisionId === null));
+  const evaluation = readEvaluationView(built.manifest, "2026-09-01T00:00:00Z");
+  assert.ok(evaluation.unavailable.every((row) => row.revisionId === null));
+});
+
+test("review 9 (repo real): las 17 entradas auditadas de IMP-03 se materializan sin reloj, versión ni evidencia del llamante", () => {
+  const outcome = buildPitManifestFromAudit({ manifestId: "PIT-IMP03", manifestVersion: "v1", artifactRef: PRIOR_REF });
+  assert.equal(outcome.ok, true, JSON.stringify(outcome.errors ?? []));
+  assert.equal(outcome.manifest.records.length, PRIOR_ARTIFACT.entries.length);
+  for (const record of outcome.manifest.records) {
+    assert.equal(record.occurredAtUtc, null);
+    assert.equal(record.publishedAtUtc, null);
+    assert.equal(record.consumableAtUtc, null);
+    assert.equal(record.consumableEvidence, null);
+    assert.equal(record.revisionId, null);
+  }
+  const pair = viewsAt(outcome.manifest, "2026-09-23T00:00:00Z");
+  for (const row of [...pair.decision.suppressed, ...pair.decision.unavailable, ...pair.evaluation.unavailable]) {
+    assert.equal(row.revisionId ?? null, null);
+  }
 });
