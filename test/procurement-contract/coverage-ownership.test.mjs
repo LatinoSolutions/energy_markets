@@ -391,13 +391,23 @@ test("un close-out fill sin unidad declarada no cuenta como cobertura (sin infer
 });
 
 test("una enmienda que declara la cantidad cancelada cierra como RESIDUAL_CANCELLED", () => {
+  const documentedAmendment = {
+    amendmentId: "AMD-1",
+    obligationId: "OBL-QUARTERLY",
+    cancelledVolume: 60,
+    unit: "MWh",
+    authority: "Bru (owner)",
+    locator: "mandato firmado p.1",
+  };
   const outcome = reconcileCoverage({
     openingObligation: 100,
     executedVolume: 40,
     remainingVolume: 60,
     unit: "MWh",
     terminalRuleStatus: "VERIFIED",
-    residualAmendment: { authority: "Bru (owner)", locator: "mandato firmado p.1", cancelledVolume: 60, unit: "MWh" },
+    obligationId: "OBL-QUARTERLY",
+    documentedAmendments: [documentedAmendment],
+    residualAmendment: documentedAmendment,
   });
   assert.equal(outcome.ok, true);
   // §4.3: la cobertura se informa separadamente; cancelar no es cubrir y el
@@ -411,6 +421,14 @@ test("una enmienda que declara la cantidad cancelada cierra como RESIDUAL_CANCEL
 // ajuste "salvo enmiendas/cancelaciones explícitamente documentadas": la
 // enmienda documentada es el acto de cierre, con o sin regla terminal.
 test("una enmienda real documentada cierra el residual sin exigir terminal rule (§4.3/§14.5)", () => {
+  const documentedAmendment = {
+    amendmentId: "AMD-1",
+    obligationId: "OBL-QUARTERLY",
+    cancelledVolume: 60,
+    unit: "MWh",
+    authority: "Bru (owner)",
+    locator: "enmienda firmada p.2",
+  };
   for (const terminalRuleStatus of ["UNKNOWN", "MISSING"]) {
     const outcome = reconcileCoverage({
       openingObligation: 100,
@@ -418,12 +436,88 @@ test("una enmienda real documentada cierra el residual sin exigir terminal rule 
       remainingVolume: 60,
       unit: "MWh",
       terminalRuleStatus,
-      residualAmendment: { authority: "Bru (owner)", locator: "enmienda firmada p.2", cancelledVolume: 60, unit: "MWh" },
+      obligationId: "OBL-QUARTERLY",
+      documentedAmendments: [documentedAmendment],
+      residualAmendment: documentedAmendment,
     });
     assert.equal(outcome.ok, true, terminalRuleStatus);
     assert.equal(outcome.coverageStatus, "RESIDUAL_CANCELLED", terminalRuleStatus);
     assert.deepEqual(outcome.errors, [], terminalRuleStatus);
   }
+});
+
+// Regresión del review: una enmienda con authority/locator arbitrarios
+// ("x"/"y") cerraba el residual sin estar vinculada a la obligación ni a sus
+// enmiendas documentadas. §4.3/§14.5 exigen una cancelación real documentada
+// en la obligación; una enmienda ajena o no auditada no cierra el residual.
+test("una enmienda de otra obligación no cierra el residual (§4.3)", () => {
+  const documentedAmendment = {
+    amendmentId: "AMD-1",
+    obligationId: "OBL-QUARTERLY",
+    cancelledVolume: 60,
+    unit: "MWh",
+    authority: "Bru (owner)",
+    locator: "enmienda firmada p.2",
+  };
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    obligationId: "OBL-QUARTERLY",
+    documentedAmendments: [documentedAmendment],
+    residualAmendment: { ...documentedAmendment, obligationId: "OBL-MONTHLY" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "AMENDMENT_NOT_BOUND_TO_OBLIGATION"));
+});
+
+test("una enmienda no documentada en la obligación no cierra el residual (§4.3)", () => {
+  const documentedAmendment = {
+    amendmentId: "AMD-1",
+    obligationId: "OBL-QUARTERLY",
+    cancelledVolume: 60,
+    unit: "MWh",
+    authority: "Bru (owner)",
+    locator: "enmienda firmada p.2",
+  };
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    obligationId: "OBL-QUARTERLY",
+    documentedAmendments: [documentedAmendment],
+    residualAmendment: { ...documentedAmendment, amendmentId: "AMD-OTRA", authority: "x", locator: "y" },
+  });
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "AMENDMENT_NOT_DOCUMENTED"));
+});
+
+test("una enmienda que contradice la cantidad documentada no cierra el residual", () => {
+  const documentedAmendment = {
+    amendmentId: "AMD-1",
+    obligationId: "OBL-QUARTERLY",
+    cancelledVolume: 20,
+    unit: "MWh",
+    authority: "Bru (owner)",
+    locator: "enmienda firmada p.2",
+  };
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    obligationId: "OBL-QUARTERLY",
+    documentedAmendments: [documentedAmendment],
+    residualAmendment: { ...documentedAmendment, cancelledVolume: 60 },
+  });
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "AMENDMENT_NOT_DOCUMENTED"));
 });
 
 test("sin enmienda el residual abierto sigue COVERAGE_INCOMPLETE aunque no haya terminal rule", () => {

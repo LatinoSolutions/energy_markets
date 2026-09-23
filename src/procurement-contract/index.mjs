@@ -26,6 +26,8 @@ export {
   mapCoverageOwnership,
   reconcileCoverage,
   reconcileOwnershipWithExecutedVolume,
+  validateDocumentedAmendments,
   validateOwnershipAssignments,
   validateRelationDeclaration,
+  validateResidualAmendment,
 } from "./coverage-ownership.mjs";

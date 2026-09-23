@@ -516,7 +516,7 @@ function materializedFicha({ executed, assignments }) {
   makeAvailable(ficha, "campaign.calendar.deadline", "2026-12-31");
   makeAvailable(ficha, "campaign.coverage.executedVolume", executed, "MW");
   makeAvailable(ficha, "campaign.coverage.remainingVolume", 60 - executed, "MW");
-  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "ledger sintético");
+  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", assignments);
   makeRestOfAuditedContractAvailable(ficha);
   ficha.coverageOwnership = {
     mapState: "MATERIALIZED",
@@ -578,8 +578,35 @@ test("un restante publicado que rompe apertura = ejecutado + restante se rechaza
 
 test("la fact de asignación y coverageOwnership.mapState deben coincidir", () => {
   const ficha = createGasQuarterlyFicha();
-  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "FILL-1 → OBL-QUARTERLY");
+  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 5, unit: "MW" }]);
   assert.ok(codesOf(ficha).includes("OWNERSHIP_STATE_INCOHERENT"));
+});
+
+// Regresión del review: la fact de asignación sólo se comparaba por
+// disponibilidad con mapState; podía declarar FILL-A→OBL-1 y el mapa
+// materializado FILL-B→OBL-1 sin que la ficha los reconciliara.
+test("la fact de asignación no puede contradecir el mapa materializado (§4.3/DEP-02)", () => {
+  const ficha = materializedFicha({
+    executed: 20,
+    assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }],
+  });
+  fact(ficha, "campaign.coverage.fillToObligationAssignment").value = [{ fillId: "FILL-2", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }];
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "OWNERSHIP_ASSIGNMENT_MISMATCH" && error.factId === "campaign.coverage.fillToObligationAssignment"));
+  assert.equal(evaluateImp02Acceptance(ficha).criterionMet, false);
+});
+
+test("la fact de asignación coherente con el mapa materializado no se rechaza", () => {
+  const ficha = materializedFicha({
+    executed: 20,
+    assignments: [
+      { fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 15, unit: "MW" },
+      { fillId: "FILL-2", obligationId: "OBL-QUARTERLY", quantity: 5, unit: "MW" },
+    ],
+  });
+  assert.ok(!codesOf(ficha).includes("OWNERSHIP_ASSIGNMENT_MISMATCH"));
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
 });
 
 test("la ficha declara explícitamente que el criterio de aceptación de IMP-02 no se cumple", () => {
@@ -828,4 +855,70 @@ test("sin provenance en una de las dos facts no se declara la incoherencia del v
   const outcome = validateCampaignContract(noSource);
   assert.ok(outcome.errors.some((error) => error.code === "NO_PROVENANCE"));
   assert.ok(!outcome.errors.some((error) => error.code === "CAMPAIGN_LINK_INCOHERENT"));
+});
+
+const DOCUMENTED_AMENDMENT = {
+  amendmentId: "AMD-1",
+  obligationId: "OBL-QUARTERLY",
+  cancelledVolume: 40,
+  unit: "MW",
+  authority: "Bru (owner)",
+  locator: "enmienda firmada p.2",
+};
+
+// Fixture sintético: la ficha materializada cierra su residual (40 MW) con una
+// enmienda documentada en campaign.obligation.amendments.
+function fichaWithResidualAmendment({ documentedAmendments, residualAmendment }) {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(ficha, "campaign.obligation.amendments").amendments = documentedAmendments;
+  ficha.coverageOwnership.residualAmendment = residualAmendment;
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  return ficha;
+}
+
+// Regresión del review: reconcileCoverage declaraba RESIDUAL_CANCELLED con una
+// enmienda de texto libre sin vincularla a la obligación ni a las enmiendas
+// documentadas de la ficha.
+test("una enmienda documentada de la obligación cierra el residual en la ficha (§4.3/§14.5)", () => {
+  const ficha = fichaWithResidualAmendment({
+    documentedAmendments: [DOCUMENTED_AMENDMENT],
+    residualAmendment: DOCUMENTED_AMENDMENT,
+  });
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
+});
+
+test("una enmienda de otra obligación no cierra el residual de la ficha", () => {
+  const ficha = fichaWithResidualAmendment({
+    documentedAmendments: [DOCUMENTED_AMENDMENT],
+    residualAmendment: { ...DOCUMENTED_AMENDMENT, obligationId: "OBL-MONTHLY" },
+  });
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "AMENDMENT_NOT_BOUND_TO_OBLIGATION" && error.factId === "coverageOwnership.residualAmendment"));
+});
+
+test("una enmienda ausente de campaign.obligation.amendments no cierra el residual de la ficha", () => {
+  const ficha = fichaWithResidualAmendment({
+    documentedAmendments: [],
+    residualAmendment: DOCUMENTED_AMENDMENT,
+  });
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "AMENDMENT_NOT_DOCUMENTED" && error.factId === "coverageOwnership.residualAmendment"));
+});
+
+test("una enmienda documentada malformada se rechaza", () => {
+  const ficha = fichaWithResidualAmendment({
+    documentedAmendments: [{ amendmentId: "AMD-1" }],
+    residualAmendment: DOCUMENTED_AMENDMENT,
+  });
+  assert.ok(codesOf(ficha).includes("INVALID_AMENDMENT"));
+});
+
+test("una fact de asignaciones con valor no estructurado se rechaza", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(ficha, "campaign.coverage.fillToObligationAssignment").value = "FILL-1 → OBL-QUARTERLY";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "VALUE_TYPE_MISMATCH" && error.factId === "campaign.coverage.fillToObligationAssignment"));
 });

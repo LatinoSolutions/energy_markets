@@ -12,8 +12,10 @@ import {
   COVERAGE_OWNERSHIP_MAP_STATES,
   computeRemainingVolume,
   reconcileOwnershipWithExecutedVolume,
+  validateDocumentedAmendments,
   validateOwnershipAssignments,
   validateRelationDeclaration,
+  validateResidualAmendment,
 } from "./coverage-ownership.mjs";
 
 const AVAILABILITY = STATE_NAMESPACES.data_availability.values;
@@ -72,7 +74,7 @@ export const CAMPAIGN_CONTRACT_FACTS = [
   { factId: "campaign.execution.contract", section: "Ejecución", kind: "text", dep: "DEP-05" },
   { factId: "campaign.coverage.executedVolume", section: "Estado de cobertura", kind: "quantity", dep: "DEP-02" },
   { factId: "campaign.coverage.remainingVolume", section: "Estado de cobertura", kind: "quantity", dep: "DEP-02" },
-  { factId: "campaign.coverage.fillToObligationAssignment", section: "Estado de cobertura", kind: "text", dep: "DEP-02" },
+  { factId: "campaign.coverage.fillToObligationAssignment", section: "Estado de cobertura", kind: "assignments", dep: "DEP-02" },
 ];
 
 // §25.2 fila IMP-02: RESOLVES_AUDIT "DEP-01,02,03,04 para la campaña y
@@ -180,6 +182,26 @@ function validateAvailableFact(fact, definition, errors) {
     errors.push({ factId: fact.factId, code: "VALUE_TYPE_MISMATCH", message: `"${fact.factId}" es una fact de texto y su valor no es texto.` });
   } else if (definition.kind === "quantity" && (!isFiniteNonNegativeNumber(fact.value))) {
     errors.push({ factId: fact.factId, code: "VALUE_TYPE_MISMATCH", message: `"${fact.factId}" es una cantidad y su valor debe ser un número finito no negativo (§4.3).` });
+  } else if (definition.kind === "assignments" && !Array.isArray(fact.value)) {
+    errors.push({ factId: fact.factId, code: "VALUE_TYPE_MISMATCH", message: `"${fact.factId}" es una fact de asignaciones y su valor debe ser la lista fill→obligación (§4.3/DEP-02).` });
+  }
+  // §4.3: la fact de asignación materializa el mapa fill→obligación con el
+  // mismo contrato que el bloque coverageOwnership (una sola verdad).
+  // PROVISIONAL (la SPEC no fija el formato): el valor es la lista de
+  // asignaciones, no un texto libre que no podría reconciliarse con el mapa.
+  if (definition.kind === "assignments" && Array.isArray(fact.value)) {
+    errors.push(...validateOwnershipAssignments(fact.value).map((error) => ({ factId: fact.factId, ...error })));
+  }
+  // §4.3/§14.5: las enmiendas documentadas de la obligación alimentan la
+  // reconciliación del residual; su lista debe ser auditable y no puede
+  // coexistir con una ausencia documentada.
+  if (definition.factId === "campaign.obligation.amendments") {
+    if (fact.amendments !== undefined) {
+      errors.push(...validateDocumentedAmendments(fact.amendments).map((error) => ({ factId: fact.factId, ...error })));
+    }
+    if (fact.documentedAbsence === true && Array.isArray(fact.amendments) && fact.amendments.length > 0) {
+      errors.push({ factId: fact.factId, code: "AMENDMENTS_WITH_DOCUMENTED_ABSENCE", message: `"${fact.factId}" declara ausencia documentada y a la vez enmiendas; son estados excluyentes.` });
+    }
   }
   if (definition.kind === "quantity" && !isNonEmptyString(fact.unit)) {
     errors.push({ factId: fact.factId, code: "QUANTITY_WITHOUT_UNIT", message: `"${fact.factId}" es una cantidad sin unidad; no se asume MW ni MWh.` });
@@ -386,11 +408,16 @@ function validateCrossFieldCoherence(ficha, factsById, errors) {
   }
 
   // DEP-02: la fact de asignación y el bloque coverageOwnership describen el
-  // mismo mapa; no pueden tener estados distintos.
-  const assignmentAvailable = Boolean(availableFact(factsById, "campaign.coverage.fillToObligationAssignment"));
+  // mismo mapa; no pueden tener estados distintos ni contenido distinto. Una
+  // fact con FILL-A→OBL-1 y un mapa FILL-B→OBL-1 serían dos verdades del mismo
+  // ownership y escaparían a la reconciliación con el volumen ejecutado.
+  const assignmentFact = availableFact(factsById, "campaign.coverage.fillToObligationAssignment");
   const mapMaterialized = ficha.coverageOwnership?.mapState === "MATERIALIZED";
-  if (assignmentAvailable !== mapMaterialized) {
+  if (Boolean(assignmentFact) !== mapMaterialized) {
     errors.push({ factId: "campaign.coverage.fillToObligationAssignment", code: "OWNERSHIP_STATE_INCOHERENT", message: "La fact de asignación fill→obligación y coverageOwnership.mapState no coinciden (DEP-02)." });
+  }
+  if (assignmentFact && mapMaterialized && !isDeepStrictEqual(canonicalAssignments(assignmentFact.value), canonicalAssignments(ficha.coverageOwnership.assignments))) {
+    errors.push({ factId: "campaign.coverage.fillToObligationAssignment", code: "OWNERSHIP_ASSIGNMENT_MISMATCH", message: "La fact de asignación fill→obligación contradice el mapa materializado; un fill no puede pertenecer a dos obligaciones distintas según la fuente (§4.3/DEP-02)." });
   }
 
   // §4.3/§14.5: un mapa MATERIALIZED debe poseer exactamente el volumen
@@ -398,6 +425,24 @@ function validateCrossFieldCoherence(ficha, factsById, errors) {
   if (mapMaterialized) {
     const reconciliationErrors = reconcileOwnershipWithExecutedVolume(ownershipReconciliationInput(ficha, factsById));
     errors.push(...reconciliationErrors.map((error) => ({ factId: "coverageOwnership", ...error })));
+  }
+
+  // §4.3/§14.5: si la ficha cierra el residual con una enmienda, ésta debe
+  // pertenecer a la obligación y figurar entre las enmiendas documentadas
+  // (campaign.obligation.amendments). Una enmienda ajena o contradictoria no
+  // cierra el residual.
+  const residualAmendment = ficha.coverageOwnership?.residualAmendment;
+  if (residualAmendment) {
+    const amendmentsFact = availableFact(factsById, "campaign.obligation.amendments");
+    const documentedAmendments = Array.isArray(amendmentsFact?.amendments) ? amendmentsFact.amendments : [];
+    const residualErrors = validateResidualAmendment({
+      residualAmendment,
+      obligationId: ficha.coverageOwnership?.obligationId,
+      documentedAmendments,
+      remainingVolume: remaining?.value,
+      unit: obligationUnit?.value,
+    });
+    errors.push(...residualErrors.map((error) => ({ factId: "coverageOwnership.residualAmendment", ...error })));
   }
 }
 
@@ -411,6 +456,19 @@ function ownershipReconciliationInput(ficha, factsById) {
     executedVolume: executedUnitMatches ? executed.value : null,
     unit: executedUnitMatches ? obligationUnit.value : null,
   };
+}
+
+// Compara dos listas de asignaciones por su contenido, no por su orden de
+// declaración: la fact y el bloque describen el mismo mapa fill→obligación.
+function canonicalAssignments(assignments) {
+  if (!Array.isArray(assignments)) {
+    return assignments;
+  }
+  return [...assignments]
+    .map((assignment) => (assignment && typeof assignment === "object" && !Array.isArray(assignment)
+      ? { fillId: assignment.fillId, obligationId: assignment.obligationId, quantity: assignment.quantity, unit: assignment.unit }
+      : assignment))
+    .sort((left, right) => `${left?.fillId}|${left?.obligationId}`.localeCompare(`${right?.fillId}|${right?.obligationId}`));
 }
 
 // §25.1 IMP-02, acceptance test: "Se determina remaining volume/deadline sin

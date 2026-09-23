@@ -7,6 +7,8 @@
 // documentada que declara el ajuste correspondiente) y §24 DEP-02 (relación
 // Monthly/Quarterly: adicional, solapada o alternativa según mandato).
 
+import { isDeepStrictEqual } from "node:util";
+
 import { STATE_NAMESPACES } from "../contracts/states.mjs";
 
 // §4.3: la cobertura se informa separadamente. Un residual cancelado por
@@ -81,6 +83,70 @@ export function computeRemainingVolume({ openingObligation, executedVolume, open
   return { computed: true, remainingVolume, unit: openingUnit, code: null, reason: null };
 }
 
+// §4.3/§14.5: una enmienda/cancelación real que ajusta el residual está
+// documentada en la obligación. El registro documentado declara su identidad
+// (amendmentId), la obligación a la que pertenece y la cantidad cancelada con
+// unidad y provenance; sin esos campos no es una enmienda auditable.
+// PROVISIONAL (la SPEC no fija el formato de estos IDs): se exige la misma
+// forma canónica que el resto de IDs del mapa.
+export function validateDocumentedAmendments(amendments) {
+  const errors = [];
+  if (!Array.isArray(amendments)) {
+    errors.push({ code: "AMENDMENTS_NOT_ARRAY", message: "Las enmiendas documentadas no son una lista." });
+    return errors;
+  }
+  for (const amendment of amendments) {
+    if (!amendment || typeof amendment !== "object" || Array.isArray(amendment)) {
+      errors.push({ code: "INVALID_AMENDMENT", message: "Una enmienda documentada no es un objeto." });
+      continue;
+    }
+    if (!isCanonicalId(amendment.amendmentId)) {
+      errors.push({ code: "INVALID_AMENDMENT", message: "Una enmienda documentada no declara amendmentId canónico." });
+    }
+    if (!isCanonicalId(amendment.obligationId)) {
+      errors.push({ code: "INVALID_AMENDMENT", message: `La enmienda ${amendment.amendmentId} no declara obligationId canónico.` });
+    }
+    if (!isFiniteNumber(amendment.cancelledVolume) || amendment.cancelledVolume <= 0 || !isCanonicalUnit(amendment.unit)) {
+      errors.push({ code: "INVALID_AMENDMENT", message: `La enmienda ${amendment.amendmentId} no declara una cantidad cancelada finita positiva con unidad.` });
+    }
+    if (!isNonEmptyString(amendment.authority) || !isNonEmptyString(amendment.locator)) {
+      errors.push({ code: "INVALID_AMENDMENT", message: `La enmienda ${amendment.amendmentId} no declara autoridad y locator.` });
+    }
+  }
+  return errors;
+}
+
+// §4.3/§14.5: sólo una enmienda/cancelación real documentada de la obligación
+// cierra el residual. El ajuste aplicado debe (1) pertenecer a la obligación
+// reconciliada, (2) ser exactamente una de las enmiendas documentadas de esa
+// obligación (campaign.obligation.amendments) y (3) cancelar el residual
+// exacto en su unidad. Una enmienda ajena o contradictoria con la ficha no
+// cierra el residual.
+export function validateResidualAmendment({ residualAmendment, obligationId, documentedAmendments, remainingVolume, unit } = {}) {
+  if (isMissing(residualAmendment)) {
+    return [];
+  }
+  const errors = [];
+  if (!isCanonicalId(residualAmendment.amendmentId)) {
+    errors.push({ code: "AMENDMENT_ID_MISSING", message: "La enmienda que cierra el residual debe declarar un amendmentId canónico." });
+  }
+  if (!isCanonicalId(residualAmendment.obligationId) || residualAmendment.obligationId !== obligationId) {
+    errors.push({ code: "AMENDMENT_NOT_BOUND_TO_OBLIGATION", message: "La enmienda debe pertenecer a la obligación reconciliada; una enmienda ajena no cierra el residual (§4.3/§14.5)." });
+  }
+  if (!isNonEmptyString(residualAmendment.authority) || !isNonEmptyString(residualAmendment.locator)) {
+    errors.push({ code: "AMENDMENT_WITHOUT_PROVENANCE", message: "La enmienda que cierra el residual exige autoridad y locator (§4.3)." });
+  }
+  if (!isFiniteNumber(residualAmendment.cancelledVolume) || residualAmendment.cancelledVolume !== remainingVolume || !isNonEmptyString(residualAmendment.unit) || residualAmendment.unit !== unit) {
+    errors.push({ code: "AMENDMENT_QUANTITY_MISMATCH", message: "La enmienda debe cancelar exactamente el residual, en la unidad de la obligación (§14.5)." });
+  }
+  const documented = Array.isArray(documentedAmendments)
+    && documentedAmendments.some((entry) => isDeepStrictEqual(entry, residualAmendment));
+  if (!documented) {
+    errors.push({ code: "AMENDMENT_NOT_DOCUMENTED", message: "La enmienda no figura entre las enmiendas documentadas de la obligación (campaign.obligation.amendments); una enmienda no auditada no cierra el residual (§4.3)." });
+  }
+  return errors;
+}
+
 // §4.3/§14.5: reconcilia apertura = ejecutado + restante y clasifica cobertura.
 // §14.5: "Coverage cambia por filled quantity". Un close-out fill es un fill:
 // cubre sólo si ya está contado en executedVolume, y entonces el restante es
@@ -88,7 +154,7 @@ export function computeRemainingVolume({ openingObligation, executedVolume, open
 // positivo es una enmienda real que declara la cantidad cancelada con
 // autoridad y locator (§4.3 "salvo enmiendas/cancelaciones explícitamente
 // documentadas"; §14.5 "ajuste documentado correspondiente").
-export function reconcileCoverage({ openingObligation, executedVolume, remainingVolume, unit, terminalRuleStatus, closeOutFill, residualAmendment } = {}) {
+export function reconcileCoverage({ openingObligation, executedVolume, remainingVolume, unit, terminalRuleStatus, closeOutFill, obligationId, documentedAmendments, residualAmendment } = {}) {
   const errors = [];
   const magnitudes = { openingObligation, executedVolume, remainingVolume };
   const missingMagnitude = Object.entries(magnitudes).some(([, value]) => !isFiniteNumber(value));
@@ -156,17 +222,20 @@ export function reconcileCoverage({ openingObligation, executedVolume, remaining
   // cancelación real documentada es el acto de cierre por sí misma, así la
   // terminal rule no exista o esté sin verificar; exigir además terminal rule
   // VERIFIED denegaba el cierre que §4.3/§14.5 admiten. Sin esa evidencia, el
-  // residual sigue abierto pase lo que pase con la terminal rule.
-  const amendmentCoversResidual = isNonEmptyString(residualAmendment?.authority)
-    && isNonEmptyString(residualAmendment?.locator)
-    && isFiniteNumber(residualAmendment?.cancelledVolume)
-    && residualAmendment.cancelledVolume === remainingVolume
-    && isNonEmptyString(residualAmendment?.unit)
-    && residualAmendment.unit === unit;
+  // residual sigue abierto pase lo que pase con la terminal rule. La enmienda
+  // debe estar vinculada a la obligación y a sus enmiendas documentadas
+  // (validateResidualAmendment), no basta una procedencia de texto libre.
+  const amendmentErrors = isMissing(residualAmendment)
+    ? []
+    : validateResidualAmendment({ residualAmendment, obligationId, documentedAmendments, remainingVolume, unit });
+  const amendmentCoversResidual = !isMissing(residualAmendment) && amendmentErrors.length === 0;
 
   if (amendmentCoversResidual) {
     // La enmienda no es cobertura ejecutada: se informa separadamente (§4.3).
     return { ok: errors.length === 0, coverageStatus: "RESIDUAL_CANCELLED", errors };
+  }
+  if (amendmentErrors.length > 0) {
+    errors.push(...amendmentErrors);
   }
 
   if (terminalRuleValid) {
