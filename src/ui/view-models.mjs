@@ -13,12 +13,14 @@
 //   - unknown/missing/not-yet-closed queda explícito y fail-closed.
 
 import { bindRecord } from "./binding.mjs";
+import { resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import {
   EXPOSURE_CONDITION,
 } from "../operator-interface/exposure.mjs";
 import {
   EXECUTION_CLASS,
   HUMAN_INTERVENTION_CLASS,
+  reconcileOperatorTimeline,
 } from "../operator-interface/timeline.mjs";
 
 export const SURFACES = Object.freeze({
@@ -175,7 +177,8 @@ export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], r
       if (!bound.ok) {
         return unavailableItem(run.runId, bound.reason);
       }
-      return boundItem(run.runId, bound.bound, { kind: "RUN" });
+      const drilldowns = [`#${SURFACES.REPLAY}`, `#${SURFACES.BACKTESTS}`, `#${SURFACES.RESEARCH}`].map((href) => ({ href }));
+      return boundItem(run.runId, bound.bound, { kind: "RUN", drilldowns });
     });
   return {
     ok: true,
@@ -183,24 +186,92 @@ export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], r
     campaigns: campaignItems,
     runs: runItems,
     hasAnyBoundData: [...campaignItems, ...runItems].some((item) => item.status === "BOUND"),
-    // Drilldowns: sólo referencias declaradas por el llamador, nunca enlaces
-    // fabricados a superficies con datos que el backend no expone.
+    // Drilldowns: navegación declarativa a superficies sí expuestas por este
+    // boundary; el destino aplica sus propios fail-closed, no se copian datos.
+    // Exigen que el run esté BOUND: no se ofrece el handoff sobre datos que el
+    // backend no respalda.
     drilldownTargets: Object.freeze(["replay", "backtests", "research"]),
+    pendingRunReceipts: [
+      { label: "Receipts de run", status: "UNAVAILABLE", reason: "sin receipts de run aceptados en el backend (IMP-14/IMP-16 pendientes); no se fabrican" },
+    ],
   };
 }
 
 // Replay / Decision Inspector. Sólo acepta salidas ya validadas del boundary:
 // `timeline` (buildOperatorTimeline ok:true) y `exposure` (buildExposure
-// ok:true). Si el llamador trae un output ok:false, el modelo es error
-// fail-closed: no se habrá renderizado nada inventado.
-export function buildReplayViewModel({ timeline = null, exposure = null } = {}) {
+// ok:true) — y las verifica: la forma `{ok:true}` por sí sola no acredita
+// nada (OI79-UI01-01, review 2026-09-23). El llamador aporta `backendIndex`
+// (backendIndexFromManifest del manifest backend verificado) y cada pieza
+// factual se ata a él con los mecanismos del propio boundary:
+//   - reconcileOperatorTimeline re-ejecutado tal cual contra el timeline;
+//   - cada punto de decisión/evaluación se concilia por key/revisionId y
+//     hash canónico del valor registrado (bindRecord, §26.5);
+//   - la procedencia declarada por cada campo de exposición resuelve al
+//     registro y hash del mismo manifest;
+//   - el vínculo a recomendación de cada actuación/intervención resuelve a
+//     una versión del decision view verificada.
+// Un timeline o exposición armados a mano quedan entonces explícitos como
+// error: valor no coincide con el manifest = dato no factual (§26.5).
+export function buildReplayViewModel({ timeline = null, exposure = null, backendIndex = null } = {}) {
   if (timeline === null || timeline?.ok !== true || timeline?.timeline === undefined) {
     return unexpectedTimeline([{ field: "timeline", code: "TIMELINE_NOT_VALIDATED", message: "Replay exige el timeline validado de buildOperatorTimeline; sin él no se renderiza (§26.3)." }]);
   }
   if (exposure === null || exposure?.ok !== true || exposure?.exposure === undefined) {
     return unexpectedTimeline([{ field: "exposure", code: "EXPOSURE_NOT_VALIDATED", message: "Replay exige la exposición validada de buildExposure; sin ella no se renderiza (§26.2)." }]);
   }
+  if (backendIndex === null || backendIndex.byIdentity === undefined) {
+    return unexpectedTimeline([{ field: "backendIndex", code: "BACKEND_NOT_VERIFIED", message: "Replay sólo muestra datos del manifest backend verificado; sin él el timeline no se puede atar a un dato factual (§26.5)." }]);
+  }
+  const reconciliation = reconcileOperatorTimeline(timeline.timeline);
+  if (!reconciliation.ok) {
+    return unexpectedTimeline([...reconciliation.errors]);
+  }
   const t = timeline.timeline;
+  if (!Array.isArray(t?.decision?.points) || !Array.isArray(t?.evaluation?.points)
+    || !Array.isArray(t?.executions) || !Array.isArray(t?.interventions)) {
+    return unexpectedTimeline([{ field: "(timeline)", code: "TIMELINE_SHAPE_UNRECOGNIZED", message: "El timeline no declara las lanes del boundary (§26.3)." }]);
+  }
+  const errors = [];
+  const bindPoint = (point, landmark) => {
+    const bound = bindRecord(backendIndex, { recordKey: point.key, revisionId: point.revisionId, value: point.value });
+    if (!bound.ok) {
+      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `el punto no se concilia con el manifest backend verificado: ${bound.reason} (§26.5); un valor no registrado no es factual` });
+    }
+    return point;
+  };
+  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points"));
+  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points"));
+  const bindProvenance = (provenance, landmark) => {
+    if (provenance === undefined || provenance === null) {
+      return;
+    }
+    const resolved = resolveBackendRecord(backendIndex, provenance.recordKey, provenance.revisionId);
+    if (resolved === null) {
+      errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_NOT_IN_BACKEND", message: `la procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest verificado del mismo backend (§26.5)` });
+    } else if (resolved.valueSha256 !== provenance.valueSha256) {
+      errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_MISMATCH", message: `el hash de la procedencia no coincide con el contenido registrado por "${provenance.recordKey}"/"${provenance.revisionId}" (§26.5)` });
+    }
+  };
+  for (const field of exposure.exposure.fields ?? []) {
+    bindProvenance(field.provenance, `exposure.fields.${field.field ?? field.specLabel}`);
+  }
+  for (const [lane, events] of [["executions", t.executions], ["interventions", t.interventions]]) {
+    for (const event of events) {
+      const ref = event?.relatedCanonicalRef;
+      const refIsUsable = ref !== undefined && ref !== null;
+      const resolved = refIsUsable
+        ? resolveBackendRecord(backendIndex, ref.recordKey, ref.revisionId)
+        : null;
+      if (resolved === null) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_IN_BACKEND", message: "el vínculo a la recomendación no resuelve a una versión del decision view del manifest verificado (§26.3/§26.5)" });
+      } else if (refIsUsable && resolved.viewScope !== "decision") {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_DECISION_SCOPE", message: "la actuación se vincula a la recomendación conocida al decidir; la referee no es una versión del decision view (§26.3)" });
+      }
+    }
+  }
+  if (errors.length > 0) {
+    return unexpectedTimeline(errors);
+  }
   const laneClass = (event) => {
     if (event.lane === "intervention") {
       return HUMAN_INTERVENTION_CLASS;

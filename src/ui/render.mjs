@@ -60,7 +60,16 @@ function unavailableHtml(item) {
 
 function boundHtml(item) {
   const value = typeof item.value === "object" ? JSON.stringify(item.value) : String(item.value);
-  return `<li class="data-item data-bound" data-status="BOUND">${item.measure !== undefined && item.measure !== null ? `<span class="measure" data-measure="${esc(item.measure)}">${esc(item.measure)}</span> ` : ""}${item.arm !== undefined && item.arm !== null ? `<span class="arm" data-arm="${esc(item.arm)}">${esc(item.arm)}</span> ` : ""}<span class="item-label">${esc(item.label)}</span> <span class="value" data-value="${esc(value)}">${esc(value)}</span> ${provenanceHtml(item.provenance)}</li>`;
+  return `<li class="data-item data-bound" data-status="BOUND">${item.measure !== undefined && item.measure !== null ? `<span class="measure" data-measure="${esc(item.measure)}">${esc(item.measure)}</span> ` : ""}${item.arm !== undefined && item.arm !== null ? `<span class="arm" data-arm="${esc(item.arm)}">${esc(item.arm)}</span> ` : ""}<span class="item-label">${esc(item.label)}</span> <span class="value" data-value="${esc(value)}">${esc(value)}</span> ${provenanceHtml(item.provenance)}${drilldownHtml(item.drilldowns)}</li>`;
+}
+
+// Handoff de navegación declarado en el view model: sólo apunta a superficies
+// del boundary que aplican sus propios fail-closed; nunca copia datos.
+function drilldownHtml(drilldowns) {
+  if (!Array.isArray(drilldowns) || drilldowns.length === 0) {
+    return "";
+  }
+  return `<span class="drilldowns">${drilldowns.map((drilldown) => `<a class="drilldown" data-drilldown="${esc(drilldown.href.slice(1))}" href="${esc(drilldown.href)}">${esc(drilldown.href.slice(1))}</a>`).join(" ")}</span>`;
 }
 
 function dataItemList(items) {
@@ -127,15 +136,6 @@ function replayHtml(vm) {
 </section>`;
 }
 
-function surfaceListHtml(title, intro, items, kind) {
-  return `
-<section class="surface ${esc(kind)}" data-surface="${esc(kind)}">
-  <h2>${esc(title)}</h2>
-  ${intro ? `<p class="surface-note">${esc(intro)}</p>` : ""}
-  ${items.length > 0 ? dataItemList(items) : emptyStateHtml("sin datos canónicos expuestos por el backend en este scope; no se fabrican")}
-</section>`;
-}
-
 function backtestsHtml(vm) {
   const pending = vm.pendingComparisons ?? [];
   return `
@@ -160,8 +160,16 @@ function researchHtml(vm) {
 </section>`;
 }
 
+function renderErrorState(surface, vm) {
+  const errors = vm?.errors ?? [];
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Energy Markets — error</title><link rel="stylesheet" href="/ui.css"></head><body>${navHtml(surface)}<div class="surface state-error" data-state="ERROR"><p>La superficie no puede renderizarse con datos no validados (fail-closed, §26.5).</p><ul class="error-list">${errors.map((error) => `<li data-code="${esc(error.code)}"><span class="error-code">${esc(error.code)}</span> ${esc(error.message)}</li>`).join("")}</ul></div></body></html>`;
+}
+
 function renderPageStub(surface, bodyFromVm) {
   return (vm) => {
+    if (vm?.ok !== true) {
+      return renderErrorState(surface, vm);
+    }
     const body = bodyFromVm(vm);
     return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Energy Markets — ${esc(SURFACE_TITLES[surface])}</title><link rel="stylesheet" href="/ui.css"></head><body>${navHtml(surface)}${body}</body></html>`;
   };
@@ -171,20 +179,27 @@ const SURFACE_RENDERERS = {
   [SURFACES.REPLAY]: replayHtml,
   [SURFACES.BACKTESTS]: backtestsHtml,
   [SURFACES.RESEARCH]: researchHtml,
-  [SURFACES.CAMPAIGNS]: (vm) => surfaceListHtml(SURFACE_TITLES[SURFACES.CAMPAIGNS], "Campañas y runs canónicas del backend; los drilldowns a Replay/Backtests/Research no se fabrican.", [...vm.campaigns, ...vm.runs], SURFACES.CAMPAIGNS),
+  [SURFACES.CAMPAIGNS]: campaignsHtml,
 };
+
+function campaignsHtml(vm) {
+  const pendingReceipts = vm.pendingRunReceipts ?? [];
+  return `
+<section class="surface campaigns" data-surface="campaigns">
+  <h2>${esc(SURFACE_TITLES[SURFACES.CAMPAIGNS])}</h2>
+  <p class="surface-note">Campañas y runs canónicas del backend; los drilldowns son handoff de navegación a superficies que aplican sus propios fail-closed (§26.5).</p>
+  ${vm.campaigns.length > 0 ? dataItemList(vm.campaigns) : emptyStateHtml("sin campañas canónicas expuestas por el backend en este scope; no se fabrican")}
+  <section class="runs" data-kind="runs"><h3>Runs</h3>${vm.runs.length > 0 ? dataItemList(vm.runs) : emptyStateHtml("sin runs canónicas expuestas por el backend en este scope; no se fabrican")}</section>
+  <section class="pending-receipts" data-kind="pending"><h3>Receipts</h3><ul class="data-list">${pendingReceipts.map(unavailableHtml).join("")}</ul></section>
+</section>`;
+}
 
 export const renderReplayPage = renderPageStub(SURFACES.REPLAY, replayHtml);
 export const renderBacktestsPage = renderPageStub(SURFACES.BACKTESTS, backtestsHtml);
 export const renderResearchPage = renderPageStub(SURFACES.RESEARCH, researchHtml);
 export const renderCampaignsPage = renderPageStub(SURFACES.CAMPAIGNS, SURFACE_RENDERERS[SURFACES.CAMPAIGNS]);
 
-function renderErrorState(surface, vm) {
-  const errors = vm?.errors ?? [];
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Energy Markets — error</title><link rel="stylesheet" href="/ui.css"></head><body>${navHtml(surface)}<div class="surface state-error" data-state="ERROR"><p>La superficie no puede renderizarse con datos no validados (fail-closed, §26.5).</p><ul class="error-list">${errors.map((error) => `<li data-code="${esc(error.code)}"><span class="error-code">${esc(error.code)}</span> ${esc(error.message)}</li>`).join("")}</ul></div></body></html>`;
-}
-
-export function renderSurfacePage(surface, vm) {
+export const renderSurfacePage = (surface, vm) => {
   const renderer = SURFACE_RENDERERS[surface];
   if (renderer === undefined) {
     throw new TypeError(`"${surface}" no es una superficie de UI-01.`);
@@ -194,7 +209,7 @@ export function renderSurfacePage(surface, vm) {
   }
   const body = renderer(vm);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Energy Markets — ${esc(SURFACE_TITLES[surface])}</title><link rel="stylesheet" href="/ui.css"></head><body>${navHtml(surface)}${body}</body></html>`;
-}
+};
 
 export function renderNavigationPage() {
   const links = SURFACES_LIST.map((id) => `<a href="#${esc(id)}" class="nav-card" data-nav="${esc(id)}" data-surface-link="${esc(id)}"><h3>${esc(SURFACE_TITLES[id])}</h3><p>Surface sobre el Operator Interface Boundary (IMP-29); sin datos no se inventan (§26.5)</p></a>`);

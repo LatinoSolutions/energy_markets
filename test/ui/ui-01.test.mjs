@@ -31,13 +31,17 @@ import {
   DECISION_BASE,
   EVALUATION_BENCHMARK,
   RECOMMENDATION_BASE,
+  AUTHORITY_BASE,
+  RECEIPT_BASE,
+  backendRefOf,
   buildManifest,
 } from "../operator-interface/fixtures.mjs";
+import { EXECUTION_CLASS } from "../../src/operator-interface/timeline.mjs";
 
 // ---------- helpers ----------
 
-function scenarios() {
-  const built = buildManifest({ records: [DECISION_BASE, RECOMMENDATION_BASE, EVALUATION_BENCHMARK] });
+function scenarios({ extraRecords = [] } = {}) {
+  const built = buildManifest({ records: [DECISION_BASE, RECOMMENDATION_BASE, EVALUATION_BENCHMARK, ...extraRecords] });
   assert.equal(built.ok, true, JSON.stringify(built.errors ?? "?"));
   const manifest = built.manifest;
   const backendIndex = backendIndexFromManifest(manifest);
@@ -71,6 +75,49 @@ function scenarios() {
   return { manifest, backendIndex, timeline, exposure };
 }
 
+// Referencia de recomendación resoluble por el backend (§26.3): las
+// actuaciones/intervenciones se vinculan a ella en el manifest verificado.
+const RECOMMENDATION_REF = backendRefOf(RECOMMENDATION_BASE);
+
+// Escenario con actuaciones concretas: ejercita la invariante del brief de
+// recommendation / fills HYPOTHETICAL|REAL / intervención humana distintos
+// (§26.3). La autoridad REAL exige sus registros resolvedos en el manifest.
+function scenariosWithActs() {
+  const base = scenarios({ extraRecords: [AUTHORITY_BASE, RECEIPT_BASE] });
+  const executions = [
+    { eventId: "SIM-1", class: EXECUTION_CLASS.SIMULATED, relatedRecommendationRef: RECOMMENDATION_REF, occurredAtUtc: "2026-04-02T08:01:00Z" },
+    { eventId: "HYPO-1", class: EXECUTION_CLASS.HYPOTHETICAL, relatedRecommendationRef: RECOMMENDATION_REF, occurredAtUtc: "2026-04-02T08:02:00Z" },
+    {
+      eventId: "REAL-1",
+      class: EXECUTION_CLASS.REAL,
+      relatedRecommendationRef: RECOMMENDATION_REF,
+      occurredAtUtc: "2026-04-02T08:03:00Z",
+      authorization: {
+        authorityRef: backendRefOf(AUTHORITY_BASE),
+        receipt: { receiptRef: backendRefOf(RECEIPT_BASE), receiptSha256: canonicalValueSha256(RECEIPT_BASE.value).sha256 },
+      },
+    },
+  ];
+  const interventions = [
+    { eventId: "HUM-1", relatedRecommendationRef: RECOMMENDATION_REF, occurredAtUtc: "2026-04-02T08:04:00Z", attribution: "HUMAN" },
+  ];
+  const timeline = buildOperatorTimeline({
+    manifest: base.manifest,
+    decisionBoundaryUtc: "2026-04-01T07:00:00Z",
+    evaluationAsOfUtc: "2026-07-01T07:00:00Z",
+    workingMode: WORKING_MODE.REPLAY,
+    executions,
+    interventions,
+  });
+  assert.equal(timeline.ok, true, JSON.stringify(timeline.errors ?? "?"));
+  return {
+    ...base,
+    timeline,
+    executions,
+    interventions,
+  };
+}
+
 // ---------- navegación ----------
 
 // Brief: cuatro superficies navegables una desde la otra, sobre el boundary.
@@ -85,8 +132,8 @@ test("la página de navegación lista las cuatro superficies", () => {
 // ---------- Replay / Decision Inspector ----------
 
 test("replay: Decision-time y Evaluation son semántica y visualmente distintos", () => {
-  const { timeline, exposure } = scenarios();
-  const vm = buildReplayViewModel({ timeline, exposure });
+  const { timeline, exposure, backendIndex } = scenarios();
+  const vm = buildReplayViewModel({ timeline, exposure, backendIndex });
   assert.equal(vm.ok, true, JSON.stringify(vm.errors ?? "?"));
   const html = renderReplayPage(vm);
   // distinción semántica: scopo canónico en atributo y sección
@@ -101,23 +148,37 @@ test("replay: Decision-time y Evaluation son semántica y visualmente distintos"
   assert.equal(reconcileOperatorTimeline(timeline.timeline).ok, true);
 });
 
-test("replay: recomendación, ejecución hipotética y outcome no se confunden", () => {
-  const { timeline, exposure } = scenarios();
-  const vm = buildReplayViewModel({ timeline, exposure });
-  assert.equal(vm.ok, true);
+test("replay: recomendación, fills SIMULATED/HYPOTHETICAL/REAL e intervención humana no se confunden", () => {
+  const { timeline, exposure, backendIndex, executions, interventions } = scenariosWithActs();
+  const vm = buildReplayViewModel({ timeline, exposure, backendIndex });
+  assert.equal(vm.ok, true, JSON.stringify(vm.errors ?? "?"));
+  assert.equal(vm.executions.length, executions.length);
+  assert.equal(vm.interventions.length, interventions.length);
   const html = renderReplayPage(vm);
-  // la sección de exposición distingue la recomendación (decision view)
-  assert.ok(html.includes('data-kind="exposure"'));
-  // los puntos de evaluation llevan su clase de lane, no la de ejecución
-  const decisionPoints = vm.decision.points;
-  const evaluationPoints = vm.evaluation.points;
-  assert.ok(decisionPoints.every((point) => point.lane === "decision"));
-  assert.ok(evaluationPoints.every((point) => point.lane === "evaluation"));
+  // fill SIMULATED: clase propia, ni hipotético ni real
+  assert.match(html, /data-event-class="SIMULATED"/);
+  // fill HYPOTHETICAL: marcado como tal, separado de lo Real
+  assert.match(html, /data-event-class="HYPOTHETICAL"[^>]*data-hypothetical="true"/);
+  // fill REAL: exige autoridad y receipt del manifest verificado
+  assert.match(html, /data-event-class="REAL"[^>]*data-real="true"/);
+  assert.match(html, new RegExp(`data-authority="${backendRefOf(AUTHORITY_BASE)}"`));
+  assert.match(html, new RegExp(`data-receipt-ref="${backendRefOf(RECEIPT_BASE)}"`));
+  // intervención humana: clase HUMAN_INTERVENTION con atribución HUMAN
+  assert.match(html, /data-event-class="HUMAN_INTERVENTION"/);
+  assert.match(html, /data-attribution="HUMAN"/);
+  // secciones de events separadas: actuación va en ejecución, el humano en
+  // su propia sección (la intervención nunca se lista como fill)
+  const executionSection = html.match(/<section class="events execution-events"[^>]*>([\s\S]*?)<\/section>/)[1];
+  const interventionSection = html.match(/<section class="events intervention-events"[^>]*>([\s\S]*?)<\/section>/)[1];
+  assert.ok(executionSection.includes("REAL-1") && executionSection.includes("SIM-1"));
+  assert.ok(!executionSection.includes("HUM-1"));
+  assert.ok(interventionSection.includes("HUM-1"));
+  assert.ok(!interventionSection.includes("REAL-1"));
 });
 
 test("replay: los puntos conservan reloj y tipo de reloj inspeccionables", () => {
-  const { timeline, exposure } = scenarios();
-  const vm = buildReplayViewModel({ timeline, exposure });
+  const { timeline, exposure, backendIndex } = scenarios();
+  const vm = buildReplayViewModel({ timeline, exposure, backendIndex });
   const html = renderReplayPage(vm);
   assert.ok(html.includes('data-clock="2026-04-01T06:00:00.000Z"'));
   assert.ok(html.includes('data-clock-kind="policy-consumable"'));
@@ -125,8 +186,8 @@ test("replay: los puntos conservan reloj y tipo de reloj inspeccionables", () =>
 });
 
 test("replay: la exposición marca unavailable SIN inventar valor", () => {
-  const { timeline, exposure } = scenarios();
-  const vm = buildReplayViewModel({ timeline, exposure });
+  const { timeline, exposure, backendIndex } = scenarios();
+  const vm = buildReplayViewModel({ timeline, exposure, backendIndex });
   const html = renderReplayPage(vm);
   // la exposición es estructuralmente completa: las secciones no observadas
   // se declaran MISSING con razón visible, nunca con un valor limpio
@@ -145,6 +206,73 @@ test("replay: con timeline/exposure no validados el render es fail-closed", () =
   const html = renderSurfacePage("replay", withNull);
   assert.match(html, /data-state="ERROR"/);
   assert.match(html, /fail-closed/);
+});
+
+// OI79-UI01-01 (review 2026-09-23): la forma `{ok:true}` por sí sola no
+// acredita datos; sin binding contra el manifest backend verificado el
+// render es fail-closed y el valor forjado nunca aparece como factual.
+test("replay: un timeline forjado con forma válida no se rinde como factual", () => {
+  const { exposure } = scenarios();
+  const forged = {
+    ok: true,
+    timeline: {
+      workingMode: "REPLAY",
+      separation: { evaluationScopeKeys: [], decisionScopeKeys: [] },
+      decision: { boundary: "2026-04-01T07:00:00.000Z", points: [{ lane: "decision", key: "FORJADO.en-pantalla", value: 12345.67, revisionId: "v1", clock: "2026-04-01T06:00:00.000Z" }], suppressed: [], unavailable: [] },
+      evaluation: { asOf: "2026-07-01T07:00:00.000Z", points: [], superseded: [], outranked: [], unavailable: [], appliedRevisions: [], pendingRevisions: [] },
+      executions: [],
+      interventions: [],
+    },
+  };
+  const vm = buildReplayViewModel({ timeline: forged, exposure });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "BACKEND_NOT_VERIFIED");
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("12345.67"));
+});
+
+// Sin index verificado no hay dato factual: mismo destino fail-closed aun
+// con la reconciliación estructural en orden (un timeline armado sobre el
+// propio resultado válido con backendIndex ausente no se renderiza).
+test("replay: el timeline validado exige el manifest verificado del mismo backend", () => {
+  const { timeline, exposure, backendIndex } = scenarios();
+  const vm = buildReplayViewModel({ timeline, exposure, backendIndex: null });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "BACKEND_NOT_VERIFIED");
+});
+
+test("replay: un valor de punto que el manifest no registró queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenarios();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.decision.points[0].value = 12345.67;
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "POINT_NOT_IN_BACKEND");
+  assert.match(vm.errors[0].message, /no es factual/);
+});
+
+test("replay: una exposición con procedencia de otro hash queda fail-closed", () => {
+  const { timeline, backendIndex } = scenarios();
+  const provenance = {
+    sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION,
+    recordKey: RECOMMENDATION_BASE.key,
+    revisionId: RECOMMENDATION_BASE.revisionId,
+    valueSha256: "c".repeat(64),
+  };
+  const forgedExposure = {
+    ok: true,
+    exposure: {
+      boundaryUtc: "2026-04-01T07:00:00.000Z",
+      fields: [{ field: "recommendation", specLabel: "Recomendación", section: "§26.2", condition: "AVAILABLE", value: RECOMMENDATION_BASE.value, provenance }],
+      unavailable: [],
+      structurallyComplete: true,
+      hasUnavailableContent: false,
+    },
+  };
+  const vm = buildReplayViewModel({ timeline, exposure: forgedExposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "EXPOSURE_PROVENANCE_MISMATCH");
 });
 
 // ---------- Backtests / Economic Comparison ----------
@@ -281,4 +409,46 @@ test("campaigns: ids duplicados se rechazan y binding fail-closed", () => {
   });
   assert.equal(forged.ok, true);
   assert.equal(forged.campaigns.filter((item) => item.status === "BOUND").length, 0);
+});
+
+// OI79-UI01-03 (review 2026-09-23): el brief §34 pide drill-downs a
+// Replay/Backtests/Research y receipts por run; declararlos no basta: deben
+// renderizarse como handoff visible sobre un run BOUND.
+test("campaigns: un run canónico ofrece drill-downs visibles y sección de receipts", () => {
+  const { backendIndex } = scenarios();
+  const run = {
+    runId: "RUN.G0BQ.202604",
+    recordKey: DECISION_BASE.key,
+    revisionId: DECISION_BASE.revisionId,
+    value: DECISION_BASE.value,
+  };
+  const vm = buildCampaignsViewModel({ backendIndex, campaigns: [], runs: [run] });
+  assert.equal(vm.ok, true);
+  const runItem = vm.runs[0];
+  assert.equal(runItem.status, "BOUND");
+  assert.deepEqual(runItem.drilldowns.map((drilldown) => drilldown.href), ["#replay", "#backtests", "#research"]);
+  const html = renderCampaignsPage(vm);
+  assert.match(html, /data-kind="runs"/);
+  for (const target of vm.drilldownTargets) {
+    assert.match(html, new RegExp(`data-drilldown="${target}"`), target);
+  }
+  // los receipts del run sin productor aceptado quedan declarados, no impresos como valor
+  assert.match(html, /data-kind="pending"/);
+  assert.match(html, /sin receipts de run aceptados/);
+});
+
+// OI79-UI01-04 (review 2026-09-23): todos los renderers de página exportados
+// deben ser fail-closed con un view model ok:false, sin excepción.
+test("los renderers de página rinden estado ERROR en vez de lanzar con vm inválido", () => {
+  const invalid = { ok: false, errors: [{ field: "(vm)", code: "NOT_VALIDATED", message: "view model no validado" }] };
+  for (const renderPage of [renderReplayPage, renderBacktestsPage, renderResearchPage, renderCampaignsPage]) {
+    const html = renderPage(invalid);
+    assert.match(html, /data-state="ERROR"/);
+    assert.match(html, /fail-closed/);
+    assert.match(html, /NOT_VALIDATED/);
+  }
+  const minimal = { ok: false };
+  for (const renderPage of [renderReplayPage, renderBacktestsPage, renderResearchPage, renderCampaignsPage]) {
+    assert.doesNotThrow(() => renderPage(minimal));
+  }
 });
