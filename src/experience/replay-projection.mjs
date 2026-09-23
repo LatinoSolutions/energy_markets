@@ -105,10 +105,15 @@ export function experienceFromReplayOutput({ outputBundle, recordedAtUtc = null,
   for (const decisionRow of decisionRows) {
     const executionRow = executionBySequence.get(decisionRow.sequence) ?? null;
     const coverageRow = coverageBySequence.get(decisionRow.sequence) ?? null;
-    const hasExecution = decisionRow.action === "BUY" && executionRow !== null;
-    const executedAction = hasExecution
-      ? (executionRow.noFill ? "BUY" : "BUY")
-      : (decisionRow.action === "BUY" ? "BUY" : decisionRow.action);
+    // §12.2 separación recomendación/ejecución: executedAction es lo que se
+    // ejecutó de verdad, no la recomendación. Un BUY cuya fila del execution
+    // ledger declara no-fill no produjo actuación (§4.2: una solicitud no
+    // equivale a cobertura): la fila conserva la solicitud (requestedQuantity,
+    // noFill) pero executedAction queda null, sin fabricar precio ni fill.
+    // WAIT no genera request y el replay P6 no le escribe fila de execution:
+    // su execution es null, nunca un objeto "WAIT" fabricado.
+    const hasExecutionRow = decisionRow.action === "BUY" && executionRow !== null;
+    const executedAction = hasExecutionRow && executionRow.noFill !== true ? "BUY" : null;
 
     const built = buildExperienceRecord({
       recordState: "OPEN",
@@ -119,14 +124,14 @@ export function experienceFromReplayOutput({ outputBundle, recordedAtUtc = null,
       uncertainty: null,
       recommendedAction: decisionRow.action,
       noRecommendationReason: decisionRow.action === null ? (decisionRow.reason ?? (decisionRow.statusCodes ?? []).join(",")) : null,
-      execution: hasExecution
+      execution: hasExecutionRow
         ? {
             executedAction: executedAction,
             requestedQuantity: executionRow.requestedQuantity,
             noFill: executionRow.noFill === true,
             fills: fillsFromExecutionRow({ executionRow }),
           }
-        : (decisionRow.action === "WAIT" ? { executedAction: "WAIT", fills: [] } : null),
+        : null,
       humanIntervention: null,
       nextState: nextStateOf({ coverageRow }),
       outcome: null,

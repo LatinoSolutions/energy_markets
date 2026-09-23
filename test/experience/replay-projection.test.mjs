@@ -139,8 +139,11 @@ test("IMP-17 · los fills proyectados del replay son SIMULATED_FILL, no Real (§
   assert.equal(buy.nextState.remainingVolume, 30);
   const wait = projection.records[1];
   assert.equal(wait.recommendedAction, "WAIT");
-  assert.equal(wait.execution.executedAction, "WAIT");
-  assert.equal(wait.execution.fills.length, 0);
+  // §12.2: no se fabrican ejecuciones para completar el esquema. WAIT no genera
+  // request y el replay P6 no le escribe fila de execution: execution es null.
+  assert.equal(wait.execution, null);
+  assert.equal(attributeOutcome(wait).attribution.attributionCode, "NO_EXECUTION");
+  assert.equal(attributeOutcome(wait).attribution.attributedToPolicyVersion, null);
   // La proyección del replay no crea intervención humana: si existiera en la
   // ejecución realizada, no ha sido reproducida por el evaluador.
   assert.equal(buy.humanIntervention, null);
@@ -160,8 +163,67 @@ test("IMP-17 · outcome pending: el replay no computa B/H/V (§14.6) y la proyec
   assert.equal(buyAttribution.attribution.attributionCode, "POLICY_ATTRIBUTED");
 });
 
+// Fixture P6 con un BUY que el evaluador no pudo servir: fila de execution
+// constitutiva con noFill=true, sin precio ni fill (§14.3 paso 5: P5.6
+// convierte el request en eligible fill(s) o no-fill).
+function outputBundleFixtureWithNoFill() {
+  const bundle = outputBundleFixture();
+  bundle.ledgers.decision.push({
+    sequence: 3,
+    decisionTimestamp: "2026-01-07T11:00:00Z",
+    frontier: "2026-01-07",
+    armVersion: "A0-fixture",
+    policyVersion: "policy-v1",
+    action: "BUY",
+    requestedQuantity: 30,
+    reason: null,
+    statusCodes: ["BUY", "OK"],
+    pitReferences: [],
+  });
+  bundle.ledgers.execution.push({
+    sequence: 3,
+    requestId: "request-3",
+    decisionTimestamp: "2026-01-07T11:00:00Z",
+    eligibleExecutionTimestamp: "2026-01-07T11:04:00Z",
+    requestedQuantity: 30,
+    filledQuantity: 0,
+    partialQuantity: 0,
+    noFill: true,
+    executionPrice: null,
+    executionCosts: [],
+    lotRoundingTreatment: "none",
+    executionContractVersion: "v1",
+  });
+  bundle.ledgers.coverage.push(
+    { sequence: 3, asOfDate: "2026-01-07", requestedQuantity: 30, filledQuantity: 0, noFillQuantity: 30, executedVolume: 30, remainingVolume: 30, conservation: { declaration: "Opening = Executed + Remaining (§14.5)" }, unit: "MW" },
+  );
+  return bundle;
+}
+
+test("IMP-17 · BUY con no-fill del replay: solicitud preservada, sin ejecución ni atribución a la policy (§12.2/§12.3)", () => {
+  const projection = experienceFromReplayOutput({ outputBundle: outputBundleFixtureWithNoFill(), recordedAtUtc: "2026-01-07T12:00:05Z" });
+  assert.equal(projection.ok, true, JSON.stringify(projection.failures ?? projection.message ?? ""));
+  assert.equal(projection.records.length, 3);
+  const noFillBuy = projection.records[2];
+  assert.equal(noFillBuy.recommendedAction, "BUY");
+  // La fila del execution ledger conserva la solicitud; lo ejecutado es null
+  // (§12.2 separación recomendación/ejecución; §4.2 una solicitud no equivale
+  // a cobertura). No se fabrica precio ejecutado ni fill.
+  assert.equal(noFillBuy.execution.executedAction, null);
+  assert.equal(noFillBuy.execution.noFill, true);
+  assert.equal(noFillBuy.execution.requestedQuantity, 30);
+  assert.deepEqual(noFillBuy.execution.fills, []);
+  assert.equal(noFillBuy.nextState.source, "P6_COVERAGE_LEDGER");
+  // §12.3: el record no acredita a la policy un acto sin actuación efectiva.
+  const attributed = attributeOutcome(noFillBuy);
+  assert.equal(attributed.ok, true);
+  assert.equal(attributed.attribution.attributionCode, "NO_EXECUTION");
+  assert.equal(attributed.attribution.attributedToPolicyVersion, null);
+});
+
 test("IMP-17 §25.2/nota · los records proyectados del replay no cierran DEP-22 ni generan Real Experience", () => {
   const projection = experienceFromReplayOutput({ outputBundle: outputBundleFixture(), recordedAtUtc: "2026-01-06T12:00:05Z" });
+  assert.equal(projection.ok, true);
   assert.equal(REPLAY_PROJECTION_SCOPE.dep22ClosedByProjection, false);
   assert.equal(REPLAY_PROJECTION_SCOPE.generatesRealExperience, false);
   for (const record of projection.records) {

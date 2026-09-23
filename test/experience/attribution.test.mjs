@@ -78,6 +78,29 @@ test("IMP-17 · registro sin ejecución no inventa atribución de outcome", () =
   assert.equal(attributed.attribution.attributedToPolicyVersion, null);
 });
 
+test("IMP-17 · BUY declarado con noFill: sin actuación efectiva, no se atribuye a la policy (§12.3)", () => {
+  // HALLAZGO_TECNICO IMP17-PROJ-ATTRIB-01: un executedAction "BUY" declarado
+  // junto a noFill:true y fills vacíos NO es una actuación efectiva (§4.2:
+  // una solicitud no equivale a cobertura). Fail-closed.
+  const noFillBuy = buildExperienceRecord(syntheticReplayRecord({
+    execution: { executedAction: "BUY", noFill: true, fills: [] },
+  })).record;
+  const attributed = attributeOutcome(noFillBuy);
+  assert.equal(attributed.ok, true);
+  assert.equal(attributed.attribution.attributionCode, "NO_EXECUTION");
+  assert.equal(attributed.attribution.attributedToPolicyVersion, null);
+});
+
+test("IMP-17 · BUY declarado sin fills y sin noFill: contrato fail-closed NO_EXECUTION", () => {
+  const buyEmptyFills = buildExperienceRecord(syntheticReplayRecord({
+    execution: { executedAction: "BUY", fills: [] },
+  })).record;
+  const attributed = attributeOutcome(buyEmptyFills);
+  assert.equal(attributed.ok, true);
+  assert.equal(attributed.attribution.attributionCode, "NO_EXECUTION");
+  assert.equal(attributed.attribution.attributedToPolicyVersion, null);
+});
+
 test("IMP-17 · intervención incompleta no desaparece ni se registra sin trazabilidad", () => {
   const partial = buildExperienceRecord(syntheticReplayRecord({
     humanIntervention: {

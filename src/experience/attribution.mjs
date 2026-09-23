@@ -51,8 +51,10 @@ export function recommendationVsExecution(record) {
 //    la policy version que generó la recomendación.
 //  - Sin intervención y con divergencia recomendación vs. ejecución: no se
 //    puede atribuir sin maquillaje → UNATTRIBUTED_DIVERGENCE, attributed null.
-//  - Sin ejecución (registro abierto o WAIT puro simulado sin ejecución
-//    efectiva): NO_EXECUTION; no hay outcome que atribuir todavía.
+//  - Sin ejecución (execution:null, executedAction:null, o ejecución sin
+//    actuación efectiva: noFill, o BUY declarado sin ningún fill): NO_EXECUTION;
+//    no hay outcome que atribuir todavía. §12.2: una solicitud no equivale a
+//    cobertura; el registro no acredita a la policy un acto que no ocurrió.
 export function attributeOutcome(record) {
   if (!record || record.artifactKind !== ARTIFACT_KIND) {
     return { ok: false, code: "NO_RECORD", message: "Sólo se atribuye sobre un registro Experience materializado (§12.2)." };
@@ -75,15 +77,25 @@ export function attributeOutcome(record) {
   }
   const recommended = recommendedActionOf(record);
   const executed = executedActionOf(record);
-  if (executed === null) {
+  const execution = record.execution;
+  const filledList = Array.isArray(execution?.fills) ? execution.fills : [];
+  // Fail-closed §12.2/§12.3: un registro puede declarar executedAction "BUY"
+  // sin actuación efectiva (noFill, o BUY sin ningún fill). El outcome no se
+  // atribuye a la policy por esa declaración: sin ejecución efectiva no existe
+  // el acto cuya consecuencia se observó.
+  const declaresBuyWithoutActuation =
+    execution !== null && execution !== undefined
+    && (execution.noFill === true
+      || (executed === "BUY" && filledList.length === 0));
+  if (executed === null || declaresBuyWithoutActuation) {
     return {
       ok: true,
       attribution: {
         attributionCode: "NO_EXECUTION",
         attributedToPolicyVersion: null,
-        explanation: "Sin ejecución ejecutada registrada no hay outcome efectivo que atribuir (§12.2: la pieza existe cuando hay ejecución).",
+        explanation: "Sin ejecución efectiva registrada (execution ausente, no-fill o BUY declarado sin fills) no hay outcome efectivo que atribuir (§12.2: una solicitud no equivale a cobertura).",
         recommendation: { action: recommended, policyVersion: record.policyVersion },
-        executed: { action: null },
+        executed: { action: executed },
       },
     };
   }
