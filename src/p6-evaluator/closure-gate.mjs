@@ -188,11 +188,13 @@ function checkArmParity({ firstOutputBundle, a1OutputBundle, declaration }) {
     });
   }
   const sameLength = treatmentsA.length === treatmentsB.length;
-  const parityBroken = !sameLength
-    || treatmentsA.some((treatment, index) => !isDeepEqualTreatment(treatment, treatmentsB[index]));
+  const divergenceIndex = sameLength
+    ? treatmentsA.findIndex((treatment, index) => !isDeepEqualTreatment(treatment, treatmentsB[index]))
+    : -1;
+  const parityBroken = divergenceIndex !== -1;
   return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", !parityBroken, {
     code: parityBroken ? "TREATMENT_MISMATCH" : "OK",
-    divergenceIndex: parityBroken ? -1 : null,
+    divergenceIndex: parityBroken ? divergenceIndex : null,
   });
 }
 
