@@ -16,7 +16,8 @@
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { compareReproducibility } from "./run-receipts.mjs";
-import { manualComparisonDigest } from "./manual-campaign.mjs";
+import { compareManualVsEvaluator, manualComparisonDigest } from "./manual-campaign.mjs";
+import { validateFixtureSuiteRunEvidence } from "./fixture-suite-evidence.mjs";
 
 // Diez fixtures manuales canónicos de §14.8 (IDs del oracle independiente de
 // IMP-13: operations/audit/IMP-13/fixture-oracle/independent-calculations.md).
@@ -51,45 +52,19 @@ function isFiniteNumber(value) {
 // --- Gate items -------------------------------------------------------------
 
 // GATE-01: los diez fixtures manuales de §14.8 aprobados (§14.10). La
-// evidencia llega del suite IMP-13 ya ejecutado; este item verifica que la
-// evidencia cubra exactamente el set canónico y que ningún fixture quede
-// fallando o sin declarar.
-function checkFixtureSuite(fixtureSuiteEvidence) {
-  if (!Array.isArray(fixtureSuiteEvidence) || fixtureSuiteEvidence.length === 0) {
-    return item("IMP15-GATE-01", "manual fixtures approved", false, {
-      code: "MISSING_FIXTURE_EVIDENCE",
-      message: "Sin evidencia del suite de fixtures manuales §14.8 no hay closure (§14.10 ítem 1).",
-    });
-  }
-  const byId = new Map();
-  for (const declared of fixtureSuiteEvidence) {
-    if (!declared || typeof declared.fixtureId !== "string" || !declared.fixtureId.trim()) {
-      return item("IMP15-GATE-01", "manual fixtures approved", false, {
-        code: "MALFORMED_FIXTURE_EVIDENCE",
-        message: "Cada fila de evidencia debe declarar fixtureId y ok.",
-      });
-    }
-    byId.set(declared.fixtureId, declared);
-  }
-  for (const expected of MANUAL_FIXTURE_IDS) {
-    const declared = byId.get(expected);
-    if (!declared) {
-      return item("IMP15-GATE-01", "manual fixtures approved", false, {
-        code: "MISSING_FIXTURE_ID",
-        message: `El fixture ${expected} (§14.8) no aparece en la evidencia del suite.`,
-      });
-    }
-    if (declared.ok !== true) {
-      return item("IMP15-GATE-01", "manual fixtures approved", false, {
-        code: "FIXTURE_NOT_APPROVED",
-        message: `El fixture ${expected} está declarado pero no aprobado (ok=${String(declared.ok)}).`,
-        evidence: declared.evidence ?? null,
-      });
-    }
+// evidencia es el artefacto de ejecución REAL del suite IMP-13
+// (operations/audit/IMP-15/imp13-fixture-suite-run.json, producido por
+// run-imp13-fixture-suite.mjs): no self-attestación del módulo bajo prueba.
+function checkFixtureSuite(fixtureSuiteRunEvidence) {
+  const validation = validateFixtureSuiteRunEvidence(fixtureSuiteRunEvidence, MANUAL_FIXTURE_IDS);
+  if (!validation.ok) {
+    return item("IMP15-GATE-01", "manual fixtures approved", false, validation);
   }
   return item("IMP15-GATE-01", "manual fixtures approved", true, {
+    code: "OK",
     fixtureIds: [...MANUAL_FIXTURE_IDS],
-    source: fixtureSuiteEvidence[0]?.evidence ?? "independiente del suite IMP-13",
+    suiteLocator: validation.suiteLocator,
+    suiteDigest: validation.digest,
   });
 }
 
@@ -159,41 +134,53 @@ function checkCostsCountedOnce({ runOutcome, bundle }) {
   });
 }
 
-// GATE-04: execution/cost treatment idéntico A0/A1 (§14.10 ítem 4). Con dos
-// brazos se compara versión de execution contract, cost ledger y treatment de
-// lot/rounding fill a fill. Con un solo brazo (A0): IMP-15 no exige S1
-// (§25.2), así que el cierre puede ser de un brazo sólo si lo declara
-// explícitamente como scope — el item queda PASS con pendingA1 declarado y el
-// receipt lo registra; no se presenta como paridad A1 verificada.
-function checkArmParity({ firstOutputBundle, rerunOutputBundle, declaration }) {
-  const bundleToUse = firstOutputBundle ?? rerunOutputBundle;
-  if (!bundleToUse?.receipt) {
+// GATE-04: execution/cost treatment idéntico A0/A1 (§14.10 ítem 4). El item
+// sólo se puede VERIFICAR con los dos brazos reales: compara treatment de
+// lot/rounding y execution contract fill a fill entre A0 (firstOutputBundle)
+// y A1 (a1OutputBundle, cuando exista). Con A0 solo:
+//  - con declaración singleArm explícita: el ítem queda pending
+//    (status NOT_EVALUATED) — no se fabrica paridad con un solo brazo ni
+//    se responde con un string; el gate NO queda completo;
+//  - sin declaración: fallo duro (SINGLE_ARM_PARITY_UNDECLARED) — el cierre
+//    no declara su scope y el gate no fabrica la paridad.
+// Comparar A0 contra su rerun sería comparar el mismo brazo consigo mismo
+// (IMP15-H2), no verificación ninguna.
+function checkArmParity({ firstOutputBundle, a1OutputBundle, declaration }) {
+  if (!firstOutputBundle?.receipt) {
     return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", false, {
       code: "MISSING_RUN",
       message: "Sin run no hay treatment que comparar (§14.10 ítem 4).",
     });
   }
-  // Single-arm closures: la condición "idéntico entre brazos" sólo puede
-  // evaluarse en cuanto hay dos brazos. Un brazo solo no fabrica la paridad:
-  // queda como scope declarado, no como verificación.
-  if (declaration?.singleArm === true) {
-    if (declaration.reasoning?.length > 0) {
-      return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", true, {
-        code: "SINGLE_ARM_SCOPE_DECLARED",
-        message: declaration.reasoning,
-        singleArmScope: true,
-      });
-    }
+  const a1Present = a1OutputBundle?.receipt != null;
+  if (!a1Present && declaration?.singleArm === true) {
+    const reasoning = typeof declaration.reasoning === "string" ? declaration.reasoning.trim() : "";
+    return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", false, {
+      code: "A0_A1_NOT_EVALUATED",
+      status: "NOT_EVALUATED",
+      pending: true,
+      singleArmScope: true,
+      message: `Item de paridad A0/A1 NO evaluado: sólo existe el brazo A0. ${reasoning || "Sin razón declarada."}`,
+    });
   }
-  const fillTreatmentOf = (outcome) => {
-    const treatments = (outcome?.ledgers?.execution ?? []).map((row) => ({
-      lotRoundingTreatment: row.lotRoundingTreatment,
-      executionContractVersion: row.executionContractVersion,
-    }));
-    return treatments;
-  };
+  if (!a1Present) {
+    return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", false, {
+      code: "SINGLE_ARM_PARITY_UNDECLARED",
+      message: "Sólo hay un brazo y el cierre no declara el scope de brazo único: el gate no fabrica la paridad A0/A1 y no la da por verificada (fail-closed, §14.10 ítem 4).",
+    });
+  }
+  if (a1OutputBundle.receipt.armVersion === firstOutputBundle.receipt.armVersion) {
+    return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", false, {
+      code: "A1_NOT_DISTINCT",
+      message: `El segundo brazo declarado usa la misma armVersion que A0 (${firstOutputBundle.receipt.armVersion}); no hay dos brazos distintos que comparar (§14.10 ítem 4).`,
+    });
+  }
+  const fillTreatmentOf = (outcome) => (outcome?.ledgers?.execution ?? []).map((row) => ({
+    lotRoundingTreatment: row.lotRoundingTreatment,
+    executionContractVersion: row.executionContractVersion,
+  }));
   const treatmentsA = fillTreatmentOf(firstOutputBundle);
-  const treatmentsB = fillTreatmentOf(rerunOutputBundle);
+  const treatmentsB = fillTreatmentOf(a1OutputBundle);
   if (treatmentsA.length === 0 || treatmentsB.length === 0) {
     return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", false, {
       code: "MISSING_EXECUTION_ROWS",
@@ -345,16 +332,80 @@ function checkOutputSufficiency(outputBundle) {
   });
 }
 
+// La comparativa manual/evaluator es requisito propio de IMP-15 (§25.1
+// "comparativa manual/evaluator"), así que el gate la exige además de los
+// items verificables del §14.10. GATE-09 no se fía del flag ok de la
+// comparativa declarada: exige que ambas evaluaciones reales estén presentes,
+// recompute la comparativa con ellas y valide que los componentes
+// B/H/V/coverage estén presentes, estén de acuerdo y que la comparativa
+// declarada coincida con la recomputación (digest).
+const REQUIRED_COMPARISON_COMPONENTS = Object.freeze([
+  "H",
+  "B",
+  "V",
+  "coverage.executedVolume",
+  "coverage.remainingVolume",
+  "coverage.status",
+]);
+
+function checkManualComparison({ manualEvaluation, campaignEvaluation, manualComparison }) {
+  if (!manualEvaluation || !campaignEvaluation || !manualComparison || typeof manualComparison !== "object") {
+    return item("IMP15-GATE-09", "manual/evaluator agreement in B/H/V/coverage", false, {
+      code: "MISSING_EVALUATION_INPUTS",
+      message: "GATE-09 exige las dos evaluaciones reales y la comparativa declarada; sin ellas no se revalida el acuerdo (fail-closed).",
+    });
+  }
+  const problems = [];
+  if (manualComparison.ok !== true) {
+    problems.push(`la comparativa declarada no está aprobada (code ${manualComparison.code ?? "sin code"}).`);
+  }
+  if (!Array.isArray(manualComparison.components) || manualComparison.components.length === 0) {
+    problems.push("la comparativa declarada no expone ningún componente verificado.");
+  } else {
+    const disagreeing = manualComparison.components.filter((component) => component?.agree !== true);
+    if (disagreeing.length > 0) {
+      problems.push(`algún componente de la comparativa declarada no está de acuerdo: ${disagreeing.map((component) => component?.component ?? "(sin nombre)")}.`);
+    }
+    const componentNames = new Set(manualComparison.components.map((component) => component?.component));
+    for (const required of REQUIRED_COMPARISON_COMPONENTS) {
+      if (!componentNames.has(required)) {
+        problems.push(`falta el componente requerido ${required} en la comparativa declarada.`);
+      }
+    }
+  }
+  const recomputed = compareManualVsEvaluator({ manualEvaluation, campaignEvaluation });
+  if (recomputed.ok !== true) {
+    problems.push(`la recomputación con las evaluaciones reales no cierra (code ${recomputed.code}).`);
+  }
+  const declaredDigest = manualComparisonDigest(manualComparison);
+  const recomputedDigest = manualComparisonDigest(recomputed);
+  if (declaredDigest !== recomputedDigest) {
+    problems.push("la comparativa declarada no coincide con la recomputación desde las evaluaciones reales (digest distinto).");
+  }
+  return item("IMP15-GATE-09", "manual/evaluator agreement in B/H/V/coverage", problems.length === 0, {
+    code: problems.length === 0 ? "OK" : "MANUAL_EVALUATOR_AGREEMENT_NOT_REPRODUCIBLE",
+    problems,
+    digest: declaredDigest,
+    recomputedDigest,
+  });
+}
+
 // --- Evaluación del gate -----------------------------------------------------
 
-// El gate aplica los ocho items de §14.10 sobre artefactos reales ya
-// materializados (outcome del run, output bundles, comparativa).
+// El gate aplica los ocho items de §14.10 más el item propio IMP-15
+// (comparativa manual/evaluator) sobre artefactos reales ya materializados
+// (outcome del run, output bundles, evaluaciones, evidencia del suite IMP-13).
+// Cada item queda ok / pending / fallido; con items pending el gate deja de
+// estar completo (gateComplete=false) y lo declara en pendingIds.
 export function evaluateP6ClosureGate({
   runOutcome = null,
   rerunOutputBundle = null,
   firstOutputBundle = null,
+  a1OutputBundle = null,
   fixtureSuiteEvidence = null,
   benchmarkEvaluationKeys = null,
+  manualEvaluation = null,
+  campaignEvaluation = null,
   manualComparison = null,
   bundle = null,
   singleArmDeclaration = null,
@@ -367,14 +418,6 @@ export function evaluateP6ClosureGate({
       items: [],
     };
   }
-  if (!manualComparison) {
-    return {
-      ok: false,
-      code: "MISSING_MANUAL_COMPARISON",
-      message: "El gate exige la comparativa manual/evaluator (§25.1/§25.2 IMP-15).",
-      items: [],
-    };
-  }
 
   const items = [
     checkFixtureSuite(fixtureSuiteEvidence),
@@ -382,7 +425,7 @@ export function evaluateP6ClosureGate({
     checkCostsCountedOnce({ runOutcome, bundle }),
     checkArmParity({
       firstOutputBundle,
-      rerunOutputBundle,
+      a1OutputBundle,
       declaration: singleArmDeclaration,
     }),
     checkPitSeparation({ runOutcome, benchmarkEvaluationKeys }),
@@ -391,18 +434,14 @@ export function evaluateP6ClosureGate({
     checkOutputSufficiency(firstOutputBundle ?? rerunOutputBundle),
   ];
 
-  // La comparativa manual/evaluator es requisito propio de IMP-15 (§25.1
-  // "comparativa manual/evaluator"), así que el gate la exige además de los
-  // siete items verificables del §14.10.
-  const comparisonItem = item("IMP15-GATE-09", "manual/evaluator agreement in B/H/V/coverage", manualComparison?.ok === true, {
-    code: manualComparison?.code ?? "MISSING",
-    digest: manualComparisonDigest(manualComparison),
-  });
-  items.push(comparisonItem);
+  items.push(checkManualComparison({ manualEvaluation, campaignEvaluation, manualComparison }));
 
-  const failed = items.filter((gateItem) => gateItem.ok !== true);
+  const failed = items.filter((gateItem) => gateItem.ok !== true && gateItem.pending !== true);
+  const pending = items.filter((gateItem) => gateItem.pending === true);
   return {
     ok: failed.length === 0,
+    gateComplete: pending.length === 0,
+    pendingIds: pending.map((gateItem) => gateItem.id),
     gateId: "P6_CLOSURE_GATE",
     specAuthority: "SPEC v1.1.1 §14.10 (closure gate A0+A1) + §25.1/§25.2 (IMP-15)",
     items,
@@ -432,16 +471,20 @@ export function materializeP6ClosureReceipt({
   if (!gate?.ok) {
     return { ok: false, code: "CLOSURE_GATE_NOT_PASSED", failedIds: gate?.failedIds ?? [], message: "El closure receipt se materializa sólo con el gate aprobado (§14.10). Ningún item fallido se esconde." };
   }
-  if (!manualComparison?.ok || !outputBundle?.receipt || !bundle?.contentHash) {
-    return { ok: false, code: "MISSING_CLOSURE_INPUTS", message: "El closure receipt exige comparativa aprobada, output bundle y frozen bundle (§14.10/§25.2)." };
+  if (!outputBundle?.receipt || !bundle?.contentHash) {
+    return { ok: false, code: "MISSING_CLOSURE_INPUTS", message: "El closure receipt exige output bundle y frozen bundle (§14.10/§25.2)." };
   }
-  for (const declared of fixtureSuiteEvidence ?? []) {
-    if (declared?.ok !== true) {
-      return { ok: false, code: "FIXTURE_EVIDENCE_NOT_APPROVED", message: `El fixture ${declared?.fixtureId} está declarado pero no está aprobado.` };
-    }
+  const comparisonValidated = validateManualComparisonReceiptInput(manualComparison);
+  if (!comparisonValidated.ok) {
+    return comparisonValidated;
+  }
+  const fixtureValidation = validateFixtureSuiteRunEvidence(fixtureSuiteEvidence, MANUAL_FIXTURE_IDS);
+  if (!fixtureValidation.ok) {
+    return { ok: false, code: fixtureValidation.code, message: fixtureValidation.message, failedFixtureIds: fixtureValidation.failedFixtureIds ?? [] };
   }
 
   const singleArm = gate.singleArmScope === true;
+  const gateComplete = gate.gateComplete === true;
   const receipt = {
     receiptKind: "P6_CLOSURE_RECEIPT",
     closureId: null,
@@ -453,9 +496,23 @@ export function materializeP6ClosureReceipt({
       evaluatorVersion: outputBundle.receipt.evaluatorVersion,
       frozenBundleContentHash: outputBundle.receipt.frozenBundleContentHash,
       alignsWithGateSpec: gate.specAuthority,
+      // §14.10: la declaración "implementation-ready por gate superado" queda
+      // atada al gate COMPLETO; con items pending el receipt lo declara.
+      gateComplete,
+      pendingGateItemIds: gateComplete ? [] : (gate.pendingIds ?? []),
     },
     gateId: gate.gateId,
-    gateResult: { ok: gate.ok, items: gate.items, failedIds: gate.failedIds },
+    gateResult: {
+      ok: gate.ok,
+      complete: gateComplete,
+      items: gate.items,
+      failedIds: gate.failedIds,
+      pendingIds: gate.pendingIds ?? [],
+    },
+    fixtureSuiteRunEvidence: {
+      suiteLocator: fixtureValidation.suiteLocator,
+      suiteDigest: fixtureValidation.digest,
+    },
     manualEvaluatorComparison: {
       code: manualComparison.code,
       components: manualComparison.components,
@@ -470,15 +527,17 @@ export function materializeP6ClosureReceipt({
     singleArmScope: singleArm
       ? {
           declared: true,
-          note: "El cierre es de brazo único (A0) porque el brazo A1/S1 aún no existe (IMP-11 pendiente): la paridad de treatment A0/A1 se re-evaluará cuando exista. No se fabrica paridad con un solo brazo.",
+          note: "El cierre es de brazo único (A0) porque el brazo A1/S1 aún no existe (IMP-11 pendiente): el ítem de paridad treatment A0/A1 del gate §14.10 queda NOT_EVALUATED (pendiente), no verificado ni fabricado. Se re-evaluará cuando exista un brazo A1 distinto.",
         }
       : {
           declared: false,
-          note: "Paridad de treatment A0/A1 verificada fill a fill.",
+          note: "Paridad de treatment A0/A1 verificada fill a fill entre brazos distintos.",
         },
     scopeDeclaration: {
-      means: "closure gate P6 superado: el instrumento P6 queda implementation-ready (§14.10).",
-      doesNotMean: "research PASS no demostrado; edge de S1 no demostrado; datos reales de campañas/no fees auditados fuera de scope; el receipt no acredita aceptación del IMP.",
+      means: gateComplete
+        ? "closure gate P6 completo superado: el instrumento P6 queda implementation-ready (§14.10)."
+        : "instrumento P6 con todos los items evaluables del closure gate aprobados; el gate §14.10 COMPLETO queda pendiente de los items declarados en pendingGateItemIds, por lo que NO se declara implementation-ready por gate superado.",
+      doesNotMean: "research PASS no demostrado; edge de S1 no demostrado; paridad A0/A1 no verificada en cierres de brazo único; datos reales de campañas/no fees auditados fuera de scope; el receipt no acredita aceptación del IMP.",
       provenanceNote: closureScopeNote ?? "Todos los datos del run subyacente son sintéticos; el flujo probado es el instrumento, no el mercado.",
     },
   };
@@ -486,4 +545,22 @@ export function materializeP6ClosureReceipt({
   closureIdSeed.closureId = null;
   receipt.closureId = contentHashOf(closureIdSeed);
   return { ok: true, receipt: Object.freeze(receipt), closureId: receipt.closureId };
+}
+
+// La receipt exige una comparativa real con componentes completos y su digest;
+// una etiqueta {ok:true} sin contenido no entra (§25.1/§25.2 IMP-15).
+function validateManualComparisonReceiptInput(manualComparison) {
+  if (!manualComparison || typeof manualComparison !== "object") {
+    return { ok: false, code: "MISSING_CLOSURE_INPUTS", message: "El closure receipt exige la comparativa manual/evaluator (§25.2)." };
+  }
+  if (manualComparison.ok !== true) {
+    return { ok: false, code: "MANUAL_EVALUATOR_COMPARISON_NOT_APPROVED", message: `La comparativa manual/evaluator no está aprobada (code ${manualComparison.code ?? "sin code"}).` };
+  }
+  if (manualComparison.code !== "MANUAL_EVALUATOR_AGREEMENT"
+    || !Array.isArray(manualComparison.components)
+    || manualComparison.components.length === 0
+    || !manualComparison.components.every((component) => component?.agree === true)) {
+    return { ok: false, code: "MANUAL_EVALUATOR_COMPARISON_INVALID", message: "La comparativa declarada no prueba el acuerdo B/H/V/coverage." };
+  }
+  return { ok: true };
 }

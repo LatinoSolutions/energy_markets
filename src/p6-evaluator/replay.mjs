@@ -109,11 +109,31 @@ function attemptExecution({ bundle, opportunity }) {
 // §14.4 + §13.6 regla 2: cada coste económico entra exactamente una vez por
 // fill. KNOWN del cost ledger P5.6 entra; UNKNOWN queda excluido expreso,
 // nunca como cero (§13.6 regla 4).
+//
+// Representación embedded-vs-ledger (§13.6 regla 1 + §14.6): el slippage
+// virtual de P5.6 ya va DENTRO de executionPrice (el fill sale de
+// deriveSimulatedFillPrice = best ask + slippage y validateCausalFill lo
+// exige), así que un coste KNOWN de kind VIRTUAL_SLIPPAGE cuyo amount coincide
+// con el slippage del execution contract se marca embedded=true: el evaluator
+// lo cuenta vía precio y no lo re-cuenta como coste additive (exactly once,
+// §5.5). Un VIRTUAL_SLIPPAGE cuyo amount NO coincide con ese slippage deja la
+// fila sin representación posible (no se elige entre doble conteo y omisión):
+// es un motivo de invalididad y el run queda INVALID_RUN. Los fees van como
+// filas additivas, fuera del executionPrice.
 function knownCostsForFill({ bundle, sequence }) {
   const known = [];
   const excluded = [];
+  const reconciliationProblems = [];
+  const slippageParameter = executionParameterOf(bundle.executionContract, "slippage");
   for (const entry of bundle.costLedger.entries ?? []) {
     if (entry.status === "KNOWN") {
+      const embedded = entry.kind === "VIRTUAL_SLIPPAGE"
+        && slippageParameter !== null
+        && isFiniteNumber(slippageParameter.value)
+        && entry.amount === slippageParameter.value;
+      if (entry.kind === "VIRTUAL_SLIPPAGE" && !embedded) {
+        reconciliationProblems.push(`coste ${entry.costId} (VIRTUAL_SLIPPAGE, amount ${entry.amount}) no coincide con el slippage del execution contract embedded en executionPrice (${slippageParameter?.value ?? null}); la representación embedded-vs-ledger no reconcilia (§13.6/§14.6).`);
+      }
       known.push({
         costId: entry.costId,
         kind: entry.kind,
@@ -121,12 +141,13 @@ function knownCostsForFill({ bundle, sequence }) {
         unit: entry.unit,
         appliedTo: `request-${sequence}`,
         countedOnce: true,
+        embedded,
       });
     } else {
       excluded.push({ costId: entry.costId, kind: entry.kind, status: entry.status, reason: entry.reason ?? null });
     }
   }
-  return { known, excluded };
+  return { known, excluded, reconciliationProblems };
 }
 
 function sizingVersionOf(bundle) {
@@ -323,7 +344,10 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
       // §14.4: no se eliminan residuos de partial fills. executionCosts
       // contados una vez; los UNKNOWN quedan fuera de la contabilidad con
       // razón documentada; nunca un valor cero inventado.
-      const { known, excluded } = knownCostsForFill({ bundle, sequence });
+      const { known, excluded, reconciliationProblems } = knownCostsForFill({ bundle, sequence });
+      if (reconciliationProblems.length > 0) {
+        invalidityReasons.push(...reconciliationProblems);
+      }
       executionLedger.appendRow({
         sequence,
         requestId: `request-${sequence}`,

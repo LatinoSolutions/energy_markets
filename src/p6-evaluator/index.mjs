@@ -35,3 +35,9 @@ export {
   materializeP6ClosureReceipt,
   MANUAL_FIXTURE_IDS,
 } from "./closure-gate.mjs";
+// Evidencia de ejecución real del suite de fixtures §14.8 (IMP-13→IMP-15).
+export {
+  FIXTURE_SUITE_RUN_EVIDENCE_KIND,
+  imp13FixtureSuiteDigest,
+  validateFixtureSuiteRunEvidence,
+} from "./fixture-suite-evidence.mjs";

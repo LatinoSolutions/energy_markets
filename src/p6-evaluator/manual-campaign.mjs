@@ -132,10 +132,11 @@ export function evaluateCampaignManually({ manualFills, benchmarkCloses, opening
 // --- Evaluación B/H/V/coverage derivada del run -----------------------------
 
 // §14.6 + §14.10: la evaluación de la campaña se deriva de los ledgers reales
-// del run (H desde el execution ledger y sus costes KNOWN; B del benchmark
-// consumido únicamente para evaluación; coverage del terminal ledger). Es la
-// evaluación del evaluator; su coincidencia con la vía manual se prueba en el
-// comparador de abajo.
+// del run (H desde el execution ledger: notional con costes embedded via
+// executionPrice + costes additive del ledger, cada uno una vez; B del
+// benchmark consumido únicamente para evaluación; coverage del terminal
+// ledger). Es la evaluación del evaluator; su coincidencia con la vía manual
+// se prueba en el comparador de abajo.
 export function evaluateCampaignFromRun({ replayOutcome, benchmarkRows, product = null, windowStart = null, windowEnd = null, expectedBenchmarkDates = null } = {}) {
   if (!replayOutcome || typeof replayOutcome !== "object" || replayOutcome.ok !== true || !replayOutcome.replay) {
     return { ok: false, code: "MISSING_REPLAY_OUTCOME", message: "La evaluación de campaña se deriva del outcome real de runP6Replay (§14.1)." };
@@ -151,6 +152,8 @@ export function evaluateCampaignFromRun({ replayOutcome, benchmarkRows, product 
   let executedVolume = 0;
   let notional = 0;
   const costsByKindEur = {};
+  const embeddedCostsByKindEur = {};
+  const costLedgerProblems = [];
   for (const row of executionRows) {
     if (row.noFill === true || !isFiniteNumber(row.executionPrice) || !isFiniteNumber(row.filledQuantity) || row.filledQuantity <= 0) {
       continue;
@@ -158,10 +161,29 @@ export function evaluateCampaignFromRun({ replayOutcome, benchmarkRows, product 
     executedVolume += row.filledQuantity;
     notional += row.filledQuantity * row.executionPrice;
     for (const cost of row.executionCosts ?? []) {
-      if (cost.status === "KNOWN" && cost.countedOnce === true && isFiniteNumber(cost.amount) && cost.unit === H_UNIT) {
-        costsByKindEur[cost.costId] = (costsByKindEur[cost.costId] ?? 0) + cost.amount * row.filledQuantity;
+      // Cada fila producida por runP6Replay debe declarar countedOnce y el
+      // marcador embedded (§14.4); una fila sin esa forma no puede contarse
+      // sin adivinar (fail-closed).
+      if (cost.countedOnce !== true || typeof cost.embedded !== "boolean"
+        || !isFiniteNumber(cost.amount) || cost.unit !== H_UNIT || !isNonEmptyString(cost.costId)) {
+        costLedgerProblems.push(`${row.requestId}: fila de coste ${cost?.costId ?? "(sin costId)"} sin la forma reconciliada (countedOnce, embedded, amount, unit, costId).`);
+        continue;
       }
+      if (cost.embedded === true) {
+        // Ya va dentro de executionPrice (§13.6 regla 1): se registra, NO se re-suma.
+        embeddedCostsByKindEur[cost.costId] = (embeddedCostsByKindEur[cost.costId] ?? 0) + cost.amount * row.filledQuantity;
+        continue;
+      }
+      costsByKindEur[cost.costId] = (costsByKindEur[cost.costId] ?? 0) + cost.amount * row.filledQuantity;
     }
+  }
+  if (costLedgerProblems.length > 0) {
+    return {
+      ok: false,
+      code: "EXECUTION_COST_ROWS_NOT_RECONCILED",
+      message: "Las filas de executionCosts del run no reconcilian en una representación unívoca embedded/additive; sin ella H no puede derivarse (§13.6/§14.6). No se corrige al vuelo.",
+      problems: costLedgerProblems,
+    };
   }
 
   const openingObligation = replay.terminalCoverage.openingObligation;
@@ -169,9 +191,11 @@ export function evaluateCampaignFromRun({ replayOutcome, benchmarkRows, product 
 
   let H = null;
   if (executedVolume > 0 && Number.isFinite(notional)) {
-    H = notional / executedVolume; // precio bruto medio
+    // notional ya contiene los costes embedded (slippage virtual, §13.6 regla
+    // 1); sólo los costes additive del ledger se añaden encima, una vez cada
+    // uno (§5.5/§14.6: cada coste entra exactamente una vez).
     const costsEurTotal = Object.values(costsByKindEur).reduce((sum, value) => sum + value, 0);
-    H = (H * executedVolume + costsEurTotal) / executedVolume;
+    H = (notional + costsEurTotal) / executedVolume;
   }
 
   const benchmark = benchmarkBFromRows({
@@ -198,6 +222,7 @@ export function evaluateCampaignFromRun({ replayOutcome, benchmarkRows, product 
     V: V.V,
     vDefined: V.defined,
     costsByKindEur,
+    embeddedCostsByKindEur,
     coverage: {
       openingObligation,
       executedVolume,

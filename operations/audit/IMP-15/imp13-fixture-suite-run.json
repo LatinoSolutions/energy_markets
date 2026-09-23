@@ -1,0 +1,89 @@
+{
+  "artifactKind": "IMP13_FIXTURE_SUITE_RUN_EVIDENCE",
+  "suiteLocator": "test/imp13/manual-fixtures.test.mjs (node --test, rama de trabajo IMP-15)",
+  "command": "node --test test/imp13/manual-fixtures.test.mjs",
+  "commandArgv": [
+    "/home/op/.hermes/node/bin/node",
+    "--test",
+    "test/imp13/manual-fixtures.test.mjs"
+  ],
+  "suiteStatus": "PASS",
+  "suiteExitCode": 0,
+  "generatedAtUtc": "2026-09-23T23:37:01.292Z",
+  "nodeVersion": "v22.23.2",
+  "fixtures": [
+    {
+      "fixtureId": "FX-P6-01-CONSTANT-PRICE",
+      "ok": true,
+      "testNames": [
+        "F1 constant price: igual cantidad bajo costes idénticos da igual gross-price result (§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-02-ASCENDING-PRICE",
+      "ok": true,
+      "testNames": [
+        "F2 ascending price: comprar antes/después se refleja sin future knowledge (§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-03-DESCENDING-PRICE",
+      "ok": true,
+      "testNames": [
+        "F3 descending price: WAIT/comprar antes se refleja sin hindsight (§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-04-WAIT-EVERY",
+      "ok": true,
+      "testNames": [
+        "F4a WAIT every decision: remaining persiste y sin terminal act → COVERAGE_INCOMPLETE (§14.8)",
+        "F4b WAIT every decision con enmienda documentada: RESIDUAL_CANCELLED sin fill fabricado (§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-05-OVERLAPPING",
+      "ok": true,
+      "testNames": [
+        "F5 overlapping obligations: un fill compartido no se cuenta dos veces (§4.3/§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-06-MISSING",
+      "ok": true,
+      "testNames": [
+        "F6a missing price: no se inventa precio ejecutable ni feature (§14.7/§14.8)",
+        "F6b missing critical input sin fallback frozen: DATA_BLOCKED sin fill inventado (§14.7/§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-07-REVISED",
+      "ok": true,
+      "testNames": [
+        "F7 revised data: el decision state sigue histórico y la evaluación se versiona aparte (§14.6/§14.7/§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-08-LOT-COSTS",
+      "ok": true,
+      "testNames": [
+        "F8 lot/rounding/costs: volumen y cada coste reconcilian exactamente una vez (§14.4/§14.5/§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-09-BENCHMARK-SUBSTITUTION",
+      "ok": true,
+      "testNames": [
+        "F9 sustitución oficial-sobre-proxy: B se recalcula/versiona; execution ledger/H no se reescriben (§14.6/§14.8)"
+      ]
+    },
+    {
+      "fixtureId": "FX-P6-10-NEUTRAL-UNDEFINED",
+      "ok": true,
+      "testNames": [
+        "F10 neutral/undefined: V=0, sin downside, n<2 y ratios indefinidos sin epsilon ni PASS (§5.5/§5.6/§5.7/§14.8)"
+      ]
+    }
+  ],
+  "suiteDigest": "901200bdce8b2dc5b197d8f8085b1693f6691a88b457eb1a3c8f63e7e9f901da"
+}

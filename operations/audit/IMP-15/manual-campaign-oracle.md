@@ -67,7 +67,30 @@ Coincidencia manual/evaluator en:
 - H = 41.265 EUR/MWh · B = 45.07 EUR/MWh · V = 3.805 EUR/MWh
 
 El reviewer debe recalcular a mano; un solo script no es independiente (mismo criterio que
-IMP-13). Nota de alcance: el brazo A1 no existe aún (IMP-11 pendiente): el cierre del
-instrumento se declara de brazo único (A0) mediante `singleArmScope`; cuando exista A1,
-la paridad de treatment A0/A1 (§14.10 ítem 4) se re-evaluará; no se fabrica paridad
-con un solo brazo (§25.2 IMP-15 no exige S1 OOS).
+IMP-13). Nota de alcance: el brazo A1 no existe aún (IMP-11 pendiente): el ítem de paridad
+de treatment A0/A1 del gate §14.10 queda **NOT_EVALUATED** (pendiente, `pendingIds`);
+el gate no queda completo (`gateComplete=false`) y el receipt NO declara
+"implementation-ready por gate superado". Cuando exista un brazo A1 distinto, la paridad
+(§14.10 ítem 4) se verificará fill a fill; no se fabrica paridad con un solo brazo
+(§25.2 IMP-15 no exige S1 OOS).
+
+## Evidencia del suite IMP-13 (GATE-01, §14.10 ítem 1)
+
+La aprobación de los diez fixtures §14.8 NO se auto-atestúa en el test IMP-15:
+`operations/audit/IMP-15/run-imp13-fixture-suite.mjs` ejecuta de verdad
+`node --test test/imp13/manual-fixtures.test.mjs` (reporter TAP) y materializa
+`operations/audit/IMP-15/imp13-fixture-suite-run.json` con el resultado por fixture
+canónico (Prefijo de nombre de test → fixture ID) y un `suiteDigest` de contenido.
+Si el artefacto se edita a mano o un test cambia de nombre sin actualizar el manifiest,
+el digest/coverage deja de cuadrar y GATE-01 rechaza la evidencia (fail-closed).
+
+## Cost-ledger del fixture IMP15-H1 (reconciliación embedded-vs-ledger)
+
+En la campaña de cierre, el único coste KNOWN (`cost.slippage.virtual`, 0.15 EUR/MWh) ya va
+**embebido** en `executionPrice` (§13.6 regla 1); el replay lo marca `embedded=true` y el
+evaluator lo contabiliza vía precio, exactamente una vez (no re-suma). El test IMP15-H1
+añade un exchange fee KNOWN **no embebido** (0.25 EUR/MWh, fixture sintético): H se mueve
+a 41.265 + 0.25 = **41.515 EUR/MWh** en ambas vías (manual y run) y quedan de acuerdo;
+si la captura omite ese coste, la comparativa falla (la paridad B/H/V no se fabrica por
+coincidencia). Un VIRTUAL_SLIPPAGE cuyo amount no coincide con el slippage del execution
+contract deja el run INVALID_RUN (sin representación unívoca, fail-closed).
