@@ -43,4 +43,4 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-26 | pausado | IMP-01, IMP-25 | Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas. | Pausado 23-sep: Paperclip quedó retirado; la Oficina propia (/srv/hot-data/oficina) cumple su función. Queda para que Bru decida si se reescribe en la SPEC. |
 | IMP-27 | aceptado | IMP-01 | Materializar el Strategy Admission framework y validaciones acotadas de candidatos futuros. | Receipt 2026-09-19, solo framework. |
 | IMP-28 | aceptado | IMP-01 | Materializar evaluación por rol de componentes externos. | Receipt 2026-09-19, solo framework. |
-| IMP-29 | pendiente | IMP-01, IMP-06 | Materializar Operator Interface Boundary y exposición backend que soporte Human Visual Observability. | |
+| IMP-29 | aceptado | IMP-01, IMP-06 | Materializar Operator Interface Boundary y exposición backend que soporte Human Visual Observability. |  |
