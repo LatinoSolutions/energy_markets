@@ -62,12 +62,12 @@ export function computeRemainingVolume({ openingObligation, executedVolume, open
 }
 
 // §4.3/§14.5: reconcilia apertura = ejecutado + restante y clasifica cobertura.
-// Un close-out fill sólo puede existir con terminal rule válida declarada.
-// El cierre de un residual positivo exige evidencia real: la regla marcada
-// VERIFIED sólo autoriza; hay que demostrar que se aplicó (fill de cierre que
-// cubre exactamente el residual) o que el residual se ejecutó/canceló mediante
-// una enmienda con autoridad y locator (§14.5). Sin esa evidencia el residual
-// permanece COVERAGE_INCOMPLETE.
+// §14.5: "Coverage cambia por filled quantity". Un close-out fill es un fill:
+// cubre sólo si ya está contado en executedVolume, y entonces el restante es
+// cero. Un residual positivo nunca es COVERED. El único cierre de un residual
+// positivo es una enmienda real que declara la cantidad cancelada con
+// autoridad y locator (§4.3 "salvo enmiendas/cancelaciones explícitamente
+// documentadas"; §14.5 "ajuste documentado correspondiente").
 export function reconcileCoverage({ openingObligation, executedVolume, remainingVolume, unit, terminalRuleStatus, closeOutFill, residualAmendment } = {}) {
   const errors = [];
   const magnitudes = { openingObligation, executedVolume, remainingVolume };
@@ -82,64 +82,75 @@ export function reconcileCoverage({ openingObligation, executedVolume, remaining
     return { ok: false, coverageStatus: "NOT_COMPUTABLE", errors: [{ code: "NEGATIVE_MAGNITUDE", message: "Las magnitudes de cobertura no pueden ser negativas; el volumen no desaparece (§4.3)." }] };
   }
 
+  // §4.3: sin la identidad de conservación el restante publicado no es el
+  // real; no se clasifica cobertura sobre magnitudes que no reconcilian.
   if (openingObligation !== executedVolume + remainingVolume) {
-    errors.push({ code: "CONSERVATION_VIOLATION", message: `OpeningObligation ${openingObligation} != ExecutedVolume ${executedVolume} + RemainingVolume ${remainingVolume}.` });
+    return { ok: false, coverageStatus: "NOT_COMPUTABLE", errors: [{ code: "CONSERVATION_VIOLATION", message: `OpeningObligation ${openingObligation} != ExecutedVolume ${executedVolume} + RemainingVolume ${remainingVolume}.` }] };
   }
 
   const terminalRuleValid = terminalRuleStatus === "VERIFIED";
-  if (!isMissing(closeOutFill) && !terminalRuleValid) {
+  const closeOutDeclared = !isMissing(closeOutFill);
+  if (closeOutDeclared && !terminalRuleValid) {
     errors.push({ code: "CLOSEOUT_WITH_UNKNOWN_TERMINAL_RULE", message: "No se fabrica un fill de cierre sin terminal rule válida (§4.3/§14.5)." });
   }
 
-  const positiveResidual = remainingVolume > 0;
-  // §14.5: la enmienda cancela una cantidad concreta con unidad compatible;
-  // no cierra el residual en blanco (§4.3: faltantes y conveniencia nunca
-  // eliminan volumen restante). El ajuste "correspondiente" es el que declara
-  // cuánto cancela; sin cantidad declarada no hay enmienda material.
-  const amendmentUnit = residualAmendment?.unit;
-  const amendmentDocumented = isNonEmptyString(residualAmendment?.authority)
-    && isNonEmptyString(residualAmendment?.locator)
-    && isFiniteNumber(residualAmendment?.cancelledVolume)
-    && residualAmendment.cancelledVolume >= 0
-    && isNonEmptyString(amendmentUnit)
-    && amendmentUnit === unit;
-  const amendmentCoversResidual = amendmentDocumented && residualAmendment.cancelledVolume === remainingVolume;
-
-  // Un close-out fill declara la unidad que ejecuta; sin ella no se sabe qué
-  // magnitud cubre y aceptarlo sería inferir unidad (§4.1: MW y MWh son
-  // magnitudes distintas). La misma regla que computeRemainingVolume aplica.
-  const closeOutCoversResidual = isFiniteNumber(closeOutFill?.quantity) && closeOutFill.quantity === remainingVolume
-    && isNonEmptyString(closeOutFill.unit) && closeOutFill.unit === unit;
-
-  // §4.3: el volumen no desaparece. Un mismo residual no se ejecuta y se
-  // cancela a la vez: doble cierre con doble fuente no es evidencia.
-  const doubleResidualClose = closeOutCoversResidual && amendmentDocumented;
-
-  let coverageStatus;
-  if (!positiveResidual) {
-    coverageStatus = "COVERED";
-  } else if (terminalRuleValid && doubleResidualClose) {
-    coverageStatus = "COVERAGE_INCOMPLETE";
+  // Un close-out fill declara la unidad que ejecuta y debe caber en el volumen
+  // ejecutado que lo contiene; sin eso no está contado en el ledger (§14.5) y
+  // aceptar su unidad ausente sería inferirla (§4.1).
+  const closeOutInExecutedVolume = closeOutDeclared
+    && isFiniteNumber(closeOutFill.quantity)
+    && closeOutFill.quantity >= 0
+    && closeOutFill.quantity <= executedVolume
+    && isNonEmptyString(closeOutFill.unit)
+    && closeOutFill.unit === unit;
+  if (closeOutDeclared && !closeOutInExecutedVolume) {
     errors.push({
-      code: "DOUBLE_RESIDUAL_CLOSE",
-      message: "El residual no se ejecuta y se cancela a la vez; un único cierre por residual (§4.3).",
+      code: "CLOSEOUT_NOT_IN_EXECUTED_VOLUME",
+      message: "El close-out fill debe declarar su unidad y estar contado en executedVolume; coverage sólo cambia por filled quantity registrada (§14.5).",
     });
-  } else if (terminalRuleValid && closeOutCoversResidual) {
-    coverageStatus = "COVERED";
-  } else if (terminalRuleValid && amendmentCoversResidual) {
-    // La enmienda no es cobertura ejecutada: se informa separadamente (§4.3).
-    coverageStatus = "RESIDUAL_CANCELLED";
-  } else {
-    coverageStatus = "COVERAGE_INCOMPLETE";
-    if (terminalRuleValid) {
-      errors.push({
-        code: "RESIDUAL_CLOSE_NOT_EVIDENCED",
-        message: "El residual positivo con terminal rule VERIFIED exige evidencia de cierre: un fill con unidad que cubra exactamente el restante o una enmienda que declare la cantidad cancelada con autoridad y locator (§4.3/§14.5).",
-      });
-    }
   }
 
-  return { ok: errors.length === 0, coverageStatus, errors };
+  // Un close-out fill inválido o fuera del ledger no es cobertura real aunque
+  // la aritmética deje el restante en cero.
+  const closeOutInvalid = closeOutDeclared && (!terminalRuleValid || !closeOutInExecutedVolume);
+  const positiveResidual = remainingVolume > 0;
+  if (!positiveResidual) {
+    const coverageStatus = closeOutInvalid ? "COVERAGE_INCOMPLETE" : "COVERED";
+    return { ok: errors.length === 0, coverageStatus, errors };
+  }
+
+  if (closeOutDeclared) {
+    // Un fill de cierre con residual aún positivo no está en executedVolume o
+    // no cubrió el residual: en ambos casos el residual sigue abierto.
+    errors.push({
+      code: "CLOSEOUT_WITH_POSITIVE_RESIDUAL",
+      message: `Queda remainingVolume ${remainingVolume} ${unit} tras declarar el close-out fill; un residual positivo no es COVERED (§4.3/§14.5).`,
+    });
+    return { ok: false, coverageStatus: "COVERAGE_INCOMPLETE", errors };
+  }
+
+  // §14.5: la enmienda cancela una cantidad concreta con unidad compatible;
+  // no cierra el residual en blanco (§4.3: faltantes y conveniencia nunca
+  // eliminan volumen restante).
+  const amendmentCoversResidual = isNonEmptyString(residualAmendment?.authority)
+    && isNonEmptyString(residualAmendment?.locator)
+    && isFiniteNumber(residualAmendment?.cancelledVolume)
+    && residualAmendment.cancelledVolume === remainingVolume
+    && isNonEmptyString(residualAmendment?.unit)
+    && residualAmendment.unit === unit;
+
+  if (terminalRuleValid && amendmentCoversResidual) {
+    // La enmienda no es cobertura ejecutada: se informa separadamente (§4.3).
+    return { ok: errors.length === 0, coverageStatus: "RESIDUAL_CANCELLED", errors };
+  }
+
+  if (terminalRuleValid) {
+    errors.push({
+      code: "RESIDUAL_CLOSE_NOT_EVIDENCED",
+      message: "El residual positivo con terminal rule VERIFIED exige evidencia de cierre: una enmienda que declare exactamente la cantidad cancelada, con unidad, autoridad y locator (§4.3/§14.5).",
+    });
+  }
+  return { ok: errors.length === 0, coverageStatus: "COVERAGE_INCOMPLETE", errors };
 }
 
 // §24 DEP-02: la relación Monthly/Quarterly debe declararse explícitamente con

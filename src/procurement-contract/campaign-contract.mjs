@@ -5,9 +5,12 @@
 // incorporar los datos confirmados por el owner y dejar todo lo demás como
 // faltante explícito; nunca inventar producto, delivery, calendario ni unidad.
 
+import { isDeepStrictEqual } from "node:util";
+
 import { STATE_NAMESPACES } from "../contracts/states.mjs";
 import {
   COVERAGE_OWNERSHIP_MAP_STATES,
+  computeRemainingVolume,
   validateOwnershipAssignments,
   validateRelationDeclaration,
 } from "./coverage-ownership.mjs";
@@ -67,14 +70,20 @@ const IDENTITY_FACT_IDS = CAMPAIGN_CONTRACT_FACTS
   .map((fact) => fact.factId);
 
 // §4.1: "MW y MWh son magnitudes distintas. Horas y perfil de entrega deben
-// justificar cualquier conversión." Sin horas y perfil no hay conversión.
-export function convertMwToMwh({ quantityMw, deliveryHours, deliveryProfile } = {}) {
-  if (typeof quantityMw !== "number" || !Number.isFinite(quantityMw)) {
-    return { ok: false, code: "MISSING_QUANTITY", mwh: null, reason: "La cantidad en MW no es un número finito." };
+// justificar cualquier conversión" y "no se convierten a MWh sin evidencia
+// aplicable". Horas y perfil llegan juntos en un perfil con evidencia
+// (autoridad + locator), no como parámetros sueltos. La SPEC no enumera
+// perfiles: sólo se acepta la forma FLAT porque es la única en que
+// MW × horas es la energía entregada. FLAT es aritmética, no una taxonomía de
+// mercado de la SPEC; un perfil con forma exige su curva horaria, que este
+// contrato no modela.
+export const MW_TO_MWH_CONVERTIBLE_SHAPES = ["FLAT"];
+
+export function convertMwToMwh({ quantityMw, deliveryProfile } = {}) {
+  if (typeof quantityMw !== "number" || !Number.isFinite(quantityMw) || quantityMw < 0) {
+    return { ok: false, code: "MISSING_QUANTITY", mwh: null, reason: "La cantidad en MW no es un número finito no negativo." };
   }
-  const hasHours = typeof deliveryHours === "number" && Number.isFinite(deliveryHours) && deliveryHours > 0;
-  const hasProfile = typeof deliveryProfile === "string" && deliveryProfile.trim().length > 0;
-  if (!hasHours || !hasProfile) {
+  if (isMissingValue(deliveryProfile)) {
     return {
       ok: false,
       code: "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE",
@@ -82,7 +91,33 @@ export function convertMwToMwh({ quantityMw, deliveryHours, deliveryProfile } = 
       reason: "MW no se convierte a MWh sin horas y perfil de entrega justificados (§4.1).",
     };
   }
-  return { ok: true, code: null, mwh: quantityMw * deliveryHours, reason: null };
+  const profileIsObject = typeof deliveryProfile === "object" && !Array.isArray(deliveryProfile);
+  if (!profileIsObject || !hasProvenance(deliveryProfile)) {
+    return {
+      ok: false,
+      code: "DELIVERY_PROFILE_NOT_JUSTIFIED",
+      mwh: null,
+      reason: "El perfil de entrega debe venir con evidencia (autoridad y locator); un texto libre no justifica la conversión (§4.1).",
+    };
+  }
+  const hours = deliveryProfile.hours;
+  if (typeof hours !== "number" || !Number.isFinite(hours) || hours <= 0) {
+    return {
+      ok: false,
+      code: "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE",
+      mwh: null,
+      reason: "El perfil de entrega justificado no declara sus horas de entrega (§4.1).",
+    };
+  }
+  if (!MW_TO_MWH_CONVERTIBLE_SHAPES.includes(deliveryProfile.shape)) {
+    return {
+      ok: false,
+      code: "DELIVERY_PROFILE_NOT_CONVERTIBLE",
+      mwh: null,
+      reason: `Perfil "${deliveryProfile.shape}": sólo un perfil FLAT permite MW × horas; otro perfil exige su curva horaria (§4.1).`,
+    };
+  }
+  return { ok: true, code: null, mwh: quantityMw * hours, reason: null };
 }
 
 function isNonEmptyString(value) {
@@ -190,6 +225,183 @@ function validateCoverageOwnership(coverageOwnership, errors) {
   errors.push(...validateRelationDeclaration(declared.relationMonthlyQuarterly).map((error) => ({ factId: "coverageOwnership.relationMonthlyQuarterly", ...error })));
 }
 
+// Una fact cuenta como disponible para derivar sólo si trae provenance; sin
+// ella validateAvailableFact ya la rechaza y aquí no sostiene nada.
+function availableFact(factsById, factId) {
+  const fact = factsById.get(factId);
+  return fact?.availability === "AVAILABLE_NOW" && hasProvenance(fact) ? fact : null;
+}
+
+const QUANTITY_FACT_IDS = CAMPAIGN_CONTRACT_FACTS
+  .filter((fact) => fact.kind === "quantity")
+  .map((fact) => fact.factId);
+
+const CAMPAIGN_SCOPED_FACT_IDS = [
+  "campaign.obligation.campaignLink",
+  "campaign.calendar.deadline",
+  "campaign.coverage.executedVolume",
+  "campaign.coverage.remainingVolume",
+  "campaign.coverage.fillToObligationAssignment",
+];
+
+// Cada fact puede ser válida sola y la ficha contradecirse entre campos. Estas
+// comprobaciones impiden dos verdades dentro de la misma ficha.
+function validateCrossFieldCoherence(ficha, factsById, errors) {
+  // §4.1: la unidad de la obligación es una sola; toda cantidad publicada va en
+  // esa unidad. MW y MWh no se mezclan ni se convierten aquí.
+  const obligationUnit = availableFact(factsById, "campaign.obligation.unit");
+  for (const factId of QUANTITY_FACT_IDS) {
+    const quantity = availableFact(factsById, factId);
+    if (!quantity) {
+      continue;
+    }
+    if (!obligationUnit) {
+      errors.push({ factId, code: "OBLIGATION_UNIT_MISSING", message: `"${factId}" publica una cantidad pero campaign.obligation.unit no está AVAILABLE_NOW; la unidad no se infiere (§4.1).` });
+      continue;
+    }
+    if (quantity.unit !== obligationUnit.value) {
+      errors.push({ factId, code: "UNIT_INCOHERENT", message: `"${factId}" está en ${quantity.unit} y campaign.obligation.unit es ${obligationUnit.value}; MW y MWh son magnitudes distintas (§4.1).` });
+    }
+  }
+
+  // §4.1 tabla (Confirmación de Bru, 2026-09-22): el total conocido de la
+  // ficha no contradice la cantidad confirmada para su producto/Mission.
+  const total = availableFact(factsById, "campaign.obligation.totalVolumeKnown");
+  const confirmed = confirmedQuantityFor(ficha.product, ficha.mission);
+  if (total && confirmed && (total.value !== confirmed.quantity || total.unit !== confirmed.unit)) {
+    errors.push({ factId: "campaign.obligation.totalVolumeKnown", code: "CONFIRMED_QUANTITY_MISMATCH", message: `El total ${total.value} ${total.unit} contradice la cantidad confirmada ${confirmed.quantity} ${confirmed.unit} para ${ficha.product} ${ficha.mission} (§4.1).` });
+  }
+
+  // La identidad publicada coincide con el producto/Mission que la ficha dice
+  // reconstruir.
+  const identityChecks = [
+    ["campaign.identity.productFamily", ficha.product],
+    ["campaign.identity.mission", ficha.mission],
+  ];
+  for (const [factId, expected] of identityChecks) {
+    const identity = availableFact(factsById, factId);
+    if (identity && identity.value !== expected) {
+      errors.push({ factId, code: "IDENTITY_INCOHERENT", message: `"${factId}" = ${identity.value} contradice la ficha (${expected}).` });
+    }
+  }
+
+  // §4.3: Opening Obligation = Executed Volume + Remaining Volume. Un restante
+  // publicado debe derivarse de apertura y ejecutado, no afirmarse solo.
+  const remaining = availableFact(factsById, "campaign.coverage.remainingVolume");
+  if (remaining) {
+    const executed = availableFact(factsById, "campaign.coverage.executedVolume");
+    const derived = computeRemainingVolume({
+      openingObligation: total?.value,
+      executedVolume: executed?.value,
+      openingUnit: total?.unit,
+      executedUnit: executed?.unit,
+    });
+    if (!derived.computed) {
+      errors.push({ factId: "campaign.coverage.remainingVolume", code: "REMAINING_NOT_DERIVABLE", message: `El restante publicado no se deriva de apertura y ejecutado: ${derived.reason}` });
+    } else if (derived.remainingVolume !== remaining.value || derived.unit !== remaining.unit) {
+      errors.push({ factId: "campaign.coverage.remainingVolume", code: "CONSERVATION_VIOLATION", message: `Restante publicado ${remaining.value} ${remaining.unit} != apertura − ejecutado = ${derived.remainingVolume} ${derived.unit} (§4.3).` });
+    }
+  }
+
+  // §4.1 "Alcance": sin campaña identificada no hay a qué campaña atribuir
+  // volumen ejecutado/restante, deadline ni asignaciones.
+  const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => availableFact(factsById, factId));
+  if (!campaignIdentified) {
+    for (const factId of CAMPAIGN_SCOPED_FACT_IDS) {
+      if (availableFact(factsById, factId)) {
+        errors.push({ factId, code: "CAMPAIGN_NOT_IDENTIFIED", message: `"${factId}" se publica sin campaña identificada; no se atribuye a una campaña que la ficha no identifica (§4.1).` });
+      }
+    }
+  }
+
+  // DEP-02: la fact de asignación y el bloque coverageOwnership describen el
+  // mismo mapa; no pueden tener estados distintos.
+  const assignmentAvailable = Boolean(availableFact(factsById, "campaign.coverage.fillToObligationAssignment"));
+  const mapMaterialized = ficha.coverageOwnership?.mapState === "MATERIALIZED";
+  if (assignmentAvailable !== mapMaterialized) {
+    errors.push({ factId: "campaign.coverage.fillToObligationAssignment", code: "OWNERSHIP_STATE_INCOHERENT", message: "La fact de asignación fill→obligación y coverageOwnership.mapState no coinciden (DEP-02)." });
+  }
+}
+
+// §25.1 IMP-02, acceptance test: "Se determina remaining volume/deadline sin
+// inferir unidades; una cobertura no pertenece dos veces a obligaciones."
+// El estado de cada parte se deriva de las facts; la ficha no puede afirmarlo
+// por su cuenta. Lo no determinable queda nombrado con lo que lo bloquea.
+export const IMP02_ACCEPTANCE_TEST = "Se determina remaining volume/deadline sin inferir unidades; una cobertura no pertenece dos veces a obligaciones.";
+
+function unavailableFactIds(factsById, factIds) {
+  return factIds.filter((factId) => !availableFact(factsById, factId));
+}
+
+export function evaluateImp02Acceptance(ficha) {
+  const factsById = new Map((Array.isArray(ficha?.facts) ? ficha.facts : []).map((fact) => [fact?.factId, fact]));
+
+  const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => availableFact(factsById, factId));
+
+  const remainingInputs = ["campaign.obligation.totalVolumeKnown", "campaign.obligation.unit", "campaign.coverage.executedVolume", "campaign.coverage.remainingVolume"];
+  const identityBlockedBy = campaignIdentified ? [] : ["campaign.identity"];
+  const remainingBlockedBy = [...identityBlockedBy, ...unavailableFactIds(factsById, remainingInputs)];
+  const remainingFact = availableFact(factsById, "campaign.coverage.remainingVolume");
+  const remainingDetermined = campaignIdentified && remainingBlockedBy.length === 0;
+  const remainingVolume = remainingDetermined
+    ? { determined: true, value: remainingFact.value, unit: remainingFact.unit, blockedBy: [], reason: null }
+    : {
+      determined: false,
+      value: null,
+      unit: null,
+      blockedBy: remainingBlockedBy,
+      reason: "No determinable: Remaining = Opening − Executed (§4.3) exige el volumen ejecutado de una campaña identificada; AUDIT_INPUTS §5 lo registra como no encontrado en el alcance inspeccionado.",
+    };
+
+  const deadlineOutcome = resolveObligationDeadline(ficha);
+  const deadline = campaignIdentified && deadlineOutcome.determined
+    ? { determined: true, value: deadlineOutcome.deadline, blockedBy: [], reason: null }
+    : {
+      determined: false,
+      value: null,
+      blockedBy: [...identityBlockedBy, ...(deadlineOutcome.determined ? [] : ["campaign.calendar.deadline"])],
+      reason: "No determinable: AUDIT_INPUTS §5 registra el deadline como no encontrado en el alcance inspeccionado; no se infiere (§4.1/§4.2).",
+    };
+
+  const relationAvailable = ficha?.coverageOwnership?.relationMonthlyQuarterly?.availability === "AVAILABLE_NOW";
+  const mapMaterialized = ficha?.coverageOwnership?.mapState === "MATERIALIZED";
+  const ownershipBlockedBy = [
+    ...identityBlockedBy,
+    ...(mapMaterialized ? [] : ["coverageOwnership.mapState"]),
+    ...(relationAvailable ? [] : ["coverageOwnership.relationMonthlyQuarterly"]),
+  ];
+  const coverageOwnership = campaignIdentified && ownershipBlockedBy.length === 0
+    ? { determined: true, blockedBy: [], reason: null }
+    : {
+      determined: false,
+      blockedBy: ownershipBlockedBy,
+      reason: "No determinable: sin fills asignados ni relación Monthly/Quarterly auditada no se puede comprobar el no doble conteo (§4.3/DEP-02); AUDIT_INPUTS §5 registra ambos como no encontrados.",
+    };
+
+  const criterionMet = campaignIdentified && remainingVolume.determined && deadline.determined && coverageOwnership.determined;
+  return {
+    acceptanceTest: IMP02_ACCEPTANCE_TEST,
+    source: "SPEC v1.1.1 §25.1 IMP-02",
+    campaignIdentified,
+    remainingVolume,
+    deadline,
+    coverageOwnership,
+    criterionMet,
+  };
+}
+
+// La ficha declara el estado del criterio y debe coincidir con el derivado de
+// sus facts: así una ficha no puede afirmar que determinó lo que no determinó.
+function validateAcceptanceDeclaration(ficha, errors) {
+  if (!ficha.acceptanceCriterion || typeof ficha.acceptanceCriterion !== "object") {
+    errors.push({ factId: "acceptanceCriterion", code: "ACCEPTANCE_CRITERION_MISSING", message: "La ficha debe declarar explícitamente el estado del criterio de aceptación de IMP-02 (§25.1)." });
+    return;
+  }
+  if (!isDeepStrictEqual(ficha.acceptanceCriterion, evaluateImp02Acceptance(ficha))) {
+    errors.push({ factId: "acceptanceCriterion", code: "ACCEPTANCE_CRITERION_INCOHERENT", message: "El criterio de aceptación declarado no coincide con lo que las facts permiten determinar." });
+  }
+}
+
 // Valida una ficha de campaña completa. Preserva la razón de cada faltante en
 // lugar de poblarla; rechaza defaults inventados, unidades asumidas y
 // confluencias prohibidas.
@@ -244,8 +456,10 @@ export function validateCampaignContract(ficha) {
 
   validateGuards(ficha.guards, errors);
   validateCoverageOwnership(ficha.coverageOwnership, errors);
+  validateCrossFieldCoherence(ficha, seen, errors);
+  validateAcceptanceDeclaration(ficha, errors);
 
-  const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => seen.get(factId)?.availability === "AVAILABLE_NOW");
+  const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => availableFact(seen, factId));
   return { ok: errors.length === 0, campaignIdentified, errors };
 }
 
@@ -260,7 +474,7 @@ function resolveFactAvailability(fact) {
 // §4.1/§4.2: la ficha no fija el deadline salvo que el calendario lo aporte.
 export function resolveObligationDeadline(ficha) {
   const deadline = (ficha?.facts ?? []).find((fact) => fact.factId === "campaign.calendar.deadline");
-  if (deadline?.availability === "AVAILABLE_NOW" && isNonEmptyString(deadline.value)) {
+  if (deadline?.availability === "AVAILABLE_NOW" && isNonEmptyString(deadline.value) && hasProvenance(deadline)) {
     return { determined: true, deadline: deadline.value, reason: null };
   }
   return { determined: false, deadline: null, reason: "El calendario de campaña no aporta un deadline real; no se infiere." };
@@ -286,7 +500,7 @@ function missingFact(factId, reason, nextRetrievalAction) {
 export function createGasQuarterlyFicha() {
   const confirmed = confirmedQuantityFor("Gas", "Quarterly");
   const facts = [
-    missingFact("campaign.identity.campaignId", "No existe un Campaign ID real en el material auditado (§4.1 declara la identidad AUDIT-DEPENDENT).", "Obtener el registro de campaña firmado que contenga el Campaign ID."),
+    missingFact("campaign.identity.campaignId", "No se encontró un Campaign ID real en el alcance inspeccionado (AUDIT_INPUTS §5); su existencia no se afirma ni se niega. §4.1 declara la identidad AUDIT-DEPENDENT.", "Obtener el registro de campaña firmado que contenga el Campaign ID."),
     missingFact("campaign.identity.productContract", "El producto/contrato exacto no está confirmado; la residencia del cliente no identifica el producto de Gas (§4.1).", "Solicitar el contrato/producto exacto al responsable del mandato."),
     // §4.1 línea 280: la fila Identidad (incluidos Power/Gas y
     // Monthly/Quarterly) es AUDIT-DEPENDENT; conocer la cantidad no confirma
@@ -296,7 +510,7 @@ export function createGasQuarterlyFicha() {
     // población P5.
     missingFact(
       "campaign.identity.productFamily",
-      "La identidad de campaña es AUDIT-DEPENDENT (§4.1): ninguna campaña real confirma Power/Gas; Gas Quarterly es sólo la población canónica del primer experimento. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING con la misma razón: no se infiere del objetivo de población P5 (§4.1 línea 280).",
+      "La identidad de campaña es AUDIT-DEPENDENT (§4.1): no se encontró en el alcance inspeccionado (AUDIT_INPUTS §5) una campaña real que confirme Power/Gas; Gas Quarterly es sólo la población canónica del primer experimento. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING con la misma razón: no se infiere del objetivo de población P5 (§4.1 línea 280).",
       "Confirmar la familia de producto de la campaña real desde el mandato firmado; no inferirla de la población objetivo P5.",
     ),
     missingFact(
@@ -334,18 +548,18 @@ export function createGasQuarterlyFicha() {
     missingFact("campaign.obligation.amendments", "No hay enmiendas/cancelaciones reales verificadas; su ausencia no se afirma como 'ninguna' (§4.3).", "Recuperar enmiendas/cancelaciones versionadas."),
     missingFact("campaign.calendar.openClose", "Faltan apertura/cierre de campaña (§4.1).", "Recuperar el calendario de procurement real."),
     missingFact("campaign.calendar.decisionOpportunities", "No hay oportunidades de decisión válidas auditadas (§13.4).", "Instanciar oportunidades desde el Procurement Contract auditado."),
-    missingFact("campaign.calendar.deadline", "No hay deadline real; no se infiere (§4.1/§4.2).", "Recuperar el deadline contractual."),
+    missingFact("campaign.calendar.deadline", "No se encontró el deadline en el alcance inspeccionado (AUDIT_INPUTS §5); no se infiere (§4.1/§4.2).", "Recuperar el deadline contractual."),
     missingFact("campaign.calendar.pauseExclusion", "Falta la estructura de pausa/mes excluido (§13.4).", "Recuperar pausa/exclusión documentada."),
     missingFact("campaign.feasibility.lots", "Faltan lotes reales; no se asumen (§4.1/§5.6).", "Auditar lotes y redondeos reales."),
     missingFact("campaign.feasibility.rounding", "Falta el redondeo real; no se asume (§4.1/§5.6).", "Auditar redondeo real."),
-    missingFact("campaign.feasibility.terminalCoverageRule", "No existe terminal rule válida; sin ella el residual da COVERAGE_INCOMPLETE y no se fabrica fill de cierre (§4.3).", "Recuperar la terminal rule versionada del contrato."),
+    missingFact("campaign.feasibility.terminalCoverageRule", "No se ha verificado una terminal rule: AUDIT_INPUTS §5 la registra como no encontrada en el alcance inspeccionado; su existencia no se afirma ni se niega (§14.5: auditar la regla real sigue pendiente). Mientras no esté verificada, un residual al deadline queda COVERAGE_INCOMPLETE y no se fabrica fill de cierre (§4.3/§14.5).", "Recuperar la terminal rule versionada del contrato."),
     missingFact("campaign.execution.contract", "Falta el contrato de ejecución (fills, latencia, fees, slippage) real (§4.1/§5.6).", "Auditar el execution contract aplicable."),
-    missingFact("campaign.coverage.executedVolume", "No hay execution ledger real para la campaña (§4.3).", "Producir el ledger de ejecución cuando existan fills."),
+    missingFact("campaign.coverage.executedVolume", "No se encontró un execution ledger de la campaña en el alcance inspeccionado (AUDIT_INPUTS §5: historial de coberturas/compras y volumen ejecutado); no se afirma que no exista (§4.3).", "Producir el ledger de ejecución cuando existan fills."),
     missingFact("campaign.coverage.remainingVolume", "El volumen restante no es computable sin obligación de apertura y volumen ejecutado (§4.3).", "Derivar el restante sólo tras materializar apertura y ejecutado."),
-    missingFact("campaign.coverage.fillToObligationAssignment", "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).", "Asignar cada fill/cobertura a lo sumo a una obligación."),
+    missingFact("campaign.coverage.fillToObligationAssignment", "No se encontraron fills de la campaña ni su asignación a obligaciones en el alcance inspeccionado (AUDIT_INPUTS §5); la cantidad confirmada de 60 MW no está vinculada a una campaña. No se afirma que no existan (§4.3/DEP-02).", "Asignar cada fill/cobertura a lo sumo a una obligación."),
   ];
 
-  return {
+  const ficha = {
     artifactKind: "IMP-02_GAS_QUARTERLY_CAMPAIGN_FICHA",
     schemaVersion: "1.1",
     spec: {
@@ -367,11 +581,15 @@ export function createGasQuarterlyFicha() {
     // faltante documentado; la taxonomía vive en coverage-ownership.mjs.
     coverageOwnership: {
       mapState: "UNAVAILABLE",
-      reason: "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
+      reason: "No se encontraron fills de la campaña ni su asignación a obligaciones en el alcance inspeccionado (AUDIT_INPUTS §5); la cantidad confirmada de 60 MW no está vinculada a una campaña. No se afirma que no existan (§4.3/DEP-02).",
       relationMonthlyQuarterly: {
         availability: "UNAVAILABLE",
         reason: "No se sabe si las obligaciones Monthly y Quarterly son adicionales, solapadas o alternativas según mandato (DEP-02; D08 p.4; D15 p.2).",
       },
     },
   };
+  // §25.1 IMP-02: la ficha declara qué parte del acceptance test puede
+  // determinar con sus facts y qué no, sin afirmar lo no determinado.
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  return ficha;
 }

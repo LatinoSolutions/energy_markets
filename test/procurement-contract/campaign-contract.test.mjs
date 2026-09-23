@@ -10,6 +10,7 @@ import {
   confirmedQuantityFor,
   convertMwToMwh,
   createGasQuarterlyFicha,
+  evaluateImp02Acceptance,
   resolveObligationDeadline,
   validateCampaignContract,
 } from "../../src/procurement-contract/index.mjs";
@@ -156,14 +157,45 @@ test("los guards prohibidos se rechazan", () => {
   }
 });
 
+const SYNTHETIC_SOURCE = { authority: "Bru (owner)", locator: "fixture sintético" };
+const FLAT_PROFILE = { shape: "FLAT", hours: 24, source: SYNTHETIC_SOURCE };
+
 test("MW no se convierte a MWh sin horas y perfil de entrega", () => {
   assert.equal(convertMwToMwh({ quantityMw: 60 }).code, "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE");
-  assert.equal(convertMwToMwh({ quantityMw: 60, deliveryHours: 24 }).code, "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE");
-  assert.equal(convertMwToMwh({ quantityMw: 60, deliveryProfile: "baseload" }).code, "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE");
-  assert.equal(convertMwToMwh({ quantityMw: 60, deliveryHours: 0, deliveryProfile: "baseload" }).code, "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE");
-  const ok = convertMwToMwh({ quantityMw: 60, deliveryHours: 24, deliveryProfile: "baseload" });
+  assert.equal(convertMwToMwh({ quantityMw: 60, deliveryProfile: { shape: "FLAT", source: SYNTHETIC_SOURCE } }).code, "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE");
+  assert.equal(convertMwToMwh({ quantityMw: 60, deliveryProfile: { ...FLAT_PROFILE, hours: 0 } }).code, "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE");
+  const ok = convertMwToMwh({ quantityMw: 60, deliveryProfile: FLAT_PROFILE });
   assert.equal(ok.ok, true);
   assert.equal(ok.mwh, 1440);
+});
+
+test("un perfil de entrega en texto libre no justifica la conversión (\"unknown\" no da 1440 MWh)", () => {
+  // Regresión del review: "unknown" convertía 60 MW a 1440 MWh (§4.1).
+  for (const deliveryProfile of ["unknown", "baseload", { shape: "FLAT", hours: 24 }, { shape: "FLAT", hours: 24, source: { authority: "x" } }]) {
+    const outcome = convertMwToMwh({ quantityMw: 60, deliveryProfile });
+    assert.equal(outcome.ok, false, JSON.stringify(deliveryProfile));
+    assert.equal(outcome.mwh, null);
+    assert.equal(outcome.code, "DELIVERY_PROFILE_NOT_JUSTIFIED", JSON.stringify(deliveryProfile));
+  }
+});
+
+test("las horas salen del perfil justificado, no de un parámetro suelto", () => {
+  // §4.1: horas Y perfil justifican la conversión; unas horas sueltas no
+  // sustituyen a las del perfil con evidencia.
+  const outcome = convertMwToMwh({ quantityMw: 60, deliveryHours: 144, deliveryProfile: FLAT_PROFILE });
+  assert.equal(outcome.mwh, 1440);
+});
+
+test("un perfil con forma distinta de FLAT no se convierte por MW × horas", () => {
+  for (const shape of ["PEAK", "SHAPED", "flat", undefined]) {
+    const outcome = convertMwToMwh({ quantityMw: 60, deliveryProfile: { ...FLAT_PROFILE, shape } });
+    assert.equal(outcome.ok, false, String(shape));
+    assert.equal(outcome.code, "DELIVERY_PROFILE_NOT_CONVERTIBLE", String(shape));
+  }
+});
+
+test("una cantidad negativa no se convierte", () => {
+  assert.equal(convertMwToMwh({ quantityMw: -60, deliveryProfile: FLAT_PROFILE }).code, "MISSING_QUANTITY");
 });
 
 test("el deadline no se infiere cuando el calendario no lo aporta", () => {
@@ -244,6 +276,20 @@ test("una ficha con mapa MATERIALIZED válido pasa", () => {
   ];
   ficha.coverageOwnership.authority = "Bru (owner)";
   ficha.coverageOwnership.locator = "mandato firmado p.1";
+  // Fixture sintético: asignaciones sólo se atribuyen a una campaña
+  // identificada (§4.1); la fact de asignación describe el mismo mapa.
+  makeAvailable(ficha, "campaign.identity.campaignId", "SYNTH-1");
+  makeAvailable(ficha, "campaign.identity.productContract", "SYNTH-CONTRACT");
+  makeAvailable(ficha, "campaign.identity.productFamily", "Gas");
+  makeAvailable(ficha, "campaign.identity.mission", "Quarterly");
+  makeAvailable(ficha, "campaign.identity.hubMarket", "SYNTH-HUB");
+  Object.assign(fact(ficha, "campaign.coverage.fillToObligationAssignment"), {
+    availability: "AVAILABLE_NOW",
+    value: "FILL-1, FILL-2 → OBL-QUARTERLY",
+    source: { authority: "Bru (owner)", locator: "mandato firmado p.1" },
+    reason: null,
+  });
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
   const outcome = validateCampaignContract(ficha);
   assert.equal(outcome.ok, true);
   assert.deepEqual(outcome.errors, []);
@@ -283,4 +329,181 @@ test("la ficha materializada en v1_1_1 se valida y coincide con el builder", () 
   assert.equal(outcome.ok, true);
   assert.equal(outcome.campaignIdentified, false);
   assert.deepEqual(artifact, createGasQuarterlyFicha());
+});
+
+function makeAvailable(ficha, factId, value, unit = null) {
+  Object.assign(fact(ficha, factId), {
+    availability: "AVAILABLE_NOW",
+    value,
+    unit,
+    source: { authority: "Bru (owner)", locator: "fixture sintético" },
+    reason: null,
+  });
+}
+
+function codesOf(ficha) {
+  return validateCampaignContract(ficha).errors.map((error) => error.code);
+}
+
+test("totalVolumeKnown en MW con obligation.unit MWh se rechaza por incoherencia de unidad", () => {
+  // Regresión del review: validaba ok:true con unidades distintas (§4.1).
+  const ficha = createGasQuarterlyFicha();
+  fact(ficha, "campaign.obligation.unit").value = "MWh";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "UNIT_INCOHERENT" && error.factId === "campaign.obligation.totalVolumeKnown"));
+});
+
+test("una cantidad publicada sin obligation.unit disponible se rechaza (sin inferir unidad)", () => {
+  const ficha = createGasQuarterlyFicha();
+  Object.assign(fact(ficha, "campaign.obligation.unit"), { availability: "UNAVAILABLE", value: null, source: null, reason: "fixture" });
+  assert.ok(codesOf(ficha).includes("OBLIGATION_UNIT_MISSING"));
+});
+
+test("un total distinto de la cantidad confirmada por Bru para Gas Quarterly se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  fact(ficha, "campaign.obligation.totalVolumeKnown").value = 10;
+  assert.ok(codesOf(ficha).includes("CONFIRMED_QUANTITY_MISMATCH"));
+});
+
+test("una identidad publicada que contradice el producto/Mission de la ficha se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.identity.productFamily", "Power");
+  makeAvailable(ficha, "campaign.identity.mission", "Monthly");
+  const incoherent = validateCampaignContract(ficha).errors.filter((error) => error.code === "IDENTITY_INCOHERENT");
+  assert.equal(incoherent.length, 2);
+});
+
+test("un restante publicado sin volumen ejecutado no se acepta", () => {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.coverage.remainingVolume", 60, "MW");
+  assert.ok(codesOf(ficha).includes("REMAINING_NOT_DERIVABLE"));
+});
+
+test("un restante publicado que rompe apertura = ejecutado + restante se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.coverage.executedVolume", 20, "MW");
+  makeAvailable(ficha, "campaign.coverage.remainingVolume", 50, "MW");
+  assert.ok(codesOf(ficha).includes("CONSERVATION_VIOLATION"));
+});
+
+test("la fact de asignación y coverageOwnership.mapState deben coincidir", () => {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "FILL-1 → OBL-QUARTERLY");
+  assert.ok(codesOf(ficha).includes("OWNERSHIP_STATE_INCOHERENT"));
+});
+
+test("la ficha declara explícitamente que el criterio de aceptación de IMP-02 no se cumple", () => {
+  // §25.1 IMP-02: remaining volume, deadline y ownership no determinables con
+  // el material inspeccionado; se declaran como tales, no como hechos.
+  const ficha = createGasQuarterlyFicha();
+  const criterion = ficha.acceptanceCriterion;
+  assert.equal(criterion.criterionMet, false);
+  assert.equal(criterion.campaignIdentified, false);
+  for (const part of [criterion.remainingVolume, criterion.deadline, criterion.coverageOwnership]) {
+    assert.equal(part.determined, false);
+    assert.ok(part.blockedBy.length > 0);
+    assert.ok(part.reason.startsWith("No determinable"));
+  }
+  assert.equal(criterion.remainingVolume.value, null);
+  assert.equal(criterion.deadline.value, null);
+  assert.deepEqual(criterion.remainingVolume.blockedBy, ["campaign.identity", "campaign.coverage.executedVolume", "campaign.coverage.remainingVolume"]);
+});
+
+test("una ficha que afirma el criterio cumplido sin facts que lo sostengan se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.acceptanceCriterion.criterionMet = true;
+  ficha.acceptanceCriterion.deadline = { determined: true, value: "2026-12-31", blockedBy: [], reason: null };
+  assert.ok(codesOf(ficha).includes("ACCEPTANCE_CRITERION_INCOHERENT"));
+});
+
+test("una ficha sin declaración del criterio de aceptación se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  delete ficha.acceptanceCriterion;
+  assert.ok(codesOf(ficha).includes("ACCEPTANCE_CRITERION_MISSING"));
+});
+
+test("con todas las facts disponibles y coherentes el criterio se deriva como cumplido", () => {
+  // Fixture sintético: prueba la derivación, no es una campaña real.
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.identity.campaignId", "SYNTH-1");
+  makeAvailable(ficha, "campaign.identity.productContract", "SYNTH-CONTRACT");
+  makeAvailable(ficha, "campaign.identity.productFamily", "Gas");
+  makeAvailable(ficha, "campaign.identity.mission", "Quarterly");
+  makeAvailable(ficha, "campaign.identity.hubMarket", "SYNTH-HUB");
+  makeAvailable(ficha, "campaign.calendar.deadline", "2026-12-31");
+  makeAvailable(ficha, "campaign.coverage.executedVolume", 20, "MW");
+  makeAvailable(ficha, "campaign.coverage.remainingVolume", 40, "MW");
+  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "FILL-1 → OBL-QUARTERLY");
+  ficha.coverageOwnership = {
+    mapState: "MATERIALIZED",
+    assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY" }],
+    authority: "Bru (owner)",
+    locator: "fixture sintético",
+    relationMonthlyQuarterly: { availability: "AVAILABLE_NOW", relationType: "ADDITIONAL", value: "adicional", authority: "Bru (owner)", locator: "fixture sintético" },
+  };
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+  assert.deepEqual(ficha.acceptanceCriterion.remainingVolume, { determined: true, value: 40, unit: "MW", blockedBy: [], reason: null });
+  const outcome = validateCampaignContract(ficha);
+  assert.deepEqual(outcome.errors, []);
+});
+
+test("la terminal rule no verificada no se afirma como inexistente", () => {
+  // Regresión del review: el audit sólo establece que no se ha verificado
+  // (AUDIT_INPUTS §5 "No encontrado en el alcance inspeccionado").
+  const reason = fact(createGasQuarterlyFicha(), "campaign.feasibility.terminalCoverageRule").reason;
+  assert.ok(!reason.includes("No existe"));
+  assert.ok(reason.includes("No se ha verificado"));
+  assert.ok(reason.includes("no se afirma ni se niega"));
+  assert.ok(reason.includes("COVERAGE_INCOMPLETE"));
+});
+
+test("un restante publicado sin campaña identificada se rechaza y no cuenta como determinado", () => {
+  // Hallazgo de la validación adversarial: un restante coherente de una
+  // campaña no identificada pasaba como determinado.
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.coverage.executedVolume", 0, "MW");
+  makeAvailable(ficha, "campaign.coverage.remainingVolume", 60, "MW");
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  assert.equal(ficha.acceptanceCriterion.remainingVolume.determined, false);
+  assert.ok(ficha.acceptanceCriterion.remainingVolume.blockedBy.includes("campaign.identity"));
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "CAMPAIGN_NOT_IDENTIFIED" && error.factId === "campaign.coverage.remainingVolume"));
+});
+
+test("un deadline sin provenance no cuenta como determinado", () => {
+  const ficha = createGasQuarterlyFicha();
+  Object.assign(fact(ficha, "campaign.calendar.deadline"), { availability: "AVAILABLE_NOW", value: "2026-12-31", source: null, reason: null });
+  assert.equal(resolveObligationDeadline(ficha).determined, false);
+  assert.equal(evaluateImp02Acceptance(ficha).deadline.determined, false);
+});
+
+test("la ficha no afirma como hecho la ausencia de lo que el audit sólo no encontró", () => {
+  const ficha = createGasQuarterlyFicha();
+  const texts = [...ficha.facts.map((entry) => entry.reason ?? ""), ficha.coverageOwnership.reason];
+  for (const text of texts) {
+    assert.ok(!/No existe|No hay fills|No hay execution ledger|ninguna campaña real/.test(text), text);
+  }
+});
+
+test("campaignIdentified del validador exige provenance en la identidad", () => {
+  const ficha = createGasQuarterlyFicha();
+  for (const factId of ["campaign.identity.campaignId", "campaign.identity.productContract", "campaign.identity.hubMarket"]) {
+    makeAvailable(ficha, factId, "SYNTH");
+  }
+  makeAvailable(ficha, "campaign.identity.productFamily", "Gas");
+  makeAvailable(ficha, "campaign.identity.mission", "Quarterly");
+  fact(ficha, "campaign.identity.campaignId").source = null;
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.campaignIdentified, false);
+  assert.equal(outcome.campaignIdentified, ficha.acceptanceCriterion.campaignIdentified);
+});
+
+test("un vínculo a campaña publicado sin campaña identificada se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.obligation.campaignLink", "SYNTH-1");
+  assert.ok(codesOf(ficha).includes("CAMPAIGN_NOT_IDENTIFIED"));
 });

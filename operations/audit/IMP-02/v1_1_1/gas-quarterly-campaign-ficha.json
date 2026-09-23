@@ -22,7 +22,7 @@
       "value": null,
       "unit": null,
       "source": null,
-      "reason": "No existe un Campaign ID real en el material auditado (§4.1 declara la identidad AUDIT-DEPENDENT).",
+      "reason": "No se encontró un Campaign ID real en el alcance inspeccionado (AUDIT_INPUTS §5); su existencia no se afirma ni se niega. §4.1 declara la identidad AUDIT-DEPENDENT.",
       "nextRetrievalAction": "Obtener el registro de campaña firmado que contenga el Campaign ID."
     },
     {
@@ -42,7 +42,7 @@
       "value": null,
       "unit": null,
       "source": null,
-      "reason": "La identidad de campaña es AUDIT-DEPENDENT (§4.1): ninguna campaña real confirma Power/Gas; Gas Quarterly es sólo la población canónica del primer experimento. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING con la misma razón: no se infiere del objetivo de población P5 (§4.1 línea 280).",
+      "reason": "La identidad de campaña es AUDIT-DEPENDENT (§4.1): no se encontró en el alcance inspeccionado (AUDIT_INPUTS §5) una campaña real que confirme Power/Gas; Gas Quarterly es sólo la población canónica del primer experimento. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING con la misma razón: no se infiere del objetivo de población P5 (§4.1 línea 280).",
       "nextRetrievalAction": "Confirmar la familia de producto de la campaña real desde el mandato firmado; no inferirla de la población objetivo P5."
     },
     {
@@ -158,7 +158,7 @@
       "value": null,
       "unit": null,
       "source": null,
-      "reason": "No hay deadline real; no se infiere (§4.1/§4.2).",
+      "reason": "No se encontró el deadline en el alcance inspeccionado (AUDIT_INPUTS §5); no se infiere (§4.1/§4.2).",
       "nextRetrievalAction": "Recuperar el deadline contractual."
     },
     {
@@ -198,7 +198,7 @@
       "value": null,
       "unit": null,
       "source": null,
-      "reason": "No existe terminal rule válida; sin ella el residual da COVERAGE_INCOMPLETE y no se fabrica fill de cierre (§4.3).",
+      "reason": "No se ha verificado una terminal rule: AUDIT_INPUTS §5 la registra como no encontrada en el alcance inspeccionado; su existencia no se afirma ni se niega (§14.5: auditar la regla real sigue pendiente). Mientras no esté verificada, un residual al deadline queda COVERAGE_INCOMPLETE y no se fabrica fill de cierre (§4.3/§14.5).",
       "nextRetrievalAction": "Recuperar la terminal rule versionada del contrato."
     },
     {
@@ -218,7 +218,7 @@
       "value": null,
       "unit": null,
       "source": null,
-      "reason": "No hay execution ledger real para la campaña (§4.3).",
+      "reason": "No se encontró un execution ledger de la campaña en el alcance inspeccionado (AUDIT_INPUTS §5: historial de coberturas/compras y volumen ejecutado); no se afirma que no exista (§4.3).",
       "nextRetrievalAction": "Producir el ledger de ejecución cuando existan fills."
     },
     {
@@ -238,16 +238,51 @@
       "value": null,
       "unit": null,
       "source": null,
-      "reason": "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
+      "reason": "No se encontraron fills de la campaña ni su asignación a obligaciones en el alcance inspeccionado (AUDIT_INPUTS §5); la cantidad confirmada de 60 MW no está vinculada a una campaña. No se afirma que no existan (§4.3/DEP-02).",
       "nextRetrievalAction": "Asignar cada fill/cobertura a lo sumo a una obligación."
     }
   ],
   "coverageOwnership": {
     "mapState": "UNAVAILABLE",
-    "reason": "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
+    "reason": "No se encontraron fills de la campaña ni su asignación a obligaciones en el alcance inspeccionado (AUDIT_INPUTS §5); la cantidad confirmada de 60 MW no está vinculada a una campaña. No se afirma que no existan (§4.3/DEP-02).",
     "relationMonthlyQuarterly": {
       "availability": "UNAVAILABLE",
       "reason": "No se sabe si las obligaciones Monthly y Quarterly son adicionales, solapadas o alternativas según mandato (DEP-02; D08 p.4; D15 p.2)."
     }
+  },
+  "acceptanceCriterion": {
+    "acceptanceTest": "Se determina remaining volume/deadline sin inferir unidades; una cobertura no pertenece dos veces a obligaciones.",
+    "source": "SPEC v1.1.1 §25.1 IMP-02",
+    "campaignIdentified": false,
+    "remainingVolume": {
+      "determined": false,
+      "value": null,
+      "unit": null,
+      "blockedBy": [
+        "campaign.identity",
+        "campaign.coverage.executedVolume",
+        "campaign.coverage.remainingVolume"
+      ],
+      "reason": "No determinable: Remaining = Opening − Executed (§4.3) exige el volumen ejecutado de una campaña identificada; AUDIT_INPUTS §5 lo registra como no encontrado en el alcance inspeccionado."
+    },
+    "deadline": {
+      "determined": false,
+      "value": null,
+      "blockedBy": [
+        "campaign.identity",
+        "campaign.calendar.deadline"
+      ],
+      "reason": "No determinable: AUDIT_INPUTS §5 registra el deadline como no encontrado en el alcance inspeccionado; no se infiere (§4.1/§4.2)."
+    },
+    "coverageOwnership": {
+      "determined": false,
+      "blockedBy": [
+        "campaign.identity",
+        "coverageOwnership.mapState",
+        "coverageOwnership.relationMonthlyQuarterly"
+      ],
+      "reason": "No determinable: sin fills asignados ni relación Monthly/Quarterly auditada no se puede comprobar el no doble conteo (§4.3/DEP-02); AUDIT_INPUTS §5 registra ambos como no encontrados."
+    },
+    "criterionMet": false
   }
 }

@@ -6,9 +6,12 @@
 export {
   CAMPAIGN_CONTRACT_FACTS,
   CONFIRMED_OBLIGATIONS,
+  IMP02_ACCEPTANCE_TEST,
+  MW_TO_MWH_CONVERTIBLE_SHAPES,
   confirmedQuantityFor,
   convertMwToMwh,
   createGasQuarterlyFicha,
+  evaluateImp02Acceptance,
   resolveObligationDeadline,
   validateCampaignContract,
 } from "./campaign-contract.mjs";

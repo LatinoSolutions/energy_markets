@@ -67,7 +67,19 @@ test("la reconciliación válida conserva la identidad de §4.3", () => {
 test("una violación de conservación se detecta", () => {
   const outcome = reconcileCoverage({ openingObligation: 100, executedVolume: 40, remainingVolume: 50, unit: "MWh", terminalRuleStatus: "VERIFIED" });
   assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "NOT_COMPUTABLE");
   assert.ok(outcome.errors.some((error) => error.code === "CONSERVATION_VIOLATION"));
+});
+
+test("un restante declarado en cero que no reconcilia no se declara COVERED", () => {
+  // Hallazgo de la validación adversarial: opening 60, executed 50,
+  // remaining 0 devolvía COVERED con un residual real de 10.
+  for (const closeOutFill of [undefined, { quantity: 10, unit: "MW" }]) {
+    const outcome = reconcileCoverage({ openingObligation: 60, executedVolume: 50, remainingVolume: 0, unit: "MW", terminalRuleStatus: "VERIFIED", closeOutFill });
+    assert.equal(outcome.ok, false);
+    assert.notEqual(outcome.coverageStatus, "COVERED");
+    assert.ok(outcome.errors.some((error) => error.code === "CONSERVATION_VIOLATION"));
+  }
 });
 
 test("con residual y sin terminal rule válida queda COVERAGE_INCOMPLETE", () => {
@@ -183,7 +195,10 @@ test("terminal rule VERIFIED sin evidencia de cierre deja el residual COVERAGE_I
   assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
 });
 
-test("un close-out fill que cubre exactamente el residual con regla VERIFIED cierra COVERED", () => {
+test("un close-out fill con residual aún positivo no cierra COVERED (§14.5: fill fuera de executedVolume)", () => {
+  // Regresión del review: el fill de cierre de 60 no figuraba en
+  // executedVolume (40) y remainingVolume seguía en 60, pero se declaraba
+  // COVERED. Coverage sólo cambia por filled quantity registrada.
   const outcome = reconcileCoverage({
     openingObligation: 100,
     executedVolume: 40,
@@ -192,52 +207,95 @@ test("un close-out fill que cubre exactamente el residual con regla VERIFIED cie
     terminalRuleStatus: "VERIFIED",
     closeOutFill: { quantity: 60, unit: "MWh" },
   });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_NOT_IN_EXECUTED_VOLUME"));
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_WITH_POSITIVE_RESIDUAL"));
+});
+
+test("un close-out fill contado en executedVolume con restante cero cierra COVERED", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 100,
+    remainingVolume: 0,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    closeOutFill: { quantity: 60, unit: "MWh" },
+  });
   assert.equal(outcome.ok, true);
   assert.equal(outcome.coverageStatus, "COVERED");
 });
 
-test("un close-out fill que no cubre el residual completo no cierra COVERED", () => {
+test("un close-out fill mayor que executedVolume no está en el ledger y no cubre", () => {
   const outcome = reconcileCoverage({
     openingObligation: 100,
-    executedVolume: 40,
-    remainingVolume: 60,
+    executedVolume: 100,
+    remainingVolume: 0,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    closeOutFill: { quantity: 120, unit: "MWh" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_NOT_IN_EXECUTED_VOLUME"));
+});
+
+test("un close-out fill con restante cero pero sin terminal rule válida no es cobertura real", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 100,
+    remainingVolume: 0,
+    unit: "MWh",
+    terminalRuleStatus: "UNKNOWN",
+    closeOutFill: { quantity: 60, unit: "MWh" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_WITH_UNKNOWN_TERMINAL_RULE"));
+});
+
+test("un close-out fill parcial deja el residual COVERAGE_INCOMPLETE", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 70,
+    remainingVolume: 30,
     unit: "MWh",
     terminalRuleStatus: "VERIFIED",
     closeOutFill: { quantity: 30, unit: "MWh" },
   });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
-  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_WITH_POSITIVE_RESIDUAL"));
 });
 
-test("un close-out fill en otra unidad no cierra el residual", () => {
+test("un close-out fill en otra unidad no cuenta como cobertura", () => {
   const outcome = reconcileCoverage({
     openingObligation: 100,
-    executedVolume: 40,
-    remainingVolume: 60,
+    executedVolume: 100,
+    remainingVolume: 0,
     unit: "MWh",
     terminalRuleStatus: "VERIFIED",
     closeOutFill: { quantity: 60, unit: "MW" },
   });
   assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_NOT_IN_EXECUTED_VOLUME"));
 });
 
-test("un close-out fill sin unidad declarada no cierra el residual (sin inferir unidades)", () => {
+test("un close-out fill sin unidad declarada no cuenta como cobertura (sin inferir unidades)", () => {
   // §25.1 IMP-02 acceptance: remaining volume sin inferir unidades. Aceptar
-  // unidad ausente sería asumirla igual al residual (§4.1: MW y MWh son
-  // magnitudes distintas). Regresión del hallazgo del review.
+  // unidad ausente sería asumirla igual al residual (§4.1).
   const outcome = reconcileCoverage({
     openingObligation: 100,
-    executedVolume: 40,
-    remainingVolume: 60,
+    executedVolume: 100,
+    remainingVolume: 0,
     unit: "MWh",
     terminalRuleStatus: "VERIFIED",
     closeOutFill: { quantity: 60 },
   });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
-  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_NOT_IN_EXECUTED_VOLUME"));
 });
 
 test("una enmienda que declara la cantidad cancelada cierra como RESIDUAL_CANCELLED", () => {
@@ -312,7 +370,7 @@ test("una enmienda en otra unidad no cierra el residual", () => {
   assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
 });
 
-test("el residual no se ejecuta y se cancela a la vez (doble cierre)", () => {
+test("un residual con close-out fill y enmienda a la vez no se cierra (doble cierre)", () => {
   const outcome = reconcileCoverage({
     openingObligation: 100,
     executedVolume: 40,
@@ -324,7 +382,7 @@ test("el residual no se ejecuta y se cancela a la vez (doble cierre)", () => {
   });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
-  assert.ok(outcome.errors.some((error) => error.code === "DOUBLE_RESIDUAL_CLOSE"));
+  assert.ok(outcome.errors.some((error) => error.code === "CLOSEOUT_WITH_POSITIVE_RESIDUAL"));
 });
 
 test("la relación Monthly/Quarterly AVAILABLE_NOW sin tipo, valor ni provenance se rechaza", () => {
