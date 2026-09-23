@@ -10,6 +10,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 - Un IMP está LISTO cuando es `pendiente` y todos sus REQUIERE están `aceptado`. Eso lo calcula la oficina, no se escribe.
 - Solo Bru (o una revisión aprobada que Bru acepta en la oficina) pasa un IMP a `aceptado`. Un agente nunca se marca `aceptado` a sí mismo.
 - Si un IMP necesita datos que solo Bru tiene, se anota en NOTA y se sigue con lo que sí se puede hacer.
+- Las tareas `UI-*` son extensiones de producto añadidas explícitamente por Bru; quedan fuera del grafo normativo §25.2.2, pueden depender de IMP aceptados y nunca cambian la SPEC ni sus criterios de aceptación.
 
 ## Tabla
 
@@ -44,3 +45,4 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-27 | aceptado | IMP-01 | Materializar el Strategy Admission framework y validaciones acotadas de candidatos futuros. | Receipt 2026-09-19, solo framework. |
 | IMP-28 | aceptado | IMP-01 | Materializar evaluación por rol de componentes externos. | Receipt 2026-09-19, solo framework. |
 | IMP-29 | aceptado | IMP-01, IMP-06 | Materializar Operator Interface Boundary y exposición backend que soporte Human Visual Observability. |  |
+| UI-01 | pendiente | IMP-29 | Materializar la primera UI visual de Replay, Backtests, Research y Campaigns & Runs sobre el Operator Interface Boundary aceptado. | Owner-added 23-sep-2026. Referencias: `docs/product/UI-01_VISUAL_REFERENCE_BRIEF.md`; source Mac `/Users/brunillo/Documents/energy_markets/strategy_visualizations_documents`; destino BruNode `/srv/hot-data/oficina-data/design-references/energy-markets/strategy_visualizations_documents/`. Mockups/docs son referencia visual no normativa; no inventar data downstream ni cambiar SPEC. |
