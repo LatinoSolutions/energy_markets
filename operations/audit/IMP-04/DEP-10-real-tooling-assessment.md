@@ -49,7 +49,10 @@ valores diferentes"):
   - `benchmark.calendar.missing_dates` (§25.2.2 IMP-05 "calendario de benchmark", §5.3);
   - `benchmark.status.provisional` (§5.4 `BENCHMARK_PROVISIONAL`);
   - `benchmark.window.boundaries` y `benchmark.window.derive` (§25.1 "fronteras correctas" y "1-0-1/3-1-3", §5.3);
-  - `reference.select` (§5.3) y `reference.proxy` (§5.2);
+  - `reference.select` (§5.3) y `reference.select.group_by_date_instrument`
+    (§5.3 «Para cada fecha de negociación d se selecciona una referencia»;
+    revisión 10: `selectDailyReference()` tomaba el máximo timestamp global de
+    filas mezcladas) y `reference.proxy` (§5.2);
   - **obtener T̂/M̂ desde filas** (§5.2 «filas accesibles y deduplicadas del producto y fecha exactos»; revisión 8):
     `reference.proxy.rows.exact_product_date`, `reference.proxy.rows.deduplicate`,
     `reference.proxy.window.strict` (17:05/17:00–17:15 CE(S)T con conversión UTC/DST),
@@ -64,11 +67,16 @@ valores diferentes"):
   (`REFERENCE_READ_REQUIRED_OUTPUTS`).
 - **Lectura del settlement oficial:** `reference.read.official` (§5.3, §25.2.2
   IMP-05 REQUIRES_AUDIT DEP-06/07). Exige precio de settlement, **timestamp de
-  proveedor**, fecha de negociación e instrumento: §5.3 decide «entre
-  correcciones oficiales prevalece el timestamp de proveedor más reciente» y el
-  contrato real de `selectDailyReference()` elige por ese campo y lo devuelve.
+  proveedor**, **validez declarada de la fila**, fecha de negociación e
+  instrumento: §5.3 decide «entre correcciones oficiales prevalece el timestamp
+  de proveedor más reciente» sobre una «fila oficial válida», y el contrato real
+  de `selectDailyReference()` elige por ese timestamp y aplica la validez.
   Revisión 9: la lista anterior omitía el timestamp y ningún test la
-  contrastaba contra la SPEC ni contra el contrato real; ahora lo hace.
+  contrastaba contra la SPEC ni contra el contrato real. Revisión 10: sin
+  `official.declaredValidity` una fila 0.01 sin declaración se seleccionaba como
+  oficial; el contrato ahora exige la validez (§19.3.1 «Oficial 0.01») y
+  `validateCapabilityAssessment` rechaza un assessment de lectura que no exponga
+  todas las salidas exigidas, conservando el bloqueo.
 
 ## Uso autorizado de los datos EEX (P-005)
 
@@ -114,20 +122,22 @@ Inspeccionado con `DESCRIBE` del DuckDB del venv sobre tres particiones reales
 
 | Componente | Cubre | No cubre (verificado en código/esquema) | Derechos / IP | Usable |
 |---|---|---|---|---|
-| `economic-calculation.benchmark` (`benchmark.mjs`, `reference.mjs`; IMP-08) | calculate, coverage, window.boundaries, reference.select, reference.proxy (combina medias dadas), 0.01 (por validez declarada) | calendar.missing_dates; status.provisional; window.derive; official_proxy; version; y las cinco capacidades de filas del proxy: `proxyReference()` recibe `tradesMean`/`midpointsMean` ya calculadas. Existen piezas reutilizables (`isWithinWindow()`, `isWithinFallbackWindow()`, filtro de producto y dedup por fecha de `selectBenchmarkReferences()`), pero operan sobre referencias diarias u horas locales, no sobre filas intradía con Tm UTC | Código propio; IP none | sí |
+| `economic-calculation.benchmark` (`benchmark.mjs`, `reference.mjs`; IMP-08) | calculate, coverage, window.boundaries, reference.select, reference.proxy (combina medias dadas), 0.01 (por validez declarada) | calendar.missing_dates; status.provisional; window.derive; official_proxy; version; `reference.select.group_by_date_instrument` (revisión 10: `selectDailyReference()` no acota por fecha/instrumento); y las cinco capacidades de filas del proxy: `proxyReference()` recibe `tradesMean`/`midpointsMean` ya calculadas. Existen piezas reutilizables (`isWithinWindow()`, `isWithinFallbackWindow()`, filtro de producto y dedup por fecha de `selectBenchmarkReferences()`), pero operan sobre referencias diarias u horas locales, no sobre filas intradía con Tm UTC | Código propio; IP none | sí |
 | `power-markets-explorer.venv-data.duckdb` (entorno de lectura) | reference.read.trades y reference.read.top_of_book (columnas verificadas en el esquema real) | official (el lago no tiene settlement); filtros, ventana, dedup y medias son del soporte de cálculo | permitted (P-005); IP none (juicio de audit) | sí |
 | `power-markets-explorer.generate_eex_snapshot` | ninguna capacidad de IMP-05 (declara sólo `eex.snapshot.candles_4h`) | trades: su interfaz sólo emite velas 4H; top_of_book y official tampoco | permitted (P-005); IP none (juicio de audit) | sí |
 
 ## Decisión factual
 
 1. **Cálculo de IMP-05: EXTEND `economic-calculation.benchmark`**
-   - Se añaden exactamente 10 capacidades: `benchmark.calendar.missing_dates`,
+   - Se añaden exactamente 11 capacidades: `benchmark.calendar.missing_dates`,
      `benchmark.status.provisional`, `benchmark.window.derive`,
+     `reference.select.group_by_date_instrument`,
      `reference.proxy.rows.exact_product_date`, `reference.proxy.rows.deduplicate`,
      `reference.proxy.window.strict`, `reference.proxy.means`,
      `reference.proxy.window.fallback`, `reconciliation.official_proxy` y
      `benchmark.version`. La versión anterior decía que bastaban 5; omitía
-     obtener las medias desde filas (revisión 8).
+     obtener las medias desde filas (revisión 8) y la agrupación por
+     fecha/instrumento de la selección oficial (revisión 10).
    - Lo cubierto se reconcilia de forma exacta: 14 salidas reales contra los
      fixtures documentales de §19.3.1 (B=105, count 2, coverage 2/3, corrección
      102→103 da 106.5, proxy 101, oficial más reciente 103, ventana [inicio,fin),
@@ -136,7 +146,7 @@ Inspeccionado con `DESCRIBE` del DuckDB del venv sobre tres particiones reales
    - **Juicio de auditoría, no cita de la SPEC:** el componente es "casi
      suficiente"; lo que falta son reglas cerradas de §5.2/§5.3/§5.4 sobre
      entradas o salidas que ya maneja (`extensionRationale`).
-   - Implementar las 10 capacidades es trabajo de IMP-05, no de IMP-04.
+   - Implementar las 11 capacidades es trabajo de IMP-05, no de IMP-04.
 2. **Lectura de filas EEX (trades y top-of-book): REUSE
    `power-markets-explorer.venv-data.duckdb`**
    - Único componente usable que cubre ambas. El script EEX no cubre ninguna.
@@ -184,7 +194,7 @@ pregunta a Bru por ese único dato.
   - cualquier selección distinta de la derivada;
   - un record cuyos `requiredCapabilities`, `targetAssessment`, `auditTrace`, `rationale` o `authority` contradigan la auditoría.
 - El conjunto auditado es fijo: los tres componentes del inventario de §6.5 (benchmark, script EEX y su entorno de lectura). Un test lo comprueba, y quitar un componente da `INVENTORY_NOT_AUDITED`.
-- Las capacidades de lectura se comprueban contra la interfaz real: un test lee el script (hash `01353f73…`) y extrae los campos que emite; otro ejecuta `DESCRIBE` con el DuckDB del venv sobre las particiones reales con hash y comprueba cada columna atribuida al entorno; y se exige que un componente declare `reference.read.*` sólo si expone los campos de `REFERENCE_READ_REQUIRED_OUTPUTS` (§5.2/§5.3). Para `reference.read.official` el contrato incluye el timestamp de proveedor de §5.3 y un test lo liga a la SPEC y a `selectDailyReference()`.
+- Las capacidades de lectura se comprueban contra la interfaz real: un test lee el script (hash `01353f73…`) y extrae los campos que emite; otro ejecuta `DESCRIBE` con el DuckDB del venv sobre las particiones reales con hash y comprueba cada columna atribuida al entorno; y se exige que un componente declare `reference.read.*` sólo si expone los campos de `REFERENCE_READ_REQUIRED_OUTPUTS` (§5.2/§5.3). Para `reference.read.official` el contrato incluye el timestamp de proveedor de §5.3 y la validez declarada de la fila (§§5.3, 19.3.1), y tests lo ligan a la SPEC y a `selectDailyReference()`. `validateCapabilityAssessment` rechaza el assessment de lectura que no exponga todas las salidas exigidas (`read-capabilities.mjs`), no sólo un test.
 
 ## Hashes de procedencia (bytes en este worktree)
 

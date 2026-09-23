@@ -7,6 +7,7 @@
 // exige que la auditoría los declare de forma trazable.
 
 import { isVersionLike, isSha256 } from "../contracts/identities.mjs";
+import { readCapabilityContractErrors } from "./read-capabilities.mjs";
 
 export const RIGHTS_STATUS = Object.freeze({
   PERMITTED: "permitted",
@@ -166,6 +167,7 @@ export function validateCapabilityAssessment(assessment) {
     errors.push({ field: "role", code: "MISSING_REQUIRED", message: "Falta el rol/función del componente en el entorno." });
   }
   validateInterfaceContract(assessment.interfaceContract, errors);
+  errors.push(...readCapabilityContractErrors(assessment));
   if (!isCapabilityIdList(assessment.declaredCapabilities)) {
     errors.push({ field: "declaredCapabilities", code: "MISSING_REQUIRED", message: "El assessment exige capacidades declaradas no vacías." });
   }

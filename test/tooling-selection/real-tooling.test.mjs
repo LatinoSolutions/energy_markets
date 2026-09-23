@@ -43,6 +43,7 @@ const EXPECTED_ADDITIONS = [
   "benchmark.calendar.missing_dates",
   "benchmark.status.provisional",
   "benchmark.window.derive",
+  "reference.select.group_by_date_instrument",
   "reference.proxy.rows.exact_product_date",
   "reference.proxy.rows.deduplicate",
   "reference.proxy.window.strict",
@@ -335,6 +336,37 @@ test("DEP-10: el soporte de cálculo de IMP-05 es EXTEND del benchmark en repo, 
   assert.ok(selection.rationale.includes(REAL_BENCHMARK_COMPONENT_ID));
 });
 
+// Review IMP-04 2026-09-23 (revisión 10): `reference.select` se daba por
+// cubierta sin exigir agrupar las filas oficiales por fecha e instrumento
+// antes de aplicar «entre correcciones oficiales prevalece el timestamp de
+// proveedor más reciente». `selectDailyReference()` toma el máximo timestamp
+// GLOBAL de filas mezcladas: §5.3 selecciona «para cada fecha de negociación
+// d». La agrupación por fecha/instrumento es una capacidad que el componente
+// no tiene y por eso es un añadido del EXTEND, no una capacidad cubierta.
+test("DEP-10: la selección de §5.3 por fecha e instrumento no está cubierta y se añade", () => {
+  const spec = readFileSync(SPEC_PATH, "utf8");
+  assert.ok(spec.includes("Para cada fecha de negociación d se selecciona una referencia"));
+
+  // Adversarial: pedir la referencia de 2026-01-04/DEBM202602 con dos fechas e
+  // instrumentos distintos devuelve la fila de otra fecha e instrumento (el
+  // máximo global), no la de la fecha pedida.
+  const selected = selectDailyReference({
+    officialRows: [
+      { value: 90, providerTimestamp: "2026-01-04T23:00:00Z", tradeDate: "2026-01-04", instrument: "DEBM202602" },
+      { value: 103, providerTimestamp: "2026-01-06T09:00:00Z", tradeDate: "2026-01-06", instrument: "DEBM202603" },
+    ],
+  });
+  assert.equal(selected.value, 103, "toma el máximo timestamp global sin acotar por fecha ni instrumento");
+  assert.equal(selected.providerTimestamp, "2026-01-06T09:00:00Z");
+
+  const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
+  assert.ok(!benchmark.declaredCapabilities.includes("reference.select.group_by_date_instrument"));
+  const { selection } = calculationSelection();
+  assert.equal(selection.decision, TOOLING_DECISION.EXTEND);
+  assert.ok(selection.additions.includes("reference.select.group_by_date_instrument"), JSON.stringify(selection.additions));
+  assert.equal(selection.auditTrace.find((entry) => entry.componentId === REAL_BENCHMARK_COMPONENT_ID).missing.includes("reference.select.group_by_date_instrument"), true);
+});
+
 // Con el uso autorizado (P-005) y el esquema inspeccionado, el entorno de
 // lectura cubre trades y top-of-book: REUSE, reconciliado con fixtures
 // sintéticos escritos por pyarrow y leídos por DuckDB.
@@ -414,6 +446,55 @@ test("DEP-10: la lectura del settlement oficial exige el timestamp de proveedor 
   const previousInterface = ["official.dailySettlementPrice", "official.tradeDate", "official.instrument"];
   const exposesAll = required.every((outputId) => previousInterface.includes(outputId));
   assert.equal(exposesAll, false, "sin official.providerTimestamp no se cubre la selección de §5.3");
+});
+
+// Review IMP-04 2026-09-23 (revisión 10): la lectura oficial no puede
+// declararse suficiente sin acreditar la VALIDEZ de la fila. §5.3 selecciona
+// una «fila oficial válida» y §19.3.1 exige «contrastar validez aplicable»
+// para el caso 0.01. El componente actual, sin `declaredValidity`, admite una
+// fila 0.01 como oficial: el contrato de lectura debe exigir la validez o
+// conservar el bloqueo.
+test("DEP-10: la lectura del settlement oficial exige la validez de la fila (§5.3, §19.3.1)", () => {
+  const required = REFERENCE_READ_REQUIRED_OUTPUTS["reference.read.official"];
+  assert.ok(required.includes("official.declaredValidity"), JSON.stringify(required));
+
+  // Contraste con el contrato real: sin declaración de validez, una fila 0.01
+  // se selecciona como oficial (el hueco que el lector debe cerrar exponiendo
+  // la validez); con validez unknown no es fila oficial válida.
+  const withoutValidity = selectDailyReference({
+    officialRows: [{ value: 0.01, providerTimestamp: "2026-01-05T17:30:00Z" }],
+  });
+  assert.equal(withoutValidity.source, "official");
+  assert.equal(withoutValidity.value, 0.01);
+  const unknownValidity = selectDailyReference({
+    officialRows: [{ value: 0.01, providerTimestamp: "2026-01-05T17:30:00Z", declaredValidity: "unknown" }],
+  });
+  assert.equal(unknownValidity.source, "missing", "la validez unknown no es fila oficial válida");
+
+  // Un lector que exponga precio, timestamp, fecha e instrumento pero no la
+  // validez no cubre la capacidad: el contrato de assessment lo rechaza y la
+  // lectura oficial conserva su bloqueo.
+  const incompleteReader = {
+    componentId: "SYN-TOOL-OFFICIAL",
+    componentVersion: "0.1.0",
+    role: "Synthetic official settlement reader.",
+    interfaceContract: {
+      inputs: ["SYN-input-official"],
+      outputs: ["official.dailySettlementPrice", "official.providerTimestamp", "official.tradeDate", "official.instrument"],
+      capabilityOutputs: { "reference.read.official": ["official.dailySettlementPrice", "official.providerTimestamp", "official.tradeDate", "official.instrument"] },
+    },
+    declaredCapabilities: ["reference.read.official"],
+    usageRights: { status: "permitted", evidenceRef: "SYN-RIGHTS-1" },
+    ipExposure: { assessment: "none", rationale: "Synthetic." },
+    minimallyExtendable: false,
+    limitations: [],
+    evidenceRefs: [{ kind: "audit", ref: "SYN-AUDIT-1" }],
+  };
+  const outcome = validateCapabilityAssessment(incompleteReader);
+  assert.equal(outcome.ok, false);
+  const missingValidity = outcome.errors.find((error) => error.code === "READ_CAPABILITY_OUTPUTS_MISSING");
+  assert.ok(missingValidity, JSON.stringify(outcome));
+  assert.deepEqual(missingValidity.missing, ["official.declaredValidity"]);
 });
 
 // P-005: la fuente oficial de settlement se busca primero en fuentes canónicas.

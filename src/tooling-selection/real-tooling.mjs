@@ -18,6 +18,9 @@ import {
   selectDailyReference,
 } from "../economic-calculation/index.mjs";
 import { deriveToolingDecision, selectMinimumTooling } from "./decision.mjs";
+import { REFERENCE_READ_REQUIRED_OUTPUTS } from "./read-capabilities.mjs";
+
+export { REFERENCE_READ_REQUIRED_OUTPUTS };
 
 // Capacidades que IMP-05 necesita, cada una con su fuente en la SPEC v1.1.1.
 // Review IMP-04 2026-09-23: la lista anterior (3 capacidades, sin fuente)
@@ -31,6 +34,7 @@ export const IMP05_CAPABILITY_SOURCES = Object.freeze({
   "benchmark.window.boundaries": "§25.1 IMP-05 acceptance «fronteras correctas»; §5.3 «El extremo inicial se incluye y el final se excluye»",
   "benchmark.window.derive": "§25.1 IMP-05 MUST NOT CHANGE «1-0-1/3-1-3»; §5.3 tabla [S-1 mes,S) y [Q-4 meses,Q-1 mes)",
   "reference.select": "§5.3 «La fila oficial válida tiene prioridad; entre correcciones oficiales prevalece el timestamp de proveedor más reciente»",
+  "reference.select.group_by_date_instrument": "§5.3 «Para cada fecha de negociación d se selecciona una referencia»: la corrección oficial más reciente se elige dentro de las filas de la fecha e instrumento pedidos, no entre filas mezcladas de otras fechas o instrumentos",
   "reference.proxy": "§5.2 R̂_d=0.75T̂+0.25M̂; §19.3.1 «Proxy 101»",
   "reference.proxy.rows.exact_product_date": "§5.2 «El proxy utiliza filas accesibles y deduplicadas del producto y fecha exactos»",
   "reference.proxy.rows.deduplicate": "§5.2 «El proxy utiliza filas accesibles y deduplicadas del producto y fecha exactos»",
@@ -61,6 +65,7 @@ export const IMP05_CALCULATION_CAPABILITIES = Object.freeze([
   "benchmark.window.boundaries",
   "benchmark.window.derive",
   "reference.select",
+  "reference.select.group_by_date_instrument",
   "reference.proxy",
   "reference.proxy.rows.exact_product_date",
   "reference.proxy.rows.deduplicate",
@@ -86,7 +91,10 @@ export const IMP05_OFFICIAL_READ_CAPABILITIES = Object.freeze([
 // devuelve qué fechas faltan; no emite status provisional ni versión de
 // evaluación; ninguna función deriva ventanas 1-0-1/3-1-3 desde S/Q;
 // selectDailyReference() devuelve sólo el valor elegido (no conserva ambos ni
-// calcula δ_d); proxyReference() recibe `tradesMean`/`midpointsMean` ya
+// calcula δ_d) y toma el máximo timestamp GLOBAL de `officialRows` sin acotar
+// por fecha ni instrumento: §5.3 selecciona «para cada fecha de negociación d»
+// dentro de las filas de esa fecha e instrumento (review IMP-04 2026-09-23,
+// revisión 10). proxyReference() recibe `tradesMean`/`midpointsMean` ya
 // calculadas. Sobre filas intradía de trades/top-of-book no hay filtro por
 // producto (ShortCode+Maturity) y fecha, deduplicación por fila, ventana
 // 17:05/17:00–17:15 CE(S)T con conversión desde Tm UTC, medias T̂/M̂ ni la
@@ -141,7 +149,7 @@ const IN_REPO_BENCHMARK = Object.freeze({
   // fórmulas cerradas de §5.2/§5.3/§5.4 sobre entradas o salidas que el
   // componente ya maneja.
   minimallyExtendable: true,
-  extensionRationale: "Las capacidades que faltan para el cálculo de IMP-05 son reglas cerradas de la SPEC sobre entradas o salidas que el componente ya maneja: filtro por producto y fecha exactos, deduplicación, ventana estricta 17:05/17:00–17:15 CE(S)T, medias T̂ y M̂ y fallback ±60 min etiquetado (§5.2) producen las `tradesMean`/`midpointsMean` que proxyReference() ya combina, reutilizando isWithinWindow() e isWithinFallbackWindow(); lista de fechas esperadas y missing trazadas (§5.3) sobre el conteo de benchmarkB(); ventanas 1-0-1/3-1-3 (§5.3) como límites [inicio,fin) que selectBenchmarkReferences ya aplica; δ_d y conservación de oficial y proxy (§5.4) sobre selectDailyReference(); status BENCHMARK_PROVISIONAL y versión de evaluación de B (§5.4) sobre benchmarkB(). No requieren motor nuevo. Aplica sólo al soporte de cálculo: el componente no lee datos; recibe las filas del soporte de lectura.",
+  extensionRationale: "Las capacidades que faltan para el cálculo de IMP-05 son reglas cerradas de la SPEC sobre entradas o salidas que el componente ya maneja: filtro por producto y fecha exactos, deduplicación, ventana estricta 17:05/17:00–17:15 CE(S)T, medias T̂ y M̂ y fallback ±60 min etiquetado (§5.2) producen las `tradesMean`/`midpointsMean` que proxyReference() ya combina, reutilizando isWithinWindow() e isWithinFallbackWindow(); lista de fechas esperadas y missing trazadas (§5.3) sobre el conteo de benchmarkB(); ventanas 1-0-1/3-1-3 (§5.3) como límites [inicio,fin) que selectBenchmarkReferences ya aplica; agrupar las filas oficiales por fecha e instrumento antes de aplicar la regla de corrección más reciente (§5.3, «para cada fecha de negociación d») sobre selectDailyReference(), que hoy toma el máximo global de filas mezcladas; δ_d y conservación de oficial y proxy (§5.4) sobre selectDailyReference(); status BENCHMARK_PROVISIONAL y versión de evaluación de B (§5.4) sobre benchmarkB(). No requieren motor nuevo. Aplica sólo al soporte de cálculo: el componente no lee datos; recibe las filas del soporte de lectura.",
   limitations: Object.freeze([
     "La aceptación IMP-08 es implementación/fixtures sintéticos; no acredita benchmark de campaña real (DEP-08/09 pendientes).",
     "official.value_0_01.treatment cubre el tratamiento por validez declarada (0.01 válido se selecciona; validez unknown cae a proxy). classifyOfficialValidity() devuelve canonicalRejectionRule \"none\" para toda entrada, así que no es evidencia. Contrastar el guard reportado con la fuente aplicable (§19.3.1, §25.2.2 IMP-05) es trabajo de IMP-05 y exige reference.read.official.",
@@ -167,11 +175,12 @@ const IN_REPO_BENCHMARK = Object.freeze({
 // sobre una interfaz que sólo entrega velas 4H.
 // Review IMP-04 2026-09-23 (revisión 9): reference.read.official omitía el
 // timestamp de proveedor de §5.3 y ningún test lo detectaba.
-export const REFERENCE_READ_REQUIRED_OUTPUTS = Object.freeze({
-  "reference.read.trades": Object.freeze(["trade.price", "trade.eventTime", "trade.instrument", "trade.shortCode", "trade.maturity", "trade.tradeDate", "trade.rowHash"]),
-  "reference.read.top_of_book": Object.freeze(["topOfBook.bid", "topOfBook.ask", "topOfBook.eventTime", "topOfBook.instrument", "topOfBook.shortCode", "topOfBook.maturity", "topOfBook.tradeDate", "topOfBook.rowHash"]),
-  "reference.read.official": Object.freeze(["official.dailySettlementPrice", "official.providerTimestamp", "official.tradeDate", "official.instrument"]),
-});
+// Review IMP-04 2026-09-23 (revisión 10): también debe acreditar la VALIDEZ de
+// la fila (§5.3 «fila oficial válida»; §19.3.1 «Oficial 0.01»): sin
+// `official.declaredValidity` una fila 0.01 sin declaración se selecciona como
+// oficial. El contrato vive en ./read-capabilities.mjs y
+// `validateCapabilityAssessment` rechaza un assessment de lectura que no
+// exponga todas las salidas exigidas, conservando el bloqueo.
 
 // Salidas de la interfaz real del lector EEX, leídas del script (bytes con el
 // hash de componentVersion): el JSON escrito por main() tiene, por
