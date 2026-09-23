@@ -25,7 +25,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-07 | aceptado | IMP-02, IMP-03 | Poblar/versionar execution contract y cost ledger P5.6. |  |
 | IMP-08 | aceptado | IMP-01 | Materializar cálculo B/H/V y scoring con casos límite. | Receipt 2026-09-22. Fixtures sintéticos, no campaña real. |
 | IMP-09 | pendiente | IMP-02, IMP-03, IMP-07 | Identificar y reservar el final OOS antes de cualquier selección/calibración S1. | |
-| IMP-10 | pendiente | IMP-02, IMP-07 | Implementar controlador Calendar-only / price-blind. | |
+| IMP-10 | aceptado | IMP-02, IMP-07 | Implementar controlador Calendar-only / price-blind. |  |
 | IMP-11 | pendiente | IMP-03, IMP-06, IMP-09, IMP-10 | Instanciar S1 mínimo y A1. | |
 | IMP-12 | pendiente | IMP-01, IMP-02, IMP-06, IMP-07, IMP-10 | Construir replay y ledgers P6. | |
 | IMP-13 | pendiente | IMP-08, IMP-12 | Codificar fixtures previamente verificados a mano. | |
