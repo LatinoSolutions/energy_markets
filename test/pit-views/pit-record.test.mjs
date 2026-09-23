@@ -35,10 +35,14 @@ test("buildPitRecord acepta un registro con las cuatro semánticas explícitas",
   ]);
 });
 
-test("sin policy-consumable time demostrado el registro se rechaza, no se presume", () => {
+test("sin policy-consumable time demostrado el registro se conserva como unavailable, no se presume (§6.1)", () => {
   const outcome = buildPitRecord(validInput({ consumableAtUtc: undefined }));
-  assert.equal(outcome.ok, false);
-  assert.equal(outcome.errors[0].code, "CONSUMABILITY_NOT_DEMONSTRATED");
+  assert.equal(outcome.ok, true);
+  const record = outcome.record;
+  assert.equal(record.consumability, "unavailable");
+  assert.equal(record.consumableAtUtc, null);
+  assert.equal(record.consumableAtAnyBoundary, false);
+  assert.equal(record.consumableFromUtc, null);
 });
 
 test("consumableAtAnyBoundary=true es la forma explícita de consumo siempre disponible", () => {
@@ -95,18 +99,21 @@ test("isConsumableAtBoundary: consumableAtUtc posterior al boundary no entra", (
 });
 
 test("sin prueba de consumo el dato es unavailable para la policy, no consumible", () => {
-  const record = buildPitRecord(validInput({ consumableAtUtc: undefined, consumableAtAnyBoundary: true })).record;
-  const outcome = isConsumableAtBoundary({ ...record, consumableAtAnyBoundary: false }, "2026-04-01T23:00:00Z");
+  const record = buildPitRecord(validInput({ consumableAtUtc: undefined })).record;
+  const outcome = isConsumableAtBoundary(record, "2026-04-01T23:00:00Z");
   assert.equal(outcome.consumable, false);
   assert.match(outcome.reason, /no demostrado/);
 });
 
-test("knownAtUtc es el instante más temprano demostrable: consumo o publicación", () => {
-  const driven = buildPitRecord(validInput()).record;
-  assert.equal(driven.knownAtUtc, "2026-04-01T06:00:00.000Z");
-  const publishedOnly = buildPitRecord(validInput({
+test("consumableFromUtc separa los relojes: consumo demostrado vs any-boundary vs unavailable", () => {
+  const demonstrated = buildPitRecord(validInput()).record;
+  assert.equal(demonstrated.consumableFromUtc, "2026-04-01T06:00:00.000Z");
+  const anyBoundary = buildPitRecord(validInput({
     consumableAtUtc: undefined,
     consumableAtAnyBoundary: true,
   })).record;
-  assert.equal(publishedOnly.knownAtUtc, "2026-03-31T18:00:00.000Z");
+  // El límite es su publicación: no puede consumirse antes de existir (§6.1).
+  assert.equal(anyBoundary.consumableFromUtc, "2026-03-31T18:00:00.000Z");
+  const unavailable = buildPitRecord(validInput({ consumableAtUtc: undefined })).record;
+  assert.equal(unavailable.consumableFromUtc, null);
 });

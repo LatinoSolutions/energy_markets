@@ -110,14 +110,22 @@ test("publicado después del boundary: no entra por publicación", () => {
   assert.equal(view.suppressed[0].reason, "publicado después del boundary");
 });
 
-test("sin prueba de consumo demostrado: no entra aunque esté publicado (§6.1)", () => {
+test("sin prueba de consumo demostrado: el record se conserva unavailable y no entra a la decisión (§6.1)", () => {
   const outcome = buildManifest({
-    records: [{ ...BASE, consumableAtUtc: undefined, consumableAtAnyBoundary: true }],
+    records: [{ ...BASE, consumableAtUtc: undefined }],
   });
-  const record = { ...outcome.manifest.records[0], consumableAtAnyBoundary: false, knownAtUtc: outcome.manifest.records[0].publishedAtUtc };
-  const view = readDecisionView({ ...outcome.manifest, records: [record] }, "2026-04-01T23:00:00Z");
+  assert.equal(outcome.ok, true);
+  const record = outcome.manifest.records[0];
+  assert.equal(record.consumability, "unavailable");
+  const view = readDecisionView(outcome.manifest, "2026-04-01T23:00:00Z");
   assert.equal(view.visible.length, 0);
   assert.match(view.suppressed[0].reason, /no demostrado/);
+  // La evaluación usa el reloj de contenido (publicación/receipt), no el de
+  // consumo: el dato publicado es visible ahí como outcome (§6.1 vistas
+  // separadas), mientras la decisión lo mantiene unavailable.
+  const evaluation = readEvaluationView(outcome.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(evaluation.current.length, 1);
+  assert.equal(evaluation.current[0].revisionId, "v1");
 });
 
 test("publicado y consumible antes del boundary: entra con sus cuatro semánticas", () => {
@@ -147,7 +155,6 @@ function revisedRecords() {
       revisionOf: "v1",
       publishedAtUtc: "2026-04-20T10:00:00Z",
       consumableAtUtc: "2026-04-20T10:30:00Z",
-      knownAtUtc: undefined,
       value: 25.1,
     },
   ];
@@ -162,6 +169,34 @@ test("la revisión entra en decisión sólo cuando es consumible; antes no exist
   const after = readDecisionView(manifest, "2026-04-20T11:00:00Z");
   assert.equal(after.visible[0].revisionId, "v2");
   assert.equal(after.visible[0].value, 25.1);
+});
+
+test("la revisión vigente en evaluación coincide con appliedRevisions, no con pendingRevisions (§6.1/§6.2)", () => {
+  // Receipt declara que v2 es efectiva recién a las 11:30, después del asOf:
+  // aunque el record v2 esté publicado/consumible antes, la evaluación no lo
+  // muestra como contenido vigente en este asOf.
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    revisesRevisionId: "v1",
+    effectiveAtUtc: "2026-04-20T11:30:00Z",
+  });
+  const manifest = buildManifest({ records: revisedRecords(), revisions: [receipt.revision] }).manifest;
+
+  const at10 = readEvaluationView(manifest, "2026-04-20T10:45:00Z");
+  assert.equal(at10.current[0].revisionId, "v1");
+  assert.equal(at10.pendingRevisions.length, 1);
+  assert.equal(at10.appliedRevisions.length, 0);
+
+  // La decisión sigue su propio reloj: v2 era consumible desde las 10:30.
+  // La evaluación exige coherencia con el receipt de contenido (§6.2): v2
+  // recién es vigente a las 11:30, cuando appliedRevisions lo declara.
+  const decisionAt1045 = readDecisionView(manifest, "2026-04-20T10:45:00Z");
+  assert.equal(decisionAt1045.visible[0].revisionId, "v2");
+
+  const at12 = readEvaluationView(manifest, "2026-04-20T12:00:00Z");
+  assert.equal(at12.current[0].revisionId, "v2");
+  assert.deepEqual(at12.appliedRevisions.map((r) => r.revisionId), ["v2"]);
 });
 
 test("revisión futura no reescribe el State histórico: mismo boundary, misma lectura", () => {
@@ -186,7 +221,7 @@ test("la evaluación es versionada: asOf anterior ve la versión base, asOf post
     key: BASE.key,
     revisionId: "v1",
     value: 24.35,
-    knownAtUtc: "2026-04-01T06:00:00.000Z",
+    effectiveAtUtc: "2026-03-31T18:00:00.000Z",
     supersededBy: "v2",
   }]);
 });
@@ -254,7 +289,7 @@ test("occurred futoro no bloquea: el vintage consumible entonces es input de dec
 
 test("los timestamps de máquina quedan almacenados en UTC Z", () => {
   const record = buildManifest().manifest.records[0];
-  for (const key of ["occurredAtUtc", "publishedAtUtc", "consumableAtUtc", "knownAtUtc"]) {
+  for (const key of ["occurredAtUtc", "publishedAtUtc", "consumableAtUtc", "consumableFromUtc", "effectiveAtUtc"]) {
     if (record[key] !== null) {
       assert.equal(record[key].endsWith("Z"), true, key);
     }
@@ -262,6 +297,23 @@ test("los timestamps de máquina quedan almacenados en UTC Z", () => {
   const normalized = toUtcTimestamp("2026-04-01T08:00:00+02:00");
   assert.equal(normalized.ok, true);
   assert.equal(normalized.utc, "2026-04-01T06:00:00.000Z");
+});
+
+test("boundary sin zona explícita se rechaza: presumir UTC oculta el origen (§6.1)", () => {
+  const outcome = readDecisionView(buildManifest().manifest, "2026-04-01T06:00:00");
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.code, "NOT_UTC_ANCHORED");
+  // Un offset explícito sí es zona declarada: se normaliza sin presumir.
+  const withOffset = readDecisionView(buildManifest().manifest, "2026-04-01T08:00:00+02:00");
+  assert.equal(withOffset.ok, true);
+  assert.equal(withOffset.boundary, "2026-04-01T06:00:00.000Z");
+  assert.equal(withOffset.visible.length, 1);
+});
+
+test("asOf sin zona explícita se rechaza en evaluation", () => {
+  const outcome = readEvaluationView(buildManifest().manifest, "2026-04-02T00:00:00");
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.code, "NOT_UTC_ANCHORED");
 });
 
 test("la conversión a zona de mercado es presentación: no cambia la consumibilidad", () => {

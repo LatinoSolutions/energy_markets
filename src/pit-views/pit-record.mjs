@@ -3,7 +3,11 @@
 // revision/version), §6.2 (revisions crean versiones nuevas; missing con razón
 // preservada; proxies identificados) y §6.5 (retrieval posterior no prueba
 // publicación ni consumo histórico). Cada record es una versión concreta de un
-// dato; la prueba de consumo es explícita, nunca presumida.
+// dato; la prueba de consumo es explícita, nunca presumida. Un input sin
+// consumibilidad demostrada se conserva como `unavailable` (§6.1: "si no
+// existe prueba suficiente, el dato se trata como unavailable"; §25.1 IMP-06:
+// "los inputs no demostrablemente consumibles siguen unavailable"), nunca se
+// rechaza ni se presume consumible.
 
 import { toUtcTimestamp } from "./time.mjs";
 
@@ -18,9 +22,6 @@ function fail(errors, field, code, message) {
   errors.push({ field, code, message });
 }
 
-// Un dato "consumible desde siempre" debe declararlo el manifest con un valor
-// explícito, no con ausencia silenciosa. La ausencia de policy-consumable time
-// deja el dato no demostrable: para replay es unavailable (§6.1).
 export function buildPitRecord(input) {
   const errors = [];
 
@@ -41,18 +42,17 @@ export function buildPitRecord(input) {
   }
 
   let consumable = { ok: true, utc: null };
+  let consumability;
   if (input.consumableAtUtc !== undefined && input.consumableAtUtc !== null) {
     consumable = normalizeUtc(input.consumableAtUtc);
     if (!consumable.ok) {
       fail(errors, "consumableAtUtc", consumable.code, "policy-consumable time debe tener zona explícita (se normaliza a UTC).");
     }
-  } else if (input.consumableAtAnyBoundary !== true) {
-    fail(
-      errors,
-      "consumableAtUtc",
-      "CONSUMABILITY_NOT_DEMONSTRATED",
-      "Sin policy-consumable time ni declaración explícita consumableAtAnyBoundary, el consumo no está demostrado.",
-    );
+    consumability = "demonstrated";
+  } else if (input.consumableAtAnyBoundary === true) {
+    consumability = "any-boundary";
+  } else {
+    consumability = "unavailable";
   }
 
   if (typeof input.revisionId !== "string" || input.revisionId.trim().length === 0) {
@@ -83,9 +83,12 @@ export function buildPitRecord(input) {
     return { ok: false, errors };
   }
 
-  // Instante en que el valor entra en la vista de evaluación: lo primero que
-  // se pueda probar (consumo demostrado o, en su defecto, publicación).
-  const known = consumedMs ?? publishedMs;
+  // Reloj de la vista decision-time: instante desde el que esta versión es
+  // consumible para la policy. Con consumo demostrado es consumableAtUtc; con
+  // consumableAtAnyBoundary es su publicación (no puede consumirse antes de
+  // existir); unavailable no tiene reloj: no entra en ninguna decisión.
+  const consumableFromUtc = consumable.utc
+    ?? (consumability === "any-boundary" ? published.utc : null);
 
   const record = {
     key: input.key,
@@ -93,7 +96,8 @@ export function buildPitRecord(input) {
     publishedAtUtc: published.utc,
     consumableAtUtc: consumable.utc,
     consumableAtAnyBoundary: input.consumableAtAnyBoundary === true,
-    knownAtUtc: known === null ? null : new Date(known).toISOString(),
+    consumability,
+    consumableFromUtc,
     revisionId: input.revisionId,
     revisionOf: input.revisionOf ?? null,
     proxy: input.proxy === true,

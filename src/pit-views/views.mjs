@@ -8,7 +8,7 @@
 // decision/evaluation).
 
 import { buildPitRecord, isConsumableAtBoundary, semanticsOf } from "./pit-record.mjs";
-import { toUtcTimestamp } from "./time.mjs";
+import { isUtcAnchored, toUtcTimestamp } from "./time.mjs";
 
 const VIEW_KINDS = ["decision", "evaluation"];
 
@@ -141,35 +141,64 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
   if (errors.length > 0) {
     return { ok: false, errors };
   }
+
+  // Reloj de evaluación por record (§6.2): el sello del receipt de revisión
+  // cuando el manifest lo declara; si no, la publicación en origen. Es el
+  // reloj de contenido vigente, independiente de cuándo la policy pudo
+  // consumirlo (las dos vistas no comparten reloj, §6.1).
+  const sortedRevisions = [...builtRevisions]
+    .sort((left, right) => left.effectiveAtUtc.localeCompare(right.effectiveAtUtc));
+  for (const record of builtRecords) {
+    const receipt = sortedRevisions.find(
+      (revision) => revision.key === record.key && revision.revisionId === record.revisionId,
+    );
+    record.effectiveAtUtc = receipt !== undefined
+      ? receipt.effectiveAtUtc
+      : (record.publishedAtUtc ?? record.occurredAtUtc);
+  }
+
   return {
     ok: true,
     manifest: {
       manifestId,
       manifestVersion,
       records: builtRecords,
-      revisions: [...builtRevisions].sort((left, right) => left.effectiveAtUtc.localeCompare(right.effectiveAtUtc)),
+      revisions: sortedRevisions,
     },
   };
 }
 
 
-// knownAtUtc = consumableAtUtc, o en su defecto publishedAtUtc; en el
-// manifest auditado siempre existe uno de los dos.
-function timelineForKey(manifest, key) {
+// Relojes separados por vista (§6.1: las dos vistas no comparten reloj):
+//  - decision: orden por consumableFromUtc (consumo demostrado, o publicación
+//    para consumableAtAnyBoundary). Sin consumo demostrado no hay reloj de
+//    decisión: unavailable (§25.1 IMP-06).
+//  - evaluation: orden por record.effectiveAtUtc, calculado en el manifest.
+function timelineForKey(manifest, key, clockField) {
   const entries = manifest.records
     .filter((record) => record.key === key)
-    .map((record) => ({ record, knownAtUtc: record.knownAtUtc }))
-    .filter((entry) => typeof entry.knownAtUtc === "string")
-    .sort((left, right) => left.knownAtUtc.localeCompare(right.knownAtUtc));
+    .map((record, index) => ({ record, index, [clockField]: record[clockField] }))
+    .filter((entry) => typeof entry[clockField] === "string")
+    .sort((left, right) => left[clockField].localeCompare(right[clockField]) || left.index - right.index);
   return entries;
 }
 
-// Versión vigente de un key conocido hasta un instante (inclusive): la más
-// reciente por knownAtUtc. Las anteriores quedan superseded versionadas:
-// nunca desaparecen (§6.2).
-function effectiveEntry(timeline, cutoffMs) {
-  const known = timeline.filter((entry) => Date.parse(entry.knownAtUtc) <= cutoffMs);
+// Versión vigente hasta un instante (inclusive): la más reciente por el reloj
+// de la vista. Las anteriores quedan superseded versionadas: nunca desaparecen
+// (§6.2).
+function effectiveEntry(timeline, clockField, cutoffMs) {
+  const known = timeline.filter((entry) => Date.parse(entry[clockField]) <= cutoffMs);
   return known.length > 0 ? known[known.length - 1] : null;
+}
+
+function parseUtcBoundary(value, field, code) {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
+    return { ok: false, error: { field, code, reason: `${field} no parseable.` } };
+  }
+  if (!isUtcAnchored(value)) {
+    return { ok: false, error: { field, code: "NOT_UTC_ANCHORED", reason: `${field} requiere zona explícita (UTC u offset declarado, §6.1).` } };
+  }
+  return { ok: true, ms: Date.parse(value), iso: new Date(Date.parse(value)).toISOString() };
 }
 
 // DECISION-TIME VIEW (§6.1): en cada boundary expone únicamente las versiones
@@ -180,9 +209,9 @@ function effectiveEntry(timeline, cutoffMs) {
 //  3. versiones reemplazadas no reaparecen: el State histórico es invariante
 //     ante revisiones posteriores (§14.7).
 export function readDecisionView(manifest, boundaryUtc) {
-  const boundary = Date.parse(boundaryUtc);
-  if (!Number.isFinite(boundary)) {
-    return { ok: false, view: "decision", boundary: boundaryUtc, code: "INVALID_BOUNDARY", reason: "Boundary no parseable." };
+  const boundary = parseUtcBoundary(boundaryUtc, "boundary", "INVALID_BOUNDARY");
+  if (!boundary.ok) {
+    return { ok: false, view: "decision", boundary: boundaryUtc, ...boundary.error };
   }
 
   const visible = [];
@@ -191,68 +220,73 @@ export function readDecisionView(manifest, boundaryUtc) {
   const uniqueKeys = [...new Set(manifest.records.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
-    const timeline = timelineForKey(manifest, key);
-    const effective = effectiveEntry(timeline, boundary);
-    if (effective === null) {
-      // Ninguna versión conocida/consumible en este boundary.
-      for (const entry of timeline) {
-        const publication = entry.record.publishedAtUtc === null ? null : Date.parse(entry.record.publishedAtUtc);
-        if (publication !== null && publication > boundary) {
-          suppressed.push({ key, revisionId: entry.record.revisionId, reason: "publicado después del boundary" });
-          continue;
-        }
-        const consumability = isConsumableAtBoundary(
-          entry.record,
-          new Date(boundary).toISOString(),
-        );
-        if (!consumability.consumable) {
-          suppressed.push({ key, revisionId: entry.record.revisionId, reason: consumability.reason });
-        }
+    const timeline = timelineForKey(manifest, key, "consumableFromUtc");
+    const effective = effectiveEntry(timeline, "consumableFromUtc", boundary.ms);
+    // Versiones sin reloj de decisión (consumo no demostrado) no están en el
+    // timeline pero igual se reportan como unavailable. Las versiones ya
+    // reemplazadas en el mismo boundary no se reportan: no informan la
+    // decisión y su valor queda en la vista de evaluación (§6.2).
+    const keyRecords = manifest.records.filter((record) => record.key === key);
+
+    if (effective !== null) {
+      // §14.3 paso 2: exponer sólo lo que satisface P4 en este boundary exacto.
+      // La consumibilidad se exige también a la versión vigente: un dato cuyo
+      // consumo no está demostrado no entra aunque su reloj sea antiguo.
+      const consumabilityNow = isConsumableAtBoundary(effective.record, boundary.iso);
+      if (consumabilityNow.consumable) {
+        visible.push({
+          key,
+          value: effective.record.value,
+          revisionId: effective.record.revisionId,
+          consumableFromUtc: effective.consumableFromUtc,
+          semantics: semanticsOf(effective.record),
+          proxy: effective.record.proxy,
+          proxyId: effective.record.proxyId,
+        });
+      } else {
+        suppressed.push({
+          key,
+          revisionId: effective.record.revisionId,
+          reason: consumabilityNow.reason,
+        });
       }
-      continue;
     }
 
-    // §14.3 paso 2: exponer sólo lo que satisface P4 en este boundary exacto.
-    // La consumibilidad se exige también a la versión vigente: un dato cuyo
-    // consumo no está demostrado no entra aunque su knownAt sea antiguo.
-    const consumabilityNow = isConsumableAtBoundary(effective.record, new Date(boundary).toISOString());
-    if (!consumabilityNow.consumable) {
-      suppressed.push({
-        key,
-        revisionId: effective.record.revisionId,
-        reason: consumabilityNow.reason,
-      });
-      continue;
-    }
-    visible.push({
-      key,
-      value: effective.record.value,
-      revisionId: effective.record.revisionId,
-      knownAtUtc: effective.knownAtUtc,
-      semantics: semanticsOf(effective.record),
-      proxy: effective.record.proxy,
-      proxyId: effective.record.proxyId,
-    });
-
-    // Las versiones posteriores no existían aún para la policy: no son un
-    // "cambio retrospectivo"; simplemente no informan este boundary.
-    for (const entry of timeline) {
-      if (entry !== effective && Date.parse(entry.knownAtUtc) > boundary) {
-        suppressed.push({ key, revisionId: entry.record.revisionId, reason: "no conocida en este boundary" });
+    for (const record of keyRecords) {
+      if (effective !== null && record === effective.record) {
+        continue;
+      }
+      const publication = record.publishedAtUtc === null ? null : Date.parse(record.publishedAtUtc);
+      if (publication !== null && publication > boundary.ms) {
+        suppressed.push({ key, revisionId: record.revisionId, reason: "publicado después del boundary" });
+        continue;
+      }
+      const consumability = isConsumableAtBoundary(record, boundary.iso);
+      if (!consumability.consumable) {
+        suppressed.push({ key, revisionId: record.revisionId, reason: consumability.reason });
+        continue;
+      }
+      // Las versiones posteriores no existían aún para la policy: no son un
+      // "cambio retrospectivo"; simplemente no informan este boundary (§14.7).
+      if (effective === null || Date.parse(record.consumableFromUtc) > boundary.ms) {
+        suppressed.push({ key, revisionId: record.revisionId, reason: "no conocida en este boundary" });
       }
     }
   }
 
-  return { ok: true, view: "decision", boundary: new Date(boundary).toISOString(), visible, suppressed };
+  return { ok: true, view: "decision", boundary: boundary.iso, visible, suppressed };
 }
 
 // EVALUATION VIEW (§6.1): outcomes, benchmark cerrado y revisiones de
 // evaluación, con su condición posterior explícita. Requiere asOfUtc: la
-// vista es versionada, no un estado flotante.
+// vista es versionada, no un estado flotante. La versión vigente se selecciona
+// por el reloj de contenido (receipt/publicación), nunca por el reloj de
+// consumo de la policy: así una revisión no aparece como actual mientras
+// pendingRevisions la declara pendiente.
 export function readEvaluationView(manifest, asOfUtc) {
-  const asOf = Date.parse(asOfUtc);
-  if (!Number.isFinite(asOf)) {
-    return { ok: false, view: "evaluation", code: "INVALID_AS_OF", reason: "asOf no parseable." };
+  const asOf = parseUtcBoundary(asOfUtc, "asOf", "INVALID_AS_OF");
+  if (!asOf.ok) {
+    return { ok: false, view: "evaluation", ...asOf.error };
   }
 
   const current = [];
@@ -261,8 +295,8 @@ export function readEvaluationView(manifest, asOfUtc) {
   const uniqueKeys = [...new Set(manifest.records.map((record) => record.key))];
 
   for (const key of uniqueKeys) {
-    const timeline = timelineForKey(manifest, key);
-    const effective = effectiveEntry(timeline, asOf);
+    const timeline = timelineForKey(manifest, key, "effectiveAtUtc");
+    const effective = effectiveEntry(timeline, "effectiveAtUtc", asOf.ms);
     if (effective === null) {
       continue;
     }
@@ -272,7 +306,7 @@ export function readEvaluationView(manifest, asOfUtc) {
       revisionId: effective.record.revisionId,
       publishedAtUtc: effective.record.publishedAtUtc,
       consumableAtUtc: effective.record.consumableAtUtc,
-      knownAtUtc: effective.knownAtUtc,
+      effectiveAtUtc: effective.effectiveAtUtc,
       semantics: semanticsOf(effective.record),
       proxy: effective.record.proxy,
       proxyId: effective.record.proxyId,
@@ -280,12 +314,12 @@ export function readEvaluationView(manifest, asOfUtc) {
     });
     // Las versiones anteriores se conservan versionadas (§6.2).
     for (const entry of timeline) {
-      if (entry !== effective && Date.parse(entry.knownAtUtc) <= asOf) {
+      if (entry !== effective && Date.parse(entry.effectiveAtUtc) <= asOf.ms) {
         superseded.push({
           key,
           revisionId: entry.record.revisionId,
           value: entry.record.value,
-          knownAtUtc: entry.knownAtUtc,
+          effectiveAtUtc: entry.effectiveAtUtc,
           supersededBy: effective.record.revisionId,
         });
       }
@@ -293,17 +327,17 @@ export function readEvaluationView(manifest, asOfUtc) {
   }
 
   const appliedRevisions = manifest.revisions
-    .filter((revision) => Date.parse(revision.effectiveAtUtc) <= asOf)
+    .filter((revision) => Date.parse(revision.effectiveAtUtc) <= asOf.ms)
     .map((revision) => ({ ...revision }));
 
   const pendingRevisions = manifest.revisions
-    .filter((revision) => Date.parse(revision.effectiveAtUtc) > asOf)
+    .filter((revision) => Date.parse(revision.effectiveAtUtc) > asOf.ms)
     .map((revision) => ({ ...revision, status: "pendiente en este asOf" }));
 
   return {
     ok: true,
     view: "evaluation",
-    asOf: new Date(asOf).toISOString(),
+    asOf: asOf.iso,
     current,
     superseded,
     appliedRevisions,
@@ -311,7 +345,7 @@ export function readEvaluationView(manifest, asOfUtc) {
   };
 }
 
-// Entrega las dos vistas separadas para un boundary/asOf idéntico. Lauestra
+// Entrega las dos vistas separadas para un boundary/asOf idéntico. La
 // separación explícita evita confundir ambas en los tests de §19.2.
 export function viewsAt(manifest, boundaryUtc) {
   return {
