@@ -88,8 +88,12 @@ function exposureFieldHtml(field) {
     return `<li class="exposure-field exposure-known" data-condition="${esc(field.condition)}"><span class="item-label">${esc(field.specLabel)}</span> <span class="value" data-value="${esc(value)}">${esc(value)}</span> ${provenanceHtml(field.provenance)}</li>`;
   }
   if (field.condition === "PROXY" || field.condition === "UNCERTAIN" || field.condition === "STALE") {
+    // UI01-08 (review de cambio 2026-09-23): una condición value-less con
+    // procedencia declara la ausencia del valor; "undefined" no es un dato
+    // y no se imprime.
+    const hasValue = field.value !== undefined && field.value !== null;
     const value = typeof field.value === "object" ? JSON.stringify(field.value) : String(field.value);
-    return `<li class="exposure-field exposure-flagged" data-condition="${esc(field.condition)}"><span class="item-label">${esc(field.specLabel)}</span> <span class="condition">${esc(field.condition)}</span> <span class="value" data-value="${esc(value)}">${esc(value)}</span> <span class="reason">${esc(field.reason)}</span> ${provenanceHtml(field.provenance)}</li>`;
+    return `<li class="exposure-field exposure-flagged" data-condition="${esc(field.condition)}"><span class="item-label">${esc(field.specLabel)}</span> <span class="condition">${esc(field.condition)}</span>${hasValue ? ` <span class="value" data-value="${esc(value)}">${esc(value)}</span>` : ""} <span class="reason">${esc(field.reason)}</span> ${provenanceHtml(field.provenance)}</li>`;
   }
   return `<li class="exposure-field exposure-unknown" data-condition="${esc(field.condition)}"><span class="item-label">${esc(field.specLabel)}</span> <span class="condition condition-unknown">${esc(field.condition)}</span> <span class="reason">${esc(field.reason)}</span></li>`;
 }

@@ -894,3 +894,70 @@ test("backtests: las etiquetas arm/measure sólo se rinden si el registro canón
   });
   assert.equal(unbacked.rows[0].status, "UNAVAILABLE");
 });
+
+// UI01-07 (review de cambio 2026-09-23): el reloj exhibido del evento
+// (.event-clock) se re-valida como timestamp UTC canónico con zona explícita
+// (§6.1/§26.3); un clock inválido o sin zona no pasa ni se renderiza.
+test("replay: un clock de actuación/intervención no canónico queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.executions[0].clock = "not-a-timestamp";
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "EVENT_CLOCK_NOT_CANONICAL" && error.field === "executions.SIM-1.clock"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("not-a-timestamp"));
+  // sin zona explícita tampoco es canónico (§6.1: convertir sería presumir origen)
+  const noZone = JSON.parse(JSON.stringify(timeline));
+  noZone.timeline.interventions[0].clock = "2026-04-02T08:04:00";
+  const noZoneVm = buildReplayViewModel({ timeline: noZone, exposure, backendIndex });
+  assert.equal(noZoneVm.ok, false);
+  assert.ok(noZoneVm.errors.some((error) => error.code === "EVENT_CLOCK_NOT_CANONICAL" && error.field === "interventions.HUM-1.clock"));
+  assert.ok(!renderReplayPage(noZoneVm).includes("2026-04-02T08:04:00"));
+});
+
+// UI01-08 (review de cambio 2026-09-23): una sección value-less con
+// procedencia (PROXY/UNCERTAIN/STALE/MISSING) es una salida legítima del
+// boundary (valueSha256:null); la UI anterior la degradaba toda la página
+// (falso positivo fail-closed) y no podía renderizar una exposición válida.
+test("replay: una exposición con sección value-less y procedencia se rinde sin mago", () => {
+  const { manifest, timeline, backendIndex } = scenarios();
+  const exposure = buildExposure({
+    boundaryUtc: "2026-04-01T07:00:00Z",
+    observations: [{
+      field: "recommendation",
+      condition: EXPOSURE_CONDITION.PROXY,
+      reason: "la recomendación del ciclo se observa vía proxy del snapshot declarado",
+      provenance: {
+        sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION,
+        recordKey: RECOMMENDATION_BASE.key,
+        revisionId: RECOMMENDATION_BASE.revisionId,
+      },
+    }],
+    backendManifest: manifest,
+  });
+  assert.equal(exposure.ok, true, JSON.stringify(exposure.errors ?? "?"));
+  const vm = buildReplayViewModel({ timeline, exposure, backendIndex });
+  assert.equal(vm.ok, true, JSON.stringify(vm.errors ?? "?"));
+  const html = renderReplayPage(vm);
+  // la condición se rinde con su razón y su procedencia visible, sin "undefined"
+  assert.match(html, /data-condition="PROXY"/);
+  assert.ok(html.includes(RECOMMENDATION_BASE.key));
+  assert.ok(!html.includes(">undefined<") && !html.includes('data-value="undefined"'));
+  // un campo con valor cuya procedencia suelta el hash no pasa: buildExposureField
+  // re-ejecutado exige valueSha256 declarado, el valor no queda como factual
+  const droppedHash = {
+    ok: true,
+    exposure: {
+      boundaryUtc: "2026-04-01T07:00:00.000Z",
+      fields: [{ field: "recommendation", specLabel: "Recomendación", section: "§26.2", condition: EXPOSURE_CONDITION.AVAILABLE, value: RECOMMENDATION_BASE.value, provenance: { sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION, recordKey: RECOMMENDATION_BASE.key, revisionId: RECOMMENDATION_BASE.revisionId, valueSha256: null } }],
+      unavailable: [],
+      structurallyComplete: true,
+      hasUnavailableContent: false,
+    },
+  };
+  const droppedVm = buildReplayViewModel({ timeline, exposure: droppedHash, backendIndex });
+  assert.equal(droppedVm.ok, false);
+  assert.ok(droppedVm.errors.some((error) => error.code === "INCOMPLETE_PROVENANCE"));
+});

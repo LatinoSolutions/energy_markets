@@ -329,7 +329,14 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_NOT_IN_BACKEND", message: `la procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest verificado del mismo backend (§26.5)` });
       return;
     }
-    if (resolved.valueSha256 !== provenance.valueSha256) {
+    // UI01-08 (review de cambio 2026-09-23): las condiciones value-less con
+    // procedencia (PROXY/UNCERTAIN/STALE/MISSING) son una salida legítima del
+    // boundary (validateProvenanceWithoutValue, exposure.mjs) y llegan con
+    // valueSha256:null: la procedencia identifica la versión observada sin
+    // atar un valor. Comparar hashes sólo aplica cuando la procedencia
+    // declara uno; cuando hay valor, el bloque siguiente re-hashea el valor
+    // expuesto contra el propio registro (§26.5).
+    if (provenance.valueSha256 !== null && resolved.valueSha256 !== provenance.valueSha256) {
       errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_MISMATCH", message: `el hash de la procedencia no coincide con el contenido registrado por "${provenance.recordKey}"/"${provenance.revisionId}" (§26.5)` });
       return;
     }
@@ -455,6 +462,15 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       }
       if (lane === "executions" && !EXECUTION_CLASSES.includes(event?.class)) {
         errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.class`, code: "UNKNOWN_EXECUTION_CLASS", message: `class debe ser ${EXECUTION_CLASSES.join(", ")}: un fill hipotético no se muestra como Real ni una clase desconocida se muestra como factual (§26.3)` });
+      }
+      // UI01-07 (review de cambio 2026-09-23): el reloj exhibido del evento
+      // (render.mjs .event-clock) se re-valida como timestamp UTC canónico del
+      // boundary (§6.1): sin zona o no canónico no se muestra como factual.
+      // reconcileOperatorTimeline sólo compara cuando Date.parse no da NaN y
+      // silencia el caso inválido, así que aquí se constata la forma canónica.
+      const eventClock = toUtcTimestamp(event?.clock);
+      if (!eventClock.ok || eventClock.utc !== event.clock) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.clock`, code: "EVENT_CLOCK_NOT_CANONICAL", message: "el reloj del evento debe ser un timestamp UTC canónico con zona explícita y forma normalizada; un clock no canónico no se muestra (§6.1/§26.3)" });
       }
       // UI01-01a-r2 (review de cambio 2026-09-23): el ref exhibido por el
       // render (relatedRecommendationRef) se ata al vínculo canónico
