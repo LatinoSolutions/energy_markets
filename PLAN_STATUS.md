@@ -17,7 +17,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP | ESTADO | REQUIERE | OBJETIVO | NOTA |
 |---|---|---|---|---|
 | IMP-01 | aceptado | — | Materializar contratos de identidad/versiones y namespaces. | Receipt `operations/receipts/IMP-01-IMP_RECEIPT.json`, 2026-09-19. |
-| IMP-02 | pendiente | IMP-01 | Reconstruir ficha de una campaña Gas Quarterly y relaciones de obligación. | Cantidades 10/10/60/20 MW confirmadas por Bru (SPEC v1.1.1 §4.1, §25.3). Según el audit del 22-sep (`docs/canonical/v1_1_1/sources/AUDIT_INPUTS_ENERGY_MARKETS.md`:242 y :251) faltan Campaign ID, producto/hub/contrato, delivery, calendario y ownership: incorporar lo confirmado sin inventar el resto y dejar esos campos como faltantes explícitos. |
+| IMP-02 | aceptado | IMP-01 | Reconstruir ficha de una campaña Gas Quarterly y relaciones de obligación. | Cantidades 10/10/60/20 MW confirmadas por Bru (SPEC v1.1.1 §4.1, §25.3). Según el audit del 22-sep (`docs/canonical/v1_1_1/sources/AUDIT_INPUTS_ENERGY_MARKETS.md`:242 y :251) faltan Campaign ID, producto/hub/contrato, delivery, calendario y ownership: incorporar lo confirmado sin inventar el resto y dejar esos campos como faltantes explícitos. |
 | IMP-03 | aceptado | IMP-01 | Ejecutar data audit y poblar Data Sufficiency Matrix. | Receipt 2026-09-19, scope "negative audit only". §25.3: ampliar inventario con el lago `/srv/hot-data/EEX`. |
 | IMP-04 | aceptado | IMP-03 | Seleccionar herramienta mínima suficiente. |  |
 | IMP-05 | pendiente | IMP-02, IMP-03, IMP-04 | Reproducir benchmark y auditar reconciliación official/proxy. | |
