@@ -1,0 +1,264 @@
+{
+  "artifactKind": "IMP-05_LAKE_PROXY_BENCHMARK_RECEIPT",
+  "schemaVersion": "1.0",
+  "benchmarkKind": "proxy-side provisional sobre fechas auditadas del lago",
+  "declaracion": {
+    "unexplainedInputs": "ningún dato inventado: filas reales del lago auditado (IMP-03 ST-03.2) con reglas declaradas en el artefacto de extracción",
+    "contratoCampana": "NO resuelto: DEP-01/03 DOCUMENTED_ABSENCE; la regla de contrato por fecha es provisional y declarada",
+    "estadoOficial": "reference.read.official BLOQUEADA (BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE); P-007: no hay feed Fundamental adicional"
+  },
+  "rowsArtifact": {
+    "path": "operations/audit/IMP-05/lake-proxy-rows-IMP-05.json",
+    "sha256": "d3d0d67232402315a36fc6ba4d08a6c0a9f8e52d293d0fb300f2078b25f67c7f",
+    "auditedDates": [
+      "2026-07-28",
+      "2026-07-27",
+      "2026-07-24",
+      "2026-07-23",
+      "2026-07-22"
+    ]
+  },
+  "perDate": [
+    {
+      "trdDate": "2026-07-28",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 14,
+        "trade": 0
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 1
+      },
+      "fallbackCounts": {
+        "trades": 0,
+        "midpoints": 10
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 58.5925,
+      "defined": true,
+      "exclusionCount": 3
+    },
+    {
+      "trdDate": "2026-07-27",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 19186,
+        "trade": 0
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 3209
+      },
+      "fallbackCounts": {
+        "trades": 0,
+        "midpoints": 11096
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 59.06112262387063,
+      "defined": true,
+      "exclusionCount": 4478
+    },
+    {
+      "trdDate": "2026-07-24",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 23005,
+        "trade": 0
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 3634
+      },
+      "fallbackCounts": {
+        "trades": 0,
+        "midpoints": 14350
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 64.3336667583931,
+      "defined": true,
+      "exclusionCount": 4893
+    },
+    {
+      "trdDate": "2026-07-23",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 24266,
+        "trade": 3
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 2274
+      },
+      "fallbackCounts": {
+        "trades": 3,
+        "midpoints": 16811
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 62.69889182058048,
+      "defined": true,
+      "exclusionCount": 6438
+    },
+    {
+      "trdDate": "2026-07-22",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 21990,
+        "trade": 3
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 2884
+      },
+      "fallbackCounts": {
+        "trades": 3,
+        "midpoints": 13094
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 63.157089979195405,
+      "defined": true,
+      "exclusionCount": 5540
+    }
+  ],
+  "benchmark": {
+    "B": 61.56865423640793,
+    "count": 5,
+    "sum": 307.84327118203964,
+    "coverage": "5/5",
+    "expectedDatesCount": 5,
+    "dailyWeight": "igual peso por fecha (§5.3)"
+  },
+  "calendarMissingDates": [],
+  "provisionalStatus": {
+    "status": "BENCHMARK_PROVISIONAL",
+    "BENCHMARK_PROVISIONAL": true,
+    "officialDates": 0,
+    "nonOfficialDates": 5
+  },
+  "benchmarkVersion": {
+    "versionId": "0fbec8a0fb73b155a534abd931768470d27950fcdfa9f015aa81c4e666f414d2",
+    "versionTag": "IMP-05-lake-proxy-eval-1",
+    "algorithm": "sha256(canonicalJson(computation))"
+  },
+  "reconciliation": {
+    "dates": [
+      {
+        "date": "2026-07-22",
+        "official": null,
+        "proxy": 63.157089979195405,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-23",
+        "official": null,
+        "proxy": 62.69889182058048,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-24",
+        "official": null,
+        "proxy": 64.3336667583931,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-27",
+        "official": null,
+        "proxy": 59.06112262387063,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-28",
+        "official": null,
+        "proxy": 58.5925,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      }
+    ],
+    "N": 0,
+    "sumDelta": null,
+    "meanDelta": null,
+    "officialMinusProxy": null,
+    "setEqual": false,
+    "equalityComparable": false,
+    "officialOnlyDates": [],
+    "proxyOnlyDates": [
+      "2026-07-22",
+      "2026-07-23",
+      "2026-07-24",
+      "2026-07-27",
+      "2026-07-28"
+    ],
+    "missingBothDates": [],
+    "proxyPreserved": true,
+    "equivalent": false,
+    "equivalentReason": "Los conjuntos de fechas difieren: la fórmula §5.4 exige N fechas sin cambios."
+  },
+  "engineReceipt": {
+    "receiptId": "8d2689eec8d47e4d6db179ac1d89a364e65dc800d8f63cf711b85293d661c785",
+    "algorithm": "sha256(canonicalJson(core))"
+  }
+}

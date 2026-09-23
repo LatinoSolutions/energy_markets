@@ -261,6 +261,23 @@ test("DEP-10: cada hash de procedencia declarado por un assessment coincide con 
   }
 });
 
+// IMP05-PROV-01 review 2026-09-23: la versión aceptada del assessment IMP-04
+// (ST-08.5) no puede mezclarse con los bytes post-EXTEND. La versión aceptada
+// se conserva como registro (receipt IMP-08) y la versión posterior al EXTEND
+// se recalcula desde evidenceRefs: versiones separadas, ninguna silenciosa.
+test("DEP-10: componentVersion separa la versión aceptada IMP-08 de la versión post-EXTEND recomputable desde evidenceRefs", () => {
+  const assessment = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
+  assert.equal(assessment.componentVersion.contentHash, "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528", "versión ST-08.5 aceptada conservada");
+  const sourceRefs = assessment.evidenceRefs
+    .filter((ref) => ref.kind === "source")
+    .sort((left, right) => left.ref.localeCompare(right.ref));
+  const bytesFingerprint = createHash("sha256")
+    .update(sourceRefs.map((ref) => `${sha256Of(ref.ref)}  ${ref.ref}\n`).join(""))
+    .digest("hex");
+  assert.equal(bytesFingerprint, assessment.componentVersion.postExtensionContentHash, "postExtensionContentHash no cuadra con los bytes actuales de evidenceRefs");
+  assert.equal(assessment.componentVersion.postExtensionContentHashAlgorithm, "sha256 de evidenceRefs ordenadas como «<sha256>  <path>\\n» (bytes actuales tras el EXTEND post-IMP-08)");
+});
+
 // Bru P-005 (2026-09-23): los datos EEX disponibles están autorizados para este
 // uso dentro del proyecto. La evidencia es el registro literal de esa decisión.
 test("DEP-10: los assessments reales son válidos y usables; el uso de datos EEX lo acredita la decisión P-005", () => {
