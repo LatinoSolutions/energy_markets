@@ -59,7 +59,7 @@
       "factId": "campaign.identity.hubMarket",
       "section": "Identidad",
       "availability": "AVAILABLE_NOW",
-      "value": "NATGAS / THE Quarterly (Trading Hub Europe, vía futuros EEX)",
+      "value": "NATGAS / THE Quarterly EEX futures",
       "unit": null,
       "source": {
         "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",

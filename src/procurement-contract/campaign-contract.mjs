@@ -779,7 +779,13 @@ export function createGasQuarterlyFicha() {
       factId: "campaign.identity.hubMarket",
       section: "Identidad",
       availability: "AVAILABLE_NOW",
-      value: "NATGAS / THE Quarterly (Trading Hub Europe, vía futuros EEX)",
+      // §4.1/§25: el valor no puede exceder su provenance. El paquete del
+      // cliente (ESTADO_INPUTS.csv fila "Product mapping — Gas Quarterly";
+      // gas_quarterly.md "Relevant EEX product class") documenta la clase de
+      // producto exactamente como "NATGAS / THE Quarterly EEX futures"; toda
+      // expansión ausente de la fuente (p. ej. "Trading Hub Europe") sería
+      // dato inventado. El valor replica la clase documentada.
+      value: "NATGAS / THE Quarterly EEX futures",
       unit: null,
       source: CLIENT_PACKAGE_SOURCES.hubMarket,
       reason: null,

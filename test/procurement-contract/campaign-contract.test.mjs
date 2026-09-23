@@ -98,6 +98,24 @@ test("la ficha documenta el hub/market y la pausa 3-1-3 con provenance del paque
   assert.deepEqual(criterion.auditedContract.blockedBy.includes("campaign.identity"), true);
 });
 
+// Regresión del hallazgo IMP-02-HUBMARKET-PROVENANCE-007: el valor del
+// hub/market añadía "(Trading Hub Europe, vía futuros EEX)", una expansión que
+// no sostiene su provenance. El cliente documenta la clase de producto
+// exactamente como "NATGAS / THE Quarterly EEX futures" (ESTADO_INPUTS.csv
+// fila "Product mapping — Gas Quarterly"; gas_quarterly.md "Relevant EEX
+// product class"); ninguna fuente del paquete ni la SPEC expande "THE".
+test("el valor del hub/market no excede su provenance documentada", () => {
+  const hub = fact(createGasQuarterlyFicha(), "campaign.identity.hubMarket");
+  assert.equal(hub.value, "NATGAS / THE Quarterly EEX futures");
+  assert.equal(hub.value, hub.source.quote);
+  assert.ok(!hub.value.includes("Trading Hub Europe"));
+  assert.ok(!hub.value.includes("vía futuros"));
+  const quote = hub.source.quote.toLowerCase();
+  for (const token of hub.value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) {
+    assert.ok(quote.includes(token), `token fuera de la provenance citada: ${token}`);
+  }
+});
+
 test("el hub/market y la pausa 3-1-3 citan el paquete del cliente, no la confirmación del owner", () => {
   const ficha = createGasQuarterlyFicha();
   for (const factId of ["campaign.identity.hubMarket", "campaign.calendar.pauseExclusion"]) {
