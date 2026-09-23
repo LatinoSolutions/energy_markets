@@ -643,6 +643,11 @@ test("IMP-23: el envelope construido es inmutable en profundidad; retocar el sna
   assert.equal(Object.isFrozen(envelope.gates[1].threshold), true);
   assert.equal(Object.isFrozen(envelope.allowedActions), true);
 
+  // Snapshot capturado ANTES de los intentos de mutación: la comparación
+  // final contra esta captura sí prueba estabilidad del envelope activo
+  // (corrección IMP23-VACUOUS-ASSERT-08).
+  const snapshotBefore = JSON.stringify(controller.activeEnvelopeSnapshot());
+
   const attackBefore = controller.authorizeAction({
     policyVersion: "v1.0",
     action: "BUY",
@@ -672,7 +677,7 @@ test("IMP-23: el envelope construido es inmutable en profundidad; retocar el sna
   });
   assert.equal(attackAfter.status, "REJECTED");
   assert.deepEqual(attackAfter.reasons.map((reason) => reason.code), attackBefore.reasons.map((reason) => reason.code));
-  assert.equal(JSON.stringify(controller.activeEnvelopeSnapshot()), JSON.stringify(controller.activeEnvelopeSnapshot()));
+  assert.equal(JSON.stringify(controller.activeEnvelopeSnapshot()), snapshotBefore);
 });
 
 test("IMP-23: un PASSED sin atribución o auto-declarado por la policy no satisface un hard-gate de admisión (§17, corrección GATE-PROV-02)", () => {
@@ -760,4 +765,73 @@ test("IMP-23: una autorización de policy declarada bajo otro envelope no autori
   });
   assert.equal(result.status, "REJECTED");
   assert.ok(result.reasons.some((reason) => reason.code === "AUTHORIZATION_UNDER_OTHER_ENVELOPE"));
+});
+
+// --- Correcciones IMP23-ADMISSION-GATE-REQUIRED-06 / ROLLBACK-ENVELOPE-BIND-07 ---
+
+test("IMP-23: un envelope sin gate de admisión DATA_VALIDITY/OOD no se construye ni autoriza actos (§17, corrección ADMISSION-GATE-REQUIRED-06)", () => {
+  // §17: "Data-validity / OOD gates" es campo MÍNIMO obligatorio. Un envelope
+  // que sólo declara un gate DEADLINE no tiene condiciones de admisión.
+  const onlyDeadline = buildEnvelope({
+    envelopeVersion: "v1.0",
+    autonomyLevel: "A3",
+    scope: { product: "Gas" },
+    allowedActions: ["BUY", "WAIT"],
+    quantityLimits: quantityLimitsFor("APPROVED"),
+    deadlineConstraints: "fixture",
+    gates: [{ gateId: "G-DEADLINE", kind: "DEADLINE", hardGate: true, provenance: FIXTURE_PROVENANCE }],
+    authorizedPolicyVersions: [{ policyVersion: "v1.0", underEnvelopeVersion: "v1.0", status: "VALID" }],
+  });
+  assert.equal(onlyDeadline.ok, false);
+  assert.ok(onlyDeadline.errors.some((error) => error.code === "MISSING_ADMISSION_GATE"));
+
+  // Defensa en profundidad: aun construido a mano con el shape, el controller
+  // externo no lo admite (sin él no hay autoridad).
+  const { envelope } = buildController();
+  const shapedWithoutAdmission = {
+    ...envelope,
+    gates: [{ gateId: "G-DEADLINE", kind: "DEADLINE", hardGate: true, provenance: FIXTURE_PROVENANCE }],
+  };
+  const controller = createExternalEnvelopeController({ envelope: shapedWithoutAdmission, atUtc: "2026-09-23T10:00:00Z" });
+  assert.equal(controller.ok, false);
+  assert.equal(controller.code, "INVALID_ENVELOPE");
+});
+
+test("IMP-23: executeRollback no ejecuta un mandato emitido bajo otro envelope (§17/§18.4, corrección ROLLBACK-ENVELOPE-BIND-07)", () => {
+  const { envelope, controller } = buildController({
+    authorizedPolicyVersions: [
+      { policyVersion: "v1.0", underEnvelopeVersion: "v1.0", status: "VALID" },
+      { policyVersion: "v0.2", underEnvelopeVersion: "v1.0", status: "VALID" },
+    ],
+  });
+  const key = envelope.versionKey;
+  const history = [
+    { policyVersion: "v1.0", validity: [{ underEnvelopeVersion: key, currentValid: false }] },
+    { policyVersion: "v0.2", validity: [{ underEnvelopeVersion: key, currentValid: true }] },
+  ];
+  const mandate = controller.mandateHardGateTransition({ gateId: "G-OOD", evidenceRef: "fixture-evidence-bind" }).mandate;
+
+  const mismatched = executeRollback({
+    mandate: { ...mandate, envelopeVersionKey: "version:v999.0" },
+    envelope,
+    policyVersionHistory: history,
+    atUtc: "2026-09-23T10:08:00Z",
+  });
+  assert.equal(mismatched.ok, false);
+  assert.equal(mismatched.code, "MANDATE_ENVELOPE_MISMATCH");
+
+  const missingBinding = executeRollback({
+    mandate: { ...mandate, envelopeVersionKey: undefined },
+    envelope,
+    policyVersionHistory: history,
+    atUtc: "2026-09-23T10:08:00Z",
+  });
+  assert.equal(missingBinding.ok, false);
+  assert.equal(missingBinding.code, "MANDATE_ENVELOPE_MISMATCH");
+
+  // El mandato del envelope activo sí ejecuta y el receipt lleva su versión.
+  const matched = executeRollback({ mandate, envelope, policyVersionHistory: history, atUtc: "2026-09-23T10:08:00Z" });
+  assert.equal(matched.ok, true);
+  assert.equal(matched.rollback.envelopeVersionKey, key);
+  assert.equal(matched.rollback.target.policyVersion, "v0.2");
 });

@@ -31,6 +31,12 @@ export const AUTONOMY_LEVELS = ["A0", "A1", "A2", "A3", "A4"];
 // deterioro económico material).
 export const GATE_KINDS = ["DATA_VALIDITY", "OOD", "DRIFT", "ECONOMIC_DETERIORATION", "DEADLINE"];
 
+// §17 declara "Data-validity / OOD gates" como campo MÍNIMO obligatorio del
+// envelope ("Condiciones de admisión de datos y estado observado"). Sin al
+// menos un gate de este tipo el envelope no tiene condiciones de admisión y
+// no puede ser autoridad: fail-closed (corrección IMP23-ADMISSION-GATE-REQUIRED-06).
+export const ADMISSION_GATE_KINDS = ["DATA_VALIDITY", "OOD"];
+
 // Un límite o umbral sólo confiere autoridad cuando está APROBADO con
 // referencia de aprobación. Sin evidencia queda EVIDENCE_PENDING y no
 // autoriza; nunca se sustituye por un default.
@@ -167,6 +173,14 @@ function validateGates(gates, errors) {
     if (!(gate.provenance && isNonEmptyString(gate.provenance.authority) && isNonEmptyString(gate.provenance.locator))) {
       errors.push({ field: `gates.${gate.gateId}.provenance`, code: "NO_PROVENANCE", message: "Cada gate declara authority y locator (§25.2)." });
     }
+  }
+  // §17: el campo mínimo "Data-validity / OOD gates" no es opcional. Un
+  // envelope que sólo declara otros gates (p.ej. DEADLINE) no tiene
+  // condiciones de admisión de datos/estado; sin ellas ningún acto es
+  // admisible y el envelope no puede construirse como autoridad.
+  const hasAdmissionGate = gates.some((gate) => gate && ADMISSION_GATE_KINDS.includes(gate.kind));
+  if (!hasAdmissionGate) {
+    errors.push({ field: "gates", code: "MISSING_ADMISSION_GATE", message: `§17 exige al menos un gate de admisión ${ADMISSION_GATE_KINDS.join("/")}; sin condiciones de admisión el envelope no confiere autoridad.` });
   }
 }
 

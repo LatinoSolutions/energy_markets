@@ -151,6 +151,19 @@ export function executeRollback({ mandate, envelope, policyVersionHistory, atUtc
   if (!isNonEmptyString(atUtc)) {
     return { ok: false, code: "MISSING_TIMESTAMP", message: "El rollback declara su instante (§6.1)." };
   }
+  // §17/§18.3: un controlador externo, un envelope activo. El mandato del
+  // hard-gate se emitió bajo una versión concreta del envelope; ejecutarlo
+  // bajo otra produciría un ROLLBACK con "Versión del envelope" (§18.4)
+  // distinta a la que lo desencadenó. Mismatch → fail-closed (corrección
+  // IMP23-ROLLBACK-ENVELOPE-BIND-07).
+  const envelopeVersionKey = envelopeVersionKeyOf(envelope);
+  if (!isNonEmptyString(mandate.envelopeVersionKey) || mandate.envelopeVersionKey !== envelopeVersionKey) {
+    return {
+      ok: false,
+      code: "MANDATE_ENVELOPE_MISMATCH",
+      message: `El mandato pertenece a otro envelope (${String(mandate.envelopeVersionKey)}); el rollback sólo se ejecuta bajo el envelope activo que lo emitió (§17/§18.4).`,
+    };
+  }
   const resolved = resolveRollbackTarget({ envelope, policyVersionHistory });
   if (!resolved.ok) {
     return { ok: false, code: resolved.code, message: resolved.message, pendingOperationsFallback: resolved.pendingOperationsFallback === true };
@@ -162,9 +175,7 @@ export function executeRollback({ mandate, envelope, policyVersionHistory, atUtc
       triggerGateId: mandate.gateId,
       evidenceRef: mandate.evidenceRef,
       target: resolved.target,
-      envelopeVersionKey: typeof envelope.envelopeVersion === "string"
-        ? `version:${envelope.envelopeVersion}`
-        : `hash:${envelope.envelopeVersion.contentHash}`,
+      envelopeVersionKey,
       executedAtUtc: atUtc,
       policyConsentRequired: false,
     }),

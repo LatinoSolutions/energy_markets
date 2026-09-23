@@ -9,7 +9,7 @@
 // puntuación de la policy para autorizar. La decisión es estructural:
 // autoriza o rechaza (fail-closed); no existe un canal "penalizar y permitir".
 
-import { AUTONOMY_LEVELS, validateEnvelopeShape, envelopeVersionKeyOf } from "./envelope.mjs";
+import { ADMISSION_GATE_KINDS, AUTONOMY_LEVELS, validateEnvelopeShape, envelopeVersionKeyOf } from "./envelope.mjs";
 
 export const CONTROLLER_KIND = "EXTERNAL_ENVELOPE_CONTROLLER";
 
@@ -110,12 +110,14 @@ export function createExternalEnvelopeController({ envelope, atUtc } = {}) {
   function checkAdmissionGates(reasons, dataState) {
     let blocked = false;
     // §17: la admisión de datos/estado se comprueba por los gates de validez
-    // de datos y OOD declarados. (Corrección: GATE_KINDS es un array canónico
-    // de tipos; la selección de los de admisión no es acceso por propiedad —
-    // el filtro anterior resolvía `undefined` y NINGÚN gate bloqueaba,
-    // repro del hallazgo IMP23-GATE-PROV-02).
-    const ADMISSION_GATE_KINDS = ["DATA_VALIDITY", "OOD"];
-    const admissionGates = activeEnvelope.gates.filter((g) => ADMISSION_GATE_KINDS.includes(g.kind));
+    // de datos y OOD declarados. El envelope válido siempre declara al menos
+    // uno (validateGates); si no lo hiciera, no hay condiciones de admisión y
+    // el acto se rechaza fail-closed (corrección IMP23-ADMISSION-GATE-REQUIRED-06).
+    const admissionGates = activeEnvelope.gates.filter((gate) => ADMISSION_GATE_KINDS.includes(gate.kind));
+    if (admissionGates.length === 0) {
+      pushRejection(reasons, "NO_ADMISSION_GATE", `El envelope no declara ningún gate de admisión (${ADMISSION_GATE_KINDS.join("/")}); sin condiciones de admisión no hay acto admisible (§17).`, "gates");
+      return true;
+    }
     for (const gate of admissionGates) {
       blocked = gateBlocking(reasons, gate.gateId, dataState) || blocked;
     }
