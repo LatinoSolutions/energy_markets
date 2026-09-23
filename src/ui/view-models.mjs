@@ -241,7 +241,10 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   if (timeline === null || timeline?.ok !== true || timeline?.timeline === undefined) {
     return unexpectedTimeline([{ field: "timeline", code: "TIMELINE_NOT_VALIDATED", message: "Replay exige el timeline validado de buildOperatorTimeline; sin él no se renderiza (§26.3)." }]);
   }
-  if (exposure === null || exposure?.ok !== true || exposure?.exposure === undefined) {
+  // UI01-10 (review de cambio 2026-09-23): un `exposure.exposure === null`
+  // no salta el guard anterior (null !== undefined) y revientaba más abajo;
+  // se degrada a ERROR sin excepción (§26.5 / estados de error fail-closed).
+  if (exposure === null || exposure?.ok !== true || exposure?.exposure === undefined || exposure?.exposure === null) {
     return unexpectedTimeline([{ field: "exposure", code: "EXPOSURE_NOT_VALIDATED", message: "Replay exige la exposición validada de buildExposure; sin ella no se renderiza (§26.2)." }]);
   }
   // UI01-04a (review 2026-09-23): una exposición sin fields no es una
@@ -452,6 +455,13 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     }
   };
   for (const [lane, events] of [["executions", t.executions], ["interventions", t.interventions]]) {
+    // UI01-09 (review de cambio 2026-09-23): el render deriva data-event-class
+    // de event.lane; la lane del evento se coteja con la lane canónica del
+    // contenedor (execution/intervention, timeline.mjs §26.3) y la clase del
+    // contenedor de intervención con HUMAN_INTERVENTION: una actuación Real no
+    // se rotula como intervención humana ni una intervención humana se rinde
+    // como ejecución SIMULATED/BOGUS (§26.3/§26.5).
+    const expectedEventLane = lane === "executions" ? "execution" : "intervention";
     for (const event of events) {
       // UI01-01e (review de cambio 2026-09-23): reconcileOperatorTimeline no
       // re-valida la identidad ni la clase de las actuaciones; aquí se hace
@@ -459,6 +469,12 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       // de las clases canónicas o un eventId vacío no se rinde como evento.
       if (typeof event?.eventId !== "string" || event.eventId.trim().length === 0) {
         errors.push({ field: `${lane}.(sin id).eventId`, code: "MISSING_EVENT_ID", message: "la actuación no declara su identidad; un evento sin id no se muestra (§26.3/§26.5)" });
+      }
+      if (event?.lane !== expectedEventLane) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.lane`, code: "EVENT_LANE_MISMATCH", message: `el evento declara lane "${event?.lane ?? "ausente"}" en el contenedor ${lane}; la lane canónica "execution"/"intervention" del boundary separa la ejecución de la intervención humana (§26.3)` });
+      }
+      if (lane === "interventions" && event?.class !== HUMAN_INTERVENTION_CLASS) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.class`, code: "INVALID_INTERVENTION_CLASS", message: `una intervención humana es ${HUMAN_INTERVENTION_CLASS} y no una clase de ejecución; el resultado tocado por un humano no se rinde como fill simulado ni se atribuye en silencio (§26.3)` });
       }
       if (lane === "executions" && !EXECUTION_CLASSES.includes(event?.class)) {
         errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.class`, code: "UNKNOWN_EXECUTION_CLASS", message: `class debe ser ${EXECUTION_CLASSES.join(", ")}: un fill hipotético no se muestra como Real ni una clase desconocida se muestra como factual (§26.3)` });

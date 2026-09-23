@@ -961,3 +961,54 @@ test("replay: una exposición con sección value-less y procedencia se rinde sin
   assert.equal(droppedVm.ok, false);
   assert.ok(droppedVm.errors.some((error) => error.code === "INCOMPLETE_PROVENANCE"));
 });
+
+// UI01-09 (review de cambio 2026-09-23): la lane y la clase exhibidas
+// (data-event-class) se atan a la lane canónica del contenedor (§26.3):
+// una lane divergente no renombra la semántica y una intervención humana no
+// se rinde como clase de ejecución (SIMULATED/BOGUS) ni una actuación Real
+// como HUMAN_INTERVENTION.
+test("replay: una lane/class de evento divergente de la lane canónica queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  // una actuación Real rotulada como intervención humana
+  const crossedLane = JSON.parse(JSON.stringify(timeline));
+  crossedLane.timeline.executions[0].lane = "intervention";
+  const crossedVm = buildReplayViewModel({ timeline: crossedLane, exposure, backendIndex });
+  assert.equal(crossedVm.ok, false);
+  assert.ok(crossedVm.errors.some((error) => error.code === "EVENT_LANE_MISMATCH" && error.field === "executions.SIM-1.lane"));
+  const crossedHtml = renderReplayPage(crossedVm);
+  assert.match(crossedHtml, /data-state="ERROR"/);
+  assert.ok(!crossedHtml.includes('data-event-class="HUMAN_INTERVENTION"'));
+  // una intervención humana presentada como ejecución con clase forjada
+  const forgedIntervention = JSON.parse(JSON.stringify(timeline));
+  forgedIntervention.timeline.interventions[0].lane = "execution";
+  forgedIntervention.timeline.interventions[0].class = "BOGUS_CLASS";
+  const interventionVm = buildReplayViewModel({ timeline: forgedIntervention, exposure, backendIndex });
+  assert.equal(interventionVm.ok, false);
+  assert.ok(interventionVm.errors.some((error) => error.code === "EVENT_LANE_MISMATCH" && error.field === "interventions.HUM-1.lane"));
+  assert.ok(interventionVm.errors.some((error) => error.code === "INVALID_INTERVENTION_CLASS" && error.field === "interventions.HUM-1.class"));
+  assert.ok(!renderReplayPage(interventionVm).includes('data-event-class="BOGUS_CLASS"'));
+  // una intervención humana con lane intacta pero clase de ejecución: no se
+  // rinde como fill simulado ni sin atribución visible (§26.3)
+  const simulatedIntervention = JSON.parse(JSON.stringify(timeline));
+  simulatedIntervention.timeline.interventions[0].class = EXECUTION_CLASS.SIMULATED;
+  const simulatedVm = buildReplayViewModel({ timeline: simulatedIntervention, exposure, backendIndex });
+  assert.equal(simulatedVm.ok, false);
+  assert.ok(simulatedVm.errors.some((error) => error.code === "INVALID_INTERVENTION_CLASS" && error.field === "interventions.HUM-1.class"));
+  assert.match(renderReplayPage(simulatedVm), /data-state="ERROR"/);
+});
+
+// UI01-10 (review de cambio 2026-09-23): una exposición declarada con
+// `exposure.exposure === null` degrada a ERROR sin excepción (mismo invariante
+// fail-closed que UI01-04a; §26.5 / estados de error del brief).
+test("replay: una exposición con exposure null rinde ERROR sin lanzar", () => {
+  const { timeline, backendIndex } = scenarios();
+  const vm = buildReplayViewModel({ timeline, backendIndex, exposure: { ok: true, exposure: null } });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "EXPOSURE_NOT_VALIDATED");
+  let html;
+  assert.doesNotThrow(() => {
+    html = renderReplayPage(vm);
+  });
+  assert.match(html, /data-state="ERROR"/);
+  assert.match(html, /fail-closed/);
+});
