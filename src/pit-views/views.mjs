@@ -878,6 +878,13 @@ export function readEvaluationView(manifest, asOfUtc) {
   };
 }
 
+// Predicado para el boundary del Operator Interface (IMP-29 §26.5): la UI
+// contrasta lo que muestra contra registros canónicos, y sólo un manifest
+// producido por buildPitManifest acredita registros canónicos (§6.1/§25.2).
+export function isVerifiedPitManifest(manifest) {
+  return manifest !== null && typeof manifest === "object" && VERIFIED_MANIFESTS.has(manifest);
+}
+
 // Entrega las dos vistas separadas para un boundary/asOf idéntico. La
 // separación explícita evita confundir ambas en los tests de §19.2.
 export function viewsAt(manifest, boundaryUtc) {

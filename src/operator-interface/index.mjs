@@ -34,3 +34,10 @@ export {
   buildHumanIntervention,
   projectGovernanceState,
 } from "./controls.mjs";
+
+export {
+  backendIndexFromManifest,
+  backendRefOf,
+  parseBackendRef,
+  resolveBackendRecord,
+} from "./backend-records.mjs";

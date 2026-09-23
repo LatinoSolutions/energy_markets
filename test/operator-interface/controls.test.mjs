@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
 import {
   AUTHORIZED_COMMANDS,
   GOVERNANCE_COMMAND,
@@ -9,13 +10,27 @@ import {
   buildHumanIntervention,
   projectGovernanceState,
 } from "../../src/operator-interface/index.mjs";
+import { AUTHORITY_BASE, EVALUATION_BENCHMARK, RECEIPT_BASE, RECOMMENDATION_BASE, buildManifest } from "./fixtures.mjs";
+
+// Backend verificado (§26.5; OI29-03 del review 2026-09-23): la autoridad, el
+// receipt y la recomendación vinculada son registros del manifest backend.
+function backendFor() {
+  const built = buildManifest({ records: [RECOMMENDATION_BASE, AUTHORITY_BASE, RECEIPT_BASE, EVALUATION_BENCHMARK] });
+  assert.equal(built.ok, true, JSON.stringify(built.errors ?? "manifest no construido"));
+  return built.manifest;
+}
 
 const AUTHORIZATION = {
-  authorityRef: "DEP-25/activation-1",
+  authorityRef: `${AUTHORITY_BASE.key}@${AUTHORITY_BASE.revisionId}`,
   grantedBy: "operator-bru",
   grantedAtUtc: "2026-04-02T08:00:00Z",
 };
-const RECEIPT = { receiptRef: "operations/receipts/exec-1.json", receiptSha256: "d".repeat(64) };
+const RECEIPT = {
+  receiptRef: `${RECEIPT_BASE.key}@${RECEIPT_BASE.revisionId}`,
+  receiptSha256: canonicalValueSha256(RECEIPT_BASE.value).sha256,
+};
+const RECOMMENDATION_REF = `${RECOMMENDATION_BASE.key}@${RECOMMENDATION_BASE.revisionId}`;
+const BACKEND = { backendManifest: backendFor() };
 
 test("los comandos autorizados cubren §18.4 y las intervenciones de §26.2", () => {
   for (const command of ["PROMOTE", "HALT", "DEMOTE", "ROLLBACK", "APPROVE", "VETO", "DELAY", "MODIFY"]) {
@@ -39,19 +54,63 @@ test("un control en pantalla sin autorización explícita se rechaza", () => {
 });
 
 test("un comando de governance exige su receipt aplicable", () => {
-  const noReceipt = authorizeOperatorCommand({ command: GOVERNANCE_COMMAND.DEMOTE, authorization: AUTHORIZATION });
+  const noReceipt = authorizeOperatorCommand(
+    { command: GOVERNANCE_COMMAND.DEMOTE, authorization: AUTHORIZATION },
+    BACKEND,
+  );
   assert.equal(noReceipt.ok, false);
   assert.equal(noReceipt.errors[0].code, "MISSING_RECEIPT");
 
-  const ok = authorizeOperatorCommand({ command: GOVERNANCE_COMMAND.DEMOTE, authorization: AUTHORIZATION, receipt: RECEIPT });
+  const ok = authorizeOperatorCommand(
+    { command: GOVERNANCE_COMMAND.DEMOTE, authorization: AUTHORIZATION, receipt: RECEIPT },
+    BACKEND,
+  );
   assert.equal(ok.ok, true);
-  assert.equal(ok.command.receipt.receiptSha256, "d".repeat(64));
+  assert.equal(ok.command.receipt.receiptSha256, canonicalValueSha256(RECEIPT_BASE.value).sha256);
 });
 
 test("la UI no concede autoridad: procede del backend", () => {
-  const outcome = authorizeOperatorCommand({ command: GOVERNANCE_COMMAND.HALT, authorization: AUTHORIZATION, receipt: RECEIPT });
+  const outcome = authorizeOperatorCommand(
+    { command: GOVERNANCE_COMMAND.HALT, authorization: AUTHORIZATION, receipt: RECEIPT },
+    BACKEND,
+  );
   assert.equal(outcome.command.authorityGranted, false);
   assert.equal(outcome.command.authoritySource, "BACKEND");
+  // OI29-03: la autoridad misma quedó registrada en el backend verificado.
+  assert.equal(outcome.command.authorization.origin.recordKey, AUTHORITY_BASE.key);
+});
+
+// OI29-03: la autoridad y el receipt se contrastan contra el backend
+// verificado; una referencia inventada no basta.
+test("un comando con autoridad y receipt inexistentes se rechaza", () => {
+  const outcome = authorizeOperatorCommand({
+    command: GOVERNANCE_COMMAND.PROMOTE,
+    authorization: { ...AUTHORIZATION, authorityRef: "GOV.never@v404" },
+    receipt: RECEIPT,
+  }, BACKEND);
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].field, "authorization.authorityRef");
+  assert.equal(outcome.errors[0].code, "RECORD_NOT_IN_BACKEND");
+
+  const withoutBackend = authorizeOperatorCommand({
+    command: GOVERNANCE_COMMAND.HALT,
+    authorization: AUTHORIZATION,
+    receipt: RECEIPT,
+  });
+  assert.equal(withoutBackend.ok, false);
+  assert.equal(withoutBackend.errors[0].code, "AUTHORIZATION_BACKEND_UNVERIFIED");
+});
+
+// OI29-03: el receipt no vale por su forma; su hash debe coincidir con el
+// registro verificado del backend.
+test("un receipt cuyo hash no coincide con el backend se rechaza", () => {
+  const outcome = authorizeOperatorCommand({
+    command: GOVERNANCE_COMMAND.DEMOTE,
+    authorization: AUTHORIZATION,
+    receipt: { ...RECEIPT, receiptSha256: "d".repeat(64) },
+  }, BACKEND);
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "RECEIPT_CONTENT_MISMATCH");
 });
 
 test("una intervención exige vínculo a la recomendación y acción efectiva", () => {
@@ -59,27 +118,50 @@ test("una intervención exige vínculo a la recomendación y acción efectiva", 
     command: INTERVENTION_COMMAND.MODIFY,
     authorization: AUTHORIZATION,
     effectiveAction: "delay one opportunity",
-  });
+  }, BACKEND);
   assert.equal(outcome.ok, false);
   assert.equal(outcome.errors[0].code, "MISSING_INTERVENTION_LINK");
 
   const ok = authorizeOperatorCommand({
     command: INTERVENTION_COMMAND.MODIFY,
     authorization: AUTHORIZATION,
-    recommendationRef: "rec-42",
+    recommendationRef: RECOMMENDATION_REF,
     effectiveAction: "delay one opportunity",
-  });
+  }, BACKEND);
   assert.equal(ok.ok, true);
-  assert.equal(ok.command.recommendationRef, "rec-42");
+  assert.equal(ok.command.recommendationRef, RECOMMENDATION_REF);
+});
+
+// OI29-03: el vínculo de la intervención debe resolver a una recomendación
+// canónica del decision view del backend.
+test("una intervención vinculada a una recomendación inexistente se rechaza", () => {
+  const missing = authorizeOperatorCommand({
+    command: INTERVENTION_COMMAND.MODIFY,
+    authorization: AUTHORIZATION,
+    recommendationRef: "never.exists@v404",
+    effectiveAction: "delay one opportunity",
+  }, BACKEND);
+  assert.equal(missing.ok, false);
+  assert.equal(missing.errors[0].field, "recommendationRef");
+  assert.equal(missing.errors[0].code, "RECORD_NOT_IN_BACKEND");
+
+  const evaluationScope = authorizeOperatorCommand({
+    command: INTERVENTION_COMMAND.MODIFY,
+    authorization: AUTHORIZATION,
+    recommendationRef: "B.G0BQ.202604.closed@bench-v1",
+    effectiveAction: "delay one opportunity",
+  }, BACKEND);
+  assert.equal(evaluationScope.ok, false);
+  assert.equal(evaluationScope.errors[0].code, "RECOMMENDATION_REF_NOT_IN_DECISION_SCOPE");
 });
 
 test("la intervención humana conserva distinción de la policy", () => {
   const outcome = buildHumanIntervention({
-    recommendationRef: "rec-42",
+    recommendationRef: `${RECOMMENDATION_BASE.key}@${RECOMMENDATION_BASE.revisionId}`,
     command: INTERVENTION_COMMAND.VETO,
     effectiveAction: "veto the recommendation",
     occurredAtUtc: "2026-04-02T09:00:00Z",
-    provenance: { recordKey: "rec-42", revisionId: "v1" },
+    provenance: { recordKey: RECOMMENDATION_BASE.key, revisionId: RECOMMENDATION_BASE.revisionId },
   });
   assert.equal(outcome.ok, true);
   assert.equal(outcome.intervention.attribution, "HUMAN");
@@ -89,7 +171,7 @@ test("la intervención humana conserva distinción de la policy", () => {
 
 test("una intervención mal formada se rechaza", () => {
   const noProvenance = buildHumanIntervention({
-    recommendationRef: "rec-42",
+    recommendationRef: `${RECOMMENDATION_BASE.key}@${RECOMMENDATION_BASE.revisionId}`,
     command: INTERVENTION_COMMAND.DELAY,
     effectiveAction: "delay",
     occurredAtUtc: "2026-04-02T09:00:00Z",
@@ -98,11 +180,11 @@ test("una intervención mal formada se rechaza", () => {
   assert.equal(noProvenance.errors[0].code, "MISSING_PROVENANCE");
 
   const unknownCommand = buildHumanIntervention({
-    recommendationRef: "rec-42",
+    recommendationRef: `${RECOMMENDATION_BASE.key}@${RECOMMENDATION_BASE.revisionId}`,
     command: "IGNORE",
     effectiveAction: "delay",
     occurredAtUtc: "2026-04-02T09:00:00Z",
-    provenance: { recordKey: "rec-42", revisionId: "v1" },
+    provenance: { recordKey: RECOMMENDATION_BASE.key, revisionId: RECOMMENDATION_BASE.revisionId },
   });
   assert.equal(unknownCommand.ok, false);
   assert.equal(unknownCommand.errors[0].code, "UNKNOWN_INTERVENTION_COMMAND");

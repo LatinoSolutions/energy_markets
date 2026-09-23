@@ -31,6 +31,7 @@ export {
   buildPitManifestFromAudit,
   buildRevision,
   IMP03_REQUIREMENT_VIEW_SCOPES,
+  isVerifiedPitManifest,
   readDecisionView,
   readEvaluationView,
   viewsAt,

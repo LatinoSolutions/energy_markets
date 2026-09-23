@@ -14,6 +14,7 @@
 import { readDecisionView, readEvaluationView } from "../pit-views/views.mjs";
 import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { isSha256 } from "../contracts/identities.mjs";
+import { backendIndexFromManifest, parseBackendRef, resolveBackendRecord } from "./backend-records.mjs";
 
 // Modos de trabajo de §26.2: Replay / OOS / Shadow / Real Execution. Mostrar
 // OOS no lo convierte en una fuente de Experience independiente de su forma de
@@ -74,7 +75,25 @@ function normalizeBoundary(value, field, code) {
   return { ok: true, iso: parsed.utc };
 }
 
-function validateExecution(event, index) {
+// OI29-04 (review 2026-09-23): el vínculo a la recomendación no vale por ser
+// un texto con forma de referencia. Debe resolver a una versión canónica en
+// el decision view del manifest verificado del propio timeline (§26.3/§26.5).
+function validateRecommendationLink(ref, backendIndex, field) {
+  const parsed = parseBackendRef(ref);
+  if (parsed !== null) {
+    const resolved = resolveBackendRecord(backendIndex, parsed.recordKey, parsed.revisionId);
+    if (resolved === null) {
+      return { error: { field, code: "RECOMMENDATION_REF_NOT_IN_BACKEND", message: `"${ref}" no existe en el manifest verificado del timeline; el vínculo no remite a una recomendación canónica (§26.3/§26.5).` } };
+    }
+    if (resolved.viewScope !== "decision") {
+      return { error: { field, code: "RECOMMENDATION_REF_NOT_IN_DECISION_SCOPE", message: `"${ref}" no es una versión del decision view; la actuación se vincula a la recomendación conocida al decidir (§26.3).` } };
+    }
+    return { record: resolved };
+  }
+  return { error: { field, code: "INVALID_RECOMMENDATION_REF", message: `"${ref ?? "La referencia"}" no es una referencia a registro/versión canónico "<recordKey>@<revisionId>" (§26.3).` } };
+}
+
+function validateExecution(event, index, backendIndex) {
   const field = `executions[${index}]`;
   const errors = [];
   if (!isNonEmptyString(event?.eventId)) {
@@ -93,6 +112,11 @@ function validateExecution(event, index) {
       code: "MISSING_RECOMMENDATION_REF",
       message: "La actuación debe vincularse a la recomendación original (§26.3).",
     });
+  } else {
+    const link = validateRecommendationLink(event.relatedRecommendationRef, backendIndex, `${field}.relatedRecommendationRef`);
+    if (link.error !== undefined) {
+      errors.push(link.error);
+    }
   }
   const occurred = toUtcTimestamp(event?.occurredAtUtc);
   if (!occurred.ok) {
@@ -124,6 +148,8 @@ function validateExecution(event, index) {
       clock: occurred.utc,
       clockKind: "execution-occurred",
       relatedRecommendationRef: event.relatedRecommendationRef,
+      // OI29-04: marca del vínculo resuelto contra el manifest verificado.
+      relatedCanonicalRef: { recordKey: parseBackendRef(event.relatedRecommendationRef).recordKey, revisionId: parseBackendRef(event.relatedRecommendationRef).revisionId },
       hypothetical: event.class === EXECUTION_CLASS.HYPOTHETICAL,
       real: event.class === EXECUTION_CLASS.REAL,
       authorization: event.class === EXECUTION_CLASS.REAL
@@ -133,7 +159,7 @@ function validateExecution(event, index) {
   };
 }
 
-function validateIntervention(event, index) {
+function validateIntervention(event, index, backendIndex) {
   const field = `interventions[${index}]`;
   const errors = [];
   if (!isNonEmptyString(event?.eventId)) {
@@ -149,6 +175,11 @@ function validateIntervention(event, index) {
       code: "MISSING_RECOMMENDATION_REF",
       message: "La intervención humana se vincula a la recomendación original (§26.2/§26.3).",
     });
+  } else {
+    const link = validateRecommendationLink(event.relatedRecommendationRef, backendIndex, `${field}.relatedRecommendationRef`);
+    if (link.error !== undefined) {
+      errors.push(link.error);
+    }
   }
   // §26.3: el resultado de una actuación modificada por un humano no se
   // atribuye en silencio a la recomendación original.
@@ -171,6 +202,7 @@ function validateIntervention(event, index) {
       clock: occurred.utc,
       clockKind: "intervention-occurred",
       relatedRecommendationRef: event.relatedRecommendationRef,
+      relatedCanonicalRef: { recordKey: parseBackendRef(event.relatedRecommendationRef).recordKey, revisionId: parseBackendRef(event.relatedRecommendationRef).revisionId },
       attribution: "HUMAN",
     }),
   };
@@ -212,20 +244,40 @@ export function buildOperatorTimeline({
   }
 
   const errors = [];
+  const backendIndex = backendIndexFromManifest(manifest);
+  const asOfMs = Date.parse(asOf.iso);
   const builtExecutions = [];
   executions.forEach((event, index) => {
-    const outcome = validateExecution(event, index);
+    const outcome = validateExecution(event, index, backendIndex);
     if (outcome.ok) {
-      builtExecutions.push(outcome.event);
+      // OI29-04: un evento posterior al asOf de la vista sería información
+      // futura presentada en la evaluación de ese punto (§26.3).
+      if (Date.parse(outcome.event.clock) > asOfMs) {
+        errors.push({
+          field: `executions[${index}].occurredAtUtc`,
+          code: "EVENT_AFTER_EVALUATION_ASOF",
+          message: `"${event.eventId}" ocurrió en ${outcome.event.clock}, posterior al asOf ${asOf.iso} de la vista; no se muestra como ya ocurrido (§26.3).`,
+        });
+      } else {
+        builtExecutions.push(outcome.event);
+      }
     } else {
       errors.push(...outcome.errors);
     }
   });
   const builtInterventions = [];
   interventions.forEach((event, index) => {
-    const outcome = validateIntervention(event, index);
+    const outcome = validateIntervention(event, index, backendIndex);
     if (outcome.ok) {
-      builtInterventions.push(outcome.event);
+      if (Date.parse(outcome.event.clock) > asOfMs) {
+        errors.push({
+          field: `interventions[${index}].occurredAtUtc`,
+          code: "EVENT_AFTER_EVALUATION_ASOF",
+          message: `"${event.eventId}" ocurrió en ${outcome.event.clock}, posterior al asOf ${asOf.iso} de la vista; no se muestra como ya ocurrido (§26.3).`,
+        });
+      } else {
+        builtInterventions.push(outcome.event);
+      }
     } else {
       errors.push(...outcome.errors);
     }
@@ -352,6 +404,32 @@ export function reconcileOperatorTimeline(timeline) {
     }
   }
   checks.push("evaluationClockWithinAsOf");
+
+  // OI29-04: los eventos de ejecución e intervención tampoco pueden estar
+  // después del asOf evaluado, y cada uno debe conservar su vínculo canónico
+  // resuelto (la marca sólo la coloca buildOperatorTimeline contra el manifest
+  // verificado); un timeline armado a mano sin ese vínculo no pasa (§26.3).
+  for (const [lane, events] of [["executions", timeline.executions ?? []], ["interventions", timeline.interventions ?? []]]) {
+    for (const event of events) {
+      const clockMs = Date.parse(event?.clock);
+      if (!Number.isNaN(clockMs) && !Number.isNaN(asOfMs) && clockMs > asOfMs) {
+        errors.push({
+          field: `${lane}.${event.eventId}`,
+          code: "EVENT_AFTER_EVALUATION_ASOF",
+          message: `"${event.eventId}" se muestra ya ocurrido después del asOf ${timeline.evaluation?.asOf} de la vista (§26.3).`,
+        });
+      }
+      if (event?.relatedCanonicalRef?.recordKey === undefined) {
+        errors.push({
+          field: `${lane}.${event?.eventId ?? "(sin id)"}`,
+          code: "RECOMMENDATION_LINK_UNRESOLVED",
+          message: "La actuación no conserva el vínculo canónico resuelto a la recomendación (§26.3/§26.5).",
+        });
+      }
+    }
+  }
+  checks.push("eventsWithinEvaluationAsOf");
+  checks.push("recommendationLinksResolved");
 
   // Un key de la evaluation view no puede informar la decisión: sería mostrar
   // un outcome/benchmark futuro como conocido al decidir (§6.1/§26.3).

@@ -48,6 +48,48 @@ export const EVALUATION_BENCHMARK = {
   value: 25.7,
 };
 
+// Recomendación canónica del decision view (§26.2/§26.3): los vínculos de
+// actuación e intervención se resuelven contra ella en el manifest verificado.
+export const RECOMMENDATION_BASE = {
+  key: "R.G0BQ.202604",
+  viewScope: "decision",
+  occurredAtUtc: "2026-03-31T17:20:00Z",
+  publishedAtUtc: "2026-03-31T18:05:00Z",
+  consumableAtUtc: "2026-04-01T06:00:00Z",
+  consumableEvidence: CONSUMABLE_EVIDENCE,
+  revisionId: "v1",
+  value: { action: "BUY", sizing: 0.5 },
+};
+
+// Autoridad otorgada y receipt de governance, como registros del backend
+// (§26.5): todo comando de la UI se contrasta contra ellos.
+export const AUTHORITY_BASE = {
+  key: "GOV.authority-1",
+  viewScope: "decision",
+  occurredAtUtc: "2026-04-02T08:00:00Z",
+  publishedAtUtc: "2026-04-02T08:00:00Z",
+  consumableAtUtc: "2026-04-02T08:00:00Z",
+  consumableEvidence: CONSUMABLE_EVIDENCE,
+  revisionId: "v1",
+  value: { grantedTo: "operator-bru", scope: "GOVERNANCE" },
+};
+
+export const RECEIPT_BASE = {
+  key: "GOV.receipt.exec-1",
+  viewScope: "decision",
+  occurredAtUtc: "2026-04-02T08:00:00Z",
+  publishedAtUtc: "2026-04-02T08:00:00Z",
+  consumableAtUtc: "2026-04-02T08:00:00Z",
+  consumableEvidence: CONSUMABLE_EVIDENCE,
+  revisionId: "v1",
+  value: { kind: "GOVERNANCE_RECEIPT" },
+};
+
+// Referencia canónica "<recordKey>@<revisionId>" del registro.
+export function backendRefOf(record) {
+  return `${record.key}@${record.revisionId}`;
+}
+
 function valueAttestationsFor(records, revisions = []) {
   return records
     .filter((record) => record.value !== undefined && record.value !== null

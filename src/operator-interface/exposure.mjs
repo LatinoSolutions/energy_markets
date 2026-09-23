@@ -20,6 +20,7 @@
 import { isSha256 } from "../contracts/identities.mjs";
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { toUtcTimestamp } from "../pit-views/time.mjs";
+import { backendIndexFromManifest, resolveBackendRecord } from "./backend-records.mjs";
 
 // Condiciones de datos que §26.2/§26.3 obligan a mantener visibles. Ninguna se
 // convierte en un valor limpio que aparente conocimiento (§26.2 último párrafo).
@@ -121,7 +122,33 @@ function deepFreeze(value) {
 // el valor. Sin ella un valor no se muestra (§26.5: la UI no calcula su propia
 // verdad económica). `valueSha256` ata el valor mostrado a un contenido
 // canónico concreto (mismo hash que IMP-06 fija por versión).
-function validateProvenance(provenance, field, errors) {
+//
+// OI29-01 (review 2026-09-23): la referencia se contrasta contra el manifest
+// backend verificado (§26.5/§25.2): un recordKey inexistente o una versión que
+// el backend no tiene no prueban procedencia por mucho hash que calcule el
+// llamador. Sin backend verificado fail-closed.
+function requireBackendRecord(index, provenance, errors, detail) {
+  if (index === null) {
+    errors.push({
+      field: "provenance",
+      code: "PROVENANCE_BACKEND_UNVERIFIED",
+      message: "Contrastar la procedencia exige un manifest backend verificado (buildPitManifest); sin él nada remite a un registro canónico (§26.5/§25.2).",
+    });
+    return null;
+  }
+  const resolved = resolveBackendRecord(index, provenance.recordKey, provenance.revisionId);
+  if (resolved === null) {
+    errors.push({
+      field: "provenance",
+      code: "RECORD_NOT_IN_BACKEND",
+      message: `La procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest backend verificado; ${detail} (§26.5/§25.2).`,
+    });
+    return null;
+  }
+  return resolved;
+}
+
+function validateProvenance(provenance, field, errors, backendIndex) {
   if (provenance === undefined || provenance === null) {
     errors.push({
       field: "provenance",
@@ -150,6 +177,10 @@ function validateProvenance(provenance, field, errors) {
     });
     return null;
   }
+  const resolved = requireBackendRecord(backendIndex, provenance, errors, "el valor mostrado no remite a un registro/versión canónico");
+  if (resolved === null) {
+    return null;
+  }
   return deepFreeze({
     sourceKind: provenance.sourceKind,
     recordKey: provenance.recordKey,
@@ -162,7 +193,13 @@ function validateProvenance(provenance, field, errors) {
 // Construye una observación de exposición. Devuelve `{ ok, record }` o
 // `{ ok:false, errors }`. El valor, si lo hay, procede de una versión canónica
 // y su hash coincide con ella; una condición sin valor conserva su razón.
-export function buildExposureField(input) {
+//
+// OI29-01: la procedencia se valida doblemente contra el manifest backend
+// verificado (context.backendIndex, de backendIndexFromManifest). Sin backend
+// verificado, ninguna observación con procedencia se acepta (fail-closed):
+// el hash que el llamador calcule del valor que él inventó no acredita nada.
+export function buildExposureField(input, context = {}) {
+  const backendIndex = context?.backendIndex ?? null;
   const errors = [];
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return fail("(observation)", "MISSING_OBSERVATION", "La observación de exposición está ausente.");
@@ -203,7 +240,7 @@ export function buildExposureField(input) {
       reason: input.reason,
     };
     if (input.provenance !== undefined && input.provenance !== null) {
-      record.provenance = validateProvenanceWithoutValue(input.provenance, field, errors);
+      record.provenance = validateProvenanceWithoutValue(input.provenance, field, errors, backendIndex);
       if (errors.length > 0) {
         return { ok: false, errors };
       }
@@ -231,6 +268,7 @@ export function buildExposureField(input) {
   }
 
   let provenance = null;
+  let resolvedBackendRecord = null;
   if (hasValue) {
     const valueOutcome = canonicalValueSha256(input.value);
     if (!valueOutcome.ok) {
@@ -240,17 +278,38 @@ export function buildExposureField(input) {
         message: "El valor debe ser dato JSON serializable (null, boolean, string, número finito, arrays, objetos planos).",
       });
     } else {
-      provenance = validateProvenance(input.provenance, field, errors);
-      if (provenance !== null && provenance.valueSha256 !== valueOutcome.sha256) {
-        errors.push({
-          field: "value",
-          code: "VALUE_PROVENANCE_MISMATCH",
-          message: `El valor mostrado por "${field.key}" no es el de la versión canónica declarada (valueSha256 distinto): la UI no calcula otra verdad económica (§26.5).`,
-        });
+      provenance = validateProvenance(input.provenance, field, errors, backendIndex);
+      if (provenance !== null) {
+        if (provenance.valueSha256 !== valueOutcome.sha256) {
+          errors.push({
+            field: "value",
+            code: "VALUE_PROVENANCE_MISMATCH",
+            message: `El valor mostrado por "${field.key}" no es el de la versión canónica declarada (valueSha256 distinto): la UI no calcula otra verdad económica (§26.5).`,
+          });
+        } else {
+          // OI29-01: el hash del valor podría coincidir con el que el llamador
+          // inventó; se contrasta también con el valor que el backend tiene
+          // registrado para esa versión (§26.5: los datos remiten a registros
+          // y versiones canónicos).
+          resolvedBackendRecord = resolveBackendRecord(backendIndex, provenance.recordKey, provenance.revisionId);
+          if (resolvedBackendRecord === null) {
+            errors.push({
+              field: "provenance",
+              code: "PROVENANCE_BACKEND_UNVERIFIED",
+              message: "Contrastar la procedencia exige un manifest backend verificado (buildPitManifest); sin él nada remite a un registro canónico (§26.5/§25.2).",
+            });
+          } else if (resolvedBackendRecord.valueSha256 !== valueOutcome.sha256) {
+            errors.push({
+              field: "value",
+              code: "BACKEND_VALUE_MISMATCH",
+              message: `El valor canónico registrado por "${provenance.recordKey}"/"${provenance.revisionId}" no es el mostrado por "${field.key}": no se presenta un valor que el backend no registró (§26.5/§25.2).`,
+            });
+          }
+        }
       }
     }
   } else if (input.provenance !== undefined && input.provenance !== null) {
-    provenance = validateProvenanceWithoutValue(input.provenance, field, errors);
+    provenance = validateProvenanceWithoutValue(input.provenance, field, errors, backendIndex);
   }
 
   if (errors.length > 0) {
@@ -273,7 +332,8 @@ export function buildExposureField(input) {
 
 // Procedencia de una condición sin valor: identifica la versión de la que
 // procede la observación (p. ej. el motivo de un faltante) sin atar un valor.
-function validateProvenanceWithoutValue(provenance, field, errors) {
+// La referencia también se contrasta con el backend verificado (OI29-01).
+function validateProvenanceWithoutValue(provenance, field, errors, backendIndex) {
   if (typeof provenance !== "object" || Array.isArray(provenance)) {
     errors.push({ field: "provenance", code: "INVALID_PROVENANCE", message: "La procedencia debe ser un objeto." });
     return null;
@@ -294,6 +354,10 @@ function validateProvenanceWithoutValue(provenance, field, errors) {
     });
     return null;
   }
+  const resolved = requireBackendRecord(backendIndex, provenance, errors, "la condición no remite a un registro/versión canónico");
+  if (resolved === null) {
+    return null;
+  }
   return deepFreeze({
     sourceKind: provenance.sourceKind,
     recordKey: provenance.recordKey,
@@ -306,7 +370,13 @@ function validateProvenanceWithoutValue(provenance, field, errors) {
 // Proyección completa del boundary. Todas las secciones de §26.2 quedan
 // presentes: las no observadas se declaran MISSING con razón, porque omitirlas
 // daría a la interfaz una apariencia de cobertura que no existe (§26.2).
-export function buildExposure({ boundaryUtc, observations = [] } = {}) {
+//
+// OI29-02: el boundaryUtc limita las observaciones (§26.3: no se presenta como
+// conocido un contenido cuya versión canónica es posterior al boundary). Una
+// observación con valor que remite a un registro posterior (o sin
+// disponibilidad demostrada en origen) no se muestra como AVAILABLE/valor: se
+// degrada a NOT_YET_CLOSED, visible sólo para evaluación posterior.
+export function buildExposure({ boundaryUtc, observations = [], backendManifest } = {}) {
   const boundary = toUtcTimestamp(boundaryUtc);
   if (!boundary.ok) {
     return { ok: false, errors: [{ field: "boundaryUtc", code: boundary.code, message: "El boundary de la exposición requiere timestamp con zona explícita (UTC)." }] };
@@ -314,11 +384,19 @@ export function buildExposure({ boundaryUtc, observations = [] } = {}) {
   if (!Array.isArray(observations)) {
     return { ok: false, errors: [{ field: "observations", code: "INVALID_OBSERVATIONS", message: "observations debe ser una lista." }] };
   }
+  if (backendManifest !== undefined && backendManifest !== null) {
+    const backendIndex = backendIndexFromManifest(backendManifest);
+    if (backendIndex === null) {
+      return { ok: false, errors: [{ field: "backendManifest", code: "UNVERIFIED_BACKEND_MANIFEST", message: "El manifest backend no proviene de buildPitManifest; sus registros no acreditan nada (§6.1/§25.2)." }] };
+    }
+  }
+  const backendIndex = backendManifest === undefined || backendManifest === null ? null : backendIndexFromManifest(backendManifest);
+  const boundaryMs = Date.parse(boundary.utc);
 
   const errors = [];
   const byField = new Map();
   observations.forEach((observation, index) => {
-    const outcome = buildExposureField(observation);
+    const outcome = buildExposureField(observation, { backendIndex });
     if (!outcome.ok) {
       errors.push(...outcome.errors.map((error) => ({ ...error, field: `observations[${index}].${error.field}` })));
       return;
@@ -331,24 +409,44 @@ export function buildExposure({ boundaryUtc, observations = [] } = {}) {
       });
       return;
     }
-    byField.set(outcome.record.field, outcome.record);
+    byField.set(outcome.record.field, outcome);
   });
   if (errors.length > 0) {
     return { ok: false, errors };
   }
-
   const fields = EXPOSURE_FIELDS.map((definition) => {
     const observed = byField.get(definition.key);
-    if (observed !== undefined) {
-      return observed;
+    if (observed === undefined) {
+      return deepFreeze({
+        field: definition.key,
+        specLabel: definition.specLabel,
+        section: definition.section,
+        condition: EXPOSURE_CONDITION.MISSING,
+        reason: "no provista por el backend en este scope; no se presume (§26.2)",
+      });
     }
-    return deepFreeze({
-      field: definition.key,
-      specLabel: definition.specLabel,
-      section: definition.section,
-      condition: EXPOSURE_CONDITION.MISSING,
-      reason: "no provista por el backend en este scope; no se presume (§26.2)",
-    });
+    // OI29-02 (§26.2/§26.3): lo pendiente de cierre no aparece como resultado
+    // final conocido. Si la versión canónica que respalda un valor es
+    // posterior al boundary (o no tiene disponibilidad demostrada en origen),
+    // el valor no era conocido en ese boundary: se degrada a NOT_YET_CLOSED.
+    if (observed.record.value !== undefined
+      && observed.record.provenance !== undefined && observed.record.provenance !== null) {
+      const backendRecord = resolveBackendRecord(backendIndex, observed.record.provenance.recordKey, observed.record.provenance.revisionId);
+      const availabilityUtc = backendRecord?.effectiveAtUtc ?? backendRecord?.publishedAtUtc ?? null;
+      if (availabilityUtc === null || Date.parse(availabilityUtc) > boundaryMs) {
+        return deepFreeze({
+          field: definition.key,
+          specLabel: definition.specLabel,
+          section: definition.section,
+          condition: EXPOSURE_CONDITION.NOT_YET_CLOSED,
+          reason: availabilityUtc === null
+            ? "la versión canónica referida no tiene disponibilidad demostrada en origen; sólo evaluación posterior (§26.2/§6.1)"
+            : `la versión canónica referida existe desde ${availabilityUtc}, posterior al boundary; sólo evaluación posterior (§26.3)`,
+          provenance: observed.record.provenance,
+        });
+      }
+    }
+    return observed.record;
   });
 
   const unavailable = fields
