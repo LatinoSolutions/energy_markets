@@ -32,7 +32,8 @@
           { "path": "client-inputs/full-package/01_campaigns/campaign_rules.csv", "sha256": "bbd5ffa35fbac490e0943f632df00a949c515d3bca70f14da0bc0fd6d86036ad" },
           { "path": "src/procurement-contract/campaign-contract.mjs (OWNER_P006_CONFIRMATION, identidad determinista del episodio)", "sha256": "2aeb94c46fbde5c3e2268a6a8ffd61df6621830a861dbc51ee383589e560872a" },
           { "path": "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", "sha256": "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" },
-          { "path": "src/oos-reservation/register-builder.mjs", "sha256": "9745534c8476fc7bc891dbb93a428171d4f878875fb69f438db6022dcc846325", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz" }
+          { "path": "src/oos-reservation/register-builder.mjs", "sha256": "9f0aea4a068574037b3cfcb630f5ce3f5eb5c1b7d8ed2a02023a9bdac5964937", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz" },
+          { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days EEX 2020-2026, derivado del Holiday Calendar continuo + xlsx oficial 2026 verificado)", "sha256": "15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72" }
         ],
         "limits": "La lista derivada es una derivación de evidencia verificada, no una declaración nueva del procurement owner: lo disponible AHORA es identidad y ventana; la elegibilidad calculada es materia de R-17. El data-readiness del candidato NO cambia: eso es la matriz, que queda intacta."
       }
@@ -50,10 +51,17 @@
         "derivation": "operations/audit/IMP-09/audit-eex-quarterly-evidence.py (solo lectura con el venv pyarrow) → operations/audit/IMP-09/eex-quarterly-episode-evidence.json + SHA256SUMS; consumo determinista con src/oos-reservation/register-builder.mjs (buildEligibilityRegister) y luego reserveSealedOos.",
         "expectedOutcome": "Con la evidencia local, no hay 8 campañas ELIGIBLE+COMPLETE (§13.8): el resultado correcto de IMP-09 es HOLD INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS, sin reserva ficticia.",
         "sources": [
-          { "path": "/srv/hot-data/EEX (lago, solo lectura)", "identity": "_logs/extract.complete + tar 20260728; los SHA-256 por archivo citado quedan en SHA256SUMS del audit" },
+          { "path": "operations/audit/IMP-09/eex-quarterly-episode-evidence.json (+ SHA256SUMS; presencias y conteos, nunca precios; foto _logs/extract.complete sha256=502c6f4f31be110196824e768636eb69d665d126c98520c14b8e531819442321)", "sha256": "46bfd9c565317630a792670ea9a02375b07aaaea85a84a693b5af7d3d19c8a91" },
+          { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days Gas Futures EEX 2020-2026)", "sha256": "15a9bcef6cb6df0f5fea9ee2a8906f4ce21e611b32412f5380dba280fc743c72" },
+          { "path": "operations/audit/IMP-09/evaluate-quarterly-register.mjs (evaluación determinista evidencia->builder->reserva)", "sha256": "c627a1f39f6b6b969182f1b963b57efc42bebad9767475946c9340ae17c5a968" },
           { "path": "client-inputs/full-package/01_campaigns/01_shared_campaign_rules.md", "sha256": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4" },
           { "path": "operations/audit/IMP-03/data-sufficiency-matrix.json", "sha256": "5e94b60b00245cfe7225c3101bd143d55d5015a7678a0d0c13484334f7a6b42f" }
         ],
+        "results": {
+          "decision": "HOLD",
+          "blockedBy": ["NON_CONTIGUOUS_ELIGIBLE_SEQUENCE", "INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS"],
+          "observed": "Con evidencia local (TOB 2025-07-25..2026-07-28) y calendario oficial: 23 quarters ELIGIBLE en su ventana; ELIGIBLE+COMPLETE = 2026Q1 y 2026Q3 (2026Q2 queda INCOMPLETE por TOB ausente el 2025-12-26 - Registro de Exchange Day sin TOB -; no se inventa cobertura). < 8 de §13.8 -> HOLD sin reserva ficticia."
+        },
         "limits": "Ningún precio, fee ni outcome: la evidencia registra presencias y conteos. La matriz aceptada NO se edita: esta contribución es un añadido append-only y no declara cierre de DEP-06/07 por encima de lo derivable."
       }
     }

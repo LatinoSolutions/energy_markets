@@ -120,14 +120,15 @@ test("un quarter omitido en la evidencia rompe la contigüidad (no se rellena)",
   assert.ok(reservation.errors.some((error) => error.code === "NON_CONTIGUOUS_ELIGIBLE_SEQUENCE"));
 });
 
-test("la evidencia sin TOB ‑11:00 completo deja el episodio INCOMPLETE", () => {
+test("la evidencia sin TOB completo deja el episodio INCOMPLETE (cálculo contra Exchange Days oficiales)", () => {
   const input = syntheticInput({ from: "2021-01-01", to: "2023-08-31" });
-  input.evidence.episodes["2023Q2"].tobCovered = false;
-  input.evidence.episodes["2023Q2"].windowDaysMissingTob = ["2023-05-30"];
+  input.evidence.episodes["2023Q2"] = { tradedInWindow: true, windowTobBefore11BerlinDays: ["2022-12-01"] };
   const outcome = buildEligibilityRegister(input);
   const episode = outcome.register.find((item) => item.maturity === "2023Q2");
+  assert.equal(episode.eligibility, "ELIGIBLE");
   assert.equal(episode.completeness, "INCOMPLETE");
-  assert.deepEqual(episode.missingTobDays, ["2023-05-30"]);
+  assert.ok(episode.missingTobDays.length > 1);
+  assert.ok(episode.missingTobDays.includes("2023-02-28"));
 });
 
 test("identity de producto/Mission y DELISTING por trienio (año 2021)", () => {

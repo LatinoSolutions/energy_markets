@@ -274,13 +274,19 @@ export function reserveSealedOos(input = {}) {
   }
 
   if (errors.length > 0) {
+    const blockedBy = [...new Set(errors.map((error) => error.code))];
+    if (ordered.length < SEALED_OOS_CAMPAIGN_COUNT) {
+      // La historia insuficiente se reporta junto al defecto: ambos HOLD son
+      // reales y ninguno se esconde (§13.8).
+      blockedBy.push("INSUFFICIENT_ELIGIBLE_COMPLETE_CAMPAIGNS");
+    }
     return baseResult({
       reservationId: isNonEmptyString(input.reservationId) ? input.reservationId : null,
       reservationBasis: input.reservationBasis,
       spec: input.spec ?? IMP09_SPEC_IDENTITY,
       registerAbsence: input.registerAbsence ?? null,
       errors,
-      blockedBy: [...new Set(errors.map((error) => error.code))],
+      blockedBy: [...new Set(blockedBy)],
       precedesCalibration: calibrationArtifacts.length === 0,
       reason: "HOLD: el registro auditado no satisface su forma o su secuencia; no se materializa ninguna reserva.",
     });

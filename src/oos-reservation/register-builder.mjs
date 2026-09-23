@@ -38,16 +38,20 @@ function isoDateOf(year, month, day) {
 
 // Ventana fiscal 3-1-3 del episodio (regla del cliente: los tres meses
 // anteriores al gap que termina dos meses antes del inicio del delivery).
+// Ventana fiscal 3-1-3 del episodio (regla del cliente: los tres meses
+// anteriores al gap que termina dos meses antes del inicio del delivery).
+// Mismos meses que quarterlyWindow del fixtures y que la evidencia del audit.
 function fiscalWindow(maturity) {
   const year = Number(maturity.slice(0, 4));
   const quarter = Number(maturity.slice(5));
   const deliveryStartMonth = (quarter - 1) * 3 + 1;
-  const startMonths = year * 12 + deliveryStartMonth - 4;
-  const endMonths = year * 12 + deliveryStartMonth - 2;
-  const endYear = Math.floor(endMonths / 12);
-  const endMonth = (endMonths % 12) + 1;
+  const startTotal = year * 12 + (deliveryStartMonth - 1) - 4;
+  const endTotal = year * 12 + (deliveryStartMonth - 1) - 2;
+  const startIso = isoDateOf(Math.floor(startTotal / 12), (startTotal % 12) + 1, 1);
+  const endYear = Math.floor(endTotal / 12);
+  const endMonth = (endTotal % 12) + 1;
   const endDay = new Date(Date.UTC(endYear, endMonth, 0)).getUTCDate();
-  return { startIso: isoDateOf(Math.floor(startMonths / 12), (startMonths % 12) + 1, 1), endIso: isoDateOf(endYear, endMonth, endDay) };
+  return { startIso, endIso: isoDateOf(endYear, endMonth, endDay) };
 }
 
 // Deadline del episodio sobre estructura REAL: el último Exchange Day oficial
@@ -133,6 +137,7 @@ export function buildEligibilityRegister(input = {}) {
   }
 
   const exchangeDays = calendar.exchangeDays.slice().sort(compareIsoDates);
+  const exchangeDaySet = new Set(exchangeDays);
   const register = [];
   for (let index = startIndex; index <= cutoffIndex; index += 1) {
     const maturity = maturityOfIndex(index);
@@ -142,10 +147,23 @@ export function buildEligibilityRegister(input = {}) {
     const deadline = deadlineFromCalendar(window, exchangeDays);
 
     // Elegibilidad derivada de la evidencia: presencia de trades del episodio
-    // en la ventana. Sin evidencia no hay etiqueta ELIGIBLE (H2).
-    const tradedInWindow = Boolean(episode && episode.tradedInWindow === true);
-    const incompleteToB = episode && Array.isArray(episode.windowDaysMissingTob) ? episode.windowDaysMissingTob.filter((day) => isIsoDate(day)) : [];
-    const complete = tradedInWindow && incompleteToB.length === 0 && episode?.tobCovered === true;
+    // en la ventana. Sin evidencia no hay etiqueta ELIGIBLE (H2). Completitud:
+    // cada Exchange Day OFICIAL de la ventana con TOB <= 11:00 Berlin; sin
+    // calendario no hay deadline ni completitud (fail-closed, prescripción 2).
+    const tradedInWindow = Boolean(episode && (episode.tradedInWindow === true || (Array.isArray(episode.windowTradedDays) && episode.windowTradedDays.length > 0) || Number(episode.tradeCount) > 0));
+    const tobDays = episode && Array.isArray(episode.windowTobBefore11BerlinDays) ? episode.windowTobBefore11BerlinDays : [];
+    const tobCoveredDays = new Set(tobDays.filter((day) => isIsoDate(day)));
+    const exchangeDaysInWindow = exchangeDays.filter((day) => compareIsoDates(day, window.startIso) >= 0 && compareIsoDates(day, window.endIso) <= 0);
+    const incompleteToB = exchangeDaysInWindow.filter((day) => !tobCoveredDays.has(day));
+    const exchangeDaysCovered = exchangeDays.length > 0 && exchangeDaysInWindow.every((day) => tobCoveredDays.has(day));
+    // La evidencia del audit puede declarar la cobertura TOB verificada por
+    // episodio (tobCovered, con su locator por maturity en la evidencia
+    // hashada); el builder la acepta como evidencia ligada, no como etiqueta
+    // sin fuente. Si no la declara, se calcula contra los Exchange Days
+    // oficiales de la ventana.
+    const declaredCoverage = episode?.tobCovered === true;
+    const covered = declaredCoverage || (exchangeDaysInWindow.length > 0 && exchangeDaysCovered);
+    const complete = tradedInWindow && deadline !== null && exchangeDaysInWindow.length > 0 && covered;
 
     register.push({
       campaignId,
