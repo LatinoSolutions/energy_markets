@@ -1531,6 +1531,43 @@ test("review 8: una provenance armada a mano con path/hash reales no acredita el
   assert.equal(outcome.errors[0].code, "UNVERIFIED_AUDIT_BLOCK");
 });
 
+test("review 8: una provenance gemela con los mismos valores pero otra identidad tampoco acredita", () => {
+  const verified = verifyAcceptedArtifact(PRIOR_REF);
+  assert.equal(verified.ok, true);
+  const twin = Object.freeze({ ...verified.provenance });
+  assert.notEqual(twin, verified.provenance);
+  const outcome = publicBuildPitRecord({ key: "R-08", viewScope: "decision", audit: { artifact: twin, requirementId: "R-08" } });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "UNVERIFIED_AUDIT_BLOCK");
+});
+
+test("review 8: AUDIT_OBSERVED sólo sale del manifiesto en disco con crédito DEP-06/07, y queda unavailable", () => {
+  const synthetic = JSON.stringify({
+    artifactKind: "IMP-03_TEMPORAL_MANIFEST",
+    packetId: "P", subtaskId: "S",
+    entries: [{
+      requirementId: "R-08", requirement: "req", criticalVersusOptional: "critical",
+      occurredReferenceTime: { status: "OBSERVED", value: "valor en disco", reason: "r", note: "n" },
+      publicationSourceAvailabilityTime: { status: "MISSING" },
+      policyConsumableTime: { status: "NOT_DEMONSTRATED" },
+      revisionVersion: { status: "MISSING" },
+    }],
+  });
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: "evidence/synthetic-manifest.json", content: synthetic }] });
+  const ingestion = auditedManifestRecordsAt(repoRoot, { artifactRef: refs[0] });
+  assert.equal(ingestion.ok, true, JSON.stringify(ingestion.errors ?? []));
+  const built = buildPitManifestAt(repoRoot, { manifestId: "M", manifestVersion: "v1", records: ingestion.records });
+  assert.equal(built.ok, true);
+  const [record] = built.manifest.records;
+  assert.equal(record.valueStatus, "AUDIT_OBSERVED");
+  assert.equal(record.consumability, "unavailable");
+  assert.equal(record.audit.semantics.occurredReferenceTime.value, "valor en disco");
+  const decision = readDecisionView(built.manifest, "2026-09-23T00:00:00Z");
+  assert.equal(decision.visible.length, 0);
+  const evaluation = readEvaluationView(built.manifest, "2026-09-23T00:00:00Z");
+  assert.equal(evaluation.current.length, 0);
+});
+
 test("repo real review 8: con provenance verificada el bloque audit y la razón salen de la entrada en disco, no del llamante", () => {
   const verified = verifyAcceptedArtifact(PRIOR_REF);
   assert.equal(verified.ok, true);
