@@ -373,7 +373,99 @@ test("replay: una exposición sin lista de fields rinde ERROR sin lanzar", () =>
   assert.match(html, /fail-closed/);
 });
 
-// ---------- Backtests / Economic Comparison ----------
+// UI01-01a-r (review de cambio 2026-09-23): los refs exhibidos por el render
+// (authorityRef / receiptRef) también se atan al origin resuelto del backend;
+// un acto REAL con origin genuino y refs falsificados no se rinde como factual.
+test("replay: refs de autorización exhibidos no atados al origin resuelto quedan fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  const realEvent = forged.timeline.executions.find((event) => event.class === EXECUTION_CLASS.REAL);
+  realEvent.authorization.authorityRef = "FAKE.authority@v1";
+  realEvent.authorization.receipt.receiptRef = "FAKE.receipt@v1";
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "REAL_AUTHORITY_REF_NOT_BOUND"));
+  assert.ok(vm.errors.some((error) => error.code === "REAL_RECEIPT_NOT_IN_BACKEND"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("FAKE.authority"));
+  assert.ok(!html.includes("FAKE.receipt"));
+  assert.ok(!html.includes('data-real="true"'));
+  // receiptSha del act también se contrasta con el contenido registrado
+  const shaForged = JSON.parse(JSON.stringify(timeline));
+  const realShaEvent = shaForged.timeline.executions.find((event) => event.class === EXECUTION_CLASS.REAL);
+  realShaEvent.authorization.receipt.receiptSha256 = "d".repeat(64);
+  const shaVm = buildReplayViewModel({ timeline: shaForged, exposure, backendIndex });
+  assert.equal(shaVm.ok, false);
+  assert.ok(shaVm.errors.some((error) => error.code === "REAL_RECEIPT_MISMATCH"));
+});
+
+// UI01-01c-r (review de cambio 2026-09-23): el reloj mostrado del punto se
+// deriva del registro verificado, no del llamador; un clock forjado no se
+// renderiza como si hubiera informado la decisión (§26.3).
+test("replay: un clock de punto no derivado del registro queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenarios();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.decision.points[0].clock = "2026-03-29T00:00:00.000Z";
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "POINT_CLOCK_NOT_FROM_RECORD");
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("2026-03-29T00:00:00.000Z"));
+  // idem en la lane evaluation: el clock forjado no se muestra
+  const forgedEvaluation = JSON.parse(JSON.stringify(timeline));
+  forgedEvaluation.timeline.evaluation.points[0].clock = "2026-01-01T00:00:00.000Z";
+  const evaluationVm = buildReplayViewModel({ timeline: forgedEvaluation, exposure, backendIndex });
+  assert.equal(evaluationVm.ok, false);
+  assert.ok(evaluationVm.errors.some((error) => error.code === "POINT_CLOCK_NOT_FROM_RECORD"));
+  assert.ok(!renderReplayPage(evaluationVm).includes("2026-01-01T00:00:00.000Z"));
+});
+
+// UI01-01d (review de cambio 2026-09-23): la semántica de sección/sourceKind/
+// scope de la exposición se re-ejecuta tal cual el boundary; un benchmark
+// evaluation-roto presentado como «Recomendación» es ERROR (§26.2/§26.3).
+test("replay: un registro de evaluation behind la sección Recomendación queda fail-closed", () => {
+  const { timeline, backendIndex } = scenarios();
+  const benchmarkProvenance = {
+    sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION,
+    recordKey: EVALUATION_BENCHMARK.key,
+    revisionId: EVALUATION_BENCHMARK.revisionId,
+    valueSha256: canonicalValueSha256(EVALUATION_BENCHMARK.value).sha256,
+  };
+  const forgedExposure = {
+    ok: true,
+    exposure: {
+      boundaryUtc: "2026-04-01T07:00:00.000Z",
+      fields: [{ field: "recommendation", specLabel: "Recomendación", section: "§26.2", condition: "AVAILABLE", value: EVALUATION_BENCHMARK.value, provenance: benchmarkProvenance }],
+      unavailable: [],
+      structurallyComplete: true,
+      hasUnavailableContent: false,
+    },
+  };
+  const vm = buildReplayViewModel({ timeline, exposure: forgedExposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "SOURCE_KIND_VIEW_SCOPE_MISMATCH");
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("25.7") && !html.includes("<li class=\"exposure-field"));
+  // y la etiqueta/section canónica no se sustituye por la del llamador
+  const forgedLabel = JSON.parse(JSON.stringify(forgedExposure));
+  forgedLabel.exposure.fields[0].provenance = {
+    sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION,
+    recordKey: RECOMMENDATION_BASE.key,
+    revisionId: RECOMMENDATION_BASE.revisionId,
+    valueSha256: canonicalValueSha256(RECOMMENDATION_BASE.value).sha256,
+  };
+  forgedLabel.exposure.fields[0].value = RECOMMENDATION_BASE.value;
+  forgedLabel.exposure.fields[0].specLabel = "Benchmark (forjado)";
+  forgedLabel.exposure.fields[0].section = "§26.3";
+  const labelVm = buildReplayViewModel({ timeline, exposure: forgedLabel, backendIndex });
+  assert.equal(labelVm.ok, false);
+  assert.ok(labelVm.errors.some((error) => error.code === "EXPOSURE_SECTION_MISMATCH"));
+  assert.ok(renderReplayPage(labelVm).includes('data-state="ERROR"'));
+});
+
 
 test("backtests: sin runs canónicos, todo se declara pendiente, nada fabricado", () => {
   const vm = buildBacktestsViewModel({ backendIndex: null, rows: [] });

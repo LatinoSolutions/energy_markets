@@ -14,9 +14,11 @@
 
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { bindRecord } from "./binding.mjs";
-import { resolveBackendRecord } from "../operator-interface/backend-records.mjs";
+import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import {
   EXPOSURE_CONDITION,
+  EXPOSURE_FIELDS,
+  buildExposureField,
 } from "../operator-interface/exposure.mjs";
 import {
   EXECUTION_CLASS,
@@ -238,7 +240,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     return unexpectedTimeline([{ field: "(timeline)", code: "TIMELINE_SHAPE_UNRECOGNIZED", message: "El timeline no declara las lanes del boundary (§26.3)." }]);
   }
   const errors = [];
-  const bindPoint = (point, landmark, expectedViewScope) => {
+  const bindPoint = (point, landmark, expectedViewScope, expectedClockOf) => {
     const bound = bindRecord(backendIndex, { recordKey: point.key, revisionId: point.revisionId, value: point.value });
     if (!bound.ok) {
       errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `el punto no se concilia con el manifest backend verificado: ${bound.reason} (§26.5); un valor no registrado no es factual` });
@@ -252,11 +254,22 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
       if (record?.viewScope !== expectedViewScope) {
         errors.push({ field: `${landmark}.${point.key}`, code: "POINT_SCOPE_MISMATCH", message: `el punto "${point.key}" proviene de la vista "${record?.viewScope ?? "sin scope"}" y no encuadra en la lane ${expectedViewScope} del replay (§6.1/§26.3)` });
+        return;
+      }
+    }
+    // UI01-01c-r (review 2026-09-23): el reloj mostrado no es del llamador;
+    // se deriva del registro verificado (decision: consumo demostrado,
+    // evaluation: reloj de contenido; §6.1/§26.3).
+    const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
+    if (expectedClockOf !== null && record !== null) {
+      const canonicalClock = expectedClockOf(record);
+      if (typeof canonicalClock !== "string" || point.clock !== canonicalClock) {
+        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_NOT_FROM_RECORD", message: `el reloj del punto "${point.key}" debe derivarse del registro verificado del manifest; un clock declarado no informa el boundary (§26.3/§26.5)` });
       }
     }
   };
-  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points", "decision"));
-  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points", null));
+  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points", "decision", (record) => record.consumableFromUtc));
+  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points", null, (record) => record.effectiveAtUtc));
   const bindProvenance = (field, landmark) => {
     const provenance = field?.provenance;
     if (provenance === undefined || provenance === null) {
@@ -288,23 +301,69 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     }
   };
   for (const field of exposure.exposure.fields ?? []) {
-    bindProvenance(field, `exposure.fields.${field?.field ?? field?.specLabel}`);
+    const landmark = `exposure.fields.${field?.field ?? field?.specLabel}`;
+    bindProvenance(field, landmark);
+    // UI01-01d (review 2026-09-23): una reputación de sección/sourceKind/
+    // scope declarada por el llamador no se presenta; las comprobaciones del
+    // propio boundary (buildExposureField) se re-ejecutan contra el manifest
+    // verificado (§26.2/§26.3/§26.5).
+    const rebuilt = buildExposureField(field, { backendIndex });
+    if (!rebuilt.ok) {
+      for (const rebuiltError of rebuilt.errors) {
+        errors.push({ field: `${landmark}.${rebuiltError.field}`, code: rebuiltError.code, message: rebuiltError.message });
+      }
+      continue;
+    }
+    const definition = EXPOSURE_FIELDS.find((canonical) => canonical.key === field.field);
+    if (definition !== undefined && (field.specLabel !== definition.specLabel || field.section !== definition.section)) {
+      errors.push({ field: landmark, code: "EXPOSURE_SECTION_MISMATCH", message: `la sección "${field.field}" no es su definición canónica de §26.2; la etiqueta del llamador no se presenta como factual` });
+    }
   }
   // UI01-01a (review 2026-09-23): una actuación REAL no se rinde con una
   // autorización "declarada"; su origen (authority + receipt) se re-ata al
   // manifest verificado, igual que el resto de los datos factuales (§26.5/§16–18).
   const bindAuthorizationOrigin = (lane, event) => {
-    const origin = event?.authorization?.origin;
-    if (origin === undefined || origin === null) {
+    if (event?.class !== EXECUTION_CLASS.REAL) {
       return;
     }
-    const authority = resolveBackendRecord(backendIndex, origin.authority?.recordKey, origin.authority?.revisionId);
-    if (authority === null) {
-      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.authority`, code: "REAL_AUTHORITY_NOT_IN_BACKEND", message: "la autoridad del acto REAL no resuelve a una versión del manifest backend verificado; un acto REAL exige autoridad aplicable resuelta (§26.5/§16–18)" });
+    const authorization = event?.authorization;
+    const origin = authorization?.origin;
+    if (origin === undefined || origin === null) {
+      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin`, code: "REAL_AUTHORITY_ORIGIN_MISSING", message: "el acto REAL declara autorización sin origen resuelto; la autoridad y el receipt deben re-atar al manifest backend verificado (§26.5/§16–18)" });
+      return;
     }
-    const receipt = resolveBackendRecord(backendIndex, origin.receipt?.recordKey, origin.receipt?.revisionId);
-    if (receipt === null) {
+    const originAuthority = resolveBackendRecord(backendIndex, origin.authority?.recordKey, origin.authority?.revisionId);
+    if (originAuthority === null) {
+      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.authority`, code: "REAL_AUTHORITY_NOT_IN_BACKEND", message: "la autoridad del acto REAL no resuelve a una versión del manifest backend verificado; un acto REAL exige autoridad aplicable resuelta (§26.5/§16–18)" });
+    } else {
+      // UI01-01a-r (review 2026-09-23): además del origen, los refs exhibidos
+      // por el render (authorityRef / receiptRef / receiptSha256) se re-atan al
+      // mismo registro resuelto; un ref declarado distinto del resuelto no es
+      // factual (§26.5).
+      const authorityParsed = parseBackendRef(authorization.authorityRef);
+      const authorityResolved = authorityParsed === null
+        ? null
+        : resolveBackendRecord(backendIndex, authorityParsed.recordKey, authorityParsed.revisionId);
+      if (authorityResolved === null || authorityResolved !== originAuthority) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.authorityRef`, code: "REAL_AUTHORITY_REF_NOT_BOUND", message: "el authorityRef exhibido no remite a la autoridad resuelta en el manifest backend verificado; no se dibuja como factual (§26.5)" });
+      }
+    }
+    const receipt = authorization.receipt;
+    const originReceipt = resolveBackendRecord(backendIndex, origin.receipt?.recordKey, origin.receipt?.revisionId);
+    if (originReceipt === null) {
       errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "el receipt del acto REAL no resuelve a una versión del manifest backend verificado; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+    } else {
+      const receiptParsed = parseBackendRef(receipt?.receiptRef);
+      const receiptResolved = receiptParsed === null
+        ? null
+        : resolveBackendRecord(backendIndex, receiptParsed.recordKey, receiptParsed.revisionId);
+      if (receiptResolved === null) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "el receipt del acto REAL no resuelve a una versión del manifest backend verificado; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+      } else if (receiptResolved !== originReceipt) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.receipt.receiptRef`, code: "REAL_RECEIPT_REF_NOT_BOUND", message: "el receiptRef exhibido no remite al receipt resuelto en el manifest backend verificado; no se dibuja como factual (§26.5)" });
+      } else if (typeof receipt?.receiptSha256 !== "string" || receiptResolved.valueSha256 !== receipt.receiptSha256.toLowerCase()) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.receipt.receiptSha256`, code: "REAL_RECEIPT_MISMATCH", message: "el hash del receipt exhibido no es el contenido registrado por su versión canónica; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+      }
     }
   };
   for (const [lane, events] of [["executions", t.executions], ["interventions", t.interventions]]) {
