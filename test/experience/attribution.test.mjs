@@ -101,6 +101,23 @@ test("IMP-17 · BUY declarado sin fills y sin noFill: contrato fail-closed NO_EX
   assert.equal(attributed.attribution.attributedToPolicyVersion, null);
 });
 
+test("IMP-17 · frontera sin recomendación: ejecución con fill no se atribuye a la policy (IMP17-ATTRIB-NOREC-01)", () => {
+  // HALLAZGO_TECNICO IMP17-ATTRIB-NOREC-01: recommendedAction null (razón
+  // documentada en noRecommendationReason, §12.2) + execution con fill →
+  // fail-closed: la policy nunca recomendó; el outcome observado no se le
+  // atribuye (§12.3). Nunca POLICY_ATTRIBUTED.
+  const noRecommendation = buildExperienceRecord(syntheticReplayRecord({
+    recommendedAction: null,
+    noRecommendationReason: "DATA_BLOCKED",
+  })).record;
+  const attributed = attributeOutcome(noRecommendation);
+  assert.equal(attributed.ok, true);
+  assert.equal(attributed.attribution.attributionCode, "NO_RECOMMENDATION");
+  assert.equal(attributed.attribution.attributedToPolicyVersion, null);
+  assert.equal(attributed.attribution.recommendation.noRecommendationReason, "DATA_BLOCKED");
+  assert.equal(attributed.attribution.executed.action, "BUY");
+});
+
 test("IMP-17 · intervención incompleta no desaparece ni se registra sin trazabilidad", () => {
   const partial = buildExperienceRecord(syntheticReplayRecord({
     humanIntervention: {

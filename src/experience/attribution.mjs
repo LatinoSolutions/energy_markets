@@ -16,6 +16,7 @@ export const ATTRIBUTION_CODES = Object.freeze({
   POLICY_ATTRIBUTED: "POLICY_ATTRIBUTED",
   HUMAN_INTERVENTION: "HUMAN_INTERVENTION",
   UNATTRIBUTED_DIVERGENCE: "UNATTRIBUTED_DIVERGENCE",
+  NO_RECOMMENDATION: "NO_RECOMMENDATION",
   NO_EXECUTION: "NO_EXECUTION",
   NO_RECORD: "NO_RECORD",
 });
@@ -99,7 +100,24 @@ export function attributeOutcome(record) {
       },
     };
   }
-  if (recommended !== null && executed !== recommended) {
+  // Fail-closed §12.3 (HALLAZGO_TECNICO IMP17-ATTRIB-NOREC-01): una frontera
+  // sin decisión emitida (recommendedAction null con noRecommendationReason,
+  // §12.2) no genera un outcome atribuible a la policy: la policy nunca
+  // recomendó nada. Si además hubo una ejecución con fill, ese acto no fue
+  // sugerido por la Candidate Policy y no se le acredita sin más.
+  if (recommended === null) {
+    return {
+      ok: true,
+      attribution: {
+        attributionCode: "NO_RECOMMENDATION",
+        attributedToPolicyVersion: null,
+        explanation: `Frontera sin decisión emitida (noRecommendationReason: ${record.noRecommendationReason}): la Candidate Policy no recomendó acción alguna y el outcome observado, aún con ejecución, no se le atribuye (§12.3: recomendación y ejecución permanecen separadas).`,
+        recommendation: { action: null, policyVersion: record.policyVersion, noRecommendationReason: record.noRecommendationReason },
+        executed: { action: executed },
+      },
+    };
+  }
+  if (executed !== recommended) {
     return {
       ok: true,
       attribution: {
