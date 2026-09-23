@@ -5,9 +5,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
-  auditedManifestRecords,
-  buildPitManifest,
-  buildPitManifestFromAudit,
+  auditedManifestRecords as publicAuditedManifestRecords,
+  buildPitManifest as publicBuildPitManifest,
+  buildPitManifestFromAudit as publicBuildPitManifestFromAudit,
   buildRevision,
   IMP03_REQUIREMENT_VIEW_SCOPES,
   presentInMarketZone,
@@ -16,6 +16,24 @@ import {
   toUtcTimestamp,
   viewsAt,
 } from "../../src/pit-views/index.mjs";
+// Costuras de tests con raíz de confianza sintética; no son superficie pública.
+import { auditedManifestRecordsAt, buildPitManifestAt, buildPitManifestFromAuditAt } from "../../src/pit-views/views.mjs";
+import { ATTESTATION_PATH, fixtureRepo } from "./fixture-repo.mjs";
+
+// Con `repoRoot` (repo git sintético) los tests usan la costura `*At`; sin él,
+// la API pública con la raíz de confianza fija del repo real.
+function withTrustRoot(atFunction, publicFunction) {
+  return (options = {}) => {
+    if (options.repoRoot === undefined) {
+      return publicFunction(options);
+    }
+    const { repoRoot, ...rest } = options;
+    return atFunction(repoRoot, rest);
+  };
+}
+const auditedManifestRecords = withTrustRoot(auditedManifestRecordsAt, publicAuditedManifestRecords);
+const buildPitManifest = withTrustRoot(buildPitManifestAt, publicBuildPitManifest);
+const buildPitManifestFromAudit = withTrustRoot(buildPitManifestFromAuditAt, publicBuildPitManifestFromAudit);
 
 // Criterio IMP-06 (§25.1): "Un dato publicado pero aún no consumible no entra;
 // revisión futura no cambia State histórico." Tests de decision/evaluation
@@ -51,6 +69,48 @@ const WITH_BENCHMARK = {
   value: 25.7,
 };
 
+// Artifacts auditados reales del repo, anclados a su sha256. El manifiesto
+// IMP-03 original está registrado en el IMP_RECEIPT aceptado
+// (operations/receipts/IMP-03-IMP_RECEIPT.json evidenceTestHashes). La
+// instancia EEX THE de ST-03.3 sólo tiene un ST_RECEIPT con recommendedStatus
+// "in_review": no está en ningún receipt aceptado.
+const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const PRIOR_REF = { path: "operations/audit/IMP-03/temporal-manifest.json", sha256: "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578" };
+const EEX_REF = { path: "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/temporal-manifest.json", sha256: "288e405f5bb033ea9eb602c7b28dae54dfc7de9881393b393aed2ccee2f8f77a" };
+
+function readRepoBytes(ref) {
+  const bytes = readFileSync(`${REPO_ROOT}${ref.path}`);
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), ref.sha256, `${ref.path} no coincide con su hash auditado`);
+  return bytes;
+}
+
+const PRIOR_BYTES = readRepoBytes(PRIOR_REF);
+const EEX_BYTES = readRepoBytes(EEX_REF);
+const PRIOR_ARTIFACT = JSON.parse(PRIOR_BYTES.toString("utf8"));
+const EEX_ARTIFACT = JSON.parse(EEX_BYTES.toString("utf8"));
+
+// Repo temporal SINTÉTICO (fixture-repo.mjs): copia byte a byte de los dos
+// manifiestos IMP-03 en sus mismas rutas y un artifact de atestaciones, todos
+// registrados en un IMP_RECEIPT sintético. Sirve para ejercitar el camino de
+// consumo demostrado y la ingesta EEX; no acredita nada del repo real.
+function syntheticRepo({ attestations = [], extraArtifacts = [] } = {}) {
+  const content = JSON.stringify({ artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId: "AUDIT-FIXTURE", attestations });
+  const { repoRoot, refs } = fixtureRepo({
+    artifacts: [
+      { path: PRIOR_REF.path, content: PRIOR_BYTES },
+      { path: EEX_REF.path, content: EEX_BYTES },
+      { path: ATTESTATION_PATH, content },
+      ...extraArtifacts,
+    ],
+  });
+  return { repoRoot, consumptionAttestationRefs: [refs[2]], extraRefs: refs.slice(3) };
+}
+
+function attested(attestations) {
+  const { repoRoot, consumptionAttestationRefs } = syntheticRepo({ attestations });
+  return { repoRoot, consumptionAttestationRefs };
+}
+
 // Atestaciones sintéticas de un audit (§6.4): una por versión del fixture que
 // usa la evidencia de ingesta del fixture, con su key/revisión/instante. No es
 // un audit real. Los records con otra evidencia quedan sin atestación.
@@ -61,7 +121,6 @@ function attestationsFor(records) {
       && record.consumableEvidence.source === BASE.consumableEvidence.source
       && record.consumableEvidence.sha256 === BASE.consumableEvidence.sha256)
     .map((record) => ({
-      auditId: "AUDIT-FIXTURE",
       ...BASE.consumableEvidence,
       key: record.key,
       revisionId: record.revisionId,
@@ -69,14 +128,14 @@ function attestationsFor(records) {
     }));
 }
 
-function buildManifest({ records, revisions = [], proxyDeclarations = [], auditedEvidence } = {}) {
+function buildManifest({ records, revisions = [], proxyDeclarations = [], attestations } = {}) {
   const manifestRecords = records ?? [BASE];
   return buildPitManifest({
     manifestId: "PIT-MANIFEST-FIXTURE",
     manifestVersion: "v1",
     records: manifestRecords,
     revisions,
-    auditedEvidence: auditedEvidence ?? attestationsFor(manifestRecords),
+    ...attested(attestations ?? attestationsFor(manifestRecords)),
     proxyDeclarations,
   });
 }
@@ -238,8 +297,9 @@ test("la revisión vigente en evaluación coincide con appliedRevisions, no con 
 });
 
 test("revisión futura no reescribe el State histórico: mismo boundary, misma lectura", () => {
-  const original = readDecisionView(buildManifest().manifest, "2026-04-02T00:00:00Z");
-  const revised = readDecisionView(buildManifest({ records: revisedRecords() }).manifest, "2026-04-02T00:00:00Z");
+  const audited = attestationsFor(revisedRecords());
+  const original = readDecisionView(buildManifest({ records: [BASE], attestations: audited }).manifest, "2026-04-02T00:00:00Z");
+  const revised = readDecisionView(buildManifest({ records: revisedRecords(), attestations: audited }).manifest, "2026-04-02T00:00:00Z");
   assert.deepEqual(
     JSON.parse(JSON.stringify(revised.visible)),
     JSON.parse(JSON.stringify(original.visible)),
@@ -481,89 +541,122 @@ test("un registro consumible sin value no se expone visible y se marca el faltan
   assert.ok(pair.evaluation.unavailable.some((row) => row.key === "G0BQ.202604.volume"));
 });
 
-test("readDecisionView sólo admite viewScope 'decision' explícito: un benchmark no declarado no entra", () => {
-  const decisionRecord = {
+test("review 6: las vistas sólo leen manifests de buildPitManifest; uno armado a mano con auditLinked no se lee", () => {
+  const handBuilt = {
     key: "price", viewScope: "decision", value: 1, valueStatus: "PRESENT",
     occurredAtUtc: null, publishedAtUtc: "2026-04-01T00:00:00.000Z",
     consumableAtUtc: "2026-04-01T06:00:00.000Z", consumableFromUtc: "2026-04-01T06:00:00.000Z",
     effectiveAtUtc: "2026-04-01T00:00:00.000Z", revisionId: "v1", revisionOf: null,
-    consumableEvidence: { source: "s", locator: "l", sha256: "a".repeat(64), auditLinked: true, auditId: "AUDIT-FIXTURE" },
+    consumableEvidence: { source: "s", locator: "l", sha256: "a".repeat(64), auditLinked: true, auditId: "FAKE" },
     proxy: false, proxyId: null,
   };
-  const undeclaredBenchmark = { ...decisionRecord, key: "bench", value: 2, revisionId: "b1", viewScope: undefined };
-  const manifest = { manifestId: "M", manifestVersion: "v1", records: [decisionRecord, undeclaredBenchmark], revisions: [] };
-  const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
-  assert.deepEqual(view.visible.map((row) => row.key), ["price"]);
-});
-
-test("readEvaluationView no muestra contenido sin publicación aunque traiga effectiveAtUtc (§6.1)", () => {
-  const record = {
-    key: "outcome", viewScope: "evaluation", value: 9, valueStatus: "PRESENT",
-    occurredAtUtc: "2026-06-30T17:15:00.000Z", publishedAtUtc: null,
-    consumableAtUtc: null, consumableFromUtc: null,
-    effectiveAtUtc: "2026-06-30T17:15:00.000Z", revisionId: "v1", revisionOf: null,
-    proxy: false, proxyId: null,
-  };
-  const manifest = { manifestId: "M", manifestVersion: "v1", records: [record], revisions: [] };
-  const view = readEvaluationView(manifest, "2026-12-31T00:00:00Z");
-  assert.equal(view.current.length, 0);
-  assert.equal(view.unavailable.length, 1);
-  assert.match(view.unavailable[0].reason, /sin publicación/);
+  const manifest = { manifestId: "M", manifestVersion: "v1", records: [handBuilt], revisions: [] };
+  const decision = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+  assert.equal(decision.ok, false);
+  assert.equal(decision.code, "UNVERIFIED_MANIFEST");
+  const evaluation = readEvaluationView(manifest, "2026-04-02T00:00:00Z");
+  assert.equal(evaluation.ok, false);
+  assert.equal(evaluation.code, "UNVERIFIED_MANIFEST");
+  // Una copia superficial de un manifest verificado tampoco hereda la marca.
+  const verified = buildManifest().manifest;
+  assert.equal(readDecisionView({ ...verified }, "2026-04-02T00:00:00Z").code, "UNVERIFIED_MANIFEST");
 });
 
 test("readDecisionView rechaza boundary no parseable y exige vista separada", () => {
   const outcome = readDecisionView(buildManifest().manifest, " Boundary inválido ");
   assert.equal(outcome.ok, false);
-  assert.equal(outcome.code, "INVALID_BOUNDARY");
+  assert.equal(outcome.code, "NOT_UTC_ANCHORED");
+  const notString = readDecisionView(buildManifest().manifest, 1234);
+  assert.equal(notString.code, "INVALID_BOUNDARY");
 });
 
 // --- Materialización del manifiesto auditado de IMP-03 (§25.1/§25.2 IMP-06) ---
 
-// Artifacts auditados reales, leídos del repo y anclados a su sha256: el
-// manifiesto IMP-03 original (write-set-manifest.json) y la instancia EEX THE
-// de ST-03.3 (su SHA256SUMS). No son copias sintéticas.
-const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const IMP03_ARTIFACTS = [
-  { path: "operations/audit/IMP-03/temporal-manifest.json", sha256: "6b630e9edf994b58ddc7016950403ef1897d780f6baa2e6ec72e787754b58578" },
-  { path: "operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/temporal-manifest.json", sha256: "288e405f5bb033ea9eb602c7b28dae54dfc7de9881393b393aed2ccee2f8f77a" },
-];
-
-function loadAuditedArtifact(ref) {
-  const bytes = readFileSync(`${REPO_ROOT}${ref.path}`);
-  assert.equal(createHash("sha256").update(bytes).digest("hex"), ref.sha256, `${ref.path} no coincide con su hash auditado`);
-  return JSON.parse(bytes.toString("utf8"));
-}
-
-const [PRIOR_REF, EEX_REF] = IMP03_ARTIFACTS;
-const PRIOR_ARTIFACT = loadAuditedArtifact(PRIOR_REF);
-const EEX_ARTIFACT = loadAuditedArtifact(EEX_REF);
 const SEMANTIC_KEYS = ["occurredReferenceTime", "publicationSourceAvailabilityTime", "policyConsumableTime", "revisionVersion"];
 
-for (const [ref, artifact] of [[PRIOR_REF, PRIOR_ARTIFACT], [EEX_REF, EEX_ARTIFACT]]) {
-  test(`auditedManifestRecords materializa las ${artifact.entries.length} entradas de ${ref.path} sin perder ninguna semántica`, () => {
-    const outcome = auditedManifestRecords({ artifact, artifactRef: ref });
-    assert.equal(outcome.ok, true, JSON.stringify(outcome.errors));
-    assert.equal(outcome.records.length, artifact.entries.length);
-    for (const entry of artifact.entries) {
-      const record = outcome.records.find((candidate) => candidate.key === entry.requirementId);
-      // Cada semántica viaja íntegra: status, value, reason, note y evidencia.
-      for (const semanticKey of SEMANTIC_KEYS) {
-        assert.deepEqual(record.audit.semantics[semanticKey], entry[semanticKey], `${entry.requirementId}.${semanticKey}`);
-      }
-      assert.deepEqual(record.audit.evidence, entry.evidence ?? null);
-      assert.equal(record.audit.artifact.sha256, ref.sha256);
-      // El audit no entrega relojes por versión: ningún texto se vuelve reloj.
-      assert.equal(record.occurredAtUtc, null);
-      assert.equal(record.publishedAtUtc, null);
-      assert.equal(record.consumableAtUtc, null);
-      assert.equal(record.consumability, "unavailable");
-      assert.equal("value" in record, false);
+// Repo sintético reutilizable con las copias de los dos manifiestos (EEX
+// registrado sólo en el receipt SINTÉTICO) para ejercitar la ingesta EEX.
+const SYNTHETIC = syntheticRepo();
+const EEX_SYNTHETIC = { artifactRef: EEX_REF, repoRoot: SYNTHETIC.repoRoot };
+
+function assertMaterializesAllEntries(outcome, artifact, ref) {
+  assert.equal(outcome.ok, true, JSON.stringify(outcome.errors));
+  assert.equal(outcome.records.length, artifact.entries.length);
+  for (const entry of artifact.entries) {
+    const record = outcome.records.find((candidate) => candidate.key === entry.requirementId);
+    // Cada semántica viaja íntegra: status, value, reason, note y evidencia.
+    for (const semanticKey of SEMANTIC_KEYS) {
+      assert.deepEqual(record.audit.semantics[semanticKey], entry[semanticKey], `${entry.requirementId}.${semanticKey}`);
     }
-  });
+    assert.deepEqual(record.audit.evidence, entry.evidence ?? null);
+    assert.equal(record.audit.artifact.sha256, ref.sha256);
+    assert.equal(record.audit.artifact.path, ref.path);
+    // El audit no entrega relojes por versión: ningún texto se vuelve reloj.
+    assert.equal(record.occurredAtUtc, null);
+    assert.equal(record.publishedAtUtc, null);
+    assert.equal(record.consumableAtUtc, null);
+    assert.equal(record.consumability, "unavailable");
+    assert.equal("value" in record, false);
+  }
 }
 
-test("EEX ST-03.3: OBSERVED/PARTIAL se conservan como AUDIT_OBSERVED con su valor y evidencia (review 5, R-08)", () => {
-  const { records } = auditedManifestRecords({ artifact: EEX_ARTIFACT, artifactRef: EEX_REF });
+test(`repo real: auditedManifestRecords lee de disco las ${PRIOR_ARTIFACT.entries.length} entradas del manifiesto IMP-03 aceptado sin perder ninguna semántica`, () => {
+  const outcome = auditedManifestRecords({ artifactRef: PRIOR_REF });
+  assertMaterializesAllEntries(outcome, PRIOR_ARTIFACT, PRIOR_REF);
+  // La procedencia nombra el receipt aceptado real que registra el artifact.
+  const provenance = outcome.records[0].audit.artifact;
+  assert.equal(provenance.receiptPath, "operations/receipts/IMP-03-IMP_RECEIPT.json");
+  assert.equal(provenance.impIdentity, "IMP-03");
+});
+
+test("repo real: el manifiesto EEX ST-03.3 (ST_RECEIPT in_review) no está en un receipt aceptado y no se ingiere", () => {
+  const outcome = auditedManifestRecords({ artifactRef: EEX_REF });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
+});
+
+test("review 6: path inventado o hash de ceros no acreditan la procedencia del manifiesto IMP-03 real", () => {
+  const invented = auditedManifestRecords({ artifactRef: { path: "operations/audit/IMP-03/inventado.json", sha256: PRIOR_REF.sha256 } });
+  assert.equal(invented.ok, false);
+  assert.equal(invented.errors[0].code, "ARTIFACT_NOT_FOUND");
+  const zeros = auditedManifestRecords({ artifactRef: { path: PRIOR_REF.path, sha256: "0".repeat(64) } });
+  assert.equal(zeros.ok, false);
+  assert.equal(zeros.errors[0].code, "ARTIFACT_HASH_MISMATCH");
+  // El contenido real pasado en memoria con un ref cualquiera tampoco vale:
+  // el artifact sólo se lee de disco.
+  const inMemory = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifact: PRIOR_ARTIFACT,
+    artifactRef: { path: "x/y.json", sha256: "0".repeat(64) },
+  });
+  assert.equal(inMemory.ok, false);
+  assert.equal(inMemory.errors[0].code, "ARTIFACT_MUST_BE_READ_FROM_REF");
+});
+
+test("review 6: el mismo contenido en otra ruta no hereda el receipt aceptado; fuera del repo tampoco", () => {
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: "copia/temporal-manifest.json", content: PRIOR_BYTES, registered: false }] });
+  const copy = auditedManifestRecords({ artifactRef: refs[0], repoRoot });
+  assert.equal(copy.ok, false);
+  assert.equal(copy.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
+  const escape = auditedManifestRecords({ artifactRef: { path: "../package.json", sha256: "0".repeat(64) }, repoRoot: `${REPO_ROOT}src` });
+  assert.equal(escape.ok, false);
+  assert.ok(["ARTIFACT_PATH_OUTSIDE_REPO", "ARTIFACT_NOT_FOUND"].includes(escape.errors[0].code));
+  const absolute = auditedManifestRecords({ artifactRef: { path: `${REPO_ROOT}${PRIOR_REF.path}`, sha256: PRIOR_REF.sha256 } });
+  assert.equal(absolute.errors[0].code, "ARTIFACT_PATH_OUTSIDE_REPO");
+});
+
+test("review 6: un receipt no aceptado no acredita el artifact aunque path y hash coincidan", () => {
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: PRIOR_REF.path, content: PRIOR_BYTES }], receiptOutcome: "rejected" });
+  const outcome = auditedManifestRecords({ artifactRef: refs[0], repoRoot });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
+});
+
+test(`repo sintético: auditedManifestRecords materializa las ${EEX_ARTIFACT.entries.length} entradas de la copia EEX sin perder ninguna semántica`, () => {
+  assertMaterializesAllEntries(auditedManifestRecords(EEX_SYNTHETIC), EEX_ARTIFACT, EEX_REF);
+});
+
+test("EEX ST-03.3 (repo sintético): OBSERVED/PARTIAL se conservan como AUDIT_OBSERVED con su valor y evidencia (review 5, R-08)", () => {
+  const { records } = auditedManifestRecords(EEX_SYNTHETIC);
   const r08 = records.find((record) => record.key === "R-08");
   assert.equal(r08.valueStatus, "AUDIT_OBSERVED");
   assert.equal(r08.audit.semantics.occurredReferenceTime.status, "OBSERVED");
@@ -585,7 +678,7 @@ test("EEX ST-03.3: OBSERVED/PARTIAL se conservan como AUDIT_OBSERVED con su valo
 });
 
 test("las vistas muestran la observación auditada como unavailable, no como valor ni como faltante vacío", () => {
-  const outcome = buildPitManifestFromAudit({ manifestId: "PIT-EEX", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF });
+  const outcome = buildPitManifestFromAudit({ manifestId: "PIT-EEX", manifestVersion: "v1", ...EEX_SYNTHETIC });
   assert.equal(outcome.ok, true);
   const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
   assert.equal(pair.decision.visible.length, 0);
@@ -599,8 +692,8 @@ test("las vistas muestran la observación auditada como unavailable, no como val
 
 test("R-06 (Benchmark B) se clasifica evaluation por el audit y nunca entra a la decisión (review 5)", () => {
   assert.equal(IMP03_REQUIREMENT_VIEW_SCOPES["R-06"], "evaluation");
-  for (const [ref, artifact] of [[PRIOR_REF, PRIOR_ARTIFACT], [EEX_REF, EEX_ARTIFACT]]) {
-    const { manifest } = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifact, artifactRef: ref });
+  for (const source of [{ artifactRef: PRIOR_REF }, EEX_SYNTHETIC]) {
+    const { manifest } = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", ...source });
     assert.equal(manifest.records.find((record) => record.key === "R-06").viewScope, "evaluation");
     const decision = readDecisionView(manifest, "2026-04-02T00:00:00Z");
     const decisionKeys = [...decision.suppressed, ...decision.unavailable, ...decision.visible].map((row) => row.key);
@@ -614,16 +707,16 @@ test("una versión con valor de R-06 declarada como decision se rechaza: un key 
     ...BASE, key: "R-06", viewScope: "decision", revisionId: "b1", value: 25.7,
   };
   const outcome = buildPitManifestFromAudit({
-    manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF,
-    extraRecords: [benchmarkInDecision], auditedEvidence: attestationsFor([benchmarkInDecision]),
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [benchmarkInDecision], ...attested(attestationsFor([benchmarkInDecision])),
   });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "VIEW_SCOPE_CONFLICT"));
   // Declarada como evaluation, la versión con valor queda sólo en evaluación.
   const benchmark = { ...benchmarkInDecision, viewScope: "evaluation" };
   const accepted = buildPitManifestFromAudit({
-    manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF,
-    extraRecords: [benchmark], auditedEvidence: attestationsFor([benchmark]),
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [benchmark], ...attested(attestationsFor([benchmark])),
   });
   assert.equal(accepted.ok, true);
   const pair = viewsAt(accepted.manifest, "2026-04-02T00:00:00Z");
@@ -631,13 +724,22 @@ test("una versión con valor de R-06 declarada como decision se rechaza: un key 
   assert.equal(pair.evaluation.current.find((row) => row.key === "R-06").value, 25.7);
 });
 
+// Artifact hostil escrito en el repo sintético y registrado en su receipt
+// sintético: la estructura se valida aunque la procedencia sea válida.
+function ingestHostile(artifact) {
+  const { repoRoot, extraRefs } = syntheticRepo({
+    extraArtifacts: [{ path: "operations/audit/fixture/hostile.json", content: JSON.stringify(artifact) }],
+  });
+  return { artifactRef: extraRefs[0], repoRoot };
+}
+
 test("auditedManifestRecords exige el artifact completo, su procedencia y requisitos clasificados", () => {
-  assert.equal(auditedManifestRecords({ artifact: { entries: [] }, artifactRef: EEX_REF }).errors[0].code, "INVALID_AUDITED_ARTIFACT");
-  assert.equal(auditedManifestRecords({ artifact: EEX_ARTIFACT }).errors[0].code, "MISSING_ARTIFACT_REF");
+  assert.equal(auditedManifestRecords(ingestHostile({ entries: [] })).errors[0].code, "INVALID_AUDITED_ARTIFACT");
+  assert.equal(auditedManifestRecords({}).errors[0].code, "MISSING_ARTIFACT_REF");
   const unknownRequirement = { ...EEX_ARTIFACT, entries: [...EEX_ARTIFACT.entries, { ...EEX_ARTIFACT.entries[0], requirementId: "R-99" }] };
-  assert.ok(auditedManifestRecords({ artifact: unknownRequirement, artifactRef: EEX_REF }).errors.some((e) => e.code === "UNCLASSIFIED_REQUIREMENT"));
+  assert.ok(auditedManifestRecords(ingestHostile(unknownRequirement)).errors.some((e) => e.code === "UNCLASSIFIED_REQUIREMENT"));
   const duplicated = { ...EEX_ARTIFACT, entries: [...EEX_ARTIFACT.entries, EEX_ARTIFACT.entries[0]] };
-  assert.ok(auditedManifestRecords({ artifact: duplicated, artifactRef: EEX_REF }).errors.some((e) => e.code === "DUPLICATE_REQUIREMENT"));
+  assert.ok(auditedManifestRecords(ingestHostile(duplicated)).errors.some((e) => e.code === "DUPLICATE_REQUIREMENT"));
 });
 
 test("un status auditado fuera del vocabulario rechaza la ingesta: no se descarta en silencio", () => {
@@ -645,16 +747,15 @@ test("un status auditado fuera del vocabulario rechaza la ingesta: no se descart
     ...EEX_ARTIFACT,
     entries: [{ ...EEX_ARTIFACT.entries[0], occurredReferenceTime: { status: "PRESENT", value: "2026-03-31T17:15:00" } }],
   };
-  const outcome = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifact: hostile, artifactRef: EEX_REF });
+  const outcome = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", ...ingestHostile(hostile) });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "UNKNOWN_AUDITED_STATUS" && e.field.includes("R-01")));
 });
 
-test("buildPitManifestFromAudit construye el manifiesto con las dos vistas desde el audit", () => {
+test("repo real: buildPitManifestFromAudit construye el manifiesto con las dos vistas desde el audit aceptado", () => {
   const outcome = buildPitManifestFromAudit({
     manifestId: "PIT-MANIFEST-IMP-03",
     manifestVersion: "v1",
-    artifact: PRIOR_ARTIFACT,
     artifactRef: PRIOR_REF,
   });
   assert.equal(outcome.ok, true);
@@ -668,6 +769,21 @@ test("buildPitManifestFromAudit construye el manifiesto con las dos vistas desde
   const r04 = pair.decision.suppressed.find((row) => row.key === "R-04");
   assert.match(r04.reason, /No price\/trade\/order-book series present in the workspace/);
   assert.ok(pair.evaluation.unavailable.some((row) => row.key === "R-04" && /No price\/trade\/order-book series/.test(row.reason)));
+});
+
+test("review 6: sobre el repo real ninguna versión puede hacerse visible con evidencia en memoria", () => {
+  const withValue = { ...BASE, key: "R-04", revisionId: "r04-v1" };
+  const forged = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [withValue],
+    auditedEvidence: [{ auditId: "FAKE", ...BASE.consumableEvidence, key: "R-04", revisionId: "r04-v1", consumableAtUtc: BASE.consumableAtUtc }],
+  });
+  assert.equal(forged.ok, false);
+  assert.equal(forged.errors[0].code, "UNVERIFIED_AUDITED_EVIDENCE");
+  // Sin atestaciones aceptadas en el repo real, la versión queda unavailable.
+  const honest = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF, extraRecords: [withValue] });
+  assert.equal(honest.ok, true);
+  assert.equal(readDecisionView(honest.manifest, "2026-04-02T00:00:00Z").visible.length, 0);
 });
 
 // --- Razón auditada preservada en las vistas (§6.2, review) ---
@@ -807,14 +923,19 @@ test("un receipt duplicado (mismo key y revisionId) se rechaza: cada revisión s
 
 // --- Review: un boundary histórico no depende de revisiones posteriores (§6.1/§14.7) ---
 
-function decisionAt(records, boundary) {
-  return JSON.parse(JSON.stringify(readDecisionView(buildManifest({ records }).manifest, boundary)));
+// Las comparaciones "con y sin versión futura" fijan el mismo artifact de
+// atestaciones auditadas (`attestationRecords`): lo que se prueba es que
+// agregar versiones al manifest no cambia el boundary histórico. Un artifact
+// de atestación distinto es otra evidencia y su hash viaja en la procedencia.
+function decisionAt(records, boundary, attestationRecords = records) {
+  const manifest = buildManifest({ records, attestations: attestationsFor(attestationRecords) }).manifest;
+  return JSON.parse(JSON.stringify(readDecisionView(manifest, boundary)));
 }
 
 test("revisión publicada después del boundary no aparece en suppressed: la respuesta completa es idéntica", () => {
   // Caso de review: `suppressed` exponía el revisionId de v2, aún futura.
   const boundary = "2026-04-02T00:00:00Z";
-  const withoutRevision = decisionAt([BASE], boundary);
+  const withoutRevision = decisionAt([BASE], boundary, revisedRecords());
   const withRevision = decisionAt(revisedRecords(), boundary);
   assert.deepEqual(withRevision, withoutRevision);
   assert.equal(withRevision.suppressed.some((row) => row.revisionId === "v2"), false);
@@ -829,9 +950,9 @@ test("un record aún no consumible no revela si su consumo futuro está demostra
   // Misma v2 con consumo futuro pero evidencia no auditada.
   const unlinked = { ...future, consumableEvidence: { source: "x", locator: "y", sha256: "b".repeat(64) } };
   const a = decisionAt([BASE, future], boundary);
-  const b = decisionAt([BASE, never], boundary);
-  const c = decisionAt([BASE, unlinked], boundary);
-  const withoutV2 = decisionAt([BASE], boundary);
+  const b = decisionAt([BASE, never], boundary, [BASE, future]);
+  const c = decisionAt([BASE, unlinked], boundary, [BASE, future]);
+  const withoutV2 = decisionAt([BASE], boundary, [BASE, future]);
   assert.equal(a.visible[0].revisionId, "v1");
   assert.deepEqual(a.suppressed, []);
   // Review 5: v2 publicada pero aún no consumible no revela su revisionId.
@@ -849,7 +970,7 @@ test("agregar cualquier número de revisiones futuras no cambia ningún boundary
     { ...BASE, revisionId: "v3", revisionOf: "v2", publishedAtUtc: "2026-05-02T10:00:00Z", consumableAtUtc: "2026-05-02T10:30:00Z", value: 24.9 },
   ];
   for (const boundary of ["2026-03-31T18:30:00Z", "2026-04-02T00:00:00Z", "2026-04-20T11:00:00Z", "2026-05-01T00:00:00Z"]) {
-    assert.deepEqual(decisionAt(extended, boundary), decisionAt(history, boundary), boundary);
+    assert.deepEqual(decisionAt(extended, boundary), decisionAt(history, boundary, extended), boundary);
   }
 });
 
@@ -873,7 +994,7 @@ test("sin registro de evidencia auditada ningún consumo queda demostrado", () =
 
 test("hash distinto al del audit rechaza el manifest", () => {
   const tampered = { ...BASE, consumableEvidence: { ...BASE.consumableEvidence, sha256: "c".repeat(64) } };
-  const outcome = buildManifest({ records: [tampered], auditedEvidence: attestationsFor([BASE]) });
+  const outcome = buildManifest({ records: [tampered], attestations: attestationsFor([BASE]) });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "EVIDENCE_HASH_MISMATCH"));
 });
@@ -1000,7 +1121,7 @@ test("lineage en orden correcto: la decisión nunca muestra v2 antes que v1", ()
 
 test("atestación de otra versión no demuestra el consumo de una revisión (vínculo por key/revisión/instante)", () => {
   // La evidencia auditada de v1 no acredita el consumo de v2 aunque comparta artifact.
-  const outcome = buildManifest({ records: revisedRecords(), auditedEvidence: attestationsFor([BASE]) });
+  const outcome = buildManifest({ records: revisedRecords(), attestations: attestationsFor([BASE]) });
   assert.equal(outcome.ok, true);
   const v2 = outcome.manifest.records.find((record) => record.revisionId === "v2");
   assert.equal(v2.consumability, "unavailable");
@@ -1102,7 +1223,7 @@ test("evaluación: un proxy no permitido no se usa como contenido vigente", () =
 test("revisión publicada antes del boundary y consumible después no cambia la respuesta histórica", () => {
   const boundary = "2026-04-25T00:00:00Z";
   const publishedNotConsumable = { ...revisedRecords()[1], publishedAtUtc: "2026-04-20T10:00:00Z", consumableAtUtc: "2026-04-30T00:00:00Z" };
-  const before = decisionAt([BASE], boundary);
+  const before = decisionAt([BASE], boundary, [BASE, publishedNotConsumable]);
   const after = decisionAt([BASE, publishedNotConsumable], boundary);
   assert.deepEqual(after, before);
   assert.equal(JSON.stringify(after).includes("\"v2\""), false);
@@ -1110,15 +1231,15 @@ test("revisión publicada antes del boundary y consumible después no cambia la 
   assert.equal(decisionAt([BASE, publishedNotConsumable], "2026-04-30T00:00:00Z").visible[0].revisionId, "v2");
 });
 
-test("sobre el audit real: agregar una versión futura de R-04 no cambia la decisión histórica", () => {
+test("sobre el manifiesto IMP-03 aceptado: agregar una versión futura de R-04 no cambia la decisión histórica", () => {
   const boundary = "2026-04-02T00:00:00Z";
-  const base = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF });
+  const base = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF });
   // R-04 ya tiene una entrada auditada; una versión con valor publicada antes
   // del boundary pero consumible después no debe asomar.
   const futureR04 = { ...BASE, key: "R-04", revisionId: "r04-v1", publishedAtUtc: "2026-04-01T00:00:00Z", consumableAtUtc: "2026-04-03T00:00:00Z" };
   const extended = buildPitManifestFromAudit({
-    manifestId: "M", manifestVersion: "v1", artifact: EEX_ARTIFACT, artifactRef: EEX_REF,
-    extraRecords: [futureR04], auditedEvidence: attestationsFor([futureR04]),
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [futureR04], ...attested(attestationsFor([futureR04])),
   });
   assert.equal(extended.ok, true);
   const plain = (manifest) => JSON.parse(JSON.stringify(readDecisionView(manifest, boundary)));
@@ -1184,4 +1305,45 @@ test("valores Map/Set/Date o cíclicos se rechazan: no se pueden congelar como v
     assert.equal(outcome.ok, false);
     assert.ok(outcome.errors.some((e) => e.code === "INVALID_VALUE"));
   }
+});
+
+// --- Review 6: fechas imposibles no mueven el instante PIT (§6.1) ---
+
+test("review 6: una fecha imposible rechaza el record, el receipt de revisión y el boundary/asOf", () => {
+  const record = buildManifest({ records: [{ ...BASE, publishedAtUtc: "2026-02-30T12:00:00Z" }] });
+  assert.equal(record.ok, false);
+  assert.ok(record.errors.some((e) => e.field.endsWith("publishedAtUtc") && e.code === "INVALID_CALENDAR_DATE"));
+  const revision = buildRevision({ key: BASE.key, revisionId: "v2", effectiveAtUtc: "2026-02-30T12:00:00Z" });
+  assert.equal(revision.ok, false);
+  assert.ok(revision.errors.some((e) => e.code === "INVALID_CALENDAR_DATE"));
+  const manifest = buildManifest().manifest;
+  const decision = readDecisionView(manifest, "2026-02-30T12:00:00Z");
+  assert.equal(decision.ok, false);
+  assert.equal(decision.code, "INVALID_CALENDAR_DATE");
+  const evaluation = readEvaluationView(manifest, "2026-02-30T12:00:00Z");
+  assert.equal(evaluation.ok, false);
+  assert.equal(evaluation.code, "INVALID_CALENDAR_DATE");
+});
+
+// --- Validación adversarial: la raíz de confianza no la elige el llamante ---
+
+test("buildPitManifest, buildPitManifestFromAudit y auditedManifestRecords públicos rechazan repoRoot", () => {
+  const repo = syntheticRepo({ attestations: attestationsFor([BASE]) });
+  const manifest = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [BASE], repoRoot: repo.repoRoot, consumptionAttestationRefs: repo.consumptionAttestationRefs });
+  assert.equal(manifest.errors[0].code, "TRUST_ROOT_NOT_CONFIGURABLE");
+  const fromAudit = publicBuildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifactRef: EEX_REF, repoRoot: repo.repoRoot });
+  assert.equal(fromAudit.errors[0].code, "TRUST_ROOT_NOT_CONFIGURABLE");
+  const records = publicAuditedManifestRecords({ artifactRef: EEX_REF, repoRoot: repo.repoRoot });
+  assert.equal(records.errors[0].code, "TRUST_ROOT_NOT_CONFIGURABLE");
+  // Con la raíz fija, las mismas refs del repo sintético no acreditan nada.
+  const fixed = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [BASE], consumptionAttestationRefs: repo.consumptionAttestationRefs });
+  assert.equal(fixed.ok, false);
+  assert.equal(fixed.errors[0].code, "ARTIFACT_NOT_FOUND");
+});
+
+test("un receipt del repo sintético sin commit no acredita el manifiesto IMP-03 aunque path y hash coincidan", () => {
+  const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: PRIOR_REF.path, content: PRIOR_BYTES }], commitReceipt: false });
+  const outcome = auditedManifestRecords({ artifactRef: refs[0], repoRoot });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
 });

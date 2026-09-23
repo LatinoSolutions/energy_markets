@@ -7,11 +7,14 @@ export {
   presentInMarketZone,
 } from "./time.mjs";
 
+export { DEFAULT_REPO_ROOT, verifyAcceptedArtifact } from "./audited-artifacts.mjs";
+
 export {
   buildPitRecord,
   isConsumableAtBoundary,
   isProxyAdmissibleAtBoundary,
-  normalizeAuditedEvidence,
+  isVerifiedEvidenceRegistry,
+  loadConsumptionAttestations,
   normalizeProxyDeclarations,
   semanticsOf,
   sourceRankOf,

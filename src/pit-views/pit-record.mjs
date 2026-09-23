@@ -21,6 +21,7 @@
 // decision-time view. `viewScope` es obligatorio: no hay default que pueda
 // meter un benchmark sin declarar en la vista de decisión.
 
+import { DEFAULT_REPO_ROOT, trustRootNotConfigurable, verifyAcceptedArtifactAt } from "./audited-artifacts.mjs";
 import { toUtcTimestamp } from "./time.mjs";
 
 export const VIEW_SCOPES = ["decision", "evaluation"];
@@ -85,30 +86,46 @@ function frozenCopy(value) {
   }
 }
 
-// Registro de evidencia verificada por el audit (§6.4: la auditoría verifica
-// publicación y consumo; DEP-07 §25.2 IMP-06: "evidencia temporal realmente
-// utilizada"). Cada entrada es una atestación: el audit `auditId` verificó que
-// la versión `key`/`revisionId` era consumible en `consumableAtUtc`, con el
-// artifact `source`@`locator` de hash `sha256`. Un hash de archivo solo no
-// prueba el consumo de cualquier dato en cualquier instante. Acepta `path`
-// porque es el campo de los artifacts auditados de IMP-03.
-export function normalizeAuditedEvidence(list = []) {
+// Registro de evidencia de consumo verificada por el audit (§6.4: la auditoría
+// verifica publicación y consumo; DEP-07 §25.2 IMP-06: "evidencia temporal
+// realmente utilizada"; §25.2: cada claim con "source/evidence y receipt
+// aceptado"). Una atestación dice: el audit `auditId` verificó que la versión
+// `key`/`revisionId` era consumible en `consumableAtUtc`, con el artifact
+// `source`@`locator` de hash `sha256`.
+//
+// Las atestaciones NO las aporta el llamante en memoria: se leen de artifacts
+// PIT_CONSUMPTION_ATTESTATIONS verificados en disco contra un IMP_RECEIPT
+// aceptado (verifyAcceptedArtifact). El registro resultante lleva una marca
+// privada; buildPitRecord sólo acepta registros con esa marca, así que una
+// lista armada a mano (auditId "FAKE") no puede demostrar consumo.
+//
+// PLACEHOLDER de contrato (no canónico): la SPEC no fija el formato del
+// artifact de atestación de consumo y ningún audit aceptado lo produce todavía
+// (el manifiesto IMP-03 aceptado marca policyConsumableTime MISSING en los 17
+// requisitos). Forma asumida:
+//   { artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId,
+//     attestations: [{ key, revisionId, consumableAtUtc, source|path, locator, sha256 }] }
+// Con el repo actual el registro verificable es vacío: ningún consumo queda
+// demostrado, que es el resultado correcto de §6.1.
+const VERIFIED_EVIDENCE_REGISTRIES = new WeakSet();
+
+function normalizeAttestations(list, { auditId, provenance, fieldPrefix }) {
   if (!Array.isArray(list)) {
-    return { ok: false, errors: [{ field: "auditedEvidence", code: "INVALID_AUDITED_EVIDENCE", message: "auditedEvidence debe ser una lista." }] };
+    return { ok: false, errors: [{ field: fieldPrefix, code: "INVALID_AUDITED_EVIDENCE", message: "attestations debe ser una lista." }] };
   }
   const errors = [];
   const entries = [];
   list.forEach((raw, index) => {
     const source = raw?.source ?? raw?.path;
     const consumableAt = normalizeUtc(raw?.consumableAtUtc);
-    if (!isNonEmptyString(raw?.auditId) || !isNonEmptyString(source) || !isNonEmptyString(raw?.locator)
+    if (!isNonEmptyString(source) || !isNonEmptyString(raw?.locator)
       || typeof raw?.sha256 !== "string" || !SHA256_PATTERN.test(raw.sha256)
       || !isNonEmptyString(raw?.key) || !isNonEmptyString(raw?.revisionId)
       || !consumableAt.ok || consumableAt.utc === null) {
       errors.push({
-        field: `auditedEvidence[${index}]`,
+        field: `${fieldPrefix}[${index}]`,
         code: "INVALID_AUDITED_EVIDENCE",
-        message: "La evidencia auditada requiere auditId, source/path, locator, sha256 de 64 hex, key, revisionId y consumableAtUtc con zona explícita.",
+        message: "La atestación requiere source/path, locator, sha256 de 64 hex, key, revisionId y consumableAtUtc con zona explícita.",
       });
       return;
     }
@@ -116,23 +133,83 @@ export function normalizeAuditedEvidence(list = []) {
     const conflicting = entries.find((entry) => entry.source === source && entry.locator === raw.locator && entry.sha256 !== sha256);
     if (conflicting !== undefined) {
       errors.push({
-        field: `auditedEvidence[${index}]`,
+        field: `${fieldPrefix}[${index}]`,
         code: "AUDITED_EVIDENCE_CONFLICT",
         message: `El audit declara dos hashes distintos para ${source} @ ${raw.locator}.`,
       });
       return;
     }
     entries.push({
-      auditId: raw.auditId,
+      auditId,
       source,
       locator: raw.locator,
       sha256,
       key: raw.key,
       revisionId: raw.revisionId,
       consumableAtUtc: consumableAt.utc,
+      attestationArtifact: provenance,
     });
   });
   return errors.length > 0 ? { ok: false, errors } : { ok: true, entries };
+}
+
+// Carga el registro de atestaciones desde artifacts verificados. `refs` =
+// [{ path, sha256 }] relativos al repo. Sin refs, registro vacío (nada
+// demostrado).
+export function loadConsumptionAttestations(options = {}) {
+  if (options !== null && typeof options === "object" && Object.hasOwn(options, "repoRoot")) {
+    return trustRootNotConfigurable();
+  }
+  return loadConsumptionAttestationsAt(DEFAULT_REPO_ROOT, options ?? {});
+}
+
+// Costura de tests (ver audited-artifacts.mjs); no se exporta desde index.mjs.
+export function loadConsumptionAttestationsAt(trustRoot, { refs = [] } = {}) {
+  if (!Array.isArray(refs)) {
+    return { ok: false, errors: [{ field: "consumptionAttestationRefs", code: "INVALID_AUDITED_EVIDENCE", message: "consumptionAttestationRefs debe ser una lista." }] };
+  }
+  const errors = [];
+  const entries = [];
+  refs.forEach((ref, refIndex) => {
+    const field = `consumptionAttestationRefs[${refIndex}]`;
+    const verified = verifyAcceptedArtifactAt(trustRoot, ref);
+    if (!verified.ok) {
+      errors.push(...verified.errors.map((e) => ({ ...e, field })));
+      return;
+    }
+    const { artifact, provenance } = verified;
+    if (artifact?.artifactKind !== "PIT_CONSUMPTION_ATTESTATIONS" || !isNonEmptyString(artifact?.auditId)) {
+      errors.push({ field, code: "INVALID_ATTESTATION_ARTIFACT", message: `"${provenance.path}" no es un artifact PIT_CONSUMPTION_ATTESTATIONS con auditId.` });
+      return;
+    }
+    const normalized = normalizeAttestations(artifact.attestations, {
+      auditId: artifact.auditId,
+      provenance,
+      fieldPrefix: `${field}.attestations`,
+    });
+    if (!normalized.ok) {
+      errors.push(...normalized.errors);
+      return;
+    }
+    for (const entry of normalized.entries) {
+      const clash = entries.find((prior) => prior.source === entry.source && prior.locator === entry.locator && prior.sha256 !== entry.sha256);
+      if (clash !== undefined) {
+        errors.push({ field, code: "AUDITED_EVIDENCE_CONFLICT", message: `Dos audits declaran hashes distintos para ${entry.source} @ ${entry.locator}.` });
+        return;
+      }
+    }
+    entries.push(...normalized.entries);
+  });
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+  const registry = deepFreeze({ entries });
+  VERIFIED_EVIDENCE_REGISTRIES.add(registry);
+  return { ok: true, registry };
+}
+
+export function isVerifiedEvidenceRegistry(value) {
+  return VERIFIED_EVIDENCE_REGISTRIES.has(value);
 }
 
 // Declaraciones de proxy (§6.2: "Los proxies deben estar predeclarados,
@@ -187,8 +264,9 @@ export function normalizeProxyDeclarations(list = []) {
   return errors.length > 0 ? { ok: false, errors } : { ok: true, declarations };
 }
 
-export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations = [] } = {}) {
+export function buildPitRecord(input, context = {}) {
   const errors = [];
+  const { evidenceRegistry = null, proxyDeclarations = [] } = context ?? {};
 
   if (!input || typeof input !== "object") {
     return { ok: false, errors: [{ field: "record", code: "MISSING_RECORD", message: "Registro PIT ausente." }] };
@@ -269,7 +347,8 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
   // consumo declarado sin evidencia que lo respalde es una afirmación suelta:
   // §6.1 "Si no existe prueba suficiente, el dato se trata como unavailable
   // para Replay". El módulo valida la forma de la referencia y la vincula con
-  // la atestación del audit (§6.4) más abajo; no inspecciona el artifact.
+  // una atestación cargada de un artifact con receipt aceptado (§6.4/§25.2)
+  // más abajo; el artifact de datos al que apunta source@locator no se lee.
   if (input.consumableAtAnyBoundary === true) {
     fail(
       errors,
@@ -285,10 +364,16 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
       fail(errors, "consumableAtUtc", consumable.code, "policy-consumable time debe tener zona explícita (se normaliza a UTC).");
     }
   }
-  const evidenceRegistry = normalizeAuditedEvidence(auditedEvidence);
-  if (!evidenceRegistry.ok) {
-    errors.push(...evidenceRegistry.errors);
+  // Evidencia en memoria del llamante no es evidencia auditada (§6.4/§25.2):
+  // se rechaza en voz alta en vez de ignorarse, para que nadie crea que
+  // acreditó un consumo.
+  if (context !== null && typeof context === "object" && Object.hasOwn(context, "auditedEvidence")) {
+    fail(errors, "auditedEvidence", "UNVERIFIED_AUDITED_EVIDENCE", "La evidencia de consumo se carga con loadConsumptionAttestations desde artifacts con receipt aceptado; no se acepta una lista en memoria (§25.2).");
   }
+  if (evidenceRegistry !== null && !isVerifiedEvidenceRegistry(evidenceRegistry)) {
+    fail(errors, "evidenceRegistry", "UNVERIFIED_AUDITED_EVIDENCE", "evidenceRegistry no proviene de loadConsumptionAttestations; no acredita consumo (§6.4/§25.2).");
+  }
+  const attestations = evidenceRegistry !== null && isVerifiedEvidenceRegistry(evidenceRegistry) ? evidenceRegistry.entries : [];
   let consumableEvidence = null;
   if (input.consumableEvidence !== undefined && input.consumableEvidence !== null) {
     const evidence = input.consumableEvidence;
@@ -303,7 +388,7 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
         "La evidencia de consumo requiere source y locator no vacíos, y sha256 hexadecimal de 64 caracteres cuando se declara (§6.1).",
       );
     } else {
-      consumableEvidence = { source: evidence.source, locator: evidence.locator, auditLinked: false, auditId: null };
+      consumableEvidence = { source: evidence.source, locator: evidence.locator, auditLinked: false, auditId: null, attestationArtifact: null };
       if (evidence.sha256 !== undefined && evidence.sha256 !== null) {
         consumableEvidence.sha256 = evidence.sha256.toLowerCase();
       }
@@ -311,12 +396,13 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
   }
 
   // Vínculo con el audit (§6.4, DEP-07): source+locator sólo son la dirección
-  // de la evidencia; lo que la acredita es una atestación del audit para esta
+  // de la evidencia; lo que la acredita es una atestación verificada (registro
+  // de loadConsumptionAttestations) del audit para esta
   // misma versión (key, revisionId), este mismo instante de consumo y el mismo
   // hash. Sin atestación el consumo no está demostrado (unavailable, §6.1);
   // con atestación y hash distinto es evidencia adulterada: se rechaza.
-  if (consumableEvidence !== null && evidenceRegistry.ok && consumable.ok) {
-    const audited = evidenceRegistry.entries.find(
+  if (consumableEvidence !== null && consumable.ok) {
+    const audited = attestations.find(
       (entry) => entry.source === consumableEvidence.source
         && entry.locator === consumableEvidence.locator
         && entry.key === input.key
@@ -333,6 +419,7 @@ export function buildPitRecord(input, { auditedEvidence = [], proxyDeclarations 
     } else if (audited !== undefined && consumableEvidence.sha256 === audited.sha256) {
       consumableEvidence.auditLinked = true;
       consumableEvidence.auditId = audited.auditId;
+      consumableEvidence.attestationArtifact = audited.attestationArtifact;
     }
   }
 
@@ -445,9 +532,13 @@ export function isProxyAdmissibleAtBoundary(record, boundaryUtc) {
   if (!declaration || typeof declaration.declaredAtUtc !== "string") {
     return { admissible: false, reason: "proxy sin declaración previa (§6.2)" };
   }
+  const boundary = toUtcTimestamp(boundaryUtc);
+  if (!boundary.ok) {
+    return { admissible: false, reason: "boundary no parseable como instante UTC válido" };
+  }
   // Primero el instante: una declaración posterior al boundary no existe en
   // él, así que su contenido (permitido o no) no puede afectar la respuesta.
-  if (Date.parse(declaration.declaredAtUtc) > Date.parse(boundaryUtc)) {
+  if (Date.parse(declaration.declaredAtUtc) > Date.parse(boundary.utc)) {
     return { admissible: false, reason: "proxy no predeclarado en este boundary (§6.2)" };
   }
   if (declaration.allowed !== true) {
@@ -471,10 +562,11 @@ export function isConsumableAtBoundary(record, boundaryUtc) {
   if (!record || typeof boundaryUtc !== "string") {
     return { consumable: false, reason: "registro o boundary ausente" };
   }
-  const boundary = Date.parse(boundaryUtc);
-  if (!Number.isFinite(boundary)) {
-    return { consumable: false, reason: "boundary no parseable" };
+  const normalizedBoundary = toUtcTimestamp(boundaryUtc);
+  if (!normalizedBoundary.ok) {
+    return { consumable: false, reason: "boundary no parseable como instante UTC válido" };
   }
+  const boundary = Date.parse(normalizedBoundary.utc);
   if (record.valueStatus === "AUDIT_OBSERVED") {
     return { consumable: false, reason: "observado por el audit sin versión PIT materializada; no consumible (§6.1/§6.5)" };
   }

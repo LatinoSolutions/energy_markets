@@ -4,25 +4,34 @@ import assert from "node:assert/strict";
 import {
   buildPitRecord,
   isConsumableAtBoundary,
+  loadConsumptionAttestations,
   isProxyAdmissibleAtBoundary,
   semanticsOf,
 } from "../../src/pit-views/index.mjs";
+// Costura de tests con raíz de confianza sintética; no es superficie pública.
+import { loadConsumptionAttestationsAt } from "../../src/pit-views/pit-record.mjs";
+import { attestationRepo, ATTESTATION_PATH, FIXTURE_RECEIPT_PATH, fixtureRepo } from "./fixture-repo.mjs";
 
 // §6.1: cuatro semánticas distintas por dato, verificadas separadamente (§19.2).
 
-// Registro sintético de evidencia verificada por un audit (§6.4). No es un
-// audit real: fija el hash contra el que se vincula la evidencia del fixture.
-const AUDITED = {
-  auditedEvidence: [{
-    auditId: "AUDIT-FIXTURE",
-    source: "fixture://ingest-log",
-    locator: "row G0BQ.202604 @ 2026-04-01T06:00Z",
-    sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    key: "G0BQ.202604.reference",
-    revisionId: "v1",
-    consumableAtUtc: "2026-04-01T06:00:00Z",
-  }],
+// Atestación sintética de un audit (§6.4). No es un audit real: vive en un
+// repo temporal con un IMP_RECEIPT sintético (fixture-repo.mjs) y sólo existe
+// para ejercitar el camino verificado en disco.
+const ATTESTATION = {
+  source: "fixture://ingest-log",
+  locator: "row G0BQ.202604 @ 2026-04-01T06:00Z",
+  sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  key: "G0BQ.202604.reference",
+  revisionId: "v1",
+  consumableAtUtc: "2026-04-01T06:00:00Z",
 };
+
+function verifiedRegistry(attestations, options) {
+  const { repoRoot, attestationRef } = attestationRepo(attestations, options);
+  return loadConsumptionAttestationsAt(repoRoot, { refs: [attestationRef] });
+}
+
+const AUDITED = { evidenceRegistry: verifiedRegistry([ATTESTATION]).registry };
 
 function validInput(overrides = {}) {
   return {
@@ -270,12 +279,76 @@ test("evidencia vinculada por source+locator+hash queda demonstrated con identid
 
 test("el registro de evidencia auditada acepta `path` (forma de los artifacts IMP-03) y rechaza entradas incompletas", () => {
   const withPath = buildPitRecord(validInput(), {
-    auditedEvidence: [{ ...AUDITED.auditedEvidence[0], source: undefined, path: "fixture://ingest-log" }],
+    evidenceRegistry: verifiedRegistry([{ ...ATTESTATION, source: undefined, path: "fixture://ingest-log" }]).registry,
   });
   assert.equal(withPath.record.consumability, "demonstrated");
-  const incomplete = buildPitRecord(validInput(), { auditedEvidence: [{ ...AUDITED.auditedEvidence[0], auditId: undefined }] });
+  const incomplete = verifiedRegistry([{ ...ATTESTATION, locator: undefined }]);
   assert.equal(incomplete.ok, false);
   assert.ok(incomplete.errors.some((e) => e.code === "INVALID_AUDITED_EVIDENCE"));
+  const noAuditId = verifiedRegistry([ATTESTATION], { auditId: "" });
+  assert.equal(noAuditId.ok, false);
+  assert.ok(noAuditId.errors.some((e) => e.code === "INVALID_ATTESTATION_ARTIFACT"));
+});
+
+// --- Review 6: la atestación no la crea el llamante (§6.1/§6.4/§25.2) ---
+
+test("review 6: una atestación en memoria con auditId FAKE no demuestra consumo; se rechaza", () => {
+  const fake = buildPitRecord(validInput(), {
+    auditedEvidence: [{ ...ATTESTATION, auditId: "FAKE", source: "fixture://ingest-log" }],
+  });
+  assert.equal(fake.ok, false);
+  assert.ok(fake.errors.some((e) => e.code === "UNVERIFIED_AUDITED_EVIDENCE"));
+});
+
+test("review 6: un registro con la misma forma pero sin cargar de disco no acredita nada", () => {
+  const forged = Object.freeze({ entries: [{ ...ATTESTATION, auditId: "FAKE", consumableAtUtc: "2026-04-01T06:00:00.000Z" }] });
+  const outcome = buildPitRecord(validInput(), { evidenceRegistry: forged });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "UNVERIFIED_AUDITED_EVIDENCE"));
+});
+
+test("review 6: atestación en un artifact sin receipt aceptado no se carga", () => {
+  const notRegistered = verifiedRegistry([ATTESTATION], { registered: false });
+  assert.equal(notRegistered.ok, false);
+  assert.equal(notRegistered.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
+  const inReview = verifiedRegistry([ATTESTATION], { receiptOutcome: "in_review" });
+  assert.equal(inReview.ok, false);
+  assert.equal(inReview.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
+});
+
+test("review 6: el hash declarado del artifact de atestación debe coincidir con su contenido", () => {
+  const { repoRoot, attestationRef } = attestationRepo([ATTESTATION]);
+  const zeros = loadConsumptionAttestationsAt(repoRoot, { refs: [{ ...attestationRef, sha256: "0".repeat(64) }] });
+  assert.equal(zeros.ok, false);
+  assert.equal(zeros.errors[0].code, "ARTIFACT_HASH_MISMATCH");
+  const invented = loadConsumptionAttestationsAt(repoRoot, { refs: [{ ...attestationRef, path: "evidence/inventado.json" }] });
+  assert.equal(invented.ok, false);
+  assert.equal(invented.errors[0].code, "ARTIFACT_NOT_FOUND");
+});
+
+test("review 6: un artifact aceptado que no es de atestaciones no demuestra consumo", () => {
+  const { repoRoot, refs } = fixtureRepo({
+    artifacts: [{ path: ATTESTATION_PATH, content: JSON.stringify({ artifactKind: "OTRA_COSA", auditId: "A", attestations: [ATTESTATION] }) }],
+  });
+  const outcome = loadConsumptionAttestationsAt(repoRoot, { refs });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "INVALID_ATTESTATION_ARTIFACT");
+});
+
+test("review 6: en el repo real no hay atestaciones aceptadas; sin refs nada queda demostrado", () => {
+  const empty = loadConsumptionAttestations();
+  assert.equal(empty.ok, true);
+  assert.deepEqual(empty.registry.entries, []);
+  const outcome = buildPitRecord(validInput(), { evidenceRegistry: empty.registry });
+  assert.equal(outcome.record.consumability, "unavailable");
+});
+
+test("la evidencia vinculada conserva la procedencia verificada del artifact de atestación", () => {
+  const outcome = buildPitRecord(validInput(), AUDITED);
+  const provenance = outcome.record.consumableEvidence.attestationArtifact;
+  assert.equal(provenance.path, ATTESTATION_PATH);
+  assert.match(provenance.sha256, /^[0-9a-f]{64}$/);
+  assert.equal(provenance.receiptPath, FIXTURE_RECEIPT_PATH);
 });
 
 // --- Review: proxy predeclarado y permitido (§6.2) ---
@@ -333,4 +406,44 @@ test("la atestación del audit vale sólo para su key, revisión e instante de c
   // El mismo instante con otro offset es la misma atestación.
   const offset = buildPitRecord(validInput({ consumableAtUtc: "2026-04-01T08:00:00+02:00" }), AUDITED);
   assert.equal(offset.record.consumability, "demonstrated");
+});
+
+test("review 6: guardas por boundary no aceptan una fecha imposible", () => {
+  const record = buildPitRecord(validInput(), AUDITED).record;
+  assert.equal(isConsumableAtBoundary(record, "2026-04-02T00:00:00Z").consumable, true);
+  assert.equal(isConsumableAtBoundary(record, "2026-02-30T00:00:00Z").consumable, false);
+  const proxy = buildPitRecord(validInput({ proxy: true, proxyId: PROXY_ID }), {
+    ...AUDITED,
+    proxyDeclarations: [{ key: "G0BQ.202604.reference", proxyId: PROXY_ID, allowed: true, fallbackRank: 1, declaredAtUtc: "2026-02-01T00:00:00Z" }],
+  }).record;
+  assert.equal(isProxyAdmissibleAtBoundary(proxy, "2026-02-30T00:00:00Z").admissible, false);
+});
+
+// --- Validación adversarial: la raíz de confianza no la elige el llamante ---
+
+test("la API pública rechaza un repoRoot elegido por el llamante (receipt fabricado en otro directorio)", () => {
+  // Reproducción: repo propio con un receipt "accepted" y auditId FAKE.
+  const { repoRoot, attestationRef } = attestationRepo([ATTESTATION], { auditId: "FAKE" });
+  const outcome = loadConsumptionAttestations({ refs: [attestationRef], repoRoot });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "TRUST_ROOT_NOT_CONFIGURABLE");
+  // Con la raíz fija (repo real), ese artifact no existe.
+  const fixed = loadConsumptionAttestations({ refs: [attestationRef] });
+  assert.equal(fixed.ok, false);
+  assert.equal(fixed.errors[0].code, "ARTIFACT_NOT_FOUND");
+});
+
+test("un receipt sin commit, editado tras el commit, o cuyo IMP no está aceptado en PLAN_STATUS no acredita", () => {
+  for (const options of [{ commitReceipt: false }, { editReceiptAfterCommit: true }, { planStatus: "pendiente" }]) {
+    const outcome = verifiedRegistry([ATTESTATION], options);
+    assert.equal(outcome.ok, false, JSON.stringify(options));
+    assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT", JSON.stringify(options));
+  }
+});
+
+test("un artifactRef que apunta a un directorio devuelve error, no excepción", () => {
+  const { repoRoot } = attestationRepo([ATTESTATION]);
+  const outcome = loadConsumptionAttestationsAt(repoRoot, { refs: [{ path: "operations", sha256: "0".repeat(64) }] });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_FOUND");
 });

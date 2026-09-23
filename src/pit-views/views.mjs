@@ -14,12 +14,13 @@ import {
   deepFreeze,
   isConsumableAtBoundary,
   isProxyAdmissibleAtBoundary,
-  normalizeAuditedEvidence,
+  loadConsumptionAttestationsAt,
   normalizeProxyDeclarations,
   semanticsOf,
   sourceRankOf,
 } from "./pit-record.mjs";
-import { isUtcAnchored, toUtcTimestamp } from "./time.mjs";
+import { DEFAULT_REPO_ROOT, trustRootNotConfigurable, verifyAcceptedArtifactAt } from "./audited-artifacts.mjs";
+import { toUtcTimestamp } from "./time.mjs";
 
 const VIEW_KINDS = ["decision", "evaluation"];
 
@@ -108,8 +109,6 @@ const AUDITED_SEMANTIC_KEYS = [
 // `statusVocabulary`); el manifiesto previo de IMP-03 usa un subconjunto.
 const AUDITED_STATUSES = ["OBSERVED", "PARTIAL", "HISTORICAL_ASSERTION", "MISSING", "NOT_DEMONSTRATED"];
 
-const SHA256_HEX = /^[0-9a-fA-F]{64}$/;
-
 function auditedReasonOf(entry) {
   const parts = [];
   for (const semanticKey of AUDITED_SEMANTIC_KEYS) {
@@ -132,8 +131,36 @@ function auditedReasonOf(entry) {
 // (§6.2: no se relabela; §6.5: retrieval no prueba publicación ni consumo).
 // La entrada se materializa como record unavailable que conserva íntegras
 // las cuatro semánticas (status, value, reason, note, evidence), la evidencia
-// de la entrada y la procedencia del artifact (`artifactRef` path + sha256).
-export function auditedManifestRecords({ artifact, artifactRef } = {}) {
+// de la entrada y la procedencia verificada del artifact.
+//
+// §25.2 ("source/evidence y receipt aceptado"): el artifact se lee de disco
+// desde `artifactRef.path`, su sha256 se recalcula y debe estar registrado en
+// un IMP_RECEIPT aceptado. No se acepta un `artifact` en memoria: sería una
+// segunda verdad sin procedencia comprobada.
+function callerChoseTrustRoot(options) {
+  return options !== null && typeof options === "object" && Object.hasOwn(options, "repoRoot");
+}
+
+export function auditedManifestRecords(options = {}) {
+  if (callerChoseTrustRoot(options)) {
+    return trustRootNotConfigurable();
+  }
+  return auditedManifestRecordsAt(DEFAULT_REPO_ROOT, options ?? {});
+}
+
+// Costura de tests (ver audited-artifacts.mjs); no se exporta desde index.mjs.
+export function auditedManifestRecordsAt(trustRoot, { artifactRef, ...rest } = {}) {
+  if (Object.hasOwn(rest, "artifact")) {
+    return {
+      ok: false,
+      errors: [{ field: "artifact", code: "ARTIFACT_MUST_BE_READ_FROM_REF", message: "El artifact auditado se lee de disco por artifactRef; no se acepta contenido en memoria (§25.2)." }],
+    };
+  }
+  const verified = verifyAcceptedArtifactAt(trustRoot, artifactRef);
+  if (!verified.ok) {
+    return verified;
+  }
+  const { artifact } = verified;
   if (!artifact || typeof artifact !== "object" || artifact.artifactKind !== "IMP-03_TEMPORAL_MANIFEST"
     || !Array.isArray(artifact.entries)) {
     return {
@@ -141,17 +168,9 @@ export function auditedManifestRecords({ artifact, artifactRef } = {}) {
       errors: [{ field: "artifact", code: "INVALID_AUDITED_ARTIFACT", message: "Se espera el artifact IMP-03_TEMPORAL_MANIFEST completo con su lista entries." }],
     };
   }
-  if (!artifactRef || typeof artifactRef.path !== "string" || artifactRef.path.length === 0
-    || typeof artifactRef.sha256 !== "string" || !SHA256_HEX.test(artifactRef.sha256)) {
-    return {
-      ok: false,
-      errors: [{ field: "artifactRef", code: "MISSING_ARTIFACT_REF", message: "artifactRef requiere path y sha256 del artifact auditado (trazabilidad §6.2)." }],
-    };
-  }
   const vocabulary = Array.isArray(artifact.statusVocabulary) ? artifact.statusVocabulary : AUDITED_STATUSES;
   const provenance = {
-    path: artifactRef.path,
-    sha256: artifactRef.sha256.toLowerCase(),
+    ...verified.provenance,
     packetId: artifact.packetId ?? null,
     subtaskId: artifact.subtaskId ?? null,
   };
@@ -216,49 +235,79 @@ export function auditedManifestRecords({ artifact, artifactRef } = {}) {
 // más los records enriquecidos del lote, en un buildPitManifest con sus dos
 // vistas. Un record extra no puede cambiar la vista de un requisito auditado
 // (buildPitManifest exige un único viewScope por key).
-export function buildPitManifestFromAudit({
+export function buildPitManifestFromAudit(options = {}) {
+  if (callerChoseTrustRoot(options)) {
+    return trustRootNotConfigurable();
+  }
+  return buildPitManifestFromAuditAt(DEFAULT_REPO_ROOT, options ?? {});
+}
+
+// Costura de tests (ver audited-artifacts.mjs); no se exporta desde index.mjs.
+export function buildPitManifestFromAuditAt(trustRoot, {
   manifestId,
   manifestVersion,
-  artifact,
   artifactRef,
   extraRecords = [],
   revisions = [],
-  auditedEvidence = [],
+  consumptionAttestationRefs = [],
   proxyDeclarations = [],
+  ...rest
 } = {}) {
-  const ingestion = auditedManifestRecords({ artifact, artifactRef });
+  const ingestion = auditedManifestRecordsAt(trustRoot, { artifactRef, ...(Object.hasOwn(rest, "artifact") ? { artifact: rest.artifact } : {}) });
   if (!ingestion.ok) {
     return ingestion;
   }
-  return buildPitManifest({
+  return buildPitManifestAt(trustRoot, {
     manifestId,
     manifestVersion,
     records: [...ingestion.records, ...extraRecords],
     revisions,
-    auditedEvidence,
+    consumptionAttestationRefs,
     proxyDeclarations,
+    ...(Object.hasOwn(rest, "auditedEvidence") ? { auditedEvidence: rest.auditedEvidence } : {}),
   });
 }
 
-// `auditedEvidence`: evidencia verificada por el audit (§6.4) contra la que se
-// vincula por hash el consumo de cada record. `proxyDeclarations`: proxies
-// predeclarados/permitidos (§6.2). Ambos vienen de fuera del módulo; sin ellos
-// ningún consumo queda demostrado y ningún proxy es admisible.
-export function buildPitManifest({
+// `consumptionAttestationRefs`: artifacts de atestación de consumo (§6.4)
+// verificados en disco contra un IMP_RECEIPT aceptado (§25.2); de ellos sale
+// la única evidencia que puede demostrar consumo. `proxyDeclarations`: proxies
+// predeclarados/permitidos (§6.2). Sin ellos ningún consumo queda demostrado y
+// ningún proxy es admisible.
+//
+// Las vistas sólo leen manifests producidos aquí (marca privada): un objeto
+// armado a mano con `auditLinked: true` no puede saltarse la verificación.
+const VERIFIED_MANIFESTS = new WeakSet();
+
+export function buildPitManifest(options = {}) {
+  if (callerChoseTrustRoot(options)) {
+    return trustRootNotConfigurable();
+  }
+  return buildPitManifestAt(DEFAULT_REPO_ROOT, options ?? {});
+}
+
+// Costura de tests (ver audited-artifacts.mjs); no se exporta desde index.mjs.
+export function buildPitManifestAt(trustRoot, {
   manifestId,
   manifestVersion,
   records = [],
   revisions = [],
-  auditedEvidence = [],
+  consumptionAttestationRefs = [],
   proxyDeclarations = [],
+  ...rest
 } = {}) {
   const errors = [];
-  const evidenceRegistry = normalizeAuditedEvidence(auditedEvidence);
-  const proxyRegistry = normalizeProxyDeclarations(proxyDeclarations);
-  if (!evidenceRegistry.ok || !proxyRegistry.ok) {
-    return { ok: false, errors: [...(evidenceRegistry.errors ?? []), ...(proxyRegistry.errors ?? [])] };
+  if (Object.hasOwn(rest, "auditedEvidence")) {
+    return {
+      ok: false,
+      errors: [{ field: "auditedEvidence", code: "UNVERIFIED_AUDITED_EVIDENCE", message: "La evidencia de consumo se declara con consumptionAttestationRefs (artifacts con receipt aceptado), no como lista en memoria (§25.2)." }],
+    };
   }
-  const recordContext = { auditedEvidence: evidenceRegistry.entries, proxyDeclarations: proxyRegistry.declarations };
+  const evidenceLoad = loadConsumptionAttestationsAt(trustRoot, { refs: consumptionAttestationRefs });
+  const proxyRegistry = normalizeProxyDeclarations(proxyDeclarations);
+  if (!evidenceLoad.ok || !proxyRegistry.ok) {
+    return { ok: false, errors: [...(evidenceLoad.errors ?? []), ...(proxyRegistry.errors ?? [])] };
+  }
+  const recordContext = { evidenceRegistry: evidenceLoad.registry, proxyDeclarations: proxyRegistry.declarations };
   if (typeof manifestId !== "string" || manifestId.trim().length === 0) {
     errors.push({ field: "manifestId", code: "MISSING_MANIFEST_ID", message: "El manifest no declara su identidad." });
   }
@@ -552,14 +601,23 @@ export function buildPitManifest({
     ...record,
     effectiveAtUtc: effectiveAtByIdentity.get(record) ?? null,
   }));
+  const manifest = deepFreeze({
+    manifestId,
+    manifestVersion,
+    records: manifestRecords,
+    revisions: sortedRevisions,
+  });
+  VERIFIED_MANIFESTS.add(manifest);
+  return { ok: true, manifest };
+}
+
+function unverifiedManifest(view) {
   return {
-    ok: true,
-    manifest: deepFreeze({
-      manifestId,
-      manifestVersion,
-      records: manifestRecords,
-      revisions: sortedRevisions,
-    }),
+    ok: false,
+    view,
+    field: "manifest",
+    code: "UNVERIFIED_MANIFEST",
+    reason: "El manifest no fue producido por buildPitManifest; sus records no tienen consumo verificado (§6.1/§25.2).",
   };
 }
 
@@ -590,13 +648,14 @@ function selectBySourceHierarchy(records, clockField) {
 }
 
 function parseUtcBoundary(value, field, code) {
-  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
+  if (typeof value !== "string") {
     return { ok: false, error: { field, code, reason: `${field} no parseable.` } };
   }
-  if (!isUtcAnchored(value)) {
-    return { ok: false, error: { field, code: "NOT_UTC_ANCHORED", reason: `${field} requiere zona explícita (UTC u offset declarado, §6.1).` } };
+  const normalized = toUtcTimestamp(value);
+  if (!normalized.ok) {
+    return { ok: false, error: { field, code: normalized.code, reason: `${field} requiere instante ISO-8601 válido con zona explícita (UTC u offset declarado, §6.1).` } };
   }
-  return { ok: true, ms: Date.parse(value), iso: new Date(Date.parse(value)).toISOString() };
+  return { ok: true, ms: Date.parse(normalized.utc), iso: normalized.utc };
 }
 
 function withRecordReason(record, guardReason) {
@@ -632,6 +691,9 @@ function speaksAtBoundary(record, boundaryMs) {
 //    keys es el esquema del manifest: una revisión de un key existente no lo
 //    cambia; incorporar un key nuevo sí lo lista como unavailable.
 export function readDecisionView(manifest, boundaryUtc) {
+  if (!VERIFIED_MANIFESTS.has(manifest)) {
+    return { ...unverifiedManifest("decision"), boundary: boundaryUtc };
+  }
   const boundary = parseUtcBoundary(boundaryUtc, "boundary", "INVALID_BOUNDARY");
   if (!boundary.ok) {
     return { ok: false, view: "decision", boundary: boundaryUtc, ...boundary.error };
@@ -688,6 +750,9 @@ export function readDecisionView(manifest, boundaryUtc) {
 // Faltantes, observaciones del audit sin valor y contenido sin reloj se
 // reportan en `unavailable` con su razón auditada (§6.1/§6.2).
 export function readEvaluationView(manifest, asOfUtc) {
+  if (!VERIFIED_MANIFESTS.has(manifest)) {
+    return unverifiedManifest("evaluation");
+  }
   const asOf = parseUtcBoundary(asOfUtc, "asOf", "INVALID_AS_OF");
   if (!asOf.ok) {
     return { ok: false, view: "evaluation", ...asOf.error };
