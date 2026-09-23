@@ -1,6 +1,6 @@
 {
   "artifactKind": "IMP-02_GAS_QUARTERLY_VALIDATION_EPISODE_FICHA",
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.1.1",
   "spec": {
     "id": "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
     "version": "1.1.1",
@@ -357,16 +357,18 @@
       "reason": null
     },
     "deadline": {
-      "determined": true,
-      "value": "Exact target position by the end of the final effective trading day",
-      "blockedBy": [],
-      "reason": null
+      "determined": false,
+      "value": null,
+      "blockedBy": [
+        "campaign.calendar.deadline"
+      ],
+      "reason": "No determinable: el calendario publica la regla de cierre del episodio, no la fecha instanciada; §13.4 exige instanciar las fechas reales desde el Procurement Contract y no se infieren."
     },
     "coverageOwnership": {
       "determined": true,
       "blockedBy": [],
       "reason": null
     },
-    "criterionMet": true
+    "criterionMet": false
   }
 }

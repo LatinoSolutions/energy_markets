@@ -282,6 +282,24 @@ test("el deadline no se infiere cuando el calendario no lo aporta", () => {
   const determined = resolveObligationDeadline(ficha);
   assert.equal(determined.determined, true);
   assert.equal(determined.deadline, "2026-12-31");
+
+  // Regresión del review energy-markets-IMP-02-20260923-193314 (§13.4): el
+  // texto-regla del paquete no cuenta como deadline determinado.
+  const deadlineRuleText = "Exact target position by the end of the final effective trading day";
+  Object.assign(fact(ficha, "campaign.calendar.deadline"), {
+    availability: "AVAILABLE_NOW",
+    value: deadlineRuleText,
+    source: { authority: "Fundamental (cliente)", locator: "ESTADO_INPUTS.csv fila Terminal requirement" },
+    reason: null,
+  });
+  const ruleOutcome = resolveObligationDeadline(ficha);
+  assert.equal(ruleOutcome.determined, false);
+  assert.equal(ruleOutcome.deadline, null);
+  assert.equal(ruleOutcome.ruleText, deadlineRuleText);
+  const ruleCriterion = evaluateImp02Acceptance(ficha);
+  assert.equal(ruleCriterion.deadline.determined, false);
+  assert.ok(ruleCriterion.deadline.reason.includes("§13.4"), ruleCriterion.deadline.reason);
+  assert.equal(ruleCriterion.criterionMet, false);
 });
 
 test("una fact de texto con valor no textual se rechaza", () => {
@@ -1035,9 +1053,13 @@ test("la ficha de episodio de validación materializa el criterio sin datos inve
   assert.equal(fact(ficha, "campaign.coverage.executedVolume").value, 0);
   assert.equal(fact(ficha, "campaign.coverage.remainingVolume").value, 60);
   assert.equal(fact(ficha, "campaign.obligation.totalVolumeKnown").value, 60);
-  // El criterio se deriva cumplido: DEP-01–04 del episodio examinado quedan
-  // auditadas con el paquete verificado y la aclaración del owner.
-  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+  // Los DEP-01–04 del episodio quedan auditadas con el paquete verificado y
+  // la aclaración del owner; pero la fecha real del deadline no está
+  // instanciada (§13.4): el criterio no se declara cumplido hasta tenerla.
+  assert.equal(fact(ficha, "campaign.calendar.deadline").availability, "AVAILABLE_NOW");
+  assert.equal(ficha.acceptanceCriterion.deadline.determined, false);
+  assert.ok(ficha.acceptanceCriterion.deadline.reason.startsWith("No determinable"), ficha.acceptanceCriterion.deadline.reason);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, false);
   // La ausencia de enmiendas está documentada (§7 Mandate changes), no leída
   // como regla.
   assert.deepEqual(ficha.acceptanceCriterion.auditedContract.documentedAbsences, ["campaign.obligation.amendments"]);
@@ -1052,6 +1074,40 @@ test("una maturity no canónica impide construir la ficha de episodio", () => {
   for (const bad of ["2021Q5", "Q1 2021", "", null]) {
     assert.throws(() => createGasQuarterlyValidationFicha(bad), TypeError, String(bad));
   }
+});
+
+test("una ficha de episodio editada a mano no renombra la campaña (§25.1/P-006 punto 6)", () => {
+  // Regresión del review 193314: con id + vínculo coherentes entre sí pero no
+  // canónicos, la ficha validaba ok:true con criterionMet derivado.
+  const edited = createGasQuarterlyValidationFicha("2021Q1");
+  for (const factId of ["campaign.identity.campaignId", "campaign.obligation.campaignLink"]) {
+    fact(edited, factId).value = "MY-CAMPAIGN-EDITED";
+  }
+  edited.acceptanceCriterion = evaluateImp02Acceptance(edited);
+  const outcome = validateCampaignContract(edited);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "CAMPAIGN_ID_NOT_CANONICAL" && error.factId === "campaign.identity.campaignId"));
+  assert.equal(edited.acceptanceCriterion.criterionMet, false);
+});
+
+test("una maturity fuera del horizonte histórico no pasa como episodio de validación", () => {
+  // El horizonte documentado empieza en Q1 2021 (campaign_rules.csv).
+  assert.throws(() => createGasQuarterlyValidationFicha("2020Q4"), TypeError);
+  const handMade = createGasQuarterlyValidationFicha("2021Q1");
+  handMade.episode.maturity = "2020Q4";
+  handMade.acceptanceCriterion = evaluateImp02Acceptance(handMade);
+  const outcome = validateCampaignContract(handMade);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "EPISODE_IDENTITY_NOT_DETERMINISTIC" || error.code === "EPISODE_MATURITY_OUTSIDE_HORIZON" || error.code === "CAMPAIGN_ID_NOT_CANONICAL"));
+});
+
+test("el mapa del episodio no atribuye volumen a una obligación ajena a la identidad", () => {
+  const handMade = createGasQuarterlyValidationFicha("2021Q1");
+  handMade.coverageOwnership.obligationId = "OBL-OTHER";
+  handMade.acceptanceCriterion = evaluateImp02Acceptance(handMade);
+  const outcome = validateCampaignContract(handMade);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "OBLIGATION_ID_NOT_CANONICAL"));
 });
 
 test("la secuencia de episodios se evalúa cronológica y completamente", () => {
@@ -1117,10 +1173,12 @@ test("los valores publicados de la ficha de episodio no exceden su provenance", 
     }
     assert.equal(fact.value, fact.source.quote, definition.factId);
   }
-  // deadline del calendario del episodio, no inferido.
+  // La fecha del deadline no está instanciada en el paquete (§13.4): el
+  // texto-regla se publica como regla, no como deadline determinado.
   const deadline = resolveObligationDeadline(ficha);
-  assert.equal(deadline.determined, true);
-  assert.equal(deadline.deadline, factOf(ficha, "campaign.calendar.deadline").value);
+  assert.equal(deadline.determined, false);
+  assert.equal(deadline.deadline, null);
+  assert.equal(deadline.ruleText, factOf(ficha, "campaign.calendar.deadline").value);
 });
 
 test("Monthly y Quarterly no comparten coverage a nivel de mapa (§4.3/P-006 punto 5)", () => {

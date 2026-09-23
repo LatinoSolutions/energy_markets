@@ -161,6 +161,12 @@ const MISSION_PREFIX = { Monthly: "M", Quarterly: "Q" };
 const QUARTER_PATTERN = /^\d{4}Q[1-4]$/;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+// Horizonte histórico de validación Gas Quarterly documentado por el paquete
+// del cliente (campaign_rules.csv fila "Fundamental,Gas Quarterly", columna
+// de horizonte histórico: Q1 2021; P-006 puntos 2, 4, 7). Los episodios de
+// validación no preceden a esta maturity.
+const VALIDATION_EPISODE_FIRST_MATURITY = "2021Q1";
+
 export function isCanonicalMaturity(mission, maturity) {
   if (!isNonEmptyString(maturity)) return false;
   if (mission === "Monthly") return MONTH_PATTERN.test(maturity);
@@ -649,6 +655,25 @@ function validateCrossFieldCoherence(ficha, factsById, errors) {
     });
     errors.push(...residualErrors.map((error) => ({ factId: "coverageOwnership.residualAmendment", ...error })));
   }
+
+  // P-006 (puntos 2, 6, 7): la identidad de un episodio de VALIDACIÓN es
+  // determinista por producto + Mission + maturity, y los episodios elegibles
+  // se evalúan dentro del horizonte histórico documentado (Q1 2021,
+  // campaign_rules.csv fila "Fundamental,Gas Quarterly"). Una ficha editada a
+  // mano no puede renombrar la campaña ni atribuir volumen a otra obligación.
+  if (ficha.episode?.kind === "VALIDATION_EPISODE") {
+    const canonicalEpisodeId = researchCampaignIdFor(ficha.product, ficha.mission, ficha.episode?.maturity);
+    if (canonicalEpisodeId === null) {
+      errors.push({ factId: "campaign.identity.campaignId", code: "EPISODE_IDENTITY_NOT_DETERMINISTIC", message: `La identidad del episodio (maturity "${ficha.episode?.maturity}") no es determinista: la maturity de Quarterly debe ser YYYYQn (Q1–Q4) (P-006 punto 6).` });
+    } else if (quarterIndex(ficha.episode.maturity) < quarterIndex(VALIDATION_EPISODE_FIRST_MATURITY)) {
+      errors.push({ factId: "campaign.identity.campaignId", code: "EPISODE_MATURITY_OUTSIDE_HORIZON", message: `La maturity ${ficha.episode.maturity} precede al horizonte histórico de validación (${VALIDATION_EPISODE_FIRST_MATURITY}); no es un episodio documentado del paquete del cliente.` });
+    } else if (campaignId && campaignId.value !== canonicalEpisodeId) {
+      errors.push({ factId: "campaign.identity.campaignId", code: "CAMPAIGN_ID_NOT_CANONICAL", message: `campaign.identity.campaignId = ${campaignId.value} no es la identidad determinista del episodio (${canonicalEpisodeId}); una ficha editada no renombra la campaña (P-006 punto 6).` });
+    }
+    if (ficha.coverageOwnership?.mapState === "MATERIALIZED" && canonicalEpisodeId !== null && ficha.coverageOwnership.obligationId !== episodeObligationIdFor(canonicalEpisodeId)) {
+      errors.push({ factId: "coverageOwnership", code: "OBLIGATION_ID_NOT_CANONICAL", message: `coverageOwnership.obligationId = ${ficha.coverageOwnership.obligationId} no deriva de la identidad del episodio (${episodeObligationIdFor(canonicalEpisodeId)}) (P-006 punto 6; DEP-02).` });
+    }
+  }
 }
 
 function ownershipReconciliationInput(ficha, factsById) {
@@ -738,13 +763,17 @@ export function evaluateImp02Acceptance(ficha) {
     };
 
   const deadlineOutcome = resolveObligationDeadline(ficha);
+  // El texto-regla del paquete (ruleText) se declara como lo que es: la regla
+  // de cierre documentada, no la fecha del episodio (§13.4, revisión 193314).
   const deadline = campaignIdentified && deadlineOutcome.determined
     ? { determined: true, value: deadlineOutcome.deadline, blockedBy: [], reason: null }
     : {
       determined: false,
       value: null,
-      blockedBy: [...identityBlockedBy, ...(deadlineOutcome.determined ? [] : ["campaign.calendar.deadline"])],
-      reason: "No determinable: AUDIT_INPUTS §5 registra el deadline como no encontrado en el alcance inspeccionado; no se infiere (§4.1/§4.2).",
+      blockedBy: [...identityBlockedBy, "campaign.calendar.deadline"],
+      reason: deadlineOutcome.ruleText !== undefined
+        ? "No determinable: el calendario publica la regla de cierre del episodio, no la fecha instanciada; §13.4 exige instanciar las fechas reales desde el Procurement Contract y no se infieren."
+        : "No determinable: AUDIT_INPUTS §5 registra el deadline como no encontrado en el alcance inspeccionado; no se infiere (§4.1/§4.2).",
     };
 
   // El estado declarado no basta: la relación debe ser una declaración válida
@@ -906,9 +935,22 @@ function resolveFactAvailability(fact) {
 }
 
 // §4.1/§4.2: la ficha no fija el deadline salvo que el calendario lo aporte.
+// §13.4: "Las fechas reales se instancian desde el Procurement Contract".
+// Un deadline determinado es una fecha en formato ISO 8601; el texto de la
+// regla de cierre del paquete cliente no lo es y no se reporta como fecha.
+const ISO_8601_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/;
+
 export function resolveObligationDeadline(ficha) {
   const deadline = (ficha?.facts ?? []).find((fact) => fact.factId === "campaign.calendar.deadline");
   if (deadline?.availability === "AVAILABLE_NOW" && isNonEmptyString(deadline.value) && hasProvenance(deadline)) {
+    if (!ISO_8601_DATE_PATTERN.test(deadline.value)) {
+      return {
+        determined: false,
+        deadline: null,
+        ruleText: deadline.value,
+        reason: `El calendario publica la regla de cierre ("${deadline.value}"), no la fecha instanciada del episodio; §13.4: las fechas reales se instancian desde el Procurement Contract y no se infieren.`,
+      };
+    }
     return { determined: true, deadline: deadline.value, reason: null };
   }
   return { determined: false, deadline: null, reason: "El calendario de campaña no aporta un deadline real; no se infiere." };
@@ -1023,7 +1065,9 @@ export function createGasQuarterlyFicha() {
 
   const ficha = {
     artifactKind: "IMP-02_GAS_QUARTERLY_CAMPAIGN_FICHA",
-    schemaVersion: "1.1",
+    // Alineada con la SPEC v1.1.1 bajo la que se materializa la ficha
+    // (v1_1_1/; revisión energy-markets-IMP-02-20260923-193314).
+    schemaVersion: "1.1.1",
     spec: {
       id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
       version: "1.1.1",
@@ -1068,6 +1112,9 @@ export function createGasQuarterlyValidationFicha(maturity) {
   const campaignId = researchCampaignIdFor("Gas", "Quarterly", maturity);
   if (campaignId === null) {
     throw new TypeError("La maturity del episodio debe ser YYYYQn (Q1–Q4); sin ella no hay identidad determinista (P-006 punto 6).");
+  }
+  if (quarterIndex(maturity) < quarterIndex(VALIDATION_EPISODE_FIRST_MATURITY)) {
+    throw new TypeError(`La maturity ${maturity} precede al horizonte histórico de validación (${VALIDATION_EPISODE_FIRST_MATURITY}); no se fabrica un episodio fuera del horizonte documentado (P-006 puntos 2, 7).`);
   }
   const confirmed = confirmedQuantityFor("Gas", "Quarterly");
   const campaignSource = {
@@ -1309,7 +1356,9 @@ export function createGasQuarterlyValidationFicha(maturity) {
 
   const ficha = {
     artifactKind: "IMP-02_GAS_QUARTERLY_VALIDATION_EPISODE_FICHA",
-    schemaVersion: "1.1",
+    // Alineada con la SPEC v1.1.1 bajo la que se materializa la ficha
+    // (v1_1_1/; revisión energy-markets-IMP-02-20260923-193314).
+    schemaVersion: "1.1.1",
     spec: {
       id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
       version: "1.1.1",
