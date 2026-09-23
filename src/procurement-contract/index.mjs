@@ -9,12 +9,17 @@ export {
   IMP02_ACCEPTANCE_TEST,
   IMP02_REQUIRED_FACT_IDS,
   MW_TO_MWH_CONVERTIBLE_SHAPES,
+  episodeObligationIdFor,
   confirmedQuantityFor,
   convertMwToMwh,
   createGasQuarterlyFicha,
+  createGasQuarterlyValidationFicha,
   evaluateImp02Acceptance,
+  isCanonicalMaturity,
+  researchCampaignIdFor,
   resolveObligationDeadline,
   validateCampaignContract,
+  validateQuarterlyEpisodeSequence,
 } from "./campaign-contract.mjs";
 
 export {

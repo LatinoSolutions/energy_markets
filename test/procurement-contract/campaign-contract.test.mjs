@@ -10,10 +10,15 @@ import {
   confirmedQuantityFor,
   convertMwToMwh,
   createGasQuarterlyFicha,
+  createGasQuarterlyValidationFicha,
+  episodeObligationIdFor,
   evaluateImp02Acceptance,
   IMP02_REQUIRED_FACT_IDS,
+  mapCoverageOwnership,
   resolveObligationDeadline,
+  researchCampaignIdFor,
   validateCampaignContract,
+  validateQuarterlyEpisodeSequence,
 } from "../../src/procurement-contract/index.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -987,4 +992,176 @@ test("una fact de asignaciones con valor no estructurado se rechaza", () => {
   const outcome = validateCampaignContract(ficha);
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "VALUE_TYPE_MISMATCH" && error.factId === "campaign.coverage.fillToObligationAssignment"));
+});
+
+// ---------------------------------------------------------------------------
+// Aclaración P-006 (23-sep-2026): mandato rolling de Gas Quarterly; cada
+// maturity histórica es un episodio de VALIDACIÓN con identidad determinista.
+// Pruebas negativas por cada invariante derivable de la decisión del owner.
+
+test("la identidad de campaña de research es determinista por producto/Mission/maturity", () => {
+  assert.equal(researchCampaignIdFor("Gas", "Quarterly", "2021Q1"), "GAS-Q-2021Q1");
+  assert.equal(researchCampaignIdFor("Gas", "Quarterly", "2026Q4"), "GAS-Q-2026Q4");
+  // Mismo maturity → misma identidad; distinto maturity → campañas distintas.
+  assert.equal(researchCampaignIdFor("Gas", "Quarterly", "2021Q1"), researchCampaignIdFor("Gas", "Quarterly", "2021Q1"));
+  assert.notEqual(researchCampaignIdFor("Gas", "Quarterly", "2021Q1"), researchCampaignIdFor("Gas", "Quarterly", "2021Q2"));
+  assert.equal(researchCampaignIdFor("Gas", "Monthly", "2020-12"), "GAS-M-2020-12");
+});
+
+test("una maturity fuera de la forma YYYYQn no produce identidad", () => {
+  for (const bad of ["2021Q5", "2021Q0", "21Q1", "2021-Q1", "2021q3", " 2021Q1", "2021Q1 ", "Q1 2021", "", null, undefined, "2021-03"]) {
+    assert.equal(researchCampaignIdFor("Gas", "Quarterly", bad), null, String(bad));
+  }
+  for (const bad of ["2021Q1", "2020-00", "2020/12", "2021/13"]) {
+    assert.equal(researchCampaignIdFor("Gas", "Monthly", bad), null, String(bad));
+  }
+});
+
+test("la obligación del episodio deriva de la identidad de campaña", () => {
+  assert.equal(episodeObligationIdFor("GAS-Q-2021Q1"), "OBL-GAS-Q-2021Q1");
+  assert.equal(episodeObligationIdFor(""), null);
+  assert.equal(episodeObligationIdFor(null), null);
+});
+
+test("la ficha de episodio de validación materializa el criterio sin datos inventados", () => {
+  const ficha = createGasQuarterlyValidationFicha("2021Q1");
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, true);
+  for (const error of outcome.errors) {
+    assert.fail(`${error.code}: ${error.message}`);
+  }
+  assert.equal(outcome.campaignIdentified, true);
+  // Apertura 0 MW → ejecutado 0, restante 60: conservación §4.3.
+  assert.equal(fact(ficha, "campaign.coverage.executedVolume").value, 0);
+  assert.equal(fact(ficha, "campaign.coverage.remainingVolume").value, 60);
+  assert.equal(fact(ficha, "campaign.obligation.totalVolumeKnown").value, 60);
+  // El criterio se deriva cumplido: DEP-01–04 del episodio examinado quedan
+  // auditadas con el paquete verificado y la aclaración del owner.
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+  // La ausencia de enmiendas está documentada (§7 Mandate changes), no leída
+  // como regla.
+  assert.deepEqual(ficha.acceptanceCriterion.auditedContract.documentedAbsences, ["campaign.obligation.amendments"]);
+});
+
+test("la ficha de episodio es idéntica para la misma maturity (determinista)", () => {
+  assert.deepEqual(createGasQuarterlyValidationFicha("2023Q2"), createGasQuarterlyValidationFicha("2023Q2"));
+  assert.notDeepEqual(createGasQuarterlyValidationFicha("2023Q1"), createGasQuarterlyValidationFicha("2023Q2"));
+});
+
+test("una maturity no canónica impide construir la ficha de episodio", () => {
+  for (const bad of ["2021Q5", "Q1 2021", "", null]) {
+    assert.throws(() => createGasQuarterlyValidationFicha(bad), TypeError, String(bad));
+  }
+});
+
+test("la secuencia de episodios se evalúa cronológica y completamente", () => {
+  // Secuencia válida.
+  assert.deepEqual(validateQuarterlyEpisodeSequence(["2021Q1", "2021Q2", "2021Q3"]), []);
+  // Fuera de orden o repetida: el invariante cronológico se rechaza.
+  const disordered = validateQuarterlyEpisodeSequence(["2021Q2", "2021Q1"]);
+  assert.ok(disordered.some((error) => error.code === "EPISODES_NOT_CHRONOLOGICAL"));
+  const duplicated = validateQuarterlyEpisodeSequence(["2021Q1", "2021Q1"]);
+  assert.ok(duplicated.some((error) => error.code === "DUPLICATE_EPISODE"));
+  const invalid = validateQuarterlyEpisodeSequence(["2021Q1", "2021Q5"]);
+  assert.ok(invalid.some((error) => error.code === "INVALID_EPISODE_MATURITY"));
+  // Con continuidad exigida, seleccionar episodios salteando quarters se
+  // rechaza: no se eligen sólo períodos favorecidos (P-006 punto 4).
+  const gaps = validateQuarterlyEpisodeSequence(["2021Q1", "2021Q4"], { requireContiguity: true });
+  assert.ok(gaps.some((error) => error.code === "EPISODE_SEQUENCE_GAP"));
+  assert.deepEqual(validateQuarterlyEpisodeSequence(["2021Q1", "2021Q4"]), []);
+});
+
+test("los guards del mandato rolling rechazan coverage compartido y evaluación selectiva", () => {
+  const shared = createGasQuarterlyValidationFicha("2021Q1");
+  shared.guards.missionsShareCoverage = true;
+  const sharedOutcome = validateCampaignContract(shared);
+  assert.equal(sharedOutcome.ok, false);
+  assert.ok(sharedOutcome.errors.some((error) => error.code === "MISSIONS_SHARE_COVERAGE"));
+
+  const selective = createGasQuarterlyValidationFicha("2021Q1");
+  selective.guards.selectiveEpisodeEvaluation = true;
+  const selectiveOutcome = validateCampaignContract(selective);
+  assert.equal(selectiveOutcome.ok, false);
+  assert.ok(selectiveOutcome.errors.some((error) => error.code === "SELECTIVE_EPISODE_EVALUATION"));
+});
+
+test("los valores publicados de la ficha de episodio no exceden su provenance", () => {
+  // Regresión del patrón del hallazgo HUBMARKET-007: los valores documentados
+  // replican la cita; la identidad del episodio es la instancia determinista
+  // que el owner sanciona (P-006 punto 6).
+  const ficha = createGasQuarterlyValidationFicha("2021Q1");
+  assert.equal(factOf(ficha, "campaign.identity.campaignId").value, "GAS-Q-2021Q1");
+  assert.equal(factOf(ficha, "campaign.obligation.campaignLink").value, "GAS-Q-2021Q1");
+  assert.equal(
+    factOf(ficha, "campaign.identity.campaignId").source.quote,
+    "La identidad de una campaña de research puede ser determinista por producto + período/maturity (por ejemplo GAS-Q-YYYYQn)",
+  );
+  for (const definition of CAMPAIGN_CONTRACT_FACTS) {
+    if (definition.kind !== "text") {
+      continue;
+    }
+    if (definition.factId === "campaign.identity.campaignId" || definition.factId === "campaign.obligation.campaignLink") {
+      continue;
+    }
+    const fact = factOf(ficha, definition.factId);
+    assert.equal(fact.availability, "AVAILABLE_NOW", definition.factId);
+    // El valor documentado replica la cita del paquete verificado; para la
+    // familia, Mission y unidad el valor es el token confirmado por su fuente
+    // (la tabla §4.1/la fila del paquete), no una réplica de la cita.
+    if (["campaign.identity.productFamily", "campaign.identity.mission", "campaign.obligation.unit"].includes(definition.factId)) {
+      assert.ok(
+        fact.value === fact.source.quote || fact.source.quote.includes(fact.value),
+        definition.factId,
+      );
+      continue;
+    }
+    assert.equal(fact.value, fact.source.quote, definition.factId);
+  }
+  // deadline del calendario del episodio, no inferido.
+  const deadline = resolveObligationDeadline(ficha);
+  assert.equal(deadline.determined, true);
+  assert.equal(deadline.deadline, factOf(ficha, "campaign.calendar.deadline").value);
+});
+
+test("Monthly y Quarterly no comparten coverage a nivel de mapa (§4.3/P-006 punto 5)", () => {
+  const relation = { availability: "AVAILABLE_NOW", relationType: "ADDITIONAL", value: "mandatos separados sin coverage compartido", authority: "Bru (owner); aclaración P-006", locator: "Decisión del owner 23-sep-2026 (punto 5)" };
+  const outcome = mapCoverageOwnership({
+    relationMonthlyQuarterly: relation,
+    // Un mismo fill referenciado por una obligación Gas Quarterly y una Gas
+    // Monthly: la cobertura no puede pertenecer a dos mandatos.
+    obligations: [
+      { obligationId: "OBL-GAS-Q-2021Q1", fills: ["FILL-1"] },
+      { obligationId: "OBL-GAS-M-2021-01", fills: ["FILL-1"] },
+    ],
+    fills: [{ fillId: "FILL-1", quantity: 5, unit: "MW" }],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "DUPLICATE_OWNERSHIP"));
+});
+
+test("dos episodios de Quarterly tampoco comparten un fill", () => {
+  const relation = { availability: "AVAILABLE_NOW", relationType: "ADDITIONAL", value: "mandatos separados sin coverage compartido", authority: "Bru (owner); aclaración P-006", locator: "Decisión del owner 23-sep-2026 (punto 5)" };
+  const outcome = mapCoverageOwnership({
+    relationMonthlyQuarterly: relation,
+    obligations: [
+      { obligationId: "OBL-GAS-Q-2021Q1", fills: ["FILL-1"] },
+      { obligationId: "OBL-GAS-Q-2021Q2", fills: ["FILL-1"] },
+    ],
+    fills: [{ fillId: "FILL-1", quantity: 5, unit: "MW" }],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "DUPLICATE_OWNERSHIP"));
+});
+
+function factOf(ficha, factId) {
+  return ficha.facts.find((entry) => entry.factId === factId);
+}
+
+test("el artefacto publicado del episodio 2021Q1 se valida y coincide con el builder", () => {
+  const path = resolve(repoRoot, "operations/audit/IMP-02/v1_1_1/gas-quarterly-validation-episode-ficha-2021Q1.json");
+  const artifact = JSON.parse(readFileSync(path, "utf8"));
+  const outcome = validateCampaignContract(artifact);
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.campaignIdentified, true);
+  assert.deepEqual(artifact, createGasQuarterlyValidationFicha("2021Q1"));
 });

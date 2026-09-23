@@ -45,11 +45,99 @@ const CLIENT_PACKAGE_CONFIRMATION = {
   authority: "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado (OFICINA_INTAKE_VERIFICATION.json, 2026-09-23)",
 };
 
+// Aclaración de owner del 23-sep-2026 (P-006): el objeto de Gas Quarterly es
+// un mandato rolling de procurement orientado a reducir coste, no una campaña
+// comercial con Campaign ID suministrado por el cliente. Cada maturity
+// histórica elegible es un episodio de VALIDACIÓN independiente bajo el
+// mandato vigente; la identidad de campaña de research es determinista por
+// producto + periodo/maturity (GAS-Q-YYYYQn). No afirma mandatos históricos
+// ni aporta fills/ownership live.
+export const OWNER_P006_CONFIRMATION = {
+  authority: "Bru (owner); aclaración P-006, 23-sep-2026",
+  locator: "Decision del owner 23-sep-2026 sobre semántica rolling/validación de IMP-02 (puntos 1-6)",
+  quote: "La identidad de una campaña de research puede ser determinista por producto + período/maturity (por ejemplo GAS-Q-YYYYQn)",
+};
+
 export const CLIENT_PACKAGE_SOURCES = {
   hubMarket: {
     ...CLIENT_PACKAGE_CONFIRMATION,
     locator: "ESTADO_INPUTS.csv fila \"Product mapping — Gas Quarterly\"; 01_campaigns/gas_quarterly.md \"Relevant EEX product class\"",
     quote: "NATGAS / THE Quarterly EEX futures",
+  },
+  mission: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "01_campaigns/campaign_rules.csv fila \"Fundamental,Gas Quarterly\"; 00_LEEME.md tabla de Missions; §4.1 tabla de cantidades confirmadas",
+    quote: "Fundamental,Gas Quarterly,NATGAS / THE Quarterly,60,3-1-3,0,11:00 Europe/Berlin,1,12,Q1 2021,Exact target by final effective trading day,Any trigger hard-rejects candidate",
+  },
+  productContract: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv filas \"Product mapping — Gas Quarterly\" y \"Physical/financial procurement relationship\"; 01_campaigns/gas_quarterly.md \"Relevant EEX product class\"",
+    quote: "NATGAS / THE Quarterly EEX futures",
+  },
+  deliveryPeriod: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv filas \"Delivery profile / MWh conversion\" y \"Quarterly calendar rule\"; 01_campaigns/01_shared_campaign_rules.md §1",
+    quote: "3-1-3: three calendar months trading, one calendar month gap, three calendar months delivery",
+  },
+  settlement: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Physical/financial procurement relationship\" (estado AUSENCIA CONFIRMADA); 00_LEEME.md \"Immediate scope\"",
+    quote: "Out of scope. Mandate is limited to procuring the specified EEX futures positions; downstream physical need does not alter validator mechanics.",
+  },
+  validity: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "00_LEEME.md \"Source basis and validity\"",
+    quote: "Current Fundamental procurement case as of 2026-09-23, unless a narrower validity statement is given.",
+  },
+  openClose: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Quarterly calendar rule\"; 01_campaigns/gas_quarterly.md \"Trading-window convention\"; 01_campaigns/01_shared_campaign_rules.md §1",
+    quote: "For Quarterly, the strategy may trade during the fourth, third, and second calendar months before the quarter begins. The calendar month immediately before quarterly delivery is the gap month.",
+  },
+  decisionOpportunities: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv filas \"Decision frequency\" y \"Decision time\"; 01_campaigns/01_shared_campaign_rules.md §4",
+    quote: "The strategy is invoked once per eligible trading day at 11:00 Europe/Berlin.",
+  },
+  deadline: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "01_campaigns/gas_quarterly.md \"Completion requirement\"; ESTADO_INPUTS.csv fila \"Terminal requirement\"",
+    quote: "Exact target position by the end of the final effective trading day",
+  },
+  terminalRequirement: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Terminal requirement\"; 01_campaigns/01_shared_campaign_rules.md §3",
+    quote: "Final effective position must equal target exactly by end of final effective trading day.",
+  },
+  amendmentsAbsence: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Target changes during campaign\"; 01_campaigns/01_shared_campaign_rules.md §7",
+    quote: "Target is fixed once campaign starts; portfolio/mandate change triggers new strategy development + verification under new mandate.",
+  },
+  initialPosition: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Initial position\"; 01_campaigns/01_shared_campaign_rules.md §3",
+    quote: "0 MW at start of each episode/campaign.",
+  },
+  lots: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Lot / quantity increment\"; 01_campaigns/01_shared_campaign_rules.md §5",
+    quote: "1 MW minimum and 1 MW increments.",
+  },
+  positionUnits: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv fila \"Position vs price units\"",
+    quote: "Trade/target quantity in MW; minimum increment 1 MW",
+  },
+  executionContract: {
+    ...CLIENT_PACKAGE_CONFIRMATION,
+    locator: "ESTADO_INPUTS.csv filas \"TOB reference timestamp\", \"Simulated execution side\", \"Virtual slippage\", \"Backtest fill quantity\", \"Normal daily quantity cap\", \"Other execution fees\"",
+    quote: "Assume full requested quantity fills at simulated execution price; no partial-fill model.",
+  },
+  relationSeparateMissions: {
+    authority: "Bru (owner); aclaración P-006, 23-sep-2026",
+    locator: "Decision del owner 23-sep-2026 (punto 5); §4.1 \"Monthly y Quarterly son Mission de primera clase, con contratos y poblaciones de evaluación separados\"; 00_LEEME.md \"Immediate scope\"",
+    quote: "Monthly y Quarterly son campañas/mandatos separados y no comparten coverage: compras/fills de Quarterly no reducen Monthly y viceversa.",
   },
   pauseExclusion: {
     ...CLIENT_PACKAGE_CONFIRMATION,
@@ -61,6 +149,90 @@ export const CLIENT_PACKAGE_SOURCES = {
 export function confirmedQuantityFor(product, mission) {
   const match = CONFIRMED_OBLIGATIONS.find((entry) => entry.product === product && entry.mission === mission);
   return match ? { quantity: match.quantity, unit: match.unit, source: match.source } : null;
+}
+
+// Aclaración P-006 (punto 6): identidad determinista de campaña de research
+// por producto + Mission + maturity. Prefijos sin signos ambiguos; la maturity
+// de Quarterly es YYYYQn (Q1–Q4) y la de Monthly YYYY-MM (01–12). No es
+// formato de la SPEC: es el formato del ejemplo del owner, marcado PROVISIONAL
+// hasta el registro real del mandato.
+const FAMILY_PREFIX = { Gas: "GAS", Power: "POW" };
+const MISSION_PREFIX = { Monthly: "M", Quarterly: "Q" };
+const QUARTER_PATTERN = /^\d{4}Q[1-4]$/;
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export function isCanonicalMaturity(mission, maturity) {
+  if (!isNonEmptyString(maturity)) return false;
+  if (mission === "Monthly") return MONTH_PATTERN.test(maturity);
+  if (mission === "Quarterly") return QUARTER_PATTERN.test(maturity);
+  return false;
+}
+
+// IDENTIDAD determinista por episodio; maturities distintas → campañas
+// distintas, y el mismo maturity da siempre el mismo Campaign ID.
+export function researchCampaignIdFor(product, mission, maturity) {
+  if (!isNonEmptyString(product) || !isNonEmptyString(mission)) return null;
+  if (!FAMILY_PREFIX[product] || !MISSION_PREFIX[mission]) return null;
+  if (!isCanonicalMaturity(mission, maturity)) return null;
+  return `${FAMILY_PREFIX[product]}-${MISSION_PREFIX[mission]}-${maturity}`;
+}
+
+// La obligación del episodio usa el mismo alcance de identidad; así el mapa
+// fill→obligación no puede atribuir volumen a una campaña que no existe.
+export function episodeObligationIdFor(campaignId) {
+  if (!isNonEmptyString(campaignId)) return null;
+  return `OBL-${campaignId}`;
+}
+
+// Aclaración P-006 (punto 4): los episodios elegibles se evalúan todos en
+// orden cronológico, sin seleccionar sólo períodos favorecidos. La cobertura
+// del invariante la guarda el validador de secuencia, no cada ficha.
+function quarterIndex(maturity) {
+  // YYYYQn → índice contable de quarters: orden y huecos sin depender de
+  // comparación lexicográfica de textos.
+  const year = Number(maturity.slice(0, 4));
+  const quarter = Number(maturity.slice(5));
+  return year * 4 + quarter;
+}
+
+// Valida una secuencia de maturities de Gas Quarterly: cada maturity canónica,
+// orden estrictamente cronológico sin repetición y, si se exige continuidad,
+// sin huecos de quarters dentro del alcance declarado. Devuelve los errores;
+// lista vacía es secuencia válida.
+export function validateQuarterlyEpisodeSequence(maturities, { requireContiguity = false } = {}) {
+  const errors = [];
+  if (!Array.isArray(maturities)) {
+    return [{ code: "EPISODES_NOT_ARRAY", message: "La secuencia de episodios no es una lista." }];
+  }
+  let previousIndex = null;
+  const seen = new Set();
+  for (const maturity of maturities) {
+    if (!isCanonicalMaturity("Quarterly", maturity)) {
+      errors.push({ code: "INVALID_EPISODE_MATURITY", message: `La maturity "${maturity}" no es YYYYQn (Q1–Q4); no es un episodio de Quarterly.` });
+      continue;
+    }
+    const index = quarterIndex(maturity);
+    if (seen.has(maturity)) {
+      errors.push({ code: "DUPLICATE_EPISODE", message: `Maturity repetida en la secuencia: ${maturity}.` });
+      continue;
+    }
+    seen.add(maturity);
+    if (previousIndex !== null && index <= previousIndex) {
+      errors.push({ code: "EPISODES_NOT_CHRONOLOGICAL", message: `La maturity ${maturity} no es posterior a la anterior de la secuencia; los episodios se evalúan en orden cronológico (P-006 punto 4).` });
+      continue;
+    }
+    if (previousIndex !== null && requireContiguity && index > previousIndex + 1) {
+      errors.push({ code: "EPISODE_SEQUENCE_GAP", message: `Hay huecos de quarters entre ${quarterIndexDescription(previousIndex)} y ${maturity}; el horizon evalúa los episodios completos en orden (01_shared_campaign_rules.csv \"Historical Quarterly backtest horizon\").` });
+    }
+    previousIndex = index;
+  }
+  return errors;
+}
+
+function quarterIndexDescription(index) {
+  const year = Math.floor((index - 1) / 4);
+  const quarter = ((index - 1) % 4) + 1;
+  return `${year}Q${quarter}`;
 }
 
 // §4.1 inputs del contrato de campaña. `kind: "quantity"` exige unidad; el
@@ -278,6 +450,16 @@ function validateGuards(guards, errors) {
   // §4.1: MW no se convierte a MWh por suposición.
   if (declared.assumedMwToMwhConversion === true) {
     errors.push({ factId: "guards.assumedMwToMwhConversion", code: "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE", message: "No se asume una conversión MW→MWh sin horas/perfil (§4.1)." });
+  }
+  // Aclaración P-006 (punto 5): Monthly y Quarterly son mandatos separados sin
+  // coverage compartido (§4.1/D5: Missions separadas; §4.3 sin doble conteo).
+  if (declared.missionsShareCoverage === true) {
+    errors.push({ factId: "guards.missionsShareCoverage", code: "MISSIONS_SHARE_COVERAGE", message: "Los fills de Quarterly no reducen Monthly ni viceversa; la cobertura de una Mission no se contabiliza en la otra (P-006 punto 5; §4.1/§4.3)." });
+  }
+  // Aclaración P-006 (punto 4): los episodios elegibles se evalúan todos en
+  // orden cronológico; no se seleccionan sólo períodos favorecidos.
+  if (declared.selectiveEpisodeEvaluation === true) {
+    errors.push({ factId: "guards.selectiveEpisodeEvaluation", code: "SELECTIVE_EPISODE_EVALUATION", message: "Los episodios elegibles se evalúan todos en orden cronológico; no se seleccionan sólo períodos favorecidos (P-006 punto 4; campaign_rules.csv \"Historical Quarterly backtest horizon\")." });
   }
 }
 
@@ -865,6 +1047,305 @@ export function createGasQuarterlyFicha() {
       relationMonthlyQuarterly: {
         availability: "UNAVAILABLE",
         reason: "No se sabe si las obligaciones Monthly y Quarterly son adicionales, solapadas o alternativas según mandato (DEP-02; D08 p.4; D15 p.2).",
+      },
+    },
+  };
+  // §25.1 IMP-02: la ficha declara qué parte del acceptance test puede
+  // determinar con sus facts y qué no, sin afirmar lo no determinado.
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  return ficha;
+}
+
+// Materializa la ficha de un episodio de VALIDACIÓN Gas Quarterly bajo el
+// mandato vigente (aclaración P-006 del owner, 23-sep-2026; paquete del
+// cliente verificado). La identidad es determinista por producto + Mission +
+// maturity (P-006 punto 6): no se pide ni se inventa un Campaign ID comercial.
+// Cada episodio abre en 0 MW (posición inicial documentada) y debe completar
+// exactamente 60 MW en su ventana; Monthly y Quarterly no comparten coverage.
+// No fabrica fills, campaña live ni ownership inexistente (P-006 punto 8): el
+// volumen ejecutado del episodio parte de la apertura documentada.
+export function createGasQuarterlyValidationFicha(maturity) {
+  const campaignId = researchCampaignIdFor("Gas", "Quarterly", maturity);
+  if (campaignId === null) {
+    throw new TypeError("La maturity del episodio debe ser YYYYQn (Q1–Q4); sin ella no hay identidad determinista (P-006 punto 6).");
+  }
+  const confirmed = confirmedQuantityFor("Gas", "Quarterly");
+  const campaignSource = {
+    ...OWNER_P006_CONFIRMATION,
+    locator: `${OWNER_P006_CONFIRMATION.locator}; 01_campaigns/campaign_rules.csv fila "Fundamental,Gas Quarterly" (episodio ${maturity})`,
+  };
+  const obligationId = episodeObligationIdFor(campaignId);
+  const facts = [
+    {
+      factId: "campaign.identity.campaignId",
+      section: "Identidad",
+      availability: "AVAILABLE_NOW",
+      value: campaignId,
+      unit: null,
+      source: campaignSource,
+      reason: null,
+    },
+    {
+      factId: "campaign.identity.productContract",
+      section: "Identidad",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.productContract.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.productContract,
+      reason: null,
+    },
+    {
+      factId: "campaign.identity.productFamily",
+      section: "Identidad",
+      availability: "AVAILABLE_NOW",
+      value: "Gas",
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.mission,
+      reason: null,
+    },
+    {
+      factId: "campaign.identity.mission",
+      section: "Identidad",
+      availability: "AVAILABLE_NOW",
+      value: "Quarterly",
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.mission,
+      reason: null,
+    },
+    {
+      factId: "campaign.identity.hubMarket",
+      section: "Identidad",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.hubMarket.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.hubMarket,
+      reason: null,
+    },
+    {
+      factId: "campaign.obligation.totalVolumeKnown",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: confirmed.quantity,
+      unit: confirmed.unit,
+      source: confirmed.source,
+      reason: null,
+    },
+    {
+      factId: "campaign.obligation.unit",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: confirmed.unit,
+      unit: null,
+      source: {
+        ...confirmed.source,
+        locator: `${confirmed.source.locator} (columna Unidad: MW); 01_campaigns/campaign_rules.csv fila "Fundamental,Gas Quarterly" (Target MW)`,
+        quote: "MW",
+      },
+      reason: null,
+    },
+    // El periodo de entrega del episodio es el documentado por el paquete:
+    // tres meses calendario de delivery (3-1-3); el perfil horario exacto
+    // corresponde al contrato/maturity EEX, sin asunción adicional (ESTADO
+    // "Delivery profile / MWh conversion").
+    {
+      factId: "campaign.obligation.deliveryPeriod",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.deliveryPeriod.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.deliveryPeriod,
+      reason: null,
+    },
+    // La liquidación física/financiera posterior está documentada fuera del
+    // alcance del mandato (AUSENCIA CONFIRMADA): el valor replica esa
+    // constatación sin inventar una forma de liquidación.
+    {
+      factId: "campaign.obligation.settlement",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.settlement.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.settlement,
+      reason: null,
+    },
+    {
+      factId: "campaign.obligation.validity",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.validity.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.validity,
+      reason: null,
+    },
+    {
+      factId: "campaign.obligation.campaignLink",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: campaignId,
+      unit: null,
+      source: campaignSource,
+      reason: null,
+    },
+    // §7 Mandate changes: el target queda fijo dentro de la campaña; un cambio
+    // de mandato abre un ciclo nuevo, no se aplica retroactivamente a un
+    // episodio en curso. Para los episodios de validation esto es la
+    // constatación documentada de ausencia de enmiendas (§25.2 "cuando
+    // corresponda"); se publica como tal, no como cobertura completa.
+    {
+      factId: "campaign.obligation.amendments",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.amendmentsAbsence.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.amendmentsAbsence,
+      documentedAbsence: true,
+      reason: null,
+    },
+    {
+      factId: "campaign.calendar.openClose",
+      section: "Calendario",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.openClose.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.openClose,
+      reason: null,
+    },
+    {
+      factId: "campaign.calendar.decisionOpportunities",
+      section: "Calendario",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.decisionOpportunities.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.decisionOpportunities,
+      reason: null,
+    },
+    {
+      factId: "campaign.calendar.deadline",
+      section: "Calendario",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.deadline.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.deadline,
+      reason: null,
+    },
+    {
+      factId: "campaign.calendar.pauseExclusion",
+      section: "Calendario",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.pauseExclusion.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.pauseExclusion,
+      reason: null,
+    },
+    {
+      factId: "campaign.feasibility.lots",
+      section: "Factibilidad",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.lots.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.lots,
+      reason: null,
+    },
+    {
+      factId: "campaign.feasibility.rounding",
+      section: "Factibilidad",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.positionUnits.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.positionUnits,
+      reason: null,
+    },
+    // La terminal rule del episodio está documentada y es válida: posición
+    // final igual al objetivo exacto al cierre del último día efectivo; un
+    // residual al deadline no es cobertura (§4.3) y dispara el hard-reject de
+    // validación, no un fill de cierre.
+    {
+      factId: "campaign.feasibility.terminalCoverageRule",
+      section: "Factibilidad",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.terminalRequirement.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.terminalRequirement,
+      reason: null,
+    },
+    {
+      factId: "campaign.execution.contract",
+      section: "Ejecución",
+      availability: "AVAILABLE_NOW",
+      value: CLIENT_PACKAGE_SOURCES.executionContract.quote,
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.executionContract,
+      reason: null,
+    },
+    // Posición inicial documentada del episodio: 0 MW ejecutados al abrir.
+    {
+      factId: "campaign.coverage.executedVolume",
+      section: "Estado de cobertura",
+      availability: "AVAILABLE_NOW",
+      value: 0,
+      unit: confirmed.unit,
+      source: CLIENT_PACKAGE_SOURCES.initialPosition,
+      reason: null,
+    },
+    {
+      factId: "campaign.coverage.remainingVolume",
+      section: "Estado de cobertura",
+      availability: "AVAILABLE_NOW",
+      value: confirmed.quantity,
+      unit: confirmed.unit,
+      source: { authority: CLIENT_PACKAGE_SOURCES.initialPosition.authority, locator: "Derivada: apertura 60 MW − ejecutado 0 MW (§4.3); posición inicial 0 MW documentada." },
+      reason: null,
+    },
+    {
+      factId: "campaign.coverage.fillToObligationAssignment",
+      section: "Estado de cobertura",
+      availability: "AVAILABLE_NOW",
+      value: [],
+      unit: null,
+      source: CLIENT_PACKAGE_SOURCES.initialPosition,
+      reason: null,
+    },
+  ];
+
+  const ficha = {
+    artifactKind: "IMP-02_GAS_QUARTERLY_VALIDATION_EPISODE_FICHA",
+    schemaVersion: "1.1",
+    spec: {
+      id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
+      version: "1.1.1",
+      sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
+    },
+    product: "Gas",
+    mission: "Quarterly",
+    episode: {
+      kind: "VALIDATION_EPISODE",
+      maturity,
+      method: "Each historical contract maturity forms a validation episode under the current mandate (01_campaigns/gas_quarterly.md \"Validation interpretation\"; P-006 puntos 2-4, 7)",
+    },
+    guards: {
+      totalObligationIsPerBuySizing: false,
+      benchmarkWindowIsExecutionPermission: false,
+      unknownTerminalRuleFabricatesCloseOutFill: false,
+      assumedMwToMwhConversion: false,
+      missionsShareCoverage: false,
+      selectiveEpisodeEvaluation: false,
+    },
+    facts,
+    // §24 DEP-02: elepisode abre en 0 MW con mapa materializado vacío; la
+    // asignación se materializa con cada fill del ledger del episodio. Los
+    // llenados de la Mission Monthly no entra aquí (P-006 punto 5).
+    coverageOwnership: {
+      mapState: "MATERIALIZED",
+      obligationId,
+      assignments: [],
+      authority: `${CLIENT_PACKAGE_CONFIRMATION.authority}; ${OWNER_P006_CONFIRMATION.authority}`,
+      locator: `ESTADO_INPUTS.csv fila "Initial position" (episodio ${maturity}); decision del owner 23-sep-2026 (puntos 5-6)`,
+      relationMonthlyQuarterly: {
+        availability: "AVAILABLE_NOW",
+        relationType: "ADDITIONAL",
+        value: CLIENT_PACKAGE_SOURCES.relationSeparateMissions.quote,
+        authority: CLIENT_PACKAGE_SOURCES.relationSeparateMissions.authority,
+        locator: CLIENT_PACKAGE_SOURCES.relationSeparateMissions.locator,
       },
     },
   };
