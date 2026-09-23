@@ -1,6 +1,6 @@
 # PLAN_STATUS — Energy Markets / Procurement Research
 
-Fuente normativa: `docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md`, §25.1 (objetivos y acceptance) y §25.2.2 (dependencias).
+Fuente normativa: `docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md` (22-sep, reemplaza a v1.1), §25.1 (objetivos y acceptance), §25.2.2 (dependencias) y §25.3 (audit de inputs).
 La columna REQUIERE copia solo los IMP de §25.2.2; los requisitos de audit/evidencia (DEP-xx) están en la SPEC y se leen allí.
 Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por columna el 23-sep).
 
@@ -16,7 +16,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP | ESTADO | REQUIERE | OBJETIVO | NOTA |
 |---|---|---|---|---|
 | IMP-01 | aceptado | — | Materializar contratos de identidad/versiones y namespaces. | Receipt `operations/receipts/IMP-01-IMP_RECEIPT.json`, 2026-09-19. |
-| IMP-02 | pendiente | IMP-01 | Reconstruir ficha de una campaña Gas Quarterly y relaciones de obligación. | Cantidades 10/10/60/20 MW confirmadas por Bru (SPEC §4.1). Falta contrato, delivery, calendario y ownership (DEP-01–04): datos de Bru. |
+| IMP-02 | pendiente | IMP-01 | Reconstruir ficha de una campaña Gas Quarterly y relaciones de obligación. | Cantidades 10/10/60/20 MW confirmadas por Bru (SPEC v1.1.1 §4.1, §25.3). Según el audit del 22-sep (`docs/canonical/v1_1_1/sources/AUDIT_INPUTS_ENERGY_MARKETS.md`:242 y :251) faltan Campaign ID, producto/hub/contrato, delivery, calendario y ownership: incorporar lo confirmado sin inventar el resto y dejar esos campos como faltantes explícitos. |
 | IMP-03 | aceptado | IMP-01 | Ejecutar data audit y poblar Data Sufficiency Matrix. | Receipt 2026-09-19, scope "negative audit only". §25.3: ampliar inventario con el lago `/srv/hot-data/EEX`. |
 | IMP-04 | pendiente | IMP-03 | Seleccionar herramienta mínima suficiente. | |
 | IMP-05 | pendiente | IMP-02, IMP-03, IMP-04 | Reproducir benchmark y auditar reconciliación official/proxy. | |

@@ -5,7 +5,7 @@ Paperclip sigue trabajando en paralelo con sus propias reglas (AGENTS.md). Estas
 
 ## Fuente de verdad
 
-- SPEC normativa: `docs/canonical/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md`. Leer §25.1 y §25.2 del IMP asignado y las secciones que cite.
+- SPEC normativa: `docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md` (22-sep). La v1.1 queda como antecedente. Leer §25.1 y §25.2 del IMP asignado y las secciones que cite.
 - Estado del plan: `PLAN_STATUS.md`. Qué está aceptado, qué está listo, qué depende de qué.
 - `/srv/hot-data/energy-markets/reference` es procedencia histórica, no requisitos nuevos.
 

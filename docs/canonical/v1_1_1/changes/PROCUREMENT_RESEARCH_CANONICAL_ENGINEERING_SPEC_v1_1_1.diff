@@ -1,0 +1,200 @@
+--- PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md
++++ PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md
+@@ -3,15 +3,15 @@
+ | Campo | Valor canónico de esta compilación |
+ |---|---|
+ | Canonical title | PROCUREMENT RESEARCH — Canonical Engineering Specification |
+-| Archivo | `PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1.md` |
+-| Versión | 1.1 — targeted patch D1–D5 sobre la baseline v1.0 |
+-| Fecha | 2026-09-18 |
+-| Status | Baseline v1.0 preservada y patch D1–D5 FROZEN incorporado. P1–P7 no se reabren. Contratos de extensión, integración externa, interfaz y handoff cerrados; implementación, audit y evidence pendientes según §§20–26. No constituye validación empírica ni autorización de producción. |
++| Archivo | `PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md` |
++| Versión | 1.1.1 — actualización documental de inputs sobre v1.1; P1–P7 y D1–D5 conservados |
++| Fecha | 2026-09-22; baseline v1.1 del 2026-09-18 |
++| Status | Actualización documental autorizada por Bru: cantidades confirmadas e inventario EEX según audit de inputs del 2026-09-22. Conserva arquitectura, criterios y dependencias. No es aceptación de IMPs, validación económica ni activación de una nueva SPEC en Paperclip/BruNode. |
+ | Mandante | Bru |
+ | Intended consumers | Principal Systems Architect, Senior Quant Research Engineer, Astra/Paperclip, workers y reviewers, equipo de ingeniería, Codex/Claude y responsables de research y governance. |
+ | Función | Única referencia de ingeniería del corpus consolidado. Los originales conservan su función de research provenance e historical evidence. |
+-| Informe de auditoría | `PROCUREMENT_RESEARCH_CANONICAL_CONSOLIDATION_REPORT_v1_1.md`; registra el estado consolidado. `PROCUREMENT_RESEARCH_v1_0_to_v1_1_PATCH_REPORT.md` audita el cambio puntual. Ninguno define una arquitectura alternativa. |
+-| Evidencia inspeccionada | 19 fuentes completas acumuladas: D00–D17 leídas en la consolidación v1.0 (15 PDF, 185 páginas, y 3 textos) más D18, leído íntegramente para este patch. Los dos entregables v1.0 son baselines derivadas y no se cuentan otra vez como fuentes independientes. No se inspeccionaron datos de mercado, BruNode, Paperclip/JEV, repositorios externos ni resultados de ejecución. |
++| Informe de auditoría | `PROCUREMENT_RESEARCH_CANONICAL_CONSOLIDATION_REPORT_v1_1_1.md` y `PROCUREMENT_RESEARCH_v1_1_to_v1_1_1_PATCH_REPORT.md`. El Patch Report v1.0→v1.1 se conserva como registro histórico. Ningún reporte define otra arquitectura. |
++| Evidencia inspeccionada | La consolidación histórica v1.1 registra 19 fuentes D00–D18; ese conteo no es una nueva lectura ni un audit operativo actual. Esta revisión incorpora la confirmación directa de Bru y las dos piezas del audit de inputs que entregó (§0.5); no reejecuta sus inspecciones de Mac/BruNode ni audita el lago. |
+ 
+ ## 0.1 Registro de fuentes
+ 
+@@ -39,7 +39,7 @@
+ | D17 | sortino-handout.pdf | Procurement strategy scoring handout; sin versión/fecha explícita | 6 páginas |
+ | D18 | PROCUREMENT_RESEARCH_v1_1_PATCH_DECISIONS_D1-D5.md | v1.1 Patch Decision Packet; sin fecha interna explícita, recibido 2026-09-18 | Texto íntegro, 1.032 líneas |
+ 
+-D18 contiene las decisiones **D1–D5 del patch**. Esas etiquetas no son los IDs bibliográficos D01–D05. Las baselines exactas son los dos Markdown v1.0 entregados el 2026-09-17; sus SHA-256 y la huella de D18 constan en el Patch Report. Esta SPEC v1.1 es el documento canónico completo vigente; v1.0 conserva función de historial.
++D18 contiene las decisiones **D1–D5 del patch**. Esas etiquetas no son los IDs bibliográficos D01–D05. Las baselines exactas son los dos Markdown v1.0 entregados el 2026-09-17; sus SHA-256 y la huella de D18 constan en el Patch Report. La v1.1 constituye la baseline canónica de esta revisión documental v1.1.1; ambas baselines conservan su historial y sus hashes. La publicación documental no cambia por sí sola la versión vinculada al runtime (§0.5).
+ 
+ ## 0.2 Reglas de autoridad
+ 
+@@ -79,6 +79,22 @@
+ **Source / Authority:** D00 §§1–12; D04 pp.1–2,10; D03 pp.1,12; D02 pp.1–3,13; D01 pp.1,11–12; D06 pp.8–9; D08 pp.3,17–19.
+ 
+ **Patch authority:** D18 §0, D1–D5 y §§1–3. Los tres entregables v1.1 sustituyen la referencia operativa a los entregables v1.0 sin borrar su provenance.
++
++## 0.5 Actualización documental de inputs — 2026-09-22
++
++**Autoridad:** confirmación directa de Bru de las cantidades en MW y su instrucción posterior de actualizar la documentación con el audit de inputs. El identificador de revisión **1.1.1** distingue estos bytes de la baseline v1.1; no introduce un nuevo plan, IMP, gate ni una decisión económica.
++
++| Referencia de esta revisión | Fuente / alcance | Integridad de la copia recibida |
++|---|---|---|
++| U-BRU | Confirmación en la conversación del 2026-09-22: Monthly Gas/Power 10/10 MW; Quarterly Gas/Power 60/20 MW; autorización de la actualización documental. | Confirmación del owner; no contrato corporativo independiente ni prueba de vigencia histórica. |
++| U-AUDIT | [AUDIT_INPUTS_ENERGY_MARKETS.md](sources/AUDIT_INPUTS_ENERGY_MARKETS.md), fecha de corte 2026-09-22, entregado por Bru como resultado del audit de Codex. | SHA-256 `96e0b76356f901acdaf4fed9634908818ecd4d78627955d7217792367143710f` |
++| U-MATRIX | [AUDIT_INPUTS_ENERGY_MARKETS.csv](sources/AUDIT_INPUTS_ENERGY_MARKETS.csv), 36 requisitos del mismo audit. | SHA-256 `9470e789fef1389204a76b27bf2849009c5c65d3dfac06167de58a8ccc005f04` |
++
++U-AUDIT y U-MATRIX son dos entregables del **mismo audit**, no dos verificaciones independientes. Los localizadores que citan a Mac/BruNode proceden de ese informe; aquí se conservaron las copias recibidas, sin afirmar una nueva lectura remota de esos archivos. D00–D18 y sus conteos describen la consolidación histórica.
++
++**Cambios:** §4.1 incorpora las cuatro cantidades y conserva la discrepancia histórica de Power Quarterly; §6.5 registra el lago EEX y los límites del inventario; §§21–24 actualizan únicamente conocimiento/readiness factual; §25.3 aplica esos hechos al backlog existente. §25.1 y §25.2 permanecen literalmente iguales a v1.1.
++
++**Límite de publicación:** estos son documentos actualizados, no un `IMP_RECEIPT` ni un despliegue. No se reescriben hashes de receipts aceptados, no se reabren entregas por esta edición y no se declara una migración de la SPEC instalada. El cambio de referencia que eventualmente consuma el runtime debe conservar la trazabilidad de la baseline y de las aceptaciones previas. Los criterios de aceptación y las dependencias no se relajan.
+ 
+ # 1. Executive Mandate
+ 
+@@ -244,12 +260,25 @@
+ 
+ Procurement consiste en cubrir una obligación conocida de Power o Gas dentro de sus restricciones y plazo, buscando reducir su coste completo frente al Benchmark B. Monthly y Quarterly son Mission de primera clase, con contratos y poblaciones de evaluación separados. Power y Gas también permanecen separados; ningún agregado puede ocultar incumplimientos o aumentar artificialmente la evidencia disponible.
+ 
+-El **volumen total de la obligación ya es conocido** según P1.1. No constituye una OPEN DECISION. Su valor tipado debe provenir del mandato real y quedar materializado en el registro de campaña. El corpus anterior contiene cantidades comunicadas con unidades incompletas; esas anotaciones históricas no autorizan conversiones ni sustituyen un contrato ejecutable. Esta especificación no asigna cantidades numéricas no reconciliadas.
++El **volumen total de la obligación ya es conocido** según P1.1. No constituye una OPEN DECISION. La confirmación actual de Bru del 2026-09-22 aporta las cantidades de las cuatro combinaciones producto/Mission siguientes, que quedan incorporadas como **datos confirmados por el owner en MW**. No deben volver a pedirse como si fueran desconocidas.
++
++| Producto | Mission | Cantidad confirmada | Unidad | Fuente actual |
++|---|---|---:|---|---|
++| Gas | Monthly | 10 | MW | Confirmación de Bru, 2026-09-22 |
++| Power | Monthly | 10 | MW | Confirmación de Bru, 2026-09-22 |
++| Gas | Quarterly | 60 | MW | Confirmación de Bru, 2026-09-22 |
++| Power | Quarterly | 20 | MW | Confirmación de Bru, 2026-09-22 |
++
++**Provenance y discrepancia:** D08 p.4, D15 p.2 y CCR-08 conservan «10 Energy» sin unidad explícita para Power Quarterly. La confirmación actual es **20 MW**: se usa como dato actual comunicado por Bru, no como conversión de «10 Energy» ni como modificación retroactiva de las fuentes. Los valores anteriores se preservan en sus documentos y en CCR-08. Las otras tres cantidades coinciden con los antecedentes según U-AUDIT §§1/4.
++
++**Alcance:** conocer la cantidad en MW no identifica una campaña concreta, no fija cuánto ejecutar en cada BUY y no confirma producto/hub/contrato, vigencia, periodo/horas/perfil de entrega, liquidación, calendario ni ownership. Esos vínculos siguen pendientes. No se extrapolan estas cantidades a todas las campañas históricas ni se convierten a MWh sin evidencia aplicable. La ficha completa de campaña no queda aceptada por esta tabla.
++
++**Source / Authority de la actualización:** U-BRU; [U-AUDIT §§1,4,5,8](sources/AUDIT_INPUTS_ENERGY_MARKETS.md); U-MATRIX, requisitos de cantidades.
+ 
+ | Input del contrato de campaña | Contenido exigido para materializarlo | Estado de sus valores reales |
+ |---|---|---|
+ | Identidad | Campaign ID, producto/contrato exacto, Power/Gas, Monthly/Quarterly, mercado o hub aplicable | AUDIT-DEPENDENT |
+-| Obligación | Volumen total conocido, unidad, periodo y perfil de entrega; enmiendas/cancelaciones documentadas cuando existan | AUDIT-DEPENDENT |
++| Obligación | Cantidad y unidad confirmadas en la tabla anterior; periodo/perfil, vigencia, vínculo a campaña y enmiendas/cancelaciones cuando existan | Cantidad en MW confirmada por Bru; restantes campos AUDIT-DEPENDENT |
+ | Calendario | Apertura y cierre de campaña, oportunidades válidas de decisión, deadline y estructura de pausa/exclusión aplicable | AUDIT-DEPENDENT |
+ | Factibilidad | Lotes, redondeos, restricciones operativas y regla terminal de cobertura, si existe | AUDIT-DEPENDENT |
+ | Ejecución | Versión del contrato de fills, latencia, partial fills, spread/slippage, fees y tratamiento de costes | AUDIT-DEPENDENT |
+@@ -576,6 +605,29 @@
+ **Supersedes:** el esquema previo abreviado de tiempo de referencia/publicación/versión. **Canonical:** cuatro semánticas, incluida disponibilidad efectiva para la policy; UTC; dos vistas; jerarquías ex ante y matriz por requisito.
+ 
+ **Source / Authority:** [D04] *Master Plan P1–P4 Canonical Decisions*, v1.0, 16-09-2026, P4.1–P4.5 pp. 8–9 y pendientes p. 10; [D02] *Master Plan P6 Canonical Decisions*, v1.0, 16-09-2026, P6.2–P6.3 pp. 4–5, P6.6–P6.7 pp. 8–9 y P6.9–P6.10 pp. 11–12; [D08] *Power & Gas Plan Maestro*, v1.1, 14-09-2026, pp. 6 y 11; [D16] *eex-reference-price.md*, §§2–5.
++
++## 6.5 Inventario factual disponible y límites — corte 2026-09-22
++
++**Fuente:** [U-AUDIT §§1,3,7,8](sources/AUDIT_INPUTS_ENERGY_MARKETS.md) y U-MATRIX, requisitos del lago/cobertura/temporalidad. Son hallazgos reportados por el audit recibido, no una nueva auditoría del lago ejecutada al editar esta SPEC.
++
++El lago está en **`/srv/hot-data/EEX`**, fuera de `/srv/hot-data/energy-markets/app`. El informe registra 59.961 Parquet según el log de importación y 93 GB totales del directorio. Estas cifras globales no se confunden con el subtotal de las cuatro raíces examinadas:
++
++| Raíz bajo `/srv/hot-data/EEX/` | Archivos en el audit | Primer / último día de partición observado |
++|---|---:|---|
++| `table=eex_derivative_trade/cmdty=NATGAS/area=THE` | 2.801 | 2020-11-02 / 2026-07-28 |
++| `table=eex_derivative_trade/cmdty=POWER/area=DE` | 4.802 | 2020-11-02 / 2026-07-28 |
++| `table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE` | 9.251 | 2025-07-25 / 2026-07-28 |
++| `table=eex_derivative_top_of_book/cmdty=POWER/area=DE` | 33.453 | 2025-07-25 / 2026-07-28 |
++
++Las fechas son extremos de particiones observadas: no certifican cobertura uniforme, completitud por contrato ni ocho campañas elegibles. Los campos reportados incluyen `ShortCode`, `Maturity`, `ProductISIN`, `InstrumentISIN`, `Tm`, `TrdDate`, `_retrieved_at_utc`, precios, cantidades, hashes y acciones de actualización; top-of-book añade bid/ask. El explorador mapea `G0BM/G0BQ` y `DEBM/DEBQ`. Ese mapping identifica candidatos técnicos de Gas THE y Power DE-LU; **no prueba que correspondan al mandato del cliente**.
++
++**Corrección de alcance IMP-03:** el resultado histórico `dataArtifactsPresent=[]` describe app/reference, no ausencia global de datos en BruNode. Se preserva el receipt histórico y se incorpora el alcance EEX mediante el trabajo de inventario/reconciliación del IMP existente, reutilizando auditorías y paquetes ya producidos cuando sus evidencias sean aplicables. No se marca DEP-06/07 satisfecha por esta nota, ni se duplica el inventario sin necesidad.
++
++**PIT:** tiempo del evento y retrieval no son publicación o consumo histórico demostrado. La recuperación posterior no demuestra automáticamente leakage ni inutilidad de todo el histórico, pero tampoco acredita causalidad anterior a la captura. Cada uso debe conservar su evidencia y limitación; siguen rigiendo §§6.1–6.4. La presencia de archivos no acredita derechos/entitlements, calendario contractual ni compras del cliente.
++
++**Tooling y benchmark:** U-AUDIT registra `/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py` y su entorno de lectura como herramientas existentes, no un benchmark validado de campaña. También reporta código en `src/economic-calculation/benchmark.mjs` y una aceptación IMP-08 para cálculo/fixtures sintéticos. La metodología D16/§5 ya existe; no debe solicitarse de nuevo como desconocida. La referencia provisional de G0BQ/202604 del 2025-12-01 fue un cálculo de un día, no settlement oficial, campaña completa ni precio ejecutable. Los archivos externos `Program.fs` y `HighResolutionProcurementModel.fs` no se localizaron en el alcance del audit; no se afirma que no existan en otro entorno.
++
++**Pendientes:** vínculo campaña-datos, cobertura por instrumento, updates/deletes/duplicados, metadata temporal suficiente para el uso, fuente y reconciliación de benchmark, y derechos aplicables. Los originales operativos de empresa no se localizaron en las rutas inspeccionadas; no se inspeccionaron correos ni otros sistemas corporativos. «No encontrado en ese alcance» no equivale a «nunca entregado».
+ 
+ # 7. Market Observation / Intelligence Architecture
+ 
+@@ -1902,19 +1954,19 @@
+ 
+ # 21. Implementation Readiness Matrix
+ 
+-No hay evidencia adjunta de un run de mercado, auditoría real completada, suite P6 aprobada, Shadow o activación productiva. «No demostrado en el corpus» no significa que un sistema externo no exista: significa que esta SPEC no puede certificarlo. Las descripciones de cada celda evitan asignar un resultado DATA_READY, PASS o autonomía a material no auditado.
++La matriz preserva la separación de dimensiones de v1.1. La actualización del 2026-09-22 incorpora U-AUDIT: cantidades confirmadas, datos EEX fuera del workspace y cálculo/fixtures sintéticos reportados como aceptados en IMP-08. No acredita un run económico, cierre completo P6, Shadow o activación real. Las filas no actualizadas conservan los límites documentales de la baseline y no sustituyen una consulta de estado runtime. «No demostrado» o «no localizado» no significa que un sistema externo no exista.
+ 
+ | Component | Concept Status | Data Status | Implementation Status | Evidence Status | Blocker | Next Action |
+ |---|---|---|---|---|---|---|
+ | Identidades, manifests y receipts | CANONICAL / FROZEN | Metadatos requeridos definidos; valores reales AUDIT-DEPENDENT | IMPLEMENTATION-READY para schemas y validadores | Reproducibilidad por demostrar | Datos/versions reales para runs | IMP-01/06/14 |
+-| Procurement Contract | CANONICAL / FROZEN — P1 | AUDIT-DEPENDENT | Contrato conceptual materializable; instancia real pendiente | Cobertura real no demostrada | DEP-01–04 | IMP-02 |
++| Procurement Contract | CANONICAL / FROZEN — P1 | Cantidades 10/10/60/20 MW confirmadas por Bru (§4.1); vínculo a campaña y campos restantes AUDIT-DEPENDENT | Contrato conceptual materializable; instancia real pendiente | Cobertura real no demostrada | DEP-01–04, excluyendo volver a preguntar cantidades | IMP-02: vincular cantidades a contrato/delivery/calendario/ownership |
+ | Sizing experimental P5.2 | CANONICAL / FROZEN | Calendario/lotes AUDIT-DEPENDENT | Fórmula especificada; reconciliación operativa pendiente | Paridad por demostrar | DEP-03/05 | IMP-10 |
+ | Sizing Policy final | CANONICAL / FROZEN — arquitectura | AUDIT-DEPENDENT | EVIDENCE-DEPENDENT — familia/parametrización | No validada | DEP-18 | IMP-22 |
+ | Benchmark B y referencia diaria | CANONICAL / FROZEN — metodología | AUDIT-DEPENDENT; no equivalencia proxy demostrada | Reproducción/reconciliación pendientes | BLOCKED para admisión final sin reconciliación | DEP-08/09 | IMP-05 |
+ | H / execution ledger | CANONICAL / FROZEN | AUDIT-DEPENDENT — fills, costes y unidades | Schema definido; ledger real sin poblar | BLOCKED para interpretación económica | DEP-01/04/05 | IMP-07/12 |
+-| Quarterly / Monthly scoring | CANONICAL / FROZEN | Requiere B/H/campañas válidos | IMPLEMENTATION-READY para fórmulas y fixtures | EVIDENCE-DEPENDENT — aplicar gates | DEP-08/12–14 | IMP-08/16 |
+-| Point-in-Time Contract | CANONICAL / FROZEN | Audit real pendiente | IMPLEMENTATION-READY para separación temporal y versionado | Integridad por verificar | DEP-06/07 | IMP-03/06 |
+-| Data Sufficiency Matrix | CANONICAL / FROZEN | Celdas y readiness por candidato AUDIT-DEPENDENT | IMPLEMENTATION-READY para estructura | Suficiencia no demostrada | DEP-06/07/10 | IMP-03 |
++| Quarterly / Monthly scoring | CANONICAL / FROZEN | Valores sintéticos conocidos; campañas reales requieren B/H/inputs válidos | U-AUDIT reporta IMP-08 aceptado para cálculo/fixtures sintéticos el 2026-09-22 | Evidencia aritmética reportada, no DEP-13 ni research PASS | DEP-08/12–14 para evaluación real | Reutilizar IMP-08 aceptado; no reabrirlo por esta actualización documental |
++| Point-in-Time Contract | CANONICAL / FROZEN | Datos EEX y metadata evento/retrieval reportados; disponibilidad histórica original pendiente | IMPLEMENTATION-READY para separación temporal y versionado | PIT por uso/serie por verificar; retrieval no prueba publicación anterior | DEP-06/07 | IMP-03/06; §6.5, sin inutilidad ni causalidad presumidas |
++| Data Sufficiency Matrix | CANONICAL / FROZEN | Lago EEX localizado según U-AUDIT; suficiencia por candidato pendiente | Ampliación/reconciliación del scope app/reference hacia EEX | Inventario reportado; audit aceptado no equivale a DATA_READY | DEP-06/07/10 | IMP-03: preservar matriz/receipt anteriores e incorporar el scope EEX |
+ | Z y Market Intelligence Core | CANONICAL / FROZEN — rol/semántica | AUDIT-DEPENDENT | EVIDENCE-DEPENDENT — representaciones | Utilidad incremental no demostrada | DEP-16 | IMP-20 |
+ | Fundamental Price Drivers | CANONICAL / FROZEN — 9+10+4 | AUDIT-DEPENDENT | Mapping futuro; no 23 features obligatorias | EVIDENCE-DEPENDENT — poda/completitud | DEP-07/16 | IMP-20 |
+ | S1 | CANONICAL / FROZEN — identidad | Readiness sin audit; no DATA_READY presumido | Feature/config mínima pendiente | EVIDENCE-DEPENDENT — P5 | DEP-11–14 | IMP-11/16 |
+@@ -1987,12 +2039,12 @@
+ | CCR-05 | OBSOLETE_DEFINITION | P6 aparece abierto en D05 p.8. | D02 P6.1–P6.10 cierra contrato completo. Esto no afirma implementación ni closure gate técnico aprobado. |
+ | CCR-06 | OBSOLETE_DEFINITION | P7 arquitectura/autoridad/exploración aparecen pendientes en D05 p.9. | D01 P7.1–P7.8 cierra arquitectura; algoritmos/umbrales/evidencia permanecen pendientes bajo §24. |
+ | CCR-07 | OBSOLETE_DEFINITION | Diez preguntas todavía no recibidas en D08 pp.9,18. | D15 pp.1,10 registra Q01–Q13; D12 y D06 consolidan resolución. No quedan diez preguntas documentales desaparecidas. |
+-| CCR-08 | INSUFFICIENT_EVIDENCE | Números heredados 10 MW Monthly Power/Gas, «10 Energy» Power Quarterly, 60 MW Gas Quarterly, D08 p.4/D15 p.2. | P1 cierra total conocido, pero el corpus no contiene todas las fichas operativas. Conservar cifras como dato comunicado, sin convertir «10 Energy» a MW ni MW a MWh; DEP-01/02. |
++| CCR-08 | INSUFFICIENT_EVIDENCE — cantidad aclarada por owner; campaña incompleta | Antecedentes D08 p.4/D15 p.2: 10 MW Monthly Power/Gas, «10 Energy» Power Quarterly, 60 MW Gas Quarterly. U-BRU 2026-09-22 confirma 10/10/60/20 MW (§4.1). | Cantidades actuales disponibles por confirmación de Bru; Power Quarterly actual = 20 MW, con «10 Energy» preservado como antecedente contradictorio. No es conversión ni prueba de vigencia histórica. DEP-01/02 permanecen pendientes para vínculo a campaña/delivery/ownership. U-AUDIT §§1,4,8. |
+ | CCR-09 | TERMINOLOGY_ONLY | Nombres cortos/títulos ampliados y abreviaturas posteriores, D10 pp.2,5,7,9/D09 pp.3–4; E5 en D13 pp.5,10. | Mappings: «Anomaly Detection and Shock Sizing» → Anomaly Detection; «Trajectory, Persistence and Repricing» → Trajectory / Repricing; «Structure, Range Interaction and Transition» y «Structure Transition» → Structure / Range Transition; «Conditional Timing» → Conditional Pullback Timing. E5 «Combustibles y mercados de generación relacionados» → Combustibles y mercados relacionados. Son aliases descriptivos, no conceptos adicionales. |
+ | CCR-10 | TERMINOLOGY_ONLY | Collision A0/A1, S1–S5, q_t y V. | Mantener namespaces §3.3; no fusionar ablation/autonomy, strategies/workstreams ni cantidades/Sentiment. |
+ | CCR-11 | RESOLVED_BY_PRECEDENCE | Drivers v0.1 declara completeness review pendiente y Revision declara concepto cerrado. | D06 Step 3 p.4: taxonomía cerrada; revisión adversarial/poda es evidencia futura. No reabrir por leer primero D13 p.9. |
+ | CCR-12 | TERMINOLOGY_ONLY | Las «escaleras» de familias de D14 §13/D08 p.12 podrían interpretarse como madurez obligatoria. | D01 P7.6.A p.8: paradigmas son herramientas de Representation Learning por subproblema. No existe requisito de pasar de supervised a unsupervised para llegar a RL. |
+-| CCR-13 | INSUFFICIENT_EVIDENCE | 2020–2026 comunicado y 2018 mencionado como ejemplo, D15 p.3. | D12 p.2 corrige alcance comunicado: 2018 no disponible; 2020–2026 sigue sujeto a audit por contrato/fuente/resolución. No son siete años completos probados. |
++| CCR-13 | INSUFFICIENT_EVIDENCE — cobertura parcial reportada | Rango histórico comunicado 2020–2026; U-AUDIT 2026-09-22 ubica EEX fuera de app/reference: trades THE/DE desde 2020-11-02 y top-of-book desde 2025-07-25, ambos hasta 2026-07-28 en las raíces examinadas. | Extremos de particiones, no historia uniforme ni campañas elegibles certificadas. Conservar scope y límites PIT/derechos; no repetir ausencia global ni «siete años completos». §6.5; U-AUDIT §§1,7,8. |
+ | CCR-14 | INSUFFICIENT_EVIDENCE | Cuota agotada, endpoint 403 y referencias a código externo. | Estados históricos D06/D16, no audit actual. Se conserva dependencia benchmark/capacidad; no se afirma bloqueo de acceso actual ni implementación inspeccionada. |
+ | CCR-15 | INSUFFICIENT_EVIDENCE | Guard 0.01 reportado frente a valor potencialmente legítimo según procedimiento citado, D16 §5. | Registrar como anomalía de implementación a auditar, DEP-09; no validar el guard ni afirmar que fue corregido. |
+ | CCR-16 | TERMINOLOGY_ONLY | «Completed quarters» frente a n=n+ + n− en handout; exact-zero neutral en P3.4. | Reportar n_total y n_neutral; conservar n del handout para scoring. El mínimo de evidencia cuenta campañas completas. No introducir epsilon ni cambiar denominador. |
+@@ -2028,16 +2080,16 @@
+ 
+ | ID / tipo | Qué falta | Por qué importa / qué bloquea | Evidencia o responsable que lo resuelve |
+ |---|---|---|---|
+-| DEP-01 — AUDIT-DEPENDENT | Instancias de mandato: producto/hub/contrato, total conocido materializado, unidad, delivery profile/horas, liquidación física/financiera. | Cantidades ejecutables, comparabilidad B/H y EUR; no inferir producto por residencia del cliente. | Responsable de procurement + contratos reales; ficha reconciliada por obligación. D04 P1/P4.1; D08 p.4. |
++| DEP-01 — AUDIT-DEPENDENT | Cantidades actuales en MW confirmadas (§4.1): Gas Monthly 10, Power Monthly 10, Gas Quarterly 60, Power Quarterly 20. Falta vincularlas a producto/hub/contrato, vigencia, campaña, periodo/horas/perfil y liquidación física/financiera. | Cantidades ejecutables, comparabilidad B/H y EUR; no inferir producto por residencia del cliente. | U-BRU y U-AUDIT para cantidades; fuentes reales de procurement para los campos restantes. No repetir la solicitud de cantidades ni cerrar DEP-01 por esa confirmación. D04 P1/P4.1; D08 p.4. |
+ | DEP-02 — AUDIT-DEPENDENT | Relación Monthly/Quarterly y ownership de cobertura: adicional, solapada o alternativa según mandato. | Evitar doble conteo y agregaciones ficticias. | Fichas de obligaciones/entrega y asignación de fills auditadas. D08 p.4; D12 Q01/Q03; D02 P6.5/P6.8. |
+ | DEP-03 — AUDIT-DEPENDENT | Fechas de campaña, ventanas operativas, trading calendar, pausa, deadline y decision boundaries concretos. | Instanciar oportunidades P5.2/P5.4; ventana benchmark no basta; las 11:00 no son default. | Mandato/calendario/fuente operativa, zona/DST documentados. D03 P5.2–P5.4; D02 P6.2. |
+ | DEP-04 — AUDIT-DEPENDENT | Terminal coverage rule y amendments/cancellations reales, si existen. | Cierre válido de residual; sin regla, COVERAGE_INCOMPLETE, sin fill inventado. | Contrato de procurement y operaciones versionado. D02 P6.5. |
+ | DEP-05 — AUDIT-DEPENDENT | Latencia, spread/slippage, fees, fills/partials/no-fill, lotes/redondeo y restricciones operativas reales. | P5.6/H; resultado económico HOLD hasta audit. | Ejecución/market data/mandato, reconciliación y sensibilidad predeclarada; mismos parámetros contractuales A0/A1. D03 P5.6; D02 P6.4. |
+-| DEP-06 — AUDIT-DEPENDENT | Inventario real de precios y contratos, cobertura 2020–2026, resolución, unidades, missingness, revisiones y permisos. | Data-readiness y campañas elegibles; no suponer historia por declaración general. | Data owner/custodio; Data Sufficiency Matrix con requisitos críticos. D04 P4.1/P4.4. |
+-| DEP-07 — AUDIT-DEPENDENT | Publication y policy-consumable time demostrables; historia de forecasts, expected/surprise, fundamentales y eventos. | Replay causal; campos sin prueba histórica quedan unavailable/proxy válido/forward-only. | Fuente contemporánea verificable y manifests versionados. D04 P4.2–P4.4; D13 §§3,7. |
+-| DEP-08 — AUDIT-DEPENDENT | Reproducir/reconciliar Benchmark Foundation por campaña y fecha con feed oficial o autorizado; cobertura y sustitución proxy. | B final y admisión económica; reproducibilidad proxy no prueba equivalencia. | Fuente/reconciliación benchmark, auditoría independiente del engine. D04 P2.1; D16 §§3–5; D02 P6.6. |
++| DEP-06 — AUDIT-DEPENDENT | Lago EEX reportado en /srv/hot-data/EEX (§6.5). Falta inventario suficiente por instrumento/campaña: cobertura, resolución, unidades, missingness, revisiones, vínculo al mandato y permisos. | Data-readiness y campañas elegibles; no suponer historia por declaración general. | U-AUDIT §§1,3,7,8; IMP-03 incorpora/reconcilia scope EEX preservando el audit histórico app/reference; Data Sufficiency Matrix por requisito. Existencia no equivale a DATA_READY. D04 P4.1/P4.4. |
++| DEP-07 — AUDIT-DEPENDENT | Metadata evento/retrieval/hashes reportada; publicación y consumo histórico no demostrados por retrieval posterior. Vintages de forecasts/fundamentales/eventos se auditan sólo para inputs utilizados por el consumidor. | Replay causal; campos sin prueba histórica quedan unavailable/proxy válido/forward-only. | U-AUDIT §7 para metadata y límites; fuente contemporánea y manifests para acreditar cada uso. No inferir causalidad ni inutilidad universal. D04 P4.2–P4.4; D13 §§3,7. |
++| DEP-08 — AUDIT-DEPENDENT | Metodología D16/§5 disponible; proxy de un día e implementación sintética reportados. Falta benchmark de campaña reproducido/reconciliado con fuente oficial o autorizada y cobertura por fecha. | B final y admisión económica; reproducibilidad proxy no prueba equivalencia. | U-AUDIT §§6,7; fuente/reconciliación de benchmark e inspección independiente del engine aplicable. No solicitar otra vez la metodología ni tratar un proxy como oficial. D04 P2.1; D16 §§3–5; D02 P6.6. |
+ | DEP-09 — AUDIT-DEPENDENT | Comprobar guard de oficiales 0.01 y procedimiento/feed aplicable; acceso/entitlement real. | Posible exclusión errónea en régimen extremo y validez de reference rows. | Código/config autorizados y muestra fuente; fixture específico; no dar por corregido. D16 §5; D08 pp.6,14. |
+-| DEP-10 — AUDIT-DEPENDENT | Capacidades/interfaces del motor existente y rights/IP del entorno y fuentes. | Elegir menor herramienta suficiente y permitida; no construir plataforma por preferencia. | Capability audit y comprobación de uso autorizado, ejemplo sintético reconciliable. D04 P4.5; D08 pp.3,11. |
++| DEP-10 — AUDIT-DEPENDENT | Tooling de lectura y benchmark sintético reportados; capacidades completas, interfaces y derechos del entorno/fuentes siguen por auditar. Program.fs y HighResolutionProcurementModel.fs no localizados en el alcance, no declarados inexistentes. | Elegir menor herramienta suficiente y permitida; no construir plataforma por preferencia. | U-AUDIT §§3,6,7; capability audit del componente pertinente y comprobación de uso autorizado. Datos legibles no prueban derechos. D04 P4.5; D08 pp.3,11. |
+ | DEP-11 — EVIDENCE-DEPENDENT | Primera representación matemática S1, causal references, sampling/lookbacks y espacio de calibración. | A1 concreto; semántica static location ya congelada. | Research en development cronológico, estabilidad de parámetros, configuración frozen antes de OOS. D10 pp.3–4,14; D03 P5.5/P5.8. |
+ | DEP-12 — AUDIT-DEPENDENT | Campañas OOS disponibles por producto/misión activa y solapamientos: P5 reserva últimas 8 Gas Quarterly completas en ≥2 años; futuras evaluaciones Quarterly respetan ≥8/≥2 años y Monthly ≥24 meses, separadas. | Reservar población antes de calibración y cumplir mínimo de cada misión; insuficiencia → HOLD. | Historial auditado, ventanas de información y manifest de reserva/split/purge/embargo sin duración inventada. D03 P5.3/P5.8; D04 P3.3/P3.5. |
+ | DEP-13 — EVIDENCE-DEPENDENT | Resultado A0/A1 válido: Delta V, valor absoluto y gates de P3. | Supervivencia S1 y research PASS; ningún resultado adjunto lo prueba. | Run bundles P5/P6 sobre OOS sellado, accounting válido y execution auditado. D03 P5.7/P5.9. |
+@@ -2208,6 +2260,23 @@
+ 
+ **Source / Authority:** D00 §6, estructura requerida: apartados 20–25; D04 P1–P4; D03 P5.1–P5.9; D02 P6.1–P6.10; D01 P7.1–P7.8; D06 pp.7–9. D18 D1–D4 para IMP-25–IMP-29 y typed dependencies/office handoff; D18 D5 para separación de producto/Mission. Los IDs/representación del grafo organizan implementación; no acreditan código, datasets, resultados, autoridad ni acceso ya existentes.
+ 
++## 25.3 Aplicación del audit de inputs al backlog existente — 2026-09-22
++
++Esta actualización **no añade dependencias ni cambia §25.1/§25.2**. Registra conocimiento disponible y trabajo pendiente de los IMPs existentes. Las cuatro cantidades confirmadas (§4.1), el lago EEX (§6.5) y la metodología del benchmark (§5) no se solicitan nuevamente como si no hubieran sido entregados.
++
++| Ámbito | Ya disponible / conocido según U-AUDIT | Acción dentro del alcance existente | Límite conservado |
++|---|---|---|---|
++| IMP-02 | Cantidades actuales en MW confirmadas por Bru | Incorporar los datos confirmados sin borrar antecedentes; recuperar/vincular contrato, delivery, calendario y ownership de la campaña | Cantidad conocida no acepta la ficha completa ni cierra DEP-01–04 |
++| IMP-03 | Lago EEX fuera del workspace; metadata y tooling de lectura reportados | Ampliar/reconciliar el inventario por scope; reutilizar resultados/packets existentes; medir cobertura, revisiones y PIT | Preservar receipt anterior; no DATA_READY automático ni segunda auditoría idéntica |
++| IMP-04/05/06 | Metodología y herramientas identificadas | Auditar capacidad y rights; implementar soporte aplicable y preparar reconciliación temporal/benchmark conforme a §25.2 | No heredar elegibilidad de esta nota; cada consumidor conserva sus REQUIRES* |
++| IMP-08 | Aceptación de cálculo/fixtures sintéticos reportada por U-AUDIT | Reutilizar entrega aceptada; no reimplementarla ni ampliar alcance por llenar la cola | No campaña real, research PASS ni DEP-13 por esos tests |
++| Fuentes externas | Originales operativos no localizados en los directorios auditados | Recuperar material ya entregado; sólo después solicitar tres grupos: campaña/mandato, ejecución/costes y fuentes/derechos/benchmark | No afirmar «nunca entregado», no repetir cantidades ni todo el histórico EEX |
++| Investigación posterior | Contratos P5/P6/learning existentes | Producir calibración, eligibility/OOS y evidencia por los IMPs correspondientes | No exigir al cliente resultados futuros como documentos preexistentes |
++
++El primer experimento sigue siendo **Gas Quarterly**. Monthly/Power conservan sus vías separadas, sin pooling ni cambio de población para forzar avance. Soporte técnico y trabajo independiente permitido pueden continuar con sus prerequisites satisfechos; el primer resultado económico requiere el bundle real auditado. Las condiciones de Real Execution no se confunden con programación o Shadow sin órdenes.
++
++**Fuente:** [U-AUDIT §§4–10](sources/AUDIT_INPUTS_ENERGY_MARKETS.md) y U-MATRIX. Este texto no actualiza estados de tickets, no acepta IMPs ni concede permisos. Para fuentes que no aparecieron, conservar el scope de búsqueda y los campos aún desconocidos.
++
+ # 26. Operator Interface Boundary
+ 
+ **Estado:** CANONICAL / FROZEN — D3. **Human Visual Observability** es un requisito funcional explícito. Esta sección congela qué información debe poder observarse y qué autoridad puede atravesar la interfaz. El diseño completo de UI y su implementación frontend permanecen fuera del critical path inmediato; su ausencia no reabre P1–P7 ni convierte el contrato en una Open Decision.
