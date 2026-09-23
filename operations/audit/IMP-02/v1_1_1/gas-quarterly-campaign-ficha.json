@@ -253,6 +253,7 @@
   "acceptanceCriterion": {
     "acceptanceTest": "Se determina remaining volume/deadline sin inferir unidades; una cobertura no pertenece dos veces a obligaciones.",
     "source": "SPEC v1.1.1 §25.1 IMP-02",
+    "contractValid": true,
     "campaignIdentified": false,
     "remainingVolume": {
       "determined": false,

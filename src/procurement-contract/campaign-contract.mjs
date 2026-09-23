@@ -11,6 +11,7 @@ import { STATE_NAMESPACES } from "../contracts/states.mjs";
 import {
   COVERAGE_OWNERSHIP_MAP_STATES,
   computeRemainingVolume,
+  reconcileOwnershipWithExecutedVolume,
   validateOwnershipAssignments,
   validateRelationDeclaration,
 } from "./coverage-ownership.mjs";
@@ -192,7 +193,9 @@ function validateGuards(guards, errors) {
 
 // §24 DEP-02: la ficha materializa el estado de la relación Monthly/Quarterly
 // y del mapa de asignación fill→obligación. El mapa sin materializar exige
-// razón documentada; materializado exige assignments y provenance. La
+// razón documentada; materializado exige assignments y provenance (su
+// reconciliación con el volumen ejecutado va en validateCrossFieldCoherence,
+// que tiene las facts). La
 // relación se declara con la misma taxonomía del mapa (fuente única), así la
 // ficha y mapCoverageOwnership no pueden divergir.
 function validateCoverageOwnership(coverageOwnership, errors) {
@@ -321,6 +324,25 @@ function validateCrossFieldCoherence(ficha, factsById, errors) {
   if (assignmentAvailable !== mapMaterialized) {
     errors.push({ factId: "campaign.coverage.fillToObligationAssignment", code: "OWNERSHIP_STATE_INCOHERENT", message: "La fact de asignación fill→obligación y coverageOwnership.mapState no coinciden (DEP-02)." });
   }
+
+  // §4.3/§14.5: un mapa MATERIALIZED debe poseer exactamente el volumen
+  // ejecutado publicado; no basta con declararse materializado.
+  if (mapMaterialized) {
+    const reconciliationErrors = reconcileOwnershipWithExecutedVolume(ownershipReconciliationInput(ficha, factsById));
+    errors.push(...reconciliationErrors.map((error) => ({ factId: "coverageOwnership", ...error })));
+  }
+}
+
+function ownershipReconciliationInput(ficha, factsById) {
+  const executed = availableFact(factsById, "campaign.coverage.executedVolume");
+  const obligationUnit = availableFact(factsById, "campaign.obligation.unit");
+  const executedUnitMatches = executed && obligationUnit && executed.unit === obligationUnit.value;
+  return {
+    assignments: ficha.coverageOwnership?.assignments,
+    obligationId: ficha.coverageOwnership?.obligationId,
+    executedVolume: executedUnitMatches ? executed.value : null,
+    unit: executedUnitMatches ? obligationUnit.value : null,
+  };
 }
 
 // §25.1 IMP-02, acceptance test: "Se determina remaining volume/deadline sin
@@ -333,8 +355,20 @@ function unavailableFactIds(factsById, factIds) {
   return factIds.filter((factId) => !availableFact(factsById, factId));
 }
 
+// Con una fact repetida (ya rechazada como DUPLICATE_FACT) vale la primera
+// copia, igual que en collectContractErrors: una sola verdad por factId.
+function firstFactsById(facts) {
+  const factsById = new Map();
+  for (const fact of Array.isArray(facts) ? facts : []) {
+    if (!factsById.has(fact?.factId)) {
+      factsById.set(fact?.factId, fact);
+    }
+  }
+  return factsById;
+}
+
 export function evaluateImp02Acceptance(ficha) {
-  const factsById = new Map((Array.isArray(ficha?.facts) ? ficha.facts : []).map((fact) => [fact?.factId, fact]));
+  const factsById = firstFactsById(ficha?.facts);
 
   const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => availableFact(factsById, factId));
 
@@ -342,6 +376,25 @@ export function evaluateImp02Acceptance(ficha) {
   const identityBlockedBy = campaignIdentified ? [] : ["campaign.identity"];
   const remainingBlockedBy = [...identityBlockedBy, ...unavailableFactIds(factsById, remainingInputs)];
   const remainingFact = availableFact(factsById, "campaign.coverage.remainingVolume");
+  // §4.3: el restante sólo cuenta como determinado si reconcilia con apertura y
+  // ejecutado en la unidad de la obligación; publicarlo no basta.
+  const totalFact = availableFact(factsById, "campaign.obligation.totalVolumeKnown");
+  const executedFact = availableFact(factsById, "campaign.coverage.executedVolume");
+  const unitFact = availableFact(factsById, "campaign.obligation.unit");
+  const derivedRemaining = computeRemainingVolume({
+    openingObligation: totalFact?.value,
+    executedVolume: executedFact?.value,
+    openingUnit: totalFact?.unit,
+    executedUnit: executedFact?.unit,
+  });
+  const remainingReconciles = Boolean(remainingFact)
+    && derivedRemaining.computed
+    && derivedRemaining.remainingVolume === remainingFact.value
+    && derivedRemaining.unit === remainingFact.unit
+    && derivedRemaining.unit === unitFact?.value;
+  if (remainingBlockedBy.length === 0 && !remainingReconciles) {
+    remainingBlockedBy.push("campaign.coverage.reconciliation");
+  }
   const remainingDetermined = campaignIdentified && remainingBlockedBy.length === 0;
   const remainingVolume = remainingDetermined
     ? { determined: true, value: remainingFact.value, unit: remainingFact.unit, blockedBy: [], reason: null }
@@ -363,11 +416,19 @@ export function evaluateImp02Acceptance(ficha) {
       reason: "No determinable: AUDIT_INPUTS §5 registra el deadline como no encontrado en el alcance inspeccionado; no se infiere (§4.1/§4.2).",
     };
 
-  const relationAvailable = ficha?.coverageOwnership?.relationMonthlyQuarterly?.availability === "AVAILABLE_NOW";
+  // El estado declarado no basta: la relación debe ser una declaración válida
+  // y el mapa debe no tener doble conteo y poseer exactamente el volumen
+  // ejecutado (§4.3/§14.5/DEP-02).
+  const relation = ficha?.coverageOwnership?.relationMonthlyQuarterly;
+  const relationAvailable = relation?.availability === "AVAILABLE_NOW" && validateRelationDeclaration(relation).length === 0;
   const mapMaterialized = ficha?.coverageOwnership?.mapState === "MATERIALIZED";
+  const assignmentsReconciled = mapMaterialized
+    && validateOwnershipAssignments(ficha.coverageOwnership.assignments).length === 0
+    && reconcileOwnershipWithExecutedVolume(ownershipReconciliationInput(ficha, factsById)).length === 0;
   const ownershipBlockedBy = [
     ...identityBlockedBy,
     ...(mapMaterialized ? [] : ["coverageOwnership.mapState"]),
+    ...(mapMaterialized && !assignmentsReconciled ? ["coverageOwnership.assignments"] : []),
     ...(relationAvailable ? [] : ["coverageOwnership.relationMonthlyQuarterly"]),
   ];
   const coverageOwnership = campaignIdentified && ownershipBlockedBy.length === 0
@@ -378,10 +439,15 @@ export function evaluateImp02Acceptance(ficha) {
       reason: "No determinable: sin fills asignados ni relación Monthly/Quarterly auditada no se puede comprobar el no doble conteo (§4.3/DEP-02); AUDIT_INPUTS §5 registra ambos como no encontrados.",
     };
 
-  const criterionMet = campaignIdentified && remainingVolume.determined && deadline.determined && coverageOwnership.determined;
+  // Cada parte puede derivarse determinada y la ficha contradecirse en otro
+  // campo (identidad, provenance, cantidad confirmada): el criterio sólo se
+  // cumple sobre una ficha que además satisface el contrato completo.
+  const contractValid = collectContractErrors(ficha).length === 0;
+  const criterionMet = contractValid && campaignIdentified && remainingVolume.determined && deadline.determined && coverageOwnership.determined;
   return {
     acceptanceTest: IMP02_ACCEPTANCE_TEST,
     source: "SPEC v1.1.1 §25.1 IMP-02",
+    contractValid,
     campaignIdentified,
     remainingVolume,
     deadline,
@@ -406,15 +472,30 @@ function validateAcceptanceDeclaration(ficha, errors) {
 // lugar de poblarla; rechaza defaults inventados, unidades asumidas y
 // confluencias prohibidas.
 export function validateCampaignContract(ficha) {
+  const errors = collectContractErrors(ficha);
+  if (!ficha || typeof ficha !== "object" || Array.isArray(ficha) || !Array.isArray(ficha.facts)) {
+    return { ok: false, campaignIdentified: false, errors };
+  }
+  validateAcceptanceDeclaration(ficha, errors);
+
+  const factsById = firstFactsById(ficha.facts);
+  const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => availableFact(factsById, factId));
+  return { ok: errors.length === 0, campaignIdentified, errors };
+}
+
+// Todo el contrato salvo la declaración del criterio de aceptación, que se
+// deriva de estas mismas facts (evaluateImp02Acceptance) y no puede validarse
+// a sí misma.
+function collectContractErrors(ficha) {
   const errors = [];
 
   if (!ficha || typeof ficha !== "object" || Array.isArray(ficha)) {
-    return { ok: false, campaignIdentified: false, errors: [{ factId: "(ficha)", code: "MISSING_FICHA", message: "Ficha de campaña ausente." }] };
+    return [{ factId: "(ficha)", code: "MISSING_FICHA", message: "Ficha de campaña ausente." }];
   }
 
   const facts = Array.isArray(ficha.facts) ? ficha.facts : null;
   if (facts === null) {
-    return { ok: false, campaignIdentified: false, errors: [{ factId: "(ficha)", code: "FACTS_NOT_ARRAY", message: "La ficha no declara una lista de facts." }] };
+    return [{ factId: "(ficha)", code: "FACTS_NOT_ARRAY", message: "La ficha no declara una lista de facts." }];
   }
 
   const seen = new Map();
@@ -457,10 +538,7 @@ export function validateCampaignContract(ficha) {
   validateGuards(ficha.guards, errors);
   validateCoverageOwnership(ficha.coverageOwnership, errors);
   validateCrossFieldCoherence(ficha, seen, errors);
-  validateAcceptanceDeclaration(ficha, errors);
-
-  const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => availableFact(seen, factId));
-  return { ok: errors.length === 0, campaignIdentified, errors };
+  return errors;
 }
 
 function resolveFactAvailability(fact) {

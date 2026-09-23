@@ -7,6 +7,7 @@ import {
   applyFilledQuantity,
   computeRemainingVolume,
   mapCoverageOwnership,
+  reconcileOwnershipWithExecutedVolume,
   reconcileCoverage,
   validateOwnershipAssignments,
   validateRelationDeclaration,
@@ -419,8 +420,8 @@ test("la relación AVAILABLE_NOW con un tipo no declarado se rechaza", () => {
 
 test("validateOwnershipAssignments aplica el invariante de doble conteo (fuente única)", () => {
   assert.deepEqual(validateOwnershipAssignments([
-    { fillId: "F1", obligationId: "O1" },
-    { fillId: "F2", obligationId: "O2" },
+    { fillId: "F1", obligationId: "O1", quantity: 10, unit: "MW" },
+    { fillId: "F2", obligationId: "O2", quantity: 5, unit: "MW" },
   ]), []);
   assert.ok(validateOwnershipAssignments("no-array").some((error) => error.code === "ASSIGNMENTS_NOT_ARRAY"));
   const doubleCount = validateOwnershipAssignments([
@@ -434,4 +435,42 @@ test("validateOwnershipAssignments aplica el invariante de doble conteo (fuente 
   ]);
   assert.ok(repeated.some((error) => error.code === "DUPLICATE_OWNERSHIP"));
   assert.ok(validateOwnershipAssignments([{ obligationId: "O1" }]).some((error) => error.code === "INVALID_ASSIGNMENT"));
+});
+
+test("reconcileOwnershipWithExecutedVolume exige que lo asignado a la obligación sea el volumen ejecutado", () => {
+  const own = (quantity, unit = "MW") => ({ fillId: `F-${quantity}`, obligationId: "O1", quantity, unit });
+  assert.deepEqual(reconcileOwnershipWithExecutedVolume({ assignments: [own(5), own(15)], obligationId: "O1", executedVolume: 20, unit: "MW" }), []);
+  assert.deepEqual(reconcileOwnershipWithExecutedVolume({ assignments: [], obligationId: "O1", executedVolume: 0, unit: "MW" }), []);
+  const codes = (input) => reconcileOwnershipWithExecutedVolume(input).map((error) => error.code);
+  assert.deepEqual(codes({ assignments: [], obligationId: "O1", executedVolume: 20, unit: "MW" }), ["OWNERSHIP_EXECUTED_MISMATCH"]);
+  assert.deepEqual(codes({ assignments: [own(25)], obligationId: "O1", executedVolume: 20, unit: "MW" }), ["OWNERSHIP_EXECUTED_MISMATCH"]);
+  assert.deepEqual(codes({ assignments: [own(20, "MWh")], obligationId: "O1", executedVolume: 20, unit: "MW" }), ["ASSIGNMENT_UNIT_MISMATCH"]);
+  assert.deepEqual(codes({ assignments: [own(-5), own(25)], obligationId: "O1", executedVolume: 20, unit: "MW" }), ["ASSIGNMENT_QUANTITY_INVALID"]);
+  assert.deepEqual(codes({ assignments: [own(0)], obligationId: "O1", executedVolume: 0, unit: "MW" }), ["ASSIGNMENT_QUANTITY_INVALID"]);
+  assert.deepEqual(codes({ assignments: [own(20)], obligationId: "", executedVolume: 20, unit: "MW" }), ["OBLIGATION_ID_MISSING"]);
+  assert.deepEqual(codes({ assignments: [own(20)], obligationId: "O1", executedVolume: null, unit: "MW" }), ["EXECUTED_VOLUME_MISSING"]);
+  assert.deepEqual(codes({ assignments: [own(20)], obligationId: "O1", executedVolume: 20, unit: null }), ["EXECUTED_VOLUME_MISSING"]);
+  assert.deepEqual(codes({ assignments: "x", obligationId: "O1", executedVolume: 20, unit: "MW" }), ["ASSIGNMENTS_NOT_ARRAY"]);
+});
+
+// Regresión de la validación adversarial: IDs con espacios en los extremos
+// ("F1 ", "OBL-A ") escapaban al doble conteo y a la reconciliación, y las
+// asignaciones a otras obligaciones no se revisaban.
+test("validateOwnershipAssignments exige IDs canónicos y filled quantity en toda asignación", () => {
+  const codes = (assignments) => validateOwnershipAssignments(assignments).map((error) => error.code);
+  assert.deepEqual(codes([{ fillId: "F1 ", obligationId: "O1", quantity: 1, unit: "MW" }]), ["INVALID_ASSIGNMENT"]);
+  assert.deepEqual(codes([{ fillId: "F1", obligationId: "O1 ", quantity: 1, unit: "MW" }]), ["INVALID_ASSIGNMENT"]);
+  assert.deepEqual(codes([{ fillId: "F1\u200b", obligationId: "O1", quantity: 1, unit: "MW" }]), ["INVALID_ASSIGNMENT"]);
+  assert.deepEqual(codes([{ fillId: "F1", obligationId: "O\u00a01", quantity: 1, unit: "MW" }]), ["INVALID_ASSIGNMENT"]);
+  assert.deepEqual(codes([{ fillId: "F1", obligationId: "OTRA" }]), ["ASSIGNMENT_QUANTITY_INVALID"]);
+  assert.deepEqual(codes([{ fillId: "F1", obligationId: "OTRA", quantity: -999, unit: "MWh" }]), ["ASSIGNMENT_QUANTITY_INVALID"]);
+  assert.deepEqual(codes([{ fillId: "F1", obligationId: "OTRA", quantity: 5 }]), ["ASSIGNMENT_QUANTITY_INVALID"]);
+  assert.deepEqual(codes([{ fillId: "F1", obligationId: "OTRA", quantity: "5", unit: "MW" }]), ["ASSIGNMENT_QUANTITY_INVALID"]);
+});
+
+test("reconcileOwnershipWithExecutedVolume rechaza un obligationId no canónico", () => {
+  for (const obligationId of ["O1 ", "O1\u200b"]) {
+    const errors = reconcileOwnershipWithExecutedVolume({ assignments: [], obligationId, executedVolume: 0, unit: "MW" });
+    assert.deepEqual(errors.map((error) => error.code), ["OBLIGATION_ID_MISSING"], JSON.stringify(obligationId));
+  }
 });

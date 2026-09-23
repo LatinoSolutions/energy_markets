@@ -24,6 +24,7 @@ export {
   computeRemainingVolume,
   mapCoverageOwnership,
   reconcileCoverage,
+  reconcileOwnershipWithExecutedVolume,
   validateOwnershipAssignments,
   validateRelationDeclaration,
 } from "./coverage-ownership.mjs";

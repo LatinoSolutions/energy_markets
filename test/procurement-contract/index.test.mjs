@@ -5,6 +5,7 @@ import {
   COVERAGE_OWNERSHIP_MAP_STATES,
   COVERAGE_STATUSES,
   MONTHLY_QUARTERLY_RELATION_STATES,
+  reconcileOwnershipWithExecutedVolume,
   validateOwnershipAssignments,
   validateRelationDeclaration,
 } from "../../src/procurement-contract/index.mjs";
@@ -17,4 +18,5 @@ test("el índice exporta la taxonomía y validadores de coverage ownership", () 
   assert.ok(Array.isArray(COVERAGE_STATUSES) && COVERAGE_STATUSES.includes("RESIDUAL_CANCELLED"));
   assert.equal(typeof validateRelationDeclaration, "function");
   assert.equal(typeof validateOwnershipAssignments, "function");
+  assert.equal(typeof reconcileOwnershipWithExecutedVolume, "function");
 });

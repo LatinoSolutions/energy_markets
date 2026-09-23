@@ -20,7 +20,9 @@ export const COVERAGE_STATUSES = ["COVERED", "RESIDUAL_CANCELLED", "COVERAGE_INC
 export const MONTHLY_QUARTERLY_RELATION_STATES = ["ADDITIONAL", "OVERLAPPING", "ALTERNATIVE", "DOCUMENTED_ABSENCE"];
 
 // Estado del mapa de asignación fill→obligación de la ficha: UNAVAILABLE exige
-// razón documentada; MATERIALIZED exige la lista de asignaciones.
+// razón documentada; MATERIALIZED exige la lista de asignaciones con su filled
+// quantity, reconciliada con el volumen ejecutado
+// (reconcileOwnershipWithExecutedVolume).
 export const COVERAGE_OWNERSHIP_MAP_STATES = ["UNAVAILABLE", "MATERIALIZED"];
 
 const DATA_AVAILABILITY = STATE_NAMESPACES.data_availability.values;
@@ -31,6 +33,18 @@ function isFiniteNumber(value) {
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+// Los IDs se exigen en forma canónica y no se normalizan: "F1 " o "F1\u200b"
+// junto a "F1" permitirían contar dos veces el mismo fill o desviar volumen a
+// una obligación inexistente sin que el doble conteo lo detecte (§4.3).
+// PROVISIONAL (no es formato de la SPEC, que no define IDs): ASCII visible sin
+// espacios. Mayúsculas/minúsculas o erratas sólo se detectan contra un
+// registro real de fills y obligaciones (DEP-02), que aún no existe.
+const CANONICAL_ID_PATTERN = /^[\x21-\x7E]+$/;
+
+function isCanonicalId(value) {
+  return typeof value === "string" && CANONICAL_ID_PATTERN.test(value);
 }
 
 function isMissing(value) {
@@ -245,10 +259,10 @@ export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fi
 
 // §4.3: "un mismo fill o cobertura no se contabiliza dos veces entre
 // obligaciones solapadas". Valida una lista de asignaciones fill→obligación ya
-// materializada (la que la ficha declara en su bloque coverageOwnership). Es
-// el mismo invariante que mapCoverageOwnership aplica al derivar el mapa, en
-// una sola fuente para ambos consumidores (ficha y mapa). Un fill repetido,
-// aunque la asignación repita la misma obligación, es doble conteo.
+// materializada (la que la ficha declara en su bloque coverageOwnership) con
+// el mismo invariante de doble conteo que mapCoverageOwnership aplica al
+// derivar el mapa. Un fill repetido, aunque la asignación repita la misma
+// obligación, es doble conteo.
 export function validateOwnershipAssignments(assignments) {
   const errors = [];
   if (!Array.isArray(assignments)) {
@@ -257,9 +271,15 @@ export function validateOwnershipAssignments(assignments) {
   }
   const ownershipCount = new Map();
   for (const assignment of assignments) {
-    if (!assignment || typeof assignment !== "object" || Array.isArray(assignment) || !isNonEmptyString(assignment.fillId) || !isNonEmptyString(assignment.obligationId)) {
-      errors.push({ code: "INVALID_ASSIGNMENT", message: "Cada asignación debe declarar fillId y obligationId no vacíos." });
+    if (!assignment || typeof assignment !== "object" || Array.isArray(assignment) || !isCanonicalId(assignment.fillId) || !isCanonicalId(assignment.obligationId)) {
+      errors.push({ code: "INVALID_ASSIGNMENT", message: "Cada asignación debe declarar fillId y obligationId no vacíos y sin espacios en los extremos." });
       continue;
+    }
+    // §14.5: toda asignación, sea de la obligación de la ficha o de otra,
+    // declara la filled quantity que aporta con su unidad; no hay asignaciones
+    // sin volumen que escapen a la revisión.
+    if (!isFiniteNumber(assignment.quantity) || assignment.quantity <= 0 || !isNonEmptyString(assignment.unit)) {
+      errors.push({ code: "ASSIGNMENT_QUANTITY_INVALID", message: `La asignación de ${assignment.fillId} no declara una filled quantity finita positiva con unidad (§14.5).` });
     }
     ownershipCount.set(assignment.fillId, (ownershipCount.get(assignment.fillId) ?? 0) + 1);
   }
@@ -267,6 +287,55 @@ export function validateOwnershipAssignments(assignments) {
     if (count > 1) {
       errors.push({ code: "DUPLICATE_OWNERSHIP", message: `El fill ${fillId} pertenece a ${count} asignaciones; se prohíbe doble conteo (§4.3).` });
     }
+  }
+  return errors;
+}
+
+// §4.3 + §14.5 ("Coverage cambia por filled quantity"): el mapa materializado
+// es la cobertura de la obligación, no una lista de IDs. Cada asignación a la
+// obligación de la ficha declara la filled quantity que aporta, en la unidad
+// de la obligación, y su suma es exactamente el executed volume publicado. Sin
+// esto un mapa vacío o parcial pasaría como ownership determinado con volumen
+// ejecutado que nadie posee. Las asignaciones a otras obligaciones sólo cuentan
+// para el doble conteo (validateOwnershipAssignments); su volumen pertenece a
+// la ficha de esa obligación, y su forma se valida en
+// validateOwnershipAssignments.
+export function reconcileOwnershipWithExecutedVolume({ assignments, obligationId, executedVolume, unit } = {}) {
+  const errors = [];
+  if (!Array.isArray(assignments)) {
+    errors.push({ code: "ASSIGNMENTS_NOT_ARRAY", message: "Las asignaciones fill→obligación no son una lista." });
+    return errors;
+  }
+  if (!isCanonicalId(obligationId)) {
+    errors.push({ code: "OBLIGATION_ID_MISSING", message: "El mapa materializado debe declarar el obligationId de la obligación de la ficha; sin él no se sabe qué asignaciones cubren su volumen ejecutado." });
+    return errors;
+  }
+  if (!isFiniteNumber(executedVolume) || executedVolume < 0 || !isNonEmptyString(unit)) {
+    errors.push({ code: "EXECUTED_VOLUME_MISSING", message: "El mapa materializado exige el volumen ejecutado disponible, con unidad, para reconciliar las asignaciones (§4.3)." });
+    return errors;
+  }
+
+  const ownAssignments = assignments.filter((assignment) => assignment?.obligationId === obligationId);
+  let assignedVolume = 0;
+  for (const assignment of ownAssignments) {
+    if (!isFiniteNumber(assignment.quantity) || assignment.quantity <= 0) {
+      errors.push({ code: "ASSIGNMENT_QUANTITY_INVALID", message: `La asignación de ${assignment.fillId} no declara una filled quantity finita positiva (§14.5).` });
+      continue;
+    }
+    if (assignment.unit !== unit) {
+      errors.push({ code: "ASSIGNMENT_UNIT_MISMATCH", message: `La asignación de ${assignment.fillId} está en ${assignment.unit} y la obligación en ${unit}; no se convierte (§4.1).` });
+      continue;
+    }
+    assignedVolume += assignment.quantity;
+  }
+  if (errors.length > 0) {
+    return errors;
+  }
+  if (assignedVolume !== executedVolume) {
+    errors.push({
+      code: "OWNERSHIP_EXECUTED_MISMATCH",
+      message: `Las asignaciones a ${obligationId} suman ${assignedVolume} ${unit} y el volumen ejecutado es ${executedVolume} ${unit}; cada fill ejecutado debe tener dueño y ninguno sobra (§4.3).`,
+    });
   }
   return errors;
 }

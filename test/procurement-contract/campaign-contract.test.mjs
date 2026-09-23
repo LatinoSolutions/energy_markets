@@ -268,31 +268,178 @@ test("una ficha con mapa MATERIALIZED sin asignaciones ni provenance se rechaza"
 });
 
 test("una ficha con mapa MATERIALIZED válido pasa", () => {
-  const ficha = createGasQuarterlyFicha();
-  ficha.coverageOwnership.mapState = "MATERIALIZED";
-  ficha.coverageOwnership.assignments = [
-    { fillId: "FILL-1", obligationId: "OBL-QUARTERLY" },
-    { fillId: "FILL-2", obligationId: "OBL-QUARTERLY" },
+  const ficha = materializedFicha({
+    executed: 20,
+    assignments: [
+      { fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 5, unit: "MW" },
+      { fillId: "FILL-2", obligationId: "OBL-QUARTERLY", quantity: 15, unit: "MW" },
+    ],
+  });
+  const outcome = validateCampaignContract(ficha);
+  assert.deepEqual(outcome.errors, []);
+  assert.equal(outcome.ok, true);
+});
+
+// Regresión de la revisión 5: 20 MW ejecutados con assignments: [] pasaban
+// como ownership determinado y criterionMet: true.
+test("un mapa MATERIALIZED vacío con volumen ejecutado no determina ownership ni valida", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [] });
+  assert.equal(ficha.acceptanceCriterion.coverageOwnership.determined, false);
+  assert.ok(ficha.acceptanceCriterion.coverageOwnership.blockedBy.includes("coverageOwnership.assignments"));
+  assert.equal(ficha.acceptanceCriterion.criterionMet, false);
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "OWNERSHIP_EXECUTED_MISMATCH" && error.factId === "coverageOwnership"));
+});
+
+test("asignaciones que cubren sólo parte o más del volumen ejecutado se rechazan", () => {
+  for (const quantity of [10, 30]) {
+    const ficha = materializedFicha({
+      executed: 20,
+      assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity, unit: "MW" }],
+    });
+    assert.equal(ficha.acceptanceCriterion.criterionMet, false, String(quantity));
+    assert.ok(codesOf(ficha).includes("OWNERSHIP_EXECUTED_MISMATCH"), String(quantity));
+  }
+});
+
+test("asignaciones a otra obligación no cuentan para el volumen ejecutado de la ficha", () => {
+  const ficha = materializedFicha({
+    executed: 20,
+    assignments: [
+      { fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" },
+      { fillId: "FILL-2", obligationId: "OBL-MONTHLY", quantity: 10, unit: "MW" },
+    ],
+  });
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
+  const misattributed = materializedFicha({
+    executed: 20,
+    assignments: [{ fillId: "FILL-1", obligationId: "OBL-MONTHLY", quantity: 20, unit: "MW" }],
+  });
+  assert.equal(misattributed.acceptanceCriterion.criterionMet, false);
+  assert.ok(codesOf(misattributed).includes("OWNERSHIP_EXECUTED_MISMATCH"));
+});
+
+test("una asignación sin filled quantity o en otra unidad se rechaza", () => {
+  const withoutQuantity = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", unit: "MW" }] });
+  assert.ok(codesOf(withoutQuantity).includes("ASSIGNMENT_QUANTITY_INVALID"));
+  assert.equal(withoutQuantity.acceptanceCriterion.criterionMet, false);
+  const otherUnit = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MWh" }] });
+  assert.ok(codesOf(otherUnit).includes("ASSIGNMENT_UNIT_MISMATCH"));
+  assert.equal(otherUnit.acceptanceCriterion.criterionMet, false);
+});
+
+test("un mapa MATERIALIZED sin obligationId de la ficha se rechaza", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  delete ficha.coverageOwnership.obligationId;
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, false);
+  assert.ok(codesOf(ficha).includes("OBLIGATION_ID_MISSING"));
+});
+
+test("un mapa MATERIALIZED sin volumen ejecutado disponible se rechaza", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  Object.assign(fact(ficha, "campaign.coverage.executedVolume"), { availability: "UNAVAILABLE", value: null, unit: null, source: null, reason: "sin ledger" });
+  Object.assign(fact(ficha, "campaign.coverage.remainingVolume"), { availability: "UNAVAILABLE", value: null, unit: null, source: null, reason: "sin ledger" });
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  assert.equal(ficha.acceptanceCriterion.coverageOwnership.determined, false);
+  assert.ok(codesOf(ficha).includes("EXECUTED_VOLUME_MISSING"));
+});
+
+test("sin fills ejecutados un mapa MATERIALIZED vacío reconcilia", () => {
+  const ficha = materializedFicha({ executed: 0, assignments: [] });
+  assert.equal(ficha.acceptanceCriterion.coverageOwnership.determined, true);
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
+});
+
+test("el criterio no se deriva como cumplido con doble conteo aunque el mapa se declare MATERIALIZED", () => {
+  const ficha = materializedFicha({
+    executed: 20,
+    assignments: [
+      { fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" },
+      { fillId: "FILL-1", obligationId: "OBL-MONTHLY", quantity: 20, unit: "MW" },
+    ],
+  });
+  assert.equal(ficha.acceptanceCriterion.coverageOwnership.determined, false);
+  assert.equal(ficha.acceptanceCriterion.criterionMet, false);
+});
+
+test("el criterio no se deriva como cumplido con una relación AVAILABLE_NOW inválida", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  ficha.coverageOwnership.relationMonthlyQuarterly = { availability: "AVAILABLE_NOW" };
+  const criterion = evaluateImp02Acceptance(ficha);
+  assert.equal(criterion.coverageOwnership.determined, false);
+  assert.ok(criterion.coverageOwnership.blockedBy.includes("coverageOwnership.relationMonthlyQuarterly"));
+});
+
+// Regresión de la validación adversarial: con un ID de obligación con espacio
+// final ("OBL-QUARTERLY ") o una asignación a otra obligación sin volumen, la
+// ficha validaba y el criterio se derivaba cumplido.
+test("una asignación con ID no canónico u otra obligación sin volumen no cumple el criterio", () => {
+  const variants = [
+    { fillId: "FILL-2", obligationId: "OBL-QUARTERLY ", quantity: 20, unit: "MW" },
+    { fillId: "FILL-1 ", obligationId: "OBL-MONTHLY", quantity: 20, unit: "MW" },
+    { fillId: "FILL-2", obligationId: "OBL-MONTHLY" },
+    { fillId: "FILL-2", obligationId: "OBL-MONTHLY", quantity: -999, unit: "MWh" },
   ];
-  ficha.coverageOwnership.authority = "Bru (owner)";
-  ficha.coverageOwnership.locator = "mandato firmado p.1";
-  // Fixture sintético: asignaciones sólo se atribuyen a una campaña
-  // identificada (§4.1); la fact de asignación describe el mismo mapa.
-  makeAvailable(ficha, "campaign.identity.campaignId", "SYNTH-1");
-  makeAvailable(ficha, "campaign.identity.productContract", "SYNTH-CONTRACT");
+  for (const extra of variants) {
+    const ficha = materializedFicha({
+      executed: 20,
+      assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }, extra],
+    });
+    assert.equal(ficha.acceptanceCriterion.criterionMet, false, JSON.stringify(extra));
+    assert.equal(validateCampaignContract(ficha).ok, false, JSON.stringify(extra));
+  }
+});
+
+// Regresión de la validación adversarial: evaluateImp02Acceptance sola
+// derivaba criterionMet true en fichas que el contrato rechaza.
+test("evaluateImp02Acceptance no deriva el criterio cumplido sobre una ficha que rompe el contrato", () => {
+  const breakers = {
+    "mapa sin provenance": (ficha) => { delete ficha.coverageOwnership.authority; },
+    "fact de asignación UNAVAILABLE": (ficha) => {
+      Object.assign(fact(ficha, "campaign.coverage.fillToObligationAssignment"), { availability: "UNAVAILABLE", value: null, source: null, reason: "sin ledger" });
+    },
+    "familia contradictoria": (ficha) => { fact(ficha, "campaign.identity.productFamily").value = "Power"; },
+    "campaignId no textual": (ficha) => { fact(ficha, "campaign.identity.campaignId").value = 123; },
+    "total distinto del confirmado": (ficha) => {
+      fact(ficha, "campaign.obligation.totalVolumeKnown").value = 100;
+      fact(ficha, "campaign.coverage.remainingVolume").value = 80;
+    },
+  };
+  for (const [name, breakFicha] of Object.entries(breakers)) {
+    const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+    breakFicha(ficha);
+    const criterion = evaluateImp02Acceptance(ficha);
+    assert.equal(criterion.contractValid, false, name);
+    assert.equal(criterion.criterionMet, false, name);
+  }
+});
+
+test("con una fact duplicada campaignIdentified del validador y del criterio usan la misma copia", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.facts.push({ ...fact(ficha, "campaign.identity.campaignId"), availability: "AVAILABLE_NOW", value: "SYNTH-1", source: { authority: "a", locator: "l" }, reason: null });
+  for (const factId of ["campaign.identity.productContract", "campaign.identity.hubMarket"]) {
+    makeAvailable(ficha, factId, "SYNTH");
+  }
   makeAvailable(ficha, "campaign.identity.productFamily", "Gas");
   makeAvailable(ficha, "campaign.identity.mission", "Quarterly");
-  makeAvailable(ficha, "campaign.identity.hubMarket", "SYNTH-HUB");
-  Object.assign(fact(ficha, "campaign.coverage.fillToObligationAssignment"), {
-    availability: "AVAILABLE_NOW",
-    value: "FILL-1, FILL-2 → OBL-QUARTERLY",
-    source: { authority: "Bru (owner)", locator: "mandato firmado p.1" },
-    reason: null,
-  });
   ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
   const outcome = validateCampaignContract(ficha);
-  assert.equal(outcome.ok, true);
-  assert.deepEqual(outcome.errors, []);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "DUPLICATE_FACT"));
+  assert.equal(outcome.campaignIdentified, false);
+  assert.equal(ficha.acceptanceCriterion.campaignIdentified, false);
+});
+
+test("el restante no se deriva como determinado si rompe la conservación", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(ficha, "campaign.coverage.remainingVolume").value = 50;
+  const criterion = evaluateImp02Acceptance(ficha);
+  assert.equal(criterion.remainingVolume.determined, false);
+  assert.ok(criterion.remainingVolume.blockedBy.includes("campaign.coverage.reconciliation"));
+  assert.equal(criterion.criterionMet, false);
 });
 
 test("una cobertura no pertenece dos veces a obligaciones dentro de la ficha (§25.1 IMP-02)", () => {
@@ -339,6 +486,31 @@ function makeAvailable(ficha, factId, value, unit = null) {
     source: { authority: "Bru (owner)", locator: "fixture sintético" },
     reason: null,
   });
+}
+
+// Fixture sintético de una campaña identificada con mapa MATERIALIZED; prueba
+// la reconciliación, no es una campaña real.
+function materializedFicha({ executed, assignments }) {
+  const ficha = createGasQuarterlyFicha();
+  makeAvailable(ficha, "campaign.identity.campaignId", "SYNTH-1");
+  makeAvailable(ficha, "campaign.identity.productContract", "SYNTH-CONTRACT");
+  makeAvailable(ficha, "campaign.identity.productFamily", "Gas");
+  makeAvailable(ficha, "campaign.identity.mission", "Quarterly");
+  makeAvailable(ficha, "campaign.identity.hubMarket", "SYNTH-HUB");
+  makeAvailable(ficha, "campaign.calendar.deadline", "2026-12-31");
+  makeAvailable(ficha, "campaign.coverage.executedVolume", executed, "MW");
+  makeAvailable(ficha, "campaign.coverage.remainingVolume", 60 - executed, "MW");
+  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "ledger sintético");
+  ficha.coverageOwnership = {
+    mapState: "MATERIALIZED",
+    obligationId: "OBL-QUARTERLY",
+    assignments,
+    authority: "Bru (owner)",
+    locator: "fixture sintético",
+    relationMonthlyQuarterly: { availability: "AVAILABLE_NOW", relationType: "ADDITIONAL", value: "adicional", authority: "Bru (owner)", locator: "fixture sintético" },
+  };
+  ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
+  return ficha;
 }
 
 function codesOf(ficha) {
@@ -437,7 +609,8 @@ test("con todas las facts disponibles y coherentes el criterio se deriva como cu
   makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "FILL-1 → OBL-QUARTERLY");
   ficha.coverageOwnership = {
     mapState: "MATERIALIZED",
-    assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY" }],
+    obligationId: "OBL-QUARTERLY",
+    assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }],
     authority: "Bru (owner)",
     locator: "fixture sintético",
     relationMonthlyQuarterly: { availability: "AVAILABLE_NOW", relationType: "ADDITIONAL", value: "adicional", authority: "Bru (owner)", locator: "fixture sintético" },
