@@ -20,6 +20,21 @@ export {
 export { classifyCoverage, computeAllInH, computeTotalEur, computeV } from "./bhv.mjs";
 
 export {
+  // IMP-05: extensión del soporte de cálculo del benchmark (decisión EXTEND
+  // de DEP-10). Fuente: SPEC v1.1.1 §§5.2–5.4, 19.3.1.
+  benchmarkCalendarMissingDates,
+  benchmarkProvisionalStatus,
+  benchmarkVersion,
+  berlinLocalTimeSecondsFromUtc,
+  deriveBenchmarkWindow,
+  intradayProxyReference,
+  officialRowValidity,
+  reconcileOfficialProxy,
+  selectOfficialReferencesByDate,
+  strictProxyWindowBounds,
+} from "./reconciliation.mjs";
+
+export {
   cDiagnostic,
   minimumEvidence,
   monthlyDiagnostics,

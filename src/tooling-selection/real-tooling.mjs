@@ -109,8 +109,14 @@ export const IMP05_OFFICIAL_READ_CAPABILITIES = Object.freeze([
 const IN_REPO_BENCHMARK = Object.freeze({
   componentId: "economic-calculation.benchmark",
   componentVersion: Object.freeze({
+    // Versión semántica IMP-08 ST-08.5 aceptada (receipts/IMP-08); se conserva
+    // como versión de registro. Los bytes actuales incluyen el EXTEND IMP-05
+    // (DEP-10 rev. 11) y se versionan aparte en postExtensionContentHash
+    // (recomputable desde evidenceRefs; IMP05-PROV-01 review 2026-09-23).
     contentHash: "bc0ce6adef42831da21c9339c6569018a8c6b03a587558372ace336d4f661528",
-    algorithm: "sha256 de líneas ordenadas path+sha256 (versión semántica IMP-08 ST-08.5)",
+    contentHashAlgorithm: "sha256 de líneas ordenadas path+sha256 (versión semántica IMP-08 ST-08.5 aceptada)",
+    postExtensionContentHash: "552e5d2b5e15f8777c9b2564e9dc4ce05e70bf0073909fb2cda5253fe638e321",
+    postExtensionContentHashAlgorithm: "sha256 de evidenceRefs ordenadas como «<sha256>  <path>\\n» (bytes actuales tras el EXTEND post-IMP-08)",
   }),
   role: "Cálculo de benchmark B, selección de referencias diarias y proxy del entorno Energy Markets.",
   interfaceContract: Object.freeze({
@@ -164,8 +170,9 @@ const IN_REPO_BENCHMARK = Object.freeze({
   evidenceRefs: Object.freeze([
     Object.freeze({ kind: "accepted-receipt", ref: "operations/receipts/IMP-08-IMP_RECEIPT.json", sha256: "43b56173f021331a889393d3697f1ca8bdf40491e450798238044ac8decc9625" }),
     Object.freeze({ kind: "source", ref: "src/economic-calculation/benchmark.mjs", sha256: "0db32ff428fe41482904803664c448b9c3d984d234aff0a1bdfa91db34bc17c1" }),
+    Object.freeze({ kind: "source", ref: "src/economic-calculation/index.mjs", sha256: "a832aaae9cc7c3b63ec5a919cdb70f20081ad37f6553e99ec8c88e367b18b7aa" }),
     Object.freeze({ kind: "source", ref: "src/economic-calculation/reference.mjs", sha256: "c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b" }),
-    Object.freeze({ kind: "source", ref: "src/economic-calculation/index.mjs", sha256: "04217b163082ac848a5088a2120fb201d32b64ab9e6737b2179e7b20da2e8d66" }),
+    Object.freeze({ kind: "source", ref: "src/economic-calculation/reconciliation.mjs", sha256: "77b99916634147fafbd7afbb9eb1b310f403e4159c264b25c2de5ec179db6b51" }),
   ]),
 });
 
