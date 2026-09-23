@@ -37,25 +37,48 @@ Límites).
 
 ## Capacidades que IMP-05 necesita (con fuente)
 
-La lista anterior (`benchmark.calculate`, `benchmark.coverage`,
-`reference.select`) no tenía fuente y omitía §5.4. La lista vigente está en
-`IMP05_CAPABILITY_SOURCES` (`src/tooling-selection/real-tooling.mjs`), cada
-capacidad con su cita a la SPEC v1.1.1. Un test comprueba que cada sección
-citada existe. Se separa en los dos soportes que IMP-05 consume (§25.2.2 IMP-04:
-"decisión técnica aplicable al soporte que consuma esa herramienta"):
+La lista vigente está en `IMP05_CAPABILITY_SOURCES`
+(`src/tooling-selection/real-tooling.mjs`), cada capacidad con su cita a la
+SPEC v1.1.1. Un test comprueba que cada sección citada existe. Se separa en
+tres soportes (§25.2.2 IMP-04: "decisión técnica aplicable al soporte que
+consuma esa herramienta"; §5.2: oficial, derivado y benchmark son "tres
+valores diferentes"):
 
 - **Cálculo/reconciliación:**
   - `benchmark.calculate` y `benchmark.coverage` (§25.1, §5.3);
-  - `benchmark.calendar.missing_dates` (§25.2.2 IMP-05 "calendario de benchmark", §5.3 calendario de fechas esperadas separado y missing trazados);
+  - `benchmark.calendar.missing_dates` (§25.2.2 IMP-05 "calendario de benchmark", §5.3);
   - `benchmark.status.provisional` (§5.4 `BENCHMARK_PROVISIONAL`);
   - `benchmark.window.boundaries` y `benchmark.window.derive` (§25.1 "fronteras correctas" y "1-0-1/3-1-3", §5.3);
   - `reference.select` (§5.3) y `reference.proxy` (§5.2);
-  - `reconciliation.official_proxy` (§25.1 "sustitución oficial sin borrar proxy", §5.4);
+  - **obtener T̂/M̂ desde filas** (§5.2 «filas accesibles y deduplicadas del producto y fecha exactos»; revisión 8):
+    `reference.proxy.rows.exact_product_date`, `reference.proxy.rows.deduplicate`,
+    `reference.proxy.window.strict` (17:05/17:00–17:15 CE(S)T con conversión UTC/DST),
+    `reference.proxy.means` (m_j, T̂, M̂) y `reference.proxy.window.fallback`
+    (±60 min, `nearby-60m` / `eex-derived-reference`);
+  - `reconciliation.official_proxy` (§25.1, §5.4);
   - `benchmark.version` (§25.1 "B versionado", §5.4);
   - `official.value_0_01.treatment` (§25.1 "caso 0.01 investigado", §5.4).
-- **Lectura de referencias reales:**
-  - `reference.read.trades`, `reference.read.top_of_book` (§5.2, §6.5);
-  - `reference.read.official` (§5.3, §25.2.2 IMP-05 REQUIRES_AUDIT DEP-06/07).
+- **Lectura de filas EEX para el proxy:** `reference.read.trades` y
+  `reference.read.top_of_book` (§5.2, §6.5). Cada una exige precio o bid/ask,
+  hora, instrumento, ShortCode+Maturity, fecha de negociación y hash de fila
+  (`REFERENCE_READ_REQUIRED_OUTPUTS`).
+- **Lectura del settlement oficial:** `reference.read.official` (§5.3, §25.2.2
+  IMP-05 REQUIRES_AUDIT DEP-06/07).
+
+## Uso autorizado de los datos EEX (P-005)
+
+Bru resolvió el 2026-09-23 (P-005) que los datos EEX disponibles para Energy
+Markets están autorizados para este uso dentro del proyecto. El texto literal
+está en `operations/audit/IMP-04/OWNER-DECISION-P-005-EEX-RIGHTS.md`
+(sha256 `874488c4…`), y es la evidencia de `usageRights: permitted` del script
+EEX y de su entorno de lectura. No es un documento contractual y no se
+presenta como tal. No acredita DATA_READY, PIT, calendario contractual ni
+vínculo al mandato (§6.5; DEP-06/07 siguen abiertas).
+
+`ipExposure: none` para ambos es **juicio de auditoría IMP-04, no afirmación de
+Bru**: ejecución local sobre archivos locales, motor open-source (DuckDB MIT,
+pyarrow Apache-2.0 según sus `METADATA`) y script de un paquete privado
+(`package.json` `"private": true`), sin modelo propietario de terceros.
 
 ## Inventario auditado
 
@@ -63,47 +86,86 @@ El inventario del tooling existente es el que reporta §6.5 «Tooling y
 benchmark»: `src/economic-calculation/benchmark.mjs`, `generate_eex_snapshot.py`
 «y su entorno de lectura» (`REAL_TOOLING_INVENTORY`, con el hash de la SPEC).
 **Hipótesis (no la nombra la fuente):** el entorno de lectura es el venv
-`/home/op/apps/power-markets-explorer/.venv-data`. Ni §6.5 ni U-AUDIT lo
-nombran; se deduce porque el script importa `duckdb`, el `python3` del
-sistema no lo tiene y ese venv del mismo proyecto sí: DuckDB 1.5.5 (MIT) y
-pyarrow 25.0.1 (Apache-2.0), verificados en sus `dist-info`. La versión
-anterior de este audit omitía el entorno de lectura. Ambas decisiones se derivan con ese inventario y exigen que cada
-componente inventariado tenga assessment y que no haya assessments ajenos a él.
+`/home/op/apps/power-markets-explorer/.venv-data`. Se deduce porque el script
+importa `duckdb`, el `python3` del sistema no lo tiene y ese venv del mismo
+proyecto sí: DuckDB 1.5.5 y pyarrow 25.0.1.
+
+## Esquema real del lago (revisión 8)
+
+Inspeccionado con `DESCRIBE` del DuckDB del venv sobre tres particiones reales
+(`EEX_LAKE_SCHEMA_SAMPLES`, con sha256; un test lo repite):
+
+- `eex_derivative_trade` (NATGAS/THE 2025-11-20): `Px`, `Tm`, `InstrumentISIN`,
+  `InstrumentType`, `ShortCode`, `Maturity`, `TrdDate`, `TrdID`, `Sz`,
+  `UpdtAct`, `_retrieved_at_utc`, `_row_sha256`, entre otras.
+- `eex_derivative_top_of_book` (NATGAS/THE 2025-11-20 y POWER/DE 2025-08-12):
+  `BidPx`, `AskPx`, `Tm`, `InstrumentISIN`, `InstrumentType`, `ShortCode`,
+  `Maturity`, `TrdDate`, `_retrieved_at_utc`, `_row_sha256`, entre otras.
+- Todas las columnas son VARCHAR. Top-of-book trae también spreads
+  (`InstrumentType` «Futures Spread» en POWER/DE), que el filtro de producto
+  exacto debe excluir.
 
 ## Herramientas auditadas
 
-| Componente | Cubre | No cubre (verificado en código) | Derechos / IP | Usable |
+| Componente | Cubre | No cubre (verificado en código/esquema) | Derechos / IP | Usable |
 |---|---|---|---|---|
-| `economic-calculation.benchmark` (`benchmark.mjs`, `reference.mjs`; IMP-08) | calculate, coverage, window.boundaries, reference.select, reference.proxy, 0.01 (tratamiento por validez declarada, no por valor) | calendar.missing_dates (`benchmarkB` recibe `expectedDates` como número; no lista las fechas missing); status.provisional (no emite status); window.derive (ninguna función deriva [S-1 mes,S) ni [Q-4,Q-1)); official_proxy (`selectDailyReference` devuelve sólo el valor elegido, sin δ_d ni ambos valores); version (`benchmarkB` no emite versión) | Código propio; IP none | sí |
-| `power-markets-explorer.venv-data.duckdb` (entorno de lectura) | reference.read.trades: el `read_parquet` del QUERY lee por trade `Px`, `Tm`, `InstrumentISIN`, `TrdDate`, `TrdID`, `Sz`, `UpdtAct`, `_retrieved_at_utc`, `_row_sha256` | top_of_book (esquema no inspeccionado; §6.5 sólo dice que añade bid/ask: hipótesis, no se declara); official (§6.5 sólo reporta raíces trade y top_of_book); la ventana 17:05–17:15 y producto/fecha exactos son consulta de IMP-05 | rights unknown (licencias del motor no acreditan derechos sobre datos), IP unknown | no (pendiente) |
-| `power-markets-explorer.generate_eex_snapshot` | ninguna capacidad de IMP-05 (declara sólo `eex.snapshot.candles_4h`) | reference.read.trades: lee y deduplica `eex_derivative_trade` internamente, pero su interfaz (`candle = {time, open, high, low, close, volume}` en cubos de 14400 s) no expone precio ni hora de cada trade, que §5.2 necesita para T̂ en la ventana 17:05–17:15; top_of_book y official tampoco | rights unknown, IP unknown (SPEC §6.5:626) | no (pendiente) |
+| `economic-calculation.benchmark` (`benchmark.mjs`, `reference.mjs`; IMP-08) | calculate, coverage, window.boundaries, reference.select, reference.proxy (combina medias dadas), 0.01 (por validez declarada) | calendar.missing_dates; status.provisional; window.derive; official_proxy; version; y las cinco capacidades de filas del proxy: `proxyReference()` recibe `tradesMean`/`midpointsMean` ya calculadas. Existen piezas reutilizables (`isWithinWindow()`, `isWithinFallbackWindow()`, filtro de producto y dedup por fecha de `selectBenchmarkReferences()`), pero operan sobre referencias diarias u horas locales, no sobre filas intradía con Tm UTC | Código propio; IP none | sí |
+| `power-markets-explorer.venv-data.duckdb` (entorno de lectura) | reference.read.trades y reference.read.top_of_book (columnas verificadas en el esquema real) | official (el lago no tiene settlement); filtros, ventana, dedup y medias son del soporte de cálculo | permitted (P-005); IP none (juicio de audit) | sí |
+| `power-markets-explorer.generate_eex_snapshot` | ninguna capacidad de IMP-05 (declara sólo `eex.snapshot.candles_4h`) | trades: su interfaz sólo emite velas 4H; top_of_book y official tampoco | permitted (P-005); IP none (juicio de audit) | sí |
 
 ## Decisión factual
 
-1. **Soporte de cálculo de IMP-05: EXTEND `economic-calculation.benchmark`**
-   - Se añaden sólo `benchmark.calendar.missing_dates`, `benchmark.status.provisional`, `benchmark.window.derive`, `reconciliation.official_proxy` y `benchmark.version`.
-   - Lo cubierto se reconcilia de forma exacta: 14 salidas reales contra los fixtures documentales de §19.3.1, sin tolerancia (criterio provisional, ver Límites):
-     - B=105, count 2, coverage 2/3;
-     - corrección 102→103 da B=106.5;
-     - proxy 101;
-     - oficial con timestamp más reciente = 103;
-     - ventana [inicio,fin);
-     - 0.01 con validez declarada se selecciona; con validez `unknown` se excluye y cae al derivado (100, `trades-only`).
-   - `classifyOfficialValidity()` devuelve `canonicalRejectionRule: "none"` para toda entrada. No se usa como evidencia porque no discrimina.
-   - Contrastar el guard 0.01 reportado con la fuente aplicable (§19.3.1, §25.2.2 IMP-05) queda para IMP-05 y exige `reference.read.official`.
-   - **Juicio de auditoría, no cita de la SPEC:** el componente es "casi suficiente". Lo que falta son fórmulas cerradas de §5.3/§5.4 sobre salidas que ya produce (`extensionRationale`).
-   - Implementar las 5 capacidades es trabajo de IMP-05, no de IMP-04.
-2. **Soporte de lectura de referencias reales: BLOQUEADO (`BLOCKED_PENDING_RIGHTS_AUDIT`)**
-   - El script EEX no cubre ninguna capacidad de lectura. La versión anterior de este audit le atribuía `reference.read.trades`; era falso: su interfaz sólo entrega velas 4H (corrección de la revisión 7, verificada por test contra el script con su hash).
-   - `reference.read.trades` la cubre el entorno de lectura (DuckDB sobre el lago), con derechos/IP `unknown` → `blockedCapabilities: [reference.read.trades]`.
-   - `reference.read.top_of_book` y `reference.read.official` no las cubre ningún componente auditado → `uncoveredCapabilities`.
-   - Con componentes inventariados de derechos pendientes, la necesidad de construir no está demostrada.
-   - No se extiende ni se construye otro lector mientras ese estado siga sin resolver: `unknown` no se degrada ni a permiso ni a "no existe".
-   - Top-of-book y settlement oficial no los cubre ningún componente auditado. Además, §5.4 deja "pendiente la alineación empírica del proxy con un feed oficial o externo autorizado".
-   - **Esto bloquea IMP-05** para datos reales: su REQUIRES_AUDIT (§25.2.2) incluye DEP-06/07 y DEP-10 "herramienta/uso autorizado". Lo resuelve una acreditación de derechos del lago EEX y de una fuente oficial, que sólo puede aportar el owner.
+1. **Cálculo de IMP-05: EXTEND `economic-calculation.benchmark`**
+   - Se añaden exactamente 10 capacidades: `benchmark.calendar.missing_dates`,
+     `benchmark.status.provisional`, `benchmark.window.derive`,
+     `reference.proxy.rows.exact_product_date`, `reference.proxy.rows.deduplicate`,
+     `reference.proxy.window.strict`, `reference.proxy.means`,
+     `reference.proxy.window.fallback`, `reconciliation.official_proxy` y
+     `benchmark.version`. La versión anterior decía que bastaban 5; omitía
+     obtener las medias desde filas (revisión 8).
+   - Lo cubierto se reconcilia de forma exacta: 14 salidas reales contra los
+     fixtures documentales de §19.3.1 (B=105, count 2, coverage 2/3, corrección
+     102→103 da 106.5, proxy 101, oficial más reciente 103, ventana [inicio,fin),
+     0.01 declarado válido se selecciona y con validez `unknown` cae a 100
+     `trades-only`).
+   - **Juicio de auditoría, no cita de la SPEC:** el componente es "casi
+     suficiente"; lo que falta son reglas cerradas de §5.2/§5.3/§5.4 sobre
+     entradas o salidas que ya maneja (`extensionRationale`).
+   - Implementar las 10 capacidades es trabajo de IMP-05, no de IMP-04.
+2. **Lectura de filas EEX (trades y top-of-book): REUSE
+   `power-markets-explorer.venv-data.duckdb`**
+   - Único componente usable que cubre ambas. El script EEX no cubre ninguna.
+   - Reconciliación exacta con fixtures sintéticos (§25.1 IMP-04): pyarrow
+     escribe dos filas de trades y dos de top-of-book (una de ellas spread) en
+     Parquet con particiones hive; DuckDB las lee con las mismas opciones que el
+     script (`hive_partitioning`, `union_by_name`); las 22 salidas clave
+     coinciden con lo escrito (`buildEexReadEnvironmentReconciliation`).
+3. **Lectura del settlement oficial: BLOQUEADA
+   (`BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE`)**
+   - Ningún componente inventariado la cubre y todos son usables: la derivación
+     llega a BUILD y falla por `MISSING_NECESSITY`. No se construye un lector
+     sin saber qué feed, formato ni entitlement leer (§6.4: construir sólo si el
+     audit demuestra necesidad).
+   - IMP-05 puede avanzar con B provisional: §5.4 y §25.2.2 IMP-05 («Un
+     benchmark aún provisional conserva esa condición»).
 
-Esta decisión no concede autoridad de producción y no acredita benchmark de
-campaña (DEP-08/09) ni data-readiness del lago (DEP-06/07).
+## Fuente oficial de settlement — búsqueda (P-005)
+
+P-005 pide determinarla primero desde las fuentes canónicas. Resultado
+(`OFFICIAL_SETTLEMENT_SOURCE_SEARCH`, cada fuente con hash y un test):
+
+- SPEC v1.1.1 §5.4 exige alinear el proxy «con un feed oficial o externo
+  autorizado» sin nombrarlo; §6.5 sólo registra las raíces trade y top_of_book.
+- `/srv/hot-data/EEX` sólo contiene `table=eex_derivative_trade` y
+  `table=eex_derivative_top_of_book`.
+- U-AUDIT (`AUDIT_INPUTS_ENERGY_MARKETS.md` §9, punto 3) la lista como paquete
+  externo pendiente.
+- D16 (`eex-reference-price.md` §4) e IMP-03 registran un HTTP 403 histórico en
+  el endpoint de settlement «spr»: es un hallazgo, no una fuente disponible.
+- P-005 declara que la fuente concreta no fue especificada.
+
+Conclusión: ninguna fuente accesible la identifica. Es un hecho externo; se
+pregunta a Bru por ese único dato.
 
 ## Reglas de decisión endurecidas (review 2026-09-23)
 
@@ -117,7 +179,7 @@ campaña (DEP-08/09) ni data-readiness del lago (DEP-06/07).
   - cualquier selección distinta de la derivada;
   - un record cuyos `requiredCapabilities`, `targetAssessment`, `auditTrace`, `rationale` o `authority` contradigan la auditoría.
 - El conjunto auditado es fijo: los tres componentes del inventario de §6.5 (benchmark, script EEX y su entorno de lectura). Un test lo comprueba, y quitar un componente da `INVENTORY_NOT_AUDITED`.
-- Las capacidades de lectura se comprueban contra la interfaz real: un test lee el script (hash `01353f73…`), extrae los campos que emite; otro comprueba que el QUERY lee de `read_parquet` cada columna por trade atribuida al entorno y los hashes de `dist-info/RECORD` del venv; y se exige que un componente declare `reference.read.*` sólo si expone los campos de `REFERENCE_READ_REQUIRED_OUTPUTS` (§5.2/§5.3).
+- Las capacidades de lectura se comprueban contra la interfaz real: un test lee el script (hash `01353f73…`) y extrae los campos que emite; otro ejecuta `DESCRIBE` con el DuckDB del venv sobre las particiones reales con hash y comprueba cada columna atribuida al entorno; y se exige que un componente declare `reference.read.*` sólo si expone los campos de `REFERENCE_READ_REQUIRED_OUTPUTS` (§5.2/§5.3).
 
 ## Hashes de procedencia (bytes en este worktree)
 
@@ -128,6 +190,14 @@ campaña (DEP-08/09) ni data-readiness del lago (DEP-06/07).
 - `.venv-data/.../duckdb-1.5.5.dist-info/RECORD` — `585ea64989741e6a35be3d3912dc8158c6ecac777857e666464428945a12fe8f`
 - `.venv-data/.../pyarrow-25.0.1.dist-info/RECORD` — `c2658c5e3b843700ad96e5173d6006a889edeaa2f4a8351118f64fb25a3b55ca`
 - `src/economic-calculation/reference.mjs` — `c8597ac83ba540b0de8b64dc2907e0e7e7c32417a02e06ee442f29d5514e511b`
+- `operations/audit/IMP-04/OWNER-DECISION-P-005-EEX-RIGHTS.md` — `874488c4a91a3813ab322a51c6ee1af4244d0391c6f467b382c9b0225cf8c564`
+- `/home/op/apps/power-markets-explorer/package.json` — `7b74c57654ddcb4465d526e8a04e428a7c9b78000b42a0898f26be0278d69037`
+- Partición trade NATGAS/THE 2025-11-20 — `87af47d82a5af9238b92104539dacd860c872fb95c88c12e94292a0aadf0810f`
+- Partición top-of-book NATGAS/THE 2025-11-20 — `8452f2afa426df01f0f871b11b28f95c3c9dd5c691087280bbff16937a116586`
+- Partición top-of-book POWER/DE 2025-08-12 — `7337bfa59f57dbe0984b355f3bb3bad5a4b3933eff5830a837a80026610db9af`
+- `AUDIT_INPUTS_ENERGY_MARKETS.md` — `96e0b76356f901acdaf4fed9634908818ecd4d78627955d7217792367143710f`
+- `reference/documentation/eex-reference-price.md` (D16) — `dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260`
+- `operations/audit/IMP-03/audit-report.md` — `3fad9a93ee235f1c3a6745365736071ebb214c4393cdd41fcb53c3355f95758d`
 - SPEC v1.1.1 — `666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3`
 
 ## Reproducción
@@ -137,6 +207,10 @@ node --test test/tooling-selection/real-tooling.test.mjs
 ```
 
 ## Límites residuales (OPEN_ITEM)
+
+- La reconciliación del lector necesita el venv `.venv-data` en BruNode: los tests y `deriveRealImp05ToolingDecisions()` ejecutan su `python` (la del sistema no tiene duckdb). Fuera de BruNode fallan de forma explícita.
+- La capacidad de lectura es de columnas crudas VARCHAR. Parseo numérico, conversión Tm UTC → CE(S)T y exclusión de spreads son parte de los añadidos del soporte de cálculo (IMP-05).
+- Settlement oficial bloqueado hasta que se identifique la fuente (ver «Fuente oficial de settlement»).
 
 - `auditInventory` es opcional para REUSE/EXTEND en la API genérica (su criterio en §25.1/§25.2.2 es la reconciliación independiente); es obligatorio para BUILD. Las decisiones reales DEP-10 lo aportan siempre.
 - El inventario lo declara quien llama, con evidencia. La API genérica sólo valida forma y coherencia con los assessments; un inventario inventado con evidencia bien formada no se detecta (mismo límite de procedencia que la reconciliación). En la decisión real, el inventario es una constante atada por test al texto y hash de la SPEC §6.5. Su completitud descansa en esa fuente (que reporta U-AUDIT), no en un escaneo del entorno.

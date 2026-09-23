@@ -1,24 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 
 import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
 import { deriveToolingDecision, selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { isCapabilityAssessmentUsable, validateCapabilityAssessment } from "../../src/tooling-selection/capability.mjs";
 import {
+  EEX_DATA_USAGE_AUTHORIZATION,
+  EEX_LAKE_ROOT,
+  EEX_LAKE_SCHEMA_SAMPLES,
+  EEX_READ_ENVIRONMENT_TOP_OF_BOOK_COLUMNS,
   EEX_READ_ENVIRONMENT_TRADE_COLUMNS,
   EEX_READER_INTERFACE_OUTPUTS,
+  EEX_VENV_PYTHON,
   IMP05_CALCULATION_CAPABILITIES,
   IMP05_CAPABILITY_SOURCES,
+  IMP05_OFFICIAL_READ_CAPABILITIES,
   IMP05_REFERENCE_READ_CAPABILITIES,
+  OFFICIAL_SETTLEMENT_SOURCE_SEARCH,
   REAL_BENCHMARK_COMPONENT_ID,
   REAL_EEX_READER_COMPONENT_ID,
   REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID,
+  REAL_READ_SELECTION_EVIDENCE,
   REAL_SELECTION_EVIDENCE,
   REAL_TOOLING_ASSESSMENTS,
   REAL_TOOLING_INVENTORY,
   REFERENCE_READ_REQUIRED_OUTPUTS,
+  buildEexReadEnvironmentReconciliation,
   buildRealToolingReconciliation,
   deriveRealImp05ToolingDecisions,
 } from "../../src/tooling-selection/real-tooling.mjs";
@@ -26,14 +36,27 @@ import {
 // DEP-10 de IMP-04 (SPEC v1.1.1 §6.4/§6.5, §25.1): capability assessment de
 // componentes reales y decisión factual para los soportes que IMP-05 consume.
 
-// Verificado contra src/economic-calculation/*.mjs: ninguna de estas existe.
+// Verificado contra src/economic-calculation/*.mjs: ninguna de estas existe
+// como capacidad completa (ver comentario de IN_REPO_BENCHMARK).
 const EXPECTED_ADDITIONS = [
   "benchmark.calendar.missing_dates",
   "benchmark.status.provisional",
   "benchmark.window.derive",
+  "reference.proxy.rows.exact_product_date",
+  "reference.proxy.rows.deduplicate",
+  "reference.proxy.window.strict",
+  "reference.proxy.means",
+  "reference.proxy.window.fallback",
   "reconciliation.official_proxy",
   "benchmark.version",
 ];
+
+const sha256Of = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+
+function describeColumns(parquetPath) {
+  const probe = "import duckdb, json, sys; print(json.dumps([row[0] for row in duckdb.execute(\"DESCRIBE SELECT * FROM read_parquet(?)\", [sys.argv[1]]).fetchall()]))";
+  return JSON.parse(execFileSync(EEX_VENV_PYTHON, ["-c", probe, parquetPath], { encoding: "utf8" }));
+}
 
 const SPEC_PATH = "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md";
 const EEX_SCRIPT_PATH = "/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py";
@@ -57,7 +80,7 @@ function calculationSelection(overrides = {}) {
 
 test("IMP-05: cada capacidad requerida tiene fuente en la SPEC v1.1.1 y las secciones citadas existen", () => {
   const spec = readFileSync(SPEC_PATH, "utf8");
-  const required = [...IMP05_CALCULATION_CAPABILITIES, ...IMP05_REFERENCE_READ_CAPABILITIES];
+  const required = [...IMP05_CALCULATION_CAPABILITIES, ...IMP05_REFERENCE_READ_CAPABILITIES, ...IMP05_OFFICIAL_READ_CAPABILITIES];
   assert.deepEqual(Object.keys(IMP05_CAPABILITY_SOURCES).sort(), [...required].sort());
   for (const capability of required) {
     const source = IMP05_CAPABILITY_SOURCES[capability];
@@ -76,7 +99,37 @@ test("IMP-05: la reconciliación official/proxy, el caso 0.01 y la lectura de re
   for (const capability of ["reconciliation.official_proxy", "benchmark.version", "official.value_0_01.treatment", "benchmark.window.derive", "benchmark.calendar.missing_dates", "benchmark.status.provisional"]) {
     assert.ok(IMP05_CALCULATION_CAPABILITIES.includes(capability), capability);
   }
-  assert.deepEqual([...IMP05_REFERENCE_READ_CAPABILITIES], ["reference.read.trades", "reference.read.top_of_book", "reference.read.official"]);
+  assert.deepEqual([...IMP05_REFERENCE_READ_CAPABILITIES], ["reference.read.trades", "reference.read.top_of_book"]);
+  assert.deepEqual([...IMP05_OFFICIAL_READ_CAPABILITIES], ["reference.read.official"]);
+});
+
+// Review IMP-04 2026-09-23 (revisión 8): obtener T̂/M̂ desde filas es parte
+// del cálculo que IMP-05 necesita (§5.2), no una media ya dada.
+test("IMP-05: obtener las medias del proxy desde filas (producto/fecha exactos, dedup, ventana estricta, fallback) es requerido", () => {
+  for (const capability of ["reference.proxy.rows.exact_product_date", "reference.proxy.rows.deduplicate", "reference.proxy.window.strict", "reference.proxy.means", "reference.proxy.window.fallback"]) {
+    assert.ok(IMP05_CALCULATION_CAPABILITIES.includes(capability), capability);
+    assert.match(IMP05_CAPABILITY_SOURCES[capability], /§5\.2/);
+  }
+  const spec = readFileSync(SPEC_PATH, "utf8");
+  assert.ok(spec.includes("El proxy utiliza filas accesibles y deduplicadas del producto y fecha exactos"));
+  assert.ok(spec.includes("`nearby-60m` / `eex-derived-reference`"));
+});
+
+// El benchmark aceptado en IMP-08 recibe medias ya calculadas y sus predicados
+// de ventana no aplican la regla completa: por eso esas capacidades son
+// añadidos del EXTEND, no capacidades cubiertas.
+test("DEP-10: el benchmark en repo no calcula el proxy desde filas intradía", () => {
+  const reference = readFileSync("src/economic-calculation/reference.mjs", "utf8");
+  assert.match(reference, /export function proxyReference\(\{ tradesMean, midpointsMean \} = \{\}\)/);
+  const calculation = ["benchmark.mjs", "reference.mjs", "index.mjs"].map((file) => readFileSync(`src/economic-calculation/${file}`, "utf8")).join("\n");
+  for (const absent of ["nearby-60m", "eex-derived-reference", "17:05", "bid", "_row_sha256", "Europe/Berlin"]) {
+    assert.ok(!calculation.includes(absent), `${absent} no aparece en economic-calculation`);
+  }
+  const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
+  for (const capability of EXPECTED_ADDITIONS) {
+    assert.ok(!benchmark.declaredCapabilities.includes(capability), capability);
+  }
+  assert.match(benchmark.extensionRationale, /isWithinWindow\(\) e isWithinFallbackWindow\(\)/);
 });
 
 // Validación adversarial IMP-04 2026-09-23: quitar un componente del conjunto
@@ -142,33 +195,44 @@ test("DEP-10: la interfaz real del lector EEX son velas 4H, leída del script co
 });
 
 // Validación adversarial IMP-04 2026-09-23: §6.5 también reporta «su entorno
-// de lectura». Es el venv del script (DuckDB 1.5.5 + pyarrow 25.0.1); su
-// read_parquet expone las columnas por trade que el QUERY selecciona.
-test("DEP-10: el entorno de lectura (venv DuckDB) expone precio y hora por trade, verificado contra el script y el venv", () => {
+// de lectura». Es el venv del script (DuckDB 1.5.5 + pyarrow 25.0.1).
+// Review revisión 8: top-of-book se clasificaba sin inspeccionar su esquema;
+// ahora las columnas de trades y top-of-book se comprueban con DuckDB DESCRIBE
+// sobre particiones reales del lago con hash.
+test("DEP-10: el entorno de lectura (venv DuckDB) expone trades y top-of-book, verificado sobre el esquema real del lago", () => {
   const environment = assessmentFor(REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID);
   const record = readFileSync(`${EEX_VENV_SITE_PACKAGES}/duckdb-1.5.5.dist-info/RECORD`);
   assert.equal(createHash("sha256").update(record).digest("hex"), environment.componentVersion.contentHash, "DuckDB instalado cambió: rehacer el assessment");
   for (const ref of environment.evidenceRefs) {
     if (ref.ref.startsWith("/")) {
-      assert.equal(createHash("sha256").update(readFileSync(ref.ref)).digest("hex"), ref.sha256, ref.ref);
+      assert.equal(sha256Of(ref.ref), ref.sha256, ref.ref);
     }
   }
 
-  const script = readFileSync(EEX_SCRIPT_PATH, "utf8");
-  const baseSelect = script.slice(script.indexOf("WITH base AS ("), script.indexOf("FROM read_parquet(?"));
-  for (const column of Object.values(EEX_READ_ENVIRONMENT_TRADE_COLUMNS)) {
-    assert.match(baseSelect, new RegExp(`^\\s+${column},`, "m"), `el QUERY lee ${column} de read_parquet`);
+  const columnsByTable = {
+    eex_derivative_trade: Object.values(EEX_READ_ENVIRONMENT_TRADE_COLUMNS),
+    eex_derivative_top_of_book: Object.values(EEX_READ_ENVIRONMENT_TOP_OF_BOOK_COLUMNS),
+  };
+  assert.deepEqual([...new Set(EEX_LAKE_SCHEMA_SAMPLES.map((sample) => sample.table))].sort(), Object.keys(columnsByTable).sort());
+  for (const sample of EEX_LAKE_SCHEMA_SAMPLES) {
+    assert.equal(sha256Of(sample.ref), sample.sha256, sample.ref);
+    const described = describeColumns(sample.ref);
+    for (const column of columnsByTable[sample.table]) {
+      assert.ok(described.includes(column), `${sample.table} expone ${column}`);
+    }
   }
-  assert.deepEqual([...environment.interfaceContract.outputs], Object.keys(EEX_READ_ENVIRONMENT_TRADE_COLUMNS));
-  assert.deepEqual([...environment.declaredCapabilities], ["reference.read.trades"]);
-  const usability = isCapabilityAssessmentUsable(environment);
-  assert.equal(usability.usable, false, "licencias del motor no acreditan derechos sobre los datos");
-  assert.equal(usability.rightsUnresolved, true);
+  assert.deepEqual([...environment.interfaceContract.outputs], [...Object.keys(EEX_READ_ENVIRONMENT_TRADE_COLUMNS), ...Object.keys(EEX_READ_ENVIRONMENT_TOP_OF_BOOK_COLUMNS)]);
+  assert.deepEqual([...environment.declaredCapabilities], ["reference.read.trades", "reference.read.top_of_book"]);
+  assert.equal(isCapabilityAssessmentUsable(environment).usable, true);
+
+  const metadata = (name) => readFileSync(`${EEX_VENV_SITE_PACKAGES}/${name}/METADATA`, "utf8");
+  assert.match(metadata("duckdb-1.5.5.dist-info"), /License :: OSI Approved :: MIT License/);
+  assert.match(metadata("pyarrow-25.0.1.dist-info"), /License-Expression: Apache-2\.0/);
 });
 
 test("DEP-10: ningún componente real declara una capacidad de lectura que su interfaz no expone", () => {
   for (const assessment of REAL_TOOLING_ASSESSMENTS) {
-    for (const capability of IMP05_REFERENCE_READ_CAPABILITIES) {
+    for (const capability of [...IMP05_REFERENCE_READ_CAPABILITIES, ...IMP05_OFFICIAL_READ_CAPABILITIES]) {
       const requiredOutputs = REFERENCE_READ_REQUIRED_OUTPUTS[capability];
       const exposesAll = requiredOutputs.every((outputId) => assessment.interfaceContract.outputs.includes(outputId));
       assert.equal(assessment.declaredCapabilities.includes(capability), exposesAll, `${assessment.componentId} / ${capability}`);
@@ -178,16 +242,28 @@ test("DEP-10: ningún componente real declara una capacidad de lectura que su in
   assert.ok(!reader.declaredCapabilities.includes("reference.read.trades"));
 });
 
-test("DEP-10: los assessments reales son válidos; el benchmark es usable y el lector EEX no", () => {
-  const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
-  assert.equal(validateCapabilityAssessment(benchmark).ok, true);
-  assert.equal(isCapabilityAssessmentUsable(benchmark).usable, true);
+// Bru P-005 (2026-09-23): los datos EEX disponibles están autorizados para este
+// uso dentro del proyecto. La evidencia es el registro literal de esa decisión.
+test("DEP-10: los assessments reales son válidos y usables; el uso de datos EEX lo acredita la decisión P-005", () => {
+  for (const assessment of REAL_TOOLING_ASSESSMENTS) {
+    assert.equal(validateCapabilityAssessment(assessment).ok, true, assessment.componentId);
+    assert.equal(isCapabilityAssessmentUsable(assessment).usable, true, assessment.componentId);
+  }
 
+  assert.equal(sha256Of(EEX_DATA_USAGE_AUTHORIZATION.ref), EEX_DATA_USAGE_AUTHORIZATION.sha256);
+  const decision = readFileSync(EEX_DATA_USAGE_AUTHORIZATION.ref, "utf8");
+  assert.ok(decision.includes("los datos EEX disponibles para Energy Markets están autorizados para este"));
+  assert.ok(decision.includes("La fuente oficial concreta de settlement no fue especificada por Bru"));
+  for (const componentId of [REAL_EEX_READER_COMPONENT_ID, REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID]) {
+    const assessment = assessmentFor(componentId);
+    assert.ok(assessment.usageRights.evidenceRef.startsWith(`${EEX_DATA_USAGE_AUTHORIZATION.ref}#sha256=${EEX_DATA_USAGE_AUTHORIZATION.sha256}`), componentId);
+    assert.ok(assessment.evidenceRefs.includes(EEX_DATA_USAGE_AUTHORIZATION), componentId);
+  }
   const reader = assessmentFor(REAL_EEX_READER_COMPONENT_ID);
-  assert.equal(validateCapabilityAssessment(reader).ok, true);
-  const readerUsability = isCapabilityAssessmentUsable(reader);
-  assert.equal(readerUsability.usable, false, "datos legibles no prueban entitlements");
-  assert.equal(readerUsability.rightsUnresolved, true);
+  for (const ref of reader.evidenceRefs.filter((item) => item.ref.startsWith("/"))) {
+    assert.equal(sha256Of(ref.ref), ref.sha256, ref.ref);
+  }
+  assert.equal(JSON.parse(readFileSync("/home/op/apps/power-markets-explorer/package.json", "utf8")).private, true);
 });
 
 test("DEP-10: las salidas reales del componente coinciden con los fixtures documentales de §19.3.1", () => {
@@ -233,7 +309,8 @@ test("DEP-10: el soporte de cálculo de IMP-05 es EXTEND del benchmark en repo, 
   assert.deepEqual(benchmarkTrace.missing, EXPECTED_ADDITIONS);
   const readerTrace = selection.auditTrace.find((entry) => entry.componentId === REAL_EEX_READER_COMPONENT_ID);
   assert.deepEqual(readerTrace.covered, []);
-  assert.equal(readerTrace.usable, false);
+  const environmentTrace = selection.auditTrace.find((entry) => entry.componentId === REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID);
+  assert.deepEqual(environmentTrace.covered, [], "el lector no cubre capacidades de cálculo");
 
   for (const addition of selection.additions) {
     assert.ok(selection.rationale.includes(addition), `rationale nombra ${addition}`);
@@ -241,27 +318,78 @@ test("DEP-10: el soporte de cálculo de IMP-05 es EXTEND del benchmark en repo, 
   assert.ok(selection.rationale.includes(REAL_BENCHMARK_COMPONENT_ID));
 });
 
-// El script EEX sólo da velas 4H; el entorno de lectura sí cubre trades, pero
-// con derechos unknown sobre el lago. Top-of-book y oficial no los cubre
-// ningún componente auditado. No se construye ni extiende mientras tanto.
-test("DEP-10: la lectura de referencias reales queda BLOQUEADA por derechos pendientes, aun con necesidad declarada", () => {
+// Con el uso autorizado (P-005) y el esquema inspeccionado, el entorno de
+// lectura cubre trades y top-of-book: REUSE, reconciliado con fixtures
+// sintéticos escritos por pyarrow y leídos por DuckDB.
+test("DEP-10: la lectura de trades y top-of-book es REUSE del entorno DuckDB, reconciliada", () => {
   const { referenceRead } = deriveRealImp05ToolingDecisions();
-  assert.equal(referenceRead.ok, false);
-  assert.equal(referenceRead.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
-  assert.deepEqual(referenceRead.candidateComponentIds, [REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID]);
-  assert.deepEqual(referenceRead.blockedCapabilities, ["reference.read.trades"]);
-  assert.deepEqual(referenceRead.uncoveredCapabilities, ["reference.read.top_of_book", "reference.read.official"]);
-  const readerTrace = referenceRead.auditTrace.find((entry) => entry.componentId === REAL_EEX_READER_COMPONENT_ID);
-  assert.deepEqual(readerTrace.covered, []);
+  assert.equal(referenceRead.ok, true, JSON.stringify(referenceRead));
+  const { selection } = referenceRead;
+  assert.equal(selection.decision, TOOLING_DECISION.REUSE);
+  assert.equal(selection.targetComponentId, REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID);
+  assert.deepEqual(selection.additions, []);
+  assert.equal(selection.grantsProductionAuthority, false);
+  assert.deepEqual(selection.evidenceRefs, [...REAL_READ_SELECTION_EVIDENCE]);
+  const readerTrace = selection.auditTrace.find((entry) => entry.componentId === REAL_EEX_READER_COMPONENT_ID);
+  assert.deepEqual(readerTrace.covered, [], "el script sólo emite velas 4H");
 
-  const withSelfDeclaredNecessity = deriveToolingDecision({
+  const environment = assessmentFor(REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID);
+  const recomputed = reconcileKeyOutputs({ ...selection.reconciliation, keyOutputs: environment.interfaceContract.outputs });
+  assert.equal(recomputed.reconciled, true, JSON.stringify(recomputed.mismatches));
+  const byId = Object.fromEntries(selection.reconciliation.outputs.map((output) => [output.outputId, output.value]));
+  assert.deepEqual(byId["topOfBook.bid"], ["99.5", "-9.71"]);
+  assert.deepEqual(byId["topOfBook.instrumentType"], ["Simple Instrument", "Futures Spread"]);
+  assert.deepEqual(byId["trade.updateAction"], ["New", "Delete"]);
+});
+
+test("DEP-10: una lectura divergente o sin top-of-book impide el REUSE del entorno", () => {
+  const readSelection = (reconciliation) => selectMinimumTooling({
     requiredCapabilities: IMP05_REFERENCE_READ_CAPABILITIES,
     assessments: REAL_TOOLING_ASSESSMENTS,
     auditInventory: REAL_TOOLING_INVENTORY,
-    buildNecessity: { demonstrated: true, rationale: "Autodeclarada.", evidenceRefs: [{ kind: "audit", ref: "X" }] },
+    reconciliation,
+    evidenceRefs: REAL_READ_SELECTION_EVIDENCE,
   });
-  assert.equal(withSelfDeclaredNecessity.ok, false);
-  assert.equal(withSelfDeclaredNecessity.code, "BLOCKED_PENDING_RIGHTS_AUDIT");
+  const full = buildEexReadEnvironmentReconciliation();
+  assert.equal(readSelection(full).ok, true);
+
+  const divergent = { ...full, outputs: full.outputs.map((output) => (output.outputId === "topOfBook.ask" ? { ...output, value: ["100.5", "-9.26"] } : output)) };
+  const divergentResult = readSelection(divergent);
+  assert.equal(divergentResult.ok, false);
+  assert.ok(divergentResult.errors.some((error) => error.code === "NOT_RECONCILED" && error.mismatches.some((mismatch) => mismatch.outputId === "topOfBook.ask")));
+
+  const withoutTopOfBook = {
+    componentId: full.componentId,
+    outputs: full.outputs.filter((output) => !output.outputId.startsWith("topOfBook.")),
+    fixtures: full.fixtures.filter((item) => !item.outputId.startsWith("topOfBook.")),
+  };
+  const missing = readSelection(withoutTopOfBook);
+  assert.equal(missing.ok, false);
+  const notCovered = missing.errors.find((error) => error.code === "KEY_OUTPUTS_NOT_COVERED");
+  assert.deepEqual(notCovered.uncoveredKeyOutputs, Object.keys(EEX_READ_ENVIRONMENT_TOP_OF_BOOK_COLUMNS));
+});
+
+// P-005: la fuente oficial de settlement se busca primero en fuentes canónicas.
+// Ninguna la nombra y el lago no la contiene: el soporte queda bloqueado
+// (fail-closed), sin BUILD de un lector para una fuente desconocida.
+test("DEP-10: la lectura del settlement oficial queda BLOQUEADA por fuente no identificada, con la búsqueda trazada", () => {
+  const { officialRead } = deriveRealImp05ToolingDecisions();
+  assert.equal(officialRead.ok, false);
+  assert.equal(officialRead.code, "BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE");
+  assert.equal(officialRead.derivationCode, "MISSING_NECESSITY");
+  assert.deepEqual(officialRead.uncoveredCapabilities, ["reference.read.official"]);
+  assert.ok(officialRead.auditTrace.every((entry) => entry.covered.length === 0 && entry.usable));
+  assert.equal(officialRead.decision, undefined);
+
+  const tables = readdirSync(EEX_LAKE_ROOT).filter((name) => name.startsWith("table="));
+  assert.deepEqual(tables.sort(), ["table=eex_derivative_top_of_book", "table=eex_derivative_trade"]);
+  for (const ref of OFFICIAL_SETTLEMENT_SOURCE_SEARCH.filter((item) => item.sha256)) {
+    assert.equal(sha256Of(ref.ref), ref.sha256, ref.ref);
+  }
+  const text = (ref) => readFileSync(OFFICIAL_SETTLEMENT_SOURCE_SEARCH.find((item) => item.ref === ref).ref, "utf8");
+  assert.ok(text("/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md").includes("HTTP 403 for the settlement spr endpoint"));
+  assert.ok(text("docs/canonical/v1_1_1/sources/AUDIT_INPUTS_ENERGY_MARKETS.md").includes("fuente oficial de settlement y sus revisiones/publication timestamps"));
+  assert.ok(text(SPEC_PATH).includes("con un feed oficial o externo autorizado"));
 });
 
 test("DEP-10: una salida divergente del componente real impide la selección", () => {
