@@ -272,16 +272,17 @@ test("§14.10: el output bundle es completo, con null explícito en lo no produc
 });
 
 test("§14.9: la identidad del receipt captura cambios de datos/config ejecución (mismo run no enmascara cambio)", () => {
-  // Cambiar priceObservations cambia el frozen bundle y su receipt: no
-  // hay "mismo receipt" para datos distintos (§14.9 corrección → receipt nuevo).
+  // Cambiar priceObservations produce otro frozen bundle (otro contentHash) y
+  // su receipt es nuevo: no hay "mismo receipt" para datos distintos (§14.9
+  // corrección → receipt nuevo). B se congela con buildReplayBundle; no se
+  // muta un bundle ya congelado.
   const dates = ["2026-01-05"];
   const a = outputBundleFor({ bundle: frozenBundle({ dates }).bundle, runTimestampUtc: "2026-09-23T00:00:00Z" });
-  const bundleB = frozenBundle({ dates });
-  bundleB.bundle.priceObservations = [{ timestamp: "2026-01-05T09:55:00Z", bestAsk: 41.5 }];
-  const afterFreeze = runP6Replay(bundleB.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
-  assert.equal(afterFreeze.ok, true);
-  const corrected = buildOutputBundle({ bundle: bundleB.bundle, replayOutcome: afterFreeze });
-  assert.equal(corrected.ok, true);
+  const inputB = fixtureInput({ dates });
+  inputB.priceObservations = [{ timestamp: "2026-01-05T09:55:00Z", bestAsk: 41.5 }];
+  const bundleB = buildReplayBundle(inputB);
+  assert.equal(bundleB.ok, true);
+  const corrected = outputBundleFor({ bundle: bundleB.bundle, runTimestampUtc: "2026-09-23T00:00:00Z" });
   assert.notEqual(a.receiptId, corrected.receiptId);
   // Y los resultados económicos divergen (precio distinto, fill distinto).
   assert.equal(
@@ -289,6 +290,38 @@ test("§14.9: la identidad del receipt captura cambios de datos/config ejecució
     false,
   );
 });
+
+test("§14.9: un bundle mutado tras el freeze no materializa receipt (FROZEN_BUNDLE_HASH_MISMATCH)", () => {
+  // Repro del defecto IMP14-BIND-02: mutar priceObservations después de
+  // congelarse conserva la etiqueta contentHash vieja; el hash recalculado del
+  // contenido ya no coincide y la materialización debe rechazarse.
+  const dates = ["2026-01-05"];
+  const frozen = frozenBundle({ dates });
+  assert.equal(frozen.ok, true);
+  const tampered = frozen.bundle;
+  tampered.priceObservations = [{ timestamp: "2026-01-05T09:55:00Z", bestAsk: 41.5 }];
+
+  const replay = runP6Replay(tampered, { runTimestampUtc: "2026-09-23T00:00:00Z" });
+  assert.equal(replay.ok, true);
+  const built = buildOutputBundle({ bundle: tampered, replayOutcome: replay });
+  assert.equal(built.ok, false, "un bundle mutado tras el freeze no debe materializar receipt");
+  assert.equal(built.code, "FROZEN_BUNDLE_HASH_MISMATCH");
+});
+
+test("§14.9/§25.2: register rechaza un output bundle con ledgers mutados (OUTPUT_DIGEST_MISMATCH)", () => {
+  // Repro del defecto IMP14-REG-01: el freeze es superficial; un ledger mutado
+  // por dentro ya no coincide con receipt.outputDigests y no debe registrarse.
+  const built = outputBundleFor({ bundle: frozenBundle().bundle, runTimestampUtc: "2026-09-23T00:00:00Z" });
+  assert.equal(built.outputBundle.ledgers.decision.length > 0, true);
+  built.outputBundle.ledgers.decision[0] = { ...built.outputBundle.ledgers.decision[0], statusCodes: ["TAMPERED"] };
+
+  const registry = createRunReceiptRegistry();
+  const result = registry.register({ outputBundle: built.outputBundle });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "OUTPUT_DIGEST_MISMATCH");
+  assert.equal(registry.snapshot().length, 0, "un bundle mutado no entra al registro");
+});
+
 
 test("§14.9/§14.1: la materialización no recalcula ni repara: requiere replay y bundle reales", () => {
   const builtWithoutReplay = buildOutputBundle({ bundle: null, replayOutcome: null });

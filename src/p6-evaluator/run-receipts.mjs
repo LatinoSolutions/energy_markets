@@ -82,6 +82,16 @@ export function materializeRunReceipt({ bundle, replayOutcome }) {
     return { ok: false, code: "BUNDLE_OUTCOME_MISMATCH", message: "El replay no corresponde al frozen bundle: receipt.frozenBundleContentHash debe igualar bundle.contentHash; un receipt que declara inputs distintos de los que produjeron los ledgers rompe la trazabilidad (§14.9)." };
   }
 
+  // §14.9: no basta con que la etiqueta contentHash del bundle coincida con la
+  // del replay; hay que recalcular el hash del contenido real del bundle. Un
+  // bundle mutado después de congelarse conserva la etiqueta vieja, así que
+  // declararía un hash de inputs que no produjo sus ledgers ("same frozen input
+  // bundle → same ledger and economic outputs"). Fail-closed antes de fabricar.
+  const { contentHash, ...frozenContent } = bundle;
+  if (contentHashOf(frozenContent) !== contentHash) {
+    return { ok: false, code: "FROZEN_BUNDLE_HASH_MISMATCH", message: "El contenido del frozen bundle no coincide con su contentHash: fue mutado después de congelarse; un receipt que declara inputs distintos de los que produjeron los ledgers rompe la reproducibilidad (§14.9)." };
+  }
+
   // §14.9: content hash del input dataset manifest congelado. El manifest PIT
   // es la fuente declarada en el receipt (datasetManifestId/Version); aquí se
   // añade el hash canónico de su contenido.
@@ -157,13 +167,28 @@ export function createRunReceiptRegistry() {
   const byReceiptId = new Map();
 
   const registry = {
-    // Un mismo receiptId re-registrado sólo admite contenido idéntico (menos
-    // el run timestamp): batir el mismo receiptId con otro contenido es
-    // sobrescritura encubierta y se rechaza fail-closed; una corrección
-    // (datos/evaluator/config) produce receiptId nuevo por construcción.
+    // Append-only: cada register añade una entrada nueva y el receiptId se
+    // re-deriva del contenido recibido, así que una corrección
+    // (datos/evaluator/config) entra como receiptId distinto y ningún run
+    // previo se sobrescribe (§25.2). El freeze del bundle es superficial, así
+    // que antes de aceptar la entrada se re-derivan los digests reales y se
+    // exige que coincidan con los declarados en el receipt: un ledger mutado
+    // por dentro no entra al registro.
     register({ outputBundle }) {
       if (!outputBundle || typeof outputBundle !== "object" || Array.isArray(outputBundle) || outputBundle.bundleKind !== "P6_OUTPUT_BUNDLE") {
         return { ok: false, code: "INVALID_OUTPUT_BUNDLE", message: "Sólo se registran output bundles P6 materializados por buildOutputBundle (§14.10)." };
+      }
+      if (!outputBundle.ledgers || typeof outputBundle.ledgers !== "object" || Array.isArray(outputBundle.ledgers)
+        || !outputBundle.receipt || typeof outputBundle.receipt !== "object" || Array.isArray(outputBundle.receipt)) {
+        return { ok: false, code: "INVALID_OUTPUT_BUNDLE", message: "El output bundle debe exponer ledgers y receipt para verificar sus digests (§14.10)." };
+      }
+      // §14.9/§25.2: los ledgers reales deben coincidir con receipt.outputDigests;
+      // si no, el bundle fue mutado después del build y se rechaza fail-closed.
+      const declaredDigests = outputBundle.receipt.outputDigests;
+      const recomputedDigests = outputBundleDigestsOf(outputBundle);
+      if (!declaredDigests || typeof declaredDigests !== "object" || Array.isArray(declaredDigests)
+        || contentHashOf(recomputedDigests) !== contentHashOf(declaredDigests)) {
+        return { ok: false, code: "OUTPUT_DIGEST_MISMATCH", message: "Los ledgers del bundle no coinciden con receipt.outputDigests: el bundle fue mutado después del build y no se registra (§14.9/§25.2)." };
       }
       // El receiptId se re-deriva del contenido recibido: un receipt editado
       // después del build ya no es el receipt del run, y batirlo contra el ID
