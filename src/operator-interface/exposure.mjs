@@ -427,7 +427,10 @@ function validateProvenanceWithoutValue(provenance, field, errors, backendIndex)
 // OI29-09 (review 2026-09-23): en decision el reloj es el consumo DEMOSTRADO
 // (consumableFromUtc, §6.1), no la declarativa consumableAtUtc: un valor sin
 // evidencia de consumo demostrado no era conocido por la policy en el boundary.
-function availabilityClockOf(backendRecord) {
+// Exportada para que la UI re-aplique la MISMA proyección del boundary
+// (buildReplayViewModel, review de cambio 2026-09-23): el reloj de
+// disponibilidad vive aquí, no se re-deriva en el consumidor (§26.3).
+export function availabilityClockOf(backendRecord) {
   if (backendRecord === null) {
     return null;
   }
