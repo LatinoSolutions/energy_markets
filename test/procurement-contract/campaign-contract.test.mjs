@@ -156,6 +156,61 @@ test("el deadline no se infiere cuando el calendario no lo aporta", () => {
   assert.equal(determined.deadline, "2026-12-31");
 });
 
+test("una fact de texto con valor no textual se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  fact(ficha, "campaign.identity.mission").value = { invented: "objeto" };
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "VALUE_TYPE_MISMATCH" && error.factId === "campaign.identity.mission"));
+});
+
+test("una cantidad AVAILABLE_NOW negativa o no numérica se rechaza", () => {
+  for (const badValue of [-10, "60", { value: 60 }]) {
+    const ficha = createGasQuarterlyFicha();
+    fact(ficha, "campaign.obligation.totalVolumeKnown").value = badValue;
+    const outcome = validateCampaignContract(ficha);
+    assert.equal(outcome.ok, false, JSON.stringify(badValue));
+    assert.ok(outcome.errors.some((error) => error.code === "VALUE_TYPE_MISMATCH" && error.factId === "campaign.obligation.totalVolumeKnown"), JSON.stringify(badValue));
+  }
+});
+
+test("la ficha declara el estado de la relación Monthly/Quarterly y del mapa de ownership (DEP-02)", () => {
+  const ficha = createGasQuarterlyFicha();
+  assert.equal(ficha.coverageOwnership.mapState, "UNAVAILABLE");
+  assert.ok(ficha.coverageOwnership.reason.length > 0);
+  assert.equal(ficha.coverageOwnership.relationMonthlyQuarterly.availability, "UNAVAILABLE");
+  assert.ok(ficha.coverageOwnership.relationMonthlyQuarterly.reason.includes("adicionales, solapadas o alternativas"));
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, true);
+});
+
+test("una ficha sin bloque coverageOwnership se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  delete ficha.coverageOwnership;
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "COVERAGE_OWNERSHIP_MAP_STATE_MISSING"));
+});
+
+test("una ficha con coverageOwnership sin razón se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.coverageOwnership.reason = "";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "MISSING_NOT_DOCUMENTED" && error.factId === "coverageOwnership"));
+});
+
+test("una ficha con mapa MATERIALIZED sin asignaciones ni provenance se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.coverageOwnership.mapState = "MATERIALIZED";
+  ficha.coverageOwnership.reason = null;
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  const codes = outcome.errors.map((error) => error.code);
+  assert.ok(codes.includes("COVERAGE_OWNERSHIP_MAP_NOT_MATERIALIZED"));
+  assert.ok(codes.includes("NO_PROVENANCE"));
+});
+
 test("la ficha materializada en v1_1_1 se valida y coincide con el builder", () => {
   const path = resolve(repoRoot, "operations/audit/IMP-02/v1_1_1/gas-quarterly-campaign-ficha.json");
   const artifact = JSON.parse(readFileSync(path, "utf8"));

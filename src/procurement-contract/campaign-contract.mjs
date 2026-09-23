@@ -6,6 +6,10 @@
 // faltante explícito; nunca inventar producto, delivery, calendario ni unidad.
 
 import { STATE_NAMESPACES } from "../contracts/states.mjs";
+import {
+  COVERAGE_OWNERSHIP_MAP_STATES,
+  validateRelationDeclaration,
+} from "./coverage-ownership.mjs";
 
 const AVAILABILITY = STATE_NAMESPACES.data_availability.values;
 
@@ -88,6 +92,10 @@ function isMissingValue(value) {
   return value === null || value === undefined || (typeof value === "string" && value.trim().length === 0);
 }
 
+function isFiniteNonNegativeNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 function hasProvenance(fact) {
   const source = fact?.source;
   return source !== null
@@ -96,11 +104,17 @@ function hasProvenance(fact) {
     && isNonEmptyString(source.locator);
 }
 
-// Una fact AVAILABLE_NOW exige valor, escala y provenance. Un `quantity` exige
-// unidad explícita: sin ella la cantidad no es ejecutable.
+// Una fact AVAILABLE_NOW exige valor, escala y provenance. El valor debe ser
+// del tipo declarado: un `text` es texto, un `quantity` es número finito no
+// negativo (el volumen de cobertura nunca es negativo, §4.3) con unidad
+// explícita; sin ella la cantidad no es ejecutable.
 function validateAvailableFact(fact, definition, errors) {
   if (isMissingValue(fact.value)) {
     errors.push({ factId: fact.factId, code: "AVAILABLE_WITHOUT_VALUE", message: `"${fact.factId}" está AVAILABLE_NOW pero no aporta valor.` });
+  } else if (definition.kind === "text" && !isNonEmptyString(fact.value)) {
+    errors.push({ factId: fact.factId, code: "VALUE_TYPE_MISMATCH", message: `"${fact.factId}" es una fact de texto y su valor no es texto.` });
+  } else if (definition.kind === "quantity" && (!isFiniteNonNegativeNumber(fact.value))) {
+    errors.push({ factId: fact.factId, code: "VALUE_TYPE_MISMATCH", message: `"${fact.factId}" es una cantidad y su valor debe ser un número finito no negativo (§4.3).` });
   }
   if (definition.kind === "quantity" && !isNonEmptyString(fact.unit)) {
     errors.push({ factId: fact.factId, code: "QUANTITY_WITHOUT_UNIT", message: `"${fact.factId}" es una cantidad sin unidad; no se asume MW ni MWh.` });
@@ -138,6 +152,36 @@ function validateGuards(guards, errors) {
   if (declared.assumedMwToMwhConversion === true) {
     errors.push({ factId: "guards.assumedMwToMwhConversion", code: "UNIT_INFERENCE_WITHOUT_HOURS_PROFILE", message: "No se asume una conversión MW→MWh sin horas/perfil (§4.1)." });
   }
+}
+
+// §24 DEP-02: la ficha materializa el estado de la relación Monthly/Quarterly
+// y del mapa de asignación fill→obligación. El mapa sin materializar exige
+// razón documentada; materializado exige assignments y provenance. La
+// relación se declara con la misma taxonomía del mapa (fuente única), así la
+// ficha y mapCoverageOwnership no pueden divergir.
+function validateCoverageOwnership(coverageOwnership, errors) {
+  const declared = coverageOwnership && typeof coverageOwnership === "object" && !Array.isArray(coverageOwnership)
+    ? coverageOwnership
+    : {};
+  if (!isNonEmptyString(declared.mapState) || !COVERAGE_OWNERSHIP_MAP_STATES.includes(declared.mapState)) {
+    errors.push({
+      factId: "coverageOwnership",
+      code: "COVERAGE_OWNERSHIP_MAP_STATE_MISSING",
+      message: `La ficha debe declarar el estado del mapa de ownership: ${COVERAGE_OWNERSHIP_MAP_STATES.join(", ")} (§4.3/DEP-02).`,
+    });
+    return;
+  }
+  if (declared.mapState === "MATERIALIZED") {
+    if (!Array.isArray(declared.assignments)) {
+      errors.push({ factId: "coverageOwnership", code: "COVERAGE_OWNERSHIP_MAP_NOT_MATERIALIZED", message: "El mapa MATERIALIZED exige la lista de asignaciones fill→obligación." });
+    }
+    if (!isNonEmptyString(declared.authority) || !isNonEmptyString(declared.locator)) {
+      errors.push({ factId: "coverageOwnership", code: "NO_PROVENANCE", message: "El mapa MATERIALIZED exige autoridad y locator." });
+    }
+  } else if (!isNonEmptyString(declared.reason)) {
+    errors.push({ factId: "coverageOwnership", code: "MISSING_NOT_DOCUMENTED", message: "El mapa de ownership sin materializar exige la razón documentada de su faltante (DEP-02)." });
+  }
+  errors.push(...validateRelationDeclaration(declared.relationMonthlyQuarterly).map((error) => ({ factId: "coverageOwnership.relationMonthlyQuarterly", ...error })));
 }
 
 // Valida una ficha de campaña completa. Preserva la razón de cada faltante en
@@ -193,6 +237,7 @@ export function validateCampaignContract(ficha) {
   }
 
   validateGuards(ficha.guards, errors);
+  validateCoverageOwnership(ficha.coverageOwnership, errors);
 
   const campaignIdentified = IDENTITY_FACT_IDS.every((factId) => seen.get(factId)?.availability === "AVAILABLE_NOW");
   return { ok: errors.length === 0, campaignIdentified, errors };
@@ -300,5 +345,16 @@ export function createGasQuarterlyFicha() {
       assumedMwToMwhConversion: false,
     },
     facts,
+    // §24 DEP-02: estado materializado de la relación y del mapa de ownership
+    // para la campaña examinada. Sin mandato auditado ambos quedan como
+    // faltante documentado; la taxonomía vive en coverage-ownership.mjs.
+    coverageOwnership: {
+      mapState: "UNAVAILABLE",
+      reason: "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
+      relationMonthlyQuarterly: {
+        availability: "UNAVAILABLE",
+        reason: "No se sabe si las obligaciones Monthly y Quarterly son adicionales, solapadas o alternativas según mandato (DEP-02; D08 p.4; D15 p.2).",
+      },
+    },
   };
 }

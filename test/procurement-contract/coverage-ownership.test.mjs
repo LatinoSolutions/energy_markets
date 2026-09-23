@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  MONTHLY_QUARTERLY_RELATION_STATES,
   applyFilledQuantity,
   computeRemainingVolume,
   mapCoverageOwnership,
   reconcileCoverage,
+  validateRelationDeclaration,
 } from "../../src/procurement-contract/coverage-ownership.mjs";
 
 test("el volumen restante se deriva sólo con magnitudes y unidad compatibles", () => {
@@ -157,4 +159,122 @@ test("un fill no puede exceder la obligación de apertura", () => {
   const outcome = applyFilledQuantity({ openingObligation: 100, executedVolume: 90, filledQuantity: 20, unit: "MWh" });
   assert.equal(outcome.updated, false);
   assert.equal(outcome.code, "CONSERVATION_VIOLATION");
+});
+
+test("magnitudes negativas no reconcilian aunque la aritmética conserve", () => {
+  const outcome = reconcileCoverage({ openingObligation: -100, executedVolume: -40, remainingVolume: -60, unit: "MWh" });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "NOT_COMPUTABLE");
+  assert.ok(outcome.errors.some((error) => error.code === "NEGATIVE_MAGNITUDE"));
+});
+
+test("un residual parcial negativo tampoco reconcilia", () => {
+  const outcome = reconcileCoverage({ openingObligation: 100, executedVolume: 40, remainingVolume: -60, unit: "MWh" });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "NEGATIVE_MAGNITUDE"));
+});
+
+test("terminal rule VERIFIED sin evidencia de cierre deja el residual COVERAGE_INCOMPLETE", () => {
+  const outcome = reconcileCoverage({ openingObligation: 100, executedVolume: 40, remainingVolume: 60, unit: "MWh", terminalRuleStatus: "VERIFIED" });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("un close-out fill que cubre exactamente el residual con regla VERIFIED cierra COVERED", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    closeOutFill: { quantity: 60, unit: "MWh" },
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.coverageStatus, "COVERED");
+});
+
+test("un close-out fill que no cubre el residual completo no cierra COVERED", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    closeOutFill: { quantity: 30, unit: "MWh" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("un close-out fill en otra unidad no cierra el residual", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    closeOutFill: { quantity: 60, unit: "MW" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("una enmienda documentada del residual cierra COVERED", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    residualAmendment: { authority: "Bru (owner)", locator: "D02 P6.5 enmienda real" },
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.coverageStatus, "COVERED");
+});
+
+test("una enmienda sin provenance no cierra el residual", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    residualAmendment: { authority: "Bru (owner)" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("la relación Monthly/Quarterly AVAILABLE_NOW sin tipo, valor ni provenance se rechaza", () => {
+  const outcome = mapCoverageOwnership({ relationMonthlyQuarterly: { availability: "AVAILABLE_NOW" }, obligations: [], fills: [] });
+  assert.equal(outcome.ok, false);
+  const codes = outcome.errors.map((error) => error.code);
+  assert.ok(codes.includes("RELATION_TYPE_NOT_DECLARED"));
+  assert.ok(codes.includes("AVAILABLE_WITHOUT_VALUE"));
+  assert.ok(codes.includes("NO_PROVENANCE"));
+});
+
+test("la relación AVAILABLE_NOW materializa su estado resuelto con provenance", () => {
+  for (const relationType of MONTHLY_QUARTERLY_RELATION_STATES) {
+    const errors = validateRelationDeclaration({
+      availability: "AVAILABLE_NOW",
+      relationType,
+      value: `mandato declara relación ${relationType}`,
+      authority: "Bru (owner)",
+      locator: "mandato firmado p.1",
+    });
+    assert.deepEqual(errors, [], relationType);
+  }
+});
+
+test("la relación AVAILABLE_NOW con un tipo no declarado se rechaza", () => {
+  const outcome = mapCoverageOwnership({
+    relationMonthlyQuarterly: { availability: "AVAILABLE_NOW", relationType: "SAME", value: "x", authority: "a", locator: "l" },
+    obligations: [],
+    fills: [],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "RELATION_TYPE_NOT_DECLARED"));
 });

@@ -244,5 +244,13 @@
       "reason": "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
       "nextRetrievalAction": "Asignar cada fill/cobertura a lo sumo a una obligación."
     }
-  ]
+  ],
+  "coverageOwnership": {
+    "mapState": "UNAVAILABLE",
+    "reason": "No hay fills ni obligaciones reales que asignar sin doble conteo (§4.3/DEP-02).",
+    "relationMonthlyQuarterly": {
+      "availability": "UNAVAILABLE",
+      "reason": "No se sabe si las obligaciones Monthly y Quarterly son adicionales, solapadas o alternativas según mandato (DEP-02; D08 p.4; D15 p.2)."
+    }
+  }
 }

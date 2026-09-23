@@ -2,9 +2,24 @@
 // v1.1.1 §4.3 (OpeningObligation = ExecutedVolume + RemainingVolume; WAIT y
 // partial fills conservan residual; una cobertura no pertenece dos veces a
 // obligaciones; sin terminal rule válida → COVERAGE_INCOMPLETE sin fill
-// inventado) y §14.5 (sólo fills cambian coverage; sin closing fill fabricado).
+// inventado), §14.5 (sólo fills cambian coverage; el cierre del residual se
+// ejecuta o se cancela con enmienda real documentada) y §24 DEP-02 (relación
+// Monthly/Quarterly: adicional, solapada o alternativa según mandato).
+
+import { STATE_NAMESPACES } from "../contracts/states.mjs";
 
 export const COVERAGE_STATUSES = ["COVERED", "COVERAGE_INCOMPLETE", "NOT_COMPUTABLE"];
+
+// §24 DEP-02: los estados en que puede quedar la relación entre obligaciones
+// Monthly y Quarterly una vez auditado el mandato. La taxonomía vive aquí para
+// que ficha y mapa declaren una sola, no dos verdades distintas.
+export const MONTHLY_QUARTERLY_RELATION_STATES = ["ADDITIONAL", "OVERLAPPING", "ALTERNATIVE", "DOCUMENTED_ABSENCE"];
+
+// Estado del mapa de asignación fill→obligación de la ficha: UNAVAILABLE exige
+// razón documentada; MATERIALIZED exige la lista de asignaciones.
+export const COVERAGE_OWNERSHIP_MAP_STATES = ["UNAVAILABLE", "MATERIALIZED"];
+
+const DATA_AVAILABILITY = STATE_NAMESPACES.data_availability.values;
 
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -44,7 +59,12 @@ export function computeRemainingVolume({ openingObligation, executedVolume, open
 
 // §4.3/§14.5: reconcilia apertura = ejecutado + restante y clasifica cobertura.
 // Un close-out fill sólo puede existir con terminal rule válida declarada.
-export function reconcileCoverage({ openingObligation, executedVolume, remainingVolume, unit, terminalRuleStatus, closeOutFill } = {}) {
+// El cierre de un residual positivo exige evidencia real: la regla marcada
+// VERIFIED sólo autoriza; hay que demostrar que se aplicó (fill de cierre que
+// cubre exactamente el residual) o que el residual se ejecutó/canceló mediante
+// una enmienda con autoridad y locator (§14.5). Sin esa evidencia el residual
+// permanece COVERAGE_INCOMPLETE.
+export function reconcileCoverage({ openingObligation, executedVolume, remainingVolume, unit, terminalRuleStatus, closeOutFill, residualAmendment } = {}) {
   const errors = [];
   const magnitudes = { openingObligation, executedVolume, remainingVolume };
   const missingMagnitude = Object.entries(magnitudes).some(([, value]) => !isFiniteNumber(value));
@@ -53,6 +73,9 @@ export function reconcileCoverage({ openingObligation, executedVolume, remaining
   }
   if (!isNonEmptyString(unit)) {
     return { ok: false, coverageStatus: "NOT_COMPUTABLE", errors: [{ code: "MISSING_UNIT", message: "Sin unidad no hay reconciliación válida." }] };
+  }
+  if (openingObligation < 0 || executedVolume < 0 || remainingVolume < 0) {
+    return { ok: false, coverageStatus: "NOT_COMPUTABLE", errors: [{ code: "NEGATIVE_MAGNITUDE", message: "Las magnitudes de cobertura no pueden ser negativas; el volumen no desaparece (§4.3)." }] };
   }
 
   if (openingObligation !== executedVolume + remainingVolume) {
@@ -64,8 +87,58 @@ export function reconcileCoverage({ openingObligation, executedVolume, remaining
     errors.push({ code: "CLOSEOUT_WITH_UNKNOWN_TERMINAL_RULE", message: "No se fabrica un fill de cierre sin terminal rule válida (§4.3/§14.5)." });
   }
 
-  const coverageStatus = remainingVolume > 0 && !terminalRuleValid ? "COVERAGE_INCOMPLETE" : "COVERED";
+  const positiveResidual = remainingVolume > 0;
+  const closeOutCoversResidual = isFiniteNumber(closeOutFill?.quantity) && closeOutFill.quantity === remainingVolume
+    && (isMissing(closeOutFill.unit) || closeOutFill.unit === unit);
+  const amendmentDocumented = isNonEmptyString(residualAmendment?.authority) && isNonEmptyString(residualAmendment?.locator);
+
+  let coverageStatus;
+  if (!positiveResidual) {
+    coverageStatus = "COVERED";
+  } else if (terminalRuleValid && (closeOutCoversResidual || amendmentDocumented)) {
+    coverageStatus = "COVERED";
+  } else {
+    coverageStatus = "COVERAGE_INCOMPLETE";
+    if (terminalRuleValid) {
+      errors.push({
+        code: "RESIDUAL_CLOSE_NOT_EVIDENCED",
+        message: "El residual positivo con terminal rule VERIFIED exige evidencia de cierre: un fill que cubra exactamente el restante o una enmienda/cancelación documentada (§4.3/§14.5).",
+      });
+    }
+  }
+
   return { ok: errors.length === 0, coverageStatus, errors };
+}
+
+// §24 DEP-02: la relación Monthly/Quarterly debe declararse explícitamente con
+// su estado resuelto (adicional, solapada, alternativa o ausencia documentada
+// según mandato). AVAILABLE_NOW exige tipo de relación, valor y provenance;
+// UNAVAILABLE exige razón documentada. Negociar la relación con otra
+// availability, un tipo no declarado o un estado sin soporte niega el faltante.
+export function validateRelationDeclaration(relation) {
+  const errors = [];
+  if (!relation || typeof relation !== "object" || Array.isArray(relation)) {
+    errors.push({ code: "MISSING_NOT_DOCUMENTED", message: "Falta la relación Monthly/Quarterly; su ausencia debe quedar documentada explícitamente (§4.3/DEP-02)." });
+    return errors;
+  }
+  if (typeof relation.availability !== "string" || !DATA_AVAILABILITY.includes(relation.availability)) {
+    errors.push({ code: "UNKNOWN_AVAILABILITY", message: "La relación Monthly/Quarterly usa un availability no declarado (§3.2)." });
+    return errors;
+  }
+  if (relation.availability === "AVAILABLE_NOW") {
+    if (!isNonEmptyString(relation.relationType) || !MONTHLY_QUARTERLY_RELATION_STATES.includes(relation.relationType)) {
+      errors.push({ code: "RELATION_TYPE_NOT_DECLARED", message: `La relación AVAILABLE_NOW exige relationType declarado: ${MONTHLY_QUARTERLY_RELATION_STATES.join(", ")} (DEP-02).` });
+    }
+    if (isMissing(relation.value)) {
+      errors.push({ code: "AVAILABLE_WITHOUT_VALUE", message: "La relación Monthly/Quarterly está AVAILABLE_NOW sin valor que la materialice." });
+    }
+    if (!isNonEmptyString(relation.authority) || !isNonEmptyString(relation.locator)) {
+      errors.push({ code: "NO_PROVENANCE", message: "La relación Monthly/Quarterly está AVAILABLE_NOW sin autoridad y locator." });
+    }
+  } else if (!isNonEmptyString(relation.reason)) {
+    errors.push({ code: "MISSING_NOT_DOCUMENTED", message: "La relación Monthly/Quarterly no resuelta exige la razón documentada de su faltante (DEP-02)." });
+  }
+  return errors;
 }
 
 // §4.3: cada fill/cobertura pertenece a lo sumo a una obligación; un fill
@@ -118,15 +191,11 @@ export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fi
     }
   }
 
-  // §4.3/DEP-02: la relación Monthly/Quarterly debe declararse explícitamente.
-  // Su ausencia total es un faltante no documentado, no una ausencia de
-  // obligaciones: no se asume "sin solapamiento".
-  const relation = relationMonthlyQuarterly;
-  if (isMissing(relation) || typeof relation !== "object") {
-    errors.push({ code: "MISSING_NOT_DOCUMENTED", message: "Falta la relación Monthly/Quarterly; su ausencia debe quedar documentada explícitamente (§4.3/DEP-02)." });
-  } else if (relation.availability === "UNAVAILABLE" && !isNonEmptyString(relation.reason)) {
-    errors.push({ code: "MISSING_NOT_DOCUMENTED", message: "La relación Monthly/Quarterly está UNAVAILABLE sin razón documentada." });
-  }
+  // §4.3/DEP-02: la relación Monthly/Quarterly debe declararse explícitamente
+  // con su estado resuelto o la razón documentada de su faltante. La ausencia
+  // total es un faltante no documentado, no una ausencia de obligaciones: no
+  // se asume "sin solapamiento".
+  errors.push(...validateRelationDeclaration(relationMonthlyQuarterly));
 
   return { ok: errors.length === 0, assignments, errors };
 }
