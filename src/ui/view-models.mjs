@@ -20,6 +20,7 @@ import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
   EXPOSURE_FIELDS,
+  availabilityClockOf,
   buildExposureField,
 } from "../operator-interface/exposure.mjs";
 import {
@@ -271,6 +272,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   if (!exposureBoundaryUtc.ok || !decisionBoundaryUtc.ok || exposureBoundaryUtc.utc !== decisionBoundaryUtc.utc) {
     errors.push({ field: "exposure.exposure.boundaryUtc", code: "EXPOSURE_BOUNDARY_NOT_ALIGNED", message: "la exposición declarada no usa el mismo boundary de decisión del timeline; la página de Replay no puede presentar como conocido al decidir lo que cerró después (§26.3/§25.1)" });
   }
+  const decisionBoundaryMs = decisionBoundaryUtc.ok ? Date.parse(decisionBoundaryUtc.utc) : Number.NaN;
   const bindPoint = (point, landmark, expectedLane, expectedViewScope, expectedClockOf, expectedClockKind) => {
     // UI01-05b (review de cambio 2026-09-23): la lane exhibida por el render
     // (lane-<lane>) se deriva de la lane conciliada; una etiqueta distinta del
@@ -359,6 +361,21 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     const definition = EXPOSURE_FIELDS.find((canonical) => canonical.key === field.field);
     if (definition !== undefined && (field.specLabel !== definition.specLabel || field.section !== definition.section)) {
       errors.push({ field: landmark, code: "EXPOSURE_SECTION_MISMATCH", message: `la sección "${field.field}" no es su definición canónica de §26.2; la etiqueta del llamador no se presenta como factual` });
+    }
+    // UI01-06a (review de cambio 2026-09-23): buildExposureField no conoce el
+    // boundary, así que un AVAILABLE forjado (o proyectado a un boundary
+    // posterior y re-declarado al decision boundary) pasaba. La proyección del
+    // boundary se re-aplica con el mismo reloj de disponibilidad del boundary
+    // (availabilityClockOf, exposure.mjs): una versión canónica posterior al
+    // boundary — o sin disponibilidad demostrada — no se rinde con valor como
+    // factual al decidir (§26.3/§25.1 IMP-29).
+    if (field.value !== undefined && field.value !== null
+      && field.provenance !== undefined && field.provenance !== null) {
+      const projectedRecord = resolveBackendRecord(backendIndex, field.provenance.recordKey, field.provenance.revisionId);
+      const availabilityUtc = availabilityClockOf(projectedRecord);
+      if (availabilityUtc === null || Number.isNaN(decisionBoundaryMs) || Date.parse(availabilityUtc) > decisionBoundaryMs) {
+        errors.push({ field: landmark, code: "EXPOSURE_NOT_PROJECTED_TO_BOUNDARY", message: `la versión canónica referida (disponibilidad ${availabilityUtc ?? "sin demostrar"}) es posterior o no demostrada al boundary de decisión; buildExposure habría degradado esta sección a NOT_YET_CLOSED y no se rinde con valor como factual (§26.3/§25.1)` });
+      }
     }
   }
   // UI01-04b (review de cambio 2026-09-23): la completitud estructural del

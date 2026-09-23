@@ -757,6 +757,46 @@ test("replay: una exposición con boundary distinto del decision boundary queda 
   assert.ok(!html.includes("<li class=\"exposure-field"));
 });
 
+// UI01-06a (review de cambio 2026-09-23): re-declarar el `boundaryUtc` de una
+// exposición proyectada a un boundary posterior alinea la cadena declarada,
+// pero el outcome INFO_CERRADO sigue AVAILABLE con su valor futuro; la
+// proyección de disponibilidad del boundary se re-aplica en la UI y ese campo
+// queda fail-closed (§26.3/§25.1 IMP-29).
+test("replay: una exposición re-declarada al decision boundary con fields posteriores queda fail-closed", () => {
+  const { manifest, timeline, backendIndex } = scenarios();
+  const laterExposure = buildExposure({
+    boundaryUtc: "2026-12-31T00:00:00Z",
+    observations: [{
+      field: "outcomes",
+      condition: EXPOSURE_CONDITION.AVAILABLE,
+      value: EVALUATION_BENCHMARK.value,
+      provenance: {
+        sourceKind: EXPOSURE_SOURCE_KIND.OUTCOME,
+        recordKey: EVALUATION_BENCHMARK.key,
+        revisionId: EVALUATION_BENCHMARK.revisionId,
+        valueSha256: canonicalValueSha256(EVALUATION_BENCHMARK.value).sha256,
+      },
+    }],
+    backendManifest: manifest,
+  });
+  assert.equal(laterExposure.ok, true, JSON.stringify(laterExposure.errors ?? "?"));
+  const outcome = laterExposure.exposure.fields.find((field) => field.field === "outcomes");
+  assert.equal(outcome.condition, EXPOSURE_CONDITION.AVAILABLE);
+  // misma cadena declarada que el decision boundary: la variante que el test
+  // UI01-05a no cubría
+  const redeclared = {
+    ok: true,
+    exposure: { ...laterExposure.exposure, boundaryUtc: timeline.timeline.decision.boundary },
+  };
+  const vm = buildReplayViewModel({ timeline, exposure: redeclared, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "EXPOSURE_NOT_PROJECTED_TO_BOUNDARY" && error.field === "exposure.fields.outcomes"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("25.7"));
+  assert.ok(!html.includes("<li class=\"exposure-field"));
+});
+
 // UI01-05b (review de cambio 2026-09-23): el tipo de reloj exhibido y la lane
 // del punto se derivan de la lane canónica (decision → policy-consumable,
 // evaluation → evaluation-effective); un clockKind o lane declarado por el
