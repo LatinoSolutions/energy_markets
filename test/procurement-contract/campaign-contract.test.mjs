@@ -11,6 +11,7 @@ import {
   convertMwToMwh,
   createGasQuarterlyFicha,
   evaluateImp02Acceptance,
+  IMP02_REQUIRED_FACT_IDS,
   resolveObligationDeadline,
   validateCampaignContract,
 } from "../../src/procurement-contract/index.mjs";
@@ -488,6 +489,21 @@ function makeAvailable(ficha, factId, value, unit = null) {
   });
 }
 
+// §25.2 fila IMP-02: el resto de DEP-01–04 (contrato, delivery, liquidación,
+// vínculo, vigencia, calendario, enmiendas, terminal rule) auditado. Valores
+// sintéticos: prueban la derivación, no son datos de una campaña real.
+function makeRestOfAuditedContractAvailable(ficha) {
+  makeAvailable(ficha, "campaign.obligation.deliveryPeriod", "SYNTH-DELIVERY");
+  makeAvailable(ficha, "campaign.obligation.settlement", "SYNTH-SETTLEMENT");
+  makeAvailable(ficha, "campaign.obligation.validity", "SYNTH-VALIDITY");
+  makeAvailable(ficha, "campaign.obligation.campaignLink", "SYNTH-1");
+  makeAvailable(ficha, "campaign.obligation.amendments", "SYNTH-AMENDMENTS");
+  makeAvailable(ficha, "campaign.calendar.openClose", "SYNTH-OPEN-CLOSE");
+  makeAvailable(ficha, "campaign.calendar.decisionOpportunities", "SYNTH-OPPORTUNITIES");
+  makeAvailable(ficha, "campaign.calendar.pauseExclusion", "SYNTH-PAUSE");
+  makeAvailable(ficha, "campaign.feasibility.terminalCoverageRule", "SYNTH-TERMINAL-RULE");
+}
+
 // Fixture sintético de una campaña identificada con mapa MATERIALIZED; prueba
 // la reconciliación, no es una campaña real.
 function materializedFicha({ executed, assignments }) {
@@ -501,6 +517,7 @@ function materializedFicha({ executed, assignments }) {
   makeAvailable(ficha, "campaign.coverage.executedVolume", executed, "MW");
   makeAvailable(ficha, "campaign.coverage.remainingVolume", 60 - executed, "MW");
   makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "ledger sintético");
+  makeRestOfAuditedContractAvailable(ficha);
   ficha.coverageOwnership = {
     mapState: "MATERIALIZED",
     obligationId: "OBL-QUARTERLY",
@@ -595,31 +612,118 @@ test("una ficha sin declaración del criterio de aceptación se rechaza", () => 
   assert.ok(codesOf(ficha).includes("ACCEPTANCE_CRITERION_MISSING"));
 });
 
-test("con todas las facts disponibles y coherentes el criterio se deriva como cumplido", () => {
+test("con la ficha completa DEP-01–04 coherente el criterio se deriva como cumplido", () => {
   // Fixture sintético: prueba la derivación, no es una campaña real.
-  const ficha = createGasQuarterlyFicha();
-  makeAvailable(ficha, "campaign.identity.campaignId", "SYNTH-1");
-  makeAvailable(ficha, "campaign.identity.productContract", "SYNTH-CONTRACT");
-  makeAvailable(ficha, "campaign.identity.productFamily", "Gas");
-  makeAvailable(ficha, "campaign.identity.mission", "Quarterly");
-  makeAvailable(ficha, "campaign.identity.hubMarket", "SYNTH-HUB");
-  makeAvailable(ficha, "campaign.calendar.deadline", "2026-12-31");
-  makeAvailable(ficha, "campaign.coverage.executedVolume", 20, "MW");
-  makeAvailable(ficha, "campaign.coverage.remainingVolume", 40, "MW");
-  makeAvailable(ficha, "campaign.coverage.fillToObligationAssignment", "FILL-1 → OBL-QUARTERLY");
-  ficha.coverageOwnership = {
-    mapState: "MATERIALIZED",
-    obligationId: "OBL-QUARTERLY",
-    assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }],
-    authority: "Bru (owner)",
-    locator: "fixture sintético",
-    relationMonthlyQuarterly: { availability: "AVAILABLE_NOW", relationType: "ADDITIONAL", value: "adicional", authority: "Bru (owner)", locator: "fixture sintético" },
-  };
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  for (const factId of IMP02_REQUIRED_FACT_IDS) {
+    assert.equal(fact(ficha, factId).availability, "AVAILABLE_NOW", factId);
+  }
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+  assert.deepEqual(ficha.acceptanceCriterion.auditedContract, { determined: true, blockedBy: [], documentedAbsences: [], reason: null });
+  assert.deepEqual(ficha.acceptanceCriterion.remainingVolume, { determined: true, value: 40, unit: "MW", blockedBy: [], reason: null });
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
+});
+
+// Regresión de la revisión 6: criterionMet true con vínculo de campaña,
+// delivery y terminal rule UNAVAILABLE. §25.2 fila IMP-02 exige DEP-01–04
+// resueltas para la campaña examinada.
+test("cualquier fact DEP-01–04 sin auditar impide el criterio (§25.2 IMP-02)", () => {
+  for (const factId of ["campaign.obligation.campaignLink", "campaign.obligation.deliveryPeriod", "campaign.feasibility.terminalCoverageRule", "campaign.obligation.settlement", "campaign.calendar.openClose", "campaign.obligation.amendments"]) {
+    const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+    Object.assign(fact(ficha, factId), { availability: "UNAVAILABLE", value: null, unit: null, source: null, reason: "fixture: sin auditar" });
+    const criterion = evaluateImp02Acceptance(ficha);
+    assert.equal(criterion.contractValid, true, factId);
+    assert.equal(criterion.criterionMet, false, factId);
+    assert.equal(criterion.auditedContract.determined, false, factId);
+    assert.deepEqual(criterion.auditedContract.blockedBy, [factId]);
+  }
+});
+
+test("DEP-01–04 son las facts requeridas; DEP-05 queda para IMP-07 (§25.2)", () => {
+  const dep05 = ["campaign.feasibility.lots", "campaign.feasibility.rounding", "campaign.execution.contract"];
+  for (const factId of dep05) {
+    assert.ok(!IMP02_REQUIRED_FACT_IDS.includes(factId), factId);
+  }
+  assert.equal(IMP02_REQUIRED_FACT_IDS.length, CAMPAIGN_CONTRACT_FACTS.length - dep05.length);
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  assert.equal(fact(ficha, "campaign.execution.contract").availability, "UNAVAILABLE");
+  assert.equal(ficha.acceptanceCriterion.criterionMet, true);
+});
+
+test("la terminal rule y las enmiendas se resuelven con ausencia documentada; el deadline no", () => {
+  // §25.2 IMP-02: "incluida constatación documentada de ausencia cuando corresponda".
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  for (const factId of ["campaign.feasibility.terminalCoverageRule", "campaign.obligation.amendments"]) {
+    makeAvailable(ficha, factId, "El contrato versionado no contiene esta cláusula (fixture sintético).");
+    fact(ficha, factId).documentedAbsence = true;
+  }
   ficha.acceptanceCriterion = evaluateImp02Acceptance(ficha);
   assert.equal(ficha.acceptanceCriterion.criterionMet, true);
-  assert.deepEqual(ficha.acceptanceCriterion.remainingVolume, { determined: true, value: 40, unit: "MW", blockedBy: [], reason: null });
-  const outcome = validateCampaignContract(ficha);
-  assert.deepEqual(outcome.errors, []);
+  // La ausencia de terminal rule queda publicada, no leída como regla.
+  assert.deepEqual(ficha.acceptanceCriterion.auditedContract.documentedAbsences, ["campaign.obligation.amendments", "campaign.feasibility.terminalCoverageRule"]);
+  assert.deepEqual(validateCampaignContract(ficha).errors, []);
+
+  // §13.4: "la estructura documentada de pausa/mes excluido" no admite ausencia.
+  for (const factId of ["campaign.calendar.deadline", "campaign.calendar.pauseExclusion", "campaign.obligation.settlement"]) {
+    const other = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+    fact(other, factId).documentedAbsence = true;
+    assert.ok(codesOf(other).includes("ABSENCE_NOT_ALLOWED"), factId);
+  }
+});
+
+test("una ausencia sin auditar (UNAVAILABLE) o no booleana no se acepta como constatada", () => {
+  for (const flag of [true, "true", null]) {
+    const unavailable = createGasQuarterlyFicha();
+    fact(unavailable, "campaign.feasibility.terminalCoverageRule").documentedAbsence = flag;
+    assert.ok(codesOf(unavailable).includes("ABSENCE_NOT_ALLOWED"), String(flag));
+  }
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(ficha, "campaign.feasibility.terminalCoverageRule").documentedAbsence = "sí";
+  assert.ok(codesOf(ficha).includes("ABSENCE_NOT_ALLOWED"));
+});
+
+// Regresión de la revisión 6: la tabla §4.1 se exigía a toda ficha Gas
+// Quarterly; §4.1 "Alcance": "No se extrapolan estas cantidades a todas las
+// campañas históricas".
+test("la cantidad confirmada sólo gobierna el total que la cita como fuente", () => {
+  const ownMandate = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  makeAvailable(ownMandate, "campaign.obligation.totalVolumeKnown", 45, "MW");
+  fact(ownMandate, "campaign.obligation.totalVolumeKnown").source = { authority: "Mandato sintético SYNTH-1", locator: "fixture p.1" };
+  makeAvailable(ownMandate, "campaign.coverage.remainingVolume", 25, "MW");
+  ownMandate.acceptanceCriterion = evaluateImp02Acceptance(ownMandate);
+  assert.ok(!codesOf(ownMandate).includes("CONFIRMED_QUANTITY_MISMATCH"));
+  assert.deepEqual(validateCampaignContract(ownMandate).errors, []);
+
+  const citesOwner = createGasQuarterlyFicha();
+  fact(citesOwner, "campaign.obligation.totalVolumeKnown").value = 45;
+  assert.ok(codesOf(citesOwner).includes("CONFIRMED_QUANTITY_MISMATCH"));
+});
+
+// Regresión de la validación adversarial: un espacio en el locator o citar
+// sólo la frase de la tabla saltaba la comprobación.
+test("un total atribuido a Bru con otro locator sigue gobernado por la tabla §4.1", () => {
+  const sources = [
+    { authority: "Bru (owner)", locator: "§4.1 tabla de cantidades confirmadas, 2026-09-22 " },
+    { authority: "Owner", locator: "Confirmación de Bru, 2026-09-22" },
+  ];
+  for (const source of sources) {
+    const ficha = createGasQuarterlyFicha();
+    Object.assign(fact(ficha, "campaign.obligation.totalVolumeKnown"), { value: 999, source });
+    assert.ok(codesOf(ficha).includes("CONFIRMED_QUANTITY_MISMATCH"), JSON.stringify(source));
+  }
+});
+
+test("citar la confirmación de Bru para un producto/Mission sin cantidad confirmada se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.product = "Oil";
+  assert.ok(codesOf(ficha).includes("CONFIRMED_QUANTITY_MISMATCH"));
+});
+
+test("la ficha declara la liquidación como faltante explícito (DEP-01)", () => {
+  const settlement = fact(createGasQuarterlyFicha(), "campaign.obligation.settlement");
+  assert.equal(settlement.availability, "UNAVAILABLE");
+  assert.equal(settlement.value, null);
+  assert.ok(settlement.reason.includes("DEP-01"));
 });
 
 test("la terminal rule no verificada no se afirma como inexistente", () => {

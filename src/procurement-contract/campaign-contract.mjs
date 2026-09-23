@@ -39,31 +39,48 @@ export function confirmedQuantityFor(product, mission) {
 }
 
 // §4.1 inputs del contrato de campaña. `kind: "quantity"` exige unidad; el
-// resto sólo exige contenido no vacío. Ningún campo tiene default.
+// resto sólo exige contenido no vacío. Ningún campo tiene default. `dep` es la
+// dependencia de §24 que materializa cada fact: §25.2 fila IMP-02 exige
+// resolver DEP-01–04 "para la campaña y relaciones examinadas"; DEP-05
+// (lotes, redondeo, execution contract) lo resuelve IMP-07 (§25.2 fila
+// IMP-07), no es parte del acceptance de IMP-02. `absenceAllowed` marca las
+// facts cuya "constatación documentada de ausencia" (§25.2 fila IMP-02) las
+// resuelve: sólo enmiendas y terminal rule, que DEP-04 califica "si existen".
+// La pausa no: §13.4 exige "la estructura documentada de pausa/mes excluido".
 export const CAMPAIGN_CONTRACT_FACTS = [
-  { factId: "campaign.identity.campaignId", section: "Identidad", kind: "text" },
-  { factId: "campaign.identity.productContract", section: "Identidad", kind: "text" },
-  { factId: "campaign.identity.productFamily", section: "Identidad", kind: "text" },
-  { factId: "campaign.identity.mission", section: "Identidad", kind: "text" },
-  { factId: "campaign.identity.hubMarket", section: "Identidad", kind: "text" },
-  { factId: "campaign.obligation.totalVolumeKnown", section: "Obligación", kind: "quantity" },
-  { factId: "campaign.obligation.unit", section: "Obligación", kind: "text" },
-  { factId: "campaign.obligation.deliveryPeriod", section: "Obligación", kind: "text" },
-  { factId: "campaign.obligation.validity", section: "Obligación", kind: "text" },
-  { factId: "campaign.obligation.campaignLink", section: "Obligación", kind: "text" },
-  { factId: "campaign.obligation.amendments", section: "Obligación", kind: "text" },
-  { factId: "campaign.calendar.openClose", section: "Calendario", kind: "text" },
-  { factId: "campaign.calendar.decisionOpportunities", section: "Calendario", kind: "text" },
-  { factId: "campaign.calendar.deadline", section: "Calendario", kind: "text" },
-  { factId: "campaign.calendar.pauseExclusion", section: "Calendario", kind: "text" },
-  { factId: "campaign.feasibility.lots", section: "Factibilidad", kind: "text" },
-  { factId: "campaign.feasibility.rounding", section: "Factibilidad", kind: "text" },
-  { factId: "campaign.feasibility.terminalCoverageRule", section: "Factibilidad", kind: "text" },
-  { factId: "campaign.execution.contract", section: "Ejecución", kind: "text" },
-  { factId: "campaign.coverage.executedVolume", section: "Estado de cobertura", kind: "quantity" },
-  { factId: "campaign.coverage.remainingVolume", section: "Estado de cobertura", kind: "quantity" },
-  { factId: "campaign.coverage.fillToObligationAssignment", section: "Estado de cobertura", kind: "text" },
+  { factId: "campaign.identity.campaignId", section: "Identidad", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.identity.productContract", section: "Identidad", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.identity.productFamily", section: "Identidad", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.identity.mission", section: "Identidad", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.identity.hubMarket", section: "Identidad", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.obligation.totalVolumeKnown", section: "Obligación", kind: "quantity", dep: "DEP-01" },
+  { factId: "campaign.obligation.unit", section: "Obligación", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.obligation.deliveryPeriod", section: "Obligación", kind: "text", dep: "DEP-01" },
+  // §24 DEP-01: "liquidación física/financiera"; §4.1 "Alcance" la lista entre
+  // los vínculos pendientes.
+  { factId: "campaign.obligation.settlement", section: "Obligación", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.obligation.validity", section: "Obligación", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.obligation.campaignLink", section: "Obligación", kind: "text", dep: "DEP-01" },
+  { factId: "campaign.obligation.amendments", section: "Obligación", kind: "text", dep: "DEP-04", absenceAllowed: true },
+  { factId: "campaign.calendar.openClose", section: "Calendario", kind: "text", dep: "DEP-03" },
+  { factId: "campaign.calendar.decisionOpportunities", section: "Calendario", kind: "text", dep: "DEP-03" },
+  { factId: "campaign.calendar.deadline", section: "Calendario", kind: "text", dep: "DEP-03" },
+  { factId: "campaign.calendar.pauseExclusion", section: "Calendario", kind: "text", dep: "DEP-03" },
+  { factId: "campaign.feasibility.lots", section: "Factibilidad", kind: "text", dep: "DEP-05" },
+  { factId: "campaign.feasibility.rounding", section: "Factibilidad", kind: "text", dep: "DEP-05" },
+  { factId: "campaign.feasibility.terminalCoverageRule", section: "Factibilidad", kind: "text", dep: "DEP-04", absenceAllowed: true },
+  { factId: "campaign.execution.contract", section: "Ejecución", kind: "text", dep: "DEP-05" },
+  { factId: "campaign.coverage.executedVolume", section: "Estado de cobertura", kind: "quantity", dep: "DEP-02" },
+  { factId: "campaign.coverage.remainingVolume", section: "Estado de cobertura", kind: "quantity", dep: "DEP-02" },
+  { factId: "campaign.coverage.fillToObligationAssignment", section: "Estado de cobertura", kind: "text", dep: "DEP-02" },
 ];
+
+// §25.2 fila IMP-02: RESOLVES_AUDIT "DEP-01,02,03,04 para la campaña y
+// relaciones examinadas".
+const IMP02_RESOLVED_DEPS = ["DEP-01", "DEP-02", "DEP-03", "DEP-04"];
+export const IMP02_REQUIRED_FACT_IDS = CAMPAIGN_CONTRACT_FACTS
+  .filter((fact) => IMP02_RESOLVED_DEPS.includes(fact.dep))
+  .map((fact) => fact.factId);
 
 const FACT_BY_ID = new Map(CAMPAIGN_CONTRACT_FACTS.map((fact) => [fact.factId, fact]));
 const IDENTITY_FACT_IDS = CAMPAIGN_CONTRACT_FACTS
@@ -141,6 +158,17 @@ function hasProvenance(fact) {
     && isNonEmptyString(source.locator);
 }
 
+// Una cantidad atribuida al owner es la de la tabla §4.1: es la única cantidad
+// que Bru ha confirmado. Se reconoce por la autoridad o por citar la
+// confirmación, no por el texto exacto del locator; si no, variar un espacio
+// del locator permitiría atribuirle a Bru otro total. Una campaña con total
+// propio lo cita con la autoridad de su mandato.
+function citesOwnerConfirmation(fact) {
+  const source = fact?.source ?? {};
+  const citations = [source.authority, source.locator, source.quote].filter((text) => typeof text === "string");
+  return citations.some((text) => text.includes("Bru") || text.includes(OWNER_CONFIRMATION.quote));
+}
+
 // Una fact AVAILABLE_NOW exige valor, escala y provenance. El valor debe ser
 // del tipo declarado: un `text` es texto, un `quantity` es número finito no
 // negativo (el volumen de cobertura nunca es negativo, §4.3) con unidad
@@ -159,12 +187,29 @@ function validateAvailableFact(fact, definition, errors) {
   if (!hasProvenance(fact)) {
     errors.push({ factId: fact.factId, code: "NO_PROVENANCE", message: `"${fact.factId}" está AVAILABLE_NOW sin autoridad y locator.` });
   }
+  // §25.2 fila IMP-02: "constatación documentada de ausencia cuando
+  // corresponda". Sólo corresponde donde la SPEC dice "si existe(n)"; un
+  // deadline o un Campaign ID ausentes no se resuelven declarándolos ausentes.
+  if (fact.documentedAbsence === true && !definition.absenceAllowed) {
+    errors.push({ factId: fact.factId, code: "ABSENCE_NOT_ALLOWED", message: `"${fact.factId}" no admite constatación de ausencia como valor (§25.2 IMP-02).` });
+  }
+}
+
+// El flag de ausencia es booleano o no existe; un "sí" o un null no dicen si
+// la ausencia está constatada.
+function validateAbsenceFlagShape(fact, errors) {
+  if ("documentedAbsence" in fact && typeof fact.documentedAbsence !== "boolean") {
+    errors.push({ factId: fact.factId, code: "ABSENCE_NOT_ALLOWED", message: `"${fact.factId}".documentedAbsence debe ser booleano.` });
+  }
 }
 
 // Una fact UNAVAILABLE conserva la razón y nunca lleva un valor fabricado.
 function validateUnavailableFact(fact, errors) {
   if (!isMissingValue(fact.value)) {
     errors.push({ factId: fact.factId, code: "INVENTED_VALUE", message: `"${fact.factId}" está UNAVAILABLE pero trae un valor.` });
+  }
+  if (fact.documentedAbsence !== undefined && fact.documentedAbsence !== false) {
+    errors.push({ factId: fact.factId, code: "ABSENCE_NOT_ALLOWED", message: `"${fact.factId}" está UNAVAILABLE: una ausencia constatada es un hecho auditado (AVAILABLE_NOW con provenance), no un faltante.` });
   }
   if (!isNonEmptyString(fact.reason)) {
     errors.push({ factId: fact.factId, code: "MISSING_NOT_DOCUMENTED", message: `"${fact.factId}" está UNAVAILABLE sin razón documentada.` });
@@ -267,12 +312,17 @@ function validateCrossFieldCoherence(ficha, factsById, errors) {
     }
   }
 
-  // §4.1 tabla (Confirmación de Bru, 2026-09-22): el total conocido de la
-  // ficha no contradice la cantidad confirmada para su producto/Mission.
+  // §4.1 "Alcance": "No se extrapolan estas cantidades a todas las campañas
+  // históricas". La tabla sólo gobierna un total que la cita como fuente; otra
+  // campaña con su propio mandato publica su propio total. Si la cita, el
+  // valor es exactamente el confirmado para el producto/Mission de la ficha.
   const total = availableFact(factsById, "campaign.obligation.totalVolumeKnown");
-  const confirmed = confirmedQuantityFor(ficha.product, ficha.mission);
-  if (total && confirmed && (total.value !== confirmed.quantity || total.unit !== confirmed.unit)) {
-    errors.push({ factId: "campaign.obligation.totalVolumeKnown", code: "CONFIRMED_QUANTITY_MISMATCH", message: `El total ${total.value} ${total.unit} contradice la cantidad confirmada ${confirmed.quantity} ${confirmed.unit} para ${ficha.product} ${ficha.mission} (§4.1).` });
+  if (total && citesOwnerConfirmation(total)) {
+    const confirmed = confirmedQuantityFor(ficha.product, ficha.mission);
+    if (!confirmed || total.value !== confirmed.quantity || total.unit !== confirmed.unit) {
+      const expected = confirmed ? `${confirmed.quantity} ${confirmed.unit}` : "ninguna";
+      errors.push({ factId: "campaign.obligation.totalVolumeKnown", code: "CONFIRMED_QUANTITY_MISMATCH", message: `El total ${total.value} ${total.unit} cita la confirmación de Bru, que para ${ficha.product} ${ficha.mission} es ${expected} (§4.1).` });
+    }
   }
 
   // La identidad publicada coincide con el producto/Mission que la ficha dice
@@ -439,16 +489,40 @@ export function evaluateImp02Acceptance(ficha) {
       reason: "No determinable: sin fills asignados ni relación Monthly/Quarterly auditada no se puede comprobar el no doble conteo (§4.3/DEP-02); AUDIT_INPUTS §5 registra ambos como no encontrados.",
     };
 
+  // §25.2 fila IMP-02: el acceptance es la ficha de campaña reconciliada, no
+  // sólo tres números. Contrato/unidades, delivery, liquidación, vínculo a
+  // campaña, calendario, terminal rule y enmiendas (DEP-01–04) deben estar
+  // auditados o con su ausencia documentada donde corresponde.
+  const auditedBlockedBy = [...identityBlockedBy, ...unavailableFactIds(factsById, IMP02_REQUIRED_FACT_IDS)];
+  // §25.2 IMP-02: "La ausencia de terminal rule no equivale a cobertura
+  // completa". Las ausencias constatadas se publican para que el downstream
+  // (§4.3/§14.5: COVERAGE_INCOMPLETE ante residual) no las lea como reglas.
+  const documentedAbsences = IMP02_REQUIRED_FACT_IDS.filter((factId) => availableFact(factsById, factId)?.documentedAbsence === true);
+  const auditedContract = campaignIdentified && auditedBlockedBy.length === 0
+    ? { determined: true, blockedBy: [], documentedAbsences, reason: null }
+    : {
+      determined: false,
+      blockedBy: auditedBlockedBy,
+      documentedAbsences,
+      reason: "No determinable: §25.2 IMP-02 exige resolver DEP-01–04 para la campaña examinada; AUDIT_INPUTS §8 punto 4 y §9 paquete 1 registran que el mandato/campaña no está en el material inspeccionado.",
+    };
+
   // Cada parte puede derivarse determinada y la ficha contradecirse en otro
   // campo (identidad, provenance, cantidad confirmada): el criterio sólo se
   // cumple sobre una ficha que además satisface el contrato completo.
   const contractValid = collectContractErrors(ficha).length === 0;
-  const criterionMet = contractValid && campaignIdentified && remainingVolume.determined && deadline.determined && coverageOwnership.determined;
+  const criterionMet = contractValid
+    && campaignIdentified
+    && auditedContract.determined
+    && remainingVolume.determined
+    && deadline.determined
+    && coverageOwnership.determined;
   return {
     acceptanceTest: IMP02_ACCEPTANCE_TEST,
     source: "SPEC v1.1.1 §25.1 IMP-02",
     contractValid,
     campaignIdentified,
+    auditedContract,
     remainingVolume,
     deadline,
     coverageOwnership,
@@ -520,6 +594,7 @@ function collectContractErrors(ficha) {
       errors.push({ factId: fact.factId, code: outcome.code, message: outcome.message });
       continue;
     }
+    validateAbsenceFlagShape(fact, errors);
     if (fact.availability === "AVAILABLE_NOW") {
       validateAvailableFact(fact, definition, errors);
     } else if (fact.availability === "UNAVAILABLE") {
@@ -621,6 +696,7 @@ export function createGasQuarterlyFicha() {
       reason: null,
     },
     missingFact("campaign.obligation.deliveryPeriod", "Falta el periodo/horas/perfil de entrega (§4.1).", "Recuperar periodo, horas y perfil de entrega del mandato."),
+    missingFact("campaign.obligation.settlement", "Falta la liquidación física/financiera de la obligación (§4.1 \"Alcance\"; DEP-01).", "Recuperar la liquidación del contrato/mandato."),
     missingFact("campaign.obligation.validity", "Falta la vigencia de la obligación (§4.1).", "Recuperar vigencia y enmiendas/cancelaciones del contrato."),
     missingFact("campaign.obligation.campaignLink", "La cantidad confirmada no identifica la campaña a la que pertenece (§4.1).", "Vincular la cantidad a una campaña real."),
     missingFact("campaign.obligation.amendments", "No hay enmiendas/cancelaciones reales verificadas; su ausencia no se afirma como 'ninguna' (§4.3).", "Recuperar enmiendas/cancelaciones versionadas."),

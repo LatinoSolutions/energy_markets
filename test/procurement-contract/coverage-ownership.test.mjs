@@ -116,9 +116,76 @@ test("un fill pertenece a lo sumo a una obligación", () => {
   });
   assert.equal(outcome.ok, true);
   assert.deepEqual(outcome.assignments, [
-    { fillId: "SYN-F1", obligationId: "SYN-Q1" },
-    { fillId: "SYN-F2", obligationId: "SYN-M1" },
+    { fillId: "SYN-F1", obligationId: "SYN-Q1", quantity: 10, unit: "MWh" },
+    { fillId: "SYN-F2", obligationId: "SYN-M1", quantity: 5, unit: "MWh" },
   ]);
+  // Una sola verdad: el mapa derivado cumple el contrato del mapa de la ficha.
+  assert.deepEqual(validateOwnershipAssignments(outcome.assignments), []);
+});
+
+// Regresión de la revisión 6: un fill negativo sin unidad producía
+// asignaciones sin cantidad ni unidad que validateOwnershipAssignments rechaza.
+test("un fill sin filled quantity positiva o sin unidad se rechaza y no se asigna (§14.5)", () => {
+  const invalidFills = [
+    { fillId: "SYN-F1", quantity: -10 },
+    { fillId: "SYN-F1", quantity: -10, unit: "MWh" },
+    { fillId: "SYN-F1", quantity: 0, unit: "MWh" },
+    { fillId: "SYN-F1", quantity: 10 },
+    { fillId: "SYN-F1", quantity: "10", unit: "MWh" },
+    { fillId: "SYN-F1", quantity: Number.NaN, unit: "MWh" },
+  ];
+  for (const fill of invalidFills) {
+    const outcome = mapCoverageOwnership({
+      relationMonthlyQuarterly: { availability: "UNAVAILABLE", reason: "relación Monthly/Quarterly sin mandato real" },
+      obligations: [{ obligationId: "SYN-Q1", fills: ["SYN-F1"] }],
+      fills: [fill],
+    });
+    assert.equal(outcome.ok, false, JSON.stringify(fill));
+    assert.deepEqual(outcome.errors.map((error) => error.code), ["INVALID_FILL_QUANTITY"], JSON.stringify(fill));
+    assert.deepEqual(outcome.assignments, [], JSON.stringify(fill));
+  }
+});
+
+// Regresión de la validación adversarial: el mapa derivado sumaba MW y MWh en
+// una obligación, fusionaba obligationId repetidos y aceptaba " MW ".
+test("el mapa derivado no mezcla unidades, no fusiona obligaciones y exige unidad canónica", () => {
+  const relation = { availability: "UNAVAILABLE", reason: "relación Monthly/Quarterly sin mandato real" };
+  const mixed = mapCoverageOwnership({
+    relationMonthlyQuarterly: relation,
+    obligations: [{ obligationId: "O1", fills: ["F1", "F2"] }],
+    fills: [{ fillId: "F1", quantity: 5, unit: "MW" }, { fillId: "F2", quantity: 5, unit: "MWh" }],
+  });
+  assert.equal(mixed.ok, false);
+  assert.ok(mixed.errors.some((error) => error.code === "ASSIGNMENT_UNIT_MISMATCH"));
+  assert.deepEqual(mixed.assignments, [{ fillId: "F1", obligationId: "O1", quantity: 5, unit: "MW" }]);
+
+  const duplicated = mapCoverageOwnership({
+    relationMonthlyQuarterly: relation,
+    obligations: [{ obligationId: "O1", fills: ["F1"] }, { obligationId: "O1", fills: ["F2"] }],
+    fills: [{ fillId: "F1", quantity: 5, unit: "MW" }, { fillId: "F2", quantity: 5, unit: "MW" }],
+  });
+  assert.ok(duplicated.errors.some((error) => error.code === "DUPLICATE_OBLIGATION"));
+
+  const spacedUnit = mapCoverageOwnership({
+    relationMonthlyQuarterly: relation,
+    obligations: [{ obligationId: "O1", fills: ["F1"] }],
+    fills: [{ fillId: "F1", quantity: 5, unit: " MW " }],
+  });
+  assert.deepEqual(spacedUnit.errors.map((error) => error.code), ["INVALID_FILL_QUANTITY"]);
+  assert.deepEqual(validateOwnershipAssignments([{ fillId: "F1", obligationId: "O1", quantity: 5, unit: " MW " }]).map((error) => error.code), ["ASSIGNMENT_QUANTITY_INVALID"]);
+});
+
+test("IDs de fill u obligación no canónicos se rechazan en el mapa derivado", () => {
+  const relation = { availability: "UNAVAILABLE", reason: "relación Monthly/Quarterly sin mandato real" };
+  const badFill = mapCoverageOwnership({ relationMonthlyQuarterly: relation, obligations: [], fills: [{ fillId: "SYN-F1 ", quantity: 1, unit: "MWh" }] });
+  assert.ok(badFill.errors.some((error) => error.code === "INVALID_FILL"));
+  const badObligation = mapCoverageOwnership({
+    relationMonthlyQuarterly: relation,
+    obligations: [{ obligationId: "SYN-Q1 ", fills: ["SYN-F1"] }],
+    fills: [{ fillId: "SYN-F1", quantity: 1, unit: "MWh" }],
+  });
+  assert.ok(badObligation.errors.some((error) => error.code === "INVALID_OBLIGATION"));
+  assert.deepEqual(badObligation.assignments, []);
 });
 
 test("el doble conteo entre obligaciones se rechaza", () => {

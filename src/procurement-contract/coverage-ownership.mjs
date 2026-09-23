@@ -47,6 +47,12 @@ function isCanonicalId(value) {
   return typeof value === "string" && CANONICAL_ID_PATTERN.test(value);
 }
 
+// Misma forma canónica para unidades: " MW " no es "MW" y rompería la
+// comparación de unidades sin que nadie lo vea (§4.1).
+function isCanonicalUnit(value) {
+  return isCanonicalId(value);
+}
+
 function isMissing(value) {
   return value === null || value === undefined;
 }
@@ -200,7 +206,10 @@ export function validateRelationDeclaration(relation) {
 
 // §4.3: cada fill/cobertura pertenece a lo sumo a una obligación; un fill
 // desconocido no se asigna en silencio. La relación Monthly/Quarterly sin
-// mandato queda documentada como faltante, no inventada.
+// mandato queda documentada como faltante, no inventada. §14.5 "Coverage
+// cambia por filled quantity": cada fill trae su cantidad positiva y su unidad,
+// y cada asignación las hereda, así la salida cumple el mismo contrato que
+// validateOwnershipAssignments aplica al mapa de la ficha (una sola verdad).
 export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fills } = {}) {
   const errors = [];
   if (!Array.isArray(obligations)) {
@@ -213,40 +222,67 @@ export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fi
   }
 
   const fillById = new Map();
+  const rejectedFillIds = new Set();
   for (const fill of fills) {
-    if (!fill || !isNonEmptyString(fill.fillId)) {
-      errors.push({ code: "INVALID_FILL", message: "Un fill no declara fillId." });
+    if (!fill || typeof fill !== "object" || !isCanonicalId(fill.fillId)) {
+      errors.push({ code: "INVALID_FILL", message: "Un fill no declara fillId canónico." });
       continue;
     }
-    if (fillById.has(fill.fillId)) {
+    if (fillById.has(fill.fillId) || rejectedFillIds.has(fill.fillId)) {
       errors.push({ code: "DUPLICATE_FILL", message: `fillId repetido: ${fill.fillId}.` });
+      continue;
+    }
+    const hasFilledQuantity = isFiniteNumber(fill.quantity) && fill.quantity > 0;
+    if (!hasFilledQuantity || !isCanonicalUnit(fill.unit)) {
+      errors.push({ code: "INVALID_FILL_QUANTITY", message: `El fill ${fill.fillId} no declara una filled quantity finita positiva con unidad (§14.5).` });
+      rejectedFillIds.add(fill.fillId);
       continue;
     }
     fillById.set(fill.fillId, fill);
   }
 
-  const referenceCount = new Map();
   const assignments = [];
+  const seenObligationIds = new Set();
   for (const obligation of obligations) {
-    if (!obligation || !isNonEmptyString(obligation.obligationId)) {
-      errors.push({ code: "INVALID_OBLIGATION", message: "Una obligación no declara obligationId." });
+    if (!obligation || !isCanonicalId(obligation.obligationId)) {
+      errors.push({ code: "INVALID_OBLIGATION", message: "Una obligación no declara obligationId canónico." });
       continue;
     }
-    for (const fillId of obligation.fills ?? []) {
-      if (!fillById.has(fillId)) {
+    // Dos entradas con el mismo ID fusionarían dos obligaciones en una.
+    if (seenObligationIds.has(obligation.obligationId)) {
+      errors.push({ code: "DUPLICATE_OBLIGATION", message: `obligationId repetido: ${obligation.obligationId}.` });
+      continue;
+    }
+    seenObligationIds.add(obligation.obligationId);
+    const obligationFills = obligation.fills ?? [];
+    if (!Array.isArray(obligationFills)) {
+      errors.push({ code: "INVALID_OBLIGATION", message: `Los fills de ${obligation.obligationId} no son una lista.` });
+      continue;
+    }
+    let obligationUnit = null;
+    for (const fillId of obligationFills) {
+      // Un fill rechazado ya tiene su error; no se reporta como inexistente.
+      if (rejectedFillIds.has(fillId)) {
+        continue;
+      }
+      const fill = fillById.get(fillId);
+      if (!fill) {
         errors.push({ code: "UNKNOWN_FILL", message: `Obligación ${obligation.obligationId} referencia un fill inexistente: ${fillId}.` });
         continue;
       }
-      referenceCount.set(fillId, (referenceCount.get(fillId) ?? 0) + 1);
-      assignments.push({ fillId, obligationId: obligation.obligationId });
+      // §4.1: MW y MWh son magnitudes distintas; la cobertura de una misma
+      // obligación no suma unidades distintas.
+      obligationUnit ??= fill.unit;
+      if (fill.unit !== obligationUnit) {
+        errors.push({ code: "ASSIGNMENT_UNIT_MISMATCH", message: `Obligación ${obligation.obligationId} mezcla ${obligationUnit} y ${fill.unit} (fill ${fillId}); no se convierte (§4.1).` });
+        continue;
+      }
+      assignments.push({ fillId, obligationId: obligation.obligationId, quantity: fill.quantity, unit: fill.unit });
     }
   }
 
-  for (const [fillId, count] of referenceCount) {
-    if (count > 1) {
-      errors.push({ code: "DUPLICATE_OWNERSHIP", message: `El fill ${fillId} pertenece a ${count} obligaciones; se prohíbe doble conteo (§4.3).` });
-    }
-  }
+  // §4.3: el doble conteo se detecta con el mismo validador que la ficha.
+  errors.push(...validateOwnershipAssignments(assignments));
 
   // §4.3/DEP-02: la relación Monthly/Quarterly debe declararse explícitamente
   // con su estado resuelto o la razón documentada de su faltante. La ausencia
@@ -278,7 +314,7 @@ export function validateOwnershipAssignments(assignments) {
     // §14.5: toda asignación, sea de la obligación de la ficha o de otra,
     // declara la filled quantity que aporta con su unidad; no hay asignaciones
     // sin volumen que escapen a la revisión.
-    if (!isFiniteNumber(assignment.quantity) || assignment.quantity <= 0 || !isNonEmptyString(assignment.unit)) {
+    if (!isFiniteNumber(assignment.quantity) || assignment.quantity <= 0 || !isCanonicalUnit(assignment.unit)) {
       errors.push({ code: "ASSIGNMENT_QUANTITY_INVALID", message: `La asignación de ${assignment.fillId} no declara una filled quantity finita positiva con unidad (§14.5).` });
     }
     ownershipCount.set(assignment.fillId, (ownershipCount.get(assignment.fillId) ?? 0) + 1);

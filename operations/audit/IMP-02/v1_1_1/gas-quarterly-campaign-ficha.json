@@ -102,6 +102,16 @@
       "nextRetrievalAction": "Recuperar periodo, horas y perfil de entrega del mandato."
     },
     {
+      "factId": "campaign.obligation.settlement",
+      "section": "Obligación",
+      "availability": "UNAVAILABLE",
+      "value": null,
+      "unit": null,
+      "source": null,
+      "reason": "Falta la liquidación física/financiera de la obligación (§4.1 \"Alcance\"; DEP-01).",
+      "nextRetrievalAction": "Recuperar la liquidación del contrato/mandato."
+    },
+    {
       "factId": "campaign.obligation.validity",
       "section": "Obligación",
       "availability": "UNAVAILABLE",
@@ -255,6 +265,32 @@
     "source": "SPEC v1.1.1 §25.1 IMP-02",
     "contractValid": true,
     "campaignIdentified": false,
+    "auditedContract": {
+      "determined": false,
+      "blockedBy": [
+        "campaign.identity",
+        "campaign.identity.campaignId",
+        "campaign.identity.productContract",
+        "campaign.identity.productFamily",
+        "campaign.identity.mission",
+        "campaign.identity.hubMarket",
+        "campaign.obligation.deliveryPeriod",
+        "campaign.obligation.settlement",
+        "campaign.obligation.validity",
+        "campaign.obligation.campaignLink",
+        "campaign.obligation.amendments",
+        "campaign.calendar.openClose",
+        "campaign.calendar.decisionOpportunities",
+        "campaign.calendar.deadline",
+        "campaign.calendar.pauseExclusion",
+        "campaign.feasibility.terminalCoverageRule",
+        "campaign.coverage.executedVolume",
+        "campaign.coverage.remainingVolume",
+        "campaign.coverage.fillToObligationAssignment"
+      ],
+      "documentedAbsences": [],
+      "reason": "No determinable: §25.2 IMP-02 exige resolver DEP-01–04 para la campaña examinada; AUDIT_INPUTS §8 punto 4 y §9 paquete 1 registran que el mandato/campaña no está en el material inspeccionado."
+    },
     "remainingVolume": {
       "determined": false,
       "value": null,
