@@ -20,7 +20,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-03 | aceptado | IMP-01 | Ejecutar data audit y poblar Data Sufficiency Matrix. | Receipt 2026-09-19, scope "negative audit only". §25.3: ampliar inventario con el lago `/srv/hot-data/EEX`. |
 | IMP-04 | pendiente | IMP-03 | Seleccionar herramienta mínima suficiente. | |
 | IMP-05 | pendiente | IMP-02, IMP-03, IMP-04 | Reproducir benchmark y auditar reconciliación official/proxy. | |
-| IMP-06 | pendiente | IMP-01, IMP-03 | Construir vistas decision-time y evaluation separadas. | |
+| IMP-06 | aceptado | IMP-01, IMP-03 | Construir vistas decision-time y evaluation separadas. |  |
 | IMP-07 | pendiente | IMP-02, IMP-03 | Poblar/versionar execution contract y cost ledger P5.6. | |
 | IMP-08 | aceptado | IMP-01 | Materializar cálculo B/H/V y scoring con casos límite. | Receipt 2026-09-22. Fixtures sintéticos, no campaña real. |
 | IMP-09 | pendiente | IMP-02, IMP-03, IMP-07 | Identificar y reservar el final OOS antes de cualquier selección/calibración S1. | |
