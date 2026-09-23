@@ -10,7 +10,7 @@
 // este worktree; no se reafirma nada que la evidencia no sostenga (DEP-06/07/10:
 // derechos del lago y benchmark de campaña siguen pendientes).
 
-import { benchmarkB } from "../economic-calculation/benchmark.mjs";
+import { benchmarkB, selectBenchmarkReferences } from "../economic-calculation/benchmark.mjs";
 
 // Capacidades que el consumidor de benchmark (IMP-05, SPEC §25.1) exige. Cada
 // una corresponde a un export real de `src/economic-calculation/index.mjs`.
@@ -105,14 +105,16 @@ export const REAL_SELECTION_EVIDENCE = Object.freeze([
   Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
 ]);
 
-// Entrada documentada y salida esperada por cómputo manual independiente. Los
-// valores no se leen de la herramienta: 100, 102, 104 son tres referencias
-// diarias sintéticas permitidas; el esperado es su media aritmética (102), el
-// conteo (3) y la cobertura (3/3).
+// Entrada documentada y salidas esperadas por cómputo manual independiente.
+// Los valores no se leen de la herramienta: 100, 102, 104 y 106 son cuatro
+// referencias diarias sintéticas permitidas; la fila del 2026-01-08 no está
+// marcada accesible, así que el esperado es media 102, conteo 3, cobertura 3/3
+// y una selección que excluye esa fila.
 export const REAL_RECONCILIATION_REFERENCES = Object.freeze([
   Object.freeze({ date: "2026-01-05", selected: 100, accessible: true }),
   Object.freeze({ date: "2026-01-06", selected: 102, accessible: true }),
   Object.freeze({ date: "2026-01-07", selected: 104, accessible: true }),
+  Object.freeze({ date: "2026-01-08", selected: 106, accessible: false }),
 ]);
 export const REAL_RECONCILIATION_EXPECTED_DATES = 3;
 
@@ -138,6 +140,17 @@ const REAL_RECONCILIATION_FIXTURES = Object.freeze([
     independentComputation: "cobertura manual = incluidas/esperadas = 3/3",
     tolerance: 0,
   }),
+  // Salida de la capacidad `reference.select` (selectBenchmarkReferences):
+  // fechas seleccionadas, ordenadas, excluyendo la fila no accesible. El
+  // cómputo manual es la lista ordenada de fechas accesibles documentadas;
+  // sin este fixture la reconciliación no cubría la salida de la capacidad.
+  Object.freeze({
+    outputId: "referenceSelection",
+    expectedValue: Object.freeze(["2026-01-05", "2026-01-06", "2026-01-07"]),
+    permitted: true,
+    independentComputation: "selección manual: ordenadas por fecha las filas accesibles documentadas, excluida la del 2026-01-08 (no accesible), y conteo de filas excluidas = 1",
+    tolerance: 0,
+  }),
 ]);
 
 // Ejecuta el componente real y devuelve la evidencia cruda de reconciliación
@@ -149,13 +162,19 @@ export function buildRealToolingReconciliation({ componentId = REAL_BENCHMARK_CO
     expectedDates: REAL_RECONCILIATION_EXPECTED_DATES,
     requireAccessible: true,
   });
+  const selection = selectBenchmarkReferences({
+    rows: REAL_RECONCILIATION_REFERENCES,
+    requireAccessible: true,
+  });
   return {
     componentId,
     outputs: [
       { outputId: "B", value: result.B },
       { outputId: "count", value: result.count },
       { outputId: "coverage", value: result.coverage },
+      { outputId: "referenceSelection", value: selection.rejected ? [] : selection.references.map((reference) => reference.date) },
+      { outputId: "excludedSelectionCount", value: selection.excludedRows.length },
     ],
-    fixtures: REAL_RECONCILIATION_FIXTURES.map((fixture) => ({ ...fixture })),
+    fixtures: REAL_RECONCILIATION_FIXTURES.map((fixture) => ({ ...fixture, expectedValue: Array.isArray(fixture.expectedValue) ? [...fixture.expectedValue] : fixture.expectedValue })),
   };
 }

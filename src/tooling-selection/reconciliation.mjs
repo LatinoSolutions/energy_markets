@@ -18,9 +18,20 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function arraysAgree(left, right) {
+  return Array.isArray(left) && Array.isArray(right)
+    && left.length === right.length
+    && left.every((item, index) => isFiniteNumber(item) && isFiniteNumber(right[index])
+      ? item === right[index]
+      : item === right[index]);
+}
+
 function valuesAgree(observed, expected, tolerance) {
   if (isFiniteNumber(observed) && isFiniteNumber(expected)) {
     return Math.abs(observed - expected) <= tolerance;
+  }
+  if (Array.isArray(observed) || Array.isArray(expected)) {
+    return arraysAgree(observed, expected);
   }
   return observed === expected;
 }
@@ -66,8 +77,17 @@ export function reconcileKeyOutputs({ componentId = null, outputs = [], fixtures
     if (!isNonEmptyString(fixture?.independentComputation)) {
       return fail("FIXTURE_NOT_INDEPENDENT", `El fixture "${fixture?.outputId ?? "(sin id)"}" no declara cómputo/inspección independiente previa.`);
     }
-    if (fixture.tolerance !== undefined && !isFiniteNumber(fixture.tolerance)) {
-      return fail("INVALID_TOLERANCE", `El fixture "${fixture.outputId}" declara una tolerancia inválida.`);
+    if (fixture.tolerance !== undefined && (!isFiniteNumber(fixture.tolerance) || fixture.tolerance < 0)) {
+      return fail("INVALID_TOLERANCE", `El fixture "${fixture.outputId}" declara una tolerancia negativa, no finita o de tipo inválido.`);
+    }
+    // Una tolerancia sólo tiene sentido si acota una discrepancia menor que la
+    // propia magnitud esperada: una cota >= |esperado| aprobaría cualquier
+    // divergencia hasta el 100% (repaso del audit 2026-09-23: observado 102,
+    // esperado 1000000 y tolerancia 1000000 producían REUSE). Cuando el valor
+    // esperado es 0 no hay magnitud que acotar y la comparación es exacta.
+    if (fixture.tolerance !== undefined && isFiniteNumber(fixture.expectedValue) && fixture.expectedValue !== 0
+      && fixture.tolerance >= Math.abs(fixture.expectedValue)) {
+      return fail("INVALID_TOLERANCE", `El fixture "${fixture.outputId}" declara una tolerancia que iguala o supera la magnitud del valor esperado; aprobaría una discrepancia total.`, { outputId: fixture.outputId, expectedValue: fixture.expectedValue, tolerance: fixture.tolerance });
     }
   }
 

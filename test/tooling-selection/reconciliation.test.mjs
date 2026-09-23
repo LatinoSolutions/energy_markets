@@ -32,6 +32,67 @@ test("acepta tolerancia declarada sin inventar equivalencia exacta", () => {
   assert.equal(result.reconciled, true);
 });
 
+// Reproducción del audit 2026-09-23: observado 102, esperado 1000000 y
+// tolerancia 1000000 producían reconciled:true. Una cota >= |esperado|
+// aprueba una discrepancia total y se rechaza.
+test("una tolerancia que iguala o supera la magnitud esperada se rechaza", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 102 }),
+    fixtures: makeFixtures({ expectedValue: 1000000, tolerance: 1000000 }),
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "INVALID_TOLERANCE");
+  assert.equal(result.outputId, "SYN-output-B");
+});
+
+test("una tolerancia inmediatamente inferior a la magnitud esperada compara sin aprobar de más", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 102 }),
+    fixtures: makeFixtures({ expectedValue: 1000000, tolerance: 999000 }),
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, false);
+  assert.ok(result.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
+});
+
+test("una discrepancia dentro de una cota legítima sigue reconciliando", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 1000010 }),
+    fixtures: makeFixtures({ expectedValue: 1000000, tolerance: 15 }),
+  });
+  assert.equal(result.reconciled, true);
+});
+
+test("una tolerancia negativa se rechaza explícitamente", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: makeOutputs({ value: 105 }),
+    fixtures: makeFixtures({ tolerance: -1 }),
+  });
+  assert.equal(result.rejected, true);
+  assert.equal(result.code, "INVALID_TOLERANCE");
+});
+
+test("valores esperados de lista se comparan elemento a elemento", () => {
+  const result = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: [{ outputId: "SYN-output-B", value: ["2026-01-05", "2026-01-06"] }],
+    fixtures: [{ outputId: "SYN-output-B", expectedValue: ["2026-01-05", "2026-01-06"], permitted: true, independentComputation: "SYN-independent-listing" }],
+  });
+  assert.equal(result.reconciled, true);
+  const divergent = reconcileKeyOutputs({
+    componentId: "SYN-TOOL-A",
+    outputs: [{ outputId: "SYN-output-B", value: ["2026-01-05", "2026-01-07"] }],
+    fixtures: [{ outputId: "SYN-output-B", expectedValue: ["2026-01-05", "2026-01-06"], permitted: true, independentComputation: "SYN-independent-listing" }],
+  });
+  assert.equal(divergent.reconciled, false);
+  assert.ok(divergent.mismatches.some((mismatch) => mismatch.reason === "VALUE_MISMATCH"));
+});
+
 test("una salida ausente no se inventa", () => {
   const result = reconcileKeyOutputs({
     componentId: "SYN-TOOL-A",

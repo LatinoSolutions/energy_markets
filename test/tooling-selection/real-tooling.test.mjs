@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { reconcileKeyOutputs } from "../../src/tooling-selection/reconciliation.mjs";
 import { selectMinimumTooling, TOOLING_DECISION } from "../../src/tooling-selection/decision.mjs";
 import { isCapabilityAssessmentUsable, validateCapabilityAssessment } from "../../src/tooling-selection/capability.mjs";
 import {
@@ -37,10 +38,17 @@ test("DEP-10: el script de lectura EEX se audita pero no se adopta sin derechos"
 test("DEP-10: la decisión factual reutiliza el componente real tras reconciliar sus salidas", () => {
   const reconciliation = buildRealToolingReconciliation();
   // Salidas observadas realmente producidas por benchmarkB() sobre la entrada
-  // documentada (media manual esperada 102).
+  // documentada (media manual esperada 102) y por selectBenchmarkReferences()
+  // (capacidad `reference.select`): excluye la fila no accesible del 2026-01-08.
   assert.deepEqual(
     reconciliation.outputs.map((output) => [output.outputId, output.value]),
-    [["B", 102], ["count", 3], ["coverage", "3/3"]],
+    [
+      ["B", 102],
+      ["count", 3],
+      ["coverage", "3/3"],
+      ["referenceSelection", ["2026-01-05", "2026-01-06", "2026-01-07"]],
+      ["excludedSelectionCount", 1],
+    ],
   );
 
   const result = selectMinimumTooling({
@@ -54,6 +62,24 @@ test("DEP-10: la decisión factual reutiliza el componente real tras reconciliar
   assert.equal(result.selection.targetComponentId, REAL_BENCHMARK_COMPONENT_ID);
   assert.equal(result.selection.grantsProductionAuthority, false);
   assert.equal(result.selection.targetAssessment.componentId, REAL_BENCHMARK_COMPONENT_ID);
+});
+
+test("DEP-10: una selección de referencias divergente no reconcilia", () => {
+  // Si la selección observada divergiera (p. ej., si incluyera la fila no
+  // accesible), la reconciliación rechaza y con ella no hay REUSE.
+  const reconciliation = buildRealToolingReconciliation();
+  const result = reconcileKeyOutputs({
+    componentId: reconciliation.componentId,
+    outputs: reconciliation.outputs.map((output) => (
+      output.outputId === "referenceSelection"
+        ? { ...output, value: [...output.value, "2026-01-08"] }
+        : output
+    )),
+    fixtures: reconciliation.fixtures,
+  });
+  assert.equal(result.reconciled, false);
+  assert.equal(result.rejected, false);
+  assert.ok(result.mismatches.some((mismatch) => mismatch.outputId === "referenceSelection" && mismatch.reason === "VALUE_MISMATCH"));
 });
 
 test("DEP-10: la decisión real no se aprueba sin reconciliación", () => {
