@@ -2,11 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  COVERAGE_STATUSES,
   MONTHLY_QUARTERLY_RELATION_STATES,
   applyFilledQuantity,
   computeRemainingVolume,
   mapCoverageOwnership,
   reconcileCoverage,
+  validateOwnershipAssignments,
   validateRelationDeclaration,
 } from "../../src/procurement-contract/coverage-ownership.mjs";
 
@@ -221,17 +223,53 @@ test("un close-out fill en otra unidad no cierra el residual", () => {
   assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
 });
 
-test("una enmienda documentada del residual cierra COVERED", () => {
+test("un close-out fill sin unidad declarada no cierra el residual (sin inferir unidades)", () => {
+  // §25.1 IMP-02 acceptance: remaining volume sin inferir unidades. Aceptar
+  // unidad ausente sería asumirla igual al residual (§4.1: MW y MWh son
+  // magnitudes distintas). Regresión del hallazgo del review.
   const outcome = reconcileCoverage({
     openingObligation: 100,
     executedVolume: 40,
     remainingVolume: 60,
     unit: "MWh",
     terminalRuleStatus: "VERIFIED",
-    residualAmendment: { authority: "Bru (owner)", locator: "D02 P6.5 enmienda real" },
+    closeOutFill: { quantity: 60 },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("una enmienda que declara la cantidad cancelada cierra como RESIDUAL_CANCELLED", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    residualAmendment: { authority: "Bru (owner)", locator: "mandato firmado p.1", cancelledVolume: 60, unit: "MWh" },
   });
   assert.equal(outcome.ok, true);
-  assert.equal(outcome.coverageStatus, "COVERED");
+  // §4.3: la cobertura se informa separadamente; cancelar no es cubrir y el
+  // downstream (ledgers P6) debe distinguirlos.
+  assert.equal(outcome.coverageStatus, "RESIDUAL_CANCELLED");
+  assert.ok(COVERAGE_STATUSES.includes("RESIDUAL_CANCELLED"));
+});
+
+test("una enmienda en blanco no cierra el residual (§14.5: ajuste correspondiente)", () => {
+  // Regresión del hallazgo del review: authority+locator sin cantidad
+  // declarada cerraba 99 de 100 como COVERED.
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 1,
+    remainingVolume: 99,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    residualAmendment: { authority: "x", locator: "y" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
 });
 
 test("una enmienda sin provenance no cierra el residual", () => {
@@ -241,10 +279,52 @@ test("una enmienda sin provenance no cierra el residual", () => {
     remainingVolume: 60,
     unit: "MWh",
     terminalRuleStatus: "VERIFIED",
-    residualAmendment: { authority: "Bru (owner)" },
+    residualAmendment: { authority: "Bru (owner)", cancelledVolume: 60, unit: "MWh" },
   });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("una enmienda que cancela menos que el residual no lo cierra", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    residualAmendment: { authority: "a", locator: "l", cancelledVolume: 20, unit: "MWh" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("una enmienda en otra unidad no cierra el residual", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    residualAmendment: { authority: "a", locator: "l", cancelledVolume: 60, unit: "MW" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED"));
+});
+
+test("el residual no se ejecuta y se cancela a la vez (doble cierre)", () => {
+  const outcome = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "VERIFIED",
+    closeOutFill: { quantity: 60, unit: "MWh" },
+    residualAmendment: { authority: "a", locator: "l", cancelledVolume: 60, unit: "MWh" },
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(outcome.errors.some((error) => error.code === "DOUBLE_RESIDUAL_CLOSE"));
 });
 
 test("la relación Monthly/Quarterly AVAILABLE_NOW sin tipo, valor ni provenance se rechaza", () => {
@@ -277,4 +357,23 @@ test("la relación AVAILABLE_NOW con un tipo no declarado se rechaza", () => {
   });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "RELATION_TYPE_NOT_DECLARED"));
+});
+
+test("validateOwnershipAssignments aplica el invariante de doble conteo (fuente única)", () => {
+  assert.deepEqual(validateOwnershipAssignments([
+    { fillId: "F1", obligationId: "O1" },
+    { fillId: "F2", obligationId: "O2" },
+  ]), []);
+  assert.ok(validateOwnershipAssignments("no-array").some((error) => error.code === "ASSIGNMENTS_NOT_ARRAY"));
+  const doubleCount = validateOwnershipAssignments([
+    { fillId: "F1", obligationId: "O1" },
+    { fillId: "F1", obligationId: "O2" },
+  ]);
+  assert.ok(doubleCount.some((error) => error.code === "DUPLICATE_OWNERSHIP"));
+  const repeated = validateOwnershipAssignments([
+    { fillId: "F1", obligationId: "O1" },
+    { fillId: "F1", obligationId: "O1" },
+  ]);
+  assert.ok(repeated.some((error) => error.code === "DUPLICATE_OWNERSHIP"));
+  assert.ok(validateOwnershipAssignments([{ obligationId: "O1" }]).some((error) => error.code === "INVALID_ASSIGNMENT"));
 });

@@ -15,8 +15,12 @@ export {
 
 export {
   COVERAGE_STATUSES,
+  MONTHLY_QUARTERLY_RELATION_STATES,
+  COVERAGE_OWNERSHIP_MAP_STATES,
   applyFilledQuantity,
   computeRemainingVolume,
   mapCoverageOwnership,
   reconcileCoverage,
+  validateOwnershipAssignments,
+  validateRelationDeclaration,
 } from "./coverage-ownership.mjs";

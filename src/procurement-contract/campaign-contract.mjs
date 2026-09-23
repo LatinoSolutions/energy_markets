@@ -8,6 +8,7 @@
 import { STATE_NAMESPACES } from "../contracts/states.mjs";
 import {
   COVERAGE_OWNERSHIP_MAP_STATES,
+  validateOwnershipAssignments,
   validateRelationDeclaration,
 } from "./coverage-ownership.mjs";
 
@@ -174,6 +175,11 @@ function validateCoverageOwnership(coverageOwnership, errors) {
   if (declared.mapState === "MATERIALIZED") {
     if (!Array.isArray(declared.assignments)) {
       errors.push({ factId: "coverageOwnership", code: "COVERAGE_OWNERSHIP_MAP_NOT_MATERIALIZED", message: "El mapa MATERIALIZED exige la lista de asignaciones fill→obligación." });
+    } else {
+      // §4.3/§25.1 IMP-02: "una cobertura no pertenece dos veces a
+      // obligaciones" se aplica en la ficha con la misma función que usa el
+      // mapa derivado; no hay dos verdades del invariante.
+      errors.push(...validateOwnershipAssignments(declared.assignments).map((error) => ({ factId: "coverageOwnership", ...error })));
     }
     if (!isNonEmptyString(declared.authority) || !isNonEmptyString(declared.locator)) {
       errors.push({ factId: "coverageOwnership", code: "NO_PROVENANCE", message: "El mapa MATERIALIZED exige autoridad y locator." });
@@ -282,24 +288,22 @@ export function createGasQuarterlyFicha() {
   const facts = [
     missingFact("campaign.identity.campaignId", "No existe un Campaign ID real en el material auditado (§4.1 declara la identidad AUDIT-DEPENDENT).", "Obtener el registro de campaña firmado que contenga el Campaign ID."),
     missingFact("campaign.identity.productContract", "El producto/contrato exacto no está confirmado; la residencia del cliente no identifica el producto de Gas (§4.1).", "Solicitar el contrato/producto exacto al responsable del mandato."),
-    {
-      factId: "campaign.identity.productFamily",
-      section: "Identidad",
-      availability: "AVAILABLE_NOW",
-      value: "Gas",
-      unit: null,
-      source: confirmed.source,
-      reason: null,
-    },
-    {
-      factId: "campaign.identity.mission",
-      section: "Identidad",
-      availability: "AVAILABLE_NOW",
-      value: "Quarterly",
-      unit: null,
-      source: confirmed.source,
-      reason: null,
-    },
+    // §4.1 línea 280: la fila Identidad (incluidos Power/Gas y
+    // Monthly/Quarterly) es AUDIT-DEPENDENT; conocer la cantidad no confirma
+    // producto ni Mission de una campaña real. Coincide con el artefacto
+    // IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json), que
+    // declara estas mismas facts MISSING: no se infieren del objetivo de
+    // población P5.
+    missingFact(
+      "campaign.identity.productFamily",
+      "La identidad de campaña es AUDIT-DEPENDENT (§4.1): ninguna campaña real confirma Power/Gas; Gas Quarterly es sólo la población canónica del primer experimento. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING con la misma razón: no se infiere del objetivo de población P5 (§4.1 línea 280).",
+      "Confirmar la familia de producto de la campaña real desde el mandato firmado; no inferirla de la población objetivo P5.",
+    ),
+    missingFact(
+      "campaign.identity.mission",
+      "La identidad de campaña es AUDIT-DEPENDENT (§4.1): la tabla §4.1 confirma cantidades por combinación producto/Mission, no la Mission de una campaña real. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING (§4.1 línea 280).",
+      "Confirmar la Mission de la campaña real desde el mandato firmado.",
+    ),
     missingFact("campaign.identity.hubMarket", "No hay mercado/hub aplicable confirmado (§4.1).", "Recuperar el mercado/hub y la liquidación del mandato firmado."),
     {
       factId: "campaign.obligation.totalVolumeKnown",
@@ -310,7 +314,20 @@ export function createGasQuarterlyFicha() {
       source: confirmed.source,
       reason: null,
     },
-    missingFact("campaign.obligation.unit", "MW es la unidad comunicada, no una unidad ejecutable completa; no se convierte a MWh sin horas/perfil (§4.1).", "Obtener la unidad contractual y el perfil de entrega."),
+    // §4.1 línea 281: "Cantidad y unidad confirmadas en la tabla anterior".
+    // La unidad MW es un dato confirmado por el owner; declararla faltante
+    // mientras totalVolumeKnown la publica es registrarla dos veces con
+    // veredictos opuestos. La conversión a MWh sigue bloqueada por
+    // deliveryPeriod ausente y el guard §4.1 de conversión.
+    {
+      factId: "campaign.obligation.unit",
+      section: "Obligación",
+      availability: "AVAILABLE_NOW",
+      value: confirmed.unit,
+      unit: null,
+      source: confirmed.source,
+      reason: null,
+    },
     missingFact("campaign.obligation.deliveryPeriod", "Falta el periodo/horas/perfil de entrega (§4.1).", "Recuperar periodo, horas y perfil de entrega del mandato."),
     missingFact("campaign.obligation.validity", "Falta la vigencia de la obligación (§4.1).", "Recuperar vigencia y enmiendas/cancelaciones del contrato."),
     missingFact("campaign.obligation.campaignLink", "La cantidad confirmada no identifica la campaña a la que pertenece (§4.1).", "Vincular la cantidad a una campaña real."),

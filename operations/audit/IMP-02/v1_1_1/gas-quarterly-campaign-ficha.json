@@ -38,28 +38,22 @@
     {
       "factId": "campaign.identity.productFamily",
       "section": "Identidad",
-      "availability": "AVAILABLE_NOW",
-      "value": "Gas",
+      "availability": "UNAVAILABLE",
+      "value": null,
       "unit": null,
-      "source": {
-        "authority": "Bru (owner)",
-        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
-        "quote": "Confirmación de Bru, 2026-09-22"
-      },
-      "reason": null
+      "source": null,
+      "reason": "La identidad de campaña es AUDIT-DEPENDENT (§4.1): ninguna campaña real confirma Power/Gas; Gas Quarterly es sólo la población canónica del primer experimento. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING con la misma razón: no se infiere del objetivo de población P5 (§4.1 línea 280).",
+      "nextRetrievalAction": "Confirmar la familia de producto de la campaña real desde el mandato firmado; no inferirla de la población objetivo P5."
     },
     {
       "factId": "campaign.identity.mission",
       "section": "Identidad",
-      "availability": "AVAILABLE_NOW",
-      "value": "Quarterly",
+      "availability": "UNAVAILABLE",
+      "value": null,
       "unit": null,
-      "source": {
-        "authority": "Bru (owner)",
-        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
-        "quote": "Confirmación de Bru, 2026-09-22"
-      },
-      "reason": null
+      "source": null,
+      "reason": "La identidad de campaña es AUDIT-DEPENDENT (§4.1): la tabla §4.1 confirma cantidades por combinación producto/Mission, no la Mission de una campaña real. El artefacto IMP-02 v1.1 (operations/audit/IMP-02/campaign-contract.json) declara esta fact MISSING (§4.1 línea 280).",
+      "nextRetrievalAction": "Confirmar la Mission de la campaña real desde el mandato firmado."
     },
     {
       "factId": "campaign.identity.hubMarket",
@@ -87,12 +81,15 @@
     {
       "factId": "campaign.obligation.unit",
       "section": "Obligación",
-      "availability": "UNAVAILABLE",
-      "value": null,
+      "availability": "AVAILABLE_NOW",
+      "value": "MW",
       "unit": null,
-      "source": null,
-      "reason": "MW es la unidad comunicada, no una unidad ejecutable completa; no se convierte a MWh sin horas/perfil (§4.1).",
-      "nextRetrievalAction": "Obtener la unidad contractual y el perfil de entrega."
+      "source": {
+        "authority": "Bru (owner)",
+        "locator": "§4.1 tabla de cantidades confirmadas, 2026-09-22",
+        "quote": "Confirmación de Bru, 2026-09-22"
+      },
+      "reason": null
     },
     {
       "factId": "campaign.obligation.deliveryPeriod",

@@ -12,7 +12,7 @@ import {
   createGasQuarterlyFicha,
   resolveObligationDeadline,
   validateCampaignContract,
-} from "../../src/procurement-contract/campaign-contract.mjs";
+} from "../../src/procurement-contract/index.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..");
@@ -47,8 +47,19 @@ test("la ficha Gas Quarterly incorpora lo confirmado y deja el resto faltante ex
   assert.equal(quantity.value, 60);
   assert.equal(quantity.unit, "MW");
 
-  assert.equal(fact(ficha, "campaign.identity.productFamily").value, "Gas");
-  assert.equal(fact(ficha, "campaign.identity.mission").value, "Quarterly");
+  // §4.1 línea 281: cantidad Y unidad confirmadas en la tabla.
+  const unit = fact(ficha, "campaign.obligation.unit");
+  assert.equal(unit.availability, "AVAILABLE_NOW");
+  assert.equal(unit.value, "MW");
+
+  // §4.1 línea 280: identidad (producto, Mission) AUDIT-DEPENDENT; coincide
+  // con el artefacto IMP-02 v1.1 que las declara MISSING.
+  for (const factId of ["campaign.identity.productFamily", "campaign.identity.mission"]) {
+    const entry = fact(ficha, factId);
+    assert.equal(entry.availability, "UNAVAILABLE", factId);
+    assert.ok(entry.reason.includes("AUDIT-DEPENDENT"), factId);
+    assert.ok(entry.reason.includes("operations/audit/IMP-02/campaign-contract.json"), factId);
+  }
 
   for (const factId of ["campaign.identity.campaignId", "campaign.identity.productContract", "campaign.identity.hubMarket", "campaign.obligation.deliveryPeriod", "campaign.calendar.deadline", "campaign.coverage.fillToObligationAssignment"]) {
     const entry = fact(ficha, factId);
@@ -86,10 +97,10 @@ test("una cantidad AVAILABLE_NOW sin unidad se rechaza", () => {
 
 test("una fact AVAILABLE_NOW sin provenance se rechaza", () => {
   const ficha = createGasQuarterlyFicha();
-  fact(ficha, "campaign.identity.productFamily").source = null;
+  fact(ficha, "campaign.obligation.totalVolumeKnown").source = null;
   const outcome = validateCampaignContract(ficha);
   assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((error) => error.code === "NO_PROVENANCE" && error.factId === "campaign.identity.productFamily"));
+  assert.ok(outcome.errors.some((error) => error.code === "NO_PROVENANCE" && error.factId === "campaign.obligation.totalVolumeKnown"));
 });
 
 test("una fact UNAVAILABLE con valor se rechaza como fabricada", () => {
@@ -114,6 +125,19 @@ test("una fact con availability no declarada se rechaza", () => {
   const outcome = validateCampaignContract(ficha);
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "UNKNOWN_AVAILABILITY"));
+});
+
+test("las availability del namespace no soportadas para fichas se rechazan (PROXY, FORWARD_CAPTURE)", () => {
+  // §3.2: el namespace declara cuatro valores; sólo AVAILABLE_NOW y
+  // UNAVAILABLE materializan la ficha (campaign-contract.mjs). PROXY y
+  // FORWARD_CAPTURE son del namespace pero no materializan.
+  for (const availability of ["PROXY", "FORWARD_CAPTURE"]) {
+    const ficha = createGasQuarterlyFicha();
+    fact(ficha, "campaign.identity.campaignId").availability = availability;
+    const outcome = validateCampaignContract(ficha);
+    assert.equal(outcome.ok, false, availability);
+    assert.ok(outcome.errors.some((error) => error.code === "UNSUPPORTED_AVAILABILITY" && error.factId === "campaign.identity.campaignId"), availability);
+  }
 });
 
 test("los guards prohibidos se rechazan", () => {
@@ -158,10 +182,10 @@ test("el deadline no se infiere cuando el calendario no lo aporta", () => {
 
 test("una fact de texto con valor no textual se rechaza", () => {
   const ficha = createGasQuarterlyFicha();
-  fact(ficha, "campaign.identity.mission").value = { invented: "objeto" };
+  fact(ficha, "campaign.obligation.unit").value = { invented: "objeto" };
   const outcome = validateCampaignContract(ficha);
   assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((error) => error.code === "VALUE_TYPE_MISMATCH" && error.factId === "campaign.identity.mission"));
+  assert.ok(outcome.errors.some((error) => error.code === "VALUE_TYPE_MISMATCH" && error.factId === "campaign.obligation.unit"));
 });
 
 test("una cantidad AVAILABLE_NOW negativa o no numérica se rechaza", () => {
@@ -209,6 +233,47 @@ test("una ficha con mapa MATERIALIZED sin asignaciones ni provenance se rechaza"
   const codes = outcome.errors.map((error) => error.code);
   assert.ok(codes.includes("COVERAGE_OWNERSHIP_MAP_NOT_MATERIALIZED"));
   assert.ok(codes.includes("NO_PROVENANCE"));
+});
+
+test("una ficha con mapa MATERIALIZED válido pasa", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.coverageOwnership.mapState = "MATERIALIZED";
+  ficha.coverageOwnership.assignments = [
+    { fillId: "FILL-1", obligationId: "OBL-QUARTERLY" },
+    { fillId: "FILL-2", obligationId: "OBL-QUARTERLY" },
+  ];
+  ficha.coverageOwnership.authority = "Bru (owner)";
+  ficha.coverageOwnership.locator = "mandato firmado p.1";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, true);
+  assert.deepEqual(outcome.errors, []);
+});
+
+test("una cobertura no pertenece dos veces a obligaciones dentro de la ficha (§25.1 IMP-02)", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.coverageOwnership.mapState = "MATERIALIZED";
+  ficha.coverageOwnership.assignments = [
+    { fillId: "FILL-1", obligationId: "OBL-QUARTERLY" },
+    { fillId: "FILL-1", obligationId: "OBL-MONTHLY" },
+  ];
+  ficha.coverageOwnership.authority = "Bru (owner)";
+  ficha.coverageOwnership.locator = "mandato firmado p.1";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  const violation = outcome.errors.find((error) => error.code === "DUPLICATE_OWNERSHIP" && error.factId === "coverageOwnership");
+  assert.ok(violation);
+  assert.ok(violation.message.includes("FILL-1"));
+});
+
+test("una asignación del mapa MATERIALIZED sin fillId u obligationId se rechaza", () => {
+  const ficha = createGasQuarterlyFicha();
+  ficha.coverageOwnership.mapState = "MATERIALIZED";
+  ficha.coverageOwnership.assignments = [{ fillId: "FILL-1" }];
+  ficha.coverageOwnership.authority = "Bru (owner)";
+  ficha.coverageOwnership.locator = "mandato firmado p.1";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "INVALID_ASSIGNMENT"));
 });
 
 test("la ficha materializada en v1_1_1 se valida y coincide con el builder", () => {
