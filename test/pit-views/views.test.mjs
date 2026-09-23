@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  auditedManifestRecords,
   buildPitManifest,
+  buildPitManifestFromAudit,
   buildRevision,
   presentInMarketZone,
   readDecisionView,
@@ -23,6 +25,13 @@ const BASE = {
   occurredAtUtc: "2026-03-31T17:15:00Z",
   publishedAtUtc: "2026-03-31T18:00:00Z",
   consumableAtUtc: "2026-04-01T06:00:00Z",
+  // Fixture sintético de evidencia contemporánea: identifica el log de
+  // ingesta donde quedó demostrado el consumo. No es cobertura real.
+  consumableEvidence: {
+    source: "fixture://ingest-log",
+    locator: "row G0BQ.202604 @ 2026-04-01T06:00Z",
+    sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  },
   revisionId: "v1",
   value: 24.35,
 };
@@ -33,6 +42,7 @@ const WITH_BENCHMARK = {
   occurredAtUtc: "2026-06-30T17:15:00Z",
   publishedAtUtc: "2026-07-01T06:00:00Z",
   consumableAtUtc: "2026-07-01T06:30:00Z",
+  consumableEvidence: BASE.consumableEvidence,
   revisionId: "bench-v1",
   value: 25.7,
 };
@@ -105,8 +115,7 @@ test("consumible después del boundary: no entra, la razón se preserva", () => 
 
 test("publicado después del boundary: no entra por publicación", () => {
   const outcome = buildManifest({
-    records: [{ ...BASE, publishedAtUtc: "2026-04-05T18:00:00Z", consumableAtUtc: "2026-04-05T18:05:00Z" }],
-  });
+    records: [{ ...BASE, publishedAtUtc: "2026-04-05T18:00:00Z", consumableAtUtc: "2026-04-05T18:05:00Z" }],  });
   const view = readDecisionView(outcome.manifest, "2026-04-05T17:59:59Z");
   assert.equal(view.visible.length, 0);
   assert.equal(view.suppressed[0].reason, "publicado después del boundary");
@@ -282,6 +291,7 @@ test("occurred futoro no bloquea: el vintage consumible entonces es input de dec
       occurredAtUtc: "2026-06-30T17:15:00Z",
       publishedAtUtc: "2026-04-01T06:00:00Z",
       consumableAtUtc: "2026-04-01T06:30:00Z",
+      consumableEvidence: BASE.consumableEvidence,
       revisionId: "vintage-2026-04-01",
       value: 25.1,
     }],
@@ -477,4 +487,245 @@ test("readDecisionView rechaza boundary no parseable y exige vista separada", ()
   const outcome = readDecisionView(buildManifest().manifest, " Boundary inválido ");
   assert.equal(outcome.ok, false);
   assert.equal(outcome.code, "INVALID_BOUNDARY");
+});
+
+// --- Materialización del manifiesto auditado de IMP-03 (§25.1/§25.2 IMP-06) ---
+
+// Fixture con la misma forma que operations/audit/IMP-03/temporal-manifest.json
+// (IMP-03_TEMPORAL_MANIFEST): 17 entradas R-01..R-17, semánticas MISSING con
+// razón auditada y HISTORICAL_ASSERTION en R-06/R-11. Copia sintética mínima:
+// el test no lee el artifact real, la forma la fija el artifact auditado.
+const AUDITED_ENTRIES = [
+  {
+    requirementId: "R-01",
+    requirement: "Eligible Gas Quarterly campaign list and exact campaign dates",
+    occurredReferenceTime: { status: "MISSING", value: null, reason: "No campaign dataset exists; exact list is populated later from the audited dataset (S-08 p.5)." },
+    publicationSourceAvailabilityTime: { status: "MISSING", value: null },
+    policyConsumableTime: { status: "MISSING", value: null },
+    revisionVersion: { status: "MISSING", value: null },
+  },
+  {
+    requirementId: "R-04",
+    requirement: "Execution price series at eligible decision boundaries for the exact Gas Quarterly contract",
+    occurredReferenceTime: { status: "MISSING", value: null, reason: "No price/trade/order-book series present in the workspace." },
+    publicationSourceAvailabilityTime: { status: "MISSING", value: null },
+    policyConsumableTime: { status: "MISSING", value: null },
+    revisionVersion: { status: "MISSING", value: null },
+  },
+  {
+    requirementId: "R-06",
+    requirement: "Benchmark B reference prices (official EEX settlement or derived provisional) per trading date",
+    occurredReferenceTime: {
+      status: "HISTORICAL_ASSERTION",
+      value: "One reference per trading date (methodology only)",
+      evidence: { path: "reference/documentation/eex-reference-price.md", sha256: "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260", locator: "§3 L74-98" },
+    },
+    publicationSourceAvailabilityTime: { status: "MISSING", value: null, note: "EEX official publication timing is described as a rule, not demonstrated by a present feed." },
+    policyConsumableTime: { status: "MISSING", value: null },
+    revisionVersion: { status: "MISSING", value: null },
+  },
+];
+
+test("auditedManifestRecords materializa el manifiesto auditado de IMP-03 sin inventar valores", () => {
+  const outcome = auditedManifestRecords({ entries: AUDITED_ENTRIES, defaultViewScope: "decision" });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.errors.length, 0);
+  assert.equal(outcome.records.length, 3);
+  const r01 = outcome.records.find((record) => record.key === "R-01");
+  // MISSING: sin timestamp ni valor; la razón auditada se preserva (§6.2).
+  assert.equal(r01.valueStatus, "MISSING");
+  assert.equal(r01.occurredAtUtc, null);
+  assert.equal(r01.publishedAtUtc, null);
+  assert.equal(r01.consumableAtUtc, null);
+  assert.equal(r01.consumability, "unavailable");
+  assert.equal(r01.reason, "No campaign dataset exists; exact list is populated later from the audited dataset (S-08 p.5).");
+  const r06 = outcome.records.find((record) => record.key === "R-06");
+  // HISTORICAL_ASSERTION: procedencia documental conservada, no se relabela
+  // como timestamp ni como valor de mercado (§6.2).
+  assert.equal(r06.occurredAtUtc, null);
+  assert.equal(r06.valueStatus, "MISSING");
+  assert.equal(r06.historicalAssertion.assertion, "One reference per trading date (methodology only)");
+  assert.equal(r06.historicalAssertion.evidence.sha256, "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260");
+});
+
+test("auditedManifestRecords exige defaultViewScope: el artifact no trae viewScope por entrada", () => {
+  const outcome = auditedManifestRecords({ entries: AUDITED_ENTRIES });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errors[0].code, "MISSING_VIEW_SCOPE");
+});
+
+test("buildPitManifestFromAudit construye el manifiesto con las dos vistas desde el audit", () => {
+  const outcome = buildPitManifestFromAudit({
+    manifestId: "PIT-MANIFEST-IMP-03",
+    manifestVersion: "v1",
+    entries: AUDITED_ENTRIES,
+    defaultViewScope: "decision",
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.manifest.records.length, 3);
+  const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
+  // Nada es consumible: el audit no demostró consumo. Todo queda unavailable
+  // con su razón auditada visible; no se declara cobertura nueva (§25.2).
+  assert.equal(pair.decision.visible.length, 0);
+  assert.equal(pair.decision.suppressed.length, 3);
+  const r04 = pair.decision.suppressed.find((row) => row.key === "R-04");
+  assert.match(r04.reason, /No price\/trade\/order-book series present in the workspace/);
+  assert.ok(pair.evaluation.unavailable.some((row) => row.key === "R-04" && /No price\/trade\/order-book series/.test(row.reason)));
+});
+
+// --- Razón auditada preservada en las vistas (§6.2, review) ---
+
+test("la vista de decisión preserva la razón auditada del record, no la sustituye por texto genérico", () => {
+  const auditedMissing = {
+    ...BASE,
+    key: "R-04.exec",
+    value: null,
+    reason: "No price/trade/order-book series present in the workspace.",
+  };
+  const manifest = buildManifest({ records: [BASE, auditedMissing] }).manifest;
+  const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+  const suppressed = view.suppressed.find((row) => row.key === "R-04.exec");
+  assert.ok(suppressed);
+  assert.match(suppressed.reason, /No price\/trade\/order-book series present in the workspace/);
+  // La guarda específica complementa la razón; no la reemplaza.
+  assert.match(suppressed.reason, /valor ausente/);
+});
+
+test("la vista de evaluación preserva la razón auditada del record en unavailable", () => {
+  const auditedMissing = {
+    ...BASE,
+    key: "R-04.exec",
+    value: null,
+    reason: "No price/trade/order-book series present in the workspace.",
+  };
+  const manifest = buildManifest({ records: [BASE, auditedMissing] }).manifest;
+  const evaluation = readEvaluationView(manifest, "2026-04-02T00:00:00Z");
+  const row = evaluation.unavailable.find((entry) => entry.key === "R-04.exec");
+  assert.ok(row);
+  assert.match(row.reason, /No price\/trade\/order-book series present in the workspace/);
+});
+
+test("sin razón auditada el texto de guarda se mantiene como antes", () => {
+  const manifest = buildManifest({ records: [BASE, { ...BASE, key: "plain", value: null }] }).manifest;
+  const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+  const suppressed = view.suppressed.find((row) => row.key === "plain");
+  assert.equal(suppressed.reason, "valor ausente; faltante explícito (§6.2)");
+});
+
+// --- Lineage receipt/record coherente (§6.2, review) ---
+
+test("receipt cuyo revisesRevisionId contradice el revisionOf del record se rechaza", () => {
+  // Caso de review: record con revisionOf "v1" y receipt que declara revisar
+  // "not-v1". El lineage del receipt y del record deben coincidir: aceptar la
+  // contradicción sería doble verdad sobre qué versión corrige cuál.
+  const records = [
+    BASE,
+    { ...BASE, revisionId: "v2", revisionOf: "v1", publishedAtUtc: "2026-04-20T10:00:00Z", consumableAtUtc: "2026-04-20T10:30:00Z", value: 25.1 },
+  ];
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    revisesRevisionId: "not-v1",
+    effectiveAtUtc: "2026-04-20T11:30:00Z",
+  });
+  const outcome = buildPitManifest({
+    manifestId: "M",
+    manifestVersion: "v1",
+    records,
+    revisions: [receipt.revision],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "REVISION_LINEAGE_MISMATCH"));
+});
+
+test("receipt coherente con el revisionOf del record se acepta", () => {
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    revisesRevisionId: "v1",
+    effectiveAtUtc: "2026-04-20T11:30:00Z",
+  });
+  const outcome = buildPitManifest({
+    manifestId: "M",
+    manifestVersion: "v1",
+    records: revisedRecords(),
+    revisions: [receipt.revision],
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.manifest.revisions.length, 1);
+});
+
+test("receipt sin revisesRevisionId sobre un record con revisionOf se rechaza (lineage incompleto)", () => {
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    effectiveAtUtc: "2026-04-20T11:30:00Z",
+  });
+  const outcome = buildPitManifest({
+    manifestId: "M",
+    manifestVersion: "v1",
+    records: revisedRecords(),
+    revisions: [receipt.revision],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "REVISION_LINEAGE_MISMATCH"));
+});
+
+test("la versión vigente por reloj pero no consumible también preserva la razón auditada", () => {
+  // Rama de review: record vigente por consumableFromUtc pero cuya
+  // consumibilidad falla en el boundary exacto. La razón auditada no se
+  // sustituye por el texto genérico de la guarda (§6.2).
+  const delayed = {
+    ...BASE,
+    key: "R-04.exec",
+    revisionId: "v1",
+    consumableAtUtc: "2026-04-05T06:00:00Z",
+    reason: "No price/trade/order-book series present in the workspace.",
+  };
+  const manifest = buildManifest({ records: [delayed] }).manifest;
+  const view = readDecisionView(manifest, "2026-04-02T00:00:00Z");
+  assert.equal(view.visible.length, 0);
+  const suppressed = view.suppressed.find((row) => row.key === "R-04.exec");
+  assert.ok(suppressed);
+  assert.match(suppressed.reason, /No price\/trade\/order-book series present in the workspace/);
+  assert.match(suppressed.reason, /aún no consumible en este boundary/);
+});
+
+test("un receipt duplicado (mismo key y revisionId) se rechaza: cada revisión se registra una vez", () => {
+  const receipt = buildRevision({
+    key: BASE.key,
+    revisionId: "v2",
+    revisesRevisionId: "v1",
+    effectiveAtUtc: "2026-04-20T11:30:00Z",
+  });
+  const outcome = buildPitManifest({
+    manifestId: "M",
+    manifestVersion: "v1",
+    records: revisedRecords(),
+    revisions: [receipt.revision, { ...receipt.revision }],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "DUPLICATE_REVISION_RECEIPT"));
+});
+
+test("buildPitManifestFromAudit no descarta entradas inválidas en silencio: el error sube al caller", () => {
+  const badEntries = [
+    ...AUDITED_ENTRIES,
+    {
+      requirementId: "R-99",
+      requirement: "Entrada hostil con timestamp sin zona",
+      occurredReferenceTime: { status: "PRESENT", value: "2026-03-31T17:15:00" },
+      publicationSourceAvailabilityTime: { status: "MISSING", value: null },
+      policyConsumableTime: { status: "MISSING", value: null },
+      revisionVersion: { status: "MISSING", value: null },
+    },
+  ];
+  const outcome = buildPitManifestFromAudit({
+    manifestId: "PIT-MANIFEST-IMP-03",
+    manifestVersion: "v1",
+    entries: badEntries,
+    defaultViewScope: "decision",
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "NOT_UTC_ANCHORED" && e.field.includes("R-99")));
 });

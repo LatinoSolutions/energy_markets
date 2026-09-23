@@ -56,6 +56,136 @@ export function buildRevision(input) {
 // (cada revisión del contenido es un record nuevo con revisionOf), los
 // `revisions` son los receipts de trazabilidad del cambio. Nada aquí declara
 // cobertura real: el contenido lo aporta el manifest auditado (§25.2 IMP-06).
+
+// Puente de ingesta desde el manifiesto temporal auditado de IMP-03
+// (IMP-03_TEMPORAL_MANIFEST): las entradas auditadas se materializan como
+// records del contrato, sin inventar valores. Una semántica MISSING no
+// aporta timestamp ni valor: el record queda faltante explícito y conserva
+// su razón auditada (§6.2). HISTORICAL_ASSERTION (R-06/R-11) es procedencia
+// documental del audit, no dato temporal ni valor de mercado: no se relabela
+// (§6.2) y no se usa como occurred/publication/consumable. El artifact no
+// declara viewScope por entrada: el lote lo declara (el scope del audit es
+// la toma de decisión P5, §6.5; se permite override por requisito).
+export function auditedManifestRecords({ entries, defaultViewScope, viewScopeByRequirement = {} } = {}) {
+  const errors = [];
+  if (!Array.isArray(entries)) {
+    return { ok: false, errors: [{ field: "entries", code: "INVALID_ENTRIES", message: "entries debe ser la lista del manifiesto auditado." }] };
+  }
+  if (defaultViewScope !== "decision" && defaultViewScope !== "evaluation") {
+    return {
+      ok: false,
+      errors: [{ field: "defaultViewScope", code: "MISSING_VIEW_SCOPE", message: "El lote debe declarar defaultViewScope: decision o evaluation (el artifact IMP-03 no trae viewScope por entrada)." }],
+    };
+  }
+  const SEMANTIC_TO_FIELD = {
+    occurredReferenceTime: "occurredAtUtc",
+    publicationSourceAvailabilityTime: "publishedAtUtc",
+    policyConsumableTime: "consumableAtUtc",
+  };
+  const records = [];
+  entries.forEach((entry, index) => {
+    const semanticFields = {};
+    for (const [semanticKey, field] of Object.entries(SEMANTIC_TO_FIELD)) {
+      const semantic = entry[semanticKey];
+      if (semantic?.status === "PRESENT" && typeof semantic.value === "string" && semantic.value.length > 0) {
+        semanticFields[field] = semantic.value;
+      }
+    }
+    // Aserción histórica del audit: procedencia documental, no timestamp.
+    let assertion = null;
+    for (const semanticKey of Object.keys(SEMANTIC_TO_FIELD)) {
+      const semantic = entry[semanticKey];
+      if (semantic?.status === "HISTORICAL_ASSERTION" && semantic.value != null) {
+        assertion = {
+          assertion: semantic.value,
+          semantic: semanticKey,
+          evidence: semantic.evidence ?? null,
+          specLocator: semantic.specLocator ?? entry.specLocator ?? null,
+        };
+        break;
+      }
+    }
+    // Razón auditada del faltante (§6.2): trazabilidad del missing.
+    let reason = null;
+    for (const semanticKey of Object.keys(SEMANTIC_TO_FIELD)) {
+      const semantic = entry[semanticKey];
+      if (semantic?.status === "MISSING" && typeof semantic.reason === "string" && semantic.reason.length > 0) {
+        reason = semantic.reason;
+        break;
+      }
+    }
+    const viewScope = viewScopeByRequirement[entry.requirementId] ?? defaultViewScope;
+    const recordInput = {
+      key: entry.requirementId,
+      viewScope,
+      revisionId: null,
+      value: null,
+      occurredAtUtc: semanticFields.occurredAtUtc ?? null,
+      publishedAtUtc: semanticFields.publishedAtUtc ?? null,
+      consumableAtUtc: semanticFields.consumableAtUtc ?? null,
+    };
+    if (typeof entry.requirement === "string" && entry.requirement.length > 0) {
+      recordInput.label = entry.requirement;
+    }
+    if (reason !== null && assertion !== null) {
+      recordInput.reason = `${reason} | HISTORICAL_ASSERTION (${assertion.semantic}): ${assertion.assertion}`;
+    } else if (reason !== null) {
+      recordInput.reason = reason;
+    } else if (assertion !== null) {
+      recordInput.reason = `HISTORICAL_ASSERTION (${assertion.semantic}): ${assertion.assertion}`;
+    }
+    if (assertion !== null) {
+      recordInput.historicalAssertion = {
+        assertion: assertion.assertion,
+        semantic: assertion.semantic,
+        specLocator: assertion.specLocator,
+        evidence: assertion.evidence,
+      };
+    }
+    const outcome = buildPitRecord(recordInput);
+    if (outcome.ok) {
+      records.push(outcome.record);
+    } else {
+      errors.push(...outcome.errors.map((e) => ({ ...e, field: `entries[${index}](${entry.requirementId ?? "?"}).${e.field}` })));
+    }
+  });
+  return { ok: true, records, errors };
+}
+
+// Materializa el manifiesto PIT auditado: records desde el artifact IMP-03
+// más los records enriquecidos del lote, en un buildPitManifest con sus dos
+// vistas. Las razones auditadas viajan dentro de los records; el manifiesto
+// resultante no declara coberturas nuevas.
+export function buildPitManifestFromAudit({
+  manifestId,
+  manifestVersion,
+  entries,
+  defaultViewScope,
+  viewScopeByRequirement = {},
+  extraRecords = [],
+  revisions = [],
+} = {}) {
+  const ingestion = auditedManifestRecords({ entries, defaultViewScope, viewScopeByRequirement });
+  if (!ingestion.ok) {
+    return ingestion;
+  }
+  // Un record de ingesta rechazado por el contrato PIT no se descarta en
+  // silencio: el manifiesto no se construye y el error sube al caller (§6.2:
+  // nada se excluye sin trazabilidad).
+  if (ingestion.errors.length > 0) {
+    return {
+      ok: false,
+      errors: ingestion.errors.map((error) => ({ ...error, field: `entries.${error.field}` })),
+    };
+  }
+  return buildPitManifest({
+    manifestId,
+    manifestVersion,
+    records: [...ingestion.records, ...extraRecords],
+    revisions,
+  });
+}
+
 export function buildPitManifest({ manifestId, manifestVersion, records = [], revisions = [] } = {}) {
   const errors = [];
   if (typeof manifestId !== "string" || manifestId.trim().length === 0) {
@@ -121,6 +251,7 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
   }
 
   const builtRevisions = [];
+  const revisionIdentity = new Set();
   if (Array.isArray(revisions)) {
     revisions.forEach((entry, index) => {
       const outcome = buildRevision(entry);
@@ -138,6 +269,31 @@ export function buildPitManifest({ manifestId, manifestVersion, records = [], re
         });
         return;
       }
+      // Lineage coherente (§6.2): el receipt declara a qué versión corrige; el
+      // record materializado declara de qué versión procede. Un receipt cuyo
+      // revisesRevisionId contradice el revisionOf del record es doble verdad:
+      // se rechaza en vez de aceptar la revisión con lineage roto.
+      const materialized = identity.get(`${outcome.revision.key}::${outcome.revision.revisionId}`);
+      if (outcome.revision.revisesRevisionId !== materialized.revisionOf) {
+        errors.push({
+          field: `revisions[${index}]`,
+          code: "REVISION_LINEAGE_MISMATCH",
+          message: `El receipt de "${outcome.revision.revisionId}" declara revisar "${outcome.revision.revisesRevisionId ?? "null"}" pero el record materializado declara revisionOf "${materialized.revisionOf ?? "null"}"; el lineage del receipt y del record deben coincidir (§6.2).`,
+        });
+        return;
+      }
+      // Un mismo receipt de revisión no puede registrarse dos veces: duplicar
+      // la trazabilidad del cambio sería doble verdad sobre la revisión.
+      const receiptIdentity = `${outcome.revision.key}::${outcome.revision.revisionId}`;
+      if (revisionIdentity.has(receiptIdentity)) {
+        errors.push({
+          field: `revisions[${index}]`,
+          code: "DUPLICATE_REVISION_RECEIPT",
+          message: `El receipt de "${outcome.revision.revisionId}" de "${outcome.revision.key}" aparece más de una vez; cada revisión se registra una sola vez (§6.2).`,
+        });
+        return;
+      }
+      revisionIdentity.add(receiptIdentity);
       builtRevisions.push(outcome.revision);
     });
   }
@@ -280,10 +436,16 @@ export function readDecisionView(manifest, boundaryUtc) {
           proxyId: effective.record.proxyId,
         });
       } else {
+        // Razón del record (§6.2): la trazabilidad del faltante auditado no
+        // se sustituye por un texto genérico; la guarda específica lo
+        // complementa también en la versión vigente por reloj.
+        const effectiveReason = typeof effective.record.reason === "string" && effective.record.reason.length > 0
+          ? effective.record.reason
+          : null;
         suppressed.push({
           key,
           revisionId: effective.record.revisionId,
-          reason: consumabilityNow.reason,
+          reason: effectiveReason !== null ? `${effectiveReason}; ${consumabilityNow.reason}` : consumabilityNow.reason,
         });
       }
     }
@@ -292,20 +454,35 @@ export function readDecisionView(manifest, boundaryUtc) {
       if (effective !== null && record === effective.record) {
         continue;
       }
+      // Razón del record (§6.2): la trazabilidad del faltante auditado no se
+      // sustituye por un texto genérico; la guarda específica lo complementa.
+      const recordReason = typeof record.reason === "string" && record.reason.length > 0 ? record.reason : null;
       const publication = record.publishedAtUtc === null ? null : Date.parse(record.publishedAtUtc);
       if (publication !== null && publication > boundary.ms) {
-        suppressed.push({ key, revisionId: record.revisionId, reason: "publicado después del boundary" });
+        suppressed.push({
+          key,
+          revisionId: record.revisionId,
+          reason: recordReason !== null ? `${recordReason}; publicado después del boundary` : "publicado después del boundary",
+        });
         continue;
       }
       const consumability = isConsumableAtBoundary(record, boundary.iso);
       if (!consumability.consumable) {
-        suppressed.push({ key, revisionId: record.revisionId, reason: consumability.reason });
+        suppressed.push({
+          key,
+          revisionId: record.revisionId,
+          reason: recordReason !== null ? `${recordReason}; ${consumability.reason}` : consumability.reason,
+        });
         continue;
       }
       // Las versiones posteriores no existían aún para la policy: no son un
       // "cambio retrospectivo"; simplemente no informan este boundary (§14.7).
       if (effective === null || Date.parse(record.consumableFromUtc) > boundary.ms) {
-        suppressed.push({ key, revisionId: record.revisionId, reason: "no conocida en este boundary" });
+        suppressed.push({
+          key,
+          revisionId: record.revisionId,
+          reason: recordReason !== null ? `${recordReason}; no conocida en este boundary` : "no conocida en este boundary",
+        });
       }
     }
   }
@@ -375,17 +552,20 @@ export function readEvaluationView(manifest, asOfUtc) {
     // Faltantes explícitos: valor ausente o contenido sin reloj de evaluación
     // (sin publicación ni receipt). Nunca se muestran como actuales (§6.1/§6.2).
     for (const record of keyRecords) {
+      // Razón del record (§6.2): la trazabilidad del faltante auditado no se
+      // sustituye por un texto genérico; la guarda específica lo complementa.
+      const recordReason = typeof record.reason === "string" && record.reason.length > 0 ? record.reason : null;
       if (record.valueStatus === "MISSING") {
         unavailable.push({
           key,
           revisionId: record.revisionId,
-          reason: "valor ausente; faltante explícito (§6.2)",
+          reason: recordReason !== null ? `${recordReason}; valor ausente; faltante explícito (§6.2)` : "valor ausente; faltante explícito (§6.2)",
         });
       } else if (typeof record.publishedAtUtc !== "string" || typeof record.effectiveAtUtc !== "string") {
         unavailable.push({
           key,
           revisionId: record.revisionId,
-          reason: "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)",
+          reason: recordReason !== null ? `${recordReason}; sin publicación ni receipt; contenido no disponible para evaluación (§6.1)` : "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)",
         });
       }
     }

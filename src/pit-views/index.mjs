@@ -15,7 +15,9 @@ export {
 } from "./pit-record.mjs";
 
 export {
+  auditedManifestRecords,
   buildPitManifest,
+  buildPitManifestFromAudit,
   buildRevision,
   readDecisionView,
   readEvaluationView,

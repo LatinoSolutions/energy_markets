@@ -16,6 +16,13 @@ function validInput(overrides = {}) {
     occurredAtUtc: "2026-03-31T17:15:00Z",
     publishedAtUtc: "2026-03-31T18:00:00Z",
     consumableAtUtc: "2026-04-01T06:00:00Z",
+    // Fixture sintético de evidencia contemporánea de consumo; no es cobertura
+    // real (§25.2 IMP-06). Identifica dónde quedó demostrado el consumo.
+    consumableEvidence: {
+      source: "fixture://ingest-log",
+      locator: "row G0BQ.202604 @ 2026-04-01T06:00Z",
+      sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
     revisionId: "v1",
     value: 24.35,
     ...overrides,
@@ -30,6 +37,7 @@ test("buildPitRecord acepta un registro con las cuatro semánticas explícitas",
   assert.equal(record.consumableAtUtc, "2026-04-01T06:00:00.000Z");
   assert.deepEqual(Object.keys(semanticsOf(record)).sort(), [
     "consumableAtUtc",
+    "consumableEvidence",
     "occurredAtUtc",
     "publishedAtUtc",
     "revisionId",
@@ -143,6 +151,43 @@ test("consumo sin publicación en origen no se demuestra: el registro queda unav
   const atBoundary = isConsumableAtBoundary(outcome.record, "2026-04-02T00:00:00Z");
   assert.equal(atBoundary.consumable, false);
   assert.match(atBoundary.reason, /sin publicación/);
+});
+
+test("timestamp de consumo sin evidencia contemporánea no demuestra consumo: unavailable (§6.1)", () => {
+  // Un consumableAtUtc declarado por sí solo es una afirmación suelta: sin
+  // prueba verificable, el dato se trata como unavailable (§6.1). Es el caso
+  // señalado en review: un timestamp arbitrario no puede marcarse "demonstrated".
+  const outcome = buildPitRecord(validInput({ consumableEvidence: undefined }));
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.record.consumability, "unavailable");
+  assert.equal(outcome.record.consumableFromUtc, null);
+  assert.equal(outcome.record.consumableEvidence, null);
+  const atBoundary = isConsumableAtBoundary(outcome.record, "2026-04-02T00:00:00Z");
+  assert.equal(atBoundary.consumable, false);
+  assert.match(atBoundary.reason, /sin evidencia contemporánea/);
+});
+
+test("evidencia de consumo mal formada se rechaza: source/locator no vacíos y sha256 de 64 hex", () => {
+  const noLocator = buildPitRecord(validInput({ consumableEvidence: { source: "log" } }));
+  assert.equal(noLocator.ok, false);
+  assert.ok(noLocator.errors.some((e) => e.code === "INVALID_CONSUMABLE_EVIDENCE"));
+  const badSha = buildPitRecord(validInput({
+    consumableEvidence: { source: "log", locator: "row", sha256: "no-hex" },
+  }));
+  assert.equal(badSha.ok, false);
+  assert.ok(badSha.errors.some((e) => e.code === "INVALID_CONSUMABLE_EVIDENCE"));
+  const okSha = buildPitRecord(validInput({
+    consumableEvidence: { source: "log", locator: "row", sha256: "ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789" },
+  }));
+  assert.equal(okSha.ok, true);
+  assert.equal(okSha.record.consumableEvidence.sha256, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
+});
+
+test("consumableAtUtc sin evidencia no entra a la decisión aunque el boundary sea posterior", () => {
+  const record = buildPitRecord(validInput({ consumableEvidence: undefined })).record;
+  const outcome = isConsumableAtBoundary(record, "2026-04-01T06:00:00Z");
+  assert.equal(outcome.consumable, false);
+  assert.match(outcome.reason, /sin evidencia contemporánea/);
 });
 
 test("un registro consumible sin value queda unavailable y no expone un valor indefinido (§6.2)", () => {

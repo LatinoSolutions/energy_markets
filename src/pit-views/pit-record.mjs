@@ -96,8 +96,11 @@ export function buildPitRecord(input) {
   }
 
   // §6.1: consumo demostrado únicamente con evidencia contemporánea
-  // (`consumableAtUtc`). No existe consumibilidad genérica "en todo boundary":
-  // presumirla convertiría publicación en consumo sin prueba.
+  // verificable (`consumableAtUtc` + `consumableEvidence`). Un timestamp de
+  // consumo declarado sin evidencia que lo respalde es una afirmación suelta:
+  // §6.1 "Si no existe prueba suficiente, el dato se trata como unavailable
+  // para Replay". El módulo exige que la referencia de evidencia exista y esté
+  // bien formada; verificar su contenido es trabajo del audit (§6.4).
   if (input.consumableAtAnyBoundary === true) {
     fail(
       errors,
@@ -111,6 +114,27 @@ export function buildPitRecord(input) {
     consumable = normalizeUtc(input.consumableAtUtc);
     if (!consumable.ok) {
       fail(errors, "consumableAtUtc", consumable.code, "policy-consumable time debe tener zona explícita (se normaliza a UTC).");
+    }
+  }
+  const SHA256_PATTERN = /^[0-9a-fA-F]{64}$/;
+  let consumableEvidence = null;
+  if (input.consumableEvidence !== undefined && input.consumableEvidence !== null) {
+    const evidence = input.consumableEvidence;
+    const sourceOk = isNonEmptyString(evidence?.source);
+    const locatorOk = isNonEmptyString(evidence?.locator);
+    const shaOk = evidence?.sha256 === undefined || evidence?.sha256 === null || SHA256_PATTERN.test(evidence.sha256);
+    if (!sourceOk || !locatorOk || !shaOk) {
+      fail(
+        errors,
+        "consumableEvidence",
+        "INVALID_CONSUMABLE_EVIDENCE",
+        "La evidencia de consumo requiere source y locator no vacíos, y sha256 hexadecimal de 64 caracteres cuando se declara (§6.1).",
+      );
+    } else {
+      consumableEvidence = { source: evidence.source, locator: evidence.locator };
+      if (evidence.sha256 !== undefined && evidence.sha256 !== null) {
+        consumableEvidence.sha256 = evidence.sha256.toLowerCase();
+      }
     }
   }
 
@@ -138,10 +162,12 @@ export function buildPitRecord(input) {
     return { ok: false, errors };
   }
 
-  // Consumo demostrado exige las tres piezas de §6.1: valor presente,
-  // publicación en origen (no se puede consumir lo que nunca se publicó) y
-  // evidencia contemporánea de consumo. Sin cualquiera de ellas, unavailable.
-  const consumability = valuePresent && published.utc !== null && consumable.utc !== null
+  // Consumo demostrado exige las cuatro piezas de §6.1: valor presente,
+  // publicación en origen (no se puede consumir lo que nunca se publicó),
+  // timestamp de consumo y evidencia contemporánea verificable de ese consumo.
+  // El timestamp sin evidencia no demuestra nada: la evidencia es la prueba,
+  // el timestamp es sólo su instante. Sin cualquiera de las piezas, unavailable.
+  const consumability = valuePresent && published.utc !== null && consumable.utc !== null && consumableEvidence !== null
     ? "demonstrated"
     : "unavailable";
 
@@ -155,6 +181,7 @@ export function buildPitRecord(input) {
     occurredAtUtc: occurred.utc,
     publishedAtUtc: published.utc,
     consumableAtUtc: consumable.utc,
+    consumableEvidence,
     consumability,
     consumableFromUtc,
     valueStatus: valuePresent ? "PRESENT" : "MISSING",
@@ -168,6 +195,18 @@ export function buildPitRecord(input) {
   }
   if (typeof input.reason === "string" && input.reason.length > 0) {
     record.reason = input.reason;
+  }
+  // Procedencia de audit (§6.2): una aserción histórica declarada por el
+  // manifiesto auditado viaja con el record para no perder trazabilidad. No es
+  // un timestamp ni un valor: se conserva tal cual para lectura/verificación.
+  if (input.historicalAssertion && typeof input.historicalAssertion === "object"
+    && isNonEmptyString(input.historicalAssertion.assertion)) {
+    record.historicalAssertion = {
+      assertion: input.historicalAssertion.assertion,
+      semantic: input.historicalAssertion.semantic ?? null,
+      specLocator: input.historicalAssertion.specLocator ?? null,
+      evidence: input.historicalAssertion.evidence ?? null,
+    };
   }
   return { ok: true, record };
 }
@@ -191,6 +230,9 @@ export function isConsumableAtBoundary(record, boundaryUtc) {
   if (record.consumableAtUtc === null) {
     return { consumable: false, reason: "consumo no demostrado (§6.1)" };
   }
+  if (record.consumableEvidence === null) {
+    return { consumable: false, reason: "consumo sin evidencia contemporánea verificable; no demostrado (§6.1)" };
+  }
   const consumable = Date.parse(record.consumableAtUtc);
   if (consumable > boundary) {
     return { consumable: false, reason: "aún no consumible en este boundary" };
@@ -204,6 +246,7 @@ export function semanticsOf(record) {
     occurredAtUtc: record?.occurredAtUtc ?? null,
     publishedAtUtc: record?.publishedAtUtc ?? null,
     consumableAtUtc: record?.consumableAtUtc ?? null,
+    consumableEvidence: record?.consumableEvidence ?? null,
     revisionId: record?.revisionId ?? null,
   };
 }
