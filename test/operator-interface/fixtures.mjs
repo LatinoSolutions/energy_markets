@@ -85,6 +85,19 @@ export const RECEIPT_BASE = {
   value: { kind: "GOVERNANCE_RECEIPT" },
 };
 
+// Estado de governance registrado por el backend (§26.5, OI29-06): el estado
+// mostrado por la UI debe ser el valor de esta versión canónica.
+export const GOVERNANCE_STATE_BASE = {
+  key: "GOV.state.current",
+  viewScope: "decision",
+  occurredAtUtc: "2026-04-02T08:00:00Z",
+  publishedAtUtc: "2026-04-02T08:00:00Z",
+  consumableAtUtc: "2026-04-02T08:00:00Z",
+  consumableEvidence: CONSUMABLE_EVIDENCE,
+  revisionId: "v3",
+  value: { level: "HALTED", receiptRef: "GOV.receipt.exec-1@v1" },
+};
+
 // Referencia canónica "<recordKey>@<revisionId>" del registro.
 export function backendRefOf(record) {
   return `${record.key}@${record.revisionId}`;

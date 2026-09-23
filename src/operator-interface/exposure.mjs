@@ -367,6 +367,35 @@ function validateProvenanceWithoutValue(provenance, field, errors, backendIndex)
   });
 }
 
+// OI29-05 (review 2026-09-23): el reloj de disponibilidad depende del scope de
+// la vista canónica del registro (§6.1/§26.3). En el Decision-time view la
+// policy consume en su reloj de consumo: un dato publicado pero aún no
+// consumible no entra (§25.1 IMP-06/IMP-29). El reloj de contenido
+// (receipt/publicación) sólo rige los registros de la Evaluation view.
+function availabilityClockOf(backendRecord) {
+  if (backendRecord === null) {
+    return null;
+  }
+  if (backendRecord.viewScope === "decision") {
+    return typeof backendRecord.consumableAtUtc === "string" ? backendRecord.consumableAtUtc : null;
+  }
+  if (typeof backendRecord.effectiveAtUtc === "string") {
+    return backendRecord.effectiveAtUtc;
+  }
+  return typeof backendRecord.publishedAtUtc === "string" ? backendRecord.publishedAtUtc : null;
+}
+
+function notYetClosedReason(viewScope, availabilityUtc) {
+  if (viewScope === "evaluation") {
+    return availabilityUtc === null
+      ? "la versión canónica de evaluación referida no tiene reloj de contenido demostrado en origen (§6.1/§26.3); sólo evaluación posterior"
+      : `la versión canónica referida tiene contenido disponible desde ${availabilityUtc}, posterior al boundary; sólo evaluación posterior (§26.3)`;
+  }
+  return availabilityUtc === null
+    ? "la versión canónica referida no declara consumo demostrado por la policy (§6.1/§26.3); lo publicado pero aún no consumible no entra (§25.1 IMP-29)"
+    : `la versión canónica referida es consumible por la policy desde ${availabilityUtc}, posterior al boundary; lo publicado pero aún no consumible no entra (§6.1/§25.1/§26.3)`;
+}
+
 // Proyección completa del boundary. Todas las secciones de §26.2 quedan
 // presentes: las no observadas se declaran MISSING con razón, porque omitirlas
 // daría a la interfaz una apariencia de cobertura que no existe (§26.2).
@@ -432,16 +461,14 @@ export function buildExposure({ boundaryUtc, observations = [], backendManifest 
     if (observed.record.value !== undefined
       && observed.record.provenance !== undefined && observed.record.provenance !== null) {
       const backendRecord = resolveBackendRecord(backendIndex, observed.record.provenance.recordKey, observed.record.provenance.revisionId);
-      const availabilityUtc = backendRecord?.effectiveAtUtc ?? backendRecord?.publishedAtUtc ?? null;
+      const availabilityUtc = availabilityClockOf(backendRecord);
       if (availabilityUtc === null || Date.parse(availabilityUtc) > boundaryMs) {
         return deepFreeze({
           field: definition.key,
           specLabel: definition.specLabel,
           section: definition.section,
           condition: EXPOSURE_CONDITION.NOT_YET_CLOSED,
-          reason: availabilityUtc === null
-            ? "la versión canónica referida no tiene disponibilidad demostrada en origen; sólo evaluación posterior (§26.2/§6.1)"
-            : `la versión canónica referida existe desde ${availabilityUtc}, posterior al boundary; sólo evaluación posterior (§26.3)`,
+          reason: notYetClosedReason(backendRecord?.viewScope, availabilityUtc),
           provenance: observed.record.provenance,
         });
       }

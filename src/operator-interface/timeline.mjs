@@ -96,6 +96,7 @@ function validateRecommendationLink(ref, backendIndex, field) {
 function validateExecution(event, index, backendIndex) {
   const field = `executions[${index}]`;
   const errors = [];
+  let realAuthorization = null;
   if (!isNonEmptyString(event?.eventId)) {
     errors.push({ field: `${field}.eventId`, code: "MISSING_EVENT_ID", message: "La actuación no declara su identidad." });
   }
@@ -134,6 +135,46 @@ function validateExecution(event, index, backendIndex) {
         code: "REAL_WITHOUT_AUTHORITY",
         message: "Una actuación REAL exige autorización (authorityRef) y receipt aplicable (receiptRef + sha256) (§26.5/§16–18).",
       });
+    } else {
+      // OI29-08 (review 2026-09-23): la forma de un comando REAL no basta;
+      // resolver contra la fuente aplicable o fail-closed (§26.5/§25.2.2).
+      // En este boundary la fuente verificada es el manifest PIT; los
+      // artifacts DEP-25 que materialice IMP-24 se registrarían como records
+      // canónicos del backend consumibles aquí.
+      const parsed = parseBackendRef(authorization.authorityRef);
+      const authorityRecord = parsed === null ? null : resolveBackendRecord(backendIndex, parsed.recordKey, parsed.revisionId);
+      if (authorityRecord === null) {
+        errors.push({
+          field: `${field}.authorization.authorityRef`,
+          code: "REAL_AUTHORITY_NOT_IN_BACKEND",
+          message: `"${authorization.authorityRef}" no resuelve a un registro del manifest backend verificado; un acto REAL exige autoridad aplicable resuelta (§26.5/§25.2.2).`,
+        });
+      }
+      const parsedReceipt = parseBackendRef(receipt.receiptRef);
+      const receiptRecord = parsedReceipt === null ? null : resolveBackendRecord(backendIndex, parsedReceipt.recordKey, parsedReceipt.revisionId);
+      if (receiptRecord === null) {
+        errors.push({
+          field: `${field}.authorization.receipt.receiptRef`,
+          code: "REAL_RECEIPT_NOT_IN_BACKEND",
+          message: `"${receipt.receiptRef}" no resuelve a un registro del manifest backend verificado; un receipt aplicable se contrasta con su versión canónica (§26.5/§25.2).`,
+        });
+      } else if (receiptRecord.valueSha256 !== receipt.receiptSha256.toLowerCase()) {
+        errors.push({
+          field: `${field}.authorization.receipt.receiptSha256`,
+          code: "REAL_RECEIPT_MISMATCH",
+          message: `El hash del receipt no coincide con el contenido registrado por "${receipt.receiptRef}"; no se declara un receipt que el backend no verificó (§26.5).`,
+        });
+      } else {
+        realAuthorization = {
+          authorityRef: authorization.authorityRef,
+          receipt: { receiptRef: receipt.receiptRef, receiptSha256: receipt.receiptSha256.toLowerCase() },
+          // OI29-08: los registros aplicables resueltos, no cadenas declaradas.
+          origin: {
+            authority: { recordKey: authorityRecord.key, revisionId: authorityRecord.revisionId },
+            receipt: { recordKey: receiptRecord.key, revisionId: receiptRecord.revisionId },
+          },
+        };
+      }
     }
   }
   if (errors.length > 0) {
@@ -152,9 +193,7 @@ function validateExecution(event, index, backendIndex) {
       relatedCanonicalRef: { recordKey: parseBackendRef(event.relatedRecommendationRef).recordKey, revisionId: parseBackendRef(event.relatedRecommendationRef).revisionId },
       hypothetical: event.class === EXECUTION_CLASS.HYPOTHETICAL,
       real: event.class === EXECUTION_CLASS.REAL,
-      authorization: event.class === EXECUTION_CLASS.REAL
-        ? { authorityRef: event.authorization.authorityRef, receipt: { receiptRef: event.authorization.receipt.receiptRef, receiptSha256: event.authorization.receipt.receiptSha256.toLowerCase() } }
-        : null,
+      authorization: realAuthorization,
     }),
   };
 }
@@ -446,15 +485,29 @@ export function reconcileOperatorTimeline(timeline) {
   checks.push("evaluationScopeExcludedFromDecision");
 
   for (const event of timeline.executions ?? []) {
-    if (event.real === true && event.authorization === null) {
+    if (event.real !== true) {
+      continue;
+    }
+    if (event.authorization === null || event.authorization === undefined) {
       errors.push({
         field: `executions.${event.eventId}`,
         code: "REAL_WITHOUT_AUTHORITY",
         message: "Una actuación REAL sin autorización/receipt no se muestra como Real (§26.5).",
       });
+    } else if (event.authorization.origin === undefined || event.authorization.origin?.authority === undefined
+      || event.authorization.origin?.receipt === undefined) {
+      // OI29-08: la autoridad REAL sólo vale resuelta contra el backend
+      // verificado (buildOperatorTimeline la resuelve); un authorization
+      // armado a mano sin ese vínculo no acredita el acto.
+      errors.push({
+        field: `executions.${event.eventId}`,
+        code: "REAL_AUTHORITY_UNRESOLVED",
+        message: "La autorización REAL no conserva los registros del backend que la resolvieron (§26.5/§25.2.2).",
+      });
     }
   }
   checks.push("realRequiresAuthority");
+  checks.push("realAuthorityResolvedInBackend");
 
   for (const event of timeline.interventions ?? []) {
     if (event.attribution !== "HUMAN") {

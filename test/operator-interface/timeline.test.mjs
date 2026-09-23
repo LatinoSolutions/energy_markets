@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
 import { buildRevision } from "../../src/pit-views/index.mjs";
 import {
   EXECUTION_CLASS,
@@ -8,7 +9,7 @@ import {
   buildOperatorTimeline,
   reconcileOperatorTimeline,
 } from "../../src/operator-interface/index.mjs";
-import { DECISION_BASE, EVALUATION_BENCHMARK, RECOMMENDATION_BASE, buildManifest } from "./fixtures.mjs";
+import { AUTHORITY_BASE, DECISION_BASE, EVALUATION_BENCHMARK, RECEIPT_BASE, RECOMMENDATION_BASE, buildManifest } from "./fixtures.mjs";
 
 const RECOMMENDATION_REF = `${RECOMMENDATION_BASE.key}@${RECOMMENDATION_BASE.revisionId}`;
 
@@ -104,8 +105,51 @@ test("una actuación REAL sin autoridad se rechaza; la hipotética se etiqueta",
   assert.equal(hypothetical.timeline.executions[0].real, false);
 });
 
-test("una actuación REAL autorizada se registra con su receipt", () => {
+// OI29-08 (§26.5/§25.2.2): la autoridad de un acto REAL se resuelve contra el
+// manifest backend verificado (stanza del record aplicable) y el receipt debe
+// coincidir con su contenido registrado; un par formulario/resuelto no pasan.
+test("una actuación REAL con autoridad y receipt forjados se rechaza", () => {
   const built = buildManifest({ records: [DECISION_BASE, RECOMMENDATION_BASE] });
+  const forged = timelineOf(built.manifest, "2026-04-01T07:00:00Z", "2026-04-03T00:00:00Z", {
+    executions: [{
+      eventId: "exec-forged",
+      class: EXECUTION_CLASS.REAL,
+      relatedRecommendationRef: RECOMMENDATION_REF,
+      occurredAtUtc: "2026-04-02T09:00:00Z",
+      authorization: {
+        authorityRef: "totally.forged@v999",
+        receipt: { receiptRef: "forged/receipt.json", receiptSha256: "d".repeat(64) },
+      },
+    }],
+  });
+  assert.equal(forged.ok, false);
+  assert.ok(forged.errors.some((error) => error.code === "REAL_AUTHORITY_NOT_IN_BACKEND"), JSON.stringify(forged.errors));
+  assert.ok(forged.errors.some((error) => error.code === "REAL_RECEIPT_NOT_IN_BACKEND"));
+
+  // La autoridad resuelta con un receipt cuyo hash no coincide también se
+  // rechaza: el backend debe haber registrado ese contenido.
+  const builtWithAuthority = buildManifest({ records: [DECISION_BASE, RECOMMENDATION_BASE, AUTHORITY_BASE, RECEIPT_BASE] });
+  assert.equal(builtWithAuthority.ok, true);
+  const wrongReceipt = timelineOf(builtWithAuthority.manifest, "2026-04-01T07:00:00Z", "2026-04-03T00:00:00Z", {
+    executions: [{
+      eventId: "exec-bad-hash",
+      class: EXECUTION_CLASS.REAL,
+      relatedRecommendationRef: RECOMMENDATION_REF,
+      occurredAtUtc: "2026-04-02T09:00:00Z",
+      authorization: {
+        authorityRef: `${AUTHORITY_BASE.key}@${AUTHORITY_BASE.revisionId}`,
+        receipt: { receiptRef: `${RECEIPT_BASE.key}@${RECEIPT_BASE.revisionId}`, receiptSha256: "c".repeat(64) },
+      },
+    }],
+  });
+  assert.equal(wrongReceipt.ok, false);
+  assert.ok(wrongReceipt.errors.some((error) => error.code === "REAL_RECEIPT_MISMATCH"));
+});
+
+// OI29-08: la actuación REAL se registra con el receipt aplicable resuelto
+// contra el backend verificado.
+test("una actuación REAL autorizada se registra con su receipt del backend", () => {
+  const built = buildManifest({ records: [DECISION_BASE, RECOMMENDATION_BASE, AUTHORITY_BASE, RECEIPT_BASE] });
   const outcome = timelineOf(built.manifest, "2026-04-01T07:00:00Z", "2026-04-03T00:00:00Z", {
     executions: [{
       eventId: "exec-real",
@@ -113,14 +157,34 @@ test("una actuación REAL autorizada se registra con su receipt", () => {
       relatedRecommendationRef: RECOMMENDATION_REF,
       occurredAtUtc: "2026-04-02T09:00:00Z",
       authorization: {
-        authorityRef: "DEP-25/activation-1",
-        receipt: { receiptRef: "receipts/exec-1.json", receiptSha256: "c".repeat(64) },
+        authorityRef: `${AUTHORITY_BASE.key}@${AUTHORITY_BASE.revisionId}`,
+        receipt: {
+          receiptRef: `${RECEIPT_BASE.key}@${RECEIPT_BASE.revisionId}`,
+          receiptSha256: canonicalValueSha256(RECEIPT_BASE.value).sha256,
+        },
       },
     }],
   });
-  assert.equal(outcome.ok, true);
-  assert.equal(outcome.timeline.executions[0].real, true);
-  assert.equal(outcome.timeline.executions[0].authorization.authorityRef, "DEP-25/activation-1");
+  assert.equal(outcome.ok, true, JSON.stringify(outcome.errors ?? ""));
+  const execution = outcome.timeline.executions[0];
+  assert.equal(execution.real, true);
+  assert.equal(execution.authorization.origin.authority.recordKey, AUTHORITY_BASE.key);
+  assert.equal(execution.authorization.origin.receipt.revisionId, RECEIPT_BASE.revisionId);
+
+  const reconciled = reconcileOperatorTimeline(outcome.timeline);
+  assert.equal(reconciled.ok, true, JSON.stringify(reconciled.errors));
+  assert.ok(reconciled.checks.includes("realAuthorityResolvedInBackend"));
+
+  // Y un authorization armado a mano, sin registros resueltos, no reconcile.
+  const [builtEvent] = outcome.timeline.executions;
+  const { origin, ...handMadeAuthorization } = builtEvent.authorization;
+  const handMade = {
+    ...outcome.timeline,
+    executions: [{ ...builtEvent, authorization: handMadeAuthorization }],
+  };
+  const reconciledHandMade = reconcileOperatorTimeline(handMade);
+  assert.equal(reconciledHandMade.ok, false);
+  assert.ok(reconciledHandMade.errors.some((error) => error.code === "REAL_AUTHORITY_UNRESOLVED"));
 });
 
 // OI29-04 (§26.3): el vínculo debe resolver a una recomendación canónica del

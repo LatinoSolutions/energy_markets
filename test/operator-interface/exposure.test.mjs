@@ -11,7 +11,7 @@ import {
   buildExposureField,
   backendIndexFromManifest,
 } from "../../src/operator-interface/index.mjs";
-import { EVALUATION_BENCHMARK, RECOMMENDATION_BASE, buildManifest } from "./fixtures.mjs";
+import { EVALUATION_BENCHMARK, DECISION_BASE, RECOMMENDATION_BASE, buildManifest } from "./fixtures.mjs";
 
 // Manifest backend verificado: toda procedencia se contrasta contra él
 // (§26.5; OI29-01 del review 2026-09-23).
@@ -257,6 +257,43 @@ test("la exposición completa declara MISSING las secciones no observadas", () =
   assert.equal(outcome.exposure.fields.find((f) => f.field === "recommendation").condition, EXPOSURE_CONDITION.AVAILABLE);
   assert.equal(outcome.exposure.fields.filter((f) => f.condition === EXPOSURE_CONDITION.MISSING).length, 12);
   assert.equal(outcome.exposure.hasUnavailableContent, true);
+});
+
+// OI29-05 (§6.1/§25.1/§26.3): el boundary del Decision-time view limita por el
+// reloj de consumo de la policy, no por la publicación. Un registro publicado
+// antes del boundary pero consumible después no se expone como AVAILABLE.
+test("un registro decision publicado pero aún no consumible no entra al boundary", () => {
+  const { manifest } = backendFor([RECOMMENDATION_BASE]);
+  const observation = {
+    field: "recommendation",
+    condition: EXPOSURE_CONDITION.AVAILABLE,
+    value: RECOMMENDATION_BASE.value,
+    provenance: provenance(EXPOSURE_SOURCE_KIND.RECOMMENDATION, RECOMMENDATION_BASE),
+  };
+  // published 2026-03-31T18:05Z; consumable 2026-04-01T06:00Z: en un boundary
+  // entre ambos el valor no era consumible por la policy, no AVAILABLE.
+  const beforeConsumable = buildExposure({
+    boundaryUtc: "2026-03-31T20:00:00Z",
+    backendManifest: manifest,
+    observations: [observation],
+  });
+  assert.equal(beforeConsumable.ok, true);
+  const degraded = beforeConsumable.exposure.fields.find((f) => f.field === "recommendation");
+  assert.equal(degraded.condition, EXPOSURE_CONDITION.NOT_YET_CLOSED, JSON.stringify(degraded));
+  assert.ok(degraded.reason.includes("consumible por la policy"), degraded.reason);
+  assert.ok(beforeConsumable.exposure.hasUnavailableContent, true);
+
+  // Ya consumible en el boundary: AVAILABLE.
+  const afterConsumable = buildExposure({
+    boundaryUtc: "2026-04-01T07:00:00Z",
+    backendManifest: manifest,
+    observations: [observation],
+  });
+  assert.equal(afterConsumable.ok, true);
+  assert.equal(
+    afterConsumable.exposure.fields.find((f) => f.field === "recommendation").condition,
+    EXPOSURE_CONDITION.AVAILABLE,
+  );
 });
 
 // OI29-02 (§26.2/§26.3): lo pendiente de cierre no aparece como resultado

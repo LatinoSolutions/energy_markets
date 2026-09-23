@@ -11,6 +11,7 @@
 // (fail-closed).
 
 import { isSha256 } from "../contracts/identities.mjs";
+import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { backendIndexFromManifest, parseBackendRef, resolveBackendRecord } from "./backend-records.mjs";
 
@@ -234,13 +235,18 @@ export function authorizeOperatorCommand(input, context = {}) {
 
 // Registro de intervención humana: distingue la recomendación original de la
 // acción efectiva y no atribuye lo actuado a la policy (§26.3/§12).
+//
+// OI29-07 (review 2026-09-23): ni la referencia ni la procedencia valen por su
+// forma; ambas se contrastan contra el manifest backend verificado (§25.1:
+// datos/proyecciones remiten a sus registros/versiones; §26.5). Fail-closed
+// sin manifest verificado.
 export function buildHumanIntervention({
   recommendationRef,
   command,
   effectiveAction,
   occurredAtUtc,
   provenance,
-} = {}) {
+} = {}, context = {}) {
   const errors = [];
   if (!INTERVENTION_COMMANDS.includes(command)) {
     errors.push({
@@ -270,6 +276,67 @@ export function buildHumanIntervention({
   if (errors.length > 0) {
     return { ok: false, errors };
   }
+  const backendIndex = context?.backendManifest === undefined || context?.backendManifest === null
+    ? null
+    : backendIndexFromManifest(context.backendManifest);
+  if (backendIndex === null) {
+    return {
+      ok: false,
+      errors: [{
+        field: "provenance",
+        code: "INTERVENTION_BACKEND_UNVERIFIED",
+        message: "La intervención exige contrastar su procedencia y su vínculo contra un manifest backend verificado (buildPitManifest); sin él nada remite a un registro canónico (§26.5/§25.2).",
+      }],
+    };
+  }
+  // OI29-07: el vínculo a la recomendación debe resolver a una versión
+  // canónica del decision view (§26.2/§26.3: la intervención se vincula a la
+  // recomendación conocida al decidir).
+  const parsed = parseBackendRef(recommendationRef);
+  if (parsed === null) {
+    return {
+      ok: false,
+      errors: [{
+        field: "recommendationRef",
+        code: "INVALID_RECOMMENDATION_REF",
+        message: `"${recommendationRef}" no es una referencia a registro/versión canónico "<recordKey>@<revisionId>" (§26.2).`,
+      }],
+    };
+  }
+  const recommendationRecord = resolveBackendRecord(backendIndex, parsed.recordKey, parsed.revisionId);
+  if (recommendationRecord === null) {
+    return {
+      ok: false,
+      errors: [{
+        field: "recommendationRef",
+        code: "RECOMMENDATION_REF_NOT_IN_BACKEND",
+        message: `"${recommendationRef}" no existe en el manifest backend verificado; la intervención no remite a una recomendación canónica (§26.5/§25.2).`,
+      }],
+    };
+  }
+  if (recommendationRecord.viewScope !== "decision") {
+    return {
+      ok: false,
+      errors: [{
+        field: "recommendationRef",
+        code: "RECOMMENDATION_REF_NOT_IN_DECISION_SCOPE",
+        message: `"${recommendationRef}" no es una versión del decision view; la intervención se vincula a la recomendación conocida al decidir (§26.2/§26.3).`,
+      }],
+    };
+  }
+  // OI29-07: la procedencia también debe resolver a un registro canónico
+  // existente en el backend (§25.1/§26.5).
+  const provenanceRecord = resolveBackendRecord(backendIndex, provenance.recordKey, provenance.revisionId);
+  if (provenanceRecord === null) {
+    return {
+      ok: false,
+      errors: [{
+        field: "provenance",
+        code: "PROVENANCE_NOT_IN_BACKEND",
+        message: `La procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest backend verificado; la intervención no remite a un registro canónico (§26.5/§25.2).`,
+      }],
+    };
+  }
   return {
     ok: true,
     intervention: deepFreeze({
@@ -284,6 +351,7 @@ export function buildHumanIntervention({
       provenance: {
         recordKey: provenance.recordKey,
         revisionId: provenance.revisionId,
+        resolved: { recordKey: provenanceRecord.key, revisionId: provenanceRecord.revisionId },
         evidenceRef: provenance.evidenceRef ?? null,
       },
     }),
@@ -293,15 +361,49 @@ export function buildHumanIntervention({
 // El estado de governance mostrado procede del backend (§26.5). Sin esa
 // procedencia, la UI estaría sosteniendo una verdad operativa paralela: se
 // rechaza en vez de exponer un estado propio.
-export function projectGovernanceState({ backendState, provenance } = {}) {
+//
+// OI29-06 (review 2026-09-23): la procedencia no vale por su forma; se
+// contrasta contra el manifest backend verificado y el estado mostrado debe
+// ser el valor registrado por esa versión canónica (mismo hash), no un estado
+// arbitrario del llamador con registro de acompañamiento. Fail-closed sin
+// manifest verificado o con registro ausente.
+export function projectGovernanceState({ backendState, provenance, backendManifest } = {}) {
   if (backendState === undefined || backendState === null) {
     return fail("backendState", "MISSING_BACKEND_STATE", "El estado de governance procede del backend, no de la UI (§26.5).");
+  }
+  const backendIndex = backendManifest === undefined || backendManifest === null
+    ? null
+    : backendIndexFromManifest(backendManifest);
+  if (backendIndex === null) {
+    return fail(
+      "backendManifest",
+      "GOVERNANCE_STATE_BACKEND_UNVERIFIED",
+      "El estado de governance mostrado exige un manifest backend verificado (buildPitManifest) que respalde su procedencia; sin él la UI sostendría una verdad paralela (§26.5).",
+    );
   }
   if (provenance === undefined || provenance === null || !isNonEmptyString(provenance.recordKey) || !isNonEmptyString(provenance.revisionId)) {
     return fail(
       "provenance",
       "GOVERNANCE_STATE_FROM_UI",
       "El estado de governance mostrado exige procedencia a un registro/versión canónico; no se mantiene una verdad paralela en la interfaz (§26.5).",
+    );
+  }
+  const governanceRecord = resolveBackendRecord(backendIndex, provenance.recordKey, provenance.revisionId);
+  if (governanceRecord === null) {
+    return fail(
+      "provenance",
+      "GOVERNANCE_RECORD_NOT_IN_BACKEND",
+      `La procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest backend verificado; el estado mostrado no remite a un registro canónico (§26.5).`,
+    );
+  }
+  // OI29-06: el estado mostrado deberá ser el valor registrado por esa versión
+  // canónica; un estado distinto no es truth de este backend (§26.5).
+  const stateHash = canonicalValueSha256(backendState);
+  if (!stateHash.ok || stateHash.sha256 !== governanceRecord.valueSha256) {
+    return fail(
+      "backendState",
+      "GOVERNANCE_STATE_VALUE_MISMATCH",
+      "El estado mostrado no coincide con el valor registrado por el backend para esa versión canónica; la UI no calcula ni sostiene un estado propio (§26.5).",
     );
   }
   return {
@@ -311,6 +413,7 @@ export function projectGovernanceState({ backendState, provenance } = {}) {
       provenance: {
         recordKey: provenance.recordKey,
         revisionId: provenance.revisionId,
+        resolved: { recordKey: governanceRecord.key, revisionId: governanceRecord.revisionId },
         evidenceRef: provenance.evidenceRef ?? null,
       },
       authorityGranted: false,
