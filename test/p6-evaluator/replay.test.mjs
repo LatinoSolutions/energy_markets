@@ -7,16 +7,99 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runP6Replay, buildReplayBundle } from "../../src/p6-evaluator/index.mjs";
+import { runP6Replay, buildReplayBundle, createImmutableLedger, DECISION_LEDGER_FIELDS } from "../../src/p6-evaluator/index.mjs";
 import { createA0Baseline, validateA0TimingState } from "../../src/sizing-controller/a0-baseline.mjs";
 import { createSizingController, RECONCILED_RULE_PREDECLARATION } from "../../src/sizing-controller/sizing-controller.mjs";
 import { createGasQuarterlyExecutionContract, executionParameterOf } from "../../src/execution-contract/execution-contract.mjs";
 import { createGasQuarterlyCostLedger } from "../../src/execution-contract/cost-ledger.mjs";
+import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
+import { buildPitManifestAt } from "../../src/pit-views/views.mjs";
+import { ATTESTATION_PATH, FIXTURE_SCOPE, VALUE_ATTESTATION_PATH, fixtureRepo } from "../pit-views/fixture-repo.mjs";
 
 const PROVENANCE = {
   authority: "test-fixture (sintético, IMP-08 precedente)",
   locator: "test/p6-evaluator/replay.test.mjs",
 };
+
+// Manifest PIT sintético (fixture del contrato PIT de IMP-06, repo temporal
+// con receipt sintético). Timing deliberately anterior a las fronteras del
+// calendar fixture: la versión entra en la decision view de todas ellas (§14.3
+// paso 2). No es cobertura de datos real (§25.2 IMP-06).
+const PIT_CONSUMABLE_EVIDENCE = {
+  source: "fixture://ingest-log",
+  locator: "row G0BQ.FIXTURE @ 2026-01-04T10:30Z",
+  sha256: "a".repeat(64),
+};
+
+const PIT_DECISION_RECORD = {
+  key: "G0BQ.FIXTURE.reference",
+  viewScope: "decision",
+  occurredAtUtc: "2026-01-04T09:55:00Z",
+  publishedAtUtc: "2026-01-04T10:00:00Z",
+  consumableAtUtc: "2026-01-04T10:30:00Z",
+  consumableEvidence: PIT_CONSUMABLE_EVIDENCE,
+  revisionId: "v1",
+  value: 24.35,
+};
+
+const PIT_BENCHMARK_RECORD = {
+  key: "B.G0BQ.FIXTURE.closed",
+  viewScope: "evaluation",
+  occurredAtUtc: "2026-01-04T09:55:00Z",
+  publishedAtUtc: "2026-01-05T10:00:00Z",
+  consumableAtUtc: "2026-01-05T10:30:00Z",
+  consumableEvidence: PIT_CONSUMABLE_EVIDENCE,
+  revisionId: "bench-v1",
+  value: 25.7,
+};
+
+const PIT_FIXTURE = { manifest: null };
+
+// Atestaciones sintéticas (patrón del test PIT de IMP-06): una por versión
+// con valor, con su evidencia de consumo y su procedencia de valor.
+const PIT_ATTESTATIONS = [PIT_DECISION_RECORD, PIT_BENCHMARK_RECORD].map((record) => ({
+  ...PIT_CONSUMABLE_EVIDENCE,
+  key: record.key,
+  revisionId: record.revisionId,
+  valueSha256: canonicalValueSha256(record.value).sha256,
+  consumableAtUtc: record.consumableAtUtc,
+}));
+
+const PIT_VALUE_ATTESTATIONS = [PIT_DECISION_RECORD, PIT_BENCHMARK_RECORD].map((record) => ({
+  source: "fixture://value-log",
+  locator: `${record.key}@${record.revisionId}`,
+  sha256: "b".repeat(64),
+  key: record.key,
+  revisionId: record.revisionId,
+  revisionOf: null,
+  valueSha256: canonicalValueSha256(record.value).sha256,
+  publishedAtUtc: record.publishedAtUtc,
+  revisionEffectiveAtUtc: null,
+}));
+
+function pitManifestForTest() {
+  if (PIT_FIXTURE.manifest !== null) {
+    return PIT_FIXTURE.manifest;
+  }
+  const content = JSON.stringify({ artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId: "AUDIT-FIXTURE", scope: FIXTURE_SCOPE, attestations: PIT_ATTESTATIONS });
+  const valueContent = JSON.stringify({ artifactKind: "PIT_VALUE_ATTESTATIONS", auditId: "AUDIT-FIXTURE", scope: FIXTURE_SCOPE, attestations: PIT_VALUE_ATTESTATIONS });
+  const { repoRoot, refs } = fixtureRepo({
+    artifacts: [
+      { path: ATTESTATION_PATH, content },
+      { path: VALUE_ATTESTATION_PATH, content: valueContent },
+    ],
+  });
+  const outcome = buildPitManifestAt(repoRoot, {
+    manifestId: "PIT-DATA-MANIFEST-FIXTURE",
+    manifestVersion: "v1",
+    records: [PIT_DECISION_RECORD, PIT_BENCHMARK_RECORD],
+    consumptionAttestationRefs: [refs[0]],
+    valueAttestationRefs: [refs[1]],
+  });
+  assert.equal(outcome.ok, true, "el manifest PIT de fixture debe construirse verificado");
+  PIT_FIXTURE.manifest = outcome.manifest;
+  return PIT_FIXTURE.manifest;
+}
 
 function calendarWithDecisionTimes(dates, decisionTimeUtcByDate) {
   return {
@@ -52,6 +135,9 @@ function fixtureBundle({
   priceObservations = "eligible",
   arm = null,
   terminalRuleStatus = "UNVERIFIED",
+  evaluatorVersion = "v1.0",
+  benchmarkStatus = "UNRECONCILED",
+  omitData = false,
 } = {}) {
   const controllerOutcome = noopController();
   assert.equal(controllerOutcome.ok, true);
@@ -62,7 +148,33 @@ function fixtureBundle({
     ? []
     : priceObservations.map((observation) => ({ ...observation }));
 
-  return buildReplayBundle({
+  return buildReplayBundle(fixtureInput({
+    dates, openingObligation, priceObservations, arm, terminalRuleStatus,
+    evaluatorVersion, benchmarkStatus, omitData,
+  }));
+}
+
+// Input completo del fixture (por defecto con el manifest PIT de fixture).
+function fixtureInput({
+  dates = ["2026-01-05", "2026-01-06", "2026-01-07"],
+  openingObligation = 6,
+  priceObservations = "eligible",
+  arm = null,
+  terminalRuleStatus = "UNVERIFIED",
+  evaluatorVersion = "v1.0",
+  benchmarkStatus = "UNRECONCILED",
+  omitData = false,
+} = {}) {
+  const controllerOutcome = noopController();
+  assert.equal(controllerOutcome.ok, true);
+  const executionContract = createGasQuarterlyExecutionContract();
+  const costLedger = createGasQuarterlyCostLedger();
+  const calendar = calendarWithDecisionTimes(dates, Object.fromEntries(dates.map((date) => [date, `${date}T10:00:00Z`])));
+  const observations = priceObservations === "none"
+    ? []
+    : priceObservations.map((observation) => ({ ...observation }));
+
+  return {
     experiment: { experimentId: "EXP-FIXTURE-GAS-Q", experimentVersion: "v1.0" },
     campaign: { campaignId: "GAS-Q-FIXTURE", product: "Gas", mission: "Quarterly" },
     openingContract: {
@@ -80,11 +192,12 @@ function fixtureBundle({
     execution: { executionContractVersion: "v1.0", costLedgerVersion: "v1.0" },
     executionContract,
     costLedger,
+    ...(omitData ? {} : { data: { manifest: pitManifestForTest() } }),
     priceObservations: observations,
-    benchmark: { sourceVersion: "eex-reference-price/in-memory-fixture", status: "UNRECONCILED" },
-    evaluator: { evaluatorVersion: "v1.0" },
+    benchmark: { sourceVersion: "eex-reference-price/in-memory-fixture", status: benchmarkStatus },
+    evaluator: { evaluatorVersion },
     stochasticity: null,
-  });
+  };
 }
 
 // La ejecución simulada sigue la regla frozen del cliente para el backtest:
@@ -92,6 +205,22 @@ function fixtureBundle({
 function flatPricesFor(dates) {
   return dates.map((date) => ({ timestamp: `${date}T09:55:00Z`, bestAsk: 40.5 }));
 }
+
+test("§14.2: el input Data (manifest PIT de P4) es requerido fail-closed", () => {
+  // Sin manifest: el required input no se reemplaza por default (§14.2).
+  const withoutManifest = buildReplayBundle(fixtureInput({ priceObservations: "none", omitData: true }));
+  assert.equal(withoutManifest.ok, false);
+  assert.ok(withoutManifest.errors.some((error) => error.code === "MISSING_PIT_DATA_MANIFEST"));
+
+  // Un objeto armado a mano no sustituye un manifest materializado por
+  // IMP-06: no tendría records con consumo demostrado (§6.1/§25.2).
+  const forged = buildReplayBundle({
+    ...fixtureInput({ priceObservations: "none", omitData: true }),
+    data: { manifest: { manifestId: "FORGED", manifestVersion: "v1", records: [] } },
+  });
+  assert.equal(forged.ok, false);
+  assert.ok(forged.errors.some((error) => error.code === "MISSING_PIT_DATA_MANIFEST"));
+});
 
 test("§14.2: un required input ausente no se reemplaza por default (fail-closed)", () => {
   const incomplete = buildReplayBundle({});
@@ -101,6 +230,7 @@ test("§14.2: un required input ausente no se reemplaza por default (fail-closed
     "MISSING_EXPERIMENT_IDENTITY", "MISSING_CAMPAIGN_IDENTITY", "MISSING_OPENING_CONTRACT",
     "INVALID_DECISION_CALENDAR", "MISSING_FROZEN_ARM", "MISSING_SIZING_CONFIG",
     "MISSING_EXECUTION_VERSIONS", "MISSING_EXECUTION_CONTRACT", "MISSING_COST_LEDGER",
+    "MISSING_PIT_DATA_MANIFEST",
     "INVALID_PRICE_OBSERVATIONS", "MISSING_BENCHMARK_CONFIG", "MISSING_EVALUATOR_VERSION",
   ]) {
     assert.ok(codes.includes(code), `falta ${code}`);
@@ -140,6 +270,15 @@ test("§14.3: orden cronológico de pasos y ledgers por opportunity", () => {
     const slippageCosts = row.executionCosts.filter((cost) => cost.costId === "cost.slippage.virtual");
     assert.equal(slippageCosts.length, 1);
     assert.equal(slippageCosts[0].countedOnce, true);
+  }
+  // §14.4: cada fila de decisión referencia versiones PIT reales leídas del
+  // manifest de IMP-06 en la frontera exacta (consumible antes de ella).
+  for (const row of ledgers.decision) {
+    assert.equal(row.pitReferences.length, 1);
+    assert.equal(row.pitReferences[0].key, "G0BQ.FIXTURE.reference");
+    assert.equal(row.pitReferences[0].revisionId, "v1");
+    assert.equal(row.pitReferences[0].consumableFromUtc, "2026-01-04T10:30:00.000Z");
+    assert.ok(row.pitReferences[0].consumableFromUtc <= row.decisionTimestamp);
   }
   // El precio sigue la derivación frozen: best ask + slippage (§13.6).
   assert.ok(ledgers.execution.every((row) => row.executionPrice === 40.5 + 0.15));
@@ -206,11 +345,12 @@ test("§14.3/§14.7: una observación posterior a la frontera no es elegible (si
   assert.equal(terminalCoverage.executedVolume, 0);
 });
 
-test("§14.4/§13.6 regla 3: partial fill aplica el cap diario; el no cubierto no suma cobertura", () => {
-  // Arm frozen sintético que pide 5 aunque el cap diario del contract del
-  // fixture es 2: P5.6 aplica la restricción a la ejecución (requested queda
-  // parcialmente sin cubrir) y el residual permanece visible en coverage
-  // (§14.5), sin ocultarse en V.
+test("§14.3/§14.7: partial fill aplica el cap diario; el no cubierto no suma cobertura", () => {
+  // §14.3 paso 4: la requested quantity proviene del controller común
+  // congelado (lot 1, cap 12 → pide 5 sobre remaining 5), y P5.6 aplica el
+  // cap diario del execution contract del fixture (=2, sintético: no es el
+  // valor provisional 12 del paquete del cliente). El no cubierto queda
+  // visible en coverage (§14.5), sin ocultarse en V.
   const dates = ["2026-01-05"];
   const calendar = calendarWithDecisionTimes(dates, { "2026-01-05": "2026-01-05T10:00:00Z" });
   const greedyArm = {
@@ -220,14 +360,13 @@ test("§14.4/§13.6 regla 3: partial fill aplica el cap diario; el no cubierto n
       return { ok: true, action: "BUY", requestedQuantityMw: 5, feasibility: "OK" };
     },
   };
-  // Fixture explícito: contrato del caso con cap diario = 2 (sintético: no es
-  // el valor provisional 12 del paquete del cliente).
+  // Fixture explícito: contrato del caso con cap diario = 2 (sintético).
   const capTwoContract = createGasQuarterlyExecutionContract();
   const capParameter = executionParameterOf(capTwoContract, "dailyQuantityCap");
   capParameter.value = 2;
   capParameter.reason = "fixture sintético: cap=2 para probar la restricción diaria (no es valor del cliente)";
   capTwoContract.contentHash = `${capTwoContract.contentHash}-fixture-cap2`;
-  const capTwo = createSizingController({ lotSizeMw: 1, dailyCapMw: 2, provenance: { authority: `${PROVENANCE.authority} (config cap=2 fixture)`, locator: PROVENANCE.locator } });
+  const openController = noopController();
 
   const bundleOutcome = buildReplayBundle({
     experiment: { experimentId: "EXP-FIXTURE-PARTIAL", experimentVersion: "v1.0" },
@@ -241,10 +380,11 @@ test("§14.4/§13.6 regla 3: partial fill aplica el cap diario; el no cubierto n
     },
     decisionCalendar: calendar,
     arm: greedyArm,
-    sizingConfiguration: capTwo.controller,
+    sizingConfiguration: openController.controller,
     execution: { executionContractVersion: "v1.0", costLedgerVersion: "v1.0" },
     executionContract: capTwoContract,
     costLedger: createGasQuarterlyCostLedger(),
+    data: { manifest: pitManifestForTest() },
     priceObservations: [{ timestamp: "2026-01-05T09:55:00Z", bestAsk: 40.5 }],
     benchmark: { sourceVersion: "eex-reference-price/in-memory-fixture", status: "UNRECONCILED" },
     evaluator: { evaluatorVersion: "v1.0" },
@@ -254,6 +394,10 @@ test("§14.4/§13.6 regla 3: partial fill aplica el cap diario; el no cubierto n
   const outcome = runP6Replay(bundleOutcome.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
   const { ledgers, terminalCoverage, receipt } = outcome.replay;
 
+  const [decisionRow] = ledgers.decision;
+  // §14.3 paso 4: la cantidad registrada proviene del controller común.
+  assert.equal(decisionRow.requestedQuantity, 5);
+  assert.equal(decisionRow.pitReferences.length, 1);
   const [executionRow] = ledgers.execution;
   assert.equal(executionRow.requestedQuantity, 5);
   assert.equal(executionRow.filledQuantity, 2);
@@ -264,15 +408,70 @@ test("§14.4/§13.6 regla 3: partial fill aplica el cap diario; el no cubierto n
   assert.ok(receipt.warnings.some((warning) => warning.includes("partial fill")));
 });
 
-test("§14.4: ledgers append-only dentro del run", () => {
+test("§14.3 paso 4: una cantidad divergente del arm no reemplaza la del controller común", () => {
+  // Arm frozen sintético que pide 99 mientras el controller común congelado
+  // deriva 5: el ledger registra la del controller común y la divergencia
+  // queda como warning (§14.3 paso 4); nada se corrige en silencio.
+  const dates = ["2026-01-05"];
+  const calendar = calendarWithDecisionTimes(dates, { "2026-01-05": "2026-01-05T10:00:00Z" });
+  const divergentArm = {
+    armId: "DIVERGENT-Fixture",
+    armVersion: "frozen:divergent-fixture",
+    decideAtOpportunity() {
+      return { ok: true, action: "BUY", requestedQuantityMw: 99, feasibility: "OK" };
+    },
+  };
+  const bundle = fixtureBundle({ dates, openingObligation: 5, arm: divergentArm, priceObservations: "none" });
+  assert.equal(bundle.ok, true);
+  const outcome = runP6Replay(bundle.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
+  const { ledgers, receipt } = outcome.replay;
+  assert.equal(ledgers.decision[0].requestedQuantity, 5);
+  assert.equal(ledgers.execution[0].requestedQuantity, 5);
+  assert.ok(receipt.warnings.some((warning) => warning.includes("requested quantity divergence")));
+});
+
+test("§14.4: ledgers append-only: append acumula y no existe borrado/reescritura", () => {
+  // El invariante se ejercita sobre el ledger vivo (§14.4): appendRow
+  // acumula, no hay operación de borrado/reescritura/reorden, y el snapshot
+  // entrega copias congeladas independientes del acumulador interno.
+  const ledger = createImmutableLedger("DECISION", DECISION_LEDGER_FIELDS);
+  assert.equal(ledger.rowCount(), 0);
+  assert.equal(ledger.appendRow({ sequence: 1, action: "BUY" }).ok, true);
+  assert.equal(ledger.appendRow({ sequence: 2, action: "WAIT" }).ok, true);
+  assert.equal(ledger.appendRow(null).ok, false);
+  assert.equal(ledger.appendRow("row").ok, false);
+  assert.equal(ledger.appendRow([1]).ok, false);
+  assert.equal(ledger.rowCount(), 2, "filas inválidas no entra al ledger");
+
+  const firstSnapshot = ledger.snapshot();
+  // La fila del snapshot es congelada: tocarla no muta el historial del
+  // ledger ni la fila (rechazo del entorno o inclusión de una copia).
+  firstSnapshot.push({ sequence: 99 });
+  try {
+    firstSnapshot[0].sequence = 999;
+  } catch {
+    // las filas del snapshot están congeladas: la asignación no existe
+  }
+  const secondSnapshot = ledger.snapshot();
+  assert.equal(secondSnapshot.length, 2);
+  assert.equal(secondSnapshot[0].sequence, 1);
+  assert.ok(Object.isFrozen(secondSnapshot[0]));
+  // Sirve para probar el acumulador interno del ledger, no la vista.
+  void firstSnapshot;
+
+  assert.equal(ledger.appendRow({ sequence: 3, action: "WAIT" }).ok, true);
+  assert.equal(ledger.rowCount(), 3, "appendRow acumula");
+  assert.equal(secondSnapshot.length, 2, "el snapshot no es un puntero al acumulador");
+  assert.ok(
+    Object.keys(ledger).every((key) => !/delete|remove|rewrite|overwrite|replace|clear/i.test(key)),
+    "no existe operación de borrado/reescritura/reorden (sólo rowCount/appendRow/snapshot)",
+  );
+
+  // Y el replay compone los tres ledgers append-only con la conservación
+  // declarada por fila (§14.5).
   const bundle = fixtureBundle({ priceObservations: flatPricesFor(["2026-01-05", "2026-01-06", "2026-01-07"]) });
   const outcome = runP6Replay(bundle.bundle);
   const { ledgers } = outcome.replay;
-  for (const ledger of Object.values(ledgers)) {
-    assert.ok(Array.isArray(ledger));
-    Object.freeze(ledger);
-  }
-  // Congelar la salida y verificar identidad de conteo por fila.
   assert.equal(ledgers.decision.length, 3);
   assert.equal(ledgers.execution.length, 3);
   assert.equal(ledgers.coverage.length, 3);
@@ -337,6 +536,36 @@ test("§14.3: la policy no consume benchmark en la decisión (separación de vis
   const outcome = runP6Replay(bundle.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
   // El replay decide por calendario independiente del benchmark del bundle:
   assert.equal(outcome.replay.ledgers.decision[0].action, "BUY");
-  assert.equal(outcome.replay.ledgers.decision[0].pitReferences.length, 0, "sin referencia PIT a benchmark/outcome en el decision ledger");
+  // §14.3 paso 2/§14.4: las referencias PIT del ledger provienen de la
+  // decision view; el benchmark (viewScope evaluation) nunca aparece.
+  for (const row of outcome.replay.ledgers.decision) {
+    assert.equal(row.action, "BUY");
+    assert.equal(row.pitReferences.length, 1);
+    assert.equal(row.pitReferences[0].key, "G0BQ.FIXTURE.reference");
+  }
+  assert.ok(outcome.replay.ledgers.decision.every((row) => row.pitReferences.every((ref) => ref.key !== "B.G0BQ.FIXTURE.closed")), "sin referencia PIT a benchmark/outcome en el decision ledger");
   assert.equal(outcome.replay.status.benchmark, "BENCHMARK_PROVISIONAL");
+});
+
+test("§14.9: el receipt firma la evaluator version congelada del bundle", () => {
+  const bundle = fixtureBundle({ priceObservations: "none", evaluatorVersion: "v9.9" });
+  assert.equal(bundle.ok, true);
+  const outcome = runP6Replay(bundle.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.replay.receipt.evaluatorVersion, "v9.9");
+  // El manifest de datos congelado queda identificado en el receipt (§14.9).
+  assert.equal(outcome.replay.receipt.datasetManifestId, "PIT-DATA-MANIFEST-FIXTURE");
+  assert.equal(outcome.replay.receipt.datasetManifestVersion, "v1");
+});
+
+test("§14.10: un benchmark reconciliado oficial no introduce un estado no canonizado", () => {
+  const dates = ["2026-01-05", "2026-01-06", "2026-01-07"];
+  const bundle = fixtureBundle({ dates, priceObservations: flatPricesFor(dates), benchmarkStatus: "RECONCILED_OFFICIAL" });
+  assert.equal(bundle.ok, true);
+  const outcome = runP6Replay(bundle.bundle, { runTimestampUtc: "2026-09-23T00:00:00Z" });
+  // El vocabulario canónico (§14.10) no contiene BENCHMARK_* más allá de
+  // BENCHMARK_PROVISIONAL: sin condición provisional la dimensión queda
+  // null y el estado frozen de la config se declara en el receipt.
+  assert.equal(outcome.replay.status.benchmark, null);
+  assert.equal(outcome.replay.receipt.benchmarkStatusDeclaredByConfig, "RECONCILED_OFFICIAL");
 });

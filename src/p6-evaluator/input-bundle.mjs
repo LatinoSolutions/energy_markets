@@ -9,6 +9,7 @@
 import { isVersionLike } from "../contracts/identities.mjs";
 import { contentHashOf, versionKeyOf } from "../execution-contract/execution-contract.mjs";
 import { validateDecisionCalendar } from "../sizing-controller/decision-calendar.mjs";
+import { isVerifiedPitManifest } from "../pit-views/index.mjs";
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -109,6 +110,15 @@ export function buildReplayBundle(input = {}) {
     errors.push(buildError("costLedger", "MISSING_COST_LEDGER", "Falta el cost-ledger configuration (§14.2)."));
   }
 
+  // §14.2: Data es un required input — manifest PIT de P4 con
+  // availability/version metadata. Sin él no hay replay: un manifest ausente
+  // o no materializado por IMP-06 no se reemplaza por un guessed default
+  // (§14.2) y `priceObservations` crudo no sustituye la metadata PIT.
+  const data = input.data ?? null;
+  if (!data || typeof data !== "object" || Array.isArray(data) || !isVerifiedPitManifest(data.manifest)) {
+    errors.push(buildError("data", "MISSING_PIT_DATA_MANIFEST", "El input Data requiere un manifest PIT de P4 (availability/version metadata, §14.2) materializado por IMP-06; fail-closed sin él."));
+  }
+
   const priceObservations = input.priceObservations ?? [];
   if (!Array.isArray(input.priceObservations)) {
     errors.push(buildError("priceObservations", "INVALID_PRICE_OBSERVATIONS", "priceObservations debe ser una lista (puede estar vacía: entonces los fills son no-fill)."));
@@ -147,6 +157,7 @@ export function buildReplayBundle(input = {}) {
     execution: { executionContractVersion: execution.executionContractVersion, costLedgerVersion: execution.costLedgerVersion },
     executionContract,
     costLedger,
+    data: { manifest: data.manifest },
     priceObservations: [...input.priceObservations],
     benchmark: { sourceVersion: benchmark.sourceVersion, status: benchmark.status ?? "UNRECONCILED" },
     evaluator,

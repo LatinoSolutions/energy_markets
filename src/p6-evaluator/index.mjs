@@ -11,7 +11,6 @@ export {
 export {
   runP6Replay,
   EVALUATOR_ID,
-  EVALUATOR_VERSION,
   SIZING_RULE_VERSION,
   RUN_STATUS_DIMENSION_DEFAULTS,
 } from "./replay.mjs";

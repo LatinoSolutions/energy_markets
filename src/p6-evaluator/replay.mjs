@@ -16,7 +16,8 @@
 import { executionParameterOf, versionKeyOf } from "../execution-contract/execution-contract.mjs";
 import { selectEligibleReference, deriveSimulatedFillPrice } from "../execution-contract/causal-fill.mjs";
 import { computeRemainingVolume, reconcileCoverage, COVERAGE_STATUSES } from "../procurement-contract/coverage-ownership.mjs";
-import { RECONCILED_RULE_PREDECLARATION } from "../sizing-controller/sizing-controller.mjs";
+import { RECONCILED_RULE_PREDECLARATION, reconcileControlQuantity } from "../sizing-controller/sizing-controller.mjs";
+import { readDecisionView } from "../pit-views/index.mjs";
 import {
   createImmutableLedger,
   coverageLedgerRow,
@@ -26,7 +27,6 @@ import {
 } from "./ledgers.mjs";
 
 export const EVALUATOR_ID = "P6-EVALUATOR";
-export const EVALUATOR_VERSION = "v1.0";
 export const SIZING_RULE_VERSION = RECONCILED_RULE_PREDECLARATION.ruleId;
 
 // §14.10: los estados son dimensiones separadas (validity / availability /
@@ -42,17 +42,41 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-// §14.3 pasos 2–4: frontera + decisión frozen + requested quantity. La policy
-// observa únicamente el historical decision view (estado del procurement; sin
-// precios, benchmark u outcomes consumibles tras la frontera; §14.3).
-function historicalDecisionState({ frontierDate, remainingVolume, executedVolume, unit }) {
+// §14.2/§14.3 paso 2: el estado histórico de decisión se lee del decision
+// view del manifest PIT de P4 congelado en el bundle; la provenance que se
+// declara es la del manifest real, no una etiqueta fabricada. La policy
+// observa únicamente esta vista (sin precios, benchmark u outcomes
+// consumibles tras la frontera; §14.3).
+function historicalDecisionState({ frontierDate, remainingVolume, executedVolume, unit, dataManifest, boundaryUtc }) {
   return {
     frontierDate,
     remainingVolume,
     executedVolume,
     unit,
-    dataSource: "historical-decision-view",
+    dataSource: {
+      kind: "PIT_DATA_MANIFEST",
+      manifestId: dataManifest.manifestId,
+      manifestVersion: dataManifest.manifestVersion,
+      boundaryUtc,
+    },
   };
+}
+
+// §14.3 paso 2: en cada frontera se expone lo que la vista PIT declara
+// consumible; las referencias de versión que alimentan el decision ledger
+// (§14.4 "PIT input/version references") salen de la lectura real del
+// manifest de IMP-06, no de una lista construida a mano.
+function pitReferencesAtBoundary({ dataManifest, boundaryUtc, warnings }) {
+  const view = readDecisionView(dataManifest, boundaryUtc);
+  if (!view.ok) {
+    warnings.push(`decision view unavailable at ${boundaryUtc}: ${view.reason ?? view.code ?? "vista PIT no legible"}`);
+    return [];
+  }
+  return view.visible.map((entry) => ({
+    key: entry.key,
+    revisionId: entry.revisionId,
+    consumableFromUtc: entry.consumableFromUtc,
+  }));
 }
 
 // §13.6 regla 1 + §14.7: la referencia es la última observación at-or-before
@@ -149,8 +173,22 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
 
     sequence += 1;
 
+    // Paso 2: exposición PIT en la frontera exacta (§14.3/§14.4).
+    const pitReferences = pitReferencesAtBoundary({
+      dataManifest: bundle.data.manifest,
+      boundaryUtc: opportunity.decisionTimeUtc,
+      warnings,
+    });
+
     // Pasos 1–3: estado arrastrado + frontera + decisión del arm frozen.
-    const state = historicalDecisionState({ frontierDate: opportunity.date, remainingVolume, executedVolume, unit });
+    const state = historicalDecisionState({
+      frontierDate: opportunity.date,
+      remainingVolume,
+      executedVolume,
+      unit,
+      dataManifest: bundle.data.manifest,
+      boundaryUtc: opportunity.decisionTimeUtc,
+    });
     if (typeof bundle.arm.assertDecisionInvariant === "function") {
       const invariant = bundle.arm.assertDecisionInvariant(state);
       if (!invariant.ok) {
@@ -181,7 +219,7 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
         requestedQuantity: 0,
         reason: decision.reason ?? decision.code,
         statusCodes: [decision.code],
-        pitReferences: [],
+        pitReferences,
       });
       coverageLedger.appendRow(coverageLedgerRow({
         sequence, asOfDate: opportunity.date, requestedQuantity: 0, filledQuantity: 0,
@@ -191,8 +229,43 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
     }
 
     const action = decision.action;
-    // §14.3 paso 4: para BUY, requested del controller común; para WAIT, cero.
-    const requestedQuantity = action === "BUY" ? decision.requestedQuantityMw : 0;
+    // §14.3 paso 4: para BUY la requested quantity proviene del controller
+    // común congelado (el sizing del bundle), no del arm. Si el arm declara
+    // una cantidad distinta, la divergencia queda como warning visible y el
+    // ledger registra la del controller común (§14.4: cantidades de P5.6
+    // auditado); fail-closed si la derivación del controller no existe.
+    let requestedQuantity = 0;
+    if (action === "BUY") {
+      const controllerSizing = reconcileControlQuantity({
+        remainingVolumeMw: remainingVolume,
+        remainingOpportunitiesCount: opportunities.length - index,
+        controller: {
+          lotSizeMw: bundle.sizingConfiguration.lotSizeMw,
+          dailyCapMw: bundle.sizingConfiguration.dailyCapMw,
+        },
+        isLastScheduledOpportunity: index === opportunities.length - 1,
+      });
+      if (!controllerSizing.ok) {
+        invalidityReasons.push(`sizing controller derivation failed at ${opportunity.date}: ${controllerSizing.code}`);
+        decisionLedger.appendRow({
+          sequence,
+          decisionTimestamp: opportunity.decisionTimeUtc,
+          frontier: opportunity.date,
+          armVersion: bundle.arm.armVersion,
+          policyVersion: bundle.arm.armVersion,
+          action,
+          requestedQuantity: 0,
+          reason: controllerSizing.code,
+          statusCodes: [action, controllerSizing.code],
+          pitReferences,
+        });
+        break;
+      }
+      requestedQuantity = controllerSizing.requestedQuantityMw;
+      if (isFiniteNumber(decision.requestedQuantityMw) && decision.requestedQuantityMw !== requestedQuantity) {
+        warnings.push(`requested quantity divergence at ${opportunity.date}: arm declared ${decision.requestedQuantityMw}, common frozen controller derives ${requestedQuantity}; the ledger records the controller (§14.3 paso 4)`);
+      }
+    }
     decisionLedger.appendRow({
       sequence,
       decisionTimestamp: opportunity.decisionTimeUtc,
@@ -203,7 +276,7 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
       requestedQuantity,
       reason: decision.feasibilityReason ?? null,
       statusCodes: [action, decision.feasibility ?? "OK"],
-      pitReferences: [],
+      pitReferences,
     });
 
     // Paso 5–7: BUY aplica P5.6; WAIT conserva remaining y consume tiempo
@@ -332,7 +405,11 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
   //    el status lo declara la config, no el replay).
   const validity = invalidityReasons.length > 0 ? "INVALID_RUN" : "VALID_RUN";
   const availability = armBlockedCode !== null ? "DATA_BLOCKED" : null;
-  const benchmarkStatus = bundle.benchmark.status === "RECONCILED_OFFICIAL" ? "BENCHMARK_RECONCILED" : "BENCHMARK_PROVISIONAL";
+  // §14.10: la única condición de benchmark en el vocabulario canónico es
+  // BENCHMARK_PROVISIONAL. Cuando la config frozen declara su benchmark
+  // reconciliado oficial, no hay condición provisional que declarar (null) y
+  // el estado frozen de la config queda registrado tal cual en el receipt.
+  const benchmarkStatus = bundle.benchmark.status === "RECONCILED_OFFICIAL" ? null : "BENCHMARK_PROVISIONAL";
 
   const receipt = {
     receiptKind: "P6_RUN_RECEIPT",
@@ -344,9 +421,14 @@ export function runP6Replay(bundle, { runTimestampUtc = null } = {}) {
     sizingRuleVersion: SIZING_RULE_VERSION,
     executionContractVersion: bundle.execution.executionContractVersion,
     costLedgerVersion: bundle.execution.costLedgerVersion,
+    datasetManifestId: bundle.data.manifest.manifestId,
+    datasetManifestVersion: bundle.data.manifest.manifestVersion,
     benchmarkSourceVersion: bundle.benchmark.sourceVersion,
+    benchmarkStatusDeclaredByConfig: bundle.benchmark.status,
     evaluatorId: EVALUATOR_ID,
-    evaluatorVersion: EVALUATOR_VERSION,
+    // §14.9: la evaluator version que firma el receipt es la que el bundle
+    // congeló antes del run; no se sustituye por una constante local.
+    evaluatorVersion: bundle.evaluator.evaluatorVersion,
     stochasticSeed: bundle.stochasticity?.seed ?? null,
     frozenBundleContentHash: bundle.contentHash,
     runTimestampUtc: runTimestampUtc,
