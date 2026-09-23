@@ -71,11 +71,69 @@ capacidad.
   completa un missing recalcula conjunto/numerador/denominador; peso diario
   100+110→B=105).
 
+## Correcciones de revisión 2026-09-23 (ciclo «corregir»)
+
+- IMP05-REC-01: `buildDateMap`/`reconcileOfficialProxy` conservan procedencia
+  por fecha en ambas vistas (`source`, `providerTimestamp`, `rowHash`; ausencia
+  = `null`, nunca fila borrada) y exponen `receipt` sha256 del núcleo
+  reconciliado, insumo del reconciliation receipt §25.1.
+- IMP05-REC-02: `officialMinusProxy` sólo se expone cuando
+  `equalityComparable` (N fechas sin cambios, §5.4) y es `−meanDelta`; con
+  conjuntos distintos queda `null` (antes expuso la diferencia de medias de
+  vistas desiguales).
+- IMP05-PROXY-01: el fallback §5.2 se activa cuando la ventana estricta no
+  tiene *datos utilizables* (precio finito o bid+ask finitos), no cuando
+  carece de filas; «accesible» (disponibilidad declarada de la fila) y
+  «utilizable» (contenido que alimenta T̂/M̂) quedan distinguidos.
+- IMP05-PROV-01: en el assessment aceptado IMP-04, la versión semántica
+  ST-08.5 (`contentHash`, receipt IMP-08) se conserva como versión de registro
+  y la versión post-EXTEND ahora es `postExtensionContentHash`, recomputable
+  desde `evidenceRefs` (ordenadas, «<sha256>  <path>\n»), con test que la
+  verifica; `src/economic-calculation/reconciliation.mjs` entra en
+  `evidenceRefs` con su hash real. Nunca se modifican los receipts aceptados.
+
+## Benchmark reproducido sobre fechas auditadas del lago (ESTA ENTREGA)
+
+Cierre del hallazgo de review IMP05-SCOPE-01 (§25.2.2: DEP-08/09 son
+RESOLVES_AUDIT de IMP-05, no queda fuera de alcance; el «no requiere DEP-08/09
+cerradas» sólo exime de blockers de inicio):
+
+- Extracción read-only del lago EEX auditado (IMP-03 ST-03.2):
+  `extract-lake-proxy-rows.py` → `lake-proxy-rows-IMP-05.json` (5 fechas
+  auditadas reales, dedup exacto, reglas declaradas en el artefacto).
+- Benchmark proxy-side + cobertura por fecha: `build-lake-benchmark.mjs` →
+  `lake-benchmark-receipt-IMP-05.json` (receipt SHA-256
+  `d977288890d2589d93521b5576969fd7e693e13c3e56639794071019c7f63283`,
+  reproducible por `test/economic-calculation/benchmark-imp05-lake.test.mjs`
+  desde el artefacto de extracción):
+  - Contrato por fecha (regla provisional declarada): G0BQ Q4-26
+    (`DE000C28QDW6`, ExpiryDate 2026-09-28), Gas Quarterly del contenido del
+    lago; NO es el contrato de campaña.
+  - B proxy-side con peso igual por fecha: las 5 fechas con referencia,
+    `windowUsed: strict`, fuentes midpoints-only (la muestra del lago en esas
+    fechas no aporta trades con Px utilizable).
+  - Cobertura por fecha separada: 5/5 del calendario auditado de la muestra;
+    missing trazado, nunca rellenado.
+  - Estado §5.4: `BENCHMARK_PROVISIONAL` (informado, no elevado).
+  - Reconciliación: vista oficial vacía (v. abajo) → `equivalent: false`
+    fail-closed, con receipt de motor §25.1 reproducible y procedencia por
+    fecha (hashes y timestamps de fila cuando estén disponibles).
+- Bloqueadores factuales declarados (no «fuera de alcance»):
+  - DEP-01/03 DOCUMENTED_ABSENCE (report aceptado IMP-02): no hay mandato real
+    de campaña (Campaign ID, producto/contrato, calendario, deadline). Mientras
+    falte, el B de campaña y la vista oficial no pueden producirse sin inventar;
+    esta entrega reproduce la máquina sobre fechas auditadas reales.
+  - DEP-06/07 parcial: sólo R-04 AVAILABLE NOW en el lago auditado (ST-03.2);
+    ninguna fila oficial de estas fechas está disponible.
+
 ## Límites residuales
 
-- B reproducido sobre campañas/fechas auditadas (DEP-08/09) queda PENDIENTE:
-  este corte materializa la metodología y sus fixtures sintéticos; no abarca
-  campañas reales ni su metadata oficial.
-- La reconciliation sobre snapshots del lago real (trades/top-of-book por
-  fecha/instrumento auditado) es el consumo de este soporte por el audit de
-  fechas; este corte no produce una receipt de reconciliación real.
+- La vista oficial (`reference.read.official`) sigue BLOQUEADA:
+  `BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE` (assessment DEP-10); el lago
+  sólo contiene trade y top_of_book. P-007 está resuelta como instrucción del
+  cliente de usar el benchmark EEX existente y resolver los edge cases dentro
+  de la implementación; no significa que exista un feed oficial demostrado.
+- Benchmark de campaña completa (calendario/contrato/metadata auditados,
+  DEP-01/03 y DEP-08/09 de campaña) queda pendiente de un bloqueo factual
+  registrado: requiere el mandato real, no la regla provisional declarada en
+  esta entrega.

@@ -163,9 +163,11 @@ test("IMP-05 §19.3.1: oficial 102 sustituye proxy 100, segunda fecha 110 → B 
     proxyReferences: [{ date: "2026-01-05", value: 100 }, { date: "2026-01-06", value: 110 }],
   });
   assert.equal(reconciliation.N, 2);
-  assert.deepEqual(reconciliation.dates[0], {
-    date: "2026-01-05", official: 102, proxy: 100, delta: -2, status: "both-present",
-  });
+  assert.equal(reconciliation.dates[0].date, "2026-01-05");
+  assert.equal(reconciliation.dates[0].official, 102);
+  assert.equal(reconciliation.dates[0].proxy, 100);
+  assert.equal(reconciliation.dates[0].delta, -2);
+  assert.equal(reconciliation.dates[0].status, "both-present");
   assert.equal(reconciliation.proxyPreserved, true);
   assert.equal(reconciliation.setEqual, true);
   assert.equal(reconciliation.equalityComparable, true);
@@ -196,7 +198,10 @@ test("IMP-05 §19.3.1: oficial completa una fecha missing → conjunto, numerado
   assert.deepEqual(reconciliation.officialOnlyDates, ["2026-01-06"]);
   assert.equal(reconciliation.setEqual, false);
   assert.equal(reconciliation.N, 1);
-  assert.equal(reconciliation.officialMinusProxy, 5, "las medias corren sobre los valores presentes de cada vista: 105−100");
+  // §5.4 exige «N fechas sin cambios»; con conjuntos distintos la identidad
+  // sobre medias de vistas desiguales no está definida: fail-closed a null.
+  assert.equal(reconciliation.officialMinusProxy, null, "los conjuntos difieren: B_official − B_proxy no es «−(1/N)Σδ_d»");
+  assert.deepEqual(reconciliation.proxyOnlyDates, [], "la fecha 01-05 par oficial+proxy no es proxy-only");
   assert.equal(reconciliation.equivalent, false);
 });
 
@@ -205,6 +210,52 @@ test("IMP-05 reconcileOfficialProxy: entradas inválidas no reconcilian (fail-cl
   assert.equal(reconcileOfficialProxy({ proxyReferences: "no-lista" }).defined, false);
   assert.equal(reconcileOfficialProxy({ proxyReferences: [{ date: null }] }).defined, false);
   assert.equal(reconcileOfficialProxy({ proxyReferences: [], officialReferences: [] }).dates.length, 0);
+  assert.equal(reconcileOfficialProxy({ proxyReferences: "no-lista" }).receipt, null, "sin reconciliación no hay receipt");
+});
+
+// IMP05-REC-01 review (§5.4 «procedencia, timestamps y hashes de filas» +
+// §25.1 «reconciliation receipt»): la provenance disponible viaja por fecha en
+// ambas vistas y el receipt la cubre reproduciblemente.
+test("IMP-05 reconcileOfficialProxy: conserva timestamp/source/hash por fecha en ambas vistas y lo sella en el receipt", () => {
+  const officialReferences = [
+    { date: "2026-01-05", value: 102, source: "official", providerTimestamp: "2026-01-05T18:00:00Z", rowHash: "hash-official-105" },
+    { date: "2026-01-06", value: 110, source: "official", providerTimestamp: "2026-01-06T18:00:00Z", rowHash: "hash-official-106" },
+  ];
+  const proxyReferences = [
+    { date: "2026-01-05", value: 100, source: "proxy", providerTimestamp: "2026-01-05T17:15:00Z", rowHash: "hash-proxy-105" },
+    { date: "2026-01-06", value: 110, source: "proxy", rowHash: "hash-proxy-106" },
+  ];
+  const reconciliation = reconcileOfficialProxy({ officialReferences, proxyReferences });
+  assert.deepEqual(reconciliation.dates[0].officialProvenance, {
+    source: "official", providerTimestamp: "2026-01-05T18:00:00Z", rowHash: "hash-official-105",
+  });
+  assert.deepEqual(reconciliation.dates[0].proxyProvenance, {
+    source: "proxy", providerTimestamp: "2026-01-05T17:15:00Z", rowHash: "hash-proxy-105",
+  });
+  assert.equal(reconciliation.dates[1].proxyProvenance.providerTimestamp, null, "timestamp ausente se conserva como null, no se borra");
+  assert.equal(reconciliation.dates[1].proxyProvenance.rowHash, "hash-proxy-106");
+  assert.match(reconciliation.receipt.receiptId, /^[0-9a-f]{64}$/);
+  assert.match(reconciliation.receipt.algorithm, /canonicalJson/);
+  assert.equal(reconcileOfficialProxy({ officialReferences, proxyReferences }).receipt.receiptId, reconciliation.receipt.receiptId, "mismas entradas → mismo receipt");
+
+  const changedOfficial = reconcileOfficialProxy({
+    officialReferences: officialReferences.map((row, index) => index === 0 ? { ...row, rowHash: "otro-hash" } : row),
+    proxyReferences,
+  });
+  assert.notEqual(changedOfficial.receipt.receiptId, reconciliation.receipt.receiptId, "cambia la provenance → receipt nuevo");
+});
+
+// IMP05-REC-01 review: un oficial que completa una fecha missing también
+// conserva y sella su provenance.
+test("IMP-05 reconcileOfficialProxy: la provenance del oficial añadido entra en el receipt", () => {
+  const reconciliation = reconcileOfficialProxy({
+    officialReferences: [{ date: "2026-01-06", value: 110, source: "official", providerTimestamp: "2026-01-06T18:00:00Z", rowHash: "hash-add" }],
+    proxyReferences: [{ date: "2026-01-05", value: 100, source: "proxy" }],
+  });
+  const added = reconciliation.dates.find((row) => row.date === "2026-01-06");
+  assert.deepEqual(added.officialProvenance, { source: "official", providerTimestamp: "2026-01-06T18:00:00Z", rowHash: "hash-add" });
+  assert.equal(added.proxyProvenance, null);
+  assert.match(reconciliation.receipt.receiptId, /^[0-9a-f]{64}$/, "receipt sobre el contenido con provenance");
 });
 
 // --- official.value_0_01.treatment + validity_guard (§5.3; §19.3.1 «Oficial 0.01») ---
@@ -403,6 +454,38 @@ test("IMP-05 window.fallback: sin observaciones utilizables la referencia perman
   assert.equal(outcome.sourceLabel, "missing");
   assert.equal(outcome.defined, false);
   assert.equal(outcome.value, null);
+});
+
+// IMP05-PROXY-01 review (§5.2): el fallback se activa cuando la ventana
+// estricta no tiene *datos utilizables*, no cuando carece de filas. Una fila
+// estricta con bid sin ask no alimenta m_j; si el fallback sí aporta dato
+// utilizable, debe usarse el fallback.
+test("IMP-05 window.fallback: fila estricta sin dato utilizable abre el fallback con dato utilizable", () => {
+  const outcome = intradayProxyReference({
+    product: "NATGAS/THE Q-2026", trdDate: "2025-12-01", productClass: "gas",
+    rows: [
+      syntheticRow({ tmUtc: "2025-12-01T16:10:00Z", bid: 100, ask: null }), // 17:10 CET, estricta sin ask: no utilizable
+      syntheticRow({ tmUtc: "2025-12-01T15:30:00Z", price: 100 }),          // 16:30 CET, fallback utilizable
+    ],
+  });
+  assert.equal(outcome.windowUsed, "nearby-60m");
+  assert.equal(outcome.fallbackUsed, true);
+  assert.equal(outcome.value, 100);
+  assert.equal(outcome.sourceLabel, "trades-only");
+  assert.equal(outcome.strictCounts.trades, 0, "la fila estricta sin dato utilizable no entra en T̂ ni en M̂");
+});
+
+test("IMP-05 window.fallback: strict con filas pero sin dato utilizable en ninguna ventana → missing, no falsa ventana", () => {
+  const outcome = intradayProxyReference({
+    product: "NATGAS/THE Q-2026", trdDate: "2025-12-01", productClass: "gas",
+    rows: [
+      syntheticRow({ tmUtc: "2025-12-01T16:10:00Z", bid: 100, ask: null }), // estricta, no utilizable
+      syntheticRow({ tmUtc: "2025-12-01T15:30:00Z", price: null, bid: 100, ask: null }), // fallback, no utilizable
+    ],
+  });
+  assert.equal(outcome.windowUsed, "none");
+  assert.equal(outcome.sourceLabel, "missing");
+  assert.equal(outcome.fallbackUsed, false);
 });
 
 test("IMP-05 proxy.rows.exact_product_date: filas de otro producto o fecha y no accesibles quedan excluidas trazadas", () => {

@@ -285,12 +285,15 @@ export function intradayProxyReference({
     exclusions.push({ row, reason: "Fuera de la ventana estricta y del fallback ±60 min." });
   }
 
+  // §5.2: el fallback se activa si la ventana estricta no tiene *datos
+  // utilizables*, no si carece de filas («sólo trades / sólo midpoints» son
+  // los usables; una fila sin precio ni bid+ask no aporta observación).
   let windowUsed = "none";
   let candidates = [];
-  if (inStrict.length > 0) {
+  if (windowHasUsableObservations(inStrict)) {
     windowUsed = "strict";
     candidates = inStrict;
-  } else if (inFallback.length > 0) {
+  } else if (windowHasUsableObservations(inFallback)) {
     windowUsed = "nearby-60m";
     candidates = inFallback;
   }
@@ -299,8 +302,8 @@ export function intradayProxyReference({
     return {
       value: null, defined: false, sourceLabel: "missing",
       windowUsed: "none", label: "eex-derived-reference", exclusions,
-      strictCounts: { trades: 0, midpoints: 0 }, fallbackCounts: { trades: 0, midpoints: 0 }, fallbackUsed: false,
-      reason: "Sin observaciones accesibles en la ventana estricta ni en el fallback permitido: la referencia permanece missing.",
+      strictCounts: countsByClass(inStrict), fallbackCounts: countsByClass(inFallback), fallbackUsed: false,
+      reason: "Sin datos utilizables en la ventana estricta ni en el fallback permitido: la referencia permanece missing.",
     };
   }
 
@@ -336,6 +339,14 @@ function countsByClass(source) {
     trades: source.filter((row) => isFiniteNumber(row?.price)).length,
     midpoints: source.filter((row) => isFiniteNumber(row?.bid) && isFiniteNumber(row?.ask)).length,
   };
+}
+
+// Una fila es utilizable si aporta una observación que entra en T̂ (precio
+// finito) o en m_j/M̂ (bid+ask finitos). «Accesible» es la declaración de
+// disponibilidad de la fila; «utilizable» es que su contenido alimenta las
+// medias de §5.2.
+function windowHasUsableObservations(candidates) {
+  return candidates.some((row) => isFiniteNumber(row?.price) || (isFiniteNumber(row?.bid) && isFiniteNumber(row?.ask)));
 }
 
 // §5.3 tabla de ventanas: Monthly 1-0-1 [S-1 mes, S); Quarterly 3-1-3
@@ -465,6 +476,7 @@ export function reconcileOfficialProxy({ officialReferences = [], proxyReference
       missingBothDates: [],
       proxyPreserved: false,
       equivalent: false,
+      receipt: null,
       reason: "Filas de reconciliación inválidas: cada vista exige fecha de negociación y valor finito (o explícitamente missing).",
     };
   }
@@ -481,17 +493,29 @@ export function reconcileOfficialProxy({ officialReferences = [], proxyReference
     const official = officials.get(date) ?? null;
     const proxy = proxies.get(date) ?? null;
     if (official !== null && proxy !== null) {
-      return { date, official: official.value, proxy: proxy.value, delta: proxy.value - official.value, status: "both-present" };
+      return {
+        date, official: official.value, proxy: proxy.value, delta: proxy.value - official.value, status: "both-present",
+        officialProvenance: provenanceOf(official),
+        proxyProvenance: provenanceOf(proxy),
+      };
     }
     if (official !== null) {
       // §5.4: un oficial que completa una fecha missing obliga a recalcular
       // conjunto, numerador y denominador; no entra en δ con peso cero.
-      return { date, official: official.value, proxy: null, delta: null, status: "official-added" };
+      return {
+        date, official: official.value, proxy: null, delta: null, status: "official-added",
+        officialProvenance: provenanceOf(official),
+        proxyProvenance: null,
+      };
     }
     if (proxy !== null) {
-      return { date, official: null, proxy: proxy.value, delta: null, status: "proxy-only-pending-official" };
+      return {
+        date, official: null, proxy: proxy.value, delta: null, status: "proxy-only-pending-official",
+        officialProvenance: null,
+        proxyProvenance: provenanceOf(proxy),
+      };
     }
-    return { date, official: null, proxy: null, delta: null, status: "missing-both" };
+    return { date, official: null, proxy: null, delta: null, status: "missing-both", officialProvenance: null, proxyProvenance: null };
   });
 
   const paired = dates.filter((row) => row.status === "both-present");
@@ -511,18 +535,24 @@ export function reconcileOfficialProxy({ officialReferences = [], proxyReference
     ? proxyAll.reduce((total, row) => total + row.proxy, 0) / proxyAll.length
     : null;
   const setEqual = officialOnlyDates.length === 0 && proxyOnlyDates.length === 0 && officials.size > 0;
+  const equalityComparable = setEqual && N > 0;
 
-  return {
-    defined: dates.length > 0,
+  // §5.4: B_official − B_proxy = −(1/N)Σδ_d exige «N fechas sin cambios»
+  // (mismo conjunto en ambas vistas). Con conjuntos distintos, la diferencia
+  // entre medias de vistas desiguales no acredita la identidad; fail-closed
+  // a null.
+  const officialMinusProxy = equalityComparable ? -meanDelta : null;
+
+  const core = {
     dates,
     N,
     sumDelta,
     meanDelta,
     officialMean,
     proxyMean,
-    officialMinusProxy: officialMean !== null && proxyMean !== null ? officialMean - proxyMean : null,
+    officialMinusProxy,
     setEqual,
-    equalityComparable: setEqual && N > 0,
+    equalityComparable,
     officialOnlyDates,
     proxyOnlyDates,
     missingBothDates,
@@ -534,6 +564,31 @@ export function reconcileOfficialProxy({ officialReferences = [], proxyReference
     equivalentReason: setEqual
       ? "No se acredita equivalencia por sustitución: oficial y proxy se conservan como valores distintos, pendiente fuente oficial."
       : "Los conjuntos de fechas difieren: la fórmula §5.4 exige N fechas sin cambios.",
+  };
+
+  return {
+    defined: dates.length > 0,
+    ...core,
+    // §25.1 output «reconciliation receipt»: hash reproducible del contenido
+    // reconciliado (incluye procedencia, timestamps y hashes por fecha).
+    receipt: {
+      receiptId: sha256Hex(canonicalJson(core)),
+      algorithm: "sha256(canonicalJson(core))",
+    },
+  };
+}
+
+// §5.4 «Se conservan ambos valores, procedencia, timestamps y hashes de filas
+// cuando estén disponibles»: los campos disponibles viajan junto al valor de
+// cada vista; la ausencia se conserva como null (no como fila borrada).
+function provenanceOf(entry) {
+  if (entry === null) {
+    return null;
+  }
+  return {
+    source: entry.source ?? null,
+    providerTimestamp: entry.providerTimestamp ?? null,
+    rowHash: entry.rowHash ?? null,
   };
 }
 
@@ -557,7 +612,13 @@ function buildDateMap(references, label) {
     if (!isFiniteNumber(value)) {
       return null;
     }
-    map.set(row.date, { value, label });
+    map.set(row.date, {
+      value,
+      label,
+      source: row.source ?? null,
+      providerTimestamp: row.providerTimestamp ?? null,
+      rowHash: row.rowHash ?? null,
+    });
   }
   return map;
 }
