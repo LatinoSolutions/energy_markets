@@ -98,6 +98,14 @@ test("una reserva posterior a la calibración se rechaza (§13.8 precede a featu
   const result = reserveSealedOos(input);
   assert.equal(result.decision, "HOLD");
   assert.ok(result.errors.some((error) => error.code === "RESERVATION_AFTER_CALIBRATION"));
+  assert.equal(result.precedesCalibration, false);
+});
+
+test("un HOLD por historia insuficiente no declara que la reserva siguió a la calibración", () => {
+  const input = validReservationInput();
+  input.campaigns = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 7 });
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
   assert.equal(result.precedesCalibration, true);
 });
 

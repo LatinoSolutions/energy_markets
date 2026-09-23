@@ -202,6 +202,7 @@ export function reserveSealedOos(input = {}) {
       registerAbsence: input.registerAbsence ?? null,
       errors,
       blockedBy: [...new Set(errors.map((error) => error.code))],
+      precedesCalibration: calibrationArtifacts.length === 0,
       reason: "HOLD: el registro auditado no satisface su forma; no se materializa ninguna reserva.",
     });
   }
