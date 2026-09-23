@@ -657,18 +657,32 @@ function withRecordReason(record, guardReason) {
   return recordReason !== null ? `${recordReason}; ${guardReason}` : guardReason;
 }
 
+// Frontera temporal de la evaluación también para faltantes y observaciones
+// (§6.1/§6.2): la razón de un faltante publicado después del asOf no puede
+// aparecer en una lectura anterior; el reloj de contenido es el mismo que usa
+// la evaluación versionada. Sin reloj de contenido (entrada auditada) el hecho
+// es intemporal y siempre está presente.
+function knownAtAsOf(record, asOfMs) {
+  if (typeof record.effectiveAtUtc !== "string") {
+    return true;
+  }
+  return Date.parse(record.effectiveAtUtc) <= asOfMs;
+}
+
 // Un record habla en la decision view de un boundary sólo si lo que dice es un
 // hecho anterior o igual a él (§6.1 "publicado no significa disponible";
 // criterio IMP-06 §25.1 "un dato publicado pero aún no consumible no entra;
 // revisión futura no cambia State histórico"):
-//  - sin reloj alguno (entrada auditada, faltante sin publicación): hecho del
-//    audit, independiente del tiempo;
-//  - consumo declarado en o antes del boundary.
-// Una versión publicada pero consumible después (o nunca demostrada) no se
-// menciona: añadirla al manifest no cambia la respuesta histórica.
+//  - un valor presente sólo habla cuando su consumo está demostrado en el
+//    boundary; publicado pero no consumible no se menciona (una versión futura
+//    no cambia la respuesta histórica);
+//  - un faltante/observación del audit no tiene valor que consumir: su razón es
+//    un hecho del audit. Sin reloj de publicación es intemporal; con
+//    publicación, habla desde que se publica y nunca antes (§6.2: el faltante
+//    conserva su trazabilidad sin hacerse consumible).
 function speaksAtBoundary(record, boundaryMs) {
-  if (record.publishedAtUtc === null && record.consumableAtUtc === null) {
-    return true;
+  if (record.valueStatus !== "PRESENT") {
+    return record.publishedAtUtc === null || Date.parse(record.publishedAtUtc) <= boundaryMs;
   }
   return record.consumableAtUtc !== null && Date.parse(record.consumableAtUtc) <= boundaryMs;
 }
@@ -772,9 +786,15 @@ export function readEvaluationView(manifest, asOfUtc) {
     const content = [];
     for (const record of keyRecords) {
       if (record.valueStatus === "AUDIT_OBSERVED") {
-        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "observado por el audit sin versión PIT materializada (§6.5)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
+        if (knownAtAsOf(record, asOf.ms)) {
+          unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "observado por el audit sin versión PIT materializada (§6.5)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
+        }
       } else if (record.valueStatus !== "PRESENT") {
-        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "valor ausente; faltante explícito (§6.2)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
+        // Un faltante publicado después del asOf no era conocido en esta
+        // lectura: su razón no se adelanta (§6.1/§6.2).
+        if (knownAtAsOf(record, asOf.ms)) {
+          unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "valor ausente; faltante explícito (§6.2)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
+        }
       } else if (typeof record.publishedAtUtc !== "string" || typeof record.effectiveAtUtc !== "string") {
         unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)") });
       } else if (Date.parse(record.effectiveAtUtc) <= asOf.ms && record.valueProvenance === null) {

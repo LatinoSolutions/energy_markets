@@ -952,6 +952,113 @@ test("versión publicada pero aún no consumible no habla en la decisión; su ra
   assert.equal(readDecisionView(manifest, "2026-04-05T06:00:00Z").visible[0].revisionId, "v1");
 });
 
+// --- Review 10: el faltante conserva su razón sin fuga temporal en las dos vistas ---
+
+// Faltante publicado, con razón auditada, sin consumo demostrado. No tiene
+// valor que consumir: su razón es un hecho del audit (§6.2), no un dato.
+const PUBLISHED_MISSING = {
+  key: "R-04.exec",
+  viewScope: "decision",
+  publishedAtUtc: "2026-05-10T10:00:00Z",
+  reason: "No price/trade/order-book series present in the workspace.",
+};
+
+function publishedMissingManifest() {
+  const outcome = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [PUBLISHED_MISSING] });
+  assert.equal(outcome.ok, true, JSON.stringify(outcome.errors ?? []));
+  return outcome.manifest;
+}
+
+test("decision view: un faltante publicado conserva su razón auditada sin hacerse consumible", () => {
+  const manifest = publishedMissingManifest();
+  const record = manifest.records[0];
+  assert.equal(record.valueStatus, "MISSING");
+  assert.equal(record.consumableAtUtc, null);
+
+  const after = readDecisionView(manifest, "2026-06-01T00:00:00Z");
+  // No entra: no hay versión consumible ni valor que exponer.
+  assert.deepEqual(after.visible, []);
+  const suppressed = after.suppressed.find((row) => row.key === PUBLISHED_MISSING.key);
+  assert.ok(suppressed, JSON.stringify(after.suppressed));
+  assert.match(suppressed.reason, /No price\/trade\/order-book series present in the workspace/);
+  assert.match(suppressed.reason, /valor ausente/);
+  // Sin timestamps inventados: sigue sin reloj de consumo ni versión.
+  assert.equal(suppressed.revisionId, null);
+  assert.equal(record.consumableAtUtc, null);
+});
+
+test("decision view: el faltante habla desde su publicación exacta; un ms antes no", () => {
+  const manifest = publishedMissingManifest();
+  assert.equal(readDecisionView(manifest, "2026-05-10T10:00:00Z").suppressed.length, 1);
+  assert.deepEqual(readDecisionView(manifest, "2026-05-10T09:59:59.999Z").suppressed, []);
+});
+
+test("decision view: un faltante publicado en el futuro no adelanta su razón en un boundary histórico", () => {
+  const history = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [BASE] }).manifest;
+  const extended = publicBuildPitManifest({
+    manifestId: "M", manifestVersion: "v1", records: [BASE, PUBLISHED_MISSING],
+  }).manifest;
+  const boundary = "2026-04-02T00:00:00Z";
+  const before = readDecisionView(history, boundary);
+  const withFuture = readDecisionView(extended, boundary);
+  // El key nuevo aparece como esquema en unavailable, pero su razón auditada
+  // no se adelanta: no entra a suppressed ni a visible antes de publicarse.
+  assert.deepEqual(withFuture.suppressed, before.suppressed);
+  assert.deepEqual(withFuture.visible, before.visible);
+  assert.equal(withFuture.suppressed.some((row) => row.key === PUBLISHED_MISSING.key), false);
+});
+
+test("evaluation view: la razón del faltante respeta asOf (anterior/igual/posterior a su publicación)", () => {
+  const manifest = publishedMissingManifest();
+
+  // Anterior: una razón publicada en mayo no puede conocerse en abril.
+  const before = readEvaluationView(manifest, "2026-04-01T00:00:00Z");
+  assert.equal(before.unavailable.some((row) => row.key === PUBLISHED_MISSING.key), false);
+
+  // Igual y posterior: el hecho ya existe y conserva su razón auditada.
+  for (const asOf of ["2026-05-10T10:00:00Z", "2026-06-01T00:00:00Z"]) {
+    const view = readEvaluationView(manifest, asOf);
+    const row = view.unavailable.find((entry) => entry.key === PUBLISHED_MISSING.key);
+    assert.ok(row, `${asOf}: ${JSON.stringify(view.unavailable)}`);
+    assert.match(row.reason, /No price\/trade\/order-book series present in the workspace/);
+  }
+});
+
+test("evaluation view: un faltante sin publicación (hecho intemporal del audit) sigue en cualquier asOf", () => {
+  const timeless = {
+    key: "R-04",
+    viewScope: "decision",
+    publishedAtUtc: null,
+    reason: "No price/trade/order-book series present.",
+  };
+  const outcome = publicBuildPitManifest({ manifestId: "M", manifestVersion: "v1", records: [timeless] });
+  assert.equal(outcome.ok, true, JSON.stringify(outcome.errors ?? []));
+  for (const asOf of ["2020-01-01T00:00:00Z", "2026-04-01T00:00:00Z", "2030-01-01T00:00:00Z"]) {
+    const row = readEvaluationView(outcome.manifest, asOf).unavailable.find((entry) => entry.key === "R-04");
+    assert.ok(row, asOf);
+    assert.match(row.reason, /No price\/trade\/order-book series present/);
+  }
+});
+
+test("ambas vistas coinciden en la frontera temporal del faltante (auditoría conjunta)", () => {
+  const manifest = publishedMissingManifest();
+  const before = "2026-04-01T00:00:00Z";
+  const after = "2026-06-01T00:00:00Z";
+
+  // Antes de publicarse: ni la decisión ni la evaluación adelantan la razón.
+  assert.equal(readDecisionView(manifest, before).suppressed.some((row) => row.key === PUBLISHED_MISSING.key), false);
+  assert.equal(readEvaluationView(manifest, before).unavailable.some((row) => row.key === PUBLISHED_MISSING.key), false);
+
+  // Desde su publicación: ambas vistas exponen la misma razón auditada, sin
+  // que el dato se haga consumible (sigue ausente de `visible`/`current`).
+  const decision = readDecisionView(manifest, after);
+  const evaluation = readEvaluationView(manifest, after);
+  assert.deepEqual(decision.visible, []);
+  assert.deepEqual(evaluation.current, []);
+  assert.match(decision.suppressed.find((row) => row.key === PUBLISHED_MISSING.key).reason, /No price\/trade\/order-book series/);
+  assert.match(evaluation.unavailable.find((row) => row.key === PUBLISHED_MISSING.key).reason, /No price\/trade\/order-book series/);
+});
+
 test("un receipt duplicado (mismo key y revisionId) se rechaza: cada revisión se registra una vez", () => {
   const receipt = buildRevision({
     key: BASE.key,
