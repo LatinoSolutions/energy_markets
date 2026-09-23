@@ -17,11 +17,13 @@ import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import {
   EXPOSURE_CONDITION,
+  EXPOSURE_FIELD_KEYS,
   EXPOSURE_FIELDS,
   buildExposureField,
 } from "../operator-interface/exposure.mjs";
 import {
   EXECUTION_CLASS,
+  EXECUTION_CLASSES,
   HUMAN_INTERVENTION_CLASS,
   reconcileOperatorTimeline,
 } from "../operator-interface/timeline.mjs";
@@ -319,6 +321,25 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       errors.push({ field: landmark, code: "EXPOSURE_SECTION_MISMATCH", message: `la sección "${field.field}" no es su definición canónica de §26.2; la etiqueta del llamador no se presenta como factual` });
     }
   }
+  // UI01-04b (review de cambio 2026-09-23): la completitud estructural del
+  // boundary (§26.2: las 13 secciones presentes, la ausencia declarada)
+  // no se toma del flag declarado por el llamador; se constata contra el
+  // conjunto canónico EXPOSURE_FIELD_KEYS. Una parcial omite 12 secciones
+  // sin declararlas y no se rinde como completa.
+  const declaredKeys = [];
+  for (const field of exposure.exposure.fields) {
+    if (typeof field?.field === "string") {
+      declaredKeys.push(field.field);
+    }
+  }
+  const missingSections = EXPOSURE_FIELD_KEYS.filter((canonicalKey) => !declaredKeys.includes(canonicalKey));
+  if (missingSections.length > 0) {
+    errors.push({ field: "exposure.fields", code: "EXPOSURE_NOT_STRUCTURALLY_COMPLETE", message: `la exposición declarada omite las secciones canónicas de §26.2 (${missingSections.join(", ")}); una parcial ocurre sin declarar lo ausente y no se rinde como completa (§26.2)` });
+  }
+  const duplicateSections = declaredKeys.filter((key, index) => declaredKeys.indexOf(key) !== index);
+  if (duplicateSections.length > 0) {
+    errors.push({ field: "exposure.fields", code: "EXPOSURE_SECTION_DUPLICATE", message: `la exposición declara "${[...new Set(duplicateSections)].join(", ")}" más de una vez; dos verdades sobre lo mismo (§26.5)` });
+  }
   // UI01-01a (review 2026-09-23): una actuación REAL no se rinde con una
   // autorización "declarada"; su origen (authority + receipt) se re-ata al
   // manifest verificado, igual que el resto de los datos factuales (§26.5/§16–18).
@@ -368,6 +389,28 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   };
   for (const [lane, events] of [["executions", t.executions], ["interventions", t.interventions]]) {
     for (const event of events) {
+      // UI01-01e (review de cambio 2026-09-23): reconcileOperatorTimeline no
+      // re-valida la identidad ni la clase de las actuaciones; aquí se hace
+      // equivalente a validateExecution del boundary (§26.3): un class fuera
+      // de las clases canónicas o un eventId vacío no se rinde como evento.
+      if (typeof event?.eventId !== "string" || event.eventId.trim().length === 0) {
+        errors.push({ field: `${lane}.(sin id).eventId`, code: "MISSING_EVENT_ID", message: "la actuación no declara su identidad; un evento sin id no se muestra (§26.3/§26.5)" });
+      }
+      if (lane === "executions" && !EXECUTION_CLASSES.includes(event?.class)) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.class`, code: "UNKNOWN_EXECUTION_CLASS", message: `class debe ser ${EXECUTION_CLASSES.join(", ")}: un fill hipotético no se muestra como Real ni una clase desconocida se muestra como factual (§26.3)` });
+      }
+      // UI01-01a-r2 (review de cambio 2026-09-23): el ref exhibido por el
+      // render (relatedRecommendationRef) se ata al vínculo canónico
+      // resuelto (relatedCanonicalRef); un ref mostrado que no es el que el
+      // boundary resolvió no es factual (§26.5/§26.3).
+      const canonical = event?.relatedCanonicalRef;
+      const displayedRef = event?.relatedRecommendationRef;
+      const displayedParsed = parseBackendRef(displayedRef);
+      if (displayedParsed === null
+        || displayedParsed.recordKey !== canonical?.recordKey
+        || displayedParsed.revisionId !== canonical?.revisionId) {
+        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedRecommendationRef`, code: "RECOMMENDATION_REF_NOT_BOUND", message: "el ref de recomendación exhibido no es el que resuelve el vínculo canónico verificado del boundary; no se dibuja como factual (§26.5/§26.3)" });
+      }
       const ref = event?.relatedCanonicalRef;
       const refIsUsable = ref !== undefined && ref !== null;
       const resolved = refIsUsable

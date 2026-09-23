@@ -642,3 +642,79 @@ test("los renderers de página rinden estado ERROR en vez de lanzar con vm invá
     assert.doesNotThrow(() => renderPage(minimal));
   }
 });
+
+// UI01-01a-r2 (review de cambio 2026-09-23): el ref de recomendación que el
+// render exhibe (relatedRecommendationRef) se ata al vínculo canónico
+// resuelto (relatedCanonicalRef); un ref forjado que no es el resuelto no
+// se muestra como factual (§26.5/§26.3), ni en fills ni en intervención.
+test("replay: un ref de recomendación exhibido distinto del vínculo resuelto queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.executions[0].relatedRecommendationRef = "FAKE.recommendation@v9";
+  forged.timeline.interventions[0].relatedRecommendationRef = "FAKE.recommendation@v9";
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors.filter((error) => error.code === "RECOMMENDATION_REF_NOT_BOUND").length, 2);
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("FAKE.recommendation"));
+});
+
+// UI01-01e (review de cambio 2026-09-23): la clase y la identidad de las
+// actuaciones se re-validan equivalente a validateExecution del boundary (§26.3):
+// un class desconocido o un eventId vacío no se rinde como evento.
+test("replay: una actuación con class desconocido o sin eventId queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  const forgedClass = JSON.parse(JSON.stringify(timeline));
+  forgedClass.timeline.executions[0].class = "BOGUS_CLASS";
+  const classVm = buildReplayViewModel({ timeline: forgedClass, exposure, backendIndex });
+  assert.equal(classVm.ok, false);
+  assert.ok(classVm.errors.some((error) => error.code === "UNKNOWN_EXECUTION_CLASS"));
+  const classHtml = renderReplayPage(classVm);
+  assert.match(classHtml, /data-state="ERROR"/);
+  assert.ok(!classHtml.includes('data-event-class="BOGUS_CLASS"'));
+  // la intervención también exige identidad, igual que en el boundary
+  const forgedId = JSON.parse(JSON.stringify(timeline));
+  forgedId.timeline.interventions[0].eventId = "";
+  const idVm = buildReplayViewModel({ timeline: forgedId, exposure, backendIndex });
+  assert.equal(idVm.ok, false);
+  assert.ok(idVm.errors.some((error) => error.code === "MISSING_EVENT_ID"));
+  assert.match(renderReplayPage(idVm), /data-state="ERROR"/);
+});
+
+// UI01-04b (review de cambio 2026-09-23): las 13 secciones de §26.2 deben
+// permanecer visibles; una exposición parcial (subconjunto de secciones) no
+// se rinde como completa: las secciones ausentes quedan sin declarar.
+test("replay: una exposición parcial (subconjunto de secciones §26.2) queda fail-closed", () => {
+  const { timeline, backendIndex } = scenarios();
+  const partial = {
+    ok: true,
+    exposure: {
+      boundaryUtc: "2026-04-01T07:00:00.000Z",
+      fields: [{
+        field: "recommendation",
+        specLabel: "Recomendación",
+        section: "§26.2",
+        condition: EXPOSURE_CONDITION.AVAILABLE,
+        value: RECOMMENDATION_BASE.value,
+        provenance: {
+          sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION,
+          recordKey: RECOMMENDATION_BASE.key,
+          revisionId: RECOMMENDATION_BASE.revisionId,
+          valueSha256: canonicalValueSha256(RECOMMENDATION_BASE.value).sha256,
+        },
+      }],
+      unavailable: [],
+      structurallyComplete: true,
+      hasUnavailableContent: false,
+    },
+  };
+  assert.equal(partial.exposure.fields.length, 1);
+  const vm = buildReplayViewModel({ timeline, exposure: partial, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "EXPOSURE_NOT_STRUCTURALLY_COMPLETE"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.match(html, /omite las secciones canónicas/);
+  assert.ok(!html.includes("<li class=\"exposure-field"));
+});
