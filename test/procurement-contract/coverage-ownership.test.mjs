@@ -206,6 +206,30 @@ test("un fill inexistente no se asigna en silencio", () => {
   assert.ok(outcome.errors.some((error) => error.code === "UNKNOWN_FILL"));
 });
 
+// Regresión del review: un fill válido que ninguna obligación referenciaba
+// devolvía ok:true con assignments vacíos, dejando cobertura sin dueño fuera
+// del doble conteo y de la reconciliación con el volumen ejecutado (§4.3).
+test("un fill sin obligación que lo referencie no produce un mapa ok (§4.3)", () => {
+  const outcome = mapCoverageOwnership({
+    relationMonthlyQuarterly: { availability: "UNAVAILABLE", reason: "relación Monthly/Quarterly sin mandato real" },
+    obligations: [],
+    fills: [{ fillId: "SYN-F1", quantity: 5, unit: "MW" }],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "UNOWNED_FILL" && error.message.includes("SYN-F1")));
+  assert.deepEqual(outcome.assignments, []);
+});
+
+test("un fill referenciado por una obligación inválida tampoco queda sin dueño en silencio", () => {
+  const outcome = mapCoverageOwnership({
+    relationMonthlyQuarterly: { availability: "UNAVAILABLE", reason: "relación Monthly/Quarterly sin mandato real" },
+    obligations: [{ obligationId: "SYN-Q1 ", fills: ["SYN-F1"] }],
+    fills: [{ fillId: "SYN-F1", quantity: 5, unit: "MW" }],
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "UNOWNED_FILL"));
+});
+
 test("la relación Monthly/Quarterly sin razón documentada se rechaza", () => {
   const outcome = mapCoverageOwnership({ relationMonthlyQuarterly: { availability: "UNAVAILABLE" }, obligations: [], fills: [] });
   assert.equal(outcome.ok, false);
@@ -380,6 +404,50 @@ test("una enmienda que declara la cantidad cancelada cierra como RESIDUAL_CANCEL
   // downstream (ledgers P6) debe distinguirlos.
   assert.equal(outcome.coverageStatus, "RESIDUAL_CANCELLED");
   assert.ok(COVERAGE_STATUSES.includes("RESIDUAL_CANCELLED"));
+});
+
+// Regresión del review: una cancelación real documentada se clasificaba
+// COVERAGE_INCOMPLETE por exigir además terminal rule VERIFIED. §4.3 admite el
+// ajuste "salvo enmiendas/cancelaciones explícitamente documentadas": la
+// enmienda documentada es el acto de cierre, con o sin regla terminal.
+test("una enmienda real documentada cierra el residual sin exigir terminal rule (§4.3/§14.5)", () => {
+  for (const terminalRuleStatus of ["UNKNOWN", "MISSING"]) {
+    const outcome = reconcileCoverage({
+      openingObligation: 100,
+      executedVolume: 40,
+      remainingVolume: 60,
+      unit: "MWh",
+      terminalRuleStatus,
+      residualAmendment: { authority: "Bru (owner)", locator: "enmienda firmada p.2", cancelledVolume: 60, unit: "MWh" },
+    });
+    assert.equal(outcome.ok, true, terminalRuleStatus);
+    assert.equal(outcome.coverageStatus, "RESIDUAL_CANCELLED", terminalRuleStatus);
+    assert.deepEqual(outcome.errors, [], terminalRuleStatus);
+  }
+});
+
+test("sin enmienda el residual abierto sigue COVERAGE_INCOMPLETE aunque no haya terminal rule", () => {
+  // El ajuste por enmienda no da por cerrado un residual que nadie documenta:
+  // la incoherencia de unidad o una cantidad distinta siguen sin cerrar.
+  const partial = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "UNKNOWN",
+    residualAmendment: { authority: "a", locator: "l", cancelledVolume: 20, unit: "MWh" },
+  });
+  assert.equal(partial.coverageStatus, "COVERAGE_INCOMPLETE");
+  assert.ok(partial.errors.some((error) => error.code === "RESIDUAL_CLOSE_NOT_EVIDENCED") === false);
+  const otherUnit = reconcileCoverage({
+    openingObligation: 100,
+    executedVolume: 40,
+    remainingVolume: 60,
+    unit: "MWh",
+    terminalRuleStatus: "UNKNOWN",
+    residualAmendment: { authority: "a", locator: "l", cancelledVolume: 60, unit: "MW" },
+  });
+  assert.equal(otherUnit.coverageStatus, "COVERAGE_INCOMPLETE");
 });
 
 test("una enmienda en blanco no cierra el residual (§14.5: ajuste correspondiente)", () => {

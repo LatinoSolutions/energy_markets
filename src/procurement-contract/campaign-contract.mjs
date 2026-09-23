@@ -338,6 +338,24 @@ function validateCrossFieldCoherence(ficha, factsById, errors) {
     }
   }
 
+  // §4.1 "Alcance": el vínculo a campaña materializa a qué campaña pertenece
+  // la obligación. Coincidir producto y Mission no identifica la campaña: otra
+  // Gas Quarterly con otro Campaign ID superaría esa comprobación y la ficha
+  // atribuiría el volumen a dos campañas a la vez.
+  // PROVISIONAL (no es formato de la SPEC, que no define el valor del vínculo
+  // a campaña): se compara por igualdad con la Campaign ID. Un mandato real
+  // que exprese el vínculo en otro formato sólo se resolverá con el registro
+  // de la campaña real (DEP-01, P-006).
+  const campaignLink = availableFact(factsById, "campaign.obligation.campaignLink");
+  const campaignId = availableFact(factsById, "campaign.identity.campaignId");
+  if (campaignLink && campaignId && campaignLink.value !== campaignId.value) {
+    errors.push({
+      factId: "campaign.obligation.campaignLink",
+      code: "CAMPAIGN_LINK_INCOHERENT",
+      message: `campaign.obligation.campaignLink = ${campaignLink.value} no coincide con campaign.identity.campaignId = ${campaignId.value}; el vínculo a campaña declara la Campaign ID (§4.1).`,
+    });
+  }
+
   // §4.3: Opening Obligation = Executed Volume + Remaining Volume. Un restante
   // publicado debe derivarse de apertura y ejecutado, no afirmarse solo.
   const remaining = availableFact(factsById, "campaign.coverage.remainingVolume");

@@ -151,7 +151,12 @@ export function reconcileCoverage({ openingObligation, executedVolume, remaining
 
   // §14.5: la enmienda cancela una cantidad concreta con unidad compatible;
   // no cierra el residual en blanco (§4.3: faltantes y conveniencia nunca
-  // eliminan volumen restante).
+  // eliminan volumen restante). La identidad de conservación admite ajuste
+  // "salvo enmiendas/cancelaciones explícitamente documentadas" (§4.3): una
+  // cancelación real documentada es el acto de cierre por sí misma, así la
+  // terminal rule no exista o esté sin verificar; exigir además terminal rule
+  // VERIFIED denegaba el cierre que §4.3/§14.5 admiten. Sin esa evidencia, el
+  // residual sigue abierto pase lo que pase con la terminal rule.
   const amendmentCoversResidual = isNonEmptyString(residualAmendment?.authority)
     && isNonEmptyString(residualAmendment?.locator)
     && isFiniteNumber(residualAmendment?.cancelledVolume)
@@ -159,7 +164,7 @@ export function reconcileCoverage({ openingObligation, executedVolume, remaining
     && isNonEmptyString(residualAmendment?.unit)
     && residualAmendment.unit === unit;
 
-  if (terminalRuleValid && amendmentCoversResidual) {
+  if (amendmentCoversResidual) {
     // La enmienda no es cobertura ejecutada: se informa separadamente (§4.3).
     return { ok: errors.length === 0, coverageStatus: "RESIDUAL_CANCELLED", errors };
   }
@@ -278,6 +283,16 @@ export function mapCoverageOwnership({ relationMonthlyQuarterly, obligations, fi
         continue;
       }
       assignments.push({ fillId, obligationId: obligation.obligationId, quantity: fill.quantity, unit: fill.unit });
+    }
+  }
+
+  // §4.3: una cobertura sin obligación que la posea no tiene dueño auditado.
+  // Devolverla en assignments vacíos con ok:true dejaría volumen ejecutado que
+  // nadie reclama y escaparía al doble conteo y a la reconciliación con el
+  // volumen ejecutado de la ficha.
+  for (const [fillId, fill] of fillById) {
+    if (!assignments.some((assignment) => assignment.fillId === fillId)) {
+      errors.push({ code: "UNOWNED_FILL", message: `El fill ${fillId} (${fill.quantity} ${fill.unit}) no es referenciado por ninguna obligación; la cobertura sin dueño no entra al mapa (§4.3).` });
     }
   }
 

@@ -784,3 +784,48 @@ test("un vínculo a campaña publicado sin campaña identificada se rechaza", ()
   makeAvailable(ficha, "campaign.obligation.campaignLink", "SYNTH-1");
   assert.ok(codesOf(ficha).includes("CAMPAIGN_NOT_IDENTIFIED"));
 });
+
+// Regresión del review: producto y Mission coincidían, pero el campaignLink
+// podía declarar la Campaign ID de otra campaña y superar la comprobación.
+test("un campaignLink con otra Campaign ID se rechaza (§4.1: el vínculo declara la Campaign ID)", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(ficha, "campaign.obligation.campaignLink").value = "SYNTH-OTHER";
+  const outcome = validateCampaignContract(ficha);
+  assert.equal(outcome.ok, false);
+  const incoherent = outcome.errors.filter((error) => error.code === "CAMPAIGN_LINK_INCOHERENT");
+  assert.equal(incoherent.length, 1);
+  assert.ok(incoherent[0].message.includes("SYNTH-OTHER"));
+  assert.ok(incoherent[0].message.includes("SYNTH-1"));
+  // La incoherencia rompe el contrato completo, así que el criterio derivado
+  // sobre la ficha alterada ya no se cumple.
+  assert.equal(evaluateImp02Acceptance(ficha).criterionMet, false);
+});
+
+test("un campaignLink igual al Campaign ID de la ficha pasa la coherencia", () => {
+  const ficha = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(ficha, "campaign.obligation.campaignLink").value = "SYNTH-1";
+  assert.ok(!codesOf(ficha).includes("CAMPAIGN_LINK_INCOHERENT"));
+});
+
+test("la coherencia campaignLink–Campaign ID no exige Campaign ID si el vínculo no lo declara", () => {
+  // Con sólo una de las dos facts publicadas no hay dos verdades que comparar;
+  // el caso ya lo cubre CAMPAIGN_NOT_IDENTIFIED y no debe falsear aquí.
+  const onlyLink = createGasQuarterlyFicha();
+  makeAvailable(onlyLink, "campaign.obligation.campaignLink", "SYNTH-1");
+  makeAvailable(onlyLink, "campaign.identity.productFamily", "Gas");
+  makeAvailable(onlyLink, "campaign.identity.mission", "Quarterly");
+  makeAvailable(onlyLink, "campaign.identity.productContract", "SYNTH-C");
+  makeAvailable(onlyLink, "campaign.identity.hubMarket", "SYNTH-HUB");
+  assert.ok(!codesOf(onlyLink).includes("CAMPAIGN_LINK_INCOHERENT"));
+});
+
+test("sin provenance en una de las dos facts no se declara la incoherencia del vínculo", () => {
+  // availableFact exige provenance; la ficha ya queda rechazada por NO_PROVENANCE
+  // y no se suma una segunda verdad derivada de facts sin fuente.
+  const noSource = materializedFicha({ executed: 20, assignments: [{ fillId: "FILL-1", obligationId: "OBL-QUARTERLY", quantity: 20, unit: "MW" }] });
+  fact(noSource, "campaign.obligation.campaignLink").value = "SYNTH-OTHER";
+  fact(noSource, "campaign.obligation.campaignLink").source = null;
+  const outcome = validateCampaignContract(noSource);
+  assert.ok(outcome.errors.some((error) => error.code === "NO_PROVENANCE"));
+  assert.ok(!outcome.errors.some((error) => error.code === "CAMPAIGN_LINK_INCOHERENT"));
+});
