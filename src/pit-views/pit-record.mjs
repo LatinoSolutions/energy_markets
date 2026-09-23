@@ -21,6 +21,8 @@
 // decision-time view. `viewScope` es obligatorio: no hay default que pueda
 // meter un benchmark sin declarar en la vista de decisión.
 
+import { createHash } from "node:crypto";
+
 import { DEFAULT_REPO_ROOT, trustRootNotConfigurable, verifyAcceptedArtifactAt } from "./audited-artifacts.mjs";
 import { toUtcTimestamp } from "./time.mjs";
 
@@ -55,12 +57,22 @@ export function deepFreeze(value) {
   return Object.freeze(value);
 }
 
-// Sólo primitivos, arrays y objetos planos: Map/Set/Date guardan su contenido
-// fuera de las propiedades y Object.freeze no los protege. Un ciclo no es un
-// valor versionable: se rechaza en vez de desbordar la pila.
+// Sólo dato JSON: null, boolean, string, número finito, arrays y objetos
+// planos. Map/Set/Date guardan su contenido fuera de las propiedades y
+// Object.freeze no los protege. Un ciclo no es un valor versionable: se
+// rechaza en vez de desbordar la pila. NaN/±Infinity (y undefined/bigint) no
+// son JSON: JSON.stringify los convierte en null u omite, así que el hash
+// canónico y la vista mostrarían otro dato (review IMP-06 2026-09-23, P-001
+// punto 3 de Bru).
 function isPlainData(value, ancestors = new Set()) {
-  if (value === null || typeof value !== "object") {
-    return typeof value !== "function" && typeof value !== "symbol";
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return true;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+  if (typeof value !== "object") {
+    return false;
   }
   if (ancestors.has(value)) {
     return false;
@@ -69,93 +81,243 @@ function isPlainData(value, ancestors = new Set()) {
   if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
     return false;
   }
+  // Un array con huecos o con propiedades que no son índices no es JSON: el
+  // hash canónico (value.map) no vería esas propiedades y la vista sí.
+  if (Array.isArray(value)) {
+    const keys = Object.keys(value);
+    if (keys.length !== value.length || !keys.every((name, index) => name === String(index))) {
+      return false;
+    }
+  }
   ancestors.add(value);
   const plain = Object.values(value).every((nested) => isPlainData(nested, ancestors));
   ancestors.delete(value);
   return plain;
 }
 
-function frozenCopy(value) {
+function containsNonFiniteNumber(value, ancestors = new Set()) {
+  if (typeof value === "number") {
+    return !Number.isFinite(value);
+  }
+  if (value === null || typeof value !== "object" || ancestors.has(value)) {
+    return false;
+  }
+  ancestors.add(value);
+  const found = Object.values(value).some((nested) => containsNonFiniteNumber(nested, ancestors));
+  ancestors.delete(value);
+  return found;
+}
+
+// Hash canónico del valor de una versión: JSON con claves de objeto ordenadas
+// (orden de code units), sin espacios, UTF-8, sha256 hex. Es lo que una
+// atestación auditada firma como `valueSha256`: vincula el valor consumido con
+// su evidencia (P-001 punto 2 de Bru, 2026-09-23).
+// PLACEHOLDER de contrato (no canónico): la SPEC v1.1.1 no fija una
+// serialización canónica; ésta es la asumida hasta que un audit la fije.
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const members = Object.keys(value).sort().map((name) => `${JSON.stringify(name)}:${canonicalJson(value[name])}`);
+    return `{${members.join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function canonicalValueSha256(value) {
+  if (value === undefined || !isPlainData(value)) {
+    return { ok: false, code: "INVALID_VALUE" };
+  }
+  return { ok: true, sha256: createHash("sha256").update(canonicalJson(value), "utf8").digest("hex") };
+}
+
+// Se valida el original (structuredClone borra prototipos de clase) y
+// también la copia, que es lo que se guarda: un getter del llamante no puede
+// devolver un dato al validar y otro al copiar.
+function snapshotOf(value) {
   if (!isPlainData(value)) {
     return { ok: false };
   }
+  let copy;
   try {
-    return { ok: true, copy: deepFreeze(structuredClone(value)) };
+    copy = structuredClone(value);
   } catch {
     return { ok: false };
   }
+  return isPlainData(copy) ? { ok: true, copy } : { ok: false };
 }
 
-// Registro de evidencia de consumo verificada por el audit (§6.4: la auditoría
+function frozenCopy(value) {
+  const snapshot = snapshotOf(value);
+  return snapshot.ok ? { ok: true, copy: deepFreeze(snapshot.copy) } : { ok: false };
+}
+
+// Registros de atestaciones verificadas por un audit (§6.4: la auditoría
 // verifica publicación y consumo; DEP-07 §25.2 IMP-06: "evidencia temporal
 // realmente utilizada"; §25.2: cada claim con "source/evidence y receipt
-// aceptado"). Una atestación dice: el audit `auditId` verificó que la versión
-// `key`/`revisionId` era consumible en `consumableAtUtc`, con el artifact
-// `source`@`locator` de hash `sha256`.
+// aceptado"). Dos clases:
+//  - PIT_VALUE_ATTESTATIONS (procedencia): el audit `auditId` verificó que la
+//    versión `key`/`revisionId` (que revisa `revisionOf`) tiene el valor de
+//    hash canónico `valueSha256`, publicado en `publishedAtUtc` y, si es una
+//    revisión con receipt, efectiva en `revisionEffectiveAtUtc`; evidencia en
+//    `source`@`locator` de hash `sha256`. Sin ella ningún valor es consumible
+//    ni se usa en evaluación (P-001 punto 1 de Bru, 2026-09-23).
+//  - PIT_CONSUMPTION_ATTESTATIONS (consumo): el audit verificó que el valor
+//    `valueSha256` de `key`/`revisionId` era consumible en `consumableAtUtc`.
+// `valueSha256` ata la atestación al dato: no se reutiliza para presentar
+// otro valor con la misma key/revisión (P-001 punto 2 de Bru, 2026-09-23).
 //
 // Las atestaciones NO las aporta el llamante en memoria: se leen de artifacts
-// PIT_CONSUMPTION_ATTESTATIONS verificados en disco contra un IMP_RECEIPT
-// aceptado (verifyAcceptedArtifact). El registro resultante lleva una marca
-// privada; buildPitRecord sólo acepta registros con esa marca, así que una
-// lista armada a mano (auditId "FAKE") no puede demostrar consumo.
+// verificados en disco contra un IMP_RECEIPT aceptado (verifyAcceptedArtifact).
+// El registro resultante lleva una marca privada; buildPitRecord sólo acepta
+// registros con esa marca, así que una lista armada a mano (auditId "FAKE")
+// no demuestra nada.
 //
-// PLACEHOLDER de contrato (no canónico): la SPEC no fija el formato del
-// artifact de atestación de consumo y ningún audit aceptado lo produce todavía
-// (el manifiesto IMP-03 aceptado marca policyConsumableTime MISSING en los 17
-// requisitos). Forma asumida:
-//   { artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId,
-//     attestations: [{ key, revisionId, consumableAtUtc, source|path, locator, sha256 }] }
-// Con el repo actual el registro verificable es vacío: ningún consumo queda
-// demostrado, que es el resultado correcto de §6.1.
+// PLACEHOLDER de contrato (no canónico): la SPEC no fija el formato de estos
+// artifacts. Forma asumida:
+//   { artifactKind: "PIT_VALUE_ATTESTATIONS", auditId, attestations: [{ key,
+//     revisionId, revisionOf|null, valueSha256, publishedAtUtc,
+//     revisionEffectiveAtUtc|null, source|path, locator, sha256 }] }
+//   { artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId, attestations:
+//     [{ key, revisionId, valueSha256, consumableAtUtc, source|path, locator, sha256 }] }
+// Quién los produce: DEP-06/07 del audit IMP-03 (§25.2.2 fila IMP-03
+// "Produce DEP-06/07"; fila IMP-06 "Consume DEP-06/07 ... Los inputs no
+// demostrablemente consumibles siguen unavailable"). Hoy no existen: ver
+// PER_VERSION_EVIDENCE_DEPENDENCY.
 const VERIFIED_EVIDENCE_REGISTRIES = new WeakSet();
+const VERIFIED_VALUE_REGISTRIES = new WeakSet();
 
-function normalizeAttestations(list, { auditId, provenance, fieldPrefix }) {
-  if (!Array.isArray(list)) {
-    return { ok: false, errors: [{ field: fieldPrefix, code: "INVALID_AUDITED_EVIDENCE", message: "attestations debe ser una lista." }] };
+// Dependencia técnica explícita (P-001 punto 4 de Bru, 2026-09-23). Estado
+// verificado en el repo el 2026-09-23: IMP-03 aceptado sólo como "negative
+// audit only" (operations/receipts/IMP-03-IMP_RECEIPT.json); ST-03.3
+// (operations/audit/IMP-03/EEX-THE-20260921/ST-03.3/ST_RECEIPT.json) sigue
+// `in_review` y su temporal-manifest marca publicationSourceAvailabilityTime
+// MISSING y policyConsumableTime MISSING/NOT_DEMONSTRATED en R-01..R-17. Hasta
+// que un receipt aceptado registre atestaciones por versión, todo valor queda
+// unavailable en ambas vistas.
+export const PER_VERSION_EVIDENCE_DEPENDENCY = Object.freeze({
+  dependency: "DEP-06/07",
+  producer: "IMP-03",
+  consumer: "IMP-06",
+  artifacts: Object.freeze(["PIT_VALUE_ATTESTATIONS", "PIT_CONSUMPTION_ATTESTATIONS"]),
+  source: "SPEC v1.1.1 §6.1, §6.4, §24 DEP-07, §25.2.2 filas IMP-03 e IMP-06",
+  status: "not_produced: ST-03.3 in_review; IMP-03 aceptado sólo como negative audit",
+});
+
+const ATTESTATION_KINDS = {
+  PIT_CONSUMPTION_ATTESTATIONS: {
+    timeField: "consumableAtUtc",
+    required: "source/path, locator, sha256 de 64 hex, key, revisionId, valueSha256 de 64 hex y consumableAtUtc con zona explícita",
+  },
+  PIT_VALUE_ATTESTATIONS: {
+    timeField: "publishedAtUtc",
+    required: "source/path, locator, sha256 de 64 hex, key, revisionId, revisionOf (string o null), valueSha256 de 64 hex, publishedAtUtc y revisionEffectiveAtUtc (o null) con zona explícita",
+  },
+};
+
+function isSha256(value) {
+  return typeof value === "string" && SHA256_PATTERN.test(value);
+}
+
+function normalizeAttestation(raw, kind) {
+  const source = raw?.source ?? raw?.path;
+  const time = normalizeUtc(raw?.[ATTESTATION_KINDS[kind].timeField]);
+  if (!isNonEmptyString(source) || !isNonEmptyString(raw?.locator) || !isSha256(raw?.sha256)
+    || !isNonEmptyString(raw?.key) || !isNonEmptyString(raw?.revisionId) || !isSha256(raw?.valueSha256)
+    || !time.ok || time.utc === null) {
+    return null;
+  }
+  const entry = {
+    source,
+    locator: raw.locator,
+    sha256: raw.sha256.toLowerCase(),
+    key: raw.key,
+    revisionId: raw.revisionId,
+    valueSha256: raw.valueSha256.toLowerCase(),
+  };
+  if (kind === "PIT_CONSUMPTION_ATTESTATIONS") {
+    return { ...entry, consumableAtUtc: time.utc };
+  }
+  const revisionOf = raw.revisionOf ?? null;
+  const effective = normalizeUtc(raw.revisionEffectiveAtUtc);
+  if ((revisionOf !== null && !isNonEmptyString(revisionOf)) || !effective.ok) {
+    return null;
+  }
+  return { ...entry, revisionOf, publishedAtUtc: time.utc, revisionEffectiveAtUtc: effective.utc };
+}
+
+// Dos atestaciones con el mismo source@locator y hashes distintos, o dos
+// procedencias con valor distinto para la misma versión, son doble verdad.
+function conflictOf(entries, entry, kind) {
+  const sameEvidence = entries.find((prior) => prior.source === entry.source && prior.locator === entry.locator && prior.sha256 !== entry.sha256);
+  if (sameEvidence !== undefined) {
+    return { code: "AUDITED_EVIDENCE_CONFLICT", message: `Se declaran dos hashes distintos para ${entry.source} @ ${entry.locator}.` };
+  }
+  if (kind === "PIT_CONSUMPTION_ATTESTATIONS") {
+    const otherValue = entries.find((prior) => prior.key === entry.key && prior.revisionId === entry.revisionId && prior.valueSha256 !== entry.valueSha256);
+    if (otherValue !== undefined) {
+      return { code: "AUDITED_VALUE_CONFLICT", message: `Se atesta el consumo de dos valores distintos para la versión "${entry.revisionId}" de "${entry.key}"; una versión tiene un único valor (§6.2).` };
+    }
+    return null;
+  }
+  const sameVersion = entries.find((prior) => prior.key === entry.key && prior.revisionId === entry.revisionId);
+  if (sameVersion !== undefined) {
+    return { code: "AUDITED_VALUE_CONFLICT", message: `La versión "${entry.revisionId}" de "${entry.key}" tiene más de una procedencia atestada; una versión tiene un único valor (§6.2).` };
+  }
+  return null;
+}
+
+function loadAttestationsAt(trustRoot, refs, kind, marks) {
+  const refsField = kind === "PIT_VALUE_ATTESTATIONS" ? "valueAttestationRefs" : "consumptionAttestationRefs";
+  if (!Array.isArray(refs)) {
+    return { ok: false, errors: [{ field: refsField, code: "INVALID_AUDITED_EVIDENCE", message: `${refsField} debe ser una lista.` }] };
   }
   const errors = [];
   const entries = [];
-  list.forEach((raw, index) => {
-    const source = raw?.source ?? raw?.path;
-    const consumableAt = normalizeUtc(raw?.consumableAtUtc);
-    if (!isNonEmptyString(source) || !isNonEmptyString(raw?.locator)
-      || typeof raw?.sha256 !== "string" || !SHA256_PATTERN.test(raw.sha256)
-      || !isNonEmptyString(raw?.key) || !isNonEmptyString(raw?.revisionId)
-      || !consumableAt.ok || consumableAt.utc === null) {
-      errors.push({
-        field: `${fieldPrefix}[${index}]`,
-        code: "INVALID_AUDITED_EVIDENCE",
-        message: "La atestación requiere source/path, locator, sha256 de 64 hex, key, revisionId y consumableAtUtc con zona explícita.",
-      });
+  refs.forEach((ref, refIndex) => {
+    const field = `${refsField}[${refIndex}]`;
+    const verified = verifyAcceptedArtifactAt(trustRoot, ref);
+    if (!verified.ok) {
+      errors.push(...verified.errors.map((e) => ({ ...e, field })));
       return;
     }
-    const sha256 = raw.sha256.toLowerCase();
-    const conflicting = entries.find((entry) => entry.source === source && entry.locator === raw.locator && entry.sha256 !== sha256);
-    if (conflicting !== undefined) {
-      errors.push({
-        field: `${fieldPrefix}[${index}]`,
-        code: "AUDITED_EVIDENCE_CONFLICT",
-        message: `El audit declara dos hashes distintos para ${source} @ ${raw.locator}.`,
-      });
+    const { artifact, provenance } = verified;
+    if (artifact?.artifactKind !== kind || !isNonEmptyString(artifact?.auditId)) {
+      errors.push({ field, code: "INVALID_ATTESTATION_ARTIFACT", message: `"${provenance.path}" no es un artifact ${kind} con auditId.` });
       return;
     }
-    entries.push({
-      auditId,
-      source,
-      locator: raw.locator,
-      sha256,
-      key: raw.key,
-      revisionId: raw.revisionId,
-      consumableAtUtc: consumableAt.utc,
-      attestationArtifact: provenance,
+    if (!Array.isArray(artifact.attestations)) {
+      errors.push({ field: `${field}.attestations`, code: "INVALID_AUDITED_EVIDENCE", message: "attestations debe ser una lista." });
+      return;
+    }
+    artifact.attestations.forEach((raw, index) => {
+      const entryField = `${field}.attestations[${index}]`;
+      const normalized = normalizeAttestation(raw, kind);
+      if (normalized === null) {
+        errors.push({ field: entryField, code: "INVALID_AUDITED_EVIDENCE", message: `La atestación requiere ${ATTESTATION_KINDS[kind].required}.` });
+        return;
+      }
+      const entry = { auditId: artifact.auditId, ...normalized, attestationArtifact: provenance };
+      const conflict = conflictOf(entries, entry, kind);
+      if (conflict !== null) {
+        errors.push({ field: entryField, ...conflict });
+        return;
+      }
+      entries.push(entry);
     });
   });
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, entries };
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+  const registry = deepFreeze({ entries });
+  marks.add(registry);
+  return { ok: true, registry };
 }
 
-// Carga el registro de atestaciones desde artifacts verificados. `refs` =
-// [{ path, sha256 }] relativos al repo. Sin refs, registro vacío (nada
-// demostrado).
+// Carga el registro de atestaciones de consumo desde artifacts verificados.
+// `refs` = [{ path, sha256 }] relativos al repo. Sin refs, registro vacío
+// (nada demostrado).
 export function loadConsumptionAttestations(options = {}) {
   if (options !== null && typeof options === "object" && Object.hasOwn(options, "repoRoot")) {
     return trustRootNotConfigurable();
@@ -165,47 +327,25 @@ export function loadConsumptionAttestations(options = {}) {
 
 // Costura de tests (ver audited-artifacts.mjs); no se exporta desde index.mjs.
 export function loadConsumptionAttestationsAt(trustRoot, { refs = [] } = {}) {
-  if (!Array.isArray(refs)) {
-    return { ok: false, errors: [{ field: "consumptionAttestationRefs", code: "INVALID_AUDITED_EVIDENCE", message: "consumptionAttestationRefs debe ser una lista." }] };
+  return loadAttestationsAt(trustRoot, refs, "PIT_CONSUMPTION_ATTESTATIONS", VERIFIED_EVIDENCE_REGISTRIES);
+}
+
+// Carga el registro de procedencia de valores. Sin refs, registro vacío:
+// ningún valor tiene procedencia auditada.
+export function loadValueAttestations(options = {}) {
+  if (options !== null && typeof options === "object" && Object.hasOwn(options, "repoRoot")) {
+    return trustRootNotConfigurable();
   }
-  const errors = [];
-  const entries = [];
-  refs.forEach((ref, refIndex) => {
-    const field = `consumptionAttestationRefs[${refIndex}]`;
-    const verified = verifyAcceptedArtifactAt(trustRoot, ref);
-    if (!verified.ok) {
-      errors.push(...verified.errors.map((e) => ({ ...e, field })));
-      return;
-    }
-    const { artifact, provenance } = verified;
-    if (artifact?.artifactKind !== "PIT_CONSUMPTION_ATTESTATIONS" || !isNonEmptyString(artifact?.auditId)) {
-      errors.push({ field, code: "INVALID_ATTESTATION_ARTIFACT", message: `"${provenance.path}" no es un artifact PIT_CONSUMPTION_ATTESTATIONS con auditId.` });
-      return;
-    }
-    const normalized = normalizeAttestations(artifact.attestations, {
-      auditId: artifact.auditId,
-      provenance,
-      fieldPrefix: `${field}.attestations`,
-    });
-    if (!normalized.ok) {
-      errors.push(...normalized.errors);
-      return;
-    }
-    for (const entry of normalized.entries) {
-      const clash = entries.find((prior) => prior.source === entry.source && prior.locator === entry.locator && prior.sha256 !== entry.sha256);
-      if (clash !== undefined) {
-        errors.push({ field, code: "AUDITED_EVIDENCE_CONFLICT", message: `Dos audits declaran hashes distintos para ${entry.source} @ ${entry.locator}.` });
-        return;
-      }
-    }
-    entries.push(...normalized.entries);
-  });
-  if (errors.length > 0) {
-    return { ok: false, errors };
-  }
-  const registry = deepFreeze({ entries });
-  VERIFIED_EVIDENCE_REGISTRIES.add(registry);
-  return { ok: true, registry };
+  return loadValueAttestationsAt(DEFAULT_REPO_ROOT, options ?? {});
+}
+
+// Costura de tests (ver audited-artifacts.mjs); no se exporta desde index.mjs.
+export function loadValueAttestationsAt(trustRoot, { refs = [] } = {}) {
+  return loadAttestationsAt(trustRoot, refs, "PIT_VALUE_ATTESTATIONS", VERIFIED_VALUE_REGISTRIES);
+}
+
+export function isVerifiedValueRegistry(value) {
+  return VERIFIED_VALUE_REGISTRIES.has(value);
 }
 
 export function isVerifiedEvidenceRegistry(value) {
@@ -266,7 +406,7 @@ export function normalizeProxyDeclarations(list = []) {
 
 export function buildPitRecord(input, context = {}) {
   const errors = [];
-  const { evidenceRegistry = null, proxyDeclarations = [] } = context ?? {};
+  const { evidenceRegistry = null, valueRegistry = null, proxyDeclarations = [] } = context ?? {};
 
   if (!input || typeof input !== "object") {
     return { ok: false, errors: [{ field: "record", code: "MISSING_RECORD", message: "Registro PIT ausente." }] };
@@ -299,12 +439,16 @@ export function buildPitRecord(input, context = {}) {
   // faltante explícito en vez de exponerse como valor indefinido.
   const valuePresent = input.value !== undefined && input.value !== null;
   let valueCopy = null;
+  let valueSha256 = null;
   if (valuePresent) {
-    const copied = frozenCopy(input.value);
-    if (copied.ok) {
-      valueCopy = copied.copy;
+    const snapshot = snapshotOf(input.value);
+    if (containsNonFiniteNumber(input.value) || (snapshot.ok && containsNonFiniteNumber(snapshot.copy))) {
+      fail(errors, "value", "NON_FINITE_VALUE", "NaN, Infinity y -Infinity no son valores: se rechazan en la entrada en vez de mostrarse vigentes o serializarse como null (P-001 punto 3).");
+    } else if (snapshot.ok) {
+      valueCopy = deepFreeze(snapshot.copy);
+      valueSha256 = canonicalValueSha256(valueCopy).sha256;
     } else {
-      fail(errors, "value", "INVALID_VALUE", "El valor debe ser dato plano (primitivos, arrays, objetos planos) para conservarse como versión inmutable (§6.2).");
+      fail(errors, "value", "INVALID_VALUE", "El valor debe ser dato JSON (null, boolean, string, número finito, arrays sin huecos ni propiedades extra, objetos planos) para conservarse como versión inmutable (§6.2).");
     }
   }
 
@@ -373,7 +517,11 @@ export function buildPitRecord(input, context = {}) {
   if (evidenceRegistry !== null && !isVerifiedEvidenceRegistry(evidenceRegistry)) {
     fail(errors, "evidenceRegistry", "UNVERIFIED_AUDITED_EVIDENCE", "evidenceRegistry no proviene de loadConsumptionAttestations; no acredita consumo (§6.4/§25.2).");
   }
+  if (valueRegistry !== null && !isVerifiedValueRegistry(valueRegistry)) {
+    fail(errors, "valueRegistry", "UNVERIFIED_AUDITED_EVIDENCE", "valueRegistry no proviene de loadValueAttestations; no acredita procedencia (§25.2).");
+  }
   const attestations = evidenceRegistry !== null && isVerifiedEvidenceRegistry(evidenceRegistry) ? evidenceRegistry.entries : [];
+  const valueAttestations = valueRegistry !== null && isVerifiedValueRegistry(valueRegistry) ? valueRegistry.entries : [];
   let consumableEvidence = null;
   if (input.consumableEvidence !== undefined && input.consumableEvidence !== null) {
     const evidence = input.consumableEvidence;
@@ -395,12 +543,44 @@ export function buildPitRecord(input, context = {}) {
     }
   }
 
+  // Procedencia del valor (P-001 puntos 1 y 2 de Bru, 2026-09-23; §25.2
+  // "source/evidence y receipt aceptado"): la versión (key, revisionId) debe
+  // tener una atestación de valor cuyo valueSha256, revisionOf y publicación
+  // coincidan con lo que el llamante presenta. Sin atestación: sin procedencia,
+  // unavailable en ambas vistas. Con atestación de la misma versión pero otro
+  // valor/lineage/publicación: dato adulterado, se rechaza.
+  let valueProvenance = null;
+  if (valuePresent && valueSha256 !== null && revisionId !== null && published.ok) {
+    const sameVersion = valueAttestations.find((entry) => entry.key === input.key && entry.revisionId === revisionId);
+    const revisionOfDeclared = input.revisionOf ?? null;
+    if (sameVersion !== undefined) {
+      if (sameVersion.valueSha256 !== valueSha256) {
+        fail(errors, "value", "VALUE_ATTESTATION_MISMATCH", `El valor presentado para "${input.key}"/"${revisionId}" no es el atestado por el audit ${sameVersion.auditId} (valueSha256 distinto).`);
+      } else if (sameVersion.revisionOf !== revisionOfDeclared) {
+        fail(errors, "revisionOf", "VALUE_ATTESTATION_MISMATCH", `El lineage de "${input.key}"/"${revisionId}" no es el atestado por el audit ${sameVersion.auditId} (revisionOf "${sameVersion.revisionOf ?? "null"}").`);
+      } else if (sameVersion.publishedAtUtc !== published.utc) {
+        fail(errors, "publishedAtUtc", "VALUE_ATTESTATION_MISMATCH", `La publicación de "${input.key}"/"${revisionId}" no es la atestada por el audit ${sameVersion.auditId}.`);
+      } else {
+        valueProvenance = {
+          auditId: sameVersion.auditId,
+          source: sameVersion.source,
+          locator: sameVersion.locator,
+          sha256: sameVersion.sha256,
+          valueSha256: sameVersion.valueSha256,
+          revisionEffectiveAtUtc: sameVersion.revisionEffectiveAtUtc,
+          attestationArtifact: sameVersion.attestationArtifact,
+        };
+      }
+    }
+  }
+
   // Vínculo con el audit (§6.4, DEP-07): source+locator sólo son la dirección
   // de la evidencia; lo que la acredita es una atestación verificada (registro
-  // de loadConsumptionAttestations) del audit para esta
-  // misma versión (key, revisionId), este mismo instante de consumo y el mismo
-  // hash. Sin atestación el consumo no está demostrado (unavailable, §6.1);
-  // con atestación y hash distinto es evidencia adulterada: se rechaza.
+  // de loadConsumptionAttestations) del audit para esta misma versión (key,
+  // revisionId), este mismo instante de consumo, el mismo hash de evidencia y
+  // el mismo valor (valueSha256). Sin atestación el consumo no está demostrado
+  // (unavailable, §6.1); con atestación y hash o valor distinto es evidencia
+  // adulterada: se rechaza.
   if (consumableEvidence !== null && consumable.ok) {
     const audited = attestations.find(
       (entry) => entry.source === consumableEvidence.source
@@ -416,7 +596,14 @@ export function buildPitRecord(input, context = {}) {
         "EVIDENCE_HASH_MISMATCH",
         `El hash de la evidencia de consumo no coincide con el verificado por el audit ${audited.auditId} (§6.4).`,
       );
-    } else if (audited !== undefined && consumableEvidence.sha256 === audited.sha256) {
+    } else if (audited !== undefined && valuePresent && audited.valueSha256 !== valueSha256) {
+      fail(
+        errors,
+        "value",
+        "VALUE_ATTESTATION_MISMATCH",
+        `El valor presentado no es el que el audit ${audited.auditId} atestó como consumido; la atestación no se reutiliza para otro valor.`,
+      );
+    } else if (audited !== undefined && valuePresent && consumableEvidence.sha256 === audited.sha256) {
       consumableEvidence.auditLinked = true;
       consumableEvidence.auditId = audited.auditId;
       consumableEvidence.attestationArtifact = audited.attestationArtifact;
@@ -468,11 +655,12 @@ export function buildPitRecord(input, context = {}) {
     return { ok: false, errors };
   }
 
-  // Consumo demostrado exige las piezas de §6.1: valor presente, publicación
-  // en origen, timestamp de consumo y evidencia contemporánea vinculada al
-  // audit por hash (§6.4). Sin cualquiera de las piezas, unavailable.
+  // Consumo demostrado exige las piezas de §6.1: valor presente con
+  // procedencia auditada, publicación en origen, timestamp de consumo y
+  // evidencia contemporánea vinculada al audit por hash y valor (§6.4). Sin
+  // cualquiera de las piezas, unavailable.
   const evidenceLinked = consumableEvidence !== null && consumableEvidence.auditLinked === true;
-  const consumability = valuePresent && published.utc !== null && consumable.utc !== null && evidenceLinked
+  const consumability = valuePresent && valueProvenance !== null && published.utc !== null && consumable.utc !== null && evidenceLinked
     ? "demonstrated"
     : "unavailable";
 
@@ -502,6 +690,8 @@ export function buildPitRecord(input, context = {}) {
     consumability,
     consumableFromUtc,
     valueStatus,
+    valueSha256,
+    valueProvenance,
     revisionId,
     revisionOf,
     proxy: input.proxy === true,
@@ -591,6 +781,9 @@ export function isConsumableAtBoundary(record, boundaryUtc) {
   }
   if (record.consumableEvidence === null || record.consumableEvidence === undefined) {
     return { consumable: false, reason: "consumo sin evidencia contemporánea verificable; no demostrado (§6.1)" };
+  }
+  if (record.valueProvenance === null || record.valueProvenance === undefined) {
+    return { consumable: false, reason: "valor sin procedencia auditada (atestación con receipt aceptado); no consumible (§25.2)" };
   }
   if (record.consumableEvidence.auditLinked !== true) {
     return { consumable: false, reason: "evidencia de consumo sin vínculo comprobado con el audit (hash); no demostrado (§6.1/§6.4)" };

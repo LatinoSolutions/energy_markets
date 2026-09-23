@@ -11,11 +11,15 @@ export { DEFAULT_REPO_ROOT, verifyAcceptedArtifact } from "./audited-artifacts.m
 
 export {
   buildPitRecord,
+  canonicalValueSha256,
   isConsumableAtBoundary,
   isProxyAdmissibleAtBoundary,
   isVerifiedEvidenceRegistry,
+  isVerifiedValueRegistry,
   loadConsumptionAttestations,
+  loadValueAttestations,
   normalizeProxyDeclarations,
+  PER_VERSION_EVIDENCE_DEPENDENCY,
   semanticsOf,
   sourceRankOf,
   VIEW_SCOPES,

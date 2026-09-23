@@ -15,7 +15,9 @@ import {
   isConsumableAtBoundary,
   isProxyAdmissibleAtBoundary,
   loadConsumptionAttestationsAt,
+  loadValueAttestationsAt,
   normalizeProxyDeclarations,
+  PER_VERSION_EVIDENCE_DEPENDENCY,
   semanticsOf,
   sourceRankOf,
 } from "./pit-record.mjs";
@@ -250,6 +252,7 @@ export function buildPitManifestFromAuditAt(trustRoot, {
   extraRecords = [],
   revisions = [],
   consumptionAttestationRefs = [],
+  valueAttestationRefs = [],
   proxyDeclarations = [],
   ...rest
 } = {}) {
@@ -263,14 +266,16 @@ export function buildPitManifestFromAuditAt(trustRoot, {
     records: [...ingestion.records, ...extraRecords],
     revisions,
     consumptionAttestationRefs,
+    valueAttestationRefs,
     proxyDeclarations,
     ...(Object.hasOwn(rest, "auditedEvidence") ? { auditedEvidence: rest.auditedEvidence } : {}),
   });
 }
 
-// `consumptionAttestationRefs`: artifacts de atestación de consumo (§6.4)
-// verificados en disco contra un IMP_RECEIPT aceptado (§25.2); de ellos sale
-// la única evidencia que puede demostrar consumo. `proxyDeclarations`: proxies
+// `valueAttestationRefs` / `consumptionAttestationRefs`: artifacts de
+// procedencia de valores y de consumo (§6.4) verificados en disco contra un
+// IMP_RECEIPT aceptado (§25.2); de ellos sale la única evidencia que puede
+// hacer usable un valor o demostrar su consumo. `proxyDeclarations`: proxies
 // predeclarados/permitidos (§6.2). Sin ellos ningún consumo queda demostrado y
 // ningún proxy es admisible.
 //
@@ -292,6 +297,7 @@ export function buildPitManifestAt(trustRoot, {
   records = [],
   revisions = [],
   consumptionAttestationRefs = [],
+  valueAttestationRefs = [],
   proxyDeclarations = [],
   ...rest
 } = {}) {
@@ -303,11 +309,16 @@ export function buildPitManifestAt(trustRoot, {
     };
   }
   const evidenceLoad = loadConsumptionAttestationsAt(trustRoot, { refs: consumptionAttestationRefs });
+  const valueLoad = loadValueAttestationsAt(trustRoot, { refs: valueAttestationRefs });
   const proxyRegistry = normalizeProxyDeclarations(proxyDeclarations);
-  if (!evidenceLoad.ok || !proxyRegistry.ok) {
-    return { ok: false, errors: [...(evidenceLoad.errors ?? []), ...(proxyRegistry.errors ?? [])] };
+  if (!evidenceLoad.ok || !valueLoad.ok || !proxyRegistry.ok) {
+    return { ok: false, errors: [...(evidenceLoad.errors ?? []), ...(valueLoad.errors ?? []), ...(proxyRegistry.errors ?? [])] };
   }
-  const recordContext = { evidenceRegistry: evidenceLoad.registry, proxyDeclarations: proxyRegistry.declarations };
+  const recordContext = {
+    evidenceRegistry: evidenceLoad.registry,
+    valueRegistry: valueLoad.registry,
+    proxyDeclarations: proxyRegistry.declarations,
+  };
   if (typeof manifestId !== "string" || manifestId.trim().length === 0) {
     errors.push({ field: "manifestId", code: "MISSING_MANIFEST_ID", message: "El manifest no declara su identidad." });
   }
@@ -513,6 +524,19 @@ export function buildPitManifestAt(trustRoot, {
         });
         return;
       }
+      // Referencia verificable a la revisión (P-001 punto 1 de Bru,
+      // 2026-09-23): el sello del receipt es el reloj de evaluación, así que
+      // debe ser el que el audit atestó para esta versión. Un receipt sobre
+      // una versión sin procedencia, o con otro sello, no se acepta.
+      const attestedEffective = materialized.valueProvenance?.revisionEffectiveAtUtc ?? null;
+      if (attestedEffective === null || attestedEffective !== outcome.revision.effectiveAtUtc) {
+        errors.push({
+          field: `revisions[${index}]`,
+          code: "REVISION_NOT_ATTESTED",
+          message: `El receipt de "${outcome.revision.revisionId}" de "${outcome.revision.key}" no coincide con una revisión atestada por un audit con receipt aceptado (revisionEffectiveAtUtc); no fija el reloj de evaluación (§25.2).`,
+        });
+        return;
+      }
       // Un mismo receipt de revisión no puede registrarse dos veces: duplicar
       // la trazabilidad del cambio sería doble verdad sobre la revisión.
       const receiptIdentity = `${outcome.revision.key}::${outcome.revision.revisionId}`;
@@ -527,6 +551,21 @@ export function buildPitManifestAt(trustRoot, {
       revisionIdentity.add(receiptIdentity);
       builtRevisions.push(outcome.revision);
     });
+  }
+
+  // La otra mitad del vínculo receipt↔atestación: si el audit atestó un
+  // sello de revisión, omitir el receipt no puede hacer caer el reloj de
+  // evaluación a la publicación y adelantar la revisión (validación
+  // adversarial IMP-06, 2026-09-23).
+  for (const record of builtRecords) {
+    const attestedEffective = record.valueProvenance?.revisionEffectiveAtUtc ?? null;
+    if (attestedEffective !== null && !revisionIdentity.has(`${record.key}::${record.revisionId}`)) {
+      errors.push({
+        field: "revisions",
+        code: "REVISION_RECEIPT_MISSING",
+        message: `"${record.revisionId}" de "${record.key}" tiene una revisión atestada efectiva en ${attestedEffective} sin su receipt; no se usa la publicación como reloj de evaluación (§6.2).`,
+      });
+    }
   }
 
   if (errors.length > 0) {
@@ -725,7 +764,15 @@ export function readDecisionView(manifest, boundaryUtc) {
 
     const selected = selectBySourceHierarchy(admissible, "consumableFromUtc");
     if (selected === null) {
-      unavailable.push({ key, reason: "sin versión consumible demostrada en este boundary (§6.1)" });
+      const entry = { key, reason: "sin versión consumible demostrada en este boundary (§6.1)" };
+      // Sólo mira lo que habla en el boundary: una versión futura no puede
+      // cambiar la respuesta histórica (§6.1, §14.7). Si lo que habla carece
+      // de valor o de procedencia auditada, falta la evidencia por versión.
+      const lacksEvidence = speaking.some((record) => record.valueStatus !== "PRESENT" || record.valueProvenance === null);
+      if (lacksEvidence) {
+        entry.blockedBy = PER_VERSION_EVIDENCE_DEPENDENCY;
+      }
+      unavailable.push(entry);
       continue;
     }
     visible.push({
@@ -770,11 +817,16 @@ export function readEvaluationView(manifest, asOfUtc) {
     const content = [];
     for (const record of keyRecords) {
       if (record.valueStatus === "AUDIT_OBSERVED") {
-        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "observado por el audit sin versión PIT materializada (§6.5)") });
+        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "observado por el audit sin versión PIT materializada (§6.5)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
       } else if (record.valueStatus !== "PRESENT") {
-        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "valor ausente; faltante explícito (§6.2)") });
+        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "valor ausente; faltante explícito (§6.2)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
       } else if (typeof record.publishedAtUtc !== "string" || typeof record.effectiveAtUtc !== "string") {
         unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "sin publicación ni receipt; contenido no disponible para evaluación (§6.1)") });
+      } else if (Date.parse(record.effectiveAtUtc) <= asOf.ms && record.valueProvenance === null) {
+        // P-001 punto 1 de Bru (2026-09-23): un valor sin atestación auditada
+        // no se muestra como vigente aunque declare publicación. Contenido
+        // futuro en este asOf no se menciona.
+        unavailable.push({ key, revisionId: record.revisionId, reason: withRecordReason(record, "valor sin procedencia auditada (atestación con receipt aceptado); no se usa en evaluación (§25.2)"), blockedBy: PER_VERSION_EVIDENCE_DEPENDENCY });
       } else if (Date.parse(record.effectiveAtUtc) <= asOf.ms) {
         // §6.2: el proxy debe estar predeclarado y permitido en el asOf; una
         // declaración posterior no existe todavía para esta versión de la vista.

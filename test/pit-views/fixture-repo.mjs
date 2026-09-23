@@ -82,8 +82,12 @@ export const ATTESTATION_PATH = "evidence/fixture/consumption-attestations.json"
 
 // Repo sintético con un artifact PIT_CONSUMPTION_ATTESTATIONS registrado en
 // un receipt aceptado sintético.
-export function attestationRepo(attestations, { auditId = "AUDIT-FIXTURE", registered = true, ...repoOptions } = {}) {
-  const content = JSON.stringify({ artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId, attestations });
+// Con `artifactKind: "PIT_VALUE_ATTESTATIONS"` es un artifact de procedencia
+// de valores.
+export function attestationRepo(attestations, { auditId = "AUDIT-FIXTURE", registered = true, artifactKind = "PIT_CONSUMPTION_ATTESTATIONS", ...repoOptions } = {}) {
+  const content = JSON.stringify({ artifactKind, auditId, attestations });
   const { repoRoot, refs } = fixtureRepo({ artifacts: [{ path: ATTESTATION_PATH, content, registered }], ...repoOptions });
   return { repoRoot, attestationRef: refs[0] };
 }
+
+export const VALUE_ATTESTATION_PATH = "evidence/fixture/value-attestations.json";

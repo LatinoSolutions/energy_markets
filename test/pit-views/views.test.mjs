@@ -18,7 +18,8 @@ import {
 } from "../../src/pit-views/index.mjs";
 // Costuras de tests con raíz de confianza sintética; no son superficie pública.
 import { auditedManifestRecordsAt, buildPitManifestAt, buildPitManifestFromAuditAt } from "../../src/pit-views/views.mjs";
-import { ATTESTATION_PATH, fixtureRepo } from "./fixture-repo.mjs";
+import { canonicalValueSha256 } from "../../src/pit-views/pit-record.mjs";
+import { ATTESTATION_PATH, fixtureRepo, VALUE_ATTESTATION_PATH } from "./fixture-repo.mjs";
 
 // Con `repoRoot` (repo git sintético) los tests usan la costura `*At`; sin él,
 // la API pública con la raíz de confianza fija del repo real.
@@ -93,22 +94,56 @@ const EEX_ARTIFACT = JSON.parse(EEX_BYTES.toString("utf8"));
 // manifiestos IMP-03 en sus mismas rutas y un artifact de atestaciones, todos
 // registrados en un IMP_RECEIPT sintético. Sirve para ejercitar el camino de
 // consumo demostrado y la ingesta EEX; no acredita nada del repo real.
-function syntheticRepo({ attestations = [], extraArtifacts = [] } = {}) {
+function syntheticRepo({ attestations = [], valueAttestations = [], extraArtifacts = [] } = {}) {
   const content = JSON.stringify({ artifactKind: "PIT_CONSUMPTION_ATTESTATIONS", auditId: "AUDIT-FIXTURE", attestations });
+  const valueContent = JSON.stringify({ artifactKind: "PIT_VALUE_ATTESTATIONS", auditId: "AUDIT-FIXTURE", attestations: valueAttestations });
   const { repoRoot, refs } = fixtureRepo({
     artifacts: [
       { path: PRIOR_REF.path, content: PRIOR_BYTES },
       { path: EEX_REF.path, content: EEX_BYTES },
       { path: ATTESTATION_PATH, content },
+      { path: VALUE_ATTESTATION_PATH, content: valueContent },
       ...extraArtifacts,
     ],
   });
-  return { repoRoot, consumptionAttestationRefs: [refs[2]], extraRefs: refs.slice(3) };
+  return { repoRoot, consumptionAttestationRefs: [refs[2]], valueAttestationRefs: [refs[3]], extraRefs: refs.slice(4) };
 }
 
-function attested(attestations) {
-  const { repoRoot, consumptionAttestationRefs } = syntheticRepo({ attestations });
-  return { repoRoot, consumptionAttestationRefs };
+// Por defecto la procedencia de valores cubre los records dados (y los sellos
+// de sus receipts): los tests de consumo y de vistas aíslan así la evidencia
+// de consumo. Los tests de procedencia pasan `valueAttestations` explícito.
+function attested(attestations, valueAttestations = []) {
+  const { repoRoot, consumptionAttestationRefs, valueAttestationRefs } = syntheticRepo({ attestations, valueAttestations });
+  return { repoRoot, consumptionAttestationRefs, valueAttestationRefs };
+}
+
+// Atestaciones sintéticas de procedencia (fixture, no un audit real): una por
+// versión con valor, con su lineage, publicación y el sello de su receipt.
+function valueAttestationsFor(records, revisions = []) {
+  return records
+    .filter((record) => record.value !== undefined && record.value !== null
+      && canonicalValueSha256(record.value).ok
+      && typeof record.revisionId === "string" && record.revisionId.trim().length > 0
+      && toUtcTimestamp(record.publishedAtUtc ?? null).ok && typeof record.publishedAtUtc === "string"
+      && (record.revisionOf === undefined || record.revisionOf === null || typeof record.revisionOf === "string"))
+    .map((record) => {
+      const receipt = revisions.find((revision) => revision?.key === record.key && revision?.revisionId === record.revisionId
+        && toUtcTimestamp(revision?.effectiveAtUtc ?? null).ok);
+      return {
+        source: "fixture://value-log",
+        locator: `${record.key}@${record.revisionId}`,
+        sha256: "b".repeat(64),
+        key: record.key,
+        revisionId: record.revisionId,
+        revisionOf: record.revisionOf ?? null,
+        valueSha256: canonicalValueSha256(record.value).sha256,
+        publishedAtUtc: record.publishedAtUtc,
+        revisionEffectiveAtUtc: receipt?.effectiveAtUtc ?? null,
+      };
+    })
+    // locator único por versión: dos records del mismo key/revisión con
+    // valores distintos (test de duplicados) no deben chocar como evidencia.
+    .filter((entry, index, all) => all.findIndex((other) => other.key === entry.key && other.revisionId === entry.revisionId) === index);
 }
 
 // Atestaciones sintéticas de un audit (§6.4): una por versión del fixture que
@@ -117,6 +152,7 @@ function attested(attestations) {
 function attestationsFor(records) {
   return records
     .filter((record) => record.consumableAtUtc && record.consumableEvidence
+      && canonicalValueSha256(record.value ?? null).ok
       && typeof record.revisionId === "string" && record.revisionId.trim().length > 0
       && record.consumableEvidence.source === BASE.consumableEvidence.source
       && record.consumableEvidence.sha256 === BASE.consumableEvidence.sha256)
@@ -124,18 +160,19 @@ function attestationsFor(records) {
       ...BASE.consumableEvidence,
       key: record.key,
       revisionId: record.revisionId,
+      valueSha256: canonicalValueSha256(record.value ?? null).sha256,
       consumableAtUtc: record.consumableAtUtc,
     }));
 }
 
-function buildManifest({ records, revisions = [], proxyDeclarations = [], attestations } = {}) {
+function buildManifest({ records, revisions = [], proxyDeclarations = [], attestations, valueAttestations } = {}) {
   const manifestRecords = records ?? [BASE];
   return buildPitManifest({
     manifestId: "PIT-MANIFEST-FIXTURE",
     manifestVersion: "v1",
     records: manifestRecords,
     revisions,
-    ...attested(attestations ?? attestationsFor(manifestRecords)),
+    ...attested(attestations ?? attestationsFor(manifestRecords), valueAttestations ?? valueAttestationsFor(manifestRecords, revisions)),
     proxyDeclarations,
   });
 }
@@ -174,9 +211,15 @@ test("un revision receipt sin record materializado no acredita la revisión", ()
 });
 
 test("(key, revisionId) duplicado se rechaza: las revisiones crean versiones nuevas", () => {
-  const outcome = buildManifest({ records: [BASE, { ...BASE, value: 99 }] });
+  // Sin procedencia atestada ambos records se construyen y el duplicado se
+  // detecta en el manifest.
+  const outcome = buildManifest({ records: [BASE, { ...BASE, value: 99 }], attestations: [], valueAttestations: [] });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "DUPLICATE_REVISION"));
+  // Con la procedencia de v1 atestada, el valor 99 ya se rechaza por no ser el atestado.
+  const attestedV1 = buildManifest({ records: [BASE, { ...BASE, value: 99 }], attestations: [] });
+  assert.equal(attestedV1.ok, false);
+  assert.ok(attestedV1.errors.some((e) => e.code === "VALUE_ATTESTATION_MISMATCH"));
 });
 
 test("revisionOf colgante se rechaza: la cadena de versiones es trazable", () => {
@@ -708,7 +751,7 @@ test("una versión con valor de R-06 declarada como decision se rechaza: un key 
   };
   const outcome = buildPitManifestFromAudit({
     manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
-    extraRecords: [benchmarkInDecision], ...attested(attestationsFor([benchmarkInDecision])),
+    extraRecords: [benchmarkInDecision], ...attested(attestationsFor([benchmarkInDecision]), valueAttestationsFor([benchmarkInDecision])),
   });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "VIEW_SCOPE_CONFLICT"));
@@ -716,7 +759,7 @@ test("una versión con valor de R-06 declarada como decision se rechaza: un key 
   const benchmark = { ...benchmarkInDecision, viewScope: "evaluation" };
   const accepted = buildPitManifestFromAudit({
     manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
-    extraRecords: [benchmark], ...attested(attestationsFor([benchmark])),
+    extraRecords: [benchmark], ...attested(attestationsFor([benchmark]), valueAttestationsFor([benchmark])),
   });
   assert.equal(accepted.ok, true);
   const pair = viewsAt(accepted.manifest, "2026-04-02T00:00:00Z");
@@ -863,6 +906,7 @@ test("receipt coherente con el revisionOf del record se acepta", () => {
     manifestVersion: "v1",
     records: revisedRecords(),
     revisions: [receipt.revision],
+    ...attested([], valueAttestationsFor(revisedRecords(), [receipt.revision])),
   });
   assert.equal(outcome.ok, true);
   assert.equal(outcome.manifest.revisions.length, 1);
@@ -916,6 +960,7 @@ test("un receipt duplicado (mismo key y revisionId) se rechaza: cada revisión s
     manifestVersion: "v1",
     records: revisedRecords(),
     revisions: [receipt.revision, { ...receipt.revision }],
+    ...attested([], valueAttestationsFor(revisedRecords(), [receipt.revision])),
   });
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((e) => e.code === "DUPLICATE_REVISION_RECEIPT"));
@@ -1239,7 +1284,7 @@ test("sobre el manifiesto IMP-03 aceptado: agregar una versión futura de R-04 n
   const futureR04 = { ...BASE, key: "R-04", revisionId: "r04-v1", publishedAtUtc: "2026-04-01T00:00:00Z", consumableAtUtc: "2026-04-03T00:00:00Z" };
   const extended = buildPitManifestFromAudit({
     manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
-    extraRecords: [futureR04], ...attested(attestationsFor([futureR04])),
+    extraRecords: [futureR04], ...attested(attestationsFor([futureR04]), valueAttestationsFor([futureR04])),
   });
   assert.equal(extended.ok, true);
   const plain = (manifest) => JSON.parse(JSON.stringify(readDecisionView(manifest, boundary)));
@@ -1346,4 +1391,106 @@ test("un receipt del repo sintético sin commit no acredita el manifiesto IMP-03
   const outcome = auditedManifestRecords({ artifactRef: refs[0], repoRoot });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_IN_ACCEPTED_RECEIPT");
+});
+
+// --- P-001 de Bru (2026-09-23): procedencia, vínculo valor↔evidencia y números finitos ---
+
+function r06Benchmark(value) {
+  return { ...WITH_BENCHMARK, key: "R-06", revisionId: "b1", value };
+}
+
+test("P-001.1 (reproducción del revisor): R-06 = 999999 con publicación declarada y sin procedencia no aparece como benchmark vigente", () => {
+  const forged = r06Benchmark(999999);
+  const outcome = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [forged], ...attested(attestationsFor([forged]), []),
+  });
+  assert.equal(outcome.ok, true);
+  const evaluation = readEvaluationView(outcome.manifest, "2026-12-31T00:00:00Z");
+  assert.equal(evaluation.current.some((row) => row.key === "R-06"), false);
+  const row = evaluation.unavailable.find((entry) => entry.key === "R-06" && entry.revisionId === "b1");
+  assert.match(row.reason, /sin procedencia auditada/);
+  assert.equal(row.blockedBy.dependency, "DEP-06/07");
+  assert.equal(JSON.stringify(evaluation).includes("999999"), false);
+});
+
+test("P-001.2: la procedencia atestada de R-06 = 25.7 no se reutiliza para presentar 999999", () => {
+  const forged = r06Benchmark(999999);
+  const outcome = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [forged], ...attested([], valueAttestationsFor([r06Benchmark(25.7)])),
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "VALUE_ATTESTATION_MISMATCH"));
+  const genuine = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [r06Benchmark(25.7)], ...attested([], valueAttestationsFor([r06Benchmark(25.7)])),
+  });
+  const current = readEvaluationView(genuine.manifest, "2026-12-31T00:00:00Z").current.find((row) => row.key === "R-06");
+  assert.equal(current.value, 25.7);
+});
+
+test("P-001.1: consumo atestado sin procedencia del valor no entra a la decisión; queda bloqueado por DEP-06/07", () => {
+  const outcome = buildManifest({ records: [BASE], valueAttestations: [] });
+  assert.equal(outcome.ok, true);
+  const view = readDecisionView(outcome.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(view.visible.length, 0);
+  assert.match(view.suppressed[0].reason, /sin procedencia auditada/);
+  assert.equal(view.unavailable[0].blockedBy.dependency, "DEP-06/07");
+});
+
+test("P-001.1: un receipt de revisión sólo fija el reloj de evaluación si su sello es el atestado", () => {
+  const receipt = buildRevision({ key: BASE.key, revisionId: "v2", revisesRevisionId: "v1", effectiveAtUtc: "2026-04-20T11:30:00Z" }).revision;
+  const otherStamp = buildManifest({
+    records: revisedRecords(),
+    revisions: [receipt],
+    valueAttestations: valueAttestationsFor(revisedRecords(), [{ ...receipt, effectiveAtUtc: "2026-04-21T00:00:00Z" }]),
+  });
+  assert.equal(otherStamp.ok, false);
+  assert.ok(otherStamp.errors.some((e) => e.code === "REVISION_NOT_ATTESTED"));
+  const noProvenance = buildManifest({ records: revisedRecords(), revisions: [receipt], valueAttestations: [] });
+  assert.equal(noProvenance.ok, false);
+  assert.ok(noProvenance.errors.some((e) => e.code === "REVISION_NOT_ATTESTED"));
+  const attestedStamp = buildManifest({ records: revisedRecords(), revisions: [receipt] });
+  assert.equal(attestedStamp.ok, true);
+});
+
+test("P-001.3: NaN/±Infinity rechazan el manifest; ninguna vista los muestra vigentes ni como null", () => {
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const outcome = buildManifest({ records: [{ ...BASE, value }] });
+    assert.equal(outcome.ok, false, String(value));
+    assert.ok(outcome.errors.some((e) => e.code === "NON_FINITE_VALUE"), String(value));
+  }
+});
+
+test("P-001.4: en el repo real no hay evidencia por versión; los requisitos IMP-03 quedan bloqueados por DEP-06/07", () => {
+  const outcome = buildPitManifestFromAudit({ manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF });
+  assert.equal(outcome.ok, true);
+  const pair = viewsAt(outcome.manifest, "2026-04-02T00:00:00Z");
+  assert.equal(pair.decision.visible.length, 0);
+  assert.ok(pair.decision.unavailable.length > 0);
+  assert.ok(pair.decision.unavailable.every((row) => row.blockedBy?.producer === "IMP-03"));
+  assert.equal(pair.evaluation.current.length, 0);
+  assert.ok(pair.evaluation.unavailable.every((row) => row.blockedBy?.dependency === "DEP-06/07"));
+});
+
+test("validación adversarial: omitir el receipt de una revisión atestada no adelanta la revisión en evaluación", () => {
+  const receipt = buildRevision({ key: BASE.key, revisionId: "v2", revisesRevisionId: "v1", effectiveAtUtc: "2026-04-20T11:30:00Z" }).revision;
+  const outcome = buildManifest({
+    records: revisedRecords(),
+    revisions: [],
+    valueAttestations: valueAttestationsFor(revisedRecords(), [receipt]),
+  });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "REVISION_RECEIPT_MISSING"));
+});
+
+test("P-001.1: un valor sin procedencia publicado después del asOf no se menciona en esa evaluación", () => {
+  const forged = r06Benchmark(999999);
+  const outcome = buildPitManifestFromAudit({
+    manifestId: "M", manifestVersion: "v1", artifactRef: PRIOR_REF,
+    extraRecords: [forged], ...attested([], []),
+  });
+  const before = readEvaluationView(outcome.manifest, "2026-06-01T00:00:00Z");
+  assert.equal(before.unavailable.some((row) => row.revisionId === "b1"), false);
 });

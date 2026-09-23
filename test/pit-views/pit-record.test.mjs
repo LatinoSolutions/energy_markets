@@ -9,7 +9,7 @@ import {
   semanticsOf,
 } from "../../src/pit-views/index.mjs";
 // Costura de tests con raíz de confianza sintética; no es superficie pública.
-import { loadConsumptionAttestationsAt } from "../../src/pit-views/pit-record.mjs";
+import { canonicalValueSha256, loadConsumptionAttestationsAt, loadValueAttestationsAt } from "../../src/pit-views/pit-record.mjs";
 import { attestationRepo, ATTESTATION_PATH, FIXTURE_RECEIPT_PATH, fixtureRepo } from "./fixture-repo.mjs";
 
 // §6.1: cuatro semánticas distintas por dato, verificadas separadamente (§19.2).
@@ -23,7 +23,21 @@ const ATTESTATION = {
   sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   key: "G0BQ.202604.reference",
   revisionId: "v1",
+  valueSha256: canonicalValueSha256(24.35).sha256,
   consumableAtUtc: "2026-04-01T06:00:00Z",
+};
+
+// Procedencia sintética del valor 24.35 de v1 (fixture, no un audit real).
+const VALUE_ATTESTATION = {
+  source: "fixture://value-log",
+  locator: "G0BQ.202604.reference@v1",
+  sha256: "b".repeat(64),
+  key: "G0BQ.202604.reference",
+  revisionId: "v1",
+  revisionOf: null,
+  valueSha256: canonicalValueSha256(24.35).sha256,
+  publishedAtUtc: "2026-03-31T18:00:00Z",
+  revisionEffectiveAtUtc: null,
 };
 
 function verifiedRegistry(attestations, options) {
@@ -31,7 +45,15 @@ function verifiedRegistry(attestations, options) {
   return loadConsumptionAttestationsAt(repoRoot, { refs: [attestationRef] });
 }
 
-const AUDITED = { evidenceRegistry: verifiedRegistry([ATTESTATION]).registry };
+function verifiedValueRegistry(attestations, options) {
+  const { repoRoot, attestationRef } = attestationRepo(attestations, { ...options, artifactKind: "PIT_VALUE_ATTESTATIONS" });
+  return loadValueAttestationsAt(repoRoot, { refs: [attestationRef] });
+}
+
+const AUDITED = {
+  evidenceRegistry: verifiedRegistry([ATTESTATION]).registry,
+  valueRegistry: verifiedValueRegistry([VALUE_ATTESTATION]).registry,
+};
 
 function validInput(overrides = {}) {
   return {
@@ -279,6 +301,7 @@ test("evidencia vinculada por source+locator+hash queda demonstrated con identid
 
 test("el registro de evidencia auditada acepta `path` (forma de los artifacts IMP-03) y rechaza entradas incompletas", () => {
   const withPath = buildPitRecord(validInput(), {
+    ...AUDITED,
     evidenceRegistry: verifiedRegistry([{ ...ATTESTATION, source: undefined, path: "fixture://ingest-log" }]).registry,
   });
   assert.equal(withPath.record.consumability, "demonstrated");
@@ -401,8 +424,12 @@ test("la atestación del audit vale sólo para su key, revisión e instante de c
   assert.equal(otherKey.record.consumability, "unavailable");
   const otherRevision = buildPitRecord(validInput({ revisionId: "v2" }), AUDITED);
   assert.equal(otherRevision.record.consumability, "unavailable");
-  const inventedTime = buildPitRecord(validInput({ consumableAtUtc: "2020-01-01T00:00:00Z", publishedAtUtc: "2019-12-31T00:00:00Z" }), AUDITED);
+  const inventedTime = buildPitRecord(validInput({ consumableAtUtc: "2026-05-01T00:00:00Z" }), AUDITED);
   assert.equal(inventedTime.record.consumability, "unavailable");
+  // Una publicación distinta de la atestada ya no es la versión auditada: se rechaza.
+  const inventedPublication = buildPitRecord(validInput({ consumableAtUtc: "2020-01-01T00:00:00Z", publishedAtUtc: "2019-12-31T00:00:00Z" }), AUDITED);
+  assert.equal(inventedPublication.ok, false);
+  assert.ok(inventedPublication.errors.some((e) => e.code === "VALUE_ATTESTATION_MISMATCH" && e.field === "publishedAtUtc"));
   // El mismo instante con otro offset es la misma atestación.
   const offset = buildPitRecord(validInput({ consumableAtUtc: "2026-04-01T08:00:00+02:00" }), AUDITED);
   assert.equal(offset.record.consumability, "demonstrated");
@@ -446,4 +473,112 @@ test("un artifactRef que apunta a un directorio devuelve error, no excepción", 
   const outcome = loadConsumptionAttestationsAt(repoRoot, { refs: [{ path: "operations", sha256: "0".repeat(64) }] });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.errors[0].code, "ARTIFACT_NOT_FOUND");
+});
+
+// --- P-001 de Bru (2026-09-23): procedencia, vínculo valor↔evidencia y números finitos ---
+
+test("P-001.3: NaN, Infinity y -Infinity se rechazan en la entrada, también anidados", () => {
+  for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, { price: Number.NaN }, [1, Number.POSITIVE_INFINITY], { legs: [{ q: Number.NEGATIVE_INFINITY }] }]) {
+    const outcome = buildPitRecord(validInput({ value }), AUDITED);
+    assert.equal(outcome.ok, false, String(value));
+    assert.ok(outcome.errors.some((e) => e.field === "value" && e.code === "NON_FINITE_VALUE"), String(value));
+  }
+  assert.equal(canonicalValueSha256(Number.NaN).ok, false);
+  assert.equal(canonicalValueSha256(Number.POSITIVE_INFINITY).ok, false);
+});
+
+test("P-001.3: valores no JSON (bigint, undefined anidado) se rechazan; un hash canónico no puede ocultarlos", () => {
+  for (const value of [10n, { price: undefined }, [1, undefined]]) {
+    const outcome = buildPitRecord(validInput({ value }), AUDITED);
+    assert.equal(outcome.ok, false);
+    assert.ok(outcome.errors.some((e) => e.code === "INVALID_VALUE"));
+  }
+});
+
+test("P-001.2: el hash canónico no depende del orden de las claves y distingue valores distintos", () => {
+  assert.equal(canonicalValueSha256({ a: 1, b: [2, "x"] }).sha256, canonicalValueSha256({ b: [2, "x"], a: 1 }).sha256);
+  assert.notEqual(canonicalValueSha256(24.35).sha256, canonicalValueSha256(24.36).sha256);
+  assert.notEqual(canonicalValueSha256("24.35").sha256, canonicalValueSha256(24.35).sha256);
+});
+
+test("P-001.1: sin atestación de procedencia el valor no es consumible aunque el consumo esté atestado", () => {
+  const outcome = buildPitRecord(validInput(), { evidenceRegistry: AUDITED.evidenceRegistry });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.record.valueProvenance, null);
+  assert.equal(outcome.record.consumability, "unavailable");
+  const verdict = isConsumableAtBoundary(outcome.record, "2026-04-02T00:00:00Z");
+  assert.equal(verdict.consumable, false);
+  assert.match(verdict.reason, /sin procedencia auditada/);
+});
+
+test("P-001.1: con procedencia atestada el record conserva auditId, evidencia y valueSha256", () => {
+  const outcome = buildPitRecord(validInput(), AUDITED);
+  assert.equal(outcome.record.consumability, "demonstrated");
+  assert.equal(outcome.record.valueSha256, canonicalValueSha256(24.35).sha256);
+  assert.equal(outcome.record.valueProvenance.auditId, "AUDIT-FIXTURE");
+  assert.equal(outcome.record.valueProvenance.locator, VALUE_ATTESTATION.locator);
+  assert.equal(outcome.record.valueProvenance.attestationArtifact.path, ATTESTATION_PATH);
+});
+
+test("P-001.2: una atestación de consumo válida no se reutiliza para presentar otro valor", () => {
+  // Sólo el registro de consumo: la atestación ata el valor 24.35.
+  const outcome = buildPitRecord(validInput({ value: 999999 }), { evidenceRegistry: AUDITED.evidenceRegistry });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.field === "value" && e.code === "VALUE_ATTESTATION_MISMATCH"));
+});
+
+test("P-001.2: una atestación de procedencia válida no se reutiliza para otro valor ni otro lineage", () => {
+  const otherValue = buildPitRecord(validInput({ value: 999999 }), { valueRegistry: AUDITED.valueRegistry });
+  assert.equal(otherValue.ok, false);
+  assert.ok(otherValue.errors.some((e) => e.field === "value" && e.code === "VALUE_ATTESTATION_MISMATCH"));
+  const otherLineage = buildPitRecord(validInput({ revisionOf: "v0" }), AUDITED);
+  assert.equal(otherLineage.ok, false);
+  assert.ok(otherLineage.errors.some((e) => e.field === "revisionOf" && e.code === "VALUE_ATTESTATION_MISMATCH"));
+});
+
+test("P-001.2: atestaciones sin valueSha256 no se cargan; dos procedencias para una versión son conflicto", () => {
+  const consumptionWithout = verifiedRegistry([{ ...ATTESTATION, valueSha256: undefined }]);
+  assert.equal(consumptionWithout.ok, false);
+  assert.ok(consumptionWithout.errors.some((e) => e.code === "INVALID_AUDITED_EVIDENCE"));
+  const valueWithout = verifiedValueRegistry([{ ...VALUE_ATTESTATION, valueSha256: undefined }]);
+  assert.equal(valueWithout.ok, false);
+  assert.ok(valueWithout.errors.some((e) => e.code === "INVALID_AUDITED_EVIDENCE"));
+  const twoValues = verifiedValueRegistry([VALUE_ATTESTATION, { ...VALUE_ATTESTATION, locator: "otro", valueSha256: canonicalValueSha256(1).sha256 }]);
+  assert.equal(twoValues.ok, false);
+  assert.ok(twoValues.errors.some((e) => e.code === "AUDITED_VALUE_CONFLICT"));
+});
+
+test("P-001.1: un registro de procedencia armado a mano o de otra clase de artifact no acredita", () => {
+  const handBuilt = buildPitRecord(validInput(), { ...AUDITED, valueRegistry: { entries: [VALUE_ATTESTATION] } });
+  assert.equal(handBuilt.ok, false);
+  assert.ok(handBuilt.errors.some((e) => e.field === "valueRegistry" && e.code === "UNVERIFIED_AUDITED_EVIDENCE"));
+  const { repoRoot, attestationRef } = attestationRepo([VALUE_ATTESTATION], { artifactKind: "PIT_VALUE_ATTESTATIONS" });
+  const asConsumption = loadConsumptionAttestationsAt(repoRoot, { refs: [attestationRef] });
+  assert.equal(asConsumption.ok, false);
+  assert.equal(asConsumption.errors[0].code, "INVALID_ATTESTATION_ARTIFACT");
+});
+
+test("validación adversarial: un array con huecos o propiedades extra no es dato JSON; su hash no las vería", () => {
+  const extra = [1, 2];
+  extra.evil = 999;
+  for (const value of [extra, [, 1]]) {
+    const outcome = buildPitRecord(validInput({ value }), AUDITED);
+    assert.equal(outcome.ok, false);
+    assert.ok(outcome.errors.some((e) => e.code === "INVALID_VALUE"));
+  }
+});
+
+test("validación adversarial: un getter no puede colar NaN después de validar; se guarda la copia validada", () => {
+  let reads = 0;
+  const shifty = {};
+  Object.defineProperty(shifty, "x", { enumerable: true, get: () => (++reads > 2 ? Number.NaN : 1) });
+  const outcome = buildPitRecord(validInput({ value: shifty }), AUDITED);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "NON_FINITE_VALUE" || e.code === "INVALID_VALUE"));
+});
+
+test("validación adversarial: dos consumos atestados con valores distintos para una versión son conflicto", () => {
+  const outcome = verifiedRegistry([ATTESTATION, { ...ATTESTATION, locator: "otra fila", valueSha256: canonicalValueSha256(1).sha256 }]);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((e) => e.code === "AUDITED_VALUE_CONFLICT"));
 });
