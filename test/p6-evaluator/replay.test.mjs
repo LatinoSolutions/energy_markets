@@ -237,6 +237,32 @@ test("§14.2: un required input ausente no se reemplaza por default (fail-closed
   }
 });
 
+test("§14.2/§14.4: el costLedger debe satisfacer el schema IMP-07 (fail-closed, no cero costes)", () => {
+  // Un objeto vacío no es una configuración de costes: pasaría como COVERED
+  // con costLedgerVersion declarado (doble verdad, §14.4/§14.9).
+  const emptyLedger = buildReplayBundle({ ...fixtureInput({ priceObservations: [] }), costLedger: {} });
+  assert.equal(emptyLedger.ok, false);
+  assert.ok(emptyLedger.errors.some((error) => error.code === "INVALID_COST_LEDGER"));
+
+  // §14.2/§14.9: la versión del ledger cruza con execution.costLedgerVersion.
+  const divergentVersion = buildReplayBundle({
+    ...fixtureInput({ priceObservations: [] }),
+    execution: { executionContractVersion: "v1.0", costLedgerVersion: "v9.9" },
+  });
+  assert.equal(divergentVersion.ok, false);
+  assert.ok(divergentVersion.errors.some((error) => error.code === "COST_LEDGER_VERSION_MISMATCH"));
+});
+
+test("§14.2: el executionContract materializado debe satisfacer el schema P5.6 (fail-closed)", () => {
+  // Un contrato {}, sin versión ni content hash, antes cruzaba el check de
+  // versión por el cortocircuito contractKey===null y producía VALID_RUN.
+  const forged = buildReplayBundle({ ...fixtureInput({ priceObservations: [] }), executionContract: {} });
+  assert.equal(forged.ok, false);
+  const codes = forged.errors.map((error) => error.code);
+  assert.ok(codes.includes("INVALID_EXECUTION_CONTRACT"), "falta INVALID_EXECUTION_CONTRACT");
+  assert.ok(codes.includes("MISSING_EXECUTION_CONTRACT_IDENTITY"), "falta MISSING_EXECUTION_CONTRACT_IDENTITY");
+});
+
 test("§14.3: orden cronológico de pasos y ledgers por opportunity", () => {
   const bundle = fixtureBundle({ priceObservations: flatPricesFor(["2026-01-05", "2026-01-06", "2026-01-07"]) });
   assert.equal(bundle.ok, true);

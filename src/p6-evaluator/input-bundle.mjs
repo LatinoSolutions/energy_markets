@@ -7,7 +7,8 @@
 // (IMP-01/02/06/07/10) y aquí sólo se valida su identidad/versión.
 
 import { isVersionLike } from "../contracts/identities.mjs";
-import { contentHashOf, versionKeyOf } from "../execution-contract/execution-contract.mjs";
+import { contentHashOf, versionKeyOf, validateExecutionContract } from "../execution-contract/execution-contract.mjs";
+import { validateCostLedger } from "../execution-contract/cost-ledger.mjs";
 import { validateDecisionCalendar } from "../sizing-controller/decision-calendar.mjs";
 import { isVerifiedPitManifest } from "../pit-views/index.mjs";
 
@@ -97,17 +98,39 @@ export function buildReplayBundle(input = {}) {
   if (!executionContract || typeof executionContract !== "object" || Array.isArray(executionContract)) {
     errors.push(buildError("executionContract", "MISSING_EXECUTION_CONTRACT", "Falta el execution contract P5.6 apuntado por execution.executionContractVersion (§14.2)."));
   } else {
+    // El schema del contrato P5.6 lo valida IMP-07, no el evaluador: un
+    // contrato que no satisface su propio schema no es un required input
+    // válido (§14.2), y su ausencia no se reemplaza por default.
+    const contractValidation = validateExecutionContract(executionContract);
+    if (!contractValidation.ok) {
+      errors.push(buildError("executionContract", "INVALID_EXECUTION_CONTRACT", `El execution contract materializado no satisface el schema P5.6 de IMP-07 (${contractValidation.errors.length} errores).`));
+    }
     const contractKey = versionKeyOf(executionContract);
+    const contractVersionKey = versionKeyOf(executionContract.contractVersion);
     const declaredKey = execution ? versionKeyOf(execution.executionContractVersion) : null;
-    if (contractKey !== null && declaredKey !== null
-      && contractKey !== declaredKey && versionKeyOf(executionContract.contractVersion) !== declaredKey) {
-      errors.push(buildError("execution.executionContractVersion", "EXECUTION_VERSION_MISMATCH", `El bundle declara versión ${declaredKey} y el contract materializado declara ${contractKey ?? versionKeyOf(executionContract.contractVersion)}; versión no es un apuntador decorativo (§14.2).`));
+    if (contractKey === null && contractVersionKey === null) {
+      errors.push(buildError("executionContract", "MISSING_EXECUTION_CONTRACT_IDENTITY", "El execution contract materializado no declara versión ni content hash; no es verificable contra execution.executionContractVersion (§14.2)."));
+    } else if (declaredKey !== null && contractKey !== declaredKey && contractVersionKey !== declaredKey) {
+      errors.push(buildError("execution.executionContractVersion", "EXECUTION_VERSION_MISMATCH", `El bundle declara versión ${declaredKey} y el contract materializado declara ${contractKey ?? contractVersionKey}; versión no es un apuntador decorativo (§14.2).`));
     }
   }
 
   const costLedger = input.costLedger ?? null;
   if (!costLedger || typeof costLedger !== "object" || Array.isArray(costLedger)) {
     errors.push(buildError("costLedger", "MISSING_COST_LEDGER", "Falta el cost-ledger configuration (§14.2)."));
+  } else {
+    // §14.4: cada coste entra exactamente una vez — el schema del ledger lo
+    // valida IMP-07; una configuración vacía seguiría produciendo VALID_RUN
+    // con cero costes, que es una doble verdad, no un caso cubierto.
+    const ledgerValidation = validateCostLedger(costLedger);
+    if (!ledgerValidation.ok) {
+      errors.push(buildError("costLedger", "INVALID_COST_LEDGER", `El cost-ledger configuration no satisface el schema de IMP-07 (${ledgerValidation.errors.length} errores).`));
+    }
+    const declaredLedgerVersion = execution ? execution.costLedgerVersion : null;
+    if (declaredLedgerVersion !== null && declaredLedgerVersion !== undefined
+      && isVersionLike(costLedger.ledgerVersion) && costLedger.ledgerVersion !== declaredLedgerVersion) {
+      errors.push(buildError("execution.costLedgerVersion", "COST_LEDGER_VERSION_MISMATCH", `El bundle declara costLedgerVersion ${declaredLedgerVersion} y el ledger declara ${costLedger.ledgerVersion}; la versión congelada debe ser la misma (§14.2/§14.9).`));
+    }
   }
 
   // §14.2: Data es un required input — manifest PIT de P4 con
