@@ -10,6 +10,7 @@
 // DEP-10); aquí sólo se consume su contrato.
 
 import {
+  outputsForCapability,
   validateEvidenceRef,
   evaluateCapabilityCoverage,
   isCapabilityAssessmentUsable,
@@ -43,7 +44,20 @@ function isNonEmptyList(value) {
   return Array.isArray(value) && value.length > 0;
 }
 
+function hasDuplicates(list) {
+  return new Set(list).size !== list.length;
+}
+
+// Igualdad de conjuntos sin duplicados: ["a","a"] no equivale a ["a","b"]
+// (review IMP-04 2026-09-23: EXTEND validaba ["missing.A","missing.A"] con
+// missing.B pendiente).
 function sameStringSet(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right)) {
+    return false;
+  }
+  if (hasDuplicates(left) || hasDuplicates(right)) {
+    return false;
+  }
   if (left.length !== right.length) {
     return false;
   }
@@ -58,6 +72,9 @@ function assessmentById(assessments, componentId) {
 function validateRequiredCapabilities(requiredCapabilities) {
   if (!isNonEmptyList(requiredCapabilities) || !requiredCapabilities.every(isNonEmptyString)) {
     return fail("MISSING_REQUIRED_CAPABILITIES", "Las capacidades requeridas por el consumidor deben ser una lista no vacía de identificadores.");
+  }
+  if (hasDuplicates(requiredCapabilities)) {
+    return fail("DUPLICATE_REQUIRED_CAPABILITIES", "Las capacidades requeridas no pueden repetirse: son un conjunto.");
   }
   return { ok: true };
 }
@@ -161,8 +178,11 @@ export function deriveToolingDecision({ requiredCapabilities = [], assessments =
 // la interfaz real del componente evaluado y coincidencia observado/esperado.
 // Un objeto `{componentId, reconciled: true, comparisons:[{outputId,
 // agreed:true}]}` sin valores ni procedencia es fabricado y no sostiene la
-// decisión.
-function validateReconciliation(reconciliation, targetAssessment) {
+// decisión. Además, cada capacidad requerida que el componente cubre debe
+// ligarse (interfaceContract.capabilityOutputs) a salidas que entren en la
+// reconciliación: una capacidad declarada sin salida reconciliada no está
+// evidenciada (review IMP-04 2026-09-23, `reference.select`).
+function validateReconciliation(reconciliation, targetAssessment, coveredCapabilities = []) {
   const errors = [];
   if (!reconciliation || typeof reconciliation !== "object" || Array.isArray(reconciliation)) {
     return { ok: false, errors: [{ field: "reconciliation", code: "MISSING_RECONCILIATION", message: "Reutilizar/extender exige reconciliar de forma independiente las salidas clave del componente evaluado." }] };
@@ -180,7 +200,22 @@ function validateReconciliation(reconciliation, targetAssessment) {
     });
     return { ok: false, errors };
   }
-  const keyOutputs = targetAssessment?.interfaceContract?.outputs ?? null;
+  let keyOutputs = null;
+  if (targetAssessment !== null) {
+    const unevidenced = coveredCapabilities.filter((capability) => outputsForCapability(targetAssessment, capability) === null);
+    if (unevidenced.length > 0) {
+      errors.push({
+        field: "targetAssessment.interfaceContract.capabilityOutputs",
+        code: "CAPABILITY_OUTPUTS_UNDECLARED",
+        message: "Cada capacidad requerida cubierta debe ligarse a salidas de la interfaz que se reconcilien.",
+        capabilities: unevidenced,
+      });
+    }
+    // Unión defensiva: validateToolingSelection puede recibir assessments no
+    // validados cuyas salidas ligadas no estén en interfaceContract.outputs.
+    const capabilityOutputIds = coveredCapabilities.flatMap((capability) => outputsForCapability(targetAssessment, capability) ?? []);
+    keyOutputs = [...new Set([...(targetAssessment.interfaceContract?.outputs ?? []), ...capabilityOutputIds])];
+  }
   const recomputed = reconcileKeyOutputs({
     componentId: reconciliation.componentId,
     outputs,
@@ -207,8 +242,9 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
   if (!selection || typeof selection !== "object" || Array.isArray(selection)) {
     return { ok: false, errors: [{ field: "(selection)", code: "MISSING_SELECTION", message: "Selección de herramienta ausente." }] };
   }
-  if (!isNonEmptyList(requiredCapabilities)) {
-    errors.push({ field: "requiredCapabilities", code: "MISSING_REQUIRED", message: "Faltan las capacidades requeridas del consumidor." });
+  const requiredOutcome = validateRequiredCapabilities(requiredCapabilities);
+  if (!requiredOutcome.ok) {
+    errors.push({ field: "requiredCapabilities", code: requiredOutcome.code, message: requiredOutcome.message });
   }
   if (!Object.values(TOOLING_DECISION).includes(selection.decision)) {
     errors.push({ field: "decision", code: "INVALID_DECISION", message: `decision debe ser uno de ${Object.values(TOOLING_DECISION).join(", ")}.` });
@@ -232,6 +268,7 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
   }
 
   const target = selection.targetComponentId ? assessmentById(assessments, selection.targetComponentId) : null;
+  const targetCoverage = target ? evaluateCapabilityCoverage(target, requiredCapabilities) : null;
 
   if (selection.decision === TOOLING_DECISION.REUSE || selection.decision === TOOLING_DECISION.EXTEND) {
     if (!target) {
@@ -241,7 +278,7 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
       if (!usable.usable) {
         errors.push({ field: "targetComponentId", code: "TARGET_NOT_USABLE", message: "El componente objetivo no acredita uso permitido e IP nula.", reasons: usable.reasons });
       }
-      const coverage = evaluateCapabilityCoverage(target, requiredCapabilities);
+      const coverage = targetCoverage;
       if (selection.decision === TOOLING_DECISION.REUSE && !coverage.sufficient) {
         errors.push({ field: "decision", code: "REUSE_NOT_SUFFICIENT", message: "REUSE exige que el componente cubra todas las capacidades requeridas.", missing: coverage.missing });
       }
@@ -253,12 +290,12 @@ export function validateToolingSelection(selection, { requiredCapabilities = [],
           errors.push({ field: "targetComponentId", code: "TARGET_NOT_EXTENDABLE", message: "EXTEND exige declaración auditada de que el componente es casi suficiente." });
         }
         const additions = selection.additions ?? [];
-        if (!sameStringSet(additions, coverage.missing) || additions.length !== coverage.missing.length) {
+        if (!sameStringSet(additions, coverage.missing)) {
           errors.push({ field: "additions", code: "ADDITIONS_NOT_MINIMAL", message: "EXTEND sólo añade exactamente lo que falta; no reimplementa capacidades existentes.", expected: coverage.missing, received: additions });
         }
       }
     }
-    const reconciliationOutcome = validateReconciliation(selection.reconciliation, target);
+    const reconciliationOutcome = validateReconciliation(selection.reconciliation, target, targetCoverage?.covered ?? []);
     if (!reconciliationOutcome.ok) {
       errors.push(...(reconciliationOutcome.errors ?? [reconciliationOutcome]));
     }

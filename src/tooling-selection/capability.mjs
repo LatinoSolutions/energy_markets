@@ -77,6 +77,42 @@ function validateInterfaceContract(contract, errors) {
   if (!Array.isArray(contract.outputs) || contract.outputs.length === 0 || !contract.outputs.every(isNonEmptyString)) {
     errors.push({ field: "interfaceContract.outputs", code: "MISSING_REQUIRED", message: "El contrato de interfaces exige outputs reales." });
   }
+  if (contract.capabilityOutputs !== undefined) {
+    validateCapabilityOutputs(contract.capabilityOutputs, contract.outputs, errors);
+  }
+}
+
+// `capabilityOutputs`: { capabilityId: [outputId] }. Liga cada capacidad
+// declarada a las salidas de la interfaz que la evidencian, para que la
+// reconciliación no pueda omitir la salida de una capacidad requerida
+// (review IMP-04 2026-09-23: `reference.select` aprobaba REUSE sin evidencia).
+function validateCapabilityOutputs(capabilityOutputs, outputs, errors) {
+  if (!isNonEmptyObject(capabilityOutputs)) {
+    errors.push({ field: "interfaceContract.capabilityOutputs", code: "INVALID_CAPABILITY_OUTPUTS", message: "capabilityOutputs debe ser un objeto capacidad → salidas." });
+    return;
+  }
+  const interfaceOutputs = new Set(Array.isArray(outputs) ? outputs : []);
+  for (const [capability, capabilityOutputIds] of Object.entries(capabilityOutputs)) {
+    if (!isCapabilityIdList(capabilityOutputIds)) {
+      errors.push({ field: `interfaceContract.capabilityOutputs.${capability}`, code: "INVALID_CAPABILITY_OUTPUTS", message: "Cada capacidad debe ligarse a una lista no vacía de salidas." });
+      continue;
+    }
+    const undeclared = capabilityOutputIds.filter((outputId) => !interfaceOutputs.has(outputId));
+    if (undeclared.length > 0) {
+      errors.push({ field: `interfaceContract.capabilityOutputs.${capability}`, code: "CAPABILITY_OUTPUT_NOT_IN_INTERFACE", message: "Las salidas de una capacidad deben figurar entre las salidas de la interfaz.", undeclared });
+    }
+  }
+}
+
+// Salidas de interfaz que evidencian cada capacidad. `null` si el assessment
+// no liga la capacidad a ninguna salida.
+export function outputsForCapability(assessment, capability) {
+  const capabilityOutputs = assessment?.interfaceContract?.capabilityOutputs;
+  if (!capabilityOutputs || !Object.hasOwn(capabilityOutputs, capability)) {
+    return null;
+  }
+  const outputIds = capabilityOutputs[capability];
+  return isCapabilityIdList(outputIds) ? outputIds : null;
 }
 
 function validateUsageRights(usageRights, errors) {

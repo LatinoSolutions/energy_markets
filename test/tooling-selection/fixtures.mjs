@@ -11,6 +11,10 @@ export function makeAssessment(overrides = {}) {
     interfaceContract: {
       inputs: ["SYN-input-price"],
       outputs: ["SYN-output-B"],
+      capabilityOutputs: {
+        "benchmark.calculate": ["SYN-output-B"],
+        "reference.proxy": ["SYN-output-B"],
+      },
     },
     declaredCapabilities: ["benchmark.calculate", "reference.proxy"],
     usageRights: { status: "permitted", evidenceRef: "SYN-RIGHTS-1" },

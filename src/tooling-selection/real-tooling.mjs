@@ -32,7 +32,15 @@ const IN_REPO_BENCHMARK = Object.freeze({
   role: "Cálculo de benchmark B y selección de referencias diarias del entorno Energy Markets.",
   interfaceContract: Object.freeze({
     inputs: Object.freeze(["references", "expectedDates", "product", "windowStart", "windowEnd"]),
-    outputs: Object.freeze(["B", "count", "coverage"]),
+    outputs: Object.freeze(["B", "count", "coverage", "referenceSelection", "excludedSelectionCount"]),
+    // Cada capacidad requerida por IMP-05 queda ligada a las salidas que la
+    // evidencian; sin esto `reference.select` se aprobaba sin reconciliar
+    // (review IMP-04 2026-09-23).
+    capabilityOutputs: Object.freeze({
+      "benchmark.calculate": Object.freeze(["B", "count"]), // benchmarkB().B / .count
+      "benchmark.coverage": Object.freeze(["coverage"]), // benchmarkB().coverage
+      "reference.select": Object.freeze(["referenceSelection", "excludedSelectionCount"]), // fechas de selectBenchmarkReferences().references / excludedRows.length
+    }),
   }),
   declaredCapabilities: Object.freeze([
     "benchmark.calculate", // benchmarkB() / benchmarkBFromRows()
@@ -148,7 +156,14 @@ const REAL_RECONCILIATION_FIXTURES = Object.freeze([
     outputId: "referenceSelection",
     expectedValue: Object.freeze(["2026-01-05", "2026-01-06", "2026-01-07"]),
     permitted: true,
-    independentComputation: "selección manual: ordenadas por fecha las filas accesibles documentadas, excluida la del 2026-01-08 (no accesible), y conteo de filas excluidas = 1",
+    independentComputation: "selección manual: ordenadas por fecha las filas accesibles documentadas, excluida la del 2026-01-08 (no accesible)",
+    tolerance: 0,
+  }),
+  Object.freeze({
+    outputId: "excludedSelectionCount",
+    expectedValue: 1,
+    permitted: true,
+    independentComputation: "conteo manual de filas no accesibles documentadas: sólo la del 2026-01-08 = 1",
     tolerance: 0,
   }),
 ]);

@@ -140,3 +140,32 @@ test("una selección por preferencia tecnológica se rechaza", () => {
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "PREFERENCE_BASED_SELECTION"));
 });
+
+// Review IMP-04 2026-09-23: los duplicados no cuentan como capacidades distintas.
+test("EXTEND con additions duplicadas no sustituye a la capacidad que falta", () => {
+  const extendable = makeAssessment({ minimallyExtendable: true });
+  const required = [...BENCHMARK, "missing.A", "missing.B"];
+  const selection = {
+    requiredCapabilities: required,
+    decision: TOOLING_DECISION.EXTEND,
+    selectionBasis: SELECTION_BASIS.AUDIT,
+    targetComponentId: "SYN-TOOL-A",
+    additions: ["missing.A", "missing.A"],
+    reconciliation: makeReconciliationEvidence("SYN-TOOL-A"),
+    evidenceRefs: SELECTION_EVIDENCE,
+    grantsProductionAuthority: false,
+  };
+  const outcome = validateToolingSelection(selection, { requiredCapabilities: required, assessments: [extendable] });
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "ADDITIONS_NOT_MINIMAL"));
+
+  const exact = validateToolingSelection({ ...selection, additions: ["missing.B", "missing.A"] }, { requiredCapabilities: required, assessments: [extendable] });
+  assert.equal(exact.ok, true, JSON.stringify(exact));
+});
+
+test("las capacidades requeridas duplicadas se rechazan", () => {
+  const required = [...BENCHMARK, BENCHMARK[0]];
+  const derived = deriveToolingDecision({ requiredCapabilities: required, assessments: [makeAssessment()] });
+  assert.equal(derived.ok, false);
+  assert.equal(derived.code, "DUPLICATE_REQUIRED_CAPABILITIES");
+});

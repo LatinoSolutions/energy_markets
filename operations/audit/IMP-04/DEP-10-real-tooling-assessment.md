@@ -39,7 +39,7 @@ Límites).
 
 | Componente | Interfaces reales | Derechos / IP | Uso permitido |
 |---|---|---|---|
-| `economic-calculation.benchmark` (`src/economic-calculation/benchmark.mjs`, aceptado IMP-08) | `benchmarkB`, `selectBenchmarkReferences`; salidas `B`, `count`, `coverage` | Código propio del repo; IP sin exposición | sí |
+| `economic-calculation.benchmark` (`src/economic-calculation/benchmark.mjs`, aceptado IMP-08) | `benchmarkB`, `selectBenchmarkReferences`; salidas `B`, `count`, `coverage`, `referenceSelection`, `excludedSelectionCount`; `capabilityOutputs` liga `benchmark.calculate`→`B`,`count`, `benchmark.coverage`→`coverage`, `reference.select`→`referenceSelection`,`excludedSelectionCount` | Código propio del repo; IP sin exposición | sí |
 | `power-markets-explorer.generate_eex_snapshot` (`/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py`) | lectura de Parquet EEX → snapshot JSON | entitlements/rights del lago EEX pendientes (SPEC §6.5:626) | no (unknown) |
 
 ## Decisión factual
@@ -52,6 +52,11 @@ independiente recalculada desde las salidas reales de `benchmarkB()` y de
 `selectBenchmarkReferences()` (capacidad `reference.select`) contra fixtures
 permitidos con cómputo manual: media 102, conteo 3, cobertura 3/3, selección
 ordenada excluyendo la fila no accesible (1 fila excluida).
+
+Límite residual: el código exige que cada capacidad requerida esté ligada a
+salidas reconciliadas, pero no puede verificar que la salida ligada pruebe
+semánticamente esa capacidad; esa correspondencia es parte del audit y la
+sostiene el test de `real-tooling` sobre `capabilityOutputs`.
 
 El script de lectura EEX se audita y queda **excluido** de la adopción mientras
 sus derechos no estén acreditados; "datos legibles no prueban derechos".

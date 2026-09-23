@@ -103,3 +103,64 @@ test("DEP-10: una reconciliación fabricada no sostiene la decisión real", () =
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((error) => error.code === "RECONCILIATION_NOT_VERIFIABLE"));
 });
+
+// Review IMP-04 2026-09-23: `reference.select` es capacidad requerida; retirar
+// toda su evidencia de reconciliación debe impedir el REUSE.
+test("DEP-10: REUSE se rechaza si se retira la evidencia de reconciliación de reference.select", () => {
+  const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
+  const selectOutputs = benchmark.interfaceContract.capabilityOutputs["reference.select"];
+  assert.deepEqual([...selectOutputs], ["referenceSelection", "excludedSelectionCount"]);
+  for (const outputId of selectOutputs) {
+    assert.ok(benchmark.interfaceContract.outputs.includes(outputId), `${outputId} es salida clave de la interfaz`);
+  }
+
+  const full = buildRealToolingReconciliation();
+  const stripped = {
+    componentId: full.componentId,
+    outputs: full.outputs.filter((output) => !selectOutputs.includes(output.outputId)),
+    fixtures: full.fixtures.filter((fixture) => !selectOutputs.includes(fixture.outputId)),
+  };
+  const result = selectMinimumTooling({
+    requiredCapabilities: REAL_REQUIRED_CAPABILITIES,
+    assessments: REAL_TOOLING_ASSESSMENTS,
+    reconciliation: stripped,
+    evidenceRefs: REAL_SELECTION_EVIDENCE,
+  });
+  assert.equal(result.ok, false);
+  const notCovered = result.errors.find((error) => error.code === "KEY_OUTPUTS_NOT_COVERED");
+  assert.ok(notCovered, JSON.stringify(result));
+  assert.deepEqual(notCovered.uncoveredKeyOutputs, ["referenceSelection", "excludedSelectionCount"]);
+});
+
+test("DEP-10: REUSE se rechaza si el assessment no liga reference.select a salidas reconciliadas", () => {
+  const benchmark = assessmentFor(REAL_BENCHMARK_COMPONENT_ID);
+  const { "reference.select": _removed, ...otherCapabilityOutputs } = benchmark.interfaceContract.capabilityOutputs;
+  const unlinked = {
+    ...benchmark,
+    interfaceContract: { ...benchmark.interfaceContract, capabilityOutputs: otherCapabilityOutputs },
+  };
+  const assessments = REAL_TOOLING_ASSESSMENTS.map((assessment) => (assessment.componentId === REAL_BENCHMARK_COMPONENT_ID ? unlinked : assessment));
+  const result = selectMinimumTooling({
+    requiredCapabilities: REAL_REQUIRED_CAPABILITIES,
+    assessments,
+    reconciliation: buildRealToolingReconciliation(),
+    evidenceRefs: REAL_SELECTION_EVIDENCE,
+  });
+  assert.equal(result.ok, false);
+  const undeclared = result.errors.find((error) => error.code === "CAPABILITY_OUTPUTS_UNDECLARED");
+  assert.ok(undeclared, JSON.stringify(result));
+  assert.deepEqual(undeclared.capabilities, ["reference.select"]);
+});
+
+test("DEP-10: una exclusión de filas divergente no reconcilia", () => {
+  const reconciliation = buildRealToolingReconciliation();
+  const result = reconcileKeyOutputs({
+    componentId: reconciliation.componentId,
+    outputs: reconciliation.outputs.map((output) => (
+      output.outputId === "excludedSelectionCount" ? { ...output, value: 0 } : output
+    )),
+    fixtures: reconciliation.fixtures,
+  });
+  assert.equal(result.reconciled, false);
+  assert.ok(result.mismatches.some((mismatch) => mismatch.outputId === "excludedSelectionCount"));
+});

@@ -77,3 +77,20 @@ test("la cobertura es una operación de conjuntos contra lo requerido", () => {
   const full = evaluateCapabilityCoverage(assessment, ["benchmark.calculate"]);
   assert.equal(full.sufficient, true);
 });
+
+test("capabilityOutputs sólo puede ligar capacidades a salidas de la interfaz", () => {
+  const assessment = makeAssessment({
+    interfaceContract: {
+      inputs: ["SYN-input-price"],
+      outputs: ["SYN-output-B"],
+      capabilityOutputs: { "benchmark.calculate": ["SYN-output-X"] },
+    },
+  });
+  const outcome = validateCapabilityAssessment(assessment);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "CAPABILITY_OUTPUT_NOT_IN_INTERFACE"));
+  const empty = makeAssessment({
+    interfaceContract: { inputs: ["SYN-input-price"], outputs: ["SYN-output-B"], capabilityOutputs: { "benchmark.calculate": [] } },
+  });
+  assert.ok(validateCapabilityAssessment(empty).errors.some((error) => error.code === "INVALID_CAPABILITY_OUTPUTS"));
+});
