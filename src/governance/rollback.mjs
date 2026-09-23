@@ -12,6 +12,7 @@
 // WAIT indefinido como respuesta segura (§17).
 
 import { isVersionLike } from "../contracts/identities.mjs";
+import { envelopeVersionKeyOf } from "./envelope.mjs";
 
 export const ROLLBACK_BLOCKED_CODE = "NO_ROLLBACK_TARGET";
 
@@ -40,6 +41,13 @@ export function isVersionValidUnderEnvelope(policyVersion, envelopeVersionKey, h
 // (el baseline experimental NO es autorizado por defecto, §25.2 nota
 // IMP-23); 3) safe non-action state declarado por operaciones, no
 // inventado. Si nada aplica → BLOQUEADO fail-closed.
+//
+// Fuente canónica de "válida bajo el envelope actual": el campo §17
+// `authorizedPolicyVersions` del envelope ACTIVO. El historial provisto por
+// el llamador sólo nomina candidatos; un candidato que el envelope activo
+// jamás autorizó (o que está RETIRED) no es seleccionable ni siquiera si la
+// historia lo declara currentValid (corrección a IMP23-ROLLBACK-TARGET-05,
+// revisión IMP-23).
 export function resolveRollbackTarget({ envelope, policyVersionHistory } = {}) {
   if (!envelope || typeof envelope !== "object" || Array.isArray(envelope) || !isVersionLike(envelope.envelopeVersion)) {
     return { ok: false, code: "INVALID_ENVELOPE", message: "El rollback se resuelve contra el envelope actual con su versión declarada (§18.3)." };
@@ -49,11 +57,27 @@ export function resolveRollbackTarget({ envelope, policyVersionHistory } = {}) {
     : `hash:${envelope.envelopeVersion.contentHash}`;
   const history = Array.isArray(policyVersionHistory) ? policyVersionHistory : [];
 
+  // Autorizaciones canónicas del envelope activo: versión con status VALID
+  // y ligada al envelope vigente (§17). Sin array de autorizaciones no hay
+  // candidato admisible: fail-closed.
+  const authorizedVersions = Array.isArray(envelope.authorizedPolicyVersions)
+    ? envelope.authorizedPolicyVersions
+      .filter((authorization) =>
+        authorization
+          && isNonEmptyString(authorization.policyVersion)
+          && authorization.status === "VALID"
+          && envelopeVersionKeyOf({ envelopeVersion: authorization.underEnvelopeVersion }) === envelopeVersionKey)
+      .map((authorization) => authorization.policyVersion)
+    : [];
+  const authorizedSet = new Set(authorizedVersions);
+
   // 1) Última versión válida bajo el envelope actual, en orden de historia.
+  // Admisible = la historia la declara válida aquí Y el envelope activo la
+  // autoriza VALID bajo sí mismo (doble condición, §17 + §18.3).
   const orderedVersions = history
     .filter((entry) => entry && isNonEmptyString(entry.policyVersion))
     .map((entry) => entry.policyVersion);
-  const validCandidates = orderedVersions.filter((version) => isVersionValidUnderEnvelope(version, envelopeVersionKey, history));
+  const validCandidates = orderedVersions.filter((version) => authorizedSet.has(version) && isVersionValidUnderEnvelope(version, envelopeVersionKey, history));
   if (validCandidates.length > 0) {
     const targetVersion = validCandidates[validCandidates.length - 1];
     return {

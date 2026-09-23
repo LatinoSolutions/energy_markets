@@ -386,16 +386,24 @@ test("IMP-23: un hard-gate exige gate declarado en el envelope y evidencia (§17
 // --- Rollback: target sigue válido (§18.3) ---
 
 test("IMP-23: el destino de rollback es la última Policy Version válida bajo el envelope actual, no la históricamente aprobada (§18.3)", () => {
-  const { envelope, controller } = buildController();
+  // El envelope activo autoriza v0.1 RETIRED y v0.2 VALID bajo sí mismo;
+  // la historia por sí sola no selecciona: el cruz con
+  // authorizedPolicyVersions (§17) manda.
+  const { envelope, controller } = buildController({
+    authorizedPolicyVersions: [
+      { policyVersion: "v0.1", underEnvelopeVersion: "v1.0", status: "RETIRED" },
+      { policyVersion: "v0.2", underEnvelopeVersion: "v1.0", status: "VALID" },
+    ],
+  });
   const key = envelope.versionKey;
-  // v0.1 fue aprobada bajo un envelope anterior y está RETIRED bajo el
-  // actual; v0.2 sigue válida bajo el actual.
+  // v0.1 fue aprobada en el pasado pero está RETIRED bajo el actual;
+  // v0.2 sigue válida bajo el actual. v1.0 ya no lo es.
   const history = [
     {
       policyVersion: "v0.1",
       validity: [
         { underEnvelopeVersion: "version:v0.0", currentValid: true },
-        { underEnvelopeVersion: key, currentValid: false },
+        { underEnvelopeVersion: key, currentValid: true },
       ],
     },
     {
@@ -420,6 +428,45 @@ test("IMP-23: el destino de rollback es la última Policy Version válida bajo e
   assert.equal(rolledBack.rollback.transition, "ROLLBACK");
   assert.equal(rolledBack.rollback.target.policyVersion, "v0.2");
   assert.equal(rolledBack.rollback.policyConsentRequired, false);
+});
+
+test("IMP-23: un candidato declarado válido por el historial pero no autorizado por el envelope activo NO es seleccionable (§17/§18.3)", () => {
+  // Envelope fixture por defecto sólo autoriza v1.0. La historia (provista
+  // por el llamador) declará v0.2 y v9.9-attacker como currentValid aquí:
+  // sin autorización del envelope activo no hay target (fail-closed).
+  const { envelope } = buildController();
+  const attackerHistory = [
+    {
+      policyVersion: "v0.2",
+      validity: [{ underEnvelopeVersion: envelope.versionKey, currentValid: true }],
+    },
+    {
+      policyVersion: "v9.9-attacker",
+      validity: [{ underEnvelopeVersion: envelope.versionKey, currentValid: true }],
+    },
+  ];
+  const resolved = resolveRollbackTarget({ envelope: envelope, policyVersionHistory: attackerHistory });
+  assert.equal(resolved.ok, false);
+  assert.equal(resolved.code, "NO_ROLLBACK_TARGET");
+  assert.equal(resolved.pendingOperationsFallback, true);
+
+  // Inverso: el envelope autoriza v0.2 VALID pero la historia no declara
+  // ninguna versión válida → también BLOQUEADO (la doble condición manda).
+  const approvingEnvelope = buildController({
+    authorizedPolicyVersions: [{ policyVersion: "v0.2", underEnvelopeVersion: "v1.0", status: "VALID" }],
+  }).envelope;
+  const inverseResolved = resolveRollbackTarget({ envelope: approvingEnvelope, policyVersionHistory: [] });
+  assert.equal(inverseResolved.ok, false);
+  assert.equal(inverseResolved.code, "NO_ROLLBACK_TARGET");
+
+  // Un candidato autorizado por el envelope para OTRO envelope no admite
+  // aquí (§18.3: la validez se declara bajo cada envelope concreto).
+  const foreignUnderEnvelope = buildController({
+    authorizedPolicyVersions: [{ policyVersion: "v9.9-attacker", underEnvelopeVersion: "v2.0", status: "VALID" }],
+  }).envelope;
+  const foreignResolved = resolveRollbackTarget({ envelope: foreignUnderEnvelope, policyVersionHistory: attackerHistory });
+  assert.equal(foreignResolved.ok, false);
+  assert.equal(foreignResolved.code, "NO_ROLLBACK_TARGET");
 });
 
 test("IMP-23: sin versión válida ni fallback declarado el rollback queda BLOQUEADO, pendiente operacional explícito (§18.3/§17)", () => {
@@ -479,7 +526,14 @@ test("IMP-23: executeRollback exige el mandato de hard-gate HALT y falla sin ver
 // --- Receipts de governance (§18.4) ---
 
 test("IMP-23: cada transición produce receipt versionado con los cinco campos de §18.4 y sin mutación calient", () => {
-  const { envelope, controller } = buildController();
+  // El envelope activo debe autorizar la versión destino del rollback (§17):
+  // la solé sola del historial no selecciona (IMP23-ROLLBACK-TARGET-05).
+  const { envelope, controller } = buildController({
+    authorizedPolicyVersions: [
+      { policyVersion: "v1.0", underEnvelopeVersion: "v1.0", status: "VALID" },
+      { policyVersion: "v0.2", underEnvelopeVersion: "v1.0", status: "VALID" },
+    ],
+  });
   const key = envelope.versionKey;
 
   const mandate = controller.mandateHardGateTransition({ gateId: "G-DATA-VALIDITY", evidenceRef: "fixture-evidence-4" });
