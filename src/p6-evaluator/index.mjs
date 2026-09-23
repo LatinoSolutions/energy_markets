@@ -14,3 +14,12 @@ export {
   SIZING_RULE_VERSION,
   RUN_STATUS_DIMENSION_DEFAULTS,
 } from "./replay.mjs";
+// Run receipts y reproducibilidad P6.9/P6.10 (IMP-14).
+export {
+  materializeRunReceipt,
+  buildOutputBundle,
+  createRunReceiptRegistry,
+  compareReproducibility,
+  receiptIdentityOf,
+  outputBundleDigestsOf,
+} from "./run-receipts.mjs";
