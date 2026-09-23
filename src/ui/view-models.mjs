@@ -12,6 +12,7 @@
 //     con sus relojes; §26.3);
 //   - unknown/missing/not-yet-closed queda explícito y fail-closed.
 
+import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { bindRecord } from "./binding.mjs";
 import { resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import {
@@ -219,6 +220,11 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   if (exposure === null || exposure?.ok !== true || exposure?.exposure === undefined) {
     return unexpectedTimeline([{ field: "exposure", code: "EXPOSURE_NOT_VALIDATED", message: "Replay exige la exposición validada de buildExposure; sin ella no se renderiza (§26.2)." }]);
   }
+  // UI01-04a (review 2026-09-23): una exposición sin fields no es una
+  // exposición renderizable; se degrada a ERROR, nunca a una excepción.
+  if (!Array.isArray(exposure.exposure.fields)) {
+    return unexpectedTimeline([{ field: "exposure.fields", code: "EXPOSURE_MALFORMED", message: "La exposición declarada no tiene la lista de campos del boundary (§26.2)." }]);
+  }
   if (backendIndex === null || backendIndex.byIdentity === undefined) {
     return unexpectedTimeline([{ field: "backendIndex", code: "BACKEND_NOT_VERIFIED", message: "Replay sólo muestra datos del manifest backend verificado; sin él el timeline no se puede atar a un dato factual (§26.5)." }]);
   }
@@ -232,29 +238,75 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     return unexpectedTimeline([{ field: "(timeline)", code: "TIMELINE_SHAPE_UNRECOGNIZED", message: "El timeline no declara las lanes del boundary (§26.3)." }]);
   }
   const errors = [];
-  const bindPoint = (point, landmark) => {
+  const bindPoint = (point, landmark, expectedViewScope) => {
     const bound = bindRecord(backendIndex, { recordKey: point.key, revisionId: point.revisionId, value: point.value });
     if (!bound.ok) {
       errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `el punto no se concilia con el manifest backend verificado: ${bound.reason} (§26.5); un valor no registrado no es factual` });
+      return;
     }
-    return point;
+    // UI01-01c (review 2026-09-23): la lane decision sólo puede contener keys
+    // de la decision view del manifest (§6.1/§14.3); un key de evaluation
+    // presentado como punto de decisión es información futura al decidir. La
+    // lane evaluation es exploratoria y puede levar keys de ambos scopes.
+    if (expectedViewScope !== null) {
+      const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
+      if (record?.viewScope !== expectedViewScope) {
+        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_SCOPE_MISMATCH", message: `el punto "${point.key}" proviene de la vista "${record?.viewScope ?? "sin scope"}" y no encuadra en la lane ${expectedViewScope} del replay (§6.1/§26.3)` });
+      }
+    }
   };
-  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points"));
-  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points"));
-  const bindProvenance = (provenance, landmark) => {
+  const decisionPoints = t.decision.points.map((point) => bindPoint(point, "decision.points", "decision"));
+  const evaluationPoints = t.evaluation.points.map((point) => bindPoint(point, "evaluation.points", null));
+  const bindProvenance = (field, landmark) => {
+    const provenance = field?.provenance;
     if (provenance === undefined || provenance === null) {
+      // UI01-01b (review 2026-09-23): un campo con valor y sin procedencia
+      // declarada no es mostrable; el valor no remite a ninguna versión.
+      if (field?.value !== undefined) {
+        errors.push({ field: landmark, code: "EXPOSURE_VALUE_WITHOUT_PROVENANCE", message: `el campo "${field?.specLabel ?? landmark}" ofrece un valor sin procedencia; sin registro canónico no es factual (§26.5)` });
+      }
       return;
     }
     const resolved = resolveBackendRecord(backendIndex, provenance.recordKey, provenance.revisionId);
     if (resolved === null) {
       errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_NOT_IN_BACKEND", message: `la procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest verificado del mismo backend (§26.5)` });
-    } else if (resolved.valueSha256 !== provenance.valueSha256) {
+      return;
+    }
+    if (resolved.valueSha256 !== provenance.valueSha256) {
       errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_MISMATCH", message: `el hash de la procedencia no coincide con el contenido registrado por "${provenance.recordKey}"/"${provenance.revisionId}" (§26.5)` });
+      return;
+    }
+    // UI01-01b: el valueSha256 declarado puede coincidir por accidente; el
+    // valor expuesto se hashea de nuevo y debe ser el del propio registro.
+    if (field.value !== undefined && field.value !== null) {
+      const valueHash = canonicalValueSha256(field.value);
+      if (!valueHash.ok) {
+        errors.push({ field: landmark, code: "EXPOSURE_VALUE_NOT_CANONICAL", message: `el valor del campo "${field?.specLabel ?? landmark}" no es dato canónico serializable (§26.5)` });
+      } else if (valueHash.sha256 !== resolved.valueSha256) {
+        errors.push({ field: landmark, code: "EXPOSURE_VALUE_HASH_MISMATCH", message: `el valor expuesto por "${field?.specLabel ?? landmark}" no es el registrado por "${provenance.recordKey}"/"${provenance.revisionId}"; no se calcula otra verdad económica (§26.5)` });
+      }
     }
   };
   for (const field of exposure.exposure.fields ?? []) {
-    bindProvenance(field.provenance, `exposure.fields.${field.field ?? field.specLabel}`);
+    bindProvenance(field, `exposure.fields.${field?.field ?? field?.specLabel}`);
   }
+  // UI01-01a (review 2026-09-23): una actuación REAL no se rinde con una
+  // autorización "declarada"; su origen (authority + receipt) se re-ata al
+  // manifest verificado, igual que el resto de los datos factuales (§26.5/§16–18).
+  const bindAuthorizationOrigin = (lane, event) => {
+    const origin = event?.authorization?.origin;
+    if (origin === undefined || origin === null) {
+      return;
+    }
+    const authority = resolveBackendRecord(backendIndex, origin.authority?.recordKey, origin.authority?.revisionId);
+    if (authority === null) {
+      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.authority`, code: "REAL_AUTHORITY_NOT_IN_BACKEND", message: "la autoridad del acto REAL no resuelve a una versión del manifest backend verificado; un acto REAL exige autoridad aplicable resuelta (§26.5/§16–18)" });
+    }
+    const receipt = resolveBackendRecord(backendIndex, origin.receipt?.recordKey, origin.receipt?.revisionId);
+    if (receipt === null) {
+      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "el receipt del acto REAL no resuelve a una versión del manifest backend verificado; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+    }
+  };
   for (const [lane, events] of [["executions", t.executions], ["interventions", t.interventions]]) {
     for (const event of events) {
       const ref = event?.relatedCanonicalRef;
@@ -267,6 +319,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       } else if (refIsUsable && resolved.viewScope !== "decision") {
         errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_DECISION_SCOPE", message: "la actuación se vincula a la recomendación conocida al decidir; la referee no es una versión del decision view (§26.3)" });
       }
+      bindAuthorizationOrigin(lane, event);
     }
   }
   if (errors.length > 0) {

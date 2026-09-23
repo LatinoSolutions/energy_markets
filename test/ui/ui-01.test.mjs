@@ -275,6 +275,104 @@ test("replay: una exposición con procedencia de otro hash queda fail-closed", (
   assert.equal(vm.errors[0].code, "EXPOSURE_PROVENANCE_MISMATCH");
 });
 
+// UI01-01a (review 2026-09-23): la autorización REAL se re-ata al manifest
+// verificado; una ejecución REAL con authority/receipt que el backend no
+// registra queda fail-closed y sus refs nunca aparecen como factuales.
+test("replay: una ejecución REAL con autorización no resuelta en el backend queda fail-closed", () => {
+  const { timeline, exposure, backendIndex } = scenariosWithActs();
+  const forged = JSON.parse(JSON.stringify(timeline));
+  const realEvent = forged.timeline.executions.find((event) => event.class === EXECUTION_CLASS.REAL);
+  realEvent.authorization.origin.authority = { recordKey: "FAKE.authority", revisionId: "v1" };
+  realEvent.authorization.origin.receipt = { recordKey: "FAKE.receipt", revisionId: "v1" };
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.ok(vm.errors.some((error) => error.code === "REAL_AUTHORITY_NOT_IN_BACKEND"));
+  assert.ok(vm.errors.some((error) => error.code === "REAL_RECEIPT_NOT_IN_BACKEND"));
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("data-real=\"true\""));
+  assert.ok(!html.includes("FAKE.authority"));
+});
+
+// UI01-01b (review 2026-09-23): el valor expuesto se hashea contra el registro
+// verificado; un valor forjado con el valueSha256 de otro registro no se rinde.
+test("replay: un valor de exposición que el registro no contiene queda fail-closed", () => {
+  const { timeline, backendIndex } = scenarios();
+  const realHash = canonicalValueSha256(RECOMMENDATION_BASE.value).sha256;
+  const provenance = {
+    sourceKind: EXPOSURE_SOURCE_KIND.RECOMMENDATION,
+    recordKey: RECOMMENDATION_BASE.key,
+    revisionId: RECOMMENDATION_BASE.revisionId,
+    valueSha256: realHash,
+  };
+  const forgedExposure = {
+    ok: true,
+    exposure: {
+      boundaryUtc: "2026-04-01T07:00:00.000Z",
+      fields: [{ field: "recommendation", specLabel: "Recomendación", section: "§26.2", condition: "AVAILABLE", value: 987654.32, provenance }],
+      unavailable: [],
+      structurallyComplete: true,
+      hasUnavailableContent: false,
+    },
+  };
+  const vm = buildReplayViewModel({ timeline, exposure: forgedExposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "EXPOSURE_VALUE_HASH_MISMATCH");
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  assert.ok(!html.includes("987654.32"));
+  // valor sin procedencia declarada: tampoco se rinde
+  const orphan = buildReplayViewModel({
+    timeline,
+    backendIndex,
+    exposure: {
+      ok: true,
+      exposure: { boundaryUtc: "2026-04-01T07:00:00.000Z", fields: [{ field: "recommendation", specLabel: "Recomendación", condition: "AVAILABLE", value: 42 }], unavailable: [], structurallyComplete: true, hasUnavailableContent: false },
+    },
+  });
+  assert.equal(orphan.ok, false);
+  assert.equal(orphan.errors[0].code, "EXPOSURE_VALUE_WITHOUT_PROVENANCE");
+});
+
+// UI01-01c (review 2026-09-23): la lane de un punto la fija la vista canónica
+// del manifest, no la metadata del timeline aportado; un key de evaluation
+// con viewScope "evaluation" presentado en la lane decision es ERROR.
+test("replay: un benchmark de evaluation-scope en la lane decision queda fail-closed", () => {
+  const { timeline, exposure, backendIndex, manifest } = scenarios();
+  const benchmarkHash = canonicalValueSha256(EVALUATION_BENCHMARK.value).sha256;
+  const forged = JSON.parse(JSON.stringify(timeline));
+  forged.timeline.decision.points.push({
+    lane: "decision",
+    key: EVALUATION_BENCHMARK.key,
+    value: EVALUATION_BENCHMARK.value,
+    revisionId: EVALUATION_BENCHMARK.revisionId,
+    clock: "2026-03-01T06:00:00.000Z",
+  });
+  forged.timeline.separation = { evaluationScopeKeys: [], decisionScopeKeys: [] };
+  const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "POINT_SCOPE_MISMATCH");
+  const html = renderReplayPage(vm);
+  assert.match(html, /data-state="ERROR"/);
+  // el benchmark existe en el manifest: el rechazo es por lane, no por hash
+  assert.ok(exposure.ok === true, "escenario base válido antes de forjar la lane");
+});
+
+// UI01-04a (review 2026-09-23): una exposición sin fields se degrada a ERROR,
+// sin excepción en el render (mismo invariante que el test de renderers).
+test("replay: una exposición sin lista de fields rinde ERROR sin lanzar", () => {
+  const { timeline, backendIndex } = scenarios();
+  const vm = buildReplayViewModel({ timeline, backendIndex, exposure: { ok: true, exposure: {} } });
+  assert.equal(vm.ok, false);
+  assert.equal(vm.errors[0].code, "EXPOSURE_MALFORMED");
+  let html;
+  assert.doesNotThrow(() => {
+    html = renderReplayPage(vm);
+  });
+  assert.match(html, /data-state="ERROR"/);
+  assert.match(html, /fail-closed/);
+});
+
 // ---------- Backtests / Economic Comparison ----------
 
 test("backtests: sin runs canónicos, todo se declara pendiente, nada fabricado", () => {
