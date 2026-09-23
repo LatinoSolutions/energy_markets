@@ -1,6 +1,6 @@
 # Energy Markets — instrucciones para agentes lanzados por la Oficina propia
 
-Owner: Bru. Workflow vigente desde 2026-09-23: la Oficina propia (`/srv/hot-data/energy-markets/oficina`) reemplaza a Paperclip para este proyecto.
+Owner: Bru. Desde 2026-09-23 la Oficina propia (`/srv/hot-data/energy-markets/oficina`) trabaja junto a Paperclip en este repo.
 Paperclip sigue trabajando en paralelo con sus propias reglas (AGENTS.md). Estas reglas son solo para agentes de la Oficina.
 
 ## Fuente de verdad
