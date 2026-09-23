@@ -242,6 +242,22 @@ test("DEP-10: ningún componente real declara una capacidad de lectura que su in
   assert.ok(!reader.declaredCapabilities.includes("reference.read.trades"));
 });
 
+// Review IMP-04 2026-09-23 (revisión 8): las capacidades declaradas deben
+// comprobarse contra la fuente real, no darse por buenas. El mismo principio
+// aplica a la procedencia: todo hash de evidencia de cada assessment se
+// comprueba contra los bytes reales. Antes, los hashes del benchmark
+// (benchmark.mjs, reference.mjs, index.mjs y el receipt IMP-08) no se
+// verificaban en ningún test.
+test("DEP-10: cada hash de procedencia declarado por un assessment coincide con los bytes reales", () => {
+  for (const assessment of REAL_TOOLING_ASSESSMENTS) {
+    for (const ref of assessment.evidenceRefs) {
+      if (ref.sha256 !== undefined) {
+        assert.equal(sha256Of(ref.ref), ref.sha256, `${assessment.componentId} / ${ref.ref}`);
+      }
+    }
+  }
+});
+
 // Bru P-005 (2026-09-23): los datos EEX disponibles están autorizados para este
 // uso dentro del proyecto. La evidencia es el registro literal de esa decisión.
 test("DEP-10: los assessments reales son válidos y usables; el uso de datos EEX lo acredita la decisión P-005", () => {
