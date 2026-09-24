@@ -814,6 +814,26 @@ test("IMP-24: el hard-gate DEMOTE en el nivel mínimo A0 no fabrica un receipt A
   assert.equal(receipt.transitionType, "HALT");
 });
 
+test("IMP-24: el HALT por DEMOTE en el piso A0 es revertible con ROLLBACK (§18.3)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const halted = judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-FLOOR-ROLLBACK", requestedTransition: "DEMOTE", atUtc: T0 });
+  assert.equal(halted.transition, "HALT");
+  assert.equal(judge.currentState().status, "HALTED");
+  // El mandato guardado es la transición EFECTIVA (HALT): un DEMOTE en el piso
+  // se materializa como cese y executeRollback sólo acepta un mandato HALT. Si
+  // se guardara el DEMOTE original el cese quedaría sin vía de rollback.
+  assert.equal(judge.currentState().lastHaltingMandate.transition, "HALT");
+  assert.equal(judge.currentState().lastHaltingMandate.requestedTransition, "DEMOTE");
+
+  const history = [{ policyVersion: "v1.0", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] }];
+  const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
+  assert.equal(rollback.ok, true, "INSPECCIÓN: " + JSON.stringify(rollback));
+  assert.equal(rollback.restoredLevel, "A0");
+  assert.equal(judge.currentState().status, "ACTIVE");
+  const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
+  assert.equal(receipt.transitionType, "ROLLBACK");
+});
+
 test("IMP-24: el rollback del HALT restaura la última versión válida y no auto-amplía el nivel", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-3", atUtc: T0 });

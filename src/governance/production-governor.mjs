@@ -756,8 +756,13 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       })?.receiptId ?? null;
       return { ok: true, transition: "DEMOTE", fromLevel, toLevel, transitionReceiptId: receiptId, mandate };
     }
+    // §18.3: el cese debe poder revertirse con ROLLBACK. executeRollback sólo
+    // acepta un mandato HALT; guardar el DEMOTE original (cuando en el piso se
+    // materializa como HALT) dejaba el cese sin vía de rollback, atrapando al
+    // governor en HALTED de forma permanente. Se guarda la transición
+    // EFECTIVA (HALT), conservando el pedido original para trazabilidad.
     state.status = "HALTED";
-    state.lastHaltingMandate = mandate;
+    state.lastHaltingMandate = Object.freeze({ ...mandate, transition: "HALT", requestedTransition: mandate.transition });
     const receiptId = registerTransition({
       registry,
       input: {
