@@ -186,13 +186,17 @@ export function quarterlyResearchVerdict({ scoring, evidence, dataQuality } = {}
   if (!hasQuarterlyEvidence(evidence, scoring)) {
     return { verdict: "HOLD", reason: "Evidencia Quarterly ausente, cruzada con otra misión, malformada, no reconciliada con la población puntuada o por debajo del mínimo (>=8 trimestres, >=2 años calendario): HOLD." };
   }
-  if (!(scoring.mu > 0)) {
-    return { verdict: "HOLD", reason: "Criterio económico mean(V_q)>0 no cumplido: HOLD." };
+  // §5.8 / §13.7: con scoring interpretable, calidad admisible y evidencia
+  // suficiente, mean(V_q)<=0 es una refutación con prueba válida (FAIL), no
+  // una falta de evidencia (HOLD). HOLD queda reservado a faltantes de
+  // evidencia/datos/parámetros auditados.
+  if (scoring.mu <= 0) {
+    return { verdict: "FAIL", reason: "Refutación con prueba válida: mean(V_q)<=0 con evidencia suficiente e interpretable (§13.7). El screen Sortino no compensa el criterio económico." };
   }
   if (scoring.screenPass) {
     return { verdict: "PASS", reason: "Criterios predeclarados cumplidos con evidencia válida y suficiente." };
   }
-  return { verdict: "FAIL", reason: "Evidencia suficiente e interpretable que no cumple el screen Sortino>1 estricto." };
+  return { verdict: "FAIL", reason: "Evidencia suficiente e interpretable que no cumple el screen Sortino>1 estricto y el criterio económico mean(V_q)>0 no lo salva." };
 }
 
 // §5.7: Monthly no importa el screen Quarterly. Su contrato es su propio

@@ -86,6 +86,24 @@ test("§5.8 FAIL: mu > 0 pero Sortino <= 1 (screen predeclarado) → FAIL conser
   assert.ok(evaluation.scoring.sortino <= 1);
 });
 
+// IMP16-H11 (§5.8 / §13.7): refutación genuina. mean(ΔV)<=0 con serie
+// interpretable, evidencia mínima cumplida (8 quarters, 2 años) y calidad
+// admisible es FAIL, no HOLD: HOLD reserva falta de evidencia/datos.
+test("IMP16-H11: mean(ΔV)<=0 con P5.6 válido y evidencia suficiente → FAIL (refutación), no HOLD", () => {
+  const deltas = [3, -1, -2, -1, 3, -1, -2, -1];
+  const series = SEALED_CAMPAIGN_IDS.map((campaignId, index) => ({
+    campaignId,
+    deltaV: deltas[index],
+    runReceiptId: "r",
+  }));
+  const evaluation = p5ResearchEvaluation({ series, dataQuality: { coverage: "full", benchmarkProvisional: false } });
+  assert.equal(evaluation.ok, true);
+  assert.equal(evaluation.verdict, "FAIL");
+  assert.match(evaluation.verdictReason, /Refutación con prueba válida/);
+  assert.equal(evaluation.scoring.mu <= 0, true);
+  assert.equal(evaluation.minimumEvidence.minimumEvidenceMet, true);
+});
+
 test("§5.7 HOLD: serie por debajo del mínimo (8 trimestres, 2 años) nunca fabrica PASS", () => {
   const series = SEALED_CAMPAIGN_IDS.slice(0, 3).map((campaignId) => ({ campaignId, deltaV: 10, runReceiptId: "r" }));
   const evaluation = p5ResearchEvaluation({ series, dataQuality: { coverage: "full", benchmarkProvisional: false } });
