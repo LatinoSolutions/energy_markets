@@ -35,7 +35,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-17 | aceptado | IMP-01, IMP-12, IMP-14 | Materializar Experience con provenance y atribución. |  |
 | IMP-18 | pendiente | IMP-16, IMP-17 | Implementar captura Shadow y verificar non-interference. | |
 | IMP-19 | pendiente | IMP-15, IMP-16, IMP-17 | Implementar ciclo offline y evaluar Value/Policy Learning. | §25.2.2: IMP-16 y/o IMP-18 según procedencia; aquí se exige IMP-16. |
-| IMP-20 | pendiente | IMP-16 | Diseñar después experimentos de S2–S5 y Z/drivers admitidos. | |
+| IMP-20 | aceptado | IMP-16 | Diseñar después experimentos de S2–S5 y Z/drivers admitidos. |  |
 | IMP-21 | pendiente | IMP-15, IMP-16 | Evaluar Q07 en protocolo separado. | |
 | IMP-22 | pendiente | IMP-16 | Investigar Sizing Policy y extensiones de misión. | |
 | IMP-23 | aceptado | IMP-01, IMP-07, IMP-17 | Materializar enforcement externo del envelope y rollback. |  |
