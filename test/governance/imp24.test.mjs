@@ -494,6 +494,31 @@ test("IMP-24: evidencia sintética produce un record marcado como demostración 
   assert.equal(result.activation.synthetic, true);
 });
 
+test("IMP-24: la segunda llamada a la primera activación se rechaza sin PROMOTE duplicado (§18.4)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const first = judge.considerFirstActivation(firstActivationInput());
+  assert.equal(first.ok, true, "INSPECCIÓN: " + JSON.stringify(first));
+  const promotesAfterFirst = judge.receiptRegistry.transitionsOfType("PROMOTE").length;
+
+  const second = judge.considerFirstActivation(firstActivationInput());
+  assert.equal(second.ok, false);
+  assert.equal(second.code, "FIRST_ACTIVATION_ALREADY_RECORDED");
+  // §18.4: ningún PROMOTE duplicado con previousState falso A0→A1.
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, promotesAfterFirst);
+  assert.equal(judge.currentState().level, "A1");
+});
+
+test("IMP-24: la vía de la primera activación no DEMOTE el nivel vigente ni registra PROMOTE falso (§18.3)", () => {
+  // Governor ya en A2 (subió por promociones posteriores): la primera
+  // activación debe rechazar fail-closed sin bajar el estado a A1.
+  const judge = buildGovernor({ autonomyLevel: "A2" });
+  const result = judge.considerFirstActivation(firstActivationInput());
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "FIRST_ACTIVATION_ALREADY_RECORDED");
+  assert.equal(judge.currentState().level, "A2");
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+});
+
 // --- 4) Approval enforcement A1 ---
 
 test("IMP-24: en A1 sin validación humana por acción la recomendación no ejecuta", () => {

@@ -386,6 +386,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (state.status !== "ACTIVE") {
       return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
     }
+    // §18.3 (el estado no baja por una vía de promoción) y §18.4 (reconstrucción
+    // de receipts): la primera activación es UNA sola por governor. Sin guard de
+    // nivel, una segunda llamada registraría un PROMOTE duplicado A0→A1 con
+    // `previousState` falso, y sobre un governor ya en A2 esta vía lo DEMOTE a
+    // A1 incondicionalmente ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
+    if (state.level !== "A0") {
+      return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: la primera activación ya quedó registrada; no hay segunda (§18.1).`);
+    }
     if (!isNonEmptyString(policyVersion)) {
       return fail("MISSING_POLICY_VERSION", "La primera activación declara la Policy Version (§15.3: versión fija).");
     }
