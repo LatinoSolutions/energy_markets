@@ -164,6 +164,29 @@ test("UI-02: health check estable retorna el estado real por superficie, sin inv
   });
 });
 
+// UI02-H1 (review de cambio 24-sep-2026): con el boundary validado inyectado,
+// el health debe reflejar la verdad de la página; la repro del review pinó un
+// replay READY con datos BOUND reportando canonicalData:false.
+test("UI-02: health refleja el estado real de Replay cuando la página muestra datos canónicos enlazados", async () => {
+  const scenario = boundScenario();
+  await withServer({
+    port: 0,
+    inputs: {
+      backendIndex: backendIndexFromManifest(scenario.manifest),
+      timeline: scenario.timeline,
+      exposure: scenario.exposure,
+    },
+  }, async (served) => {
+    const health = await (await fetch(`${served.url.slice(0, -1)}/health`)).json();
+    assert.equal(health.surfaces.replay.state, "READY");
+    assert.equal(health.surfaces.replay.canonicalData, true);
+    // sin candidatos inyectados, las demás superficies siguen sin alegar datos
+    for (const surface of ["backtests", "research", "campaigns"]) {
+      assert.equal(health.surfaces[surface].canonicalData, false);
+    }
+  });
+});
+
 // ---------- fail-closed sin datos + datos canónicos cuando se inyectan ----------
 
 test("UI-02: sin manifest backend verificado ninguna superficie muestra datos inventados", async () => {

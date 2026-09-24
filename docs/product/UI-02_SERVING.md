@@ -57,7 +57,13 @@ montan una vez al arrancar y cada respuesta es su render.
 
 ## Límites de este serving (acceptance UI-02)
 
-- Enlace por defecto 127.0.0.1: no se abre exposición pública nueva.
+- Enlace por defecto 127.0.0.1: no se abre exposición pública nueva. Un
+  `--host` distinto (p. ej. `0.0.0.0`) es una decisión operativa explícita del
+  arrancador, nunca el default del código.
+- Semántica de `/health`: `ok: true` significa servicio vivo y rutas
+  canónicas servidas; el estado real de los datos va por superficie en
+  `surfaces[].state` (READY|ERROR) y `surfaces[].canonicalData` (true sólo si
+  esa superficie exhibe datos enlazados a registros canónicos verificados).
 - Sólo GET/HEAD de lectura; POST/PUT/… → 405; rutas no canónicas → 404
   fail-closed. La UI no expone comandos (§26.5); nada de ejecución real ni
   capital.

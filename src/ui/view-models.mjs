@@ -532,7 +532,18 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   };
   const imaginary = (event) => event.class === EXECUTION_CLASS.HYPOTHETICAL;
   const realityCheck = (event) => event.class === EXECUTION_CLASS.REAL;
+  // UI02-H1 (review de cambio 24-sep-2026): /health reporta el estado real por
+  // superficie; la página de Replay exhibe datos canónicos cuando cualquiera
+  // de sus canales del boundary ya validado lleva contenido respaldado por el
+  // manifest verificado (§26.5): puntos del timeline, actuaciones, o una
+  // sección de exposición con valor canónico atado a su procedencia.
+  const hasCanonicalTimelineContent = t.decision.points.length > 0
+    || t.evaluation.points.length > 0
+    || t.executions.length > 0
+    || t.interventions.length > 0;
+  const hasCanonicalExposureValue = exposure.exposure.fields.some((field) => field.condition === EXPOSURE_CONDITION.AVAILABLE);
   return {
+    hasAnyBoundData: hasCanonicalTimelineContent || hasCanonicalExposureValue,
     ok: true,
     surface: SURFACES.REPLAY,
     workingMode: t.workingMode,
