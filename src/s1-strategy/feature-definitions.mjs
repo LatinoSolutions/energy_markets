@@ -30,6 +30,13 @@ export const REFERENCE_FAMILIES = {
 export const CENTER_STATISTICS = ["MEDIAN", "MEAN"];
 export const MOVING_AVERAGE_KINDS = ["SMA", "EMA"];
 
+// §8.1 Parameters D define la familia NORMALIZED_EXTREME ("extremo
+// normalizado percentile/z-score") como una familia DISTINTA de A. La
+// instanciación mínima de IMP-11 no computa su identidad propia; declararla
+// pero colapsarla al centro de A sería una doble verdad: fail-closed
+// (H-IMP11-01, review 2026-09-24).
+export const UNINSTANTIATED_REFERENCE_FAMILIES = ["D"];
+
 // §8.1 Observable inputs: "posición relativa en rango/distribución del
 // horizonte Monthly y de la ventana de procurement de tres meses, mantenidos
 // separados". Un horizonte y sólo uno por referencia; nunca se mezclan misiones.

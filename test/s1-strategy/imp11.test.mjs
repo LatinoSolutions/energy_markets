@@ -15,6 +15,7 @@ import {
   defineSearchSpace,
   evaluateImp11Acceptance,
   materializeGasQuarterlyS1,
+  probeForbiddenTimingInputsRejected,
   probeStaticLocationTiming,
   s1Preference,
   validateA1TimingState,
@@ -36,7 +37,7 @@ function sealedReservation() {
 function searchSpace() {
   const built = defineSearchSpace({
     spaceId: "S1-SS-SYN-1",
-    referenceFamilies: ["A", "B", "C", "D"],
+    referenceFamilies: ["A", "B", "C"],
     lengths: [4, 8],
     timeframes: ["DAILY"],
     horizons: [{ horizonId: "PROC-WINDOW-3M", kind: "PROCUREMENT_WINDOW_3M" }],
@@ -243,6 +244,36 @@ test("A1 rechaza un estado con inputs prohibidos (fail-closed)", () => {
   assert.equal(decision.code, "A1_TIMING_INPUT_REJECTED");
 });
 
+// H-IMP11-01 (§8.1 Parameters): la familia D es NORMALIZED_EXTREME, distinta
+// de A; la instanciación mínima no la computa, así que se rechaza fail-closed
+// en vez de colapsarla al centro de A bajo etiqueta D.
+test("familia D se rechaza como no instanciada en reference, features y search space", () => {
+  const declared = buildCausalReference({
+    family: "D",
+    length: 4,
+    timeframe: "DAILY",
+    horizon: { horizonId: "PROC-WINDOW-3M", kind: "PROCUREMENT_WINDOW_3M" },
+  });
+  assert.equal(declared.ok, false);
+  assert.equal(declared.errors.some((error) => error.code === "REFERENCE_FAMILY_NOT_INSTANTIATED"), true);
+  const features = computeS1Features({ asOfUtc: "2021-01-15T11:00:00Z", decisionPrice: 30, history: [], reference: { family: "D", length: 4, horizon: null } });
+  assert.equal(features.ok, false);
+  assert.equal(features.code, "REFERENCE_FAMILY_NOT_INSTANTIATED");
+  const space = defineSearchSpace({
+    spaceId: "S1-SS-D",
+    referenceFamilies: ["A", "D"],
+    lengths: [4],
+    timeframes: ["DAILY"],
+    horizons: [{ horizonId: "PROC-WINDOW-3M", kind: "PROCUREMENT_WINDOW_3M" }],
+    centerStatistics: ["MEAN"],
+    favorableFeatures: ["percentile"],
+    thresholdValues: [0.5],
+    provenance: PROVENANCE,
+  });
+  assert.equal(space.ok, false);
+  assert.equal(space.errors.some((error) => error.code === "REFERENCE_FAMILY_NOT_INSTANTIATED"), true);
+});
+
 // §13.5: Procurement State no añade timing alpha independiente.
 test("la acción BUY/WAIT de A1 no depende del remaining volume", () => {
   const { a1Arm } = buildArms();
@@ -316,6 +347,19 @@ test("assertThresholdsFrozenBeforeOos exige congelado anterior a la frontera", (
   assert.equal(outcome.code, "THRESHOLDS_FROZEN_AFTER_OOS");
 });
 
+// §13.5: la check noForbiddenTimingInputs del acceptance se deriva POR
+// EJECUCIÓN del guard real en el camino de decisión (H-IMP11-02).
+test("probeForbiddenTimingInputsRejected demuestra el rechazo por ejecución", () => {
+  const { a1Arm } = buildArms();
+  const probe = probeForbiddenTimingInputsRejected({ a1Arm, forbiddenState: { currentDate: "2021-01-15", s3: {} } });
+  assert.equal(probe.ok, true);
+  assert.equal(probe.forbiddenInputsRejected, true);
+  assert.deepEqual(probe.rejectedInputs, ["s3"]);
+  const cleanState = probeForbiddenTimingInputsRejected({ a1Arm, forbiddenState: { currentDate: "2021-01-15" } });
+  assert.equal(cleanState.ok, false);
+  assert.equal(cleanState.code, "FORBIDDEN_STATE_NOT_FORBIDDEN");
+});
+
 // §25.1: acceptance de IMP-11 derivado de los artefactos.
 test("evaluateImp11Acceptance marca criterionMet con evidencia completa y lo niega sin prerequisites", () => {
   const reservation = sealedReservation();
@@ -328,14 +372,27 @@ test("evaluateImp11Acceptance marca criterionMet con evidencia completa y lo nie
     a1Arm,
     a0ControllerVersion: controller.contentHash,
     a1ControllerVersion: controller.contentHash,
-    timingProbe: { onlyStaticLocationAltersTiming: true, noForbiddenInputs: true },
+    timingProbeState: {
+      currentDate: "2021-01-15",
+      remainingVolumeMw: 30,
+      favorableFeatures: { percentile: 0.05 },
+      unfavorableFeatures: { percentile: 0.9 },
+    },
   };
   const met = evaluateImp11Acceptance({ ...common, prerequisites: { developmentPriceReferences: { available: true } } });
   assert.equal(met.criterionMet, true, JSON.stringify(met.blockedBy));
   assert.deepEqual(met.blockedBy, []);
+  assert.equal(met.timingEvidence.onlyStaticLocationAltersTiming.onlyStaticLocationAltersTiming, true);
+  assert.equal(met.timingEvidence.forbiddenInputsRejected.forbiddenInputsRejected, true);
   const blocked = evaluateImp11Acceptance({ ...common, prerequisites: { developmentPriceReferences: { available: false } } });
   assert.equal(blocked.criterionMet, false);
   assert.ok(blocked.blockedBy.includes("DEP-06/07_DEVELOPMENT_PRICE_REFERENCES_UNAVAILABLE"));
+  // H-IMP11-02: sin brazo real que ejecute el guard, la check es falsa.
+  const { a1Arm: _a1, ...noArm } = common;
+  const withoutArm = evaluateImp11Acceptance({ ...noArm, a1Arm: null, prerequisites: { developmentPriceReferences: { available: true } } });
+  assert.equal(withoutArm.criterionMet, false);
+  assert.ok(withoutArm.blockedBy.includes("A1_PARITY_NOT_PROVIDED"));
+  assert.equal(withoutArm.checks.noForbiddenTimingInputs, false);
 });
 
 // §25.2: el caso real no puede instanciarse sin referencias de precio ni reserva.

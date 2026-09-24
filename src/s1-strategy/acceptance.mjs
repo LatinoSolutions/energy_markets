@@ -6,7 +6,7 @@
 // ni DEP-13/14: sólo que la instanciación mínima satisface su criterio técnico.
 
 import { isReservationIntact, reserveGasQuarterlySealedOos } from "../oos-reservation/index.mjs";
-import { assertA1IsA0PlusS1 } from "./a1-arm.mjs";
+import { assertA1IsA0PlusS1, probeForbiddenTimingInputsRejected, probeStaticLocationTiming } from "./a1-arm.mjs";
 import { assertThresholdsFrozenBeforeOos } from "./calibration.mjs";
 import { assertConfigurationFrozen } from "./configuration.mjs";
 import { IMP11_ACCEPTANCE_TEST, IMP11_MUST_NOT_CHANGE } from "./feature-definitions.mjs";
@@ -20,7 +20,7 @@ export function evaluateImp11Acceptance({
   a1Arm,
   a0ControllerVersion,
   a1ControllerVersion,
-  timingProbe,
+  timingProbeState,
   prerequisites,
 } = {}) {
   const checks = {};
@@ -38,10 +38,29 @@ export function evaluateImp11Acceptance({
     ? assertA1IsA0PlusS1({ a0Arm, a1Arm, a0ControllerVersion, a1ControllerVersion })
     : { ok: false, code: "A1_PARITY_NOT_PROVIDED" };
   checks.a1IsA0PlusS1 = parity.ok;
-  // §8.1/§13.5: sólo la ubicación estática altera el timing.
-  checks.onlyStaticLocationAltersTiming = timingProbe?.onlyStaticLocationAltersTiming === true;
-  // §13.5: sin Z/S2–S5/drivers (ni trayectoria) en el timing.
-  checks.noForbiddenTimingInputs = timingProbe?.noForbiddenInputs === true;
+  // §8.1/§13.5: sólo la ubicación estática altera el timing. Se deriva POR
+  // EJECUCIÓN con el brazo real, no de un booleano declarado por el caller
+  // (H-IMP11-02, review 2026-09-24).
+  const locationProbe = a1Arm?.decideAtOpportunity && timingProbeState
+    ? probeStaticLocationTiming({
+      a1Arm,
+      currentDate: timingProbeState.currentDate,
+      remainingVolumeMw: timingProbeState.remainingVolumeMw,
+      favorableFeatures: timingProbeState.favorableFeatures,
+      unfavorableFeatures: timingProbeState.unfavorableFeatures,
+    })
+    : { onlyStaticLocationAltersTiming: false };
+  checks.onlyStaticLocationAltersTiming = locationProbe.onlyStaticLocationAltersTiming === true;
+  // §13.5: sin Z/S2–S5/drivers (ni trayectoria) en el timing. El estado
+  // prohibido canónico contiene un componente S (s3); su rechazo se verifica
+  // ejecutando la decisión, no declarándolo.
+  const forbiddenProbe = a1Arm?.decideAtOpportunity && timingProbeState?.currentDate
+    ? probeForbiddenTimingInputsRejected({
+      a1Arm,
+      forbiddenState: { currentDate: timingProbeState.currentDate, s3: {} },
+    })
+    : { ok: false, forbiddenInputsRejected: false };
+  checks.noForbiddenTimingInputs = forbiddenProbe.forbiddenInputsRejected === true;
   // §25.2: DEP-06/07 es prerequisite de audit, no output. La reserva sellada se
   // deriva del propio artifact, no de una declaración paralela.
   checks.developmentPriceReferencesAvailable = prerequisites?.developmentPriceReferences?.available === true;
@@ -69,6 +88,10 @@ export function evaluateImp11Acceptance({
     checks,
     configurationHash: configuration?.contentHash ?? null,
     a1Parity: parity,
+    timingEvidence: {
+      onlyStaticLocationAltersTiming: locationProbe,
+      forbiddenInputsRejected: forbiddenProbe,
+    },
     oos: oosGuard.ok ? { protectedFromIso: oosGuard.protectedFromIso, frozenAtUtc: oosGuard.frozenAtUtc } : { error: oosGuard.code },
   };
 }

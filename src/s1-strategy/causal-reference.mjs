@@ -13,6 +13,7 @@ import {
   HORIZON_KINDS,
   MOVING_AVERAGE_KINDS,
   REFERENCE_FAMILIES,
+  UNINSTANTIATED_REFERENCE_FAMILIES,
   validateHorizonDeclaration,
   validateStaticLocationFeatures,
 } from "./feature-definitions.mjs";
@@ -70,6 +71,13 @@ export function buildCausalReference({
   }
   if (family === "C" && (!isFiniteNumber(bandWidth) || bandWidth <= 0)) {
     errors.push({ field: "bandWidth", code: "INVALID_BAND_WIDTH", message: "La familia C exige bandWidth numérico > 0." });
+  }
+  if (UNINSTANTIATED_REFERENCE_FAMILIES.includes(family)) {
+    errors.push({
+      field: "family",
+      code: "REFERENCE_FAMILY_NOT_INSTANTIATED",
+      message: `La familia ${family} está declarada en §8.1 pero esta instanciación mínima de S1 no computa su identidad propia; no se acepta (fail-closed).`,
+    });
   }
   if (errors.length > 0) {
     return { ok: false, errors };
@@ -130,6 +138,9 @@ export function computeS1Features({ asOfUtc, decisionPrice, history = [], refere
   if (!reference || typeof reference !== "object" || !Object.hasOwn(REFERENCE_FAMILIES, reference.family)) {
     return { ok: false, code: "INVALID_REFERENCE" };
   }
+  if (UNINSTANTIATED_REFERENCE_FAMILIES.includes(reference.family)) {
+    return { ok: false, code: "REFERENCE_FAMILY_NOT_INSTANTIATED" };
+  }
   if (!Array.isArray(history)) {
     return { ok: false, code: "INVALID_HISTORY" };
   }
@@ -170,8 +181,8 @@ export function computeS1Features({ asOfUtc, decisionPrice, history = [], refere
       center = average;
     }
   } else {
-    // C (bandas alrededor de un centro causal) y D (extremo normalizado) usan
-    // el centro estadístico causal del horizonte declarado.
+    // C (bandas alrededor de un centro causal) usa el centro estadístico
+    // causal; D se rechazó arriba como no instanciada (UNINSTANTIATED_REFERENCE_FAMILIES).
     center = average;
   }
 

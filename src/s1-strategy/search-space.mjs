@@ -12,6 +12,7 @@ import {
   MOVING_AVERAGE_KINDS,
   REFERENCE_FAMILIES,
   S1_CANONICAL_FEATURES,
+  UNINSTANTIATED_REFERENCE_FAMILIES,
   assertHorizonsSeparated,
 } from "./feature-definitions.mjs";
 
@@ -44,6 +45,14 @@ export function defineSearchSpace({
   }
   if (!isNonEmptyArray(referenceFamilies) || referenceFamilies.some((family) => !Object.hasOwn(REFERENCE_FAMILIES, family))) {
     errors.push({ field: "referenceFamilies", code: "INVALID_REFERENCE_FAMILIES", message: `referenceFamilies debe enumerar familias de ${Object.keys(REFERENCE_FAMILIES).join(", ")}.` });
+  } else if (referenceFamilies.some((family) => UNINSTANTIATED_REFERENCE_FAMILIES.includes(family))) {
+    // H-IMP11-01: una familia no instanciada (D) no entra en el espacio de
+    // búsqueda; incluirla sería predeclarar un eje sin implementación.
+    errors.push({
+      field: "referenceFamilies",
+      code: "REFERENCE_FAMILY_NOT_INSTANTIATED",
+      message: `Las familias ${UNINSTANTIATED_REFERENCE_FAMILIES.join(", ")} no están instanciadas en esta versión de S1; el search space no debe predeclarlas (§8.6).`,
+    });
   }
   if (!isNonEmptyArray(lengths) || lengths.some((length) => !Number.isInteger(length) || length < 2)) {
     errors.push({ field: "lengths", code: "INVALID_LENGTHS", message: "lengths debe enumerar enteros >= 2." });
@@ -136,6 +145,9 @@ export function assertPointInSearchSpace(searchSpace, point = {}) {
     if (!searchSpace?.[spaceKey]?.includes(point[pointKey])) {
       errors.push({ field: pointKey, code: "POINT_OUT_OF_SPACE", message: `${pointKey}=${JSON.stringify(point[pointKey])} no está en ${spaceKey} del search space predeclarado.` });
     }
+  }
+  if (UNINSTANTIATED_REFERENCE_FAMILIES.includes(point.family)) {
+    errors.push({ field: "family", code: "REFERENCE_FAMILY_NOT_INSTANTIATED", message: "La familia no está instanciada en esta versión de S1." });
   }
   const horizonMatch = searchSpace?.horizons?.some((horizon) => horizon.horizonId === point.horizon?.horizonId && horizon.kind === point.horizon?.kind);
   if (!horizonMatch) {

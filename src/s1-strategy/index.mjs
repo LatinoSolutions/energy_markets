@@ -45,6 +45,7 @@ export {
   assertA1IsA0PlusS1,
   assertTimingIndependentOfProcurementState,
   createA1Arm,
+  probeForbiddenTimingInputsRejected,
   probeStaticLocationTiming,
   s1Preference,
 } from "./a1-arm.mjs";

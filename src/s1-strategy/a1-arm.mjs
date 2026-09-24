@@ -159,6 +159,32 @@ export function assertTimingIndependentOfProcurementState({ a1Arm, currentDate, 
   return { ok: true, action: unique[0], actions };
 }
 
+// §13.5: prueba por ejecución (no declaración) de que un input prohibido es
+// RECHAZADO en el camino de decisión: el guard validateA1TimingState corre
+// dentro de decideAtOpportunity (a1-arm.mjs, §13.5/P5.5). Es el productor de
+// la check noForbiddenTimingInputs del acceptance de IMP-11 (H-IMP11-02,
+// review 2026-09-24).
+export function probeForbiddenTimingInputsRejected({ a1Arm, forbiddenState } = {}) {
+  if (!forbiddenState || typeof forbiddenState !== "object" || Array.isArray(forbiddenState)) {
+    return { ok: false, code: "INVALID_FORBIDDEN_STATE", forbiddenInputsRejected: false };
+  }
+  const guard = validateA1TimingState(forbiddenState);
+  if (guard.ok) {
+    return { ok: false, code: "FORBIDDEN_STATE_NOT_FORBIDDEN", forbiddenInputsRejected: false, message: "El estado de prueba no contiene inputs prohibidos; no demuestra el guard." };
+  }
+  const decision = typeof a1Arm?.decideAtOpportunity === "function"
+    ? a1Arm.decideAtOpportunity(forbiddenState)
+    : null;
+  const rejectedInDecisionPath = decision?.ok === false && decision?.code === "A1_TIMING_INPUT_REJECTED";
+  return {
+    ok: true,
+    forbiddenInputsRejected: rejectedInDecisionPath,
+    rejectedInputs: guard.violations,
+    guardCode: guard.code,
+    decisionCode: decision?.code ?? null,
+  };
+}
+
 // §8.1/§13.5: prueba que SÓLO la ubicación estática altera el timing. Con la
 // misma fecha y obligación, features favorables dan BUY y desfavorables WAIT.
 export function probeStaticLocationTiming({ a1Arm, currentDate, remainingVolumeMw, favorableFeatures, unfavorableFeatures } = {}) {
