@@ -120,7 +120,13 @@ function checkCostsCountedOnce({ runOutcome, bundle }) {
         problems.push(`${fill.requestId}: coste ${cost.costId} aparece dos veces dentro del mismo fill.`);
       }
       seenInRow.add(cost.costId);
-      if (ledgerCostIds.size > 0 && !ledgerCostIds.has(cost.costId)) {
+      // §14.10 ítem 3 + §14.4: la pertenencia se comprueba SIEMPRE (IMP15-H6,
+      // review 2026-09-23). Con la guarda previa `ledgerCostIds.size > 0`, un
+      // costLedger auditado sin ninguna entrada KNOWN desactivaba el chequeo y
+      // un coste inventado pasaba GATE-03 (fail-open). Sin costLedger KNOWN no
+      // hay origen auditado para ningún coste cargado: cada costId cargado
+      // debe existir KNOWN, o el item no cierra.
+      if (!ledgerCostIds.has(cost.costId)) {
         problems.push(`${fill.requestId}: coste ${cost.costId} no existe KNOWN en el cost ledger auditado.`);
       }
       if (!isFiniteNumber(cost.amount)) {
@@ -175,9 +181,18 @@ function checkArmParity({ firstOutputBundle, a1OutputBundle, declaration }) {
       message: `El segundo brazo declarado usa la misma armVersion que A0 (${firstOutputBundle.receipt.armVersion}); no hay dos brazos distintos que comparar (§14.10 ítem 4).`,
     });
   }
+  // §14.10 ítem 4 ("execution/cost treatment idéntico A0/A1"): el treatment
+  // comparado incluye también el COST treatment (IMP15-H7, review 2026-09-23):
+  // la versión del cost ledger declarada en el receipt y la forma declarada
+  // de los costes fill a fill (costId/kind/amount/unit/countedOnce/embedded),
+  // no sólo lot/rounding y execution contract. Sin eso, dos brazos con costes
+  // divergentes pasaban como paridad (fail-open).
+  const a1Receipt = a1OutputBundle.receipt;
+  const a0Receipt = firstOutputBundle.receipt;
   const fillTreatmentOf = (outcome) => (outcome?.ledgers?.execution ?? []).map((row) => ({
     lotRoundingTreatment: row.lotRoundingTreatment,
     executionContractVersion: row.executionContractVersion,
+    executionCosts: costTreatmentOf(row.executionCosts ?? []),
   }));
   const treatmentsA = fillTreatmentOf(firstOutputBundle);
   const treatmentsB = fillTreatmentOf(a1OutputBundle);
@@ -187,24 +202,63 @@ function checkArmParity({ firstOutputBundle, a1OutputBundle, declaration }) {
       message: "Ambos brazos deben exponer fills con su treatment de execution contract (§14.10 ítem 4).",
     });
   }
+  const costLedgerVersionMismatch = a1Receipt.costLedgerVersion !== a0Receipt.costLedgerVersion;
   // §14.10 ítem 4 ("execution/cost treatment idéntico A0/A1"): brazos con
   // distinto número de fills también rompen la paridad (IMP15-H5, review
   // 2026-09-23). -1 de findIndex significa "sin divergencia índice a índice",
   // no "paridad OK"; la condición !sameLength debe fallar por separado.
   const sameLength = treatmentsA.length === treatmentsB.length;
-  const divergenceIndex = sameLength
+  const divergenceIndex = sameLength && !costLedgerVersionMismatch
     ? treatmentsA.findIndex((treatment, index) => !isDeepEqualTreatment(treatment, treatmentsB[index]))
     : -1;
-  const parityBroken = !sameLength || divergenceIndex !== -1;
+  const parityBroken = !sameLength || costLedgerVersionMismatch || divergenceIndex !== -1;
   return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", !parityBroken, {
     code: !sameLength ? "LENGTH_MISMATCH" : parityBroken ? "TREATMENT_MISMATCH" : "OK",
     divergenceIndex: divergenceIndex !== -1 ? divergenceIndex : null,
+    costLedgerVersions: {
+      a0: a0Receipt.costLedgerVersion,
+      a1: a1Receipt.costLedgerVersion,
+    },
   });
 }
 
 function isDeepEqualTreatment(left, right) {
   return left.lotRoundingTreatment === right.lotRoundingTreatment
-    && left.executionContractVersion === right.executionContractVersion;
+    && left.executionContractVersion === right.executionContractVersion
+    && isDeepEqualCostTreatment(left.executionCosts, right.executionCosts);
+}
+
+function costTreatmentOf(rowCosts) {
+  return rowCosts.map((cost) => ({
+    costId: cost.costId,
+    kind: cost.kind,
+    amount: cost.amount,
+    unit: cost.unit,
+    countedOnce: cost.countedOnce,
+    embedded: cost.embedded,
+  }));
+}
+
+function isDeepEqualCostTreatment(left, right) {
+  const leftKeys = left.map((cost) => cost.costId);
+  const rightKeys = right.map((cost) => cost.costId);
+  if (leftKeys.length !== rightKeys.length || !isSortedEqual(leftKeys, rightKeys)) return false;
+  for (const cost of left) {
+    const counterpart = right.find((candidate) => candidate.costId === cost.costId);
+    if (counterpart === undefined
+      || counterpart.kind !== cost.kind
+      || counterpart.amount !== cost.amount
+      || counterpart.unit !== cost.unit
+      || counterpart.countedOnce !== cost.countedOnce
+      || counterpart.embedded !== cost.embedded) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isSortedEqual(left, right) {
+  return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 }
 
 // GATE-05: separación PIT del benchmark vs la execution view (§14.10 ítem 5):

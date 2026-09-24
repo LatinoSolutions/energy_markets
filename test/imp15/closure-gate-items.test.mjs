@@ -269,3 +269,93 @@ test("IMP-15: GATE-04 con brazos de distinto número de fills NO declara paridad
   assert.equal(lengthItem.divergenceIndex, null);
   assert.equal(lengthGate.failedIds.includes("IMP15-GATE-04"), true);
 });
+
+// IMP15-H6 (review 2026-09-23): con el costLedger auditado sin ninguna entrada
+// KNOWN la guarda previa desactivaba la pertenencia y un coste inventado pasa
+// GATE-03 (fail-open). Sin costes cargados el item no reclama KNOWN alguno;
+// con un coste cargado, sin origen KNOWN no cierra (§14.4/§14.10 ítem 3).
+test("IMP-15: GATE-03 con costLedger sin entradas KNOWN — coste cargado NO cierra (IMP15-H6, fail-closed)", () => {
+  const base = baseScenario();
+
+  // Sin costes cargados, un ledger sin KNOWN no exige pertenencia: item OK.
+  const runWithoutCosts = deepCopy(base.runOutcome);
+  runWithoutCosts.replay.ledgers.execution = runWithoutCosts.replay.ledgers.execution.map((row) => ({
+    ...row,
+    executionCosts: [],
+  }));
+  const bundleIdempotentCostLedger = {
+    ...base.bundle,
+    costLedger: {
+      ...base.bundle.costLedger,
+      entries: base.bundle.costLedger.entries.map((entry) => ({ ...entry, status: "UNKNOWN", reason: "ledger sin KNOWN" })),
+    },
+  };
+  const cleanLedgerGate = evaluateGate(
+    { ...base, runOutcome: runWithoutCosts, bundle: bundleIdempotentCostLedger },
+  );
+  const cleanLedgerItem = cleanLedgerGate.items.find((gateItem) => gateItem.id === "IMP15-GATE-03");
+  assert.equal(cleanLedgerItem.ok, true);
+  assert.equal(cleanLedgerItem.code, "OK");
+
+  // Mismo ledger sin KNOWN + un coste inventado cargado: antes pasaba (guarda
+  // size > 0); ahora falla — no hay origen auditado que sustente el coste.
+  const runWithStrayCost = deepCopy(runWithoutCosts);
+  runWithStrayCost.replay.ledgers.execution[0].executionCosts = [
+    { costId: "cost.invented.zzz", kind: "EXCHANGE_FEE", amount: 999, unit: "EUR", countedOnce: true, embedded: false },
+  ];
+  const strayGate = evaluateGate(
+    { ...base, runOutcome: runWithStrayCost, bundle: bundleIdempotentCostLedger },
+  );
+  const strayItem = strayGate.items.find((gateItem) => gateItem.id === "IMP15-GATE-03");
+  assert.equal(strayItem.ok, false);
+  assert.equal(strayItem.code, "COST_DOUBLE_COUNT_OR_UNAUDITED");
+  assert.ok(strayItem.problems.some((problem) => problem.includes("no existe KNOWN en el cost ledger auditado")));
+  assert.equal(strayGate.failedIds.includes("IMP15-GATE-03"), true);
+});
+
+// IMP15-H7 (review 2026-09-23): GATE-04 ignoraba el COST treatment A0/A1
+// (per-fill executionCosts y receipt.costLedgerVersion), así que un brazo A1
+// con costes divergentes pasaba como paridad (fail-open). §14.10 ítem 4:
+// "execution/cost treatment idéntico A0/A1".
+test("IMP-15: GATE-04 con cost treatment divergente en A1 NO declara paridad (IMP15-H7, fail-closed)", () => {
+  const base = baseScenario({ capMw: 12 });
+  const a1Bundle = frozenCampaignBundle({ dailyCapMw: 24 });
+  const a1Run = runP6Replay(a1Bundle, { runTimestampUtc: "2026-09-23T02:00:00Z" });
+  assert.equal(a1Run.ok, true);
+  const a1Output = buildOutputBundle({ bundle: a1Bundle, replayOutcome: a1Run });
+  assert.equal(a1Output.ok, true);
+
+  // Caso 1: receipt de A1 declara otra costLedgerVersion que el receipt A0.
+  const tamperedCostLedgerVersion = {
+    ...a1Output.outputBundle,
+    receipt: {
+      ...a1Output.outputBundle.receipt,
+      costLedgerVersion: "v9.9",
+    },
+  };
+  const versionGate = evaluateGate(base, { a1OutputBundle: tamperedCostLedgerVersion, singleArmDeclaration: null });
+  const versionItem = versionGate.items.find((gateItem) => gateItem.id === "IMP15-GATE-04");
+  assert.equal(versionItem.ok, false);
+  assert.equal(versionItem.code, "TREATMENT_MISMATCH");
+  assert.equal(versionItem.costLedgerVersions.a1, "v9.9");
+  assert.equal(versionGate.failedIds.includes("IMP15-GATE-04"), true);
+
+  // Caso 2: una fila de A1 carga un coste con amount distinto (costId igual).
+  const tamperedCostAmount = {
+    ...a1Output.outputBundle,
+    ledgers: {
+      ...a1Output.outputBundle.ledgers,
+      execution: a1Output.outputBundle.ledgers.execution.map((row, index) => (
+        index === 1
+          ? { ...row, executionCosts: row.executionCosts.map((cost) => ({ ...cost, amount: 12345 })) }
+          : row
+      )),
+    },
+  };
+  const costAmountGate = evaluateGate(base, { a1OutputBundle: tamperedCostAmount, singleArmDeclaration: null });
+  const costAmountItem = costAmountGate.items.find((gateItem) => gateItem.id === "IMP15-GATE-04");
+  assert.equal(costAmountItem.ok, false);
+  assert.equal(costAmountItem.code, "TREATMENT_MISMATCH");
+  assert.equal(costAmountItem.divergenceIndex, 1);
+  assert.equal(costAmountGate.failedIds.includes("IMP15-GATE-04"), true);
+});
