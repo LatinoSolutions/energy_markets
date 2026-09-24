@@ -12,6 +12,10 @@ import { validateArmParity } from "./attribution.mjs";
 import { assertNoPoolingOrPortfolioAggregation, assertActionSpaceInvariant, assertControllerIsNotFinalPolicy } from "./constraints.mjs";
 import { validateCoverageDeclarations } from "./coverage.mjs";
 
+// Campos de contrato del diseño (§25.2.1 identidad de instancia; §4/§5/§23
+// para misión, reserva, cobertura y guardas). La lista es el contrato
+// declarado y validateExperimentDesign la exige campo a campo: una constante
+// que nadie lee no bindea nada (Ref: hallazgo IMP22-H11).
 export const IMP22_DESIGN_FIELDS = [
   "identity",
   "mission",
@@ -20,7 +24,12 @@ export const IMP22_DESIGN_FIELDS = [
   "attribution",
   "coverage",
   "separateEvaluation",
+  "controllerKind",
   "honestUnknowns",
+  "honestUnknownReferenceScope",
+  "actionSpaceModification",
+  "controllerIsFinalSizingPolicy",
+  "freeze",
 ];
 
 // Verificación del bloque design.mission: las extas declaraciones de la
@@ -62,6 +71,19 @@ export function validateExperimentDesign(design) {
 
   if (design == null || typeof design !== "object") {
     return { ok: false, code: "DESIGN_MISSING", errors: [{ field: "design", code: "DESIGN_MISSING", message: "design requerido." }] };
+  }
+
+  // El contrato declarado se exige entero: un campo de §25.2.1 ausente deja el
+  // diseño incompleto aunque su validación específica pase (§25.2.1). Ref:
+  // hallazgo IMP22-H11.
+  for (const field of IMP22_DESIGN_FIELDS) {
+    if (design[field] === undefined) {
+      errors.push({
+        field,
+        code: "DESIGN_FIELD_REQUIRED",
+        message: `El diseño debe declarar ${field}: es parte del contrato IMP-22 (§25.2.1; §4/§5/§23).`,
+      });
+    }
   }
 
   const identityCheck = validateIdentity(design.identity);
@@ -108,7 +130,7 @@ export function validateExperimentDesign(design) {
         }
         seenCandidateIds.add(candidateId);
       }
-      if (typeof missionId === "string" && candidate.identity?.missionId !== missionId) {
+      if (typeof missionId === "string" && candidate?.identity?.missionId !== missionId) {
         errors.push({
           field: "candidates[].identity.missionId",
           code: "CANDIDATE_MISSION_MISMATCH",
@@ -225,6 +247,19 @@ export function validateFreezeBeforeEvaluation(design) {
   } else {
     const reserveCheck = validateMissionReserve(design.reserve);
     errors.push(...reserveCheck.errors);
+  }
+
+  // Defensa en profundidad del gate de freeze: la reserva debe ser de la
+  // Mission del experimento, no de otra evaluación separada (DEP-12; §25.2.3).
+  // validateExperimentDesign ya lo atrapa; el freeze no puede ser más laxo
+  // que el diseño que habilita (Ref: hallazgo IMP22-H10).
+  const freezeMissionId = design?.identity?.missionId;
+  if (typeof freezeMissionId === "string" && design?.reserve?.missionId !== freezeMissionId) {
+    errors.push({
+      field: "reserve.missionId",
+      code: "RESERVE_MISSION_MISMATCH",
+      message: "La reserva del experimento es de la Mission del experimento, no de otra evaluación (DEP-12, evaluación separada).",
+    });
   }
 
   if (design?.attribution?.arms == null) {

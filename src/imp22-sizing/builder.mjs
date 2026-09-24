@@ -17,6 +17,7 @@ const ISO_NOW = () => new Date().toISOString();
 function unknownEntries(missionId) {
   const entries = [
     ["DEP-01", "cantidades/contrato/warmup de la Mission", "DEP-01 [Mission]: cantidades/hub/contrato/delivery/liquidación del nuevo experimento"],
+    ["DEP-02", "ownership de cobertura de la Mission (adicional/solapada/alternativa)", "DEP-02 [Mission]: relación Monthly/Quarterly y ownership de cobertura, sin doble conteo ni agregación ficticia"],
     ["DEP-03", "calendario/deadline/oportunidades propios", "DEP-03 [Mission]: calendario/deadline/oportunidades propios"],
     ["DEP-04", "rule de coverage del terminal de la Mission", "DEP-04 [Mission]: terminal coverage rule propia"],
     ["DEP-05", "lotes/fees/parciales/redondeo de la Mission", "DEP-05 [Mission]: lotes/fees/parciales/redondeo"],
@@ -36,6 +37,7 @@ function unknownEntries(missionId) {
 export function makeDesign(experimentId, missionId, reserveId) {
   const referenceScope = [
     "DEP-01 [Mission]: cantidades/hub/contrato/delivery/liquidación del nuevo experimento",
+    "DEP-02 [Mission]: ownership de cobertura (adicional/solapada/alternativa) sin doble conteo",
     "DEP-03 [Mission]: calendario/deadline/oportunidades propios",
     "DEP-04 [Mission]: terminal coverage rule propia",
     "DEP-05 [Mission]: lotes/fees/parciales/redondeo",

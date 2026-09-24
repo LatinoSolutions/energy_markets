@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 
-import { validateExperimentDesign, validateFreezeBeforeEvaluation } from "../../src/imp22-sizing/experiment-design.mjs";
+import { validateExperimentDesign, validateFreezeBeforeEvaluation, IMP22_DESIGN_FIELDS } from "../../src/imp22-sizing/experiment-design.mjs";
 import { createImp22DesignRegistry } from "../../src/imp22-sizing/registry.mjs";
 import { DESIGN_IDS, getDesign } from "../../src/imp22-sizing/designs.mjs";
 import { IMP22_SPEC_IDENTITY, validateIdentity } from "../../src/imp22-sizing/identity.mjs";
@@ -122,6 +122,54 @@ test("H1/H2/H4/H7 cadena: el diseño completo pasa la validación y el gate de f
   assert.equal(validateExperimentDesign(design).ok, true, JSON.stringify(validateExperimentDesign(design).errors));
   const freeze = validateFreezeBeforeEvaluation(design);
   assert.equal(freeze.ok, true, JSON.stringify(freeze.errors));
+});
+
+// H8: un candidato null/undefined no puede crashear el registro: fail-closed.
+test("H8: un candidato nulo falla cerrado sin lanzar (§0.3; §4.2)", () => {
+  const design = deepCloneDesign(getDesign(DESIGN_IDS.GAS_MONTHLY));
+  design.candidates = [null];
+  const result = validateExperimentDesign(design);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.code === "CANDIDATE_MISSING"));
+
+  const withUndefined = deepCloneDesign(getDesign(DESIGN_IDS.GAS_MONTHLY));
+  withUndefined.candidates = [undefined];
+  assert.doesNotThrow(() => validateExperimentDesign(withUndefined));
+  assert.equal(validateExperimentDesign(withUndefined).ok, false);
+});
+
+// H9: DEP-02 (ownership de cobertura) es parte del REQUIRES_AUDIT §25.2.2.
+test("H9: los diseños predeclarados registran DEP-02 (ownership) entre sus desconocidos visibles (§25.2.2; §6.4)", () => {
+  for (const designId of Object.values(DESIGN_IDS)) {
+    const design = getDesign(designId);
+    assert.ok(design.honestUnknowns.some((unknown) => unknown.unknownId === "DEP-02"), `${designId}: honestUnknowns`);
+    assert.ok(design.honestUnknownReferenceScope.some((entry) => entry.startsWith("DEP-02")), `${designId}: referenceScope`);
+  }
+});
+
+// H10: el gate de freeze no puede ser más laxo que validateExperimentDesign.
+test("H10: el gate de freeze rechaza una reserva de otra Mission (§25.2.3; DEP-12)", () => {
+  const design = candidateWithAudit(frozenStateFor(reservedStateFor(deepCloneDesign(getDesign(DESIGN_IDS.POWER_MONTHLY)))));
+  design.attribution.arms = attributionArmsFor(design, {}).attribution.arms;
+  assert.equal(validateFreezeBeforeEvaluation(design).ok, true, "precondición: la cadena paritaria pasa el freeze");
+
+  design.reserve.missionId = "GAS-MONTHLY";
+  const freeze = validateFreezeBeforeEvaluation(design);
+  assert.equal(freeze.ok, false);
+  assert.ok(freeze.errors.some((error) => error.code === "RESERVE_MISSION_MISMATCH"));
+});
+
+// H11: la lista de campos es el contrato declarado y se exige entera.
+test("H11: IMP22_DESIGN_FIELDS incluye los campos de §25.2.1 y su ausencia se rechaza", () => {
+  for (const field of ["honestUnknownReferenceScope", "actionSpaceModification", "controllerKind", "freeze"]) {
+    assert.ok(IMP22_DESIGN_FIELDS.includes(field), `${field} debe ser contrato declarado`);
+  }
+
+  const design = deepCloneDesign(getDesign(DESIGN_IDS.GAS_MONTHLY));
+  delete design.honestUnknownReferenceScope;
+  const result = validateExperimentDesign(design);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((error) => error.code === "DESIGN_FIELD_REQUIRED" && error.field === "honestUnknownReferenceScope"));
 });
 
 function identityFixture() {

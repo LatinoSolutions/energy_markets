@@ -30,7 +30,11 @@ test("la atribución descompone Delta V en componentes timing y sizing (§13.7)"
   assert.equal(result.sizingComponentAtBaseline, 1);
   assert.equal(result.sizingComponentUnderTiming, 2);
   assert.equal(result.timingComponentUnderSizing, 3);
-  assert.equal(typeof result.interactionResidue, "number");
+  // §13.7 fija Delta V, no esta descomposición de interacción. El módulo
+  // declara su convención (residuo = timingComponent − timingComponentUnderSizing)
+  // y el test la fija explícitamente; debe consolidarse antes de usarse como
+  // DEP-18 (riesgo anotado por el review, no violación de SPEC).
+  assert.equal(result.interactionResidue, -1);
 });
 
 test("brazos ausentes o no finitos quedan HOLD sin inventar componentes (§13.7 HOLD)", () => {
