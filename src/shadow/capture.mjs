@@ -160,6 +160,7 @@ export function openShadowProgress({ session, frozen } = {}) {
     ok: true,
     progress: {
       sessionId: session.sessionId,
+      sessionContentHash: session.contentHash,
       cursor: 0,
       frontierDate: null,
       filledOnFrontier: 0,
@@ -264,8 +265,8 @@ export function captureShadowOpportunity({ session, frozen, progress, sightableP
   if (progress?.terminal === true || progress?.cursor >= opportunities.length) {
     return fail("CAPTURE_PAST_CALENDAR_END", "El calendario prospectivo ya se recorrió completo: no hay capturas fuera de cronología (§13.2).");
   }
-  if (progress?.sessionId !== session.sessionId) {
-    return fail("PROGRESS_SESSION_MISMATCH", "El progreso prospectivo pertenece a otra sesión (§15.3).");
+  if (progress?.sessionId !== session.sessionId || progress?.sessionContentHash !== session.contentHash) {
+    return fail("PROGRESS_SESSION_MISMATCH", "El progreso prospectivo pertenece a otra sesión o a otro sello de apertura (§15.3).");
   }
   if (!isFiniteNumber(progress.executedVolume) || !isFiniteNumber(progress.remainingVolume)) {
     return fail("INVALID_PROGRESS_STATE", "El progreso no declara ejecutado/restante finitos (§13.4).");
@@ -388,6 +389,7 @@ export function captureShadowOpportunity({ session, frozen, progress, sightableP
 
   const nextProgress = {
     sessionId: progress.sessionId,
+    sessionContentHash: progress.sessionContentHash,
     cursor: progress.cursor + 1,
     frontierDate: opportunity.date,
     filledOnFrontier: filledNow,

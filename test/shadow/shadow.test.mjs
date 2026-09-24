@@ -36,6 +36,18 @@ const PERMISSIONS = {
 const SESSION_START = "2021-06-21T00:00:00Z";
 const CLOSE_AT = "2021-07-01T10:00:00Z";
 
+// Progreso terminal sellado a la sesión (identidad + sello de apertura). El
+// cierre lo reconcilia contra los pasos/registros capturados (§14.5/§12.2).
+function terminalProgress(session, overrides = {}) {
+  return {
+    sessionId: session.sessionId,
+    sessionContentHash: session.contentHash,
+    executedVolume: 12,
+    remainingVolume: 0,
+    ...overrides,
+  };
+}
+
 // Recorre el calendario prospectivo completo de la versión fija: cada paso
 // ve sólo la ventana de datos llegada hasta su decision time (known-at).
 function runCapture({ session, frozen }) {
@@ -297,7 +309,7 @@ test("§15.3: al cierre, comparación con baseline A0 — divergencia de acción
   const { records, steps } = runCapture({ session, frozen });
 
   const closed = closeShadowSession({
-    session, frozen, progress: { sessionId: session.sessionId, executedVolume: 12, remainingVolume: 0 }, records, steps,
+    session, frozen, progress: terminalProgress(session), records, steps,
     closedAtUtc: CLOSE_AT, benchmarkDailyCloses: benchmarkDailyClosesFixture(),
   });
   assert.equal(closed.ok, true);
@@ -342,7 +354,7 @@ test("fail-closed: cierre sin registros no fabrica evidencia", () => {
   const { records, steps } = runCapture({ session, frozen });
 
   const empty = closeShadowSession({
-    session, frozen, progress: { sessionId: session.sessionId, executedVolume: 0, remainingVolume: 12 }, records: [], steps: [],
+    session, frozen, progress: terminalProgress(session, { executedVolume: 0, remainingVolume: 12 }), records: [], steps: [],
     closedAtUtc: CLOSE_AT,
   });
   assert.equal(empty.ok, false);
@@ -350,7 +362,7 @@ test("fail-closed: cierre sin registros no fabrica evidencia", () => {
 
   // Con non-interference rota (entrenamiento en el run) tampoco se cierra.
   const withTraining = closeShadowSession({
-    session, frozen, progress: { sessionId: session.sessionId, executedVolume: 12, remainingVolume: 0 },
+    session, frozen, progress: terminalProgress(session),
     records, steps, closedAtUtc: CLOSE_AT, trainingEvents: [{ event: "PARAMETER_UPDATE" }],
   });
   assert.equal(withTraining.ok, false);
@@ -363,7 +375,7 @@ test("§15.3: sin closed benchmark disponible la comparación queda UNAVAILABLE,
   const { records, steps } = runCapture({ session, frozen });
 
   const closed = closeShadowSession({
-    session, frozen, progress: { sessionId: session.sessionId, executedVolume: 12, remainingVolume: 0 }, records, steps,
+    session, frozen, progress: terminalProgress(session), records, steps,
     closedAtUtc: CLOSE_AT, benchmarkDailyCloses: null,
   });
   assert.equal(closed.ok, true);
@@ -378,7 +390,7 @@ test("§15.3: comparación con closed benchmark disponible — premium por fill"
 
   const slippage = executionParameterOf(fx.freezeInput.executionContract, "slippage").value;
   const closed = closeShadowSession({
-    session, frozen, progress: { sessionId: session.sessionId, executedVolume: 12, remainingVolume: 0 }, records, steps,
+    session, frozen, progress: terminalProgress(session), records, steps,
     closedAtUtc: CLOSE_AT, benchmarkDailyCloses: benchmarkDailyClosesFixture(),
   });
   assert.equal(closed.ok, true);
@@ -394,7 +406,7 @@ test("§15.3/§25.1: las correcciones viven en receipts separados; el original n
   const session = openShadowSession({ frozen, startedAtUtc: SESSION_START, prospectivePermissions: PERMISSIONS, synthetic: true }).session;
   const { records, steps } = runCapture({ session, frozen });
   const closed = closeShadowSession({
-    session, frozen, progress: { sessionId: session.sessionId, executedVolume: 12, remainingVolume: 0 }, records, steps,
+    session, frozen, progress: terminalProgress(session), records, steps,
     closedAtUtc: CLOSE_AT, benchmarkDailyCloses: benchmarkDailyClosesFixture(),
   });
   const receipt = closed.receipt;
@@ -431,4 +443,72 @@ test("§15.3/§25.1: las correcciones viven en receipts separados; el original n
   const noReason = applyShadowCorrection({ receipt, correction: { targetRecordId: receipt.originalRecordIds[0], correctedRecordId: "z" } });
   assert.equal(noReason.ok, false);
   assert.equal(noReason.code, "INVALID_CORRECTION");
+});
+
+test("§15.3/§12.1: un posterior forjado anterior a la recomendación rompe el non-interference (TEMPORAL_INTERFERENCE)", () => {
+  const { frozen } = frozenShadowFixture();
+  const session = openShadowSession({ frozen, startedAtUtc: SESSION_START, prospectivePermissions: PERMISSIONS, synthetic: true }).session;
+  const { records, steps } = runCapture({ session, frozen });
+  assert.equal(verifyShadowNonInterference({ session, frozen, records, steps }).ok, true);
+
+  // El verificador compara la recomendación contra la trayectoria posterior
+  // real, no contra la etiqueta: un posterior anterior a la recomendación
+  // pasa a fallar temporalmente.
+  const forgedSteps = steps.map((step, index) => index === 0
+    ? { ...step, posteriorTrajectory: [{ timestamp: "2021-06-22T09:59:00Z", bestAsk: 40.1 }] }
+    : step);
+  const outcome = verifyShadowNonInterference({ session, frozen, records, steps: forgedSteps });
+  assert.equal(outcome.ok, false);
+  const temporal = outcome.checks.find((check) => check.code === "RECOMMENDATION_BEFORE_POSTERIOR");
+  assert.equal(temporal.ok, false);
+  assert.match(temporal.reason, /TEMPORAL_INTERFERENCE/);
+});
+
+test("§25.2.1/§15.3: la identidad de sesión liga la apertura; la captura cruzada queda fail-closed", () => {
+  const { frozen } = frozenShadowFixture();
+  const first = openShadowSession({ frozen, startedAtUtc: SESSION_START, prospectivePermissions: PERMISSIONS, synthetic: true });
+  const second = openShadowSession({ frozen, startedAtUtc: "2021-06-21T01:00:00Z", prospectivePermissions: PERMISSIONS, synthetic: true });
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  // Dos aperturas del mismo experimento son instancias distintas.
+  assert.notEqual(first.session.sessionId, second.session.sessionId);
+  assert.notEqual(first.session.contentHash, second.session.contentHash);
+
+  const progressOfFirst = openShadowProgress({ session: first.session, frozen }).progress;
+  assert.equal(progressOfFirst.sessionId, first.session.sessionId);
+  assert.equal(progressOfFirst.sessionContentHash, first.session.contentHash);
+
+  // Progreso de una apertura contra otra: rechazado por identidad y por sello.
+  const crossed = captureShadowOpportunity({ session: second.session, frozen, progress: progressOfFirst });
+  assert.equal(crossed.ok, false);
+  assert.equal(crossed.code, "PROGRESS_SESSION_MISMATCH");
+
+  const forgedProgress = { ...progressOfFirst, sessionId: second.session.sessionId };
+  const forged = captureShadowOpportunity({ session: second.session, frozen, progress: forgedProgress });
+  assert.equal(forged.ok, false);
+  assert.equal(forged.code, "PROGRESS_SESSION_MISMATCH");
+});
+
+test("§14.5/§12.2: el cierre reconcilia el progreso contra los pasos/registros capturados", () => {
+  const { frozen } = frozenShadowFixture();
+  const session = openShadowSession({ frozen, startedAtUtc: SESSION_START, prospectivePermissions: PERMISSIONS, synthetic: true }).session;
+  const { records, steps } = runCapture({ session, frozen });
+
+  // Un progreso del caller incoherente con la captura no fabrica un receipt.
+  const inconsistent = closeShadowSession({
+    session, frozen,
+    progress: terminalProgress(session, { executedVolume: 6, remainingVolume: 6 }),
+    records, steps, closedAtUtc: CLOSE_AT,
+  });
+  assert.equal(inconsistent.ok, false);
+  assert.equal(inconsistent.code, "SHADOW_PROGRESS_INCONSISTENT");
+
+  // El terminal del receipt sale de los registros capturados, no del caller.
+  const consistent = closeShadowSession({
+    session, frozen, progress: terminalProgress(session), records, steps, closedAtUtc: CLOSE_AT,
+  });
+  assert.equal(consistent.ok, true);
+  assert.equal(consistent.receipt.terminalCoverage.executedVolume, 12);
+  assert.equal(consistent.receipt.terminalCoverage.remainingVolume, 0);
+  assert.equal(consistent.receipt.terminalCoverage.status, "COVERED");
 });

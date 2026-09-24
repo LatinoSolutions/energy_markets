@@ -99,10 +99,39 @@ export function openShadowSession(input = {}) {
   }
   const identity = identityOutcome.identity;
 
+  const prospectivePermissions = {
+    ...input.prospectivePermissions,
+    permissionRefs: [...input.prospectivePermissions.permissionRefs],
+  };
+  const synthetic = input.synthetic === true;
+
+  // §25.2.1/§15.3: la identidad de la sesión liga la APERTURA concreta, no sólo
+  // el experimento. Dos aperturas del mismo experimento (distinto instante,
+  // permisos o sello congelado) son instancias distintas y no pueden compartir
+  // sessionId; el binding de progreso posterior usa esa identidad.
+  const openingSeed = contentHashOf({
+    experiment: {
+      experimentId: frozen.experiment.experimentId,
+      experimentVersion: frozen.experiment.experimentVersion,
+    },
+    campaignId: identity.campaignId,
+    policyVersion: identity.armVersion,
+    sizingControllerVersion: versionKeyOf({ contentHash: identity.controllerHash }),
+    datasetManifestId: frozen.datasetManifest?.manifestId ?? null,
+    datasetManifestVersion: frozen.datasetManifest?.manifestVersion ?? null,
+    frozenManifestContentHash: frozen.contentHash,
+    frozenAtUtc: frozen.frozenAtUtc,
+    startedAtUtc: startedAt.utc,
+    prospectivePermissions,
+    synthetic,
+    declaredAuthority: SHADOW_DECLARED_AUTHORITY,
+    realOrderChannel: null,
+  });
+
   const core = {
     artifactKind: SHADOW_SESSION_KIND,
     schemaVersion: SHADOW_SCHEMA_VERSION,
-    sessionId: `SHADOW-${frozen.experiment.experimentId}`,
+    sessionId: `SHADOW-${frozen.experiment.experimentId}-${openingSeed.slice(0, 16)}`,
     forwardKind: "PROSPECTIVE_CAPTURE",
     experiment: {
       experimentId: frozen.experiment.experimentId,
@@ -118,8 +147,8 @@ export function openShadowSession(input = {}) {
     frozenManifestContentHash: frozen.contentHash,
     frozenAtUtc: frozen.frozenAtUtc,
     startedAtUtc: startedAt.utc,
-    prospectivePermissions: { ...input.prospectivePermissions, permissionRefs: [...input.prospectivePermissions.permissionRefs] },
-    synthetic: input.synthetic === true,
+    prospectivePermissions,
+    synthetic,
     status: "OPEN",
   };
   const contentHash = contentHashOf(core);

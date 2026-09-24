@@ -31,6 +31,37 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// §14.5/§12.2: el estado terminal del cierre se DERIVA de los pasos/registros
+// capturados, no se confía al caller. Cada step referencia un registro; el
+// último registro aporta executed/remaining, y la conservación opening =
+// executed + remaining debe cumplirse. Un estado incoherente no cierra.
+function deriveTerminalState({ records, steps, openingObligation }) {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return fail("EMPTY_SHADOW_CAPTURE", "Una sesión Shadow sin pasos capturados no produce evidencia (§15.3).");
+  }
+  const recordById = new Map(records.map((record) => [record?.recordId ?? null, record]));
+  let terminalRecord = null;
+  for (const [index, step] of steps.entries()) {
+    const record = step?.recordId != null ? recordById.get(step.recordId) : null;
+    if (!record) {
+      return fail("STEP_RECORD_MISSING", `El step ${step?.sequence ?? index + 1} no referencia un registro capturado (§12.2).`);
+    }
+    if (step?.sequence !== index + 1) {
+      return fail("STEP_SEQUENCE_BROKEN", `El step ${step?.sequence ?? index + 1} rompe la cronología capturada (§13.2).`);
+    }
+    terminalRecord = record;
+  }
+  const executedVolume = terminalRecord?.nextState?.executedVolume;
+  const remainingVolume = terminalRecord?.nextState?.remainingVolume;
+  if (!isFiniteNumber(executedVolume) || !isFiniteNumber(remainingVolume)) {
+    return fail("TERMINAL_STATE_UNREADABLE", "El estado terminal hipotético del último registro capturado no es legible (§14.5).");
+  }
+  if (executedVolume + remainingVolume !== openingObligation) {
+    return fail("SHADOW_CONSERVATION_VIOLATION", `Opening ${openingObligation} ≠ executed ${executedVolume} + remaining ${remainingVolume} sobre la captura (§14.5).`);
+  }
+  return { ok: true, executedVolume, remainingVolume };
+}
+
 // §15.3: comparación con el baseline (A0 calendar-only del manifest congelado)
 // por frontera: acción y cantidad solicitada. Las divergencias se conservan,
 // no se suavizan.
@@ -134,9 +165,17 @@ export function closeShadowSession({ session, frozen, progress, records = [], st
   if (!nonInterference.ok) {
     return fail(nonInterference.code, "El cierre exige non-interference verificada: se demuestra comparando, no afirmando (§25.1).", { nonInterference });
   }
+  const opening = frozen.frozenBundles.a1.openingContract;
+  const terminal = deriveTerminalState({ records, steps, openingObligation: opening.openingObligation });
+  if (!terminal.ok) {
+    return terminal;
+  }
   if (!progress || progress?.sessionId !== session?.sessionId
-    || !isFiniteNumber(progress.executedVolume) || !isFiniteNumber(progress.remainingVolume)) {
-    return fail("INVALID_SHADOW_PROGRESS", "El cierre exige el progreso prospectivo residente de la sesión (§13.4).");
+    || progress?.sessionContentHash !== session?.contentHash
+    || !isFiniteNumber(progress.executedVolume) || !isFiniteNumber(progress.remainingVolume)
+    || progress.executedVolume !== terminal.executedVolume
+    || progress.remainingVolume !== terminal.remainingVolume) {
+    return fail("SHADOW_PROGRESS_INCONSISTENT", "El progreso del cierre no coincide con el estado terminal derivado de los pasos/registros capturados (§14.5/§12.2).");
   }
   const closedAt = toUtcTimestamp(closedAtUtc);
   if (!closedAt.ok) {
@@ -159,18 +198,17 @@ export function closeShadowSession({ session, frozen, progress, records = [], st
     closedRecords.push(closed.record);
   }
 
-  const opening = frozen.frozenBundles.a1.openingContract;
   const comparisons = {
     baseline: compareWithBaseline({ frozen, steps }),
     benchmark: compareWithClosedBenchmark({ benchmarkDailyCloses, steps }),
   };
   const terminalCoverage = {
     openingObligation: opening.openingObligation,
-    executedVolume: progress.executedVolume,
-    remainingVolume: progress.remainingVolume,
+    executedVolume: terminal.executedVolume,
+    remainingVolume: terminal.remainingVolume,
     unit: opening.unit,
     conservationDeclaration: "Opening = Executed(hypothetical) + Remaining (§14.5 sobre el estado hipotético Shadow)",
-    status: progress.remainingVolume === 0 ? "COVERED" : "COVERAGE_INCOMPLETE",
+    status: terminal.remainingVolume === 0 ? "COVERED" : "COVERAGE_INCOMPLETE",
   };
 
   const core = {

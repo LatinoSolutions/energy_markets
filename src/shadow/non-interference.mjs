@@ -30,7 +30,7 @@ function check(session, frozen, recordsList, stepsList, trainingEvents) {
     trainingCheck(trainingEvents),
     realOrdersCheck(session, recordsList),
     sourceSeparationCheck(recordsList, stepsList),
-    temporalOrderCheck(recordsList),
+    temporalOrderCheck(recordsList, stepsList),
   ];
 }
 
@@ -103,18 +103,41 @@ function uniqueRecordIds(recordsList) {
   return ids.every((id) => id !== null) && new Set(ids).size === ids.length;
 }
 
-// §15.3: la recomendación existe y su timestamp precede a todo dato posterior
-// registrado en su fila de captura; nada se re-timestampa.
-function temporalOrderCheck(recordsList) {
+// §15.3: la recomendación existe y su timestamp precede a TODO dato posterior
+// registrado en su fila de captura; nada se re-timestampa. La verificación
+// compara la recomendación contra la trayectoria posterior real de cada step
+// (no confía en la etiqueta): un posterior con timestamp <= recomendación es
+// interferencia temporal y rompe el non-interference.
+function temporalOrderCheck(recordsList, stepsList) {
   for (const record of recordsList) {
     const recommendedAt = record?.recommendedAtUtc;
     if (typeof recommendedAt !== "string") {
       return { code: "RECOMMENDATION_BEFORE_POSTERIOR", ok: false, reason: `record ${record?.recordId ?? "?"} sin recommendedAtUtc (§12.2)` };
     }
-    const recommendedMs = Date.parse(recommendedAt);
-    if (!Number.isFinite(recommendedMs)) {
+    if (!Number.isFinite(Date.parse(recommendedAt))) {
       return { code: "RECOMMENDATION_BEFORE_POSTERIOR", ok: false, reason: `record ${record?.recordId ?? "?"} con recommendedAtUtc no parseable (§6.1)` };
     }
   }
-  return { code: "RECOMMENDATION_BEFORE_POSTERIOR", ok: true, reason: "recomendaciones timestamped; nada se re-timestampa (§15.3)" };
+
+  const recordsById = new Map(recordsList.map((record) => [record?.recordId ?? null, record]));
+  for (const step of stepsList) {
+    const linkedRecord = step?.recordId != null ? recordsById.get(step.recordId) : null;
+    const recommendedAt = linkedRecord?.recommendedAtUtc ?? step?.decisionTimeUtc;
+    const recommendedMs = Date.parse(recommendedAt);
+    if (typeof recommendedAt !== "string" || !Number.isFinite(recommendedMs)) {
+      return { code: "RECOMMENDATION_BEFORE_POSTERIOR", ok: false, reason: `step ${step?.sequence ?? "?"} sin tiempo de recomendación anclado (§6.1)` };
+    }
+    const posterior = Array.isArray(step?.posteriorTrajectory) ? step.posteriorTrajectory : [];
+    for (const observation of posterior) {
+      const posteriorMs = Date.parse(observation?.timestamp);
+      if (!Number.isFinite(posteriorMs) || posteriorMs <= recommendedMs) {
+        return {
+          code: "RECOMMENDATION_BEFORE_POSTERIOR",
+          ok: false,
+          reason: `TEMPORAL_INTERFERENCE: step ${step?.sequence ?? "?"} registra un posterior ${observation?.timestamp ?? "?"} no posterior a la recomendación ${recommendedAt} (§15.3/§12.1)`,
+        };
+      }
+    }
+  }
+  return { code: "RECOMMENDATION_BEFORE_POSTERIOR", ok: true, reason: "recomendaciones timestamped y anteriores a toda trayectoria posterior; nada se re-timestampa (§15.3)" };
 }
