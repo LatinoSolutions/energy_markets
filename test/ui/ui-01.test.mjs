@@ -627,7 +627,7 @@ test("campaigns: un run canónico ofrece drill-downs visibles y sección de rece
   }
   // los receipts del run sin productor aceptado quedan declarados, no impresos como valor
   assert.match(html, /data-kind="pending"/);
-  assert.match(html, /sin receipts de run aceptados/);
+  assert.match(html, /ningún run receipt IMP-14\/IMP-16 persistido/);
 });
 
 // OI79-UI01-04 (review 2026-09-23): todos los renderers de página exportados

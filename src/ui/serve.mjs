@@ -15,6 +15,7 @@ import {
   DEFAULT_UI_HOST,
   DEFAULT_UI_PORT,
 } from "./server.mjs";
+import { loadCanonicalUiInputs } from "./canonical-inputs.mjs";
 
 function parseArgs(argv) {
   const options = { host: DEFAULT_UI_HOST, port: DEFAULT_UI_PORT };
@@ -48,11 +49,12 @@ function parseArgs(argv) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const { server, ready } = createUiServer({ host: options.host, port: options.port });
+const canonical = loadCanonicalUiInputs();
+const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port });
 const served = await ready;
 console.log(`Energy Markets Operator UI: ${served.url}`);
 console.log("rutas: / (navegación) · /replay · /backtests · /research · /campaigns · /health");
-console.log("estado de datos: fail-closed sin manifest backend verificado (ningún dato de muestra).");
+console.log(`backend canónico: manifest=${canonical.backend.manifestLoaded} records=${canonical.backend.recordCount} valores atestados=${canonical.backend.bindableIdentities} errores=${canonical.backend.errors.length}`);
 const stop = () => new Promise((resolve) => server.close(resolve));
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, async () => {

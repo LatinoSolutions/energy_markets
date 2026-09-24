@@ -100,10 +100,10 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [] } = {})
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
     pendingComparisons: [
-      { label: "B / H / V / ΔV", status: "UNAVAILABLE", reason: "sin runs P5/P6 aceptados en el backend; IMP-05/IMP-07/IMP-12/IMP-16 pendientes" },
+      { label: "B / H / V / ΔV", status: "UNAVAILABLE", reason: "sin run P5/P6 persistido sobre un episodio real: IMP-05/07/12/16 aceptados como código, OOS en HOLD (IMP-09) y sin price series atestada (UI-04 TODO)" },
       { label: "Efectos emparejados por campaña", status: "UNAVAILABLE", reason: "sin pares A0/A1 registrados en el backend" },
       { label: "Distribuciones", status: "UNAVAILABLE", reason: "sin distribución de resultados canónica; no se fabrica (§26.5)" },
-      { label: "Contexto de integridad/método", status: "UNAVAILABLE", reason: "receipts de run e integridad OOS aún no producidos (IMP-14/IMP-16)" },
+      { label: "Contexto de integridad/método", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14 ni reserva OOS sellada en disco (IMP-09: HOLD, 0 sellados)" },
     ],
   };
 }
@@ -154,7 +154,7 @@ export function buildResearchViewModel({ backendIndex = null, records = [] } = {
     hasAnyBoundData: strategies.some((item) => item.status === "BOUND"),
     pendingSections: [
       { label: "Experiment / version lineage", status: "UNAVAILABLE", reason: "sin lineage canónico proveniente del backend" },
-      { label: "Evidence / receipts", status: "UNAVAILABLE", reason: "sin run receipts aceptados (IMP-14 pendiente)" },
+      { label: "Evidence / receipts", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14 persistido en disco; el productor existe como código" },
     ],
   };
 }
@@ -217,7 +217,7 @@ export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], r
     // backend no respalda.
     drilldownTargets: Object.freeze(["replay", "backtests", "research"]),
     pendingRunReceipts: [
-      { label: "Receipts de run", status: "UNAVAILABLE", reason: "sin receipts de run aceptados en el backend (IMP-14/IMP-16 pendientes); no se fabrican" },
+      { label: "Receipts de run", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14/IMP-16 persistido en disco; no se fabrican" },
     ],
   };
 }

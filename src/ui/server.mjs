@@ -97,7 +97,9 @@ export function buildUiViewModels(inputs = {}) {
   };
 }
 
-function healthPayload(viewModels) {
+const NO_BACKEND = Object.freeze({ manifestLoaded: false, recordCount: 0, bindableIdentities: 0, sources: [], gaps: [], errors: [] });
+
+function healthPayload(viewModels, backend) {
   const surfaces = {};
   for (const surface of SURFACES_LIST) {
     const vm = viewModels[surface];
@@ -111,6 +113,7 @@ function healthPayload(viewModels) {
     service: "energy-markets-operator-ui",
     visualLanguage: VISUAL_LANGUAGE_ID,
     surfaces,
+    backend,
   };
 }
 
@@ -127,9 +130,11 @@ function sendResponse(res, { status, contentType, body }) {
   res.end(body);
 }
 
-export function createUiServer({ inputs = {}, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT } = {}) {
+// `backend` describe qué cargó el arrancador (ver ./canonical-inputs.mjs), para que
+// /health distinga "sin manifest" de "manifest cargado con 0 valores atestados".
+export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT } = {}) {
   const viewModels = buildUiViewModels(inputs);
-  const healthJson = JSON.stringify(healthPayload(viewModels));
+  const healthJson = JSON.stringify(healthPayload(viewModels, backend));
 
   const server = createServer((req, res) => {
     const method = req.method ?? "GET";
