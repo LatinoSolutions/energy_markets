@@ -247,11 +247,13 @@ export function resolveEligibilityBasis(campaigns) {
 }
 
 // Identidad de la SPEC que gobierna la reserva. Debe coincidir con la SPEC
-// vigente declarada en el repositorio.
+// vigente declarada en el repositorio. El hash es el del doc canónico actual
+// (docs/canonical/v1_1_1/SHA256SUMS), que cambió con el owner patch
+// EM-SPEC-OWNER-PATCH-2026-09-24-01 (rebind del handoff a la Oficina canónica).
 export const IMP09_SPEC_IDENTITY = {
   id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
   version: "1.1.1",
-  sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
+  sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b",
 };
 
 export function validateSpecIdentity(spec) {

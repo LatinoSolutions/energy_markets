@@ -4,7 +4,9 @@
 // (tooling reportado: `src/economic-calculation/benchmark.mjs`, aceptado en
 // IMP-08, y `/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py`)
 // y §25.1 IMP-04 ("Interfaces reales, fixtures sintéticos, constraints de
-// uso"). Los hashes son de los bytes presentes en este worktree.
+// uso"). Los hashes son de los bytes presentes en este worktree. El hash de la
+// SPEC (d1bb4172…) es el del doc canónico vigente tras el owner patch
+// EM-SPEC-OWNER-PATCH-2026-09-24-01 (docs/canonical/v1_1_1/SHA256SUMS).
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -259,7 +261,7 @@ const EEX_READER = Object.freeze({
     Object.freeze({ kind: "source", ref: "/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py", sha256: "01353f730d1bcba4a6cf83098b43914ee743212006aedf7ce8e548a95e491740" }),
     Object.freeze({ kind: "package-manifest", ref: "/home/op/apps/power-markets-explorer/package.json", sha256: "7b74c57654ddcb4465d526e8a04e428a7c9b78000b42a0898f26be0278d69037" }),
     EEX_DATA_USAGE_AUTHORIZATION,
-    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b" }),
   ]),
 });
 
@@ -358,7 +360,7 @@ const EEX_READ_ENVIRONMENT = Object.freeze({
     Object.freeze({ kind: "installed-package", ref: "/home/op/apps/power-markets-explorer/.venv-data/lib/python3.13/site-packages/pyarrow-25.0.1.dist-info/RECORD", sha256: "c2658c5e3b843700ad96e5173d6006a889edeaa2f4a8351118f64fb25a3b55ca" }),
     ...EEX_LAKE_SCHEMA_SAMPLES.map(({ ref, sha256 }) => Object.freeze({ kind: "data-schema-sample", ref, sha256 })),
     EEX_DATA_USAGE_AUTHORIZATION,
-    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b" }),
   ]),
 });
 
@@ -378,13 +380,13 @@ export const REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID = "power-markets-explorer.ve
 export const REAL_TOOLING_INVENTORY = Object.freeze({
   componentIds: Object.freeze([REAL_BENCHMARK_COMPONENT_ID, REAL_EEX_READER_COMPONENT_ID, REAL_EEX_READ_ENVIRONMENT_COMPONENT_ID]),
   evidenceRefs: Object.freeze([
-    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md#6.5-tooling-y-benchmark", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+    Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md#6.5-tooling-y-benchmark", sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b" }),
   ]),
 });
 
 export const REAL_SELECTION_EVIDENCE = Object.freeze([
   Object.freeze({ kind: "accepted-receipt", ref: "operations/receipts/IMP-08-IMP_RECEIPT.json", sha256: "43b56173f021331a889393d3697f1ca8bdf40491e450798238044ac8decc9625" }),
-  Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+  Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b" }),
 ]);
 
 // Entradas sintéticas permitidas, tomadas de los fixtures documentales de
@@ -580,14 +582,14 @@ export function buildEexReadEnvironmentReconciliation({ python = EEX_VENV_PYTHON
 export const REAL_READ_SELECTION_EVIDENCE = Object.freeze([
   EEX_DATA_USAGE_AUTHORIZATION,
   ...EEX_LAKE_SCHEMA_SAMPLES.map(({ ref, sha256 }) => Object.freeze({ kind: "data-schema-sample", ref, sha256 })),
-  Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" }),
+  Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b" }),
 ]);
 
 // Búsqueda de la fuente oficial de settlement en fuentes canónicas y
 // accesibles, como pide P-005 antes de preguntar a Bru. Ninguna la nombra.
 export const EEX_LAKE_ROOT = "/srv/hot-data/EEX";
 export const OFFICIAL_SETTLEMENT_SOURCE_SEARCH = Object.freeze([
-  Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3", finding: "§5.4 exige alinear el proxy «con un feed oficial o externo autorizado» sin nombrarlo; §6.5 sólo registra raíces eex_derivative_trade y eex_derivative_top_of_book." }),
+  Object.freeze({ kind: "spec", ref: "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b", finding: "§5.4 exige alinear el proxy «con un feed oficial o externo autorizado» sin nombrarlo; §6.5 sólo registra raíces eex_derivative_trade y eex_derivative_top_of_book." }),
   Object.freeze({ kind: "data-lake-listing", ref: EEX_LAKE_ROOT, finding: "El lago sólo contiene table=eex_derivative_trade y table=eex_derivative_top_of_book; no hay tabla de settlement." }),
   Object.freeze({ kind: "audit-input", ref: "docs/canonical/v1_1_1/sources/AUDIT_INPUTS_ENERGY_MARKETS.md", sha256: "96e0b76356f901acdaf4fed9634908818ecd4d78627955d7217792367143710f", finding: "§9 punto 3 lista «fuente oficial de settlement y sus revisiones/publication timestamps» como paquete externo pendiente." }),
   Object.freeze({ kind: "historical-provenance", ref: "/srv/hot-data/energy-markets/reference/documentation/eex-reference-price.md", sha256: "dfa9cfc8e84f27ea5440ff6c5968654999b71e0c6c7370ec6653178c8e71e260", finding: "D16 §4: la credencial recibió históricamente HTTP 403 en el endpoint de settlement «spr»; por eso existe el camino derivado." }),
