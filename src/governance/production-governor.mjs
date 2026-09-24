@@ -492,6 +492,12 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   }
 
   function holdFirstActivation({ triggerGate = "G_DEP25_FIRST_ACTIVATION", triggerEvidenceRef, policyVersion, atUtc }) {
+    // §18.4: el HOLD no mueve la Policy Version ni el nivel operativo: la
+    // versión permanece en Shadow y el acto no se registra. Nombrar aquí un
+    // nivel de autonomía (la antigua etiqueta @A1, de cuando este acto movía
+    // A0→A1) contradecía el campo `autonomyLevel` bajo A0/A2+ dentro del mismo
+    // receipt; "Nuevo estado/versión" debe declarar la frontera de etapa
+    // ( IMP24-HOLD-RECEIPT-A1-LABEL ).
     const held = registerTransition({
       registry,
       input: {
@@ -499,7 +505,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         triggerGate,
         triggerEvidenceRef,
         previousState: `${policyVersion}@SHADOW`,
-        newState: `${policyVersion}@A1:HELD`,
+        newState: `${policyVersion}@SHADOW:HELD`,
         autonomyLevel: state.level,
         envelopeVersionKey,
         atUtc,

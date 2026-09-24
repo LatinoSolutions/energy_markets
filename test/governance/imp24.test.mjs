@@ -353,6 +353,25 @@ test("IMP-24: sin aprobación humana explícita de DEP-25 no hay primera activac
   }
 });
 
+test("IMP-24: el receipt HOLD de primera activación declara la frontera de etapa, coherente con el nivel operativo (IMP24-HOLD-RECEIPT-A1-LABEL)", () => {
+  // §18.4: "Nuevo estado/versión" y "Nivel de autonomía" deben ser coherentes
+  // dentro del mismo receipt. La primera activación no mueve el nivel
+  // operativo (§18.3), así que el HOLD no puede declarar un nivel A1 cuando el
+  // governor opera en A0/A2/A3/A4.
+  for (const level of ["A0", "A1", "A2", "A3", "A4"]) {
+    const judge = buildGovernor({ autonomyLevel: level });
+    const result = judge.considerFirstActivation(firstActivationInput({ humanApproval: null }));
+    assert.equal(result.ok, false, `${level}: sin aprobación no hay activación`);
+    const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+    assert.equal(holds.length, 1, `${level}: HOLD reconstruible registrado`);
+    const receipt = holds[0];
+    assert.equal(receipt.autonomyLevel, level, `${level}: el receipt declara el nivel operativo vigente`);
+    assert.equal(receipt.previousState, "v1.0@SHADOW");
+    assert.equal(receipt.newState, "v1.0@SHADOW:HELD", `${level}: el HOLD conserva la versión en Shadow`);
+    assert.equal(receipt.newState.includes("@A1"), false, `${level}: el HOLD no declara un nivel A1 que contradiga autonomyLevel`);
+  }
+});
+
 test("IMP-24: con evidencia y APG del fixture válidos y aprobación explícita: PROMOTE a A1", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
   const result = judge.considerFirstActivation(firstActivationInput());
