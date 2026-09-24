@@ -1,0 +1,1196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energy Markets — Procurement Research · Claude blind design proposal (DES-01)</title>
+<!--
+  DES-01 blind design proposal. Standalone, no network, no build step.
+  ALL DATA IN THIS FILE IS SYNTHETIC (ids prefixed SYN-). Nothing here is real market,
+  client, or system data. Source of the brief: BRIEF.md (repo root).
+-->
+<style>
+:root {
+  --paper: #f3f1eb;
+  --surface: #fbfaf7;
+  --surface-2: #f7f5f0;
+  --ink: #1a1d21;
+  --ink-2: #474a50;
+  --ink-3: #75777c;
+  --rule: #d9d5cb;
+  --rule-2: #e7e3da;
+
+  /* Temporal grammar — the core of the system (BRIEF.md "Semantic constraints") */
+  --asof: #23476b;          /* decision-time: what was known at T0 */
+  --asof-bg: #e8edf3;
+  --exec: #3d4148;          /* execution window: after T0, before evaluation */
+  --exec-bg: #eeede9;
+  --hind: #8a4b0f;          /* evaluation / hindsight: known only later */
+  --hind-bg: #f6ecdc;
+  --hatch-hind: repeating-linear-gradient(135deg, #f6ecdc 0 6px, #efdfc4 6px 7px);
+
+  /* Epistemic states */
+  --unk: #6b3d7b;
+  --unk-bg: repeating-linear-gradient(45deg, #f3ecf5 0 5px, #e6d8eb 5px 6px);
+  --pass: #2f6b3a;
+  --pass-bg: #e6efe5;
+  --fail: #a3312a;
+  --fail-bg: #f6e3e0;
+  --warn: #8a6100;
+  --warn-bg: #f6edd6;
+
+  /* Arms — validated categorical slots 1–3 (all-pairs PASS, light surface) */
+  --arm-base: #2a78d6;
+  --arm-a: #eb6834;
+  --arm-b: #1baf7a;
+
+  --auth: #2b2a4a;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "DejaVu Serif", serif;
+  --sans: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 13.5px/1.45 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+a { color: inherit; }
+.mono { font-family: var(--mono); font-size: 12px; letter-spacing: -0.01em; }
+.muted { color: var(--ink-3); }
+.ink2 { color: var(--ink-2); }
+.small { font-size: 12px; }
+.tiny { font-size: 11px; }
+.caps { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+.right { text-align: right; }
+.row { display: flex; gap: 12px; align-items: center; }
+.row.wrap { flex-wrap: wrap; }
+.grow { flex: 1; }
+.sp { height: 16px; }
+
+/* ---------- Synthetic banner ---------- */
+.synth {
+  background: repeating-linear-gradient(135deg, #1a1d21 0 14px, #2b2f35 14px 28px);
+  color: #f3f1eb;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: .06em;
+  text-align: center;
+  padding: 6px 12px;
+}
+.synth b { color: #ffd98a; }
+
+/* ---------- Header ---------- */
+header.top {
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: stretch; gap: 24px;
+  padding: 0 20px;
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; flex-direction: column; justify-content: center; padding: 10px 0; min-width: 190px; }
+.brand .name { font: 600 18px/1.1 var(--serif); letter-spacing: -.01em; }
+.brand .sub { font-size: 11px; color: var(--ink-3); letter-spacing: .04em; }
+nav.ws { display: flex; gap: 2px; }
+nav.ws a {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 16px; text-decoration: none; color: var(--ink-2);
+  border-bottom: 3px solid transparent; min-width: 150px; white-space: nowrap;
+}
+nav.ws a .k { font: 11px var(--mono); color: var(--ink-3); }
+nav.ws a .t { font-weight: 600; }
+nav.ws a:hover { background: var(--surface-2); }
+nav.ws a.on { color: var(--ink); border-bottom-color: var(--ink); background: var(--paper); }
+.top .tools { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.btn {
+  white-space: nowrap;
+  border: 1px solid var(--rule); background: var(--surface); border-radius: 4px;
+  padding: 5px 10px; cursor: pointer; font-size: 12.5px;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.link { border-color: transparent; background: none; text-decoration: underline; text-underline-offset: 3px; padding: 2px 4px; }
+.clock { font: 11.5px var(--mono); color: var(--ink-2); text-align: right; line-height: 1.3; white-space: nowrap; }
+
+/* ---------- Context strip ---------- */
+.ctx {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 8px 20px; border-bottom: 1px solid var(--rule);
+  background: var(--surface-2); font-size: 12.5px;
+}
+.ctx .sep { color: var(--ink-3); }
+.ctx a { text-decoration: none; border-bottom: 1px dotted var(--ink-3); }
+
+main { padding: 18px 20px 60px; max-width: 1600px; margin: 0 auto; }
+
+/* ---------- Surfaces ---------- */
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.card > .hd { padding: 10px 14px; border-bottom: 1px solid var(--rule-2); display: flex; align-items: baseline; gap: 10px; }
+.card > .hd h3 { margin: 0; font: 600 14px/1.2 var(--sans); }
+.card > .bd { padding: 12px 14px; }
+h1.page { font: 600 24px/1.15 var(--serif); margin: 0 0 2px; letter-spacing: -.01em; }
+h2.sec { font: 600 16px/1.2 var(--serif); margin: 22px 0 10px; }
+.lede { color: var(--ink-2); max-width: 880px; margin: 0; }
+.grid { display: grid; gap: 14px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.split { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+table.t td { padding: 8px 10px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+table.t tr:last-child td { border-bottom: 0; }
+table.t tr.sel td { background: #efece4; }
+table.t tr.click { cursor: pointer; }
+table.t tr.click:hover td { background: var(--surface-2); }
+
+/* ---------- Epistemic chips ---------- */
+.st { display: inline-flex; align-items: center; gap: 5px; border-radius: 3px; padding: 1px 7px 1px 5px; font-size: 11.5px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; line-height: 18px; }
+.st .g { font-family: var(--mono); font-weight: 700; }
+.st.pass { color: var(--pass); background: var(--pass-bg); }
+.st.fail { color: var(--fail); background: var(--fail-bg); }
+.st.warn { color: var(--warn); background: var(--warn-bg); }
+.st.unk  { color: var(--unk); background: var(--unk-bg); border-color: #cdb8d6; }
+.st.open { color: var(--ink-2); background: var(--surface); border: 1px dashed var(--ink-3); }
+.st.na   { color: var(--ink-3); background: transparent; border: 1px solid var(--rule); font-weight: 500; }
+.st.run  { color: var(--asof); background: var(--asof-bg); }
+
+/* Explicit unknown value — never blank, never zero */
+.unkv { display: inline-block; background: var(--unk-bg); color: var(--unk); border: 1px solid #cdb8d6; border-radius: 3px; padding: 0 6px; font: 600 11.5px/18px var(--mono); }
+.openv { display: inline-block; border: 1px dashed var(--ink-3); color: var(--ink-2); border-radius: 3px; padding: 0 6px; font: 600 11.5px/18px var(--mono); }
+
+/* Temporal zone tags */
+.zt { display: inline-flex; gap: 6px; align-items: center; font: 600 10.5px/1 var(--mono); letter-spacing: .05em; padding: 4px 7px; border-radius: 3px; text-transform: uppercase; }
+.zt.asof { background: var(--asof); color: #fff; }
+.zt.exec { background: var(--exec); color: #fff; }
+.zt.hind { background: var(--hind); color: #fff; }
+
+/* Evidence vs authority */
+.ev { white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; font: 600 10.5px/1 var(--mono); letter-spacing: .05em; padding: 3px 6px; border: 1px solid var(--ink-3); color: var(--ink-2); border-radius: 3px; background: var(--surface); }
+.auth-box { border: 3px double var(--auth); border-radius: 4px; padding: 12px 14px; background: #f4f3f8; }
+.auth-box .seal { font: 700 10.5px/1 var(--mono); letter-spacing: .1em; color: var(--auth); }
+
+/* Provenance-bearing values: dotted underline, click to inspect */
+.pv { background: none; border: 0; padding: 0; cursor: pointer; border-bottom: 1px dotted var(--ink-3); font: inherit; color: inherit; text-align: left; }
+.pv:hover { background: #ebe7dc; border-bottom-color: var(--ink); }
+.pv:focus-visible, .btn:focus-visible, nav.ws a:focus-visible { outline: 2px solid var(--asof); outline-offset: 2px; }
+
+/* Arm swatches */
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.arm { display: inline-flex; align-items: center; font-weight: 600; white-space: nowrap; }
+
+/* ---------- Campaigns ---------- */
+.clist .it { display: block; padding: 11px 14px; border-bottom: 1px solid var(--rule-2); text-decoration: none; cursor: pointer; }
+.clist .it:last-child { border-bottom: 0; }
+.clist .it:hover { background: var(--surface-2); }
+.clist .it.on { background: #ece9e1; box-shadow: inset 3px 0 0 var(--ink); }
+.clist .it .ttl { font-weight: 600; margin: 2px 0 4px; }
+.bar { display: flex; height: 8px; border-radius: 2px; overflow: hidden; gap: 2px; background: transparent; min-width: 140px; }
+.bar > span { display: block; height: 100%; }
+.bar .closed { background: var(--ink-2); }
+.bar .open { background: repeating-linear-gradient(135deg, #fff 0 3px, #9b9da1 3px 4px); border: 1px solid #9b9da1; }
+.bar .notrun { background: var(--unk-bg); border: 1px solid #cdb8d6; }
+.unk-item { border-left: 3px solid var(--unk); padding: 8px 12px; background: #faf7fb; margin-bottom: 8px; border-radius: 0 4px 4px 0; }
+.unk-item .q { font-weight: 600; }
+.drill { display: inline-flex; gap: 4px; }
+.drill a { font-size: 11.5px; padding: 2px 7px; border: 1px solid var(--rule); border-radius: 3px; text-decoration: none; background: var(--surface); white-space: nowrap; }
+.drill a:hover { border-color: var(--ink); }
+.receipt { display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule-2); align-items: baseline; }
+.receipt:last-child { border-bottom: 0; }
+
+/* ---------- Replay ---------- */
+.dechead { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.tl { position: relative; height: 74px; margin: 6px 0 2px; }
+.chain { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr 34px 1fr; align-items: stretch; margin-top: 12px; }
+.obj { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; }
+.obj .ohd { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--rule-2); }
+.obj .glyph { font: 700 14px/1 var(--mono); width: 22px; height: 22px; border-radius: 3px; display: grid; place-items: center; background: var(--ink); color: #fff; }
+.obj .otype { font-weight: 700; font-size: 12.5px; }
+.obj .obd { padding: 10px 12px; flex: 1; }
+.obj .big { font: 600 17px/1.25 var(--serif); margin: 2px 0 6px; }
+.obj .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+.obj .kv dt { color: var(--ink-3); }
+.obj .kv dd { margin: 0; }
+.obj.z-asof { border-top: 4px solid var(--asof); }
+.obj.z-exec { border-top: 4px solid var(--exec); }
+.obj.z-hind { border-top: 4px solid var(--hind); background: var(--hatch-hind); }
+.obj.z-hind .obd, .obj.z-hind .ohd { background: rgba(251,250,247,.86); }
+.obj.none .obd { color: var(--ink-3); }
+.link { display: grid; place-items: center; color: var(--ink-3); font: 16px var(--mono); }
+.horizon { position: relative; display: grid; place-items: center; }
+.horizon::before { content: ""; position: absolute; top: -8px; bottom: -8px; left: 50%; border-left: 2px dashed var(--hind); }
+.horizon span { position: relative; writing-mode: vertical-rl; transform: rotate(180deg); background: var(--paper); color: var(--hind); font: 700 10px/1 var(--mono); letter-spacing: .1em; padding: 6px 0; }
+.gapnote { margin-top: 8px; font-size: 11.5px; border-left: 2px solid var(--warn); padding: 3px 8px; background: var(--warn-bg); color: #5d4300; border-radius: 0 3px 3px 0; }
+.zones { display: grid; grid-template-columns: minmax(0, 1.45fr) 34px minmax(0, 1fr); margin-top: 18px; align-items: start; }
+.zone { border-radius: 6px; border: 1px solid var(--rule); background: var(--surface); }
+.zone > .zhd { padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule-2); }
+.zone > .zbd { padding: 12px 14px; }
+.zone.asof { box-shadow: inset 0 4px 0 var(--asof); }
+.zone.asof > .zhd { background: var(--asof-bg); }
+.zone.hind { box-shadow: inset 0 4px 0 var(--hind); background: var(--hatch-hind); }
+.zone.hind > .zhd, .zone.hind > .zbd { background: rgba(251,250,247,.9); }
+.sealed { border: 1px dashed var(--hind); border-radius: 4px; padding: 14px; text-align: center; color: var(--hind); background: rgba(251,250,247,.9); }
+.sealed .big { font: 600 16px var(--serif); color: var(--ink); }
+.metric { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; }
+.metric .lbl { color: var(--ink-2); }
+.metric .val { font: 600 15px var(--mono); text-align: right; }
+
+/* ---------- Backtests ---------- */
+.armhead { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.ci { font: 11.5px var(--mono); color: var(--ink-3); }
+.withheld { font: 600 12px var(--mono); color: var(--unk); }
+details.tbl summary { cursor: pointer; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.chk { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 7px 0; border-bottom: 1px solid var(--rule-2); align-items: start; }
+.chk:last-child { border-bottom: 0; }
+.chk .d { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-3); }
+.note-ev { font-size: 12px; border: 1px solid var(--rule); border-left: 3px solid var(--ink-3); padding: 8px 10px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+
+/* ---------- Research ---------- */
+.stack .it { padding: 11px 14px; border-bottom: 1px solid var(--rule-2); cursor: pointer; display: block; text-decoration: none; }
+.stack .it:hover { background: var(--surface-2); }
+.stack .it.on { background: #ece9e1; box-shadow: inset 3px 0 0 var(--ink); }
+.stack .it:last-child { border-bottom: 0; }
+.stage { font: 600 10.5px/1 var(--mono); letter-spacing: .04em; color: var(--ink-2); }
+.hyp { font: 400 17px/1.45 var(--serif); margin: 4px 0 10px; }
+.crit { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 8px 0; border-top: 1px solid var(--rule-2); align-items: start; }
+
+/* ---------- Drawer (provenance) ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(26,29,33,.18); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 40; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+aside.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: var(--surface);
+  border-left: 1px solid var(--rule); box-shadow: -12px 0 30px rgba(0,0,0,.08);
+  transform: translateX(100%); transition: transform .18s ease-out; z-index: 50; display: flex; flex-direction: column;
+}
+aside.drawer.on { transform: none; }
+.drawer .dh { padding: 14px 16px; border-bottom: 1px solid var(--rule); display: flex; gap: 10px; align-items: flex-start; }
+.drawer .db { padding: 14px 16px; overflow: auto; }
+.drawer dl { display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; margin: 0; font-size: 12.5px; }
+.drawer dt { color: var(--ink-3); }
+.drawer dd { margin: 0; word-break: break-word; }
+.bitemp { margin: 14px 0; border: 1px solid var(--rule); border-radius: 4px; padding: 10px; }
+
+/* ---------- Key (legend of the visual grammar) ---------- */
+.key { position: fixed; top: 96px; right: 20px; width: 460px; background: var(--surface); border: 1px solid var(--ink-3); border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.14); z-index: 45; display: none; }
+.key.on { display: block; }
+.key .hd h3 { white-space: nowrap; }
+.key .kr { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--rule-2); align-items: center; font-size: 12px; }
+
+/* ---------- Tooltip ---------- */
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; font: 12px/1.35 var(--sans); padding: 6px 9px; border-radius: 4px; z-index: 60; max-width: 280px; display: none; }
+#tip .m { font-family: var(--mono); }
+
+svg text { font-family: var(--sans); }
+svg .axis text { font-size: 10.5px; fill: var(--ink-3); }
+svg .axis line, svg .axis path { stroke: var(--rule); }
+.foot { margin-top: 30px; font-size: 11.5px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 10px; }
+</style>
+</head>
+<body>
+<div class="synth">SYNTHETIC DEMO DATA · every id, price, timestamp and outcome in this prototype is invented (prefix <b>SYN-</b>) · not market data · not client data · design proposal DES-01</div>
+
+<header class="top">
+  <div class="brand">
+    <div class="name">Energy Markets</div>
+    <div class="sub">PROCUREMENT RESEARCH</div>
+  </div>
+  <nav class="ws" id="nav">
+    <a href="#/campaigns" data-v="campaigns"><span class="k">1 · navigate</span><span class="t">Campaigns &amp; Runs</span></a>
+    <a href="#/replay" data-v="replay"><span class="k">2 · decision inspector</span><span class="t">Replay</span></a>
+    <a href="#/backtests" data-v="backtests"><span class="k">3 · economic comparison</span><span class="t">Backtests</span></a>
+    <a href="#/research" data-v="research"><span class="k">4 · strategy lab</span><span class="t">Research</span></a>
+  </nav>
+  <div class="tools">
+    <button class="btn" id="keyBtn" title="Visual grammar (?)">Semantics key</button>
+    <div class="clock">data as-of <b>2026-09-24 06:00 +02:00</b><br><span class="muted">SYN snapshot SYN-MDS-0924</span></div>
+  </div>
+</header>
+<div class="ctx" id="ctx"></div>
+<main id="main"></main>
+
+<div class="key" id="key" role="dialog" aria-label="Semantics key">
+  <div class="card" style="border:0">
+    <div class="hd"><h3>Semantics key</h3><span class="muted small">one visual grammar, all four workspaces</span><span class="grow"></span><button class="btn link" data-close-key>close</button></div>
+  </div>
+  <div class="kr"><span class="zt asof">T₀ · decision-time</span><span>What the system knew at the decision instant. Slate blue, solid.</span></div>
+  <div class="kr"><span class="zt exec">Execution</span><span>After T₀, before evaluation: requested action and fills. Neutral ink.</span></div>
+  <div class="kr"><span class="zt hind">Later · evaluation</span><span>Hindsight. Ochre on hatched paper; never drawn inside a T₀ panel.</span></div>
+  <div class="kr"><span><span class="unkv">UNKNOWN</span></span><span>Value absent. Never shown as blank, zero or a guess. Plum hatch.</span></div>
+  <div class="kr"><span><span class="openv">NOT CLOSED</span></span><span>Exists but not final yet (e.g. evaluation window still open). Dashed.</span></div>
+  <div class="kr"><span><span class="ev">EVIDENCE</span></span><span>Receipts, results, checks. Informs; never approves.</span></div>
+  <div class="kr"><span><span class="auth-box" style="padding:3px 8px;display:inline-block"><span class="seal">AUTHORITY</span></span></span><span>A named decision owner's act. Double rule. Only place "approved" can appear.</span></div>
+  <div class="kr"><span class="mono">◆ ▲ ■ ●</span><span>Recommendation · Requested action · Execution/fill · Outcome — four separate objects, never merged.</span></div>
+  <div class="kr" style="border:0"><span><span class="pv">88.40</span></span><span>Dotted underline = click for provenance (source, valid time, recorded time, receipt).</span></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Provenance"></aside>
+<div id="tip"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   SYNTHETIC DATA. Nothing below is real. Deterministic (seeded) so every
+   reload and every screenshot shows the same numbers.
+   ===================================================================== */
+function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const DAY = 86400000;
+const NOW = Date.UTC(2026, 8, 24);
+const D0 = Date.UTC(2025, 10, 10);           // first weekly decision (Mon)
+const N_DEC = 46;
+const EVAL_DAYS = 84;                          // placeholder evaluation rule: T0 + 12 weeks
+const MWH_PER_TRANCHE_K = 8.76;                // 1 MW baseload over a year = 8,760 MWh → k€ per €/MWh
+const iso = t => new Date(t).toISOString().slice(0, 10);
+const tz = t => { const m = new Date(t).getUTCMonth(); const d = new Date(t).getUTCDate(); return (m > 2 && m < 9) || (m === 2 && d >= 29) || (m === 9 && d < 25) ? "+02:00" : "+01:00"; };
+const fmt = (x, d = 2) => (x < 0 ? "−" : "") + Math.abs(x).toFixed(d);
+const sgn = (x, d = 1) => (x > 0 ? "+" : x < 0 ? "−" : "±") + Math.abs(x).toFixed(d);
+const pad3 = k => String(k).padStart(3, "0");
+
+const DEC = (() => {
+  const r = rng(14);
+  const out = [];
+  let bench = 91.2;
+  for (let k = 0; k < N_DEC; k++) {
+    const t0 = D0 + k * 7 * DAY;
+    bench += gauss(r) * 0.55 - 0.03;
+    const closes = t0 + EVAL_DAYS * DAY;
+    const hbBase = 0.35 + gauss(r) * 1.1;
+    const hbA = -0.25 + gauss(r) * 1.0;
+    const action = r() < 0.62 ? "BUY" : "HOLD";
+    out.push({ k, t0, closes, closed: closes <= NOW, bench, hbBase, hbA, action, hbB: k < 29 ? hbA + 0.1 + gauss(r) * 0.5 : null });
+  }
+  // hand-specified decisions shown in the Replay workspace; keep aggregates consistent with them
+  Object.assign(out[31], { bench: 89.10, hbA: -0.60, hbBase: 0.599, action: "BUY" });
+  Object.assign(out[12], { hbA: 0.479, hbBase: 0.0, action: "HOLD" });
+  Object.assign(out[40], { action: "BUY" });
+  for (const d of out) d.dv = (d.hbBase - d.hbA) * MWH_PER_TRANCHE_K;   // ΔV_k (A − baseline), k€
+  return out;
+})();
+const CLOSED = DEC.filter(d => d.closed);
+const N_CLOSED = CLOSED.length;
+const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+const sd = a => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)); };
+
+function armStats(key, rows) {
+  const hb = rows.map(d => d[key]);
+  const B = mean(rows.map(d => d.bench));
+  const H = B + mean(hb);
+  const V = -hb.reduce((s, x) => s + x, 0) * MWH_PER_TRANCHE_K;
+  return { n: rows.length, B, H, V };
+}
+const ST = {
+  base: armStats("hbBase", CLOSED),
+  A: armStats("hbA", CLOSED),
+  Bpaired: armStats("hbB", CLOSED.filter(d => d.hbB !== null)),
+  basePairedB: armStats("hbBase", CLOSED.filter(d => d.hbB !== null)),
+};
+const dvA = CLOSED.map(d => d.dv);
+const DV_A = dvA.reduce((s, x) => s + x, 0);
+const DV_A_CI = 1.645 * sd(dvA) * Math.sqrt(dvA.length);       // placeholder normal approx, not the canonical method
+const dvB = CLOSED.filter(d => d.hbB !== null).map(d => (d.hbBase - d.hbB) * MWH_PER_TRANCHE_K);
+const DV_B = dvB.reduce((s, x) => s + x, 0);
+const DV_B_CI = 1.645 * sd(dvB) * Math.sqrt(dvB.length);
+
+const ARMS = {
+  base: { name: "Baseline", sub: "Layered calendar v1.0", color: "var(--arm-base)", hex: "#2a78d6", run: "SYN-RUN-0142" },
+  A: { name: "Arm A", sub: "Tranche-trigger v3.2", color: "var(--arm-a)", hex: "#eb6834", run: "SYN-RUN-0143" },
+  B: { name: "Arm B", sub: "Tranche-trigger v3.3-vg", color: "var(--arm-b)", hex: "#1baf7a", run: "SYN-RUN-0144" },
+};
+const armTag = a => `<span class="arm"><span class="sw" style="background:${ARMS[a].color}"></span>${ARMS[a].name}</span>`;
+
+const CAMPAIGNS = [
+  { id: "SYN-CMP-014", title: "Cal-27 DE Power · winter tranche policy", product: "DE Power Base Cal-27", window: "2025-11-10 → 2026-09-21", state: ["fail", "✕", "Not ready · 2 blocking unknowns"], owner: "Research desk (synthetic role)", ruleset: "SYN-RS-7.4" },
+  { id: "SYN-CMP-012", title: "TTF Gas Q1-27 · layered hedging", product: "TTF Gas Q1-27", window: "2025-09-01 → 2026-08-31", state: ["pass", "✓", "Ready for review"], owner: "Research desk (synthetic role)", ruleset: "SYN-RS-7.3" },
+  { id: "SYN-CMP-016", title: "FR Power Cal-27 · exploratory", product: "FR Power Base Cal-27", window: "2026-03-02 → —", state: ["unk", "?", "Insufficient data"], owner: "Research desk (synthetic role)", ruleset: "SYN-RS-7.4" },
+  { id: "SYN-CMP-009", title: "Cal-26 DE Power · retrospective", product: "DE Power Base Cal-26", window: "2024-10-07 → 2025-09-29", state: ["na", "■", "Closed · archived"], owner: "Research desk (synthetic role)", ruleset: "SYN-RS-6.9" },
+];
+
+const RUNS = [
+  { id: "SYN-RUN-0142", arm: "base", status: ["pass", "✓", "Complete"], done: 46, closed: N_CLOSED, started: "2026-09-02 21:14", seed: "7301", receipts: 6, det: ["pass", "✓", "Deterministic"] },
+  { id: "SYN-RUN-0143", arm: "A", status: ["pass", "✓", "Complete"], done: 46, closed: N_CLOSED, started: "2026-09-02 21:14", seed: "7301", receipts: 7, det: ["pass", "✓", "Deterministic"] },
+  { id: "SYN-RUN-0144", arm: "B", status: ["fail", "✕", "Halted at #029"], done: 29, closed: 29, started: "2026-09-02 21:15", seed: "7301", receipts: 3, det: ["unk", "?", "Unknown"] },
+  { id: "SYN-RUN-0145", arm: "A", status: ["run", "◌", "Running · rerun"], done: 17, closed: 17, started: "2026-09-24 05:40", seed: "7302", receipts: 1, det: ["open", "◌", "Pending"] },
+];
+
+const UNKNOWNS = [
+  { id: "U-014-1", q: "Why did SYN-RUN-0144 halt at decision #029?", why: "Market-data gap 2026-06-01 → 06-03 in snapshot SYN-MDS-0901; root cause of gap not established.", blocks: "Arm B campaign-level ΔV (withheld)", since: "2026-09-03", blocking: true },
+  { id: "U-014-2", q: "P95 tail-cost metric not computed for any arm", why: "Metric definition pending in method spec (placeholder in this mockup).", blocks: "Hypothesis H-014-A criterion 2", since: "2026-09-04", blocking: true },
+  { id: "U-014-3", q: `${N_DEC - N_CLOSED} of ${N_DEC} decisions have evaluation windows still open`, why: `Evaluation rule T₀ + ${EVAL_DAYS} days (placeholder); last window closes ${iso(DEC[N_DEC - 1].closes)}.`, blocks: "Final campaign ΔV (interim shown, labelled)", since: "—", blocking: false },
+  { id: "U-014-4", q: "Counterparty credit headroom at T₀ not in decision snapshot", why: "Field not captured by snapshot schema; affects 46/46 decisions.", blocks: "Explaining recommendation → order deviations", since: "2026-09-10", blocking: false },
+];
+
+const RECEIPTS = [
+  { t: "2026-09-24 05:40", id: "SYN-RCP-8841", what: "Run started · SYN-RUN-0145 (rerun, seed 7302)", kind: "run" },
+  { t: "2026-09-10 11:02", id: "SYN-RCP-8790", what: "Unknown registered · U-014-4 credit headroom", kind: "unknown" },
+  { t: "2026-09-04 16:20", id: "SYN-RCP-8733", what: "Integrity check · look-ahead guard PASS (0142, 0143)", kind: "check" },
+  { t: "2026-09-03 08:12", id: "SYN-RCP-8702", what: "Run halted · SYN-RUN-0144 at #029 (data gap)", kind: "run" },
+  { t: "2026-09-03 07:55", id: "SYN-RCP-8699", what: "Backtest result · A vs Baseline (interim, 34 closed)", kind: "result" },
+  { t: "2026-09-01 00:00", id: "SYN-RCP-8650", what: "Market-data snapshot pinned · SYN-MDS-0901 (sha256 3f9a…c2e1)", kind: "data" },
+];
+
+/* Replay: three hand-specified decisions. Everything else in the run is listed but not modelled. */
+const REPLAY = {
+  31: {
+    rec: { verb: "BUY", qty: "4.0 MW", product: "Cal-27 DE Base", at: "09:30:02", by: "SYN-STR-TT v3.2", conds: [["Fwd ≤ budget − 3.00", "88.40 ≤ 89.00", "pass"], ["Open exposure > 50 %", "60 %", "pass"], ["Input quality", "1 stale · 1 unknown", "warn"]] },
+    ord: { text: "BUY 3.0 MW · limit 88.60", tif: "Day order", at: "09:41:15", by: "Procurement desk (synthetic role)", deviation: "Quantity 4.0 → 3.0 MW. Reason recorded by desk: “credit headroom”. Headroom itself was UNKNOWN to the system at T₀ (U-014-4)." },
+    fill: { mode: "SIMULATED · fill model SYN-FM-2", filled: "2.0 of 3.0 MW", avg: "88.50", fills: [["09:52:40", "1.0 MW", "88.45"], ["10:14:03", "1.0 MW", "88.55"]], residual: "1.0 MW expired 17:30" },
+    out: { closed: true, closedAt: iso(DEC[31].closes), B: "89.10", Hs: "88.50", Hb: "89.70", dv: DEC[31].dv },
+    inputs: [
+      ["Cal-27 DE Base forward (settle)", "88.40 €/MWh", "2026-06-12 17:30", "D−1 settle", "pass", "SYN-FEED-EEXsim"],
+      ["Cal-27 indicative (intraday)", "87.95 €/MWh", "2026-06-15 09:15", "15 min", "pass", "SYN-FEED-BRK"],
+      ["Budget price", "92.00 €/MWh", "2026-01-05", "policy", "pass", "SYN-POL-BUD-27"],
+      ["Open exposure", "12.0 of 20.0 MW", "2026-06-15 06:00", "3.5 h", "pass", "SYN-POS-LEDGER"],
+      ["Consumption forecast", "20.0 MW", "2026-06-08 06:00", "7 days", "warn", "SYN-FC-LOAD"],
+      ["Credit headroom", null, "—", "—", "unk", "not captured"],
+    ],
+  },
+  12: {
+    rec: { verb: "HOLD", qty: "—", product: "Cal-27 DE Base", at: "09:30:01", by: "SYN-STR-TT v3.2", conds: [["Fwd ≤ budget − 3.00", "91.84 ≤ 89.00", "fail"], ["Open exposure > 50 %", "85 %", "pass"], ["Input quality", "1 unknown", "warn"]] },
+    ord: null, fill: null,
+    out: { closed: true, closedAt: iso(DEC[12].closes), B: fmt(DEC[12].bench), Hs: "deferred", Hb: fmt(DEC[12].bench), dv: DEC[12].dv },
+    inputs: [
+      ["Cal-27 DE Base forward (settle)", "91.84 €/MWh", "2026-01-30 17:30", "D−1 settle", "pass", "SYN-FEED-EEXsim"],
+      ["Cal-27 indicative (intraday)", "91.60 €/MWh", "2026-02-02 09:15", "15 min", "pass", "SYN-FEED-BRK"],
+      ["Budget price", "92.00 €/MWh", "2026-01-05", "policy", "pass", "SYN-POL-BUD-27"],
+      ["Open exposure", "17.0 of 20.0 MW", "2026-02-02 06:00", "3.5 h", "pass", "SYN-POS-LEDGER"],
+      ["Consumption forecast", "20.0 MW", "2026-02-02 06:00", "3.5 h", "pass", "SYN-FC-LOAD"],
+      ["Credit headroom", null, "—", "—", "unk", "not captured"],
+    ],
+  },
+  40: {
+    rec: { verb: "BUY", qty: "2.0 MW", product: "Cal-27 DE Base", at: "09:30:02", by: "SYN-STR-TT v3.2", conds: [["Fwd ≤ budget − 3.00", "86.10 ≤ 89.00", "pass"], ["Open exposure > 50 %", "52 %", "pass"], ["Input quality", "1 unknown", "warn"]] },
+    ord: { text: "BUY 2.0 MW · limit 86.30", tif: "Day order", at: "09:33:48", by: "Procurement desk (synthetic role)", deviation: null },
+    fill: { mode: "SIMULATED · fill model SYN-FM-2", filled: "2.0 of 2.0 MW", avg: "86.21", fills: [["09:47:10", "2.0 MW", "86.21"]], residual: "none" },
+    out: { closed: false, closedAt: iso(DEC[40].closes) },
+    inputs: [
+      ["Cal-27 DE Base forward (settle)", "86.10 €/MWh", "2026-08-14 17:30", "D−1 settle", "pass", "SYN-FEED-EEXsim"],
+      ["Cal-27 indicative (intraday)", "86.02 €/MWh", "2026-08-17 09:15", "15 min", "pass", "SYN-FEED-BRK"],
+      ["Budget price", "92.00 €/MWh", "2026-01-05", "policy", "pass", "SYN-POL-BUD-27"],
+      ["Open exposure", "10.4 of 20.0 MW", "2026-08-17 06:00", "3.5 h", "pass", "SYN-POS-LEDGER"],
+      ["Consumption forecast", "20.0 MW", "2026-08-17 06:00", "3.5 h", "pass", "SYN-FC-LOAD"],
+      ["Credit headroom", null, "—", "—", "unk", "not captured"],
+    ],
+  },
+};
+const REPLAY_PRICE_END = { 31: 88.40, 12: 91.84, 40: 86.10 };
+
+const CANDIDATES = [
+  { id: "TT-3.2", name: "Tranche-trigger", ver: "v3.2", code: "SYN-STR-TT v3.2", stage: "EVIDENCE GATHERING", readiness: ["fail", "✕", "Not ready"], evidence: 7, authority: ["na", "—", "Not requested"] },
+  { id: "TT-3.3", name: "Tranche-trigger + vol gate", ver: "v3.3-vg", code: "SYN-STR-TT v3.3-vg", stage: "BLOCKED · INTEGRITY", readiness: ["unk", "?", "Unknown"], evidence: 3, authority: ["na", "—", "Not requested"] },
+  { id: "LAY-1.0", name: "Layered calendar", ver: "v1.0", code: "SYN-STR-LAY v1.0", stage: "REFERENCE BASELINE", readiness: ["pass", "✓", "Ready"], evidence: 12, authority: ["pass", "✓", "Current policy"] },
+  { id: "SEAS-0.4", name: "Seasonality tilt", ver: "v0.4", code: "SYN-STR-SEAS v0.4", stage: "HYPOTHESIS ONLY", readiness: ["open", "◌", "No runs yet"], evidence: 0, authority: ["na", "—", "Not requested"] },
+  { id: "TT-2.1", name: "Tranche-trigger", ver: "v2.1", code: "SYN-STR-TT v2.1", stage: "RETIRED · SUPERSEDED", readiness: ["na", "■", "Archived"], evidence: 5, authority: ["na", "—", "Withdrawn"] },
+];
+
+/* =====================================================================
+   Provenance registry. Any value rendered with pv() is clickable and
+   opens the drawer with bitemporal provenance.
+   ===================================================================== */
+let PROV = [];
+function pv(text, meta) {
+  PROV.push(meta);
+  return `<button class="pv" data-p="${PROV.length - 1}">${text}</button>`;
+}
+function st(s) { return `<span class="st ${s[0]}"><span class="g">${s[1]}</span>${s[2]}</span>`; }
+
+/* =====================================================================
+   State + routing (hash based, so every view has a shareable URL)
+   ===================================================================== */
+const S = { view: "campaigns", cmp: "SYN-CMP-014", dec: 31, hind: false, cand: "TT-3.2" };
+function parseHash() {
+  const h = location.hash.replace(/^#\/?/, "");
+  const [view, q] = h.split("?");
+  if (["campaigns", "replay", "backtests", "research"].includes(view)) S.view = view;
+  const p = new URLSearchParams(q || "");
+  if (p.has("d") && REPLAY[+p.get("d")]) S.dec = +p.get("d");
+  if (p.has("c")) S.cand = p.get("c");
+  if (p.has("h")) S.hind = p.get("h") === "1";
+}
+function go(hash) { location.hash = hash; }
+
+/* =====================================================================
+   Context strip
+   ===================================================================== */
+function ctx() {
+  const c = CAMPAIGNS.find(x => x.id === S.cmp);
+  const parts = [`<span class="caps muted">Context</span>`, `<a href="#/campaigns">${c.id}</a>`, `<span>${c.title}</span>`];
+  if (S.view === "replay") parts.push(`<span class="sep">›</span>`, `<a href="#/campaigns">${ARMS.A.run}</a>`, `<span class="sep">›</span>`, `<span class="mono">SYN-DEC-0143-${pad3(S.dec)}</span>`);
+  if (S.view === "backtests") parts.push(`<span class="sep">›</span>`, `<span>Comparison SYN-CMP-014/X-01 · ${armTag("A")} &amp; ${armTag("B")} vs ${armTag("base")}</span>`);
+  if (S.view === "research") { const k = CANDIDATES.find(x => x.id === S.cand); parts.push(`<span class="sep">›</span>`, `<span class="mono">${k.code}</span>`); }
+  parts.push(`<span class="grow"></span>`, `<span class="muted small">Ruleset ${pv(c.ruleset, { obj: "Ruleset version", value: c.ruleset, src: "SYN-RULES registry", valid: "2026-08-20 →", rec: "2026-08-20 14:03 +02:00", rcp: "SYN-RCP-8512", hash: "sha256 91c0…7ad2" })}</span>`);
+  document.getElementById("ctx").innerHTML = parts.join(" ");
+}
+
+/* =====================================================================
+   1 · CAMPAIGNS & RUNS
+   ===================================================================== */
+function viewCampaigns() {
+  const c = CAMPAIGNS.find(x => x.id === S.cmp);
+  const list = CAMPAIGNS.map(x => `
+    <div class="it ${x.id === S.cmp ? "on" : ""}">
+      <div class="mono muted small">${x.id}</div>
+      <div class="ttl">${x.title}</div>
+      <div style="margin-bottom:4px">${st(x.state)}</div>
+      <div class="small muted">${x.window}</div>
+    </div>`).join("");
+
+  const runs = RUNS.map(r => {
+    const w = n => (n / N_DEC * 100).toFixed(1) + "%";
+    const notRun = N_DEC - r.done;
+    const open = r.done - r.closed;
+    return `<tr>
+      <td><div class="mono">${pv(r.id, { obj: "Run", value: r.id, src: "SYN-RUNNER", valid: "run window 2025-11-10 → 2026-09-21", rec: r.started + " +02:00", rcp: "SYN-RCP-86" + r.id.slice(-2), hash: "code sha256 4be1…09aa · seed " + r.seed })}</div><div class="small muted">started ${r.started}</div></td>
+      <td>${armTag(r.arm)}<div class="small muted">${ARMS[r.arm].sub}</div></td>
+      <td>${st(r.status)}</td>
+      <td style="min-width:190px">
+        <div class="bar" title="closed / open / not run">
+          <span class="closed" style="width:${w(r.closed)}"></span>${open ? `<span class="open" style="width:${w(open)}"></span>` : ""}${notRun ? `<span class="notrun" style="width:${w(notRun)}"></span>` : ""}
+        </div>
+        <div class="small num" style="margin-top:4px">${r.closed} closed · ${open} open · ${notRun ? `<span class="unkv" style="font-size:10.5px;line-height:15px">${notRun} NOT RUN</span>` : "0 not run"}</div>
+      </td>
+      <td>${st(r.det)}</td>
+      <td class="num">${r.receipts}</td>
+      <td><span class="drill"><a href="#/replay?d=31">Replay</a><a href="#/backtests">Backtest</a><a href="#/research?c=${r.arm === "B" ? "TT-3.3" : r.arm === "A" ? "TT-3.2" : "LAY-1.0"}">Research</a></span></td>
+    </tr>`;
+  }).join("");
+
+  const gates = [
+    ["pass", "✓", "Runs pinned to one data snapshot", "SYN-MDS-0901 for all 4 runs"],
+    ["pass", "✓", "Look-ahead guard", "0142, 0143 checked · SYN-RCP-8733"],
+    ["fail", "✕", "All arms complete", "0144 halted at #029"],
+    ["unk", "?", "Tail-cost metric available", "U-014-2"],
+    ["open", "◌", "Evaluation windows closed", `${N_CLOSED}/${N_DEC} · last closes ${iso(DEC[N_DEC - 1].closes)}`],
+    ["pass", "✓", "Replay determinism (0142, 0143)", "rerun hash match"],
+  ].map(g => `<div class="chk"><span>${g[2]}</span>${st([g[0], g[1], { pass: "Pass", fail: "Fail", unk: "Unknown", open: "Not closed" }[g[0]]])}<span class="d">${g[3]}</span></div>`).join("");
+
+  const unk = UNKNOWNS.map(u => `
+    <div class="unk-item">
+      <div class="row"><span class="mono small">${u.id}</span>${u.blocking ? st(["fail", "✕", "Blocks readiness"]) : st(["warn", "!", "Non-blocking"])}<span class="grow"></span><span class="small muted">since ${u.since}</span></div>
+      <div class="q">${u.q}</div>
+      <div class="small ink2">${u.why}</div>
+      <div class="small"><span class="muted">Blocks:</span> ${u.blocks}</div>
+    </div>`).join("");
+
+  const rc = RECEIPTS.map(r => `<div class="receipt"><span class="mono small muted">${r.t}</span><span>${r.what}</span>${pv(`<span class="mono small">${r.id}</span>`, { obj: "Receipt", value: r.id, src: "SYN-RECEIPTS ledger", valid: r.t + " +02:00", rec: r.t + " +02:00", rcp: r.id, hash: "sha256 " + r.id.slice(-4) + "…e0" + r.id.slice(-2) })}</div>`).join("");
+
+  return `
+  <div class="split">
+    <div>
+      <div class="caps muted" style="margin:4px 0 8px">Campaigns</div>
+      <div class="card clist">${list}</div>
+      <div class="small muted" style="margin-top:8px">Readiness shown here is reported by the backend. The UI does not compute or upgrade it.</div>
+    </div>
+    <div>
+      <div class="row" style="align-items:flex-end">
+        <div class="grow">
+          <div class="mono muted small">${c.id} · ${c.product}</div>
+          <h1 class="page">${c.title}</h1>
+          <p class="lede">Can a price-trigger tranche policy buy the Cal-27 hedge cheaper than the layered calendar, without worse tail cost? Runs replay ${N_DEC} weekly decisions ${c.window}.</p>
+        </div>
+        <div style="text-align:right">
+          <div class="caps muted">Campaign readiness</div>
+          <div style="margin-top:4px">${st(c.state)}</div>
+        </div>
+      </div>
+
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card">
+          <div class="hd"><h3>Readiness gates</h3><span class="muted small">from backend · SYN-RCP-8733</span></div>
+          <div class="bd">${gates}</div>
+        </div>
+        <div class="card">
+          <div class="hd"><h3>What we don't know</h3><span class="muted small">${UNKNOWNS.length} explicit unknowns · fail-closed</span></div>
+          <div class="bd">${unk}</div>
+        </div>
+      </div>
+
+      <h2 class="sec">Runs</h2>
+      <div class="card">
+        <table class="t">
+          <thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead>
+          <tbody>${runs}</tbody>
+        </table>
+      </div>
+      <div class="row small muted" style="margin-top:6px;gap:16px">
+        <span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="closed" style="width:100%"></span></span> evaluation closed</span>
+        <span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="open" style="width:100%"></span></span> evaluation not closed</span>
+        <span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="notrun" style="width:100%"></span></span> decision not run (unknown, not zero)</span>
+      </div>
+
+      <h2 class="sec">Receipts</h2>
+      <div class="card"><div class="bd">${rc}</div></div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   2 · REPLAY / DECISION INSPECTOR
+   ===================================================================== */
+function timelineSvg() {
+  const W = 1200, H = 74, L = 20, R = 20;
+  const t0 = D0 - 7 * DAY, t1 = NOW + 60 * DAY;
+  const x = t => L + (t - t0) / (t1 - t0) * (W - L - R);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" role="img" aria-label="Decision timeline">`;
+  s += `<line x1="${L}" x2="${W - R}" y1="34" y2="34" stroke="var(--rule)"/>`;
+  s += `<rect x="${x(NOW)}" y="8" width="${W - R - x(NOW)}" height="52" fill="url(#hatchU)" opacity=".7"/>`;
+  s += `<line x1="${x(NOW)}" x2="${x(NOW)}" y1="4" y2="64" stroke="var(--ink)" stroke-width="1.5"/>`;
+  s += `<text x="${x(NOW) + 5}" y="14" font-size="10.5" fill="var(--ink)" font-weight="600">data as-of 2026-09-24</text>`;
+  s += `<text x="${x(NOW) + 5}" y="26" font-size="10" fill="var(--ink-3)">future · nothing known</text>`;
+  for (const d of DEC) {
+    const cx = x(d.t0);
+    const sel = d.k === S.dec, modelled = !!REPLAY[d.k];
+    const fill = d.action === "BUY" ? "var(--asof)" : "var(--surface)";
+    // evaluation window of the selected decision, drawn below the axis in the evaluation colour
+    if (sel) {
+      s += `<rect x="${cx}" y="42" width="${x(d.closes) - cx}" height="8" fill="${d.closed ? "var(--hind)" : "url(#hatchH)"}" stroke="var(--hind)" stroke-width="1" ${d.closed ? 'opacity=".75"' : ""}/>`;
+      s += `<text x="${cx - 6}" y="61" text-anchor="end" font-size="10" fill="var(--hind)" font-weight="600">${d.closed ? "evaluation closed " : "evaluation closes "}${iso(d.closes)}</text>`;
+    }
+    s += `<g class="tick" data-k="${d.k}" style="cursor:${modelled ? "pointer" : "default"}" data-tip="<b>#${pad3(d.k)}</b> · ${iso(d.t0)}<br>REC ${d.action} · evaluation ${d.closed ? "closed" : "NOT CLOSED"}${modelled ? "" : "<br><i>detail not modelled in this mockup</i>"}">`;
+    s += `<rect x="${cx - 6}" y="20" width="12" height="28" fill="transparent"/>`;
+    s += `<rect x="${cx - 3.5}" y="${sel ? 23 : 27}" width="7" height="${sel ? 14 : 7}" rx="1" fill="${fill}" stroke="var(--asof)" stroke-width="${sel ? 2 : 1.2}"/>`;
+    if (modelled) s += `<circle cx="${cx}" cy="17" r="2.2" fill="var(--ink)"/>`;
+    s += `</g>`;
+  }
+  const months = ["2025-12", "2026-02", "2026-04", "2026-06", "2026-08", "2026-10"];
+  for (const m of months) { const t = Date.parse(m + "-01"); s += `<text x="${x(t)}" y="72" font-size="10" fill="var(--ink-3)" text-anchor="middle">${m}</text>`; }
+  return s + `</svg>`;
+}
+
+function priceSvg(k) {
+  const W = 760, H = 250, L = 44, R = 26, T = 16, B = 26;
+  const r = rng(100 + k);
+  const end = REPLAY_PRICE_END[k];
+  const before = [end]; for (let i = 1; i <= 60; i++) before.unshift(before[0] + gauss(r) * 0.45);
+  const after = [end]; for (let i = 1; i <= 60; i++) after.push(after[after.length - 1] + gauss(r) * 0.5 + (k === 31 ? 0.012 : -0.01));
+  const tradingDaysKnown = Math.floor((NOW - DEC[k].t0) / DAY * 5 / 7);
+  const known = Math.min(60, tradingDaysKnown);
+  after.length = known + 1;
+  const all = before.concat(S.hind ? after : []).concat([92, 89]);
+  const lo = Math.floor(Math.min(...all) - 0.5), hi = Math.ceil(Math.max(...all) + 0.5);
+  const x = i => L + (i + 60) / 120 * (W - L - R);
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Forward price as known at decision time">`;
+  // right half: hindsight region
+  s += `<rect x="${x(0)}" y="${T}" width="${x(60) - x(0)}" height="${H - T - B}" fill="${S.hind ? "url(#hatchH)" : "var(--surface-2)"}"/>`;
+  if (!S.hind) {
+    s += `<text x="${(x(0) + x(60)) / 2}" y="${H / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
+    s += `<text x="${(x(0) + x(60)) / 2}" y="${H / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
+    s += `<text x="${(x(0) + x(60)) / 2}" y="${H / 2 + 25}" text-anchor="middle" font-size="11" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text>`;
+  }
+  // grid + axis
+  s += `<g class="axis">`;
+  for (let v = Math.ceil(lo); v <= hi; v += Math.max(1, Math.round((hi - lo) / 5))) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke-dasharray="2 3"/><text x="${L - 6}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`;
+  for (const i of [-60, -30, 0, 30, 60]) s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${i === 0 ? "T₀" : (i > 0 ? "+" : "−") + Math.abs(i) + "d"}</text>`;
+  s += `</g>`;
+  // reference lines (policy, known at T0)
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(92)}" y2="${y(92)}" stroke="var(--ink-2)" stroke-width="1" stroke-dasharray="6 4"/><text x="${L + 4}" y="${y(92) - 4}" font-size="10.5" fill="var(--ink-2)">Budget 92.00</text>`;
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(89)}" y2="${y(89)}" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="2 3"/><text x="${L + 4}" y="${y(89) - 4}" font-size="10.5" fill="var(--ink-3)">Trigger 89.00</text>`;
+  // known series
+  s += `<path d="${before.map((v, i) => (i ? "L" : "M") + x(i - 60).toFixed(1) + " " + y(v).toFixed(1)).join(" ")}" fill="none" stroke="var(--asof)" stroke-width="2"/>`;
+  if (S.hind) {
+    s += `<path d="${after.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join(" ")}" fill="none" stroke="var(--hind)" stroke-width="2" stroke-dasharray="5 3"/>`;
+    s += `<text x="${x(known) - 4}" y="${H - B - 8}" text-anchor="end" font-size="10.5" fill="var(--hind)" font-weight="600">realised later</text>`;
+    if (known < 60) {
+      s += `<rect x="${x(known)}" y="${T}" width="${x(60) - x(known)}" height="${H - T - B}" fill="url(#hatchU)"/>`;
+      s += `<line x1="${x(known)}" x2="${x(known)}" y1="${T}" y2="${H - B}" stroke="var(--ink)" stroke-width="1.5"/>`;
+      s += `<text x="${(x(known) + x(60)) / 2}" y="${H / 2 - 4}" text-anchor="middle" font-size="11" fill="var(--unk)" font-weight="700">NOT YET</text>`;
+      s += `<text x="${(x(known) + x(60)) / 2}" y="${H / 2 + 11}" text-anchor="middle" font-size="10" fill="var(--unk)">beyond data as-of</text>`;
+    }
+  }
+  // horizon
+  s += `<line x1="${x(0)}" x2="${x(0)}" y1="${T - 6}" y2="${H - B}" stroke="var(--hind)" stroke-width="2" stroke-dasharray="4 3"/>`;
+  s += `<text x="${x(0) - 5}" y="${T + 4}" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
+  s += `<text x="${x(0) + 5}" y="${T + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
+  s += `<circle cx="${x(0)}" cy="${y(end)}" r="4.5" fill="var(--asof)" stroke="var(--surface)" stroke-width="2" data-tip="<b>D−1 settle</b> ${end.toFixed(2)} €/MWh<br><span class='m'>SYN-FEED-EEXsim</span>"/>`;
+  // hover rail over the known series
+  before.forEach((v, i) => { s += `<rect x="${x(i - 60) - 3}" y="${T}" width="6" height="${H - T - B}" fill="transparent" data-tip="T₀ ${i - 60}d · <b>${v.toFixed(2)}</b> €/MWh<br>as known at T₀"/>`; });
+  return s + `</svg>`;
+}
+
+function objCard(zone, glyph, type, time, body, none) {
+  return `<div class="obj z-${zone} ${none ? "none" : ""}">
+    <div class="ohd"><span class="glyph" style="${zone === "hind" ? "background:var(--hind)" : zone === "asof" ? "background:var(--asof)" : ""}">${glyph}</span><span class="otype">${type}</span><span class="grow"></span><span class="mono tiny muted">${time}</span></div>
+    <div class="obd">${body}</div></div>`;
+}
+
+function viewReplay() {
+  const k = S.dec, d = DEC[k], R = REPLAY[k];
+  const t0s = `${iso(d.t0)} 09:30 ${tz(d.t0)}`;
+  const decId = `SYN-DEC-0143-${pad3(k)}`;
+
+  const rec = objCard("asof", "◆", "Recommendation", "T₀ " + R.rec.at, `
+    <div class="big">${R.rec.verb} ${R.rec.qty !== "—" ? R.rec.qty + " " : ""}<span class="muted" style="font-size:13px">${R.rec.product}</span></div>
+    <dl class="kv"><dt>Produced by</dt><dd class="mono">${pv(R.rec.by, { obj: "Recommendation", value: `${R.rec.verb} ${R.rec.qty}`, src: R.rec.by + " · ruleset SYN-RS-7.4", valid: t0s, rec: `${iso(d.t0)} ${R.rec.at} ${tz(d.t0)}`, rcp: "SYN-RCP-R" + pad3(k), hash: "inputs sha256 a1" + pad3(k) + "…77" })}</dd>
+    ${R.rec.conds.map(c => `<dt>${c[0]}</dt><dd>${st([c[2], c[2] === "pass" ? "✓" : c[2] === "fail" ? "✕" : "!", c[1]])}</dd>`).join("")}</dl>
+    <div class="tiny muted" style="margin-top:6px">Rule-based output. Not an instruction, not an order.</div>`);
+
+  const ord = R.ord ? objCard("exec", "▲", "Requested action", "T₀+" + minutesAfter(R.ord.at) + "m", `
+    <div class="big">${R.ord.text}</div>
+    <dl class="kv"><dt>Time in force</dt><dd>${R.ord.tif}</dd><dt>Requested by</dt><dd>${pv(R.ord.by, { obj: "Requested action (order)", value: R.ord.text, src: "SYN-OMS (simulated)", valid: `${iso(d.t0)} ${R.ord.at} ${tz(d.t0)}`, rec: `${iso(d.t0)} ${R.ord.at} ${tz(d.t0)}`, rcp: "SYN-RCP-O" + pad3(k), hash: "sha256 b7" + pad3(k) + "…1c" })}</dd></dl>
+    ${R.ord.deviation ? `<div class="gapnote"><b>Differs from recommendation.</b> ${R.ord.deviation}</div>` : `<div class="tiny muted" style="margin-top:6px">Matches recommendation (quantity and side).</div>`}`)
+    : objCard("exec", "▲", "Requested action", "—", `<div class="big" style="color:var(--ink-3)">No action requested</div><div>${st(["na", "—", "Not applicable"])} Recommendation was HOLD. Absence is recorded, not inferred.</div>`, true);
+
+  const fill = R.fill ? objCard("exec", "■", "Execution · fill", "T₀+" + minutesAfter(R.fill.fills[0][0]) + "m", `
+    <div class="row" style="margin-bottom:4px"><span class="st warn"><span class="g">⚙</span>${R.fill.mode}</span></div>
+    <div class="big">${R.fill.filled} <span class="muted" style="font-size:13px">avg ${pv(R.fill.avg, { obj: "Average fill price", value: R.fill.avg + " €/MWh", src: "SYN-FM-2 fill simulator on SYN-MDS-0901", valid: `${iso(d.t0)} (execution day)`, rec: "2026-09-02 21:14 +02:00 (backtest run)", rcp: "SYN-RCP-F" + pad3(k), hash: "sha256 c4" + pad3(k) + "…0e" })}</span></div>
+    <table class="t small"><tbody>${R.fill.fills.map(f => `<tr><td class="mono">${f[0]}</td><td class="num">${f[1]}</td><td class="num right mono">${f[2]}</td></tr>`).join("")}</tbody></table>
+    <div class="small" style="margin-top:4px"><span class="muted">Residual:</span> ${R.fill.residual}</div>`)
+    : objCard("exec", "■", "Execution · fill", "—", `<div class="big" style="color:var(--ink-3)">No execution</div><div>${st(["na", "—", "Not applicable"])} Nothing was requested.</div>`, true);
+
+  let outBody;
+  if (R.out.closed) {
+    outBody = `<div class="row" style="margin-bottom:4px">${st(["pass", "✓", "Evaluation closed " + R.out.closedAt])}</div>
+      <div class="big">ΔV ${pv(sgn(R.out.dv) + " k€", { obj: "Outcome ΔV (Arm A − Baseline), per decision", value: sgn(R.out.dv) + " k€", src: "SYN-EVAL engine · method placeholder", valid: `${iso(d.t0)} → ${R.out.closedAt}`, rec: `${R.out.closedAt} 06:00 +02:00`, rcp: "SYN-RCP-E" + pad3(k), hash: "sha256 e9" + pad3(k) + "…4b" })} <span class="muted" style="font-size:13px">vs Baseline</span></div>
+      <dl class="kv"><dt>B benchmark</dt><dd class="mono">${R.out.B}</dd><dt>H this arm</dt><dd class="mono">${R.out.Hs}</dd><dt>H baseline</dt><dd class="mono">${R.out.Hb}</dd></dl>
+      <div class="tiny muted" style="margin-top:6px">Economic outcome of the decision. Computed after the window closed.</div>`;
+  } else {
+    outBody = `<div class="row" style="margin-bottom:6px"><span class="openv">NOT CLOSED</span></div>
+      <div class="big">No outcome yet</div>
+      <div class="small">Evaluation window closes <b>${R.out.closedAt}</b>. Interim mark-to-market is withheld: it is not an outcome and is not shown here.</div>`;
+  }
+  const out = objCard("hind", "●", "Outcome · evaluation", R.out.closed ? "T₀+" + EVAL_DAYS + "d" : "pending", outBody);
+
+  const inputs = R.inputs.map(i => `<tr>
+    <td>${i[0]}</td>
+    <td class="mono num">${i[1] === null ? `<span class="unkv">UNKNOWN</span>` : pv(i[1], { obj: i[0], value: i[1], src: i[5], valid: i[2] + " " + tz(d.t0), rec: i[2] + " " + tz(d.t0), rcp: "SYN-RCP-I" + pad3(k), hash: "sha256 in" + pad3(k) + "…" })}</td>
+    <td class="mono small">${i[2]}</td>
+    <td class="small">${i[3]}</td>
+    <td>${i[4] === "pass" ? st(["pass", "✓", "Fresh"]) : i[4] === "warn" ? st(["warn", "!", "Stale"]) : st(["unk", "?", "Unknown"])}</td>
+  </tr>`).join("");
+
+  const evalZone = R.out.closed ? `
+    <div class="metric">
+      <span class="lbl">Evaluation window</span><span class="mono">${iso(d.t0)} → ${R.out.closedAt}</span>
+      <span class="lbl">Benchmark B (window mean)</span><span class="val">${R.out.B}</span>
+      <span class="lbl">Hedge price H · ${armTag("A")}</span><span class="val">${R.out.Hs}</span>
+      <span class="lbl">Hedge price H · ${armTag("base")}</span><span class="val">${R.out.Hb}</span>
+      <span class="lbl"><b>ΔV this decision</b></span><span class="val">${sgn(R.out.dv)} k€</span>
+    </div>
+    <div class="sp"></div>
+    <div class="note-ev"><span class="ev">EVIDENCE</span> One decision is one observation. It does not validate the strategy — see <a href="#/backtests">Backtests</a> for the paired campaign effect.</div>`
+    : `<div class="sealed"><div class="caps">Evaluation not closed</div><div class="big">Closes ${R.out.closedAt}</div><div class="small ink2">${Math.round((d.closes - NOW) / DAY)} days from data as-of date. No provisional outcome is displayed.</div></div>`;
+
+  const others = Object.keys(REPLAY).map(Number).sort((a, b) => a - b).map(n => `<a class="btn ${n === k ? "on" : ""}" href="#/replay?d=${n}${S.hind ? "&h=1" : ""}">#${pad3(n)} · ${REPLAY[n].rec.verb}${DEC[n].closed ? "" : " · open"}</a>`).join("");
+
+  return `
+  <div class="dechead">
+    <div class="grow">
+      <div class="mono muted small">${decId} · run ${ARMS.A.run} · ${armTag("A")} ${ARMS.A.sub}</div>
+      <h1 class="page">Decision #${pad3(k)} — ${R.rec.verb} at ${pv(t0s, { obj: "Decision time T₀", value: t0s, src: "SYN-RUNNER schedule (weekly, Mon 09:30 local)", valid: t0s, rec: "2026-09-02 21:14 +02:00 (replayed)", rcp: "SYN-RCP-D" + pad3(k), hash: "sha256 d0" + pad3(k) + "…" })}</h1>
+      <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p>
+    </div>
+    <div class="row">${others}</div>
+  </div>
+
+  <div class="card" style="margin-top:14px;padding:4px 14px 0">
+    <div class="row small" style="padding-top:6px"><span class="caps muted">Run timeline · ${N_DEC} decisions</span><span class="grow"></span>
+      <span class="muted">■ BUY recommended &nbsp; □ HOLD &nbsp; • modelled in mockup &nbsp; <span style="color:var(--hind)">▬ evaluation window</span></span></div>
+    <div class="tl">${timelineSvg()}</div>
+  </div>
+
+  <div class="chain">
+    ${rec}<div class="link">→</div>${ord}<div class="link">→</div>${fill}
+    <div class="horizon"><span>EVALUATION · LATER</span></div>
+    ${out}
+  </div>
+  <div class="row tiny muted" style="margin-top:6px">
+    <span class="zt asof">T₀ · decision-time</span><span class="zt exec">Execution</span><span class="zt hind">Later · evaluation</span>
+    <span>Four separate objects with their own ids, times and receipts. The arrow is sequence, not identity.</span>
+  </div>
+
+  <div class="zones">
+    <section class="zone asof">
+      <div class="zhd"><span class="zt asof">Known at T₀</span><b>${t0s}</b><span class="grow"></span>
+        <button class="btn ${S.hind ? "on" : ""}" id="hindBtn" title="Draws post-T₀ prices on the right of the horizon only">Hindsight overlay: ${S.hind ? "ON" : "off"}</button></div>
+      <div class="zbd">
+        <div class="row small"><b>Cal-27 DE Base forward</b><span class="muted">€/MWh · 60 trading days either side of T₀</span></div>
+        ${priceSvg(k)}
+        <table class="t" style="margin-top:6px">
+          <thead><tr><th>Inputs in decision snapshot</th><th>Value at T₀</th><th>Observed at</th><th>Age at T₀</th><th>State</th></tr></thead>
+          <tbody>${inputs}</tbody>
+        </table>
+      </div>
+    </section>
+    <div class="horizon"><span>KNOWLEDGE HORIZON</span></div>
+    <section class="zone hind">
+      <div class="zhd"><span class="zt hind">Later · evaluation</span><b>not visible to the decision</b></div>
+      <div class="zbd">${evalZone}</div>
+    </section>
+  </div>`;
+}
+function minutesAfter(hms) { const [h, m] = hms.split(":").map(Number); return (h * 60 + m) - (9 * 60 + 30); }
+
+/* =====================================================================
+   3 · BACKTESTS / ECONOMIC COMPARISON
+   ===================================================================== */
+function cumSvg() {
+  const W = 800, H = 330, L = 52, R = 24, T = 14, B = 28;
+  let cum = 0; const pts = DEC.map(d => { if (d.closed) cum += d.dv; return d.closed ? cum : null; });
+  let cumB = 0; const ptsB = DEC.map(d => { if (d.closed && d.hbB !== null) cumB += (d.hbBase - d.hbB) * MWH_PER_TRANCHE_K; return d.closed && d.hbB !== null ? cumB : null; });
+  const vals = pts.concat(ptsB).filter(v => v !== null).concat([0]);
+  const lo = Math.min(...vals) - 10, hi = Math.max(...vals) + 10;
+  const x = k => L + k / (N_DEC - 1) * (W - L - R);
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative paired delta V">`;
+  s += `<rect x="${x(N_CLOSED - 0.5)}" y="${T}" width="${x(N_DEC - 1) - x(N_CLOSED - 0.5)}" height="${H - T - B}" fill="url(#hatchO)"/>`;
+  s += `<text x="${(x(N_CLOSED - 0.5) + x(N_DEC - 1)) / 2}" y="${H - B - 26}" text-anchor="middle" font-size="11" fill="var(--ink-2)" font-weight="600">NOT CLOSED</text>`;
+  s += `<text x="${(x(N_CLOSED - 0.5) + x(N_DEC - 1)) / 2}" y="${H - B - 12}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${N_DEC - N_CLOSED} excluded, not imputed</text>`;
+  s += `<rect x="${x(28.5)}" y="${T}" width="${x(N_CLOSED - 0.5) - x(28.5)}" height="${H - T - B}" fill="url(#hatchU)" opacity=".8"/>`;
+  s += `<text x="${(x(28.5) + x(N_CLOSED - 0.5)) / 2}" y="${H - B - 26}" text-anchor="middle" font-size="10" fill="var(--unk)" font-weight="600">Arm B</text>`;
+  s += `<text x="${(x(28.5) + x(N_CLOSED - 0.5)) / 2}" y="${H - B - 12}" text-anchor="middle" font-size="10" fill="var(--unk)" font-weight="600">not run</text>`;
+  s += `<g class="axis">`;
+  const step = 50;
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" ${v === 0 ? 'stroke="var(--ink-3)"' : 'stroke-dasharray="2 3"'}/><text x="${L - 6}" y="${y(v) + 3.5}" text-anchor="end">${v === 0 ? "0" : sgn(v, 0)}</text>`;
+  for (const k of [0, 10, 20, 30, 40, 45]) s += `<text x="${x(k)}" y="${H - 9}" text-anchor="middle">#${pad3(k)}</text>`;
+  s += `<text x="${L}" y="${T - 2}" font-size="10.5" fill="var(--ink-3)">k€</text></g>`;
+  const path = (arr) => arr.map((v, i) => v === null ? "" : `${arr[i - 1] == null ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  s += `<path d="${path(ptsB)}" fill="none" stroke="var(--arm-b)" stroke-width="2"/>`;
+  s += `<path d="${path(pts)}" fill="none" stroke="var(--arm-a)" stroke-width="2"/>`;
+  const lastA = N_CLOSED - 1, lastB = 28;
+  s += `<circle cx="${x(lastA)}" cy="${y(pts[lastA])}" r="4" fill="var(--arm-a)" stroke="var(--surface)" stroke-width="2"/><text x="${x(lastA) - 8}" y="${y(pts[lastA]) - 8}" text-anchor="end" font-size="11" fill="var(--ink)" font-weight="600">Arm A ${sgn(pts[lastA])}</text>`;
+  s += `<circle cx="${x(lastB)}" cy="${y(ptsB[lastB])}" r="4" fill="var(--arm-b)" stroke="var(--surface)" stroke-width="2"/><line x1="${x(lastB)}" x2="${x(lastB)}" y1="${y(ptsB[lastB]) + 6}" y2="${y(0) - 30}" stroke="var(--ink-3)" stroke-dasharray="2 2"/><text x="${x(lastB) - 4}" y="${y(0) - 18}" text-anchor="end" font-size="11" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">Arm B stops at #028: ${sgn(ptsB[lastB])} (subset)</text>`;
+  DEC.forEach((d, i) => { if (pts[i] !== null) s += `<rect x="${x(i) - 7}" y="${T}" width="14" height="${H - T - B}" fill="transparent" data-tip="<b>#${pad3(i)}</b> ${iso(d.t0)}<br>ΔV this decision ${sgn(d.dv)} k€<br>cumulative A ${sgn(pts[i])} k€${ptsB[i] !== null ? "<br>cumulative B " + sgn(ptsB[i]) + " k€" : ""}"/>`; });
+  return s + `</svg>`;
+}
+
+function histSvg(key, armKey) {
+  const W = 380, H = 150, L = 30, R = 18, T = 18, B = 24;
+  const vals = CLOSED.map(d => d[key]);
+  const bins = []; for (let b = -3; b < 3; b += 0.5) bins.push([b, vals.filter(v => v >= b && v < b + 0.5).length]);
+  const maxN = 10;
+  const bw = (W - L - R) / bins.length;
+  const y = n => T + (1 - n / maxN) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Distribution of H minus B, ${ARMS[armKey].name}">`;
+  s += `<g class="axis">`;
+  for (const n of [0, 5, 10]) s += `<line x1="${L}" x2="${W - R}" y1="${y(n)}" y2="${y(n)}" ${n ? 'stroke-dasharray="2 3"' : ""}/><text x="${L - 5}" y="${y(n) + 3.5}" text-anchor="end">${n}</text>`;
+  for (const v of [-3, -1.5, 0, 1.5, 3]) s += `<text x="${L + (v + 3) / 6 * (W - L - R)}" y="${H - 8}" text-anchor="middle">${v === 0 ? "0" : sgn(v, 1)}</text>`;
+  s += `</g>`;
+  bins.forEach((b, i) => { if (!b[1]) return; const h = y(0) - y(b[1]); s += `<rect x="${L + i * bw + 1}" y="${y(b[1])}" width="${bw - 2}" height="${h}" rx="2" fill="${ARMS[armKey].color}" data-tip="${ARMS[armKey].name}: H − B in [${fmt(b[0], 1)}, ${fmt(b[0] + 0.5, 1)}) €/MWh<br><b>${b[1]}</b> decisions"/>`; });
+  const m = mean(vals); const mx = L + (m + 3) / 6 * (W - L - R);
+  s += `<line x1="${mx}" x2="${mx}" y1="${T - 4}" y2="${y(0)}" stroke="var(--ink)" stroke-width="1.5"/><text x="${mx + 4}" y="${T + 4}" font-size="10.5" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">mean ${sgn(m, 2)}</text>`;
+  const zx = L + 3 / 6 * (W - L - R);
+  s += `<line x1="${zx}" x2="${zx}" y1="${T}" y2="${y(0)}" stroke="var(--ink-3)" stroke-dasharray="3 3"/>`;
+  return s + `</svg>`;
+}
+
+function forestSvg() {
+  const rows = [
+    ["SYN-CMP-009", "Cal-26 DE Power", 64.2, 8.8, 121.0, "closed"],
+    ["SYN-CMP-012", "TTF Gas Q1-27", 38.5, -22.1, 99.4, "closed"],
+    ["SYN-CMP-014", "Cal-27 DE Power", DV_A, DV_A - DV_A_CI, DV_A + DV_A_CI, "interim"],
+    ["SYN-CMP-016", "FR Power Cal-27", null, null, null, "insufficient"],
+  ];
+  const W = 380, rowH = 34, T = 10, L = 150, R = 16, H = T + rows.length * rowH + 26;
+  const lo = -60, hi = 280;
+  const x = v => L + (v - lo) / (hi - lo) * (W - L - R);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Campaign effects, Arm A family vs Baseline">`;
+  s += `<g class="axis"><line x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${H - 22}" stroke="var(--ink-3)"/>`;
+  for (const v of [-50, 0, 100, 200]) s += `<text x="${x(v)}" y="${H - 8}" text-anchor="middle">${v === 0 ? "0" : sgn(v, 0)}</text>`;
+  s += `</g>`;
+  rows.forEach((r, i) => {
+    const cy = T + i * rowH + rowH / 2;
+    s += `<text x="0" y="${cy - 2}" font-size="11" fill="var(--ink)" font-family="var(--mono)">${r[0]}</text><text x="0" y="${cy + 11}" font-size="10.5" fill="var(--ink-3)">${r[1]}</text>`;
+    if (r[2] === null) { s += `<rect x="${x(-50)}" y="${cy - 9}" width="${x(270) - x(-50)}" height="18" fill="url(#hatchU)" rx="2"/><text x="${x(70)}" y="${cy + 4}" text-anchor="middle" font-size="10.5" fill="var(--unk)" font-weight="700" dx="40">NO ESTIMATE · insufficient data</text>`; return; }
+    const interim = r[5] === "interim";
+    s += `<line x1="${x(r[3])}" x2="${x(r[4])}" y1="${cy}" y2="${cy}" stroke="var(--arm-a)" stroke-width="2" ${interim ? 'stroke-dasharray="4 3"' : ""}/>`;
+    s += `<rect x="${x(r[2]) - 5}" y="${cy - 5}" width="10" height="10" fill="${interim ? "var(--surface)" : "var(--arm-a)"}" stroke="var(--arm-a)" stroke-width="2" transform="rotate(45 ${x(r[2])} ${cy})" data-tip="<b>${r[0]}</b> ${r[5]}<br>ΔV ${sgn(r[2])} k€ · 90% [${sgn(r[3])}, ${sgn(r[4])}]"/>`;
+    if (interim) s += `<text x="${x(r[2])}" y="${cy - 9}" text-anchor="middle" font-size="10" fill="var(--ink-2)">interim</text>`;
+  });
+  return s + `</svg>`;
+}
+
+function viewBacktests() {
+  const S0 = ST.base, SA = ST.A, SB = ST.Bpaired;
+  const row = (armKey, s, dv, ci, nNote, extra) => `<tr>
+    <td>${armTag(armKey)}<div class="small muted">${ARMS[armKey].sub} · <span class="mono">${ARMS[armKey].run}</span></div></td>
+    <td class="num">${nNote}</td>
+    <td class="mono num right">${pv(s.B.toFixed(2), { obj: "B · benchmark price (placeholder definition)", value: s.B.toFixed(2) + " €/MWh", src: "SYN-EVAL · mean over closed decisions", valid: "2025-11-10 → 2026-06-29 (closed windows)", rec: "2026-09-24 06:00 +02:00", rcp: "SYN-RCP-8699", hash: "sha256 5e2a…91" })}</td>
+    <td class="mono num right">${s.H.toFixed(2)}</td>
+    <td class="mono num right">${sgn(s.V)}</td>
+    <td class="mono num right">${dv}</td>
+    <td>${ci}</td>
+    <td>${extra}</td></tr>`;
+
+  const table = `
+    <table class="t">
+      <thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">ΔV vs Baseline · k€</th><th>90% interval (paired)</th><th>Status</th></tr></thead>
+      <tbody>
+        ${row("base", S0, "reference", `<span class="muted small">—</span>`, `${S0.n} / ${N_DEC}`, st(["pass", "✓", "Complete"]))}
+        ${row("A", SA, pv(sgn(DV_A), { obj: "ΔV · Arm A − Baseline, campaign (interim)", value: sgn(DV_A) + " k€", src: "SYN-EVAL paired by decision date · placeholder CI method", valid: `closed windows only (${N_CLOSED}/${N_DEC})`, rec: "2026-09-24 06:00 +02:00", rcp: "SYN-RCP-8699", hash: "sha256 77f0…aa" }), `<span class="ci">[${sgn(DV_A - DV_A_CI)}, ${sgn(DV_A + DV_A_CI)}]</span>`, `${SA.n} / ${N_DEC}`, `${st(["open", "◌", "Interim"])}`)}
+        <tr>
+          <td>${armTag("B")}<div class="small muted">${ARMS.B.sub} · <span class="mono">${ARMS.B.run}</span></div></td>
+          <td class="num">${SB.n} / ${N_DEC}<div><span class="unkv" style="font-size:10.5px;line-height:15px">${N_DEC - 29} NOT RUN</span></div></td>
+          <td class="mono num right">${SB.B.toFixed(2)}<div class="tiny muted">paired subset</div></td>
+          <td class="mono num right">${SB.H.toFixed(2)}<div class="tiny muted">paired subset</div></td>
+          <td class="mono num right"><span class="withheld">WITHHELD</span></td>
+          <td class="mono num right"><span class="withheld">WITHHELD</span><div class="tiny muted">subset ${sgn(DV_B)}</div></td>
+          <td><span class="ci">subset [${sgn(DV_B - DV_B_CI)}, ${sgn(DV_B + DV_B_CI)}]</span></td>
+          <td>${st(["fail", "✕", "Not comparable"])}<div class="tiny muted">run halted · U-014-1</div></td>
+        </tr>
+      </tbody>
+    </table>`;
+
+  const checks = [
+    ["pass", "✓", "Pass", "Pairing", "Same decision dates, same snapshot SYN-MDS-0901 for every arm."],
+    ["pass", "✓", "Pass", "Look-ahead guard", "No input observed after T₀ · SYN-RCP-8733."],
+    ["warn", "!", "Simulated", "Execution", "Fills from simulator SYN-FM-2, not real executions."],
+    ["open", "◌", "Not closed", "Evaluation closure", `${N_CLOSED}/${N_DEC} closed. Open decisions excluded, not imputed.`],
+    ["fail", "✕", "Fail", "Arm completeness", "Arm B halted at #029. Campaign-level ΔV withheld."],
+    ["unk", "?", "Unknown", "Tail cost (P95)", "Not computed (U-014-2)."],
+    ["warn", "!", "Degraded", "Input quality", "1 decision with stale forecast (#031); included, flagged."],
+  ].map(c => `<div class="chk"><span><b>${c[3]}</b></span>${st([c[0], c[1], c[2]])}<span class="d">${c[4]}</span></div>`).join("");
+
+  const tableRows = CLOSED.map(d => `<tr><td class="mono">#${pad3(d.k)}</td><td class="mono">${iso(d.t0)}</td><td class="mono right">${d.bench.toFixed(2)}</td><td class="mono right">${(d.bench + d.hbBase).toFixed(2)}</td><td class="mono right">${(d.bench + d.hbA).toFixed(2)}</td><td class="mono right">${sgn(d.dv)}</td></tr>`).join("");
+
+  return `
+  <div class="row" style="align-items:flex-end">
+    <div class="grow">
+      <div class="mono muted small">SYN-CMP-014/X-01 · paired comparison · interim</div>
+      <h1 class="page">Does the tranche trigger buy cheaper than the calendar?</h1>
+      <p class="lede">Economic comparison of two experimental arms against the Baseline, paired decision by decision on identical data. Figures are <b>interim</b>: ${N_DEC - N_CLOSED} evaluation windows are still open.</p>
+    </div>
+    <div class="armhead">${armTag("base")}${armTag("A")}${armTag("B")}</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="hd"><h3>Economic measures</h3><span class="small muted">B benchmark price · H achieved hedge price · V = Σ(B − H) × volume · ΔV = V<sub>arm</sub> − V<sub>baseline</sub></span><span class="grow"></span><span class="st warn"><span class="g">!</span>Definitions are mockup placeholders</span></div>
+    ${table}
+  </div>
+
+  <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
+    <div class="card">
+      <div class="hd"><h3>Paired effect over the campaign</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div>
+      <div class="bd">
+        ${cumSvg()}
+        <details class="tbl"><summary>Show data table (${N_CLOSED} closed decisions, Arm A vs Baseline)</summary>
+          <table class="t small"><thead><tr><th>#</th><th>T₀</th><th class="right">B</th><th class="right">H base</th><th class="right">H arm A</th><th class="right">ΔV k€</th></tr></thead><tbody>${tableRows}</tbody></table>
+        </details>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend</span></div>
+      <div class="bd">
+        ${checks}
+        <div class="sp"></div>
+        <div class="note-ev"><span class="ev">EVIDENCE</span> This comparison is evidence. It does not approve a strategy. Adoption authority lives in <a href="#/research?c=TT-3.2">Research › Authority</a>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>${armTag("base")}</h3><span class="small muted">H − B per decision, €/MWh (lower is better)</span></div><div class="bd">${histSvg("hbBase", "base")}</div></div>
+    <div class="card"><div class="hd"><h3>${armTag("A")}</h3><span class="small muted">H − B per decision, €/MWh (lower is better)</span></div><div class="bd">${histSvg("hbA", "A")}</div></div>
+    <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">ΔV, Tranche-trigger family vs Baseline, k€</span></div><div class="bd">${forestSvg()}
+      <div class="tiny muted">◆ closed · ◇ interim · hatched = no estimate (not zero)</div></div></div>
+  </div>`;
+}
+
+/* =====================================================================
+   4 · RESEARCH / STRATEGY LAB
+   ===================================================================== */
+function lineageSvg() {
+  const nodes = [
+    ["v1.0", 60, 60, "na", "Fixed threshold", "retired"],
+    ["v2.0", 180, 60, "na", "Budget-relative", "retired"],
+    ["v2.1", 300, 60, "na", "Exposure gate", "retired · superseded"],
+    ["v3.0", 430, 60, "na", "Threshold 2.5 → 3.0", "superseded"],
+    ["v3.1", 560, 60, "na", "Fill model FM-2", "superseded"],
+    ["v3.2", 690, 60, "cur", "Stale-input flag", "current"],
+    ["v3.3-vg", 820, 110, "blk", "+ volatility gate", "blocked"],
+  ];
+  const exps = [["X-01 · CMP-014", 690, 16], ["X-07 · CMP-012", 560, 16], ["X-02 · CMP-014", 820, 158]];
+  let s = `<svg viewBox="0 0 900 180" width="100%" role="img" aria-label="Version lineage">`;
+  for (let i = 1; i < 6; i++) s += `<line x1="${nodes[i - 1][1] + 42}" y1="60" x2="${nodes[i][1] - 42}" y2="60" stroke="var(--ink-3)" stroke-width="1.5" marker-end="url(#arr)"/>`;
+  s += `<path d="M${690 + 20} 78 C ${740} 110, ${760} 110, ${820 - 44} 110" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)"/>`;
+  for (const n of nodes) {
+    const fill = n[3] === "cur" ? "var(--ink)" : n[3] === "blk" ? "url(#hatchU)" : "var(--surface)";
+    const tc = n[3] === "cur" ? "#fff" : "var(--ink)";
+    s += `<g data-tip="<b>${n[0]}</b> · ${n[4]}<br>${n[5]}"><rect x="${n[1] - 42}" y="${n[2] - 16}" width="84" height="32" rx="4" fill="${fill}" stroke="${n[3] === "blk" ? "var(--unk)" : "var(--ink-2)"}"/>`;
+    s += `<text x="${n[1]}" y="${n[2] + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${tc}" font-family="var(--mono)">${n[0]}</text></g>`;
+    s += `<text x="${n[1]}" y="${n[2] + 31}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${n[4]}</text>`;
+  }
+  for (const e of exps) s += `<text x="${e[1]}" y="${e[2]}" text-anchor="middle" font-size="10" fill="var(--ink-2)" font-family="var(--mono)">⧉ ${e[0]}</text>`;
+  return s + `</svg>`;
+}
+
+function viewResearch() {
+  const c = CANDIDATES.find(x => x.id === S.cand) || CANDIDATES[0];
+  const list = CANDIDATES.map(x => `
+    <a class="it ${x.id === c.id ? "on" : ""}" href="#/research?c=${x.id}">
+      <div class="row"><span class="stage">${x.stage}</span><span class="grow"></span><span class="mono tiny muted">${x.ver}</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">${x.name}</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span>${st(x.readiness)}</div>
+      <div class="row small" style="gap:6px;margin-top:4px"><span class="ev">EVIDENCE ${x.evidence}</span><span class="muted">Authority</span>${st(x.authority)}</div>
+    </a>`).join("");
+
+  if (c.id !== "TT-3.2") {
+    return `<div class="split"><div><div class="caps muted" style="margin:4px 0 8px">Candidate stack</div><div class="card stack">${list}</div></div>
+      <div><div class="mono muted small">${c.code}</div><h1 class="page">${c.name} <span class="muted">${c.ver}</span></h1>
+      <div class="card" style="margin-top:14px"><div class="bd"><span class="openv">NOT MODELLED IN MOCKUP</span>
+      <p class="small ink2">Only <a href="#/research?c=TT-3.2">Tranche-trigger v3.2</a> is fully drawn in this prototype. The stack still shows readiness, evidence count and authority for every candidate, as three separate columns.</p></div></div></div></div>`;
+  }
+
+  const crit = [
+    ["open", "◌", "ΔV 90% lower bound > 0 in ≥ 2 campaigns", `1 of 2 so far: CMP-009 closed ✓; CMP-014 interim (lower bound ${sgn(DV_A - DV_A_CI)} k€, not final). CMP-012 lower bound < 0.`, "Not met yet"],
+    ["unk", "?", "P95 per-decision cost not worse than Baseline by > 1.00 €/MWh", "Tail metric not computed (U-014-2).", "Unknown"],
+    ["pass", "✓", "No look-ahead: every input observed ≤ T₀", "Guard passed on 0143 · SYN-RCP-8733.", "Met"],
+  ].map(r => `<div class="crit"><span class="mono">${r[1]}</span><div><div style="font-weight:600">${r[2]}</div><div class="small ink2">${r[3]}</div></div>${st([r[0], r[1], r[4]])}</div>`).join("");
+
+  const integ = [
+    ["pass", "✓", "Pass", "Code pinned", "sha256 4be1…09aa"],
+    ["pass", "✓", "Pass", "Data snapshot pinned", "SYN-MDS-0901"],
+    ["pass", "✓", "Pass", "Replay determinism", "0143 vs 0145 prefix match (17/17)"],
+    ["fail", "✕", "Not met", "Evidence in ≥ 2 campaigns", "criterion 1"],
+    ["unk", "?", "Unknown", "Tail-risk metric", "U-014-2"],
+    ["open", "◌", "Not closed", "Out-of-sample window", `closes ${iso(DEC[N_DEC - 1].closes)}`],
+  ].map(g => `<div class="chk"><span>${g[3]}</span>${st([g[0], g[1], g[2]])}<span class="d">${g[4]}</span></div>`).join("");
+
+  const ev = [
+    ["SYN-RCP-8699", "Backtest result", "A vs Baseline, CMP-014 (interim)", "2026-09-03 07:55", "#/backtests"],
+    ["SYN-RCP-8733", "Integrity check", "Look-ahead guard, 0142 + 0143", "2026-09-04 16:20", "#/campaigns"],
+    ["SYN-RCP-R031", "Replay bundle", "Decision #031 with stale-input flag", "2026-09-02 21:14", "#/replay?d=31"],
+    ["SYN-RCP-8650", "Data snapshot", "SYN-MDS-0901 pinned", "2026-09-01 00:00", "#/campaigns"],
+    ["SYN-RCP-7710", "Backtest result", "CMP-009 retrospective (closed)", "2025-10-14 09:10", null],
+    ["SYN-RCP-7902", "Backtest result", "CMP-012 TTF Gas (closed)", "2026-09-01 18:44", null],
+    ["SYN-RCP-8841", "Run receipt", "Rerun 0145 started (seed 7302)", "2026-09-24 05:40", "#/campaigns"],
+  ].map(e => `<tr><td>${pv(`<span class="mono small">${e[0]}</span>`, { obj: e[1], value: e[0], src: "SYN-RECEIPTS ledger", valid: e[3] + " +02:00", rec: e[3] + " +02:00", rcp: e[0], hash: "sha256 " + e[0].slice(-4) + "…" })}</td><td><span class="ev">${e[1].toUpperCase()}</span></td><td>${e[2]}</td><td class="mono small muted">${e[3]}</td><td>${e[4] ? `<span class="drill"><a href="${e[4]}">open</a></span>` : `<span class="muted small">archive</span>`}</td></tr>`).join("");
+
+  return `
+  <div class="split">
+    <div>
+      <div class="caps muted" style="margin:4px 0 8px">Candidate stack</div>
+      <div class="card stack">${list}</div>
+      <div class="small muted" style="margin-top:8px">Evidence count and authority are separate columns on purpose: more evidence never turns into approval by itself.</div>
+    </div>
+    <div>
+      <div class="row" style="align-items:flex-end">
+        <div class="grow"><div class="mono muted small">${c.code} · owner Research desk (synthetic role)</div>
+          <h1 class="page">${c.name} <span class="muted">${c.ver}</span></h1></div>
+        <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px">${st(c.readiness)}</div></div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+        <div class="card">
+          <div class="hd"><h3>Hypothesis H-014-A</h3><span class="small muted">pre-registered ${pv("2026-02-02", { obj: "Hypothesis registration", value: "H-014-A", src: "SYN-HYP register", valid: "2026-02-02 →", rec: "2026-02-02 10:12 +01:00", rcp: "SYN-RCP-6120", hash: "sha256 0dd4…e3" })} · before any CMP-014 run</span></div>
+          <div class="bd">
+            <p class="hyp">Buying a tranche only when the forward is at least 3.00 €/MWh below budget and open exposure exceeds 50 % lowers hedged cost versus the layered calendar, without worsening tail cost.</p>
+            <div class="caps muted">Success criteria</div>
+            ${crit}
+          </div>
+        </div>
+        <div>
+          <div class="auth-box">
+            <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span>${st(["na", "—", "Not requested"])}</div>
+            <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+            <div class="small ink2">Authority to adopt: <b>Procurement committee (synthetic role)</b>. It has not been asked. Seven evidence receipts do not change this state; only a recorded act of that owner can.</div>
+            <div class="small muted" style="margin-top:8px">Current policy: Layered calendar v1.0 · approved 2025-11-03 · SYN-RCP-5021</div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <div class="hd"><h3>Readiness &amp; integrity</h3></div>
+            <div class="bd">${integ}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = branch under test</span></div>
+        <div class="bd">${lineageSvg()}</div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">7 items · evidence informs, it does not authorise</span></div>
+        <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody>${ev}</tbody></table>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   Shared SVG defs (hatches, arrows) + render loop + interactions
+   ===================================================================== */
+const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <pattern id="hatchH" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><rect width="7" height="7" fill="#f6ecdc"/><rect width="1" height="7" fill="#e3c9a0"/></pattern>
+  <pattern id="hatchU" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f3ecf5"/><rect width="1" height="6" fill="#d4c0dc"/></pattern>
+  <pattern id="hatchO" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><rect width="5" height="5" fill="#f7f5f0"/><rect width="1" height="5" fill="#c9c6bd"/></pattern>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="var(--ink-3)"/></marker>
+</defs></svg>`;
+
+function render() {
+  parseHash();
+  PROV = [];
+  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.v === S.view));
+  const html = { campaigns: viewCampaigns, replay: viewReplay, backtests: viewBacktests, research: viewResearch }[S.view]();
+  ctx();
+  document.getElementById("main").innerHTML = DEFS + html + `<div class="foot">DES-01 · Claude blind design proposal · synthetic data only · no production integration. Every dotted value opens its provenance. Keys: 1–4 workspaces · ? semantics key · Esc close.</div>`;
+  document.title = { campaigns: "Campaigns & Runs", replay: "Replay", backtests: "Backtests", research: "Research Lab" }[S.view] + " · Energy Markets (DES-01 proposal)";
+  const hb = document.getElementById("hindBtn");
+  if (hb) hb.onclick = () => go(`#/replay?d=${S.dec}&h=${S.hind ? 0 : 1}`);
+  document.querySelectorAll(".tick").forEach(g => g.addEventListener("click", () => { const k = +g.dataset.k; if (REPLAY[k]) go(`#/replay?d=${k}${S.hind ? "&h=1" : ""}`); }));
+  document.querySelectorAll(".clist .it").forEach((el, i) => el.addEventListener("click", () => { if (CAMPAIGNS[i].id !== S.cmp) toast(CAMPAIGNS[i].id + " is listed but not modelled in this mockup."); }));
+}
+
+function openDrawer(m) {
+  const d = document.getElementById("drawer");
+  d.innerHTML = `
+    <div class="dh"><div class="grow"><div class="caps muted">Provenance</div><div style="font:600 17px var(--serif);margin-top:2px">${m.obj}</div></div><button class="btn" data-close>Close</button></div>
+    <div class="db">
+      <div class="mono" style="font-size:20px;margin-bottom:10px">${m.value}</div>
+      <dl>
+        <dt>Source</dt><dd class="mono small">${m.src}</dd>
+        <dt>Receipt</dt><dd class="mono small">${m.rcp}</dd>
+        <dt>Hash</dt><dd class="mono small">${m.hash}</dd>
+      </dl>
+      <div class="bitemp">
+        <div class="caps muted" style="margin-bottom:8px">Two clocks · never merged</div>
+        <dl>
+          <dt>Valid time</dt><dd class="mono small">${m.valid}<div class="tiny muted" style="font-family:var(--sans)">when this was true in the world</div></dd>
+          <dt>Recorded time</dt><dd class="mono small">${m.rec}<div class="tiny muted" style="font-family:var(--sans)">when the system learned it</div></dd>
+        </dl>
+      </div>
+      <div class="note-ev"><span class="ev">EVIDENCE</span> Provenance shows where a value came from. It does not make the value authoritative.</div>
+      <p class="tiny muted" style="margin-top:14px">SYNTHETIC. Ids and hashes are illustrative placeholders.</p>
+    </div>`;
+  d.classList.add("on"); document.getElementById("scrim").classList.add("on");
+  d.querySelector("[data-close]").focus();
+}
+function closeDrawer() { document.getElementById("drawer").classList.remove("on"); document.getElementById("scrim").classList.remove("on"); }
+function toast(msg) { const t = document.getElementById("tip"); t.innerHTML = msg; t.style.display = "block"; t.style.left = "50%"; t.style.top = "120px"; t.style.transform = "translateX(-50%)"; setTimeout(() => { t.style.display = "none"; t.style.transform = ""; }, 2200); }
+
+document.addEventListener("click", e => {
+  const p = e.target.closest(".pv[data-p]");
+  if (p) { openDrawer(PROV[+p.dataset.p]); return; }
+  if (e.target.closest("[data-close]") || e.target.id === "scrim") closeDrawer();
+  if (e.target.closest("#keyBtn")) document.getElementById("key").classList.toggle("on");
+  if (e.target.closest("[data-close-key]")) document.getElementById("key").classList.remove("on");
+});
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input, textarea")) return;
+  const map = { 1: "campaigns", 2: "replay", 3: "backtests", 4: "research" };
+  if (map[e.key]) go("#/" + map[e.key]);
+  if (e.key === "?") document.getElementById("key").classList.toggle("on");
+  if (e.key === "Escape") { closeDrawer(); document.getElementById("key").classList.remove("on"); }
+});
+const tip = document.getElementById("tip");
+document.addEventListener("mousemove", e => {
+  const el = e.target.closest("[data-tip]");
+  if (!el) { if (!tip.style.transform) tip.style.display = "none"; return; }
+  tip.innerHTML = el.getAttribute("data-tip");
+  tip.style.display = "block";
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - 300) + "px";
+  tip.style.top = (e.clientY + 14) + "px";
+});
+window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
+window.addEventListener("error", e => { document.body.insertAdjacentHTML("afterbegin", `<pre id="jserr" style="background:#a3312a;color:#fff;padding:8px;margin:0">JS error: ${e.message}</pre>`); });
+if (!location.hash) history.replaceState(null, "", "#/campaigns");
+render();
+const QS = new URLSearchParams(location.search);
+if (QS.has("prov") && PROV[+QS.get("prov")]) openDrawer(PROV[+QS.get("prov")]);
+if (QS.get("key") === "1") document.getElementById("key").classList.add("on");
+</script>
+</body>
+</html>
