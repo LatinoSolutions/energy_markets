@@ -1423,7 +1423,9 @@ export function createGasQuarterlyFicha() {
     spec: {
       id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
       version: "1.1.1",
-      sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
+      // sha256 de los bytes del doc canónico vigente (v1_1_1/SHA256SUMS); el
+      // pin anterior (666a9735…) quedó stale tras el rebind ad46afb.
+      sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b",
     },
     product: "Gas",
     mission: "Quarterly",
@@ -1722,7 +1724,9 @@ export function createGasQuarterlyValidationFicha(maturity, deadlineEvidence = n
     spec: {
       id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
       version: "1.1.1",
-      sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
+      // sha256 de los bytes del doc canónico vigente (v1_1_1/SHA256SUMS); el
+      // pin anterior (666a9735…) quedó stale tras el rebind ad46afb.
+      sha256: "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b",
     },
     product: "Gas",
     mission: "Quarterly",
