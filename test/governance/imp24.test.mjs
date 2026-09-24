@@ -362,6 +362,34 @@ test("IMP-24: evidencias de versiones distintas no activan: una sola identidad d
   const result = judge.considerFirstActivation(firstActivationInput({ oosPolicyVersion: "otra-version" }));
   assert.equal(result.ok, false);
   assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
+  // §18.4: la vía de mismatch queda registrada como HOLD reconstruible.
+  const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+  assert.equal(holds.length, 1);
+  assert.equal(result.transitionReceiptId, holds[0].receiptId);
+});
+
+test("IMP-24: un receipt de etapa equivocada en el slot OOS se rechaza con HOLD, nunca rompe (§25.2.3 hito 2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  // El receipt Shadow es válido, pero pertenece a otra etapa: no es evidencia OOS.
+  const result = judge.considerFirstActivation(firstActivationInput({ oosEvidence: shadowReceipt({ policyVersion: "v1.0" }) }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "EVIDENCE_STAGE_MISMATCH");
+  assert.equal(result.stage, "OOS");
+  const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+  assert.equal(holds.length, 1);
+  assert.equal(result.transitionReceiptId, holds[0].receiptId);
+});
+
+test("IMP-24: un receipt de etapa equivocada en el slot Shadow se rechaza con HOLD (§25.2.3 hito 2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  // El receipt OOS es válido, pero pertenece a otra etapa: no es evidencia Shadow.
+  const result = judge.considerFirstActivation(firstActivationInput({ shadowEvidence: oosReceipt() }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "EVIDENCE_STAGE_MISMATCH");
+  assert.equal(result.stage, "SHADOW");
+  const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+  assert.equal(holds.length, 1);
+  assert.equal(result.transitionReceiptId, holds[0].receiptId);
 });
 
 test("IMP-24: evidencia OOS con veredicto FAIL no soporta activación", () => {
@@ -405,6 +433,23 @@ test("IMP-24: evidencia Shadow de otra versión no activa", () => {
   const result = judge.considerFirstActivation(firstActivationInput({ shadowEvidence: shadowReceipt({ policyVersion: "otra-version" }) }));
   assert.equal(result.ok, false);
   assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
+  // §18.4: HOLD reconstruible también en esta vía de mismatch.
+  assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
+  assert.equal(result.transitionReceiptId, judge.receiptRegistry.transitionsOfType("HOLD")[0].receiptId);
+});
+
+test("IMP-24: la evidencia Shadow que no es de la Policy Version activada no activa y queda HOLD", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  // Sin oosPolicyVersion declarado, la única comparación viva es Shadow vs policyVersion.
+  const result = judge.considerFirstActivation(firstActivationInput({
+    oosPolicyVersion: undefined,
+    shadowEvidence: shadowReceipt({ policyVersion: "otra-version" }),
+  }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "SHADOW_EVIDENCE_VERSION_MISMATCH");
+  const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+  assert.equal(holds.length, 1);
+  assert.equal(result.transitionReceiptId, holds[0].receiptId);
 });
 
 test("IMP-24: evidencia OOS sin veredicto evaluado es evidencia insuficiente", () => {
@@ -426,6 +471,10 @@ test("IMP-24: OOS y Shadow de experimentos distintos no son la misma identidad d
   }));
   assert.equal(result.ok, false);
   assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
+  // §18.4: el mismatch de experimento también deja HOLD reconstruible.
+  const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+  assert.equal(holds.length, 1);
+  assert.equal(result.transitionReceiptId, holds[0].receiptId);
 });
 
 test("IMP-24: sin APG satisfecho la activación no procede aunque exista aprobación", () => {

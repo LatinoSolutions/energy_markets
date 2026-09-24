@@ -474,6 +474,19 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       });
       return fail(receivedOos.code, `Evidencia OOS insuficiente: ${receivedOos.message}`, { stage: "OOS", transitionReceiptId: holdReceiptId });
     }
+    // §25.2.3 hito 2: cada slot exige la evidencia de SU etapa. Un receipt
+    // válido de otra etapa (p.ej. un Shadow en el slot OOS) no es evidencia
+    // de este slot; sin este control el borde de recepción leería
+    // `researchVerdict` (null para Shadow) y rompería por excepción en vez de
+    // rechazar fail-closed (§18.1). Se rechaza con HOLD, nunca se lanza.
+    if (receivedOos.evidence.stage !== "OOS") {
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `EVIDENCE_STAGE_MISMATCH:${receivedOos.evidence.stage}:STAGE_OOS`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("EVIDENCE_STAGE_MISMATCH", `El slot OOS recibió un receipt de etapa ${receivedOos.evidence.stage}: se exige un receipt OOS (§25.2.3 hito 2).`, { stage: "OOS", transitionReceiptId: holdReceiptId });
+    }
     if (!receivedOos.evidence.researchVerdict.evaluated || receivedOos.evidence.researchVerdict.verdict !== "PASS") {
       const verdict = receivedOos.evidence.researchVerdict.verdict ?? "SIN_EVALUAR";
       const holdReceiptId = holdFirstActivation({
@@ -491,6 +504,15 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         atUtc,
       });
       return fail(receivedShadow.code, `Evidencia Shadow insuficiente: ${receivedShadow.message}`, { stage: "SHADOW", transitionReceiptId: holdReceiptId });
+    }
+    // Mismo control de etapa para el slot Shadow (rechazo HOLD fail-closed).
+    if (receivedShadow.evidence.stage !== "SHADOW") {
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `EVIDENCE_STAGE_MISMATCH:${receivedShadow.evidence.stage}:STAGE_SHADOW`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("EVIDENCE_STAGE_MISMATCH", `El slot Shadow recibió un receipt de etapa ${receivedShadow.evidence.stage}: se exige un receipt Shadow (§25.2.3 hito 2).`, { stage: "SHADOW", transitionReceiptId: holdReceiptId });
     }
     // §18.1: "Shadow satisfactorio" no es un statement auto-attribuido: el
     // receipt del productor IMP-18 declara non-interference verificada y
@@ -514,13 +536,28 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     const shadowExperiment = receivedShadow.evidence.identity.experiment;
     if (oosExperiment === null || shadowExperiment === null
       || contentHashOf(oosExperiment) !== contentHashOf(shadowExperiment)) {
-      return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas OOS y Shadow no comparten la identidad de experimento (OOS ${JSON.stringify(oosExperiment)} vs Shadow ${JSON.stringify(shadowExperiment)}): una sola identidad de versión (§15/§25.2.3 hito 2).`);
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: "EVIDENCE_VERSION_MISMATCH:EXPERIMENT",
+        policyVersion,
+        atUtc,
+      });
+      return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas OOS y Shadow no comparten la identidad de experimento (OOS ${JSON.stringify(oosExperiment)} vs Shadow ${JSON.stringify(shadowExperiment)}): una sola identidad de versión (§15/§25.2.3 hito 2).`, { transitionReceiptId: holdReceiptId });
     }
     if (isNonEmptyString(oosPolicyVersion) && oosPolicyVersion !== receivedShadow.evidence.identity.policyVersion) {
-      return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas declaran versiones distintas (OOS "${oosPolicyVersion}" vs Shadow "${receivedShadow.evidence.identity.policyVersion}"): una sola identidad de versión (§15).`);
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `EVIDENCE_VERSION_MISMATCH:POLICY_VERSION:${oosPolicyVersion}`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas declaran versiones distintas (OOS "${oosPolicyVersion}" vs Shadow "${receivedShadow.evidence.identity.policyVersion}"): una sola identidad de versión (§15).`, { transitionReceiptId: holdReceiptId });
     }
     if (receivedShadow.evidence.identity.policyVersion !== policyVersion) {
-      return fail("SHADOW_EVIDENCE_VERSION_MISMATCH", `La evidencia Shadow pertenece a "${String(receivedShadow.evidence.identity.policyVersion)}", no a "${policyVersion}" (§25.2 DEP-22).`);
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `SHADOW_EVIDENCE_VERSION_MISMATCH:${String(receivedShadow.evidence.identity.policyVersion)}`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("SHADOW_EVIDENCE_VERSION_MISMATCH", `La evidencia Shadow pertenece a "${String(receivedShadow.evidence.identity.policyVersion)}", no a "${policyVersion}" (§25.2 DEP-22).`, { transitionReceiptId: holdReceiptId });
     }
     return {
       ok: true,
