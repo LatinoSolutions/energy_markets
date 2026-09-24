@@ -434,11 +434,11 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     // §18.3/§18.4 (el estado no baja por una vía de promoción) y §18.4
     // (reconstrucción de receipts): la primera activación es UNA sola por
-    // governor. El flag es la verdad de "ya activada": el nivel puede superar
-    // A1 por el propio envelope ANTES de que exista el acto humano de DEP-25
-    // (el envelope autoriza el nivel, no sustituye la aprobación; §17). Sin
-    // este guard, una segunda llamada registraría un PROMOTE duplicado A0→A1
-    // con `previousState` falso ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
+    // governor. El flag es la verdad de "ya activada": el nivel arranca en A0
+    // y sólo ese acto humano de DEP-25 lo eleva a A1; el envelope es techo, no
+    // nivel inicial ( IMP24-FIRST-ACTIVATION-SKIPS-A1-STAGE ). Sin este guard,
+    // una segunda llamada registraría un PROMOTE duplicado A0→A1 con
+    // `previousState` falso ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
     if (state.realAuthorityEntered) {
       return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: la primera activación ya quedó registrada; no hay segunda (§18.1).`);
     }
