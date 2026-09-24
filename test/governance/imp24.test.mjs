@@ -360,9 +360,9 @@ test("IMP-24: sin aprobación humana explícita de DEP-25 no hay primera activac
 
 test("IMP-24: el receipt HOLD de primera activación declara la frontera de etapa, coherente con el nivel operativo (IMP24-HOLD-RECEIPT-A1-LABEL)", () => {
   // §18.4: "Nuevo estado/versión" y "Nivel de autonomía" deben ser coherentes
-  // dentro del mismo receipt. La primera activación no mueve el nivel
-  // operativo (§18.3), así que el HOLD no puede declarar un nivel A1 cuando el
-  // governor opera en A0/A2/A3/A4.
+  // dentro del mismo receipt. Antes de la primera activación el nivel operativo
+  // es A0 (Research, sin autoridad real; §16.2), así que el HOLD no puede
+  // declarar un nivel A1 ni el techo del envelope.
   for (const level of ["A0", "A1", "A2", "A3", "A4"]) {
     const judge = buildGovernor({ autonomyLevel: level });
     const result = judge.considerFirstActivation(firstActivationInput({ humanApproval: null }));
@@ -370,7 +370,8 @@ test("IMP-24: el receipt HOLD de primera activación declara la frontera de etap
     const holds = judge.receiptRegistry.transitionsOfType("HOLD");
     assert.equal(holds.length, 1, `${level}: HOLD reconstruible registrado`);
     const receipt = holds[0];
-    assert.equal(receipt.autonomyLevel, level, `${level}: el receipt declara el nivel operativo vigente`);
+    assert.equal(receipt.autonomyLevel, judge.currentState().level, `${level}: el receipt declara el nivel operativo vigente`);
+    assert.equal(receipt.autonomyLevel, "A0", `${level}: sin primera activación no hay autoridad real (A0)`);
     assert.equal(receipt.previousState, "v1.0@SHADOW");
     assert.equal(receipt.newState, "v1.0@SHADOW:HELD", `${level}: el HOLD conserva la versión en Shadow`);
     assert.equal(receipt.newState.includes("@A1"), false, `${level}: el HOLD no declara un nivel A1 que contradiga autonomyLevel`);
@@ -542,24 +543,25 @@ test("IMP-24: la segunda llamada a la primera activación se rechaza sin PROMOTE
   assert.equal(judge.currentState().level, "A1");
 });
 
-test("IMP-24: la vía de la primera activación registra el acto sin tocar el nivel operativo (§18.1/§18.3)", () => {
-  // Governor operando a A2 por su envelope, antes de cualquier acto de DEP-25
-  // ( IMP24-REAL-AUTHORITY-A2-WITHOUT-FIRST-ACTIVATION ): el gate de primera
-  // activación manda sobre la versión, no sobre un nivel concreto, y
-  // registrarlo nunca es un DEMOTE del nivel operativo (§18.3).
+test("IMP-24: la primera activación entra en A1 aunque el envelope autorice A2+; el envelope es techo, no nivel inicial (§18.1/§16.2)", () => {
+  // El gobierno arranca en A0 (Research, sin autoridad real; §16.2). Un
+  // envelope que autoriza A2 es un TECHO, no el nivel inicial: la primera
+  // activación deja la versión operando en A1 (Human Approval) y el ascenso
+  // posterior es un cambio de governance propio ( IMP24-FIRST-ACTIVATION-
+  // SKIPS-A1-STAGE ).
   const judge = buildGovernor({ autonomyLevel: "A2" });
+  assert.equal(judge.currentState().level, "A0", "antes de DEP-25 no hay autoridad real");
   const result = judge.considerFirstActivation(firstActivationInput());
   assert.equal(result.ok, true, "INSPECCIÓN: " + JSON.stringify(result));
-  assert.equal(judge.currentState().level, "A2");
+  assert.equal(judge.currentState().level, "A1", "la primera activación entra en A1, no en el techo del envelope");
   assert.equal(judge.currentState().firstActivationRecorded, true);
   const receipt = judge.receiptRegistry.receiptOf(result.transitionReceiptId);
   assert.equal(receipt.transitionType, "PROMOTE");
   // §18.4: el receipt documenta el acto de la versión ( Shadow -> Real ) con
-  // la autoridad que ejecuta (A2, portada por el envelopeVersionKey), no un
-  // movimiento del nivel operativo.
+  // el nivel que entra (A1), portado por el envelopeVersionKey.
   assert.equal(receipt.previousState, "v1.0@SHADOW");
   assert.equal(receipt.newState, "v1.0@REAL");
-  assert.equal(receipt.autonomyLevel, "A2");
+  assert.equal(receipt.autonomyLevel, "A1");
   assert.equal(receipt.envelopeVersionKey, "version:v1.0");
   const demotes = judge.receiptRegistry.transitionsOfType("DEMOTE");
   assert.equal(demotes.length, 0);
@@ -581,7 +583,7 @@ test("IMP-24: la primera activación A1 no procede bajo un envelope A0 sin autor
 
 // --- 4) Approval enforcement A1 ---
 
-test("IMP-24: un acto real BUY exige la primera activación A1 registrada; el envelope A1 solo no basta (§18.1/§25.2.3 hito 2)", () => {
+test("IMP-24: sin primera activación A1 registrada el nivel operativo es A0 y ningún BUY real se autoriza (§18.1/§16.2)", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
   const result = judge.authorizeRealAction({
     action: "BUY",
@@ -591,9 +593,9 @@ test("IMP-24: un acto real BUY exige la primera activación A1 registrada; el en
     humanApproval: actionApprovalFixture(),
     atUtc: T0,
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.code, "FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION");
+  assert.equal(judge.currentState().level, "A0");
   assert.notEqual(result.authorized, true);
+  assert.deepEqual(result.reasons.map((reason) => reason.code), ["LEVEL_WITHOUT_BUY_AUTHORITY"]);
   assert.equal(judge.currentState().firstActivationRecorded, false);
 });
 
@@ -610,7 +612,7 @@ test("IMP-24: bajo un envelope A0 ningún acto real BUY se autoriza (§16.2/§17
   assert.equal(result.authorized, false);
 });
 
-test("IMP-24: sin primera activación registrada, la vía A2+ no autoriza ningún BUY real (IMP24-REAL-AUTHORITY-A2-WITHOUT-FIRST-ACTIVATION)", () => {
+test("IMP-24: sin primera activación registrada, un envelope A2+ no concede autoridad real: el nivel operativo sigue en A0 (IMP24-REAL-AUTHORITY-A2-WITHOUT-FIRST-ACTIVATION)", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
   const result = judge.authorizeRealAction({
     action: "BUY",
@@ -620,16 +622,45 @@ test("IMP-24: sin primera activación registrada, la vía A2+ no autoriza ningú
     humanApproval: actionApprovalFixture(),
     atUtc: T0,
   });
-  assert.equal(result.ok, false);
-  assert.equal(result.code, "FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION");
+  assert.equal(judge.currentState().level, "A0");
   assert.notEqual(result.authorized, true);
+  assert.deepEqual(result.reasons.map((reason) => reason.code), ["LEVEL_WITHOUT_BUY_AUTHORITY"]);
   assert.equal(judge.currentState().firstActivationRecorded, false);
 });
 
-test("IMP-24: tras registrar la primera activación, un BUY A2 dentro de límites se autoriza y queda registrado (§18.1/§18.4)", () => {
+test("IMP-24: la primera activación deja A1; subir a A2 exige un ascenso gobernado y sólo entonces un BUY A2 opera sin validación por acción (§18.1/§16.2/§18.2)", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
   const activation = judge.considerFirstActivation(firstActivationInput());
   assert.equal(activation.ok, true, "INSPECCIÓN: " + JSON.stringify(activation));
+  assert.equal(judge.currentState().level, "A1");
+
+  // A1 (§18.1): el 100% de las acciones reales exige validación humana por acción.
+  const withoutValidation = judge.authorizeRealAction({
+    action: "BUY",
+    policyVersion: "v1.0",
+    quantityMw: 5,
+    dataState: dataStateFixture(),
+    atUtc: T0,
+  });
+  assert.equal(withoutValidation.authorized, false, "en A1 un BUY sin validación humana no ejecuta");
+  assert.equal(withoutValidation.code, "MISSING_ACTION_APPROVAL");
+
+  // §16.2: llegar a A2 es un cambio de governance con su propio PROMOTE.
+  const promotion = judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  });
+  assert.equal(promotion.ok, true, "INSPECCIÓN: " + JSON.stringify(promotion));
+  assert.equal(judge.currentState().level, "A2");
+  const promotionReceipt = judge.receiptRegistry.receiptOf(promotion.transitionReceiptId);
+  assert.equal(promotionReceipt.transitionType, "PROMOTE");
+  assert.equal(promotionReceipt.previousState, "v1.0@A1");
+  assert.equal(promotionReceipt.newState, "v1.0@A2");
+  assert.equal(promotionReceipt.autonomyLevel, "A2");
+
+  // A2: ejecución dentro de límites aprobados, sin validación por acción.
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -649,7 +680,13 @@ test("IMP-24: tras registrar la primera activación, un BUY A2 dentro de límite
 
 test("IMP-24: en A2+ el envelope sigue mandando tras la primera activación: el exceso sobre el límite se rechaza", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
-  assert.equal(judge.considerFirstActivation(firstActivationInput()).ok, true);
+  activateFirstA1(judge);
+  assert.equal(judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  }).ok, true);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -665,8 +702,8 @@ test("IMP-24: en A2+ el envelope sigue mandando tras la primera activación: el 
 test("IMP-24: el DEMOTE al piso A0 operativo retira la autoridad de compra aunque el envelope A2+ la conceda (§16.2/§18.3)", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
   assert.equal(judge.considerFirstActivation(firstActivationInput()).ok, true);
+  // La primera activación deja A1; un hard-gate DEMOTE baja al piso A0.
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-A0-1", requestedTransition: "DEMOTE", atUtc: T0 });
-  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-A0-2", requestedTransition: "DEMOTE", atUtc: T0 });
   assert.equal(judge.currentState().level, "A0");
   assert.equal(judge.currentState().firstActivationRecorded, true);
   const result = judge.authorizeRealAction({
@@ -685,6 +722,12 @@ test("IMP-24: el DEMOTE al piso A0 operativo retira la autoridad de compra aunqu
 test("IMP-24: tras DEMOTE a A1 operativo bajo envelope A2+, la validación humana por acción vuelve a exigir (§16.2/§18.1)", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
   assert.equal(judge.considerFirstActivation(firstActivationInput()).ok, true);
+  assert.equal(judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  }).ok, true);
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-A1", requestedTransition: "DEMOTE", atUtc: T0 });
   assert.equal(judge.currentState().level, "A1");
   const withoutValidation = judge.authorizeRealAction({
@@ -906,17 +949,32 @@ test("IMP-24: sin gates de admisión evaluados en dataState el acto falla dentro
 // --- 5) Promociones posteriores, DEMOTE/HALT/ROLLBACK ---
 
 test("IMP-24: la promoción posterior sin aprobación explícita queda HOLD registrado", () => {
-  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const judge = buildGovernor({ autonomyLevel: "A2" });
+  activateFirstA1(judge);
   const result = judge.considerSubsequentPromotion({ targetLevel: "A2", apg: apgFixture(), atUtc: T0 });
   assert.equal(result.ok, false);
   assert.equal(result.code, "MISSING_APPROVAL");
   assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
 });
 
+test("IMP-24: sin primera activación no hay progresión de nivel: A0 no asciende avalado por el envelope (§18.1/§18.2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A3" });
+  const result = judge.considerSubsequentPromotion({
+    targetLevel: "A1",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A1"),
+    atUtc: T0,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "NO_REAL_AUTHORITY_TO_SUCCEED");
+  assert.equal(judge.currentState().level, "A0");
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+});
+
 test("IMP-24: la promoción aprobada produce PROMOTE sólo si el envelope autoriza el nivel destino", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
-  // El envelope autoriza A2; una demotion previa deja el nivel operativo en A1.
-  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-PRE-PROMOTION", requestedTransition: "DEMOTE", atUtc: T0 });
+  // El envelope autoriza A2; la primera activación deja el nivel operativo en A1.
+  activateFirstA1(judge);
   assert.equal(judge.currentState().level, "A1");
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A2",
@@ -935,6 +993,8 @@ test("IMP-24: la promoción aprobada produce PROMOTE sólo si el envelope autori
 
 test("IMP-24: un ascenso a un nivel no autorizado por el envelope no registra PROMOTE", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
+  const promotesBefore = judge.receiptRegistry.transitionsOfType("PROMOTE").length;
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A2",
     apg: apgFixture(),
@@ -944,11 +1004,12 @@ test("IMP-24: un ascenso a un nivel no autorizado por el envelope no registra PR
   assert.equal(result.ok, false);
   assert.equal(result.code, "TARGET_LEVEL_NOT_AUTHORIZED_BY_ENVELOPE");
   assert.equal(judge.currentState().level, "A1");
-  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, promotesBefore);
 });
 
 test("IMP-24: ascenso de dos niveles no procede: progresión por fases", () => {
-  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const judge = buildGovernor({ autonomyLevel: "A3" });
+  activateFirstA1(judge);
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A3",
     apg: apgFixture(),
@@ -961,6 +1022,7 @@ test("IMP-24: ascenso de dos niveles no procede: progresión por fases", () => {
 
 test("IMP-24: lo que no sube de nivel no es PROMOTE", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
+  activateFirstA1(judge);
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A1",
     apg: apgFixture(),
@@ -972,7 +1034,8 @@ test("IMP-24: lo que no sube de nivel no es PROMOTE", () => {
 });
 
 test("IMP-24: la aprobación de la propia policy no puede promover", () => {
-  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const judge = buildGovernor({ autonomyLevel: "A2" });
+  activateFirstA1(judge);
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A2",
     apg: apgFixture(),
@@ -984,7 +1047,8 @@ test("IMP-24: la aprobación de la propia policy no puede promover", () => {
 });
 
 test("IMP-24: la promoción no puede llevar dominios protegidos", () => {
-  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const judge = buildGovernor({ autonomyLevel: "A2" });
+  activateFirstA1(judge);
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A2",
     apg: apgFixture(),
@@ -998,6 +1062,13 @@ test("IMP-24: la promoción no puede llevar dominios protegidos", () => {
 
 test("IMP-24: el hard-gate fallado demueve un nivel inmediatamente, sin consentimiento de policy", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
+  activateFirstA1(judge);
+  assert.equal(judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  }).ok, true);
   const result = judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-1", requestedTransition: "DEMOTE", atUtc: T0 });
   assert.equal(result.ok, true, "INSPECCIÓN: " + JSON.stringify(result));
   assert.equal(result.fromLevel, "A2");
@@ -1024,6 +1095,12 @@ test("IMP-24: en HALT no se registra PROMOTE y el rollback no reanuda en un nive
   // La versión que el rollback puede restaurar debe haber obtenido autoridad
   // real por un acto gobernado (§18.3/§18.4): se activa antes del cese.
   activateFirstA1(judge);
+  assert.equal(judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  }).ok, true);
   // Baja un nivel (A2→A1) y luego detiene la operación.
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-1", requestedTransition: "DEMOTE", atUtc: T0 });
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-2", requestedTransition: "HALT", atUtc: T0 });
@@ -1115,7 +1192,7 @@ test("IMP-24: el rollback del HALT restaura la última versión válida y no aut
   assert.equal(result.ok, true, "INSPECCIÓN: " + JSON.stringify(result));
   assert.equal(result.rollback.target.destination, "POLICY_VERSION");
   assert.equal(result.rollback.target.policyVersion, "v1.0"); // IMP-23: última versión válida bajo el envelope actual
-  assert.equal(result.restoredLevel, "A2"); // el rollback no auto-amplía: se conserva el nivel vigente del envelope
+  assert.equal(result.restoredLevel, "A1"); // el rollback no auto-amplía: conserva el nivel vigente (A1) y no salta al techo del envelope
   assert.equal(judge.currentState().status, "ACTIVE");
   const receipt = judge.receiptRegistry.receiptOf(result.transitionReceiptId);
   assert.equal(receipt.transitionType, "ROLLBACK");
@@ -1206,8 +1283,8 @@ test("IMP-24: los receipts nombran la Policy Version activa real, no la unión d
 
   const halted = judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-UNION-1", atUtc: T0 });
   const receipt = judge.receiptRegistry.receiptOf(halted.transitionReceiptId);
-  assert.equal(receipt.previousState, "vX@A2");
-  assert.equal(receipt.newState, "vX@A2:HALTED");
+  assert.equal(receipt.previousState, "vX@A1");
+  assert.equal(receipt.newState, "vX@A1:HALTED");
   assert.equal(receipt.previousState.includes("vY"), false);
   assert.equal(receipt.newState.includes("vY"), false);
 });
@@ -1220,18 +1297,18 @@ test("IMP-24: una versión posterior obtiene autoridad sólo por su PROMOTE de v
   assert.equal(promoted.status, "POLICY_VERSION_PROMOTED");
   assert.equal(promoted.fromPolicyVersion, "vX");
   assert.equal(promoted.toPolicyVersion, "vY");
-  assert.equal(judge.currentState().level, "A2", "la promoción de versión no mueve el nivel operativo");
+  assert.equal(judge.currentState().level, "A1", "la promoción de versión no mueve el nivel operativo");
   assert.equal(judge.currentState().activePolicyVersion, "vY");
 
   const receipt = judge.receiptRegistry.receiptOf(promoted.transitionReceiptId);
   assert.equal(receipt.transitionType, "PROMOTE");
   assert.equal(receipt.previousState, "vX@REAL");
   assert.equal(receipt.newState, "vY@REAL");
-  assert.equal(receipt.autonomyLevel, "A2");
+  assert.equal(receipt.autonomyLevel, "A1");
 
-  const buysWithVY = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  const buysWithVY = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), humanApproval: actionApprovalFixture(), atUtc: T0 });
   assert.equal(buysWithVY.authorized, true, "INSPECCIÓN: " + JSON.stringify(buysWithVY));
-  const buysWithVX = judge.authorizeRealAction({ action: "BUY", policyVersion: "vX", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  const buysWithVX = judge.authorizeRealAction({ action: "BUY", policyVersion: "vX", quantityMw: 3, dataState: dataStateFixture(), humanApproval: actionApprovalFixture(), atUtc: T0 });
   assert.equal(buysWithVX.ok, false, "la versión anterior deja de ejercer autoridad");
   assert.equal(buysWithVX.code, "POLICY_VERSION_WITHOUT_REAL_AUTHORITY");
 });
@@ -1303,8 +1380,8 @@ test("IMP-24: el rollback sólo elige entre Policy Versions con autoridad real: 
   assert.equal(judge.currentState().activePolicyVersion, "vX");
   const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
   assert.equal(receipt.transitionType, "ROLLBACK");
-  assert.equal(receipt.previousState, "vX@A2:HALT");
-  assert.equal(receipt.newState, "vX@A2");
+  assert.equal(receipt.previousState, "vX@A1:HALT");
+  assert.equal(receipt.newState, "vX@A1");
   const buysWithVY = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
   assert.equal(buysWithVY.ok, false, "vY sigue sin autoridad real tras el rollback");
   assert.equal(buysWithVY.code, "POLICY_VERSION_WITHOUT_REAL_AUTHORITY");
@@ -1350,7 +1427,7 @@ test("IMP-24: si ninguna versión con autoridad real sigue válida, el rollback 
   assert.equal(judge.currentState().status, "ACTIVE");
   const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
   assert.equal(receipt.transitionType, "ROLLBACK");
-  assert.equal(receipt.newState, "SAFE_NON_ACTION_STATE:A2");
+  assert.equal(receipt.newState, "SAFE_NON_ACTION_STATE:A1");
   const buysWithVX = judge.authorizeRealAction({ action: "BUY", policyVersion: "vX", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
   assert.equal(buysWithVX.ok, false, "vX ya no ejerce autoridad tras el rollback al safe state");
   assert.equal(buysWithVX.code, "FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION");

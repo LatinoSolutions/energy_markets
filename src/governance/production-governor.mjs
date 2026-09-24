@@ -359,9 +359,13 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   const registry = createGovernanceReceiptRegistry();
   const internalFailures = [];
 
-  // Estado operacional: baja inmediatamente por DEMOTE/HALT (§16.2:
-  // "autonomy can increase slowly, but decrease immediately"); sube sólo
-  // por PROMOTE gobernada. El envelope congelado no se muta.
+  // Estado operacional: arranca en A0 — Research, sin autoridad real (§16.2)
+  // — porque el `autonomyLevel` del envelope es el TECHO autorizado, no el
+  // nivel inicial ( IMP24-FIRST-ACTIVATION-SKIPS-A1-STAGE ): el envelope A2+
+  // no concede A2 hasta que un ascenso gobernado lo eleve. Baja inmediatamente
+  // por DEMOTE/HALT (§16.2: "autonomy can increase slowly, but decrease
+  // immediately"); sube sólo por PROMOTE gobernada. El envelope congelado no
+  // se muta.
   //
   // §18.2/§18.4: la autoridad real no es un booleano global. `realAuthorityEntered`
   // registra que la PRIMERA Policy Version cruzó Shadow→Real (§18.1) y
@@ -374,7 +378,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // rollback no puede conferir autoridad por primera vez a una versión que
   // nunca la tuvo ( IMP24-ROLLBACK-GRANTS-UNGOVERNED-VERSION ).
   const state = {
-    level: envelope.autonomyLevel,
+    level: "A0",
     status: "ACTIVE",
     lastHaltingMandate: null,
     realAuthorityEntered: false,
@@ -406,17 +410,16 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
 
   // --- Hito 2: primera activación, si se autoriza (§18.1) ---
 
-  // A diferencia de un ascenso posterior (considerSubsequentPromotion), la
-  // primera activación NO es un ascenso del nivel operativo: §18.1 registra
-  // el acto humano explícito (DEP-25) con el que la Policy Version pasa de
-  // Shadow a Real, junto con la evidencia OOS/Shadow elegible y el APG
-  // aplicable; el envelope debe conceder la autoridad real (A1+; §16.2/§17).
-  // El acto se registra UNA vez (`realAuthorityEntered`) y fija la
-  // `activePolicyVersion`; su receipt documenta el acto vía approvalRef +
-  // envelopeVersionKey (§18.4). El nivel
-  // operativo lo declara el envelope y baja por DEMOTE/HALT (§18.3):
-  // registrar el acto nunca lo mueve ( IMP24-FIRST-ACTIVATION-STATE-
-  // INCONSISTENCY ).
+  // La primera activación es la entrada gobernada al espacio real: la Policy
+  // Version pasa de Shadow a Real (§18.1) y el nivel operativo pasa de A0
+  // (Research, sin autoridad real; §16.2) a A1 (Human Approval). El envelope
+  // es el TECHO autorizado, no el nivel inicial: aunque autorice A2+, la
+  // primera activación deja la versión operando en A1 con validación humana
+  // del 100% de las acciones reales; subir a A2+ exige un ascenso gobernado
+  // posterior (considerSubsequentPromotion), no el permiso del envelope
+  // ( IMP24-FIRST-ACTIVATION-SKIPS-A1-STAGE ). El acto se registra UNA vez
+  // (`realAuthorityEntered`) y fija la `activePolicyVersion`; su receipt
+  // documenta el acto vía approvalRef + envelopeVersionKey (§18.4).
   function considerFirstActivation({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, apg, humanApproval, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
       return fail("MISSING_TIMESTAMP", "La activación declara su instante (§6.1).");
@@ -461,14 +464,11 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       const holdReceiptId = holdFirstActivation({ triggerGate: "G_AUTONOMY_PROMOTION", triggerEvidenceRef: "APG_NOT_SATISFIED", policyVersion, atUtc });
       return fail("APG_NOT_SATISFIED", "El APG aplicable no está satisfecho: no hay promoción (§16.1).", { reasons: apgCheck.reasons, transitionReceiptId: holdReceiptId });
     }
-    // §18.1/§16.2: la primera activación registra el acto de DEP-25 para la
-    // Policy Version, no un nivel operativo. El envelope debe conceder
-    // autoridad real (A1+; §16.2/§17). Bajo un envelope que la concede, el
-    // acto también se registra cuando el nivel operativo está por encima
-    // (A2+): el gate manda sobre la versión, no sobre el nivel, y sin esta
-    // vía el acto quedaría imposible y el gate de BUY fail-open (§25.2.3
-    // hito 2). El nivel operativo NO baja: registrar el acto no es un DEMOTE
-    // (§18.3). Bajo un envelope A0 no hay autoridad real que activar.
+    // §18.1/§16.2: la primera activación es la entrada a la etapa inicial A1.
+    // El envelope debe conceder autoridad real (A1+; §16.2/§17) y es techo, no
+    // nivel inicial: aunque autorice A2+, el nivel operativo queda en A1 y
+    // subir exige un ascenso gobernado (§25.2.3 hito 2). Bajo un envelope A0
+    // no hay autoridad real que activar.
     if (levelIndex(envelope.autonomyLevel) < levelIndex("A1")) {
       const holdReceiptId = holdFirstActivation({
         triggerGate: "G_ENVELOPE_REAL_AUTHORITY",
@@ -478,6 +478,11 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       });
       return fail("ENVELOPE_WITHOUT_REAL_AUTHORITY", `El envelope "${String(envelope.envelopeVersion)}" autoriza ${envelope.autonomyLevel} (Research, sin autoridad real; §16.2): la primera activación exigiría un envelope que conceda A1 (§17/§25.2.3 hito 2).`, { transitionReceiptId: holdReceiptId });
     }
+
+    // §18.1: el nivel operativo entra en A1 (Human Approval) con la primera
+    // activación. El envelope A2+ no concede A2 desde el arranque: el ascenso
+    // posterior es un cambio de governance propio (§16.2/§18.2).
+    state.level = "A1";
 
     const activation = {
       artifactKind: "IMP-24_FIRST_ACTIVATION_RECORD",
@@ -494,7 +499,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       envelopeVersionKey,
       operativeLevel: state.level,
       activatedAtUtc: atUtc,
-      note: "Primera activación (§18.1): registro del acto DEP-25 de la Policy Version (Shadow -> Real), no un ascenso de nivel operativo. En A1 operacional el 100% de las acciones reales exige validación humana por acción. Un record con evidencia sintética es una demostración de mecanismo y no acredita evidencia real (§25.2).",
+      note: "Primera activación (§18.1): registro del acto DEP-25 de la Policy Version (Shadow -> Real) que entra en la etapa inicial A1, con validación humana del 100% de las acciones reales. El envelope es techo, no nivel inicial: A2+ exige un ascenso gobernado posterior. Un record con evidencia sintética es una demostración de mecanismo y no acredita evidencia real (§25.2).",
     };
     activation.activationId = contentHashOf(activation);
     state.realAuthorityEntered = true;
@@ -793,6 +798,15 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     // autoridad que el cese impedía ejercer.
     if (state.status !== "ACTIVE") {
       return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
+    }
+    // §18.2/§18.4: la progresión de nivel opera dentro del espacio real ya
+    // autorizado. Sin la primera activación (§18.1) no hay autoridad que
+    // ampliar: sin este guard un ascenso A0→A1 registraría un nivel superior
+    // sin el acto humano de DEP-25 ni una Policy Version real, y el receipt
+    // declararía una autoridad inexistente ( IMP24-FIRST-ACTIVATION-SKIPS-
+    // A1-STAGE ).
+    if (state.realAuthorityEntered !== true || !isNonEmptyString(state.activePolicyVersion)) {
+      return fail("NO_REAL_AUTHORITY_TO_SUCCEED", "La progresión de nivel opera dentro del espacio real ya autorizado; sin la primera activación (§18.1) no hay promoción posterior (§18.2).");
     }
     if (!AUTONOMY_LEVELS.includes(targetLevel)) {
       return fail("INVALID_TARGET_LEVEL", `El nivel objetivo debe ser canónico (${AUTONOMY_LEVELS.join(", ")}; §16.2).`);
