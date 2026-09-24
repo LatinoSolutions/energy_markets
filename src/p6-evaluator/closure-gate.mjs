@@ -187,14 +187,18 @@ function checkArmParity({ firstOutputBundle, a1OutputBundle, declaration }) {
       message: "Ambos brazos deben exponer fills con su treatment de execution contract (§14.10 ítem 4).",
     });
   }
+  // §14.10 ítem 4 ("execution/cost treatment idéntico A0/A1"): brazos con
+  // distinto número de fills también rompen la paridad (IMP15-H5, review
+  // 2026-09-23). -1 de findIndex significa "sin divergencia índice a índice",
+  // no "paridad OK"; la condición !sameLength debe fallar por separado.
   const sameLength = treatmentsA.length === treatmentsB.length;
   const divergenceIndex = sameLength
     ? treatmentsA.findIndex((treatment, index) => !isDeepEqualTreatment(treatment, treatmentsB[index]))
     : -1;
-  const parityBroken = divergenceIndex !== -1;
+  const parityBroken = !sameLength || divergenceIndex !== -1;
   return item("IMP15-GATE-04", "execution/cost treatment identical A0/A1", !parityBroken, {
-    code: parityBroken ? "TREATMENT_MISMATCH" : "OK",
-    divergenceIndex: parityBroken ? divergenceIndex : null,
+    code: !sameLength ? "LENGTH_MISMATCH" : parityBroken ? "TREATMENT_MISMATCH" : "OK",
+    divergenceIndex: divergenceIndex !== -1 ? divergenceIndex : null,
   });
 }
 

@@ -237,3 +237,35 @@ test("IMP-15: GATE-04 con brazo A1 real distinto — treatment idéntico cierra 
   assert.equal(mismatchItem.divergenceIndex, 2);
   assert.equal(mismatchGate.failedIds.includes("IMP15-GATE-04"), true);
 });
+
+test("IMP-15: GATE-04 con brazos de distinto número de fills NO declara paridad (IMP15-H5, fail-closed)", () => {
+  const base = baseScenario({ capMw: 12 });
+  const a1Bundle = frozenCampaignBundle({ dailyCapMw: 24 });
+  const a1Run = runP6Replay(a1Bundle, { runTimestampUtc: "2026-09-23T02:00:00Z" });
+  assert.equal(a1Run.ok, true);
+  const a1Output = buildOutputBundle({ bundle: a1Bundle, replayOutcome: a1Run });
+  assert.equal(a1Output.ok, true);
+
+  // Brazo A1 sin una fila de execution (copias, sin tocar el run real): los
+  // brazos ya no tienen el mismo número de fills → paridad rota, no "OK".
+  const shorterA1 = {
+    ...a1Output.outputBundle,
+    ledgers: {
+      ...a1Output.outputBundle.ledgers,
+      execution: a1Output.outputBundle.ledgers.execution.filter(
+        (row, index) => index !== a1Output.outputBundle.ledgers.execution.length - 1,
+      ),
+    },
+  };
+  assert.notEqual(
+    shorterA1.ledgers.execution.length,
+    base.firstOutputBundle.ledgers.execution.length,
+  );
+
+  const lengthGate = evaluateGate(base, { a1OutputBundle: shorterA1, singleArmDeclaration: null });
+  const lengthItem = lengthGate.items.find((gateItem) => gateItem.id === "IMP15-GATE-04");
+  assert.equal(lengthItem.ok, false);
+  assert.equal(lengthItem.code, "LENGTH_MISMATCH");
+  assert.equal(lengthItem.divergenceIndex, null);
+  assert.equal(lengthGate.failedIds.includes("IMP15-GATE-04"), true);
+});
