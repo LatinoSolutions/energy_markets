@@ -38,7 +38,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-20 | pendiente | IMP-16 | Diseñar después experimentos de S2–S5 y Z/drivers admitidos. | |
 | IMP-21 | pendiente | IMP-15, IMP-16 | Evaluar Q07 en protocolo separado. | |
 | IMP-22 | pendiente | IMP-16 | Investigar Sizing Policy y extensiones de misión. | |
-| IMP-23 | pendiente | IMP-01, IMP-07, IMP-17 | Materializar enforcement externo del envelope y rollback. | |
+| IMP-23 | aceptado | IMP-01, IMP-07, IMP-17 | Materializar enforcement externo del envelope y rollback. |  |
 | IMP-24 | pendiente | IMP-16, IMP-18, IMP-23 | Materializar governance, primera activación humana y después progresión autorizada por fases. | IMP-19 solo para versiones de ese Learning Loop. |
 | IMP-25 | aceptado | — | Auditar Paperclip existente y mapear su workflow al handoff canónico, preservando la oficina. | Receipt 2026-09-19. |
 | IMP-26 | pausado | IMP-01, IMP-25 | Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas. | Pausado 23-sep: Paperclip quedó retirado; la Oficina propia (/srv/hot-data/oficina) cumple su función. Queda para que Bru decida si se reescribe en la SPEC. |
