@@ -84,7 +84,38 @@ export function deriveDatasetQuality({ frozen = null, runOutcome = null } = {}) 
 // derivan del campaignId canónico GAS-Q-YYYYQn (identidad determinista
 // P-006, record IMP-02). La evidencia mínima §5.7 (≥8 trimestres, ≥2 años)
 // se verifica contra la población real puntuada.
-export function p5ResearchEvaluation({ series = [], dataQuality = null } = {}) {
+export function p5ResearchEvaluation({ series = [], dataQuality = null, frozen = null, runOutcome = null } = {}) {
+  // Binding IMP16-H10 (§13.6 regla 5 / §25.2 DEP-13/14): con el manifest
+  // congelado presente, la calidad de datos NO es declarable a mano — se
+  // deriva de frozen + runs reales y un `dataQuality` del caller que contradiga
+  // al frozen es fail-closed (HOLD, sin scoring publicado).
+  let effectiveDataQuality = dataQuality;
+  if (frozen) {
+    const derived = deriveDatasetQuality({ frozen, runOutcome });
+    if (!derived.ok) {
+      return {
+        ok: false,
+        code: "DATA_QUALITY_NOT_DERIVABLE",
+        issues: derived.problems,
+        scoring: null,
+        verdict: "HOLD",
+        verdictReason: "Sin calidad de datos derivable del manifest congelado no hay veredicto interpretable: HOLD (§13.6 regla 5).",
+      };
+    }
+    effectiveDataQuality = derived.dataQuality;
+    if (dataQuality
+      && (dataQuality.coverage !== effectiveDataQuality.coverage
+        || dataQuality.benchmarkProvisional !== effectiveDataQuality.benchmarkProvisional)) {
+      return {
+        ok: false,
+        code: "DATA_QUALITY_BOUND_MISMATCH",
+        issues: [`dataQuality declarado por el caller (${JSON.stringify(dataQuality)}) contradice al derivado del manifest congelado (${JSON.stringify(effectiveDataQuality)}): la calidad no se atestúa a mano (§13.6 regla 5).`],
+        scoring: null,
+        verdict: "HOLD",
+        verdictReason: "FAIL/HOLD/INVALID no se ocultan ni se convierten en PASS; el declared contradice al frozen y fail-closed (§25.2 DEP-13/14).",
+      };
+    }
+  }
   const assembled = deltaVSeriesFromRuns({ series });
   if (assembled.problems.length > 0) {
     return {
@@ -128,7 +159,7 @@ export function p5ResearchEvaluation({ series = [], dataQuality = null } = {}) {
 // veredicto no puede declarar cobertura full ni benchmark no-provisional.
   const verdict = quarterlyResearchVerdict({
     scoring,
-    dataQuality,
+    dataQuality: effectiveDataQuality,
     evidence: evidenceForVerdict,
   });
 
@@ -137,7 +168,8 @@ export function p5ResearchEvaluation({ series = [], dataQuality = null } = {}) {
     code: "P3_DELTA_V_EVALUATION_COMPLETED",
     scoring,
     minimumEvidence: minimum,
-    dataQuality,
+    dataQuality: effectiveDataQuality,
+    dataQualitySource: frozen ? "DERIVED_FROM_FROZEN_MANIFEST" : "CALLER_DECLARED",
     campaignYearsDerived: [...calendarYears].sort((left, right) => left - right),
     verdict: verdict.verdict,
     verdictReason: verdict.reason,

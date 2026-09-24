@@ -28,4 +28,4 @@ export {
   deltaVSeriesFromRuns,
   p5ResearchEvaluation,
 } from "./verdict.mjs";
-export { materializeP5ExperimentReceipt } from "./receipt.mjs";
+export { materializeP5ExperimentReceipt, gateResearchEvaluationAgainstFrozen } from "./receipt.mjs";

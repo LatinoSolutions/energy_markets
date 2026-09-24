@@ -11,12 +11,43 @@
 // sintético declarado y los límites P5.6/benchmark quedan dentro del record.
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
+import { deriveDatasetQuality } from "./verdict.mjs";
+
+// IMP16-H10 (§13.6 regla 5 / §25.2 DEP-13/14): el receipt no puede
+// materializarse contradiciendo su propio manifest congelado — un veredicto
+// PASS exige calidad de datos derivada full y no-provisional, y el dataQuality
+// del veredicto debe coincidir con el derivado del frozen + runs reales.
+export function gateResearchEvaluationAgainstFrozen({ frozen, runOutcome, researchEvaluation }) {
+  const derived = deriveDatasetQuality({ frozen, runOutcome });
+  if (!derived.ok) {
+    return { ok: false, code: "RECEIPT_DATA_QUALITY_NOT_DERIVABLE", message: "La calidad de datos no es derivable del manifest congelado (§13.6 regla 5)." };
+  }
+  const declared = researchEvaluation?.dataQuality ?? null;
+  if (declared
+    && (declared.coverage !== derived.dataQuality.coverage
+      || declared.benchmarkProvisional !== derived.dataQuality.benchmarkProvisional)) {
+    return { ok: false, code: "RECEIPT_DATA_QUALITY_NOT_BOUND_TO_FROZEN", message: "El dataQuality declarado en el veredicto no coincide con el derivado del manifest congelado: la calidad no se atestúa a mano (§13.6 regla 5)." };
+  }
+  const verdict = researchEvaluation?.verdict ?? null;
+  if (verdict === "PASS"
+    && (derived.dataQuality.benchmarkProvisional || derived.dataQuality.coverage !== "full")) {
+    return { ok: false, code: "RECEIPT_VERDICT_CONTRADICTS_FROZEN", message: `El manifest congelado declara benchmark provisional o cobertura incompleta (${JSON.stringify(derived.dataQuality)}): un veredicto PASS contradice al receipt (§25.2 DEP-13/14).` };
+  }
+  return { ok: true, derived: derived.dataQuality };
+}
+
 export function materializeP5ExperimentReceipt({ frozen = null, runOutcome = null, researchEvaluation = null, runTimestampUtc = null, closureNote = null } = {}) {
   if (!frozen || frozen.artifactKind !== "IMP-16_P5_EXPERIMENT_MANIFEST") {
     return { ok: false, code: "MISSING_FROZEN_EXPERIMENT", message: "El receipt de IMP-16 se materializa desde el manifest P5 congelado ex-ante (§25.1)." };
   }
   if (!runOutcome || runOutcome.ok !== true) {
     return { ok: false, code: "MISSING_RUN_OUTCOME", message: "El receipt se materializa desde el resultado real de runP5Experiment; sin run no se fabrica evidencia (§14.1)." };
+  }
+  if (researchEvaluation !== null) {
+    const gate = gateResearchEvaluationAgainstFrozen({ frozen, runOutcome, researchEvaluation });
+    if (!gate.ok) {
+      return { ok: false, code: gate.code, message: gate.message };
+    }
   }
 
   const armRows = ["A0", "A1"].map((armId) => {

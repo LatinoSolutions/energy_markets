@@ -6,6 +6,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+// Bind IMP16-H10 (§13.6 regla 5 / §25.2 DEP-13/14): el veredicto con manifest
+// congelado presente deriva su dataQuality del frozen (no lo declara el
+// caller), y el receipt rechaza un veredicto o dataQuality que contradiga al
+// frozen (PASS fabricable con P5.6 HOLD / benchmark UNRECONCILED no existe).
+
 import {
   freezeP5Experiment,
   runP5Experiment,
@@ -13,6 +18,7 @@ import {
   deltaVSeriesFromRuns,
   p5ResearchEvaluation,
   materializeP5ExperimentReceipt,
+  gateResearchEvaluationAgainstFrozen,
 } from "../../src/p5-experiment/index.mjs";
 import { buildExperimentFixture } from "./fixtures.mjs";
 
@@ -139,7 +145,12 @@ test("§25.1: materialización del receipt IMP-16 con veredicto, costes y concen
     deltaV: index < 6 ? run.deltaV.value : -1,
     runReceiptId: "r",
   }));
-  const evaluation = p5ResearchEvaluation({ series, dataQuality: { coverage: "full", benchmarkProvisional: false } });
+  // IMP16-H10: el veredicto corre ligado al manifest congelado — la calidad
+  // es derivada, no declarada por el caller.
+  const evaluation = p5ResearchEvaluation({ series, frozen, runOutcome: run });
+  assert.equal(evaluation.ok, true);
+  assert.equal(evaluation.dataQualitySource, "DERIVED_FROM_FROZEN_MANIFEST");
+  assert.equal(evaluation.verdict, "HOLD");
 
   const receipt = materializeP5ExperimentReceipt({ frozen, runOutcome: run, researchEvaluation: evaluation, runTimestampUtc: "2026-09-24T00:00:00Z" });
   assert.equal(receipt.ok, true);
@@ -148,15 +159,75 @@ test("§25.1: materialización del receipt IMP-16 con veredicto, costes y concen
   assert.equal(receipt.receipt.deltaV.defined, true);
   assert.equal(receipt.receipt.oosReservation.intactAfterRun, true);
   assert.equal(receipt.receipt.p3ResearchEvaluation.evaluated, true);
-  assert.equal(receipt.receipt.p3ResearchEvaluation.verdict, evaluation.verdict);
-  // Los brazos quedan contenidos con sus receipts y B/H/V.
+  assert.equal(receipt.receipt.p3ResearchEvaluation.verdict, "HOLD");
+  // Sin receipt auto-contradictorio: P5.6 HOLD declarado y veredicto HOLD.
+  assert.equal(receipt.receipt.executionValidity.p56Valid, false);
+  assert.ok(receipt.receipt.p3ResearchEvaluation.verdictReason.includes("provisional"));
   assert.ok(receipt.receipt.arms.A0.runReceiptId);
   assert.ok(receipt.receipt.arms.A1.runReceiptId);
   assert.equal(receipt.receipt.arms.A1.configurationHash, frozen.s1Configuration.artifactHash);
 
-  // Identity determinista del receipt (mismo contenido → mismo receiptId).
   const again = materializeP5ExperimentReceipt({ frozen, runOutcome: run, researchEvaluation: evaluation, runTimestampUtc: "2026-09-24T00:00:00Z" });
   assert.equal(receipt.receipt.receiptId, again.receipt.receiptId);
+});
+
+test("IMP16-H10: un PASS con dataQuality no ligado al frozen no materializa receipt", () => {
+  const fx = buildExperimentFixture({});
+  const frozenOutcome = freezeP5Experiment(fx.freezeInput);
+  const frozen = frozenOutcome.frozen;
+  const run = runP5Experiment({ ...RUN_ARGS(fx), frozen });
+
+  const series = SEALED_CAMPAIGN_IDS.map((campaignId, index) => ({
+    campaignId,
+    deltaV: index < 6 ? run.deltaV.value : -1,
+    runReceiptId: "r",
+  }));
+  // Reproducción original de H10: caller declara quality ideal mientras el
+  // frozen declara UNRECONCILED + P5.6 con blockers.
+  const fabricated = p5ResearchEvaluation({ series, dataQuality: { coverage: "full", benchmarkProvisional: false } });
+  assert.equal(fabricated.ok, true);
+  assert.equal(fabricated.verdict, "PASS");
+  assert.equal(fabricated.dataQualitySource, "CALLER_DECLARED");
+
+  const receipt = materializeP5ExperimentReceipt({ frozen, runOutcome: run, researchEvaluation: fabricated, runTimestampUtc: "2026-09-24T00:00:00Z" });
+  assert.equal(receipt.ok, false);
+  assert.equal(receipt.code, "RECEIPT_DATA_QUALITY_NOT_BOUND_TO_FROZEN");
+  assert.equal(receipt.receipt, undefined);
+
+  const gate = gateResearchEvaluationAgainstFrozen({ frozen, runOutcome: run, researchEvaluation: fabricated });
+  assert.equal(gate.ok, false);
+  assert.equal(gate.code, "RECEIPT_DATA_QUALITY_NOT_BOUND_TO_FROZEN");
+});
+
+test("IMP16-H10: con frozen presente, dataQuality del caller que contradiga al derivado es fail-closed", () => {
+  const fx = buildExperimentFixture({});
+  const frozenOutcome = freezeP5Experiment(fx.freezeInput);
+  const frozen = frozenOutcome.frozen;
+  const run = runP5Experiment({ ...RUN_ARGS(fx), frozen });
+
+  const series = SEALED_CAMPAIGN_IDS.map((campaignId, index) => ({
+    campaignId,
+    deltaV: index < 6 ? run.deltaV.value : -1,
+    runReceiptId: "r",
+  }));
+  const mismatched = p5ResearchEvaluation({
+    series,
+    dataQuality: { coverage: "full", benchmarkProvisional: false },
+    frozen,
+    runOutcome: run,
+  });
+  assert.equal(mismatched.ok, false);
+  assert.equal(mismatched.code, "DATA_QUALITY_BOUND_MISMATCH");
+  assert.equal(mismatched.verdict, "HOLD");
+  assert.equal(mismatched.scoring, null);
+  assert.ok(mismatched.issues.length > 0);
+
+  // Y con el frozen ligado, aunque el caller no declara nada, el veredicto
+  // usa SIEMPRE la calidad derivada (HOLD con benchmark provisional).
+  const bound = p5ResearchEvaluation({ series, frozen, runOutcome: run });
+  assert.equal(bound.ok, true);
+  assert.equal(bound.dataQuality.benchmarkProvisional, true);
+  assert.equal(bound.verdict, "HOLD");
 });
 
 test("§5.8: un receipt sin veredicto lo declara NOT PROVIDED (nunca lo fabrica)", () => {
