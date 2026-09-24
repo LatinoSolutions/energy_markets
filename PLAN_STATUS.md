@@ -41,7 +41,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-23 | aceptado | IMP-01, IMP-07, IMP-17 | Materializar enforcement externo del envelope y rollback. |  |
 | IMP-24 | pendiente | IMP-16, IMP-18, IMP-23 | Materializar governance, primera activación humana y después progresión autorizada por fases. | IMP-19 solo para versiones de ese Learning Loop. |
 | IMP-25 | aceptado | — | Auditar Paperclip existente y mapear su workflow al handoff canónico, preservando la oficina. | Receipt 2026-09-19. |
-| IMP-26 | pausado | IMP-01, IMP-25 | Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas. | Owner decision 24-sep: EM-SPEC-OWNER-PATCH-2026-09-24-01 rebindea el runtime a la Oficina canónica propia; conservar audit histórico, revalidar delta factual actual y extender sólo brechas verificadas. |
+| IMP-26 | pendiente | IMP-01, IMP-25 | Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas. | Owner decision 24-sep: EM-SPEC-OWNER-PATCH-2026-09-24-01 rebindea el runtime a la Oficina canónica propia; conservar audit histórico, revalidar delta factual actual y extender sólo brechas verificadas. |
 | IMP-27 | aceptado | IMP-01 | Materializar el Strategy Admission framework y validaciones acotadas de candidatos futuros. | Receipt 2026-09-19, solo framework. |
 | IMP-28 | aceptado | IMP-01 | Materializar evaluación por rol de componentes externos. | Receipt 2026-09-19, solo framework. |
 | IMP-29 | aceptado | IMP-01, IMP-06 | Materializar Operator Interface Boundary y exposición backend que soporte Human Visual Observability. |  |
