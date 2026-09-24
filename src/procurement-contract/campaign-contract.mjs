@@ -18,6 +18,9 @@ import {
   validateResidualAmendment,
 } from "./coverage-ownership.mjs";
 import { EEX_QUARTERLY_DEADLINE_EVIDENCE } from "./eex-deadline-evidence.mjs";
+// Fuente única de la identidad de la SPEC (IMP-26): revalida el hash tras el
+// owner patch del 24-sep-2026.
+import { CANONICAL_SPEC_IDENTITY } from "../office/spec-binding.mjs";
 
 const AVAILABILITY = STATE_NAMESPACES.data_availability.values;
 
@@ -1423,7 +1426,7 @@ export function createGasQuarterlyFicha() {
     spec: {
       id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
       version: "1.1.1",
-      sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
+      sha256: CANONICAL_SPEC_IDENTITY.sha256,
     },
     product: "Gas",
     mission: "Quarterly",
@@ -1722,7 +1725,7 @@ export function createGasQuarterlyValidationFicha(maturity, deadlineEvidence = n
     spec: {
       id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
       version: "1.1.1",
-      sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
+      sha256: CANONICAL_SPEC_IDENTITY.sha256,
     },
     product: "Gas",
     mission: "Quarterly",

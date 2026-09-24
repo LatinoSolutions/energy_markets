@@ -10,6 +10,7 @@
 // no cambia la semántica de ventana/plazo.
 
 import { isVersionLike } from "../contracts/identities.mjs";
+import { CANONICAL_SPEC_IDENTITY } from "../office/spec-binding.mjs";
 import { isCanonicalMaturity, researchCampaignIdFor } from "../procurement-contract/campaign-contract.mjs";
 
 export const ELIGIBILITY_STATUSES = ["ELIGIBLE", "INELIGIBLE"];
@@ -246,13 +247,10 @@ export function resolveEligibilityBasis(campaigns) {
   return "UNDECLARED";
 }
 
-// Identidad de la SPEC que gobierna la reserva. Debe coincidir con la SPEC
-// vigente declarada en el repositorio.
-export const IMP09_SPEC_IDENTITY = {
-  id: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md",
-  version: "1.1.1",
-  sha256: "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3",
-};
+// Identidad de la SPEC que gobierna la reserva. Fuente única: el binding
+// canónico de src/office/spec-binding.mjs (IMP-26), que revalida el owner patch
+// del 24-sep-2026. Antes de IMP-26 este literal fijaba el hash previo al patch.
+export const IMP09_SPEC_IDENTITY = CANONICAL_SPEC_IDENTITY;
 
 export function validateSpecIdentity(spec) {
   const errors = [];
