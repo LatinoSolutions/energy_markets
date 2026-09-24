@@ -95,7 +95,14 @@ export function evaluateLearningGates({ corpus = null, corpusAudit = null, rewar
   if (corpusAudit.scope !== "SYNTHETIC_FIXTURE" && corpusAudit.scope !== "REAL_DATA") {
     reasons.push({ code: "INVALID_CORPUS_SCOPE", message: "corpusAudit.scope sólo toma SYNTHETIC_FIXTURE o REAL_DATA." });
   }
-  const fixtureOnly = corpusAudit.scope === "SYNTHETIC_FIXTURE";
+  // IMP19-R2 (revisión 2026-09-24): el calificador fixtureOnly deriva del
+  // corpus mismo (cotejo de la marca synthetic de los records) y no sólo del
+  // scope declarado en corpusAudit. Un record marcado synthetic (§25.2 nota
+  // IMP-17) es siempre fixture.
+  const syntheticRecordIndices = Array.isArray(corpus)
+    ? corpus.reduce((indices, record, index) => (record?.synthetic === true ? (indices.push(index), indices) : indices), [])
+    : [];
+  const fixtureOnly = corpusAudit.scope === "SYNTHETIC_FIXTURE" || syntheticRecordIndices.length > 0;
   if (!isNonEmptyString(corpusAudit.sourceRef)) {
     reasons.push({ code: "MISSING_CORPUS_SOURCE", message: "El audit del corpus cita su fuente/provenance (§25.2)." });
   }
@@ -105,6 +112,13 @@ export function evaluateLearningGates({ corpus = null, corpusAudit = null, rewar
     }
     if (corpusAudit.realDataAdequate !== true) {
       reasons.push({ code: "REAL_DATA_NOT_ADEQUATE", message: "Antes de entrenar/evaluar una candidate concreta deben existir datos reales adecuados (§25.2.3 IMP-19)." });
+    }
+    // IMP19-R2 (revisión 2026-09-24): REAL_DATA no acepta records synthetic —
+    // un corpus sintético bajo scope declarado real es mezcla de fuerza
+    // probatoria (§12.3; §25.2 nota IMP-17: "casos sintéticos no ... generan
+    // Real Experience").
+    if (syntheticRecordIndices.length > 0) {
+      reasons.push({ code: "REAL_DATA_WITH_SYNTHETIC_RECORDS", message: "REAL_DATA no acepta Experience records marcados synthetic:true (§25.2 nota IMP-17; cotejo IMP19-R2).", syntheticRecordIndices });
     }
   }
   const rewardValidation = validateRewardConfiguration(rewardConfig);
@@ -202,12 +216,18 @@ export function revalidateCandidate({ candidate = null, revalidation = null } = 
   return {
     ok: true,
     revalidated,
-    verdict: revalidation.verdict ?? (revalidated ? "REVALIDATED" : "HOLD"),
+    // IMP19-R1 (revisión 2026-09-24): el verdict se deriva del binding
+    // verificable (§25.1 IMP-19: la calidad no se atestúa a mano); el input
+    // del caller nunca lo fija.
+    verdict: revalidated ? "REVALIDATED" : "HOLD",
     mode: revalidation.mode,
     processRef: revalidation.processRef,
     evidenceRef: revalidation.evidenceRef,
     evaluatedAtUtc: revalidation.evaluatedAtUtc,
     binding,
+    // Marca real/synthetic declarada en la evidencia bindida (IMP19-R2):
+    // el ciclo la coteja para fijar el calificador FIXTURE_ONLY del outcome.
+    evidenceFixtureOnly: revalidation.evidence?.fixtureOnly === true,
   };
 }
 
@@ -253,9 +273,11 @@ export function freezeOosShadowProcessArtifact({ processRef = null, mode = null,
 }
 
 // Evidencia producida al aplicar el proceso congelado a una candidate
-// concreta: bindía por hash al proceso y a la candidate (§25.1 IMP-19: la
-// validez no se declara, se bindia al artefacto congelado).
-export function materializeRevalidationEvidence({ process = null, candidate = null, evidenceRef = null, producedAtUtc = null } = {}) {
+// concreta: bindía por hash al proceso y a la candidate y lleva su marca
+// real/synthetic (§25.1 IMP-19: la validez no se declara, se bindia al
+// artefacto congelado; el calificador FIXTURE_ONLY del outcome se deriva de
+// esa marca, IMP19-R2).
+export function materializeRevalidationEvidence({ process = null, candidate = null, evidenceRef = null, producedAtUtc = null, fixtureOnly } = {}) {
   const errors = [];
   if (!isContentAddressedArtifact(process) || process.artifactKind !== "IMP-19_FROZEN_OOS_SHADOW_PROCESS") {
     errors.push({ field: "process", code: "MISSING_FROZEN_PROCESS_ARTIFACT" });
@@ -265,6 +287,11 @@ export function materializeRevalidationEvidence({ process = null, candidate = nu
   }
   if (!isNonEmptyString(evidenceRef)) {
     errors.push({ field: "evidenceRef", code: "MISSING_EVIDENCE_REF" });
+  }
+  // IMP19-R2 (revisión 2026-09-24): la marca real/synthetic es declarada por
+  // quien ejecutó el proceso y queda sellada en el hash de la evidencia.
+  if (typeof fixtureOnly !== "boolean") {
+    errors.push({ field: "fixtureOnly", code: "MISSING_REAL_MARK", message: "La evidencia declara si fue producida sobre datos sintéticos (fixture) o reales (§25.2.3 IMP-19; IMP19-R2)." });
   }
   if (errors.length > 0) {
     return { ok: false, errors };
@@ -277,6 +304,7 @@ export function materializeRevalidationEvidence({ process = null, candidate = nu
     processContentHash: process.contentHash,
     candidateContentHash: candidate.contentHash,
     mode: process.mode,
+    fixtureOnly,
     producedAtUtc: producedAtUtc ?? null,
   };
   core.contentHash = contentHashOf(core);
@@ -315,41 +343,42 @@ function verifyEvidenceBinding({ candidate, revalidation }) {
     reasons.push({ code: "EVIDENCE_MODE_MISMATCH", message: "El modo OOS/SHADOW no coincide con el del proceso congelado (§15.1)." });
   }
   let evidence = revalidation.evidence ?? null;
-  if (evidence === null) {
-    // Proceso verificado: el artefacto de evidencia se materializa bindido por
-    // hash al proceso y a esta candidate; el binding lo deriva el hash, no un
-    // testigo (§25.1 IMP-19/§15.2).
-    const materialized = materializeRevalidationEvidence({ process, candidate, evidenceRef: revalidation.evidenceRef, producedAtUtc: revalidation.evaluatedAtUtc });
-    if (!materialized.ok) {
-      reasons.push({ code: "EVIDENCE_NOT_MATERIALIZABLE", message: "Sin proceso congelado verificado no se materializa evidencia bindida (§25.1 IMP-19)." });
-      return { verified: false, reasons };
-    }
-    evidence = materialized.evidence;
-  } else {
-    if (!evidence || typeof evidence !== "object" || evidence.artifactKind !== "IMP-19_REVALIDATION_EVIDENCE") {
-      reasons.push({ code: "EVIDENCE_ARTIFACT_MALFORMED", message: "La evidencia referenciada no es el artefacto IMP-19_REVALIDATION_EVIDENCE (§25.1 IMP-19)." });
-      return { verified: false, reasons };
-    }
-    if (!isContentAddressedArtifact(evidence)) {
-      reasons.push({ code: "EVIDENCE_HASH_MISMATCH", message: "La evidencia no es re-derivable: fue alterada o nunca se produjo del proceso referenciado (§25.1 IMP-19)." });
-      return { verified: false, reasons };
-    }
-    const { contentHash: evidenceHash, ...coreEvidence } = evidence;
-    if (contentHashOf(coreEvidence) !== evidenceHash) {
-      reasons.push({ code: "EVIDENCE_HASH_MISMATCH", message: "La evidencia fue alterada después de producirse (§25.1 IMP-19)." });
-    }
-    if (evidence.processContentHash !== process.contentHash) {
-      reasons.push({ code: "EVIDENCE_NOT_BOUND_TO_PROCESS", message: "La evidencia no bindía al proceso congelado referenciado: su validez no es verificable (§25.1 IMP-19)." });
-    }
-    if (evidence.processRef !== revalidation.processRef) {
-      reasons.push({ code: "EVIDENCE_PROCESS_REF_MISMATCH", message: "La evidencia cita un processRef distinto de la revalidación (§25.1 IMP-19)." });
-    }
-    if (evidence.candidateContentHash !== candidate.contentHash) {
-      reasons.push({ code: "EVIDENCE_NOT_BOUND_TO_CANDIDATE", message: "La evidencia no bindía a esta Candidate Policy Version (§25.1 IMP-19)." });
-    }
-    if (evidence.evidenceRef !== revalidation.evidenceRef) {
-      reasons.push({ code: "EVIDENCE_REF_MISMATCH", message: "evidenceRef no coincide con la evidencia aportada (§25.1 IMP-19)." });
-    }
+  // IMP19-R2 (revisión 2026-09-24): el binding no materializa la evidencia que
+  // verifica. La evidencia la produce `materializeRevalidationEvidence` quien
+  // ejecutó el proceso congelado; si no se aporta, la revalidación no existe
+  // (§15.2/§25.1 IMP-19: la calidad no se atestúa a mano ni se auto-fabrica).
+  if (evidence === null || evidence === undefined) {
+    reasons.push({ code: "EVIDENCE_NOT_PROVIDED", message: "La evidencia de la revalidación no está presente: quien ejecutó el proceso congelado la produce con materializeRevalidationEvidence; el binding no la fabrica (§15.2/§25.1 IMP-19)." });
+    return { verified: false, reasons };
+  }
+  if (!evidence || typeof evidence !== "object" || evidence.artifactKind !== "IMP-19_REVALIDATION_EVIDENCE") {
+    reasons.push({ code: "EVIDENCE_ARTIFACT_MALFORMED", message: "La evidencia referenciada no es el artefacto IMP-19_REVALIDATION_EVIDENCE (§25.1 IMP-19)." });
+    return { verified: false, reasons };
+  }
+  if (!isContentAddressedArtifact(evidence)) {
+    reasons.push({ code: "EVIDENCE_HASH_MISMATCH", message: "La evidencia no es re-derivable: fue alterada o nunca se produjo del proceso referenciado (§25.1 IMP-19)." });
+    return { verified: false, reasons };
+  }
+  const { contentHash: evidenceHash, ...coreEvidence } = evidence;
+  if (contentHashOf(coreEvidence) !== evidenceHash) {
+    reasons.push({ code: "EVIDENCE_HASH_MISMATCH", message: "La evidencia fue alterada después de producirse (§25.1 IMP-19)." });
+  }
+  if (typeof evidence.fixtureOnly !== "boolean") {
+    // IMP19-R2 (revisión 2026-09-24): la evidencia lleva su marca
+    // real/synthetic; sin ella el calificador FIXTURE_ONLY no es derivable.
+    reasons.push({ code: "EVIDENCE_REAL_MARK_MISSING", message: "La evidencia declara su marca fixtureOnly (real vs sintética) para el calificador del outcome (§25.2.3 IMP-19; IMP19-R2)." });
+  }
+  if (evidence.processContentHash !== process.contentHash) {
+    reasons.push({ code: "EVIDENCE_NOT_BOUND_TO_PROCESS", message: "La evidencia no bindía al proceso congelado referenciado: su validez no es verificable (§25.1 IMP-19)." });
+  }
+  if (evidence.processRef !== revalidation.processRef) {
+    reasons.push({ code: "EVIDENCE_PROCESS_REF_MISMATCH", message: "La evidencia cita un processRef distinto de la revalidación (§25.1 IMP-19)." });
+  }
+  if (evidence.candidateContentHash !== candidate.contentHash) {
+    reasons.push({ code: "EVIDENCE_NOT_BOUND_TO_CANDIDATE", message: "La evidencia no bindía a esta Candidate Policy Version (§25.1 IMP-19)." });
+  }
+  if (evidence.evidenceRef !== revalidation.evidenceRef) {
+    reasons.push({ code: "EVIDENCE_REF_MISMATCH", message: "evidenceRef no coincide con la evidencia aportada (§25.1 IMP-19)." });
   }
   return { verified: reasons.length === 0, reasons };
 }
@@ -431,8 +460,14 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
   }
   steps.push({ ...CYCLE_STEPS[5], executed: true, revalidated: revalidationOutcome.revalidated });
 
+  // IMP19-R2 (revisión 2026-09-24): el calificador FIXTURE_ONLY del outcome
+  // deriva del scope declarado del corpus, del cotejo de records synthetic y
+  // de la marca fixtureOnly sellada en la evidencia bindida: corpus o
+  // evidencia sintéticos no producen CANDIDATE_REVALIDATED sin el calificador
+  // FIXTURE_ONLY.
+  const fixtureQualifier = gates.fixtureOnly || revalidationOutcome.evidenceFixtureOnly === true;
   const outcome = revalidationOutcome.revalidated
-    ? (gates.fixtureOnly ? "CANDIDATE_REVALIDATED_FIXTURE_ONLY" : "CANDIDATE_REVALIDATED")
+    ? (fixtureQualifier ? "CANDIDATE_REVALIDATED_FIXTURE_ONLY" : "CANDIDATE_REVALIDATED")
     : "HOLD";
   steps.push({ ...CYCLE_STEPS[6], executed: true, outcome, activationOwner: "IMP-24" });
 
@@ -440,7 +475,7 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
   return {
     ok: true,
     code: "OFFLINE_LEARNING_CYCLE_COMPLETED",
-    fixtureOnly: gates.fixtureOnly,
+    fixtureOnly: fixtureQualifier,
     steps,
     gates,
     candidate: produced.candidate,
@@ -450,8 +485,8 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
     activeVersionBefore,
     activeVersionAfter,
     activeVersionUnchanged: activeVersionBefore === activeVersionAfter,
-    note: gates.fixtureOnly
-      ? "Scope SYNTHETIC_FIXTURE: la revalidación es de ingeniería y NO cierra DEP-19/20/21 ni demuestra edge ni datos del cliente."
+    note: fixtureQualifier
+      ? "Fixtures/scope sintético: la revalidación es de ingeniería y NO cierra DEP-19/20/21 ni demuestra edge ni datos del cliente."
       : "La candidate revalidada queda recomendada para governance (IMP-24); la activación real exige aprobación/autoridad propias.",
   };
 }

@@ -108,12 +108,14 @@ export function closedWindowOutcome() {
 
 // §11.5 paso 3: el corpus del ciclo debe estar en cierre de ventana/campaña
 // (records CLOSED, §12.2). El cierre produce un record NUEVO (append-only).
-export function supportCorpus() {
+// synthetic=true por defecto (fixtures sintéticos); el cotejo real/synthetic
+// del ciclo (IMP19-R2) usa synthetic=false para el camino REAL_DATA del test.
+export function supportCorpus({ synthetic = true } = {}) {
   const openRecords = [
-    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY" }),
-    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT" }),
-    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q2", action: "BUY" }),
-    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q2", action: "WAIT" }),
+    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY", overrides: { synthetic } }),
+    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT", overrides: { synthetic } }),
+    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q2", action: "BUY", overrides: { synthetic } }),
+    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q2", action: "WAIT", overrides: { synthetic } }),
   ];
   return openRecords.map((record) => {
     const closed = closeExperienceRecord({ record, outcome: closedWindowOutcome() });
@@ -131,8 +133,25 @@ export function markovStateDeclaration() {
   };
 }
 
-export function pathRevalidation({ processRef = "frozen-shadow-process-v1", mode = "SHADOW", frozenAtUtc = "2026-01-01T00:00:00Z", evidenceValid = true, evaluatedAtUtc = "2026-02-01T00:00:00Z", evidence = undefined, overrides = {} } = {}) {
+// IMP19-R2 (revisión 2026-09-24): la evidencia la materializa el caller (quien
+// ejecutó el proceso congelado), contra una candidate concreta; el binding la
+// verifica, nunca la fabrica. La marca fixtureOnly (true en fixtures
+// sintéticos) queda sellada en el hash de la evidencia.
+export function pathRevalidation({
+  candidate,
+  processRef = "frozen-shadow-process-v1",
+  mode = "SHADOW",
+  frozenAtUtc = "2026-01-01T00:00:00Z",
+  evidenceValid = true,
+  evaluatedAtUtc = "2026-02-01T00:00:00Z",
+  fixtureOnly = true,
+  overrides = {},
+} = {}) {
   const frozenProcess = freezeOosShadowProcessArtifact({ processRef, mode, frozenAtUtc, declaredBy: "test-fixture (sintético, IMP-19)" }).process;
+  const materialized = materializeRevalidationEvidence({ process: frozenProcess, candidate, evidenceRef: "shadow-shakeout-1", producedAtUtc: evaluatedAtUtc, fixtureOnly });
+  if (!materialized.ok) {
+    throw new Error(`fixture evidence inválida: ${JSON.stringify(materialized.errors)}`);
+  }
   return {
     processRef,
     mode,
@@ -140,7 +159,7 @@ export function pathRevalidation({ processRef = "frozen-shadow-process-v1", mode
     evidenceValid,
     evidenceRef: "shadow-shakeout-1",
     frozenProcess,
-    evidence,
+    evidence: materialized.evidence,
     ...overrides,
   };
 }

@@ -1,10 +1,12 @@
 // Tests del ciclo offline y su evidencia (IMP-19). Fuente: SPEC v1.1.1 §11.5,
 // §15.4, §25.1 fila IMP-19 ("Nueva versión revalidada con evidencia válida";
-// "activo no muta") y §25.2.3 IMP-19.
+// "activo no muta"), §25.2.3 IMP-19 y §25.2 nota IMP-17. Correcciones de
+// revisión: IMP19-H1/H2 (2026-09-24) e IMP19-R1/R2 (revisión 2026-09-24).
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { contentHashOf } from "../../src/execution-contract/execution-contract.mjs";
 import { createActivePolicyVersionHolder } from "../../src/experience/index.mjs";
 import {
   valueIteration,
@@ -33,6 +35,9 @@ import {
 
 const GAMMA_JUSTIFICATION = "horizonte finito sin descuento económico justificado (§11.2)";
 const mdpArgs = { states: SYNTHETIC_MDP.states, actions: SYNTHETIC_MDP.actions, transitions: SYNTHETIC_MDP.transitions };
+const FIXED_PROVENANCE = { kind: "test-fixture", authority: "test/learning/fixtures.mjs" };
+const PRODUCED_AT = "2026-02-01T00:00:00Z";
+const REAL_DATA_AUDIT = { scope: "REAL_DATA", auditPitRightsValid: true, realDataAdequate: true, sourceRef: "corpus-real-ref" };
 
 function bestComparison() {
   const vi = valueIteration({ ...mdpArgs, gamma: 1, horizon: "finite", gammaJustification: GAMMA_JUSTIFICATION });
@@ -52,6 +57,34 @@ function bestComparison() {
 
 function sufficientSupport() {
   return evaluateSupportSufficiency({ records: supportCorpus(), stateDeclaration: markovStateDeclaration(), minimumCampaigns: 2 });
+}
+
+// Réplica determinística de la candidate del ciclo: el builder es
+// determinístico (mismos inputs → mismo contentHash), así el test materializa
+// ANTES la evidencia bindida a la candidate que después el ciclo produce,
+// porque el binding ya no la auto-materializa (IMP19-R2).
+function cycleCandidate({ holder, candidateVersion = "policy-v2", corpus, learnerComparison = bestComparison(), provenance = FIXED_PROVENANCE, producedAtUtc = PRODUCED_AT }) {
+  const produced = produceCandidatePolicyVersion({
+    activeVersionHolder: holder,
+    candidateVersion,
+    basedOnCorpusHash: contentHashOf(corpus),
+    learnerComparison,
+    producedAtUtc,
+    provenance,
+  });
+  if (!produced.ok) {
+    throw new Error(`fixture candidate inválida: ${produced.code}`);
+  }
+  return produced.candidate;
+}
+
+// Candidate directa (fuera del ciclo) para tests unitarios de revalidación.
+function directCandidate(holder, candidateVersion = "policy-v2") {
+  const produced = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion, learnerComparison: bestComparison(), provenance: { kind: "test" } });
+  if (!produced.ok) {
+    throw new Error(produced.code);
+  }
+  return produced.candidate;
 }
 
 test("IMP-19 §25.2 · el ciclo exige Experience válida realmente disponible", () => {
@@ -102,22 +135,26 @@ test("IMP-19 §11.5 · la candidate debe ser nueva y partir de una comparación 
 
 test("IMP-19 §11.5/§15.4 · ciclo offline produce candidate revalidada y NO muta la activa", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const corpus = supportCorpus();
+  const learnerComparison = bestComparison();
+  const revalidation = pathRevalidation({ candidate: cycleCandidate({ holder, corpus, learnerComparison }) });
   const cycle = runOfflineLearningCycle({
     activeVersionHolder: holder,
-    corpus: supportCorpus(),
+    corpus,
     corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
     rewardConfig: frozenRewardConfig(),
     supportEvaluation: sufficientSupport(),
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
-    learnerComparison: bestComparison(),
-    revalidation: pathRevalidation(),
-    producedAtUtc: "2026-02-01T00:00:00Z",
+    learnerComparison,
+    revalidation,
+    producedAtUtc: PRODUCED_AT,
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
-    provenance: { kind: "test-fixture", authority: "test/learning/fixtures.mjs" },
+    provenance: FIXED_PROVENANCE,
   });
   assert.equal(cycle.ok, true);
   assert.equal(cycle.outcome, "CANDIDATE_REVALIDATED_FIXTURE_ONLY");
+  assert.equal(cycle.revalidation.verdict, "REVALIDATED");
   assert.equal(cycle.revalidation.binding.verified, true);
   assert.equal(cycle.fixtureOnly, true);
   assert.equal(cycle.promotionRecommended, true);
@@ -127,24 +164,27 @@ test("IMP-19 §11.5/§15.4 · ciclo offline produce candidate revalidada y NO mu
   assert.equal(cycle.steps.length, 7);
   // Paso 7 (governance) pertenece a IMP-24; el ciclo no activa.
   assert.equal(cycle.steps[6].owner, "IMP-24");
-  assert.match(cycle.note, /SYNTHETIC_FIXTURE/);
+  assert.match(cycle.note, /sintético/);
 });
 
 test("IMP-19 §11.5 · sin evidencia de revalidación válida la candidate queda en HOLD", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const corpus = supportCorpus();
+  const learnerComparison = bestComparison();
+  const revalidation = pathRevalidation({ candidate: cycleCandidate({ holder, corpus, learnerComparison }), evidenceValid: false });
   const cycle = runOfflineLearningCycle({
     activeVersionHolder: holder,
-    corpus: supportCorpus(),
+    corpus,
     corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
     rewardConfig: frozenRewardConfig(),
     supportEvaluation: sufficientSupport(),
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
-    learnerComparison: bestComparison(),
-    revalidation: pathRevalidation({ evidenceValid: false }),
-    producedAtUtc: "2026-02-01T00:00:00Z",
+    learnerComparison,
+    revalidation,
+    producedAtUtc: PRODUCED_AT,
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
-    provenance: { kind: "test-fixture" },
+    provenance: FIXED_PROVENANCE,
   });
   assert.equal(cycle.ok, true);
   assert.equal(cycle.outcome, "HOLD");
@@ -155,7 +195,7 @@ test("IMP-19 §11.5 · sin evidencia de revalidación válida la candidate queda
 
 test("IMP-19 §15.4 · una revalidación sin evidencia referenciada se rechaza", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
-  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const candidate = directCandidate(holder);
   const outcome = revalidateCandidate({ candidate, revalidation: { processRef: "rp", mode: "OOS", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: true } });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.code, "INVALID_REVALIDATION");
@@ -166,19 +206,21 @@ test("IMP-19 §25.2.1 · construir el soporte no cierra DEP-19/20/21", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
   const support = sufficientSupport();
   const comparison = bestComparison();
+  const corpus = supportCorpus();
+  const revalidation = pathRevalidation({ candidate: cycleCandidate({ holder, corpus, learnerComparison: comparison }) });
   const cycle = runOfflineLearningCycle({
     activeVersionHolder: holder,
-    corpus: supportCorpus(),
+    corpus,
     corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
     rewardConfig: frozenRewardConfig(),
     supportEvaluation: support,
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
     learnerComparison: comparison,
-    revalidation: pathRevalidation(),
-    producedAtUtc: "2026-02-01T00:00:00Z",
+    revalidation,
+    producedAtUtc: PRODUCED_AT,
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
-    provenance: { kind: "test-fixture" },
+    provenance: FIXED_PROVENANCE,
   });
   const evidence = materializeLearningEvidence({
     rewardConfig: frozenRewardConfig(),
@@ -189,7 +231,7 @@ test("IMP-19 §25.2.1 · construir el soporte no cierra DEP-19/20/21", () => {
     revalidation: cycle.revalidation,
     cycle,
     scope: "SYNTHETIC_FIXTURE",
-    producedAtUtc: "2026-02-01T00:00:00Z",
+    producedAtUtc: PRODUCED_AT,
   });
   assert.equal(evidence.ok, true);
   assert.equal(evidence.bundle.closedByConstruction, false);
@@ -197,24 +239,27 @@ test("IMP-19 §25.2.1 · construir el soporte no cierra DEP-19/20/21", () => {
   assert.deepEqual(evidence.bundle.depClosure, { "DEP-19": DEP_STATUS.OPEN, "DEP-20": DEP_STATUS.OPEN, "DEP-21": DEP_STATUS.OPEN });
   assert.match(evidence.bundle.note, /PRODUCES_EVIDENCE/);
 });
+
 test("IMP19-H1 §11.5 paso 3 · ventana/campaña abierta no produce candidate", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const openCorpus = [
+    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY" }),
+    syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT" }),
+  ];
+  const revalidation = pathRevalidation({ candidate: cycleCandidate({ holder, corpus: openCorpus }) });
   const cycle = runOfflineLearningCycle({
     activeVersionHolder: holder,
-    corpus: [
-      syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY" }),
-      syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT" }),
-    ],
+    corpus: openCorpus,
     corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
     rewardConfig: frozenRewardConfig(),
     supportEvaluation: sufficientSupport(),
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
     learnerComparison: bestComparison(),
-    revalidation: pathRevalidation(),
-    producedAtUtc: "2026-02-01T00:00:00Z",
+    revalidation,
+    producedAtUtc: PRODUCED_AT,
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
-    provenance: { kind: "test-fixture" },
+    provenance: FIXED_PROVENANCE,
   });
   assert.equal(cycle.ok, false);
   assert.equal(cycle.code, "LEARNING_GATES_NOT_SATISFIED");
@@ -235,7 +280,7 @@ test("IMP19-H1 §11.5 paso 3 · ventana/campaña abierta no produce candidate", 
 
 test("IMP19-H2 §25.1 · evidencia testiguada a la mano sin proceso congelado no revalida", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
-  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const candidate = directCandidate(holder);
   const outcome = revalidateCandidate({
     candidate,
     revalidation: { processRef: "frozen-shadow-process-v1", mode: "SHADOW", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: true, evidenceRef: "shadow-shakeout-1" },
@@ -249,9 +294,9 @@ test("IMP19-H2 §25.1 · evidencia testiguada a la mano sin proceso congelado no
 
 test("IMP19-H2 §15.2 · proceso congelado alterado hace fallar el binding de la evidencia", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
-  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const candidate = directCandidate(holder);
   const tampered = { ...frozenProcessFor(), contentHash: "0".repeat(64) };
-  const outcome = revalidateCandidate({ candidate, revalidation: pathRevalidation({ overrides: { frozenProcess: tampered } }) });
+  const outcome = revalidateCandidate({ candidate, revalidation: pathRevalidation({ candidate, overrides: { frozenProcess: tampered } }) });
   assert.equal(outcome.ok, true);
   assert.equal(outcome.revalidated, false);
   assert.equal(outcome.verdict, "HOLD");
@@ -260,18 +305,159 @@ test("IMP19-H2 §15.2 · proceso congelado alterado hace fallar el binding de la
 
 test("IMP19-H2 §25.1 · evidencia bindía a la candidate revalidada verificándose por hash", () => {
   const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
-  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
-  const process = frozenProcessFor();
-  const evidence = materializeRevalidationEvidence({ process, candidate, evidenceRef: "shadow-shakeout-1" }).evidence;
-  const verified = revalidateCandidate({ candidate, revalidation: pathRevalidation({ overrides: { evidence } }) });
+  const candidate = directCandidate(holder);
+  const revalidation = pathRevalidation({ candidate });
+  const verified = revalidateCandidate({ candidate, revalidation });
   assert.equal(verified.ok, true);
   assert.equal(verified.revalidated, true);
+  assert.equal(verified.verdict, "REVALIDATED");
   assert.equal(verified.binding.verified, true);
 
-  const otherCandidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v3", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
-  const mismatch = revalidateCandidate({ candidate: otherCandidate, revalidation: pathRevalidation({ overrides: { evidence } }) });
+  const otherCandidate = directCandidate(holder, "policy-v3");
+  const mismatch = revalidateCandidate({ candidate: otherCandidate, revalidation: pathRevalidation({ candidate }) });
   assert.equal(mismatch.ok, true);
   assert.equal(mismatch.revalidated, false);
   assert.equal(mismatch.verdict, "HOLD");
   assert.ok(mismatch.binding.reasons.some((reason) => reason.code === "EVIDENCE_NOT_BOUND_TO_CANDIDATE"));
+});
+
+// IMP19-R1 (revisión 2026-09-24): el verdict se deriva del binding verificable;
+// el input del caller (verdict declarado) nunca lo fija. Reproducción del
+// hallazgo: evidenceValid:true + verdict:"REVALIDATED" + proceso malformado →
+// revalidated:false PERO verdict:"REVALIDATED" (doble verdad).
+test("IMP19-R1 §25.1 · el verdict declarado por el caller no sobrevive a un binding fallido", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const candidate = directCandidate(holder);
+  const outcome = revalidateCandidate({
+    candidate,
+    revalidation: {
+      processRef: "frozen-shadow-process-v1",
+      mode: "OOS",
+      evaluatedAtUtc: "2026-02-01T00:00:00Z",
+      evidenceValid: true,
+      evidenceRef: "shadow-shakeout-1",
+      verdict: "REVALIDATED",
+    },
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.revalidated, false);
+  assert.equal(outcome.verdict, "HOLD");
+  assert.equal(outcome.binding.verified, false);
+
+  const negative = revalidateCandidate({
+    candidate,
+    revalidation: { processRef: "rp", mode: "OOS", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: false, evidenceRef: "ref", verdict: "REVALIDATED" },
+  });
+  assert.equal(negative.revalidated, false);
+  assert.equal(negative.verdict, "HOLD");
+});
+
+// IMP19-R2 (revisión 2026-09-24): el binding no materializa la evidencia que
+// verifica; sin evidencia aportada no hay revalidación.
+test("IMP19-R2 §15.2 · el binding no fabrica la evidencia que verifica", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const candidate = directCandidate(holder);
+  const outcome = revalidateCandidate({
+    candidate,
+    revalidation: {
+      processRef: "frozen-shadow-process-v1",
+      mode: "SHADOW",
+      evaluatedAtUtc: "2026-02-01T00:00:00Z",
+      evidenceValid: true,
+      evidenceRef: "shadow-shakeout-1",
+      frozenProcess: frozenProcessFor(),
+      evidence: undefined,
+    },
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.revalidated, false);
+  assert.equal(outcome.verdict, "HOLD");
+  assert.ok(outcome.binding.reasons.some((reason) => reason.code === "EVIDENCE_NOT_PROVIDED"));
+});
+
+// IMP19-R2 (revisión 2026-09-24): REAL_DATA no acepta records synthetic:true;
+// un corpus sintético bajo scope declarado real no produce candidate.
+test("IMP19-R2 §25.2.3 · REAL_DATA no acepta records synthetic:true", () => {
+  const gates = evaluateLearningGates({
+    corpus: [syntheticExperienceRecord()],
+    corpusAudit: REAL_DATA_AUDIT,
+    rewardConfig: frozenRewardConfig(),
+    protocol: frozenProtocol(),
+    supportEvaluation: sufficientSupport(),
+  });
+  assert.equal(gates.ok, false);
+  assert.ok(gates.reasons.some((reason) => reason.code === "REAL_DATA_WITH_SYNTHETIC_RECORDS"));
+
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const cycle = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus: supportCorpus(),
+    corpusAudit: REAL_DATA_AUDIT,
+    rewardConfig: frozenRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison: bestComparison(),
+    revalidation: pathRevalidation({ candidate: cycleCandidate({ holder, corpus: supportCorpus() }) }),
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(cycle.ok, false);
+  assert.equal(cycle.code, "LEARNING_GATES_NOT_SATISFIED");
+  assert.ok(cycle.reasons.some((reason) => reason.code === "REAL_DATA_WITH_SYNTHETIC_RECORDS"));
+});
+
+// IMP19-R2 (revisión 2026-09-24): la evidencia lleva su marca fixtureOnly
+// sellada por hash y el calificador FIXTURE_ONLY del outcome deriva de ella y
+// del cotejo del corpus, no sólo de corpusAudit.scope.
+test("IMP19-R2 §25.2.3 · la marca fixtureOnly de la evidencia cualifica el outcome", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const corpus = supportCorpus({ synthetic: false });
+  const learnerComparison = bestComparison();
+  const candidate = cycleCandidate({ holder, corpus, learnerComparison });
+
+  const syntheticRun = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus,
+    corpusAudit: REAL_DATA_AUDIT,
+    rewardConfig: frozenRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison,
+    revalidation: pathRevalidation({ candidate, fixtureOnly: true }),
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(syntheticRun.outcome, "CANDIDATE_REVALIDATED_FIXTURE_ONLY");
+  assert.equal(syntheticRun.fixtureOnly, true);
+
+  const realRun = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus,
+    corpusAudit: REAL_DATA_AUDIT,
+    rewardConfig: frozenRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison,
+    revalidation: pathRevalidation({ candidate, fixtureOnly: false }),
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(realRun.outcome, "CANDIDATE_REVALIDATED");
+  assert.equal(realRun.fixtureOnly, false);
+});
+
+// La marca es parte de la identidad content-addressed de la evidencia: sin ella
+// el materializador falla y el binding exige su presencia.
+test("IMP19-R2 §25.2.3 · la evidencia sin marca fixtureOnly no se materializa ni verifica", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const candidate = directCandidate(holder);
+  const unmarked = materializeRevalidationEvidence({ process: frozenProcessFor(), candidate, evidenceRef: "shadow-shakeout-1" });
+  assert.equal(unmarked.ok, false);
+  assert.ok(unmarked.errors.some((error) => error.code === "MISSING_REAL_MARK"));
 });
