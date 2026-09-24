@@ -59,7 +59,7 @@ export function buildEntryHourProfile({ frozen = null, snapshotRegistry = null, 
     return {
       ok: false,
       code: "EVALUATION_BLOCKED_NO_INTRADAY_AUDIT",
-      blocker: gate.blocker ?? gate.blockers ?? gate.message ?? null,
+      blocker: gate.blocker ?? gate.message ?? null,
       auditGate: gate,
       supportOnly: true,
       profile: null,

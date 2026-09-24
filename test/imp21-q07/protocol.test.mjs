@@ -13,6 +13,7 @@ import {
   Q07_PROTOCOL_ID,
   CANONICAL_SPEC_REF,
   CANONICAL_SPEC_SHA256,
+  freezeQ07Protocol,
 } from "../../src/imp21-q07/index.mjs";
 import {
   createSyntheticFrozenProtocol,
@@ -110,4 +111,40 @@ test("H3: specSha256 no-hex o no-canónico se rechaza como binding de SPEC", () 
     protocol.specSha256 = "0".repeat(64);
   });
   assert.equal(validateQ07Protocol(invented).code, "SPEC_SHA256_NOT_CANONICAL");
+});
+
+test("ENDURECIMIENTO_14.9: forma cerrada y valores serializables en el protocolo (fail-closed)", () => {
+  const frozen = createSyntheticFrozenProtocol();
+  const core = { ...frozen };
+  delete core.status;
+  delete core.contentHash;
+  assert.equal(validateQ07Protocol(core).ok, true);
+
+  // Clave extra a nivel raíz: forma cerrada (§14.9 anti-mutación).
+  const extraTopLevel = { ...core, extraKey: "x" };
+  assert.equal(validateQ07Protocol(extraTopLevel).code, "UNEXPECTED_PROTOCOL_FIELDS");
+
+  // Funciones en campos del protocolo: canonicalJson las deja caer como
+  // undefined y el hash no cubriría su cuerpo; la validación las rechaza.
+  const withFunction = { ...core, metrics: [{ metricId: "M", kind: () => "mutado" }] };
+  assert.equal(validateQ07Protocol(withFunction).code, "NON_SERIALIZABLE_PROTOCOL_VALUE");
+
+  const nestedFunction = { ...core, candidates: [{ ...core.candidates[0], hour: () => 11 }] };
+  assert.equal(validateQ07Protocol(nestedFunction).code, "NON_SERIALIZABLE_PROTOCOL_VALUE");
+
+  // Campos extra en sub-objetos declarados: rechazo (fail-closed).
+  const extraMetrics = { ...core, metrics: [{ metricId: "M1", kind: "BOOLEAN", description: "d", extra: 1 }] };
+  assert.equal(validateQ07Protocol(extraMetrics).code, "INVALID_METRICS");
+  const extraCandidates = {
+    ...core,
+    candidates: [
+      ...core.candidates,
+      { hourId: "H_EXTRA", kind: "FIXED_HOUR_AND_MINUTES", hour: 10, extra: 1 },
+    ],
+  };
+  assert.equal(validateQ07Protocol(extraCandidates).code, "INVALID_CANDIDATE");
+
+  // freezeQ07Protocol aplica el mismo guard: no congela nada no serializable.
+  assert.equal(freezeQ07Protocol(withFunction).ok, false);
+  assert.equal(freezeQ07Protocol(extraTopLevel).ok, false);
 });

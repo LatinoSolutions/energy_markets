@@ -35,14 +35,14 @@ export function evaluateIntradayAuditGate({ intradayAudit = null } = {}) {
     return {
       ok: false,
       code: "INTRADAY_AUDIT_SOURCE_COVERAGE_INCOMPLETE",
-      blockers: "Deben declararse las fuentes auditadas cubiertas y el IMP/revisión que produjo el artefacto.",
+      blocker: "Deben declararse las fuentes auditadas cubiertas y el IMP/revisión que produjo el artefacto.",
     };
   }
   if (intradayAudit.producedByImp !== "IMP-03" && typeof intradayAudit.contentHash !== "string") {
     return {
       ok: false,
       code: "INTRADAY_AUDIT_EQUIVALENT_NOT_SOURCED",
-      blockers: "Un audit factual equivalente exige trazabilidad de origen (hash/identidad verificable).",
+      blocker: "Un audit factual equivalente exige trazabilidad de origen (hash/identidad verificable).",
     };
   }
   return { ok: true, code: "INTRADAY_AUDIT_GATE_HOLD", intradayAudit };

@@ -86,6 +86,46 @@ export const OBLIGATION_BINDING_FIELDS = [
 
 export const SAMPLE_BINDING_FIELDS = ["source", "contentHash", "oosPolicy"];
 
+export const CONTROLLER_BINDING_FIELDS = ["ruleId", "contentHash", "lotSizeMw", "dailyCapMw"];
+export const METRIC_FIELDS = ["metricId", "kind", "description"];
+export const BUCKET_FIELDS = ["bucketId", "metricId", "predicate"];
+export const CANDIDATE_FIELDS = {
+  FIXED_HOUR_AND_MINUTES: ["hourId", "kind", "hour", "minutes"],
+  DYNAMIC_WINDOW: ["hourId", "kind", "windowStartHour", "windowEndHour"],
+};
+export const ALLOWED_TIMING_CHANGE_FIELDS = ["kind", "invariants"];
+
+// §14.9 anti-mutación: el contenido congelado sólo puede cubrirse por hash si
+// todo su valor es serializable; una función cae como undefined en
+// canonicalJson y su cuerpo podría mutarse sin cambiar el hash. Fail-closed.
+// La forma cerrada (sin claves fuera de la lista declarada) se aplica a los
+// sub-objetos; la presencia de campos requeridos se valida por separado.
+function hasClosedFields(value, fields, code) {
+  if (fieldSetMatches(Object.keys(value), fields)) return null;
+  return code;
+}
+
+function fieldSetMatches(actual, allowed) {
+  return actual.every((field) => allowed.includes(field));
+}
+
+function findNonSerializableValue(value, path = "$") {
+  if (typeof value === "function" || typeof value === "symbol") return path;
+  if (value === null || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const hit = findNonSerializableValue(value[index], `${path}[${index}]`);
+      if (hit !== null) return hit;
+    }
+    return null;
+  }
+  for (const key of Object.keys(value)) {
+    const hit = findNonSerializableValue(value[key], `${path}.${key}`);
+    if (hit !== null) return hit;
+  }
+  return null;
+}
+
 // La muestra nunca puede declararse por resultado ni mezclar OOS como si no
 // estuviera reservado (§15.2). OOS_POLICY valores admitidos.
 export const OOS_POLICIES = [
@@ -149,8 +189,18 @@ export function evaluateBucketPredicate({ predicate, context = {} } = {}) {
 }
 
 export function validateQ07Protocol(protocol = {}) {
+  // El frozen legítimo añade status/contentHash en freezeQ07Protocol; la forma
+  // cerrada rechaza cualquier otra clave distinta del contrato (§14.9).
+  const protocolAllowedFields = [...PROTOCOL_FIELDS, "status", "contentHash"];
   if (!hasShape(protocol, PROTOCOL_FIELDS)) {
     return { ok: false, code: "MISSING_PROTOCOL_FIELDS" };
+  }
+  if (!fieldSetMatches(Object.keys(protocol), protocolAllowedFields)) {
+    return { ok: false, code: "UNEXPECTED_PROTOCOL_FIELDS", unexpected: Object.keys(protocol).filter((k) => !protocolAllowedFields.includes(k)) };
+  }
+  const nonSerializablePath = findNonSerializableValue(protocol);
+  if (nonSerializablePath !== null) {
+    return { ok: false, code: "NON_SERIALIZABLE_PROTOCOL_VALUE", path: nonSerializablePath };
   }
   if (protocol.artifactKind !== "IMP-21_Q07_PROTOCOL"
     || protocol.protocolId !== Q07_PROTOCOL_ID
@@ -168,6 +218,10 @@ export function validateQ07Protocol(protocol = {}) {
   if (!hasShape(obligation, OBLIGATION_BINDING_FIELDS)) {
     return { ok: false, code: "INVALID_OBLIGATION_BINDING" };
   }
+  const obligationFieldsError = hasClosedFields(obligation, OBLIGATION_BINDING_FIELDS, "INVALID_OBLIGATION_BINDING");
+  if (obligationFieldsError !== null) {
+    return { ok: false, code: obligationFieldsError };
+  }
   if (!isFiniteNumber(obligation.openingObligationMw) || obligation.openingObligationMw <= 0) {
     return { ok: false, code: "INVALID_OBLIGATION_QUANTITY" };
   }
@@ -177,6 +231,10 @@ export function validateQ07Protocol(protocol = {}) {
     || typeof controller.ruleId !== "string"
     || !isFiniteNumber(controller.lotSizeMw) || controller.lotSizeMw <= 0) {
     return { ok: false, code: "INVALID_CONTROLLER_BINDING" };
+  }
+  const controllerFieldsError = hasClosedFields(controller, CONTROLLER_BINDING_FIELDS, "INVALID_CONTROLLER_BINDING");
+  if (controllerFieldsError !== null) {
+    return { ok: false, code: controllerFieldsError };
   }
 
   const dates = protocol.decisionDates;
@@ -200,6 +258,10 @@ export function validateQ07Protocol(protocol = {}) {
       || !INTRADAY_CANDIDATE_KINDS.includes(candidate.kind)) {
       return { ok: false, code: "INVALID_CANDIDATE" };
     }
+    const candidateFieldsError = hasClosedFields(candidate, CANDIDATE_FIELDS[candidate.kind], "INVALID_CANDIDATE");
+    if (candidateFieldsError !== null) {
+      return { ok: false, code: candidateFieldsError, hourId: candidate.hourId };
+    }
     if (ids.has(candidate.hourId)) {
       return { ok: false, code: "DUPLICATED_CANDIDATE_ID", hourId: candidate.hourId };
     }
@@ -220,11 +282,21 @@ export function validateQ07Protocol(protocol = {}) {
     || !metrics.every((metric) => metric && typeof metric === "object" && typeof metric.metricId === "string")) {
     return { ok: false, code: "INVALID_METRICS" };
   }
+  for (const metric of metrics) {
+    const metricFieldsError = hasClosedFields(metric, METRIC_FIELDS, "INVALID_METRICS");
+    if (metricFieldsError !== null) {
+      return { ok: false, code: metricFieldsError, metricId: metric.metricId ?? null };
+    }
+  }
   if (!Array.isArray(protocol.buckets) || protocol.buckets.length === 0
-    || !protocol.buckets.every((bucket) => hasShape(bucket, ["bucketId", "metricId", "predicate"]))) {
+    || !protocol.buckets.every((bucket) => hasShape(bucket, BUCKET_FIELDS))) {
     return { ok: false, code: "INVALID_BUCKETS" };
   }
   for (const bucket of protocol.buckets) {
+    const bucketFieldsError = hasClosedFields(bucket, BUCKET_FIELDS, "INVALID_BUCKETS");
+    if (bucketFieldsError !== null) {
+      return { ok: false, code: bucketFieldsError, bucketId: bucket.bucketId ?? null };
+    }
     if (!isBucketPredicate(bucket.predicate)) {
       return { ok: false, code: "INVALID_BUCKET_PREDICATE", bucketId: bucket.bucketId ?? null };
     }
@@ -244,6 +316,10 @@ export function validateQ07Protocol(protocol = {}) {
     || !OOS_POLICIES.includes(sample.oosPolicy)) {
     return { ok: false, code: "INVALID_SAMPLE_BINDING" };
   }
+  const sampleFieldsError = hasClosedFields(sample, SAMPLE_BINDING_FIELDS, "INVALID_SAMPLE_BINDING");
+  if (sampleFieldsError !== null) {
+    return { ok: false, code: sampleFieldsError };
+  }
 
   // La hora de referencia es un comparator opcional predeclarado, nunca una
   // hora óptima impuesta por documentación (§25.1 "No fijar 11:00 ni
@@ -255,6 +331,10 @@ export function validateQ07Protocol(protocol = {}) {
 
   if (protocol.allowedTimingChange?.kind !== ALLOWED_TIMING_CHANGE.kind) {
     return { ok: false, code: "SCOPE_WIDER_THAN_INTRADAY_TIMING" };
+  }
+  const timingFieldsError = hasClosedFields(protocol.allowedTimingChange, ALLOWED_TIMING_CHANGE_FIELDS, "SCOPE_WIDER_THAN_INTRADAY_TIMING");
+  if (timingFieldsError !== null) {
+    return { ok: false, code: timingFieldsError };
   }
 
   return { ok: true, code: "OK" };
