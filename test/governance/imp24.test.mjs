@@ -764,6 +764,56 @@ test("IMP-24: el hard-gate puede HALT inmediatamente y ningún acto se autoriza 
   assert.equal(refused.code, "GOVERNOR_STATE_HALTED");
 });
 
+test("IMP-24: en HALT no se registra PROMOTE y el rollback no reanuda en un nivel superior (§18.3/§18.4)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2" });
+  // Baja un nivel (A2→A1) y luego detiene la operación.
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-1", requestedTransition: "DEMOTE", atUtc: T0 });
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-2", requestedTransition: "HALT", atUtc: T0 });
+  assert.equal(judge.currentState().status, "HALTED");
+  assert.equal(judge.currentState().level, "A1");
+
+  const promotion = judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  });
+  assert.equal(promotion.ok, false);
+  assert.equal(promotion.code, "GOVERNOR_STATE_HALTED");
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+  assert.equal(judge.currentState().level, "A1");
+
+  const history = [
+    { policyVersion: "v1.0", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
+  ];
+  const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
+  assert.equal(rollback.ok, true);
+  assert.equal(rollback.restoredLevel, "A1");
+  assert.equal(judge.currentState().status, "ACTIVE");
+});
+
+test("IMP-24: con el governor detenido la primera activación no procede (§18.3)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-3", atUtc: T0 });
+  const result = judge.considerFirstActivation(firstActivationInput());
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "GOVERNOR_STATE_HALTED");
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+});
+
+test("IMP-24: el hard-gate DEMOTE en el nivel mínimo A0 no fabrica un receipt A0→A0: detiene la operación (§18.3/§18.4)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-FLOOR", requestedTransition: "DEMOTE", atUtc: T0 });
+  assert.equal(result.ok, true);
+  assert.equal(result.transition, "HALT");
+  assert.equal(result.demoteAtMinimumLevel, true);
+  assert.equal(judge.currentState().status, "HALTED");
+  assert.equal(judge.currentState().level, "A0");
+  assert.equal(judge.receiptRegistry.transitionsOfType("DEMOTE").length, 0);
+  const receipt = judge.receiptRegistry.receiptOf(result.transitionReceiptId);
+  assert.equal(receipt.transitionType, "HALT");
+});
+
 test("IMP-24: el rollback del HALT restaura la última versión válida y no auto-amplía el nivel", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-3", atUtc: T0 });

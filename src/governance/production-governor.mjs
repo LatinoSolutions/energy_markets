@@ -378,6 +378,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
       return fail("MISSING_TIMESTAMP", "La activación declara su instante (§6.1).");
     }
+    // §18.3/§18.4: HALT detiene la operación de forma inmediata; ninguna
+    // transición que AMPLÍE autoridad (primera activación incluida) procede
+    // mientras el governor esté detenido. Se exige el rollback previo; sin
+    // este control se registraría un PROMOTE reconstruible que contradice el
+    // halt (la versión "obtuvo" autoridad durante un cese).
+    if (state.status !== "ACTIVE") {
+      return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
+    }
     if (!isNonEmptyString(policyVersion)) {
       return fail("MISSING_POLICY_VERSION", "La primera activación declara la Policy Version (§15.3: versión fija).");
     }
@@ -638,6 +646,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
       return fail("MISSING_TIMESTAMP", "La promoción declara su instante (§6.1).");
     }
+    // §18.3/§18.4: un governor HALTED no asciende. Sin este control una
+    // PROMOTE registrada durante el halt elevaba el nivel operativo y el
+    // rollback posterior reanudaba ACTIVE en ese nivel superior: el hard-gate
+    // que causó el HALT quedaba neutralizado y el registro declaraba una
+    // autoridad que el cese impedía ejercer.
+    if (state.status !== "ACTIVE") {
+      return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
+    }
     if (!AUTONOMY_LEVELS.includes(targetLevel)) {
       return fail("INVALID_TARGET_LEVEL", `El nivel objetivo debe ser canónico (${AUTONOMY_LEVELS.join(", ")}; §16.2).`);
     }
@@ -714,9 +730,15 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return mandateOutcome;
     }
     const mandate = mandateOutcome.mandate;
-    if (mandate.transition === "DEMOTE") {
+    // §18.3/§18.4: DEMOTE sólo procede si hay un nivel inferior que reduzca
+    // autoridad. En el mínimo A0 no existe tal nivel: registrar A0→A0 sería un
+    // receipt que declara una pérdida de autoridad que no ocurrió. El
+    // hard-gate detiene la operación (HALT), degradación efectiva y
+    // reconstruible, en vez de fabricar un DEMOTE vacío.
+    const demoteTargetIndex = levelIndex(state.level) - 1;
+    if (mandate.transition === "DEMOTE" && demoteTargetIndex >= 0) {
       const fromLevel = state.level;
-      const toLevel = AUTONOMY_LEVELS[Math.max(levelIndex(fromLevel) - 1, 0)];
+      const toLevel = AUTONOMY_LEVELS[demoteTargetIndex];
       state.level = toLevel;
       const receiptId = registerTransition({
         registry,
@@ -750,7 +772,8 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       },
       failures: internalFailures,
     })?.receiptId ?? null;
-    return { ok: true, transition: "HALT", status: state.status, transitionReceiptId: receiptId, mandate };
+    const demoteAtMinimumLevel = mandate.transition === "DEMOTE";
+    return { ok: true, transition: "HALT", status: state.status, transitionReceiptId: receiptId, mandate, demoteAtMinimumLevel };
   }
 
   // Rollback del mandato de hard-gate (§18.3): destino = última Policy
