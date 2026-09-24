@@ -24,3 +24,13 @@ export {
   renderResearchPage,
   renderSurfacePage,
 } from "./render.mjs";
+
+// UI-03 — gramática visual Claude Blind (layout/interacción) separada del
+// boundary: se exporta para que UI-02 pueda servirla y para su verificación.
+export {
+  PROVENANCE_INTERACTION_SCRIPT,
+  UI_STYLESHEET,
+  VISUAL_LANGUAGE_ID,
+  renderProvenanceDrawerHtml,
+  renderSemanticsKeyHtml,
+} from "./visual-language.mjs";
