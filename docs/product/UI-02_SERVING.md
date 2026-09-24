@@ -2,10 +2,13 @@
 
 Estado: implementación de la tarea UI-02 (PLAN_STATUS). Served UI = la
 implementación aceptada de UI-03 (dirección visual Claude Blind, commit
-`c35510b` integrado en `src/ui`); no se cambió `src/ui/render.mjs`,
-`src/ui/view-models.mjs` ni `src/ui/binding.mjs` (boundary UI-01/UI-03
-congelado) ni la semántica del Operator Interface Boundary de IMP-29
-(SPEC v1.1.1 §26.5: la UI no calcula, no gobierna, no es Source of Truth).
+`c35510b` integrado en `src/ui`); no se cambió `src/ui/render.mjs` ni
+`src/ui/binding.mjs` (boundary UI-01/UI-03 congelado). Una corrección
+posterior (UI02-H1, commit `749ca54`) añadió a `src/ui/view-models.mjs`
+sólo el flag aditivo `hasAnyBoundData` en `buildReplayViewModel` (sin
+cambiar el render ni la semántica del Operator Interface Boundary de
+IMP-29; SPEC v1.1.1 §26.5: la UI no calcula, no gobierna, no es Source of
+Truth).
 
 ## Cómo servir (comando)
 
