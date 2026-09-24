@@ -217,6 +217,33 @@ test("gate sintético: evidencia suficiente y screen falso -> FAIL, no PASS", ()
   assert.equal(verdict.verdict, "FAIL");
 });
 
+// IMP16-H11 (§5.8 / §13.7): mean(V_q)<=0 con prueba válida e interpretable y
+// evidencia suficiente es refutación (FAIL), no falta de evidencia (HOLD).
+test("IMP16-H11: mu<=0 con evidencia suficiente y calidad admisible -> FAIL (refutación), no HOLD", () => {
+  const scoring = scoreQuarterly([3, -1, -2, -1, 3, -1, -2, -1]);
+  assert.equal(scoring.mu, -0.25);
+  assert.equal(scoring.sortino !== null, true);
+  const evidence = minimumEvidence({ mission: "Quarterly", quartersCompleted: 8, calendarYearsCovered: 2 });
+  assert.equal(evidence.minimumEvidenceMet, true);
+  const verdict = quarterlyResearchVerdict({
+    scoring,
+    evidence,
+    dataQuality: ADMISSIBLE,
+  });
+  assert.equal(verdict.verdict, "FAIL");
+  assert.match(verdict.reason, /Refutación con prueba válida/);
+});
+
+// El HOLD para mean(V_q)<=0 se reserva a cuando falta algo más de fondo:
+// sin canal de calidad declarado sigue siendo HOLD (§5.8 gates).
+test("IMP16-H11: mu<=0 sin canal de calidad declarado sigue HOLD (falta evidencia de admisibilidad)", () => {
+  const verdict = quarterlyResearchVerdict({
+    scoring: scoreQuarterly([3, -1, -2, -1, 3, -1, -2, -1]),
+    evidence: minimumEvidence({ mission: "Quarterly", quartersCompleted: 8, calendarYearsCovered: 2 }),
+  });
+  assert.equal(verdict.verdict, "HOLD");
+});
+
 test("gate sintético: evidencia suficiente y screen cumplido -> PASS (chequeo de rama, no evidencia real)", () => {
   const verdict = quarterlyResearchVerdict({
     scoring: scoreQuarterly([4, -1, 0, 0, 0, 0, 0, 0]),
