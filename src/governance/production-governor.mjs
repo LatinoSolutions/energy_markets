@@ -21,7 +21,7 @@
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { P5_EXPERIMENT_RECEIPT_KIND } from "../p5-experiment/receipt.mjs";
-import { SHADOW_RECEIPT_KIND } from "../shadow/close.mjs";
+import { SHADOW_NON_INTERFERENCE_VERIFIED, SHADOW_RECEIPT_KIND } from "../shadow/index.mjs";
 import {
   ADMISSION_GATE_KINDS,
   AUTONOMY_LEVELS,
@@ -122,6 +122,10 @@ export function receiveGovernanceEvidence({ evidence } = {}) {
     evaluated: evidence.p3ResearchEvaluation?.evaluated === true,
     verdict: evidence.p3ResearchEvaluation?.verdict ?? null,
   } : null;
+  const shadowSufficiency = stage === "SHADOW" ? {
+    nonInterferenceVerdict: evidence.nonInterference?.verdict ?? null,
+    terminalCoverageStatus: evidence.terminalCoverage?.status ?? null,
+  } : null;
   return {
     ok: true,
     evidence: Object.freeze({
@@ -130,6 +134,7 @@ export function receiveGovernanceEvidence({ evidence } = {}) {
       identity,
       synthetic: evidence.synthetic === true,
       researchVerdict,
+      shadowSufficiency,
       intact: true,
     }),
   };
@@ -378,7 +383,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     const humanApprovalFailure = governanceApprovalProblem(humanApproval, FIRST_ACTIVATION_SCOPE);
     if (humanApprovalFailure) {
-      const holdReceiptId = holdFirstActivation({ code: humanApprovalFailure.code, policyVersion, atUtc });
+      const holdReceiptId = holdFirstActivation({ triggerEvidenceRef: humanApprovalFailure.code, policyVersion, atUtc });
       return { ok: false, authorized: false, code: FIRST_ACTIVATION_REFUSAL_CODE, message: humanApprovalFailure.message, transitionReceiptId: holdReceiptId };
     }
     const problem = authorizationProblem(policyVersion);
@@ -386,13 +391,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       const holdReceiptId = holdFirstActivation({ triggerEvidenceRef: `${problem.code}:${policyVersion}`, policyVersion, atUtc });
       return { ok: false, authorized: false, code: problem.code, message: problem.message, transitionReceiptId: holdReceiptId };
     }
-    const evidenceCheck = eligibleEvidence({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence });
+    const evidenceCheck = eligibleEvidence({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, atUtc });
     if (!evidenceCheck.ok) {
       return evidenceCheck;
     }
     const apgCheck = evaluateAutonomyPromotionGate({ apg });
     if (apgCheck.reasons.length > 0) {
-      return fail("APG_NOT_SATISFIED", "El APG aplicable no está satisfecho: no hay promoción (§16.1).", { reasons: apgCheck.reasons });
+      const holdReceiptId = holdFirstActivation({ triggerGate: "G_AUTONOMY_PROMOTION", triggerEvidenceRef: "APG_NOT_SATISFIED", policyVersion, atUtc });
+      return fail("APG_NOT_SATISFIED", "El APG aplicable no está satisfecho: no hay promoción (§16.1).", { reasons: apgCheck.reasons, transitionReceiptId: holdReceiptId });
     }
 
     const activation = {
@@ -458,18 +464,48 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // necesaria; la primera activación exige ambas evidencias intactas y
   // ligadas a UNA sola identidad de versión, con el veredicto de research
   // declarado. Ninguna etapa silencia la otra.
-  function eligibleEvidence({ oosEvidence, shadowEvidence, oosPolicyVersion, policyVersion }) {
+  function eligibleEvidence({ oosEvidence, shadowEvidence, oosPolicyVersion, policyVersion, atUtc }) {
     const receivedOos = receiveGovernanceEvidence({ evidence: oosEvidence });
     if (!receivedOos.ok) {
-      return fail(receivedOos.code, `Evidencia OOS insuficiente: ${receivedOos.message}`, { stage: "OOS" });
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `${receivedOos.code}:STAGE_OOS`,
+        policyVersion,
+        atUtc,
+      });
+      return fail(receivedOos.code, `Evidencia OOS insuficiente: ${receivedOos.message}`, { stage: "OOS", transitionReceiptId: holdReceiptId });
     }
     if (!receivedOos.evidence.researchVerdict.evaluated || receivedOos.evidence.researchVerdict.verdict !== "PASS") {
       const verdict = receivedOos.evidence.researchVerdict.verdict ?? "SIN_EVALUAR";
-      return fail("OOS_EVIDENCE_NOT_ELIGIBLE", `La evidencia OOS no es elegible (verdict = ${verdict}); un veredicto FAIL/HOLD no soporta activación (§18.1).`, { stage: "OOS" });
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `OOS_EVIDENCE_NOT_ELIGIBLE:${verdict}`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("OOS_EVIDENCE_NOT_ELIGIBLE", `La evidencia OOS no es elegible (verdict = ${verdict}); un veredicto FAIL/HOLD no soporta activación (§18.1).`, { stage: "OOS", transitionReceiptId: holdReceiptId });
     }
     const receivedShadow = receiveGovernanceEvidence({ evidence: shadowEvidence });
     if (!receivedShadow.ok) {
-      return fail(receivedShadow.code, `Evidencia Shadow insuficiente: ${receivedShadow.message}`, { stage: "SHADOW" });
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `${receivedShadow.code}:STAGE_SHADOW`,
+        policyVersion,
+        atUtc,
+      });
+      return fail(receivedShadow.code, `Evidencia Shadow insuficiente: ${receivedShadow.message}`, { stage: "SHADOW", transitionReceiptId: holdReceiptId });
+    }
+    // §18.1: "Shadow satisfactorio" no es un statement auto-attribuido: el
+    // receipt del productor IMP-18 declara non-interference verificada y
+    // cobertura terminal COVERED; el governor las importa del productor
+    // (una sola verdad) y las exige conjuntivamente.
+    const shadowSufficiency = receivedShadow.evidence.shadowSufficiency;
+    if (shadowSufficiency === null
+      || shadowSufficiency.nonInterferenceVerdict !== SHADOW_NON_INTERFERENCE_VERIFIED
+      || shadowSufficiency.terminalCoverageStatus !== "COVERED") {
+      const holdReceiptId = holdFirstActivation({
+        triggerEvidenceRef: `SHADOW_EVIDENCE_NOT_ELIGIBLE:${shadowSufficiency?.nonInterferenceVerdict ?? "SIN_DECLARAR"}:${shadowSufficiency?.terminalCoverageStatus ?? "SIN_DECLARAR"}`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("SHADOW_EVIDENCE_NOT_ELIGIBLE", `La evidencia Shadow no es satisfactoria (nonInterference = ${shadowSufficiency?.nonInterferenceVerdict ?? "SIN_DECLARAR"}, terminalCoverage = ${shadowSufficiency?.terminalCoverageStatus ?? "SIN_DECLARAR"}); un Shadow no verificado o sin cobertura no soporta activación (§18.1).`, { stage: "SHADOW", transitionReceiptId: holdReceiptId });
     }
     // §25.2.3 hito 2: OOS y Shadow deben pertenecer a UNA sola identidad de
     // versión, que incluye el experimento. Declarar el mismo policyVersion con

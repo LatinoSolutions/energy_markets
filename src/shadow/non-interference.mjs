@@ -13,6 +13,12 @@
 import { intactedSession } from "./session.mjs";
 import { FILL_EVIDENCE_KINDS } from "../experience/source-types.mjs";
 
+// Etiqueta canónica del non-interference verificado (§15.3/§15.1): se
+// exporta desde el productor; el governor (IMP-24) la importa en vez de
+// re-declarar el literal (una sola verdad, corrección OPEN_ITEM del revisor).
+export const SHADOW_NON_INTERFERENCE_VERIFIED = "SHADOW_NON_INTERFERENCE_VERIFIED";
+export const SHADOW_NON_INTERFERENCE_BROKEN = "SHADOW_NON_INTERFERENCE_BROKEN";
+
 // Checks obligatorios; cada uno lleva { code, ok, detail }. La conjunción es el
 // non-interference del Shadow: ninguna dimensión compensa a otra.
 export function verifyShadowNonInterference({ session, frozen, records = [], steps = [], trainingEvents = null } = {}) {
@@ -20,7 +26,7 @@ export function verifyShadowNonInterference({ session, frozen, records = [], ste
   const stepsList = Array.isArray(steps) ? steps : [];
   const checks = [...check(session, frozen, recordsList, stepsList, trainingEvents)];
   const ok = checks.every((check) => check.ok === true);
-  return { ok, checks, code: ok ? "SHADOW_NON_INTERFERENCE_VERIFIED" : "SHADOW_NON_INTERFERENCE_BROKEN" };
+  return { ok, checks, code: ok ? SHADOW_NON_INTERFERENCE_VERIFIED : SHADOW_NON_INTERFERENCE_BROKEN };
 }
 
 function check(session, frozen, recordsList, stepsList, trainingEvents) {

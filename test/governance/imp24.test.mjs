@@ -28,6 +28,7 @@ import {
   captureShadowOpportunity,
   closeShadowSession,
   SHADOW_EVIDENCE_RECEIPT_KIND,
+  SHADOW_NON_INTERFERENCE_VERIFIED,
   SHADOW_RECEIPT_KIND,
 } from "../../src/shadow/index.mjs";
 import {
@@ -64,7 +65,13 @@ function oosReceipt({ verdict = "PASS", synthetic = true } = {}) {
   return { ...core, synthetic, receiptId: contentHashOf({ ...core, synthetic }) };
 }
 
-function shadowReceipt({ policyVersion = "v1.0", synthetic = true, experiment = { experimentId: "EXP-FIXTURE", experimentVersion: "1.0" } } = {}) {
+function shadowReceipt({
+  policyVersion = "v1.0",
+  synthetic = true,
+  experiment = { experimentId: "EXP-FIXTURE", experimentVersion: "1.0" },
+  nonInterferenceVerdict = SHADOW_NON_INTERFERENCE_VERIFIED,
+  terminalCoverageStatus = "COVERED",
+} = {}) {
   const core = {
     artifactKind: SHADOW_EVIDENCE_RECEIPT_KIND,
     receiptKind: SHADOW_RECEIPT_KIND,
@@ -74,8 +81,8 @@ function shadowReceipt({ policyVersion = "v1.0", synthetic = true, experiment = 
     policyVersion,
     synthetic,
     stepCount: 3,
-    nonInterference: { verdict: "INTACTA", checks: [] },
-    terminalCoverage: { status: "COVERED" },
+    nonInterference: { verdict: nonInterferenceVerdict, checks: [] },
+    terminalCoverage: { status: terminalCoverageStatus },
   };
   return { ...core, contentHash: contentHashOf(core) };
 }
@@ -362,6 +369,42 @@ test("IMP-24: evidencia OOS con veredicto FAIL no soporta activación", () => {
   const result = judge.considerFirstActivation(firstActivationInput({ oosEvidence: oosReceipt({ verdict: "FAIL" }) }));
   assert.equal(result.ok, false);
   assert.equal(result.code, "OOS_EVIDENCE_NOT_ELIGIBLE");
+  // §18.4: el HOLD por evidencia no elegible queda en el registro de
+  // transiciones, no sólo como respuesta inmediata (reconstruible).
+  assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
+  assert.equal(result.transitionReceiptId, judge.receiptRegistry.transitionsOfType("HOLD")[0].receiptId);
+});
+
+test("IMP-24: evidencia Shadow sin non-interference verificada no es satisfactoria y queda HOLD (§18.1)", () => {
+  const broken = shadowReceipt({ policyVersion: "v1.0", nonInterferenceVerdict: "SHADOW_NON_INTERFERENCE_BROKEN" });
+  const received = receiveGovernanceEvidence({ evidence: broken });
+  assert.equal(received.ok, true);
+  assert.equal(received.evidence.stage, "SHADOW");
+  assert.equal(received.evidence.shadowSufficiency.nonInterferenceVerdict, "SHADOW_NON_INTERFERENCE_BROKEN");
+
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.considerFirstActivation(firstActivationInput({ shadowEvidence: broken }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "SHADOW_EVIDENCE_NOT_ELIGIBLE");
+  const holds = judge.receiptRegistry.transitionsOfType("HOLD");
+  assert.equal(holds.length, 1); // §18.4: HOLD reconstruible
+  assert.equal(result.transitionReceiptId, holds[0].receiptId);
+});
+
+test("IMP-24: evidencia Shadow sin cobertura terminal COVERED no es satisfactoria", () => {
+  const incomplete = shadowReceipt({ policyVersion: "v1.0", terminalCoverageStatus: "COVERAGE_INCOMPLETE" });
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.considerFirstActivation(firstActivationInput({ shadowEvidence: incomplete }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "SHADOW_EVIDENCE_NOT_ELIGIBLE");
+  assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
+});
+
+test("IMP-24: evidencia Shadow de otra versión no activa", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.considerFirstActivation(firstActivationInput({ shadowEvidence: shadowReceipt({ policyVersion: "otra-version" }) }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
 });
 
 test("IMP-24: evidencia OOS sin veredicto evaluado es evidencia insuficiente", () => {
@@ -374,13 +417,6 @@ test("IMP-24: evidencia OOS sin veredicto evaluado es evidencia insuficiente", (
   const result = judge.considerFirstActivation(firstActivationInput({ oosEvidence: repaired }));
   assert.equal(result.ok, false);
   assert.equal(result.code, "OOS_EVIDENCE_NOT_ELIGIBLE");
-});
-
-test("IMP-24: evidencia Shadow de otra versión no activa", () => {
-  const judge = buildGovernor({ autonomyLevel: "A0" });
-  const result = judge.considerFirstActivation(firstActivationInput({ shadowEvidence: shadowReceipt({ policyVersion: "otra-version" }) }));
-  assert.equal(result.ok, false);
-  assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
 });
 
 test("IMP-24: OOS y Shadow de experimentos distintos no son la misma identidad de versión", () => {
@@ -397,6 +433,9 @@ test("IMP-24: sin APG satisfecho la activación no procede aunque exista aprobac
   const result = judge.considerFirstActivation(firstActivationInput({ apg: null }));
   assert.equal(result.ok, false);
   assert.equal(result.code, "APG_NOT_SATISFIED");
+  // §18.4: el HOLD por APG insuficiente queda en el registro reconstruible.
+  assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
+  assert.equal(result.transitionReceiptId, judge.receiptRegistry.transitionsOfType("HOLD")[0].receiptId);
 });
 
 test("IMP-24: evidencia sintética produce un record marcado como demostración de mecanismo", () => {
