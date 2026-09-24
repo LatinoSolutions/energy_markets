@@ -199,6 +199,16 @@ function firstActivationInput(overrides = {}) {
   };
 }
 
+// La primera activación A1 (§18.1) es un acto humano de DEP-25 separado del
+// envelope: un governor cuyo envelope ya autoriza A1 no ejerce autoridad real
+// hasta registrar ese acto. Los tests de acciones reales lo registran primero.
+function activateFirstA1(judge) {
+  const activation = judge.considerFirstActivation(firstActivationInput());
+  assert.equal(activation.ok, true, "INSPECCIÓN: la primera activación A1 del fixture debe registrarse: " + JSON.stringify(activation));
+  assert.equal(judge.currentState().firstActivationRecorded, true);
+  return activation;
+}
+
 function buildGovernor(options = {}) {
   const built = buildEnvelope({
     envelopeVersion: options.envelopeVersion ?? "v1.0",
@@ -344,7 +354,7 @@ test("IMP-24: sin aprobación humana explícita de DEP-25 no hay primera activac
 });
 
 test("IMP-24: con evidencia y APG del fixture válidos y aprobación explícita: PROMOTE a A1", () => {
-  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const judge = buildGovernor({ autonomyLevel: "A1" });
   const result = judge.considerFirstActivation(firstActivationInput());
   assert.equal(result.ok, true, "INSPECCIÓN: " + JSON.stringify(result));
   assert.equal(result.activation.toLevel, "A1");
@@ -488,14 +498,14 @@ test("IMP-24: sin APG satisfecho la activación no procede aunque exista aprobac
 });
 
 test("IMP-24: evidencia sintética produce un record marcado como demostración de mecanismo", () => {
-  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const judge = buildGovernor({ autonomyLevel: "A1" });
   const result = judge.considerFirstActivation(firstActivationInput());
   assert.equal(result.ok, true);
   assert.equal(result.activation.synthetic, true);
 });
 
 test("IMP-24: la segunda llamada a la primera activación se rechaza sin PROMOTE duplicado (§18.4)", () => {
-  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const judge = buildGovernor({ autonomyLevel: "A1" });
   const first = judge.considerFirstActivation(firstActivationInput());
   assert.equal(first.ok, true, "INSPECCIÓN: " + JSON.stringify(first));
   const promotesAfterFirst = judge.receiptRegistry.transitionsOfType("PROMOTE").length;
@@ -519,10 +529,90 @@ test("IMP-24: la vía de la primera activación no DEMOTE el nivel vigente ni re
   assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
 });
 
+test("IMP-24: la primera activación A1 no procede bajo un envelope A0 sin autoridad real (§16.2/§17/§18.4)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.considerFirstActivation(firstActivationInput());
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "ENVELOPE_WITHOUT_REAL_AUTHORITY");
+  // §18.4: la vía queda registrada como HOLD reconstruible, sin PROMOTE cuyo
+  // envelopeVersionKey no conceda A1.
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+  assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
+  assert.equal(result.transitionReceiptId, judge.receiptRegistry.transitionsOfType("HOLD")[0].receiptId);
+  assert.equal(judge.currentState().level, "A0");
+  assert.equal(judge.currentState().firstActivationRecorded, false);
+});
+
 // --- 4) Approval enforcement A1 ---
+
+test("IMP-24: un acto real BUY exige la primera activación A1 registrada; el envelope A1 solo no basta (§18.1/§25.2.3 hito 2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const result = judge.authorizeRealAction({
+    action: "BUY",
+    policyVersion: "v1.0",
+    quantityMw: 3,
+    dataState: dataStateFixture(),
+    humanApproval: actionApprovalFixture(),
+    atUtc: T0,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION");
+  assert.notEqual(result.authorized, true);
+  assert.equal(judge.currentState().firstActivationRecorded, false);
+});
+
+test("IMP-24: bajo un envelope A0 ningún acto real BUY se autoriza (§16.2/§17)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.authorizeRealAction({
+    action: "BUY",
+    policyVersion: "v1.0",
+    quantityMw: 3,
+    dataState: dataStateFixture(),
+    humanApproval: actionApprovalFixture(),
+    atUtc: T0,
+  });
+  assert.equal(result.authorized, false);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.reasons.map((reason) => reason.code), ["LEVEL_WITHOUT_BUY_AUTHORITY"]);
+});
+
+test("IMP-24: una cantidad modificada declarada inválida se rechaza fail-closed, nunca se coacciona a sin modificación (§18.1/§12.2)", () => {
+  for (const invalid of [0, -1, Number.NaN, "2", true]) {
+    const judge = buildGovernor({ autonomyLevel: "A1" });
+    activateFirstA1(judge);
+    const result = judge.authorizeRealAction({
+      action: "BUY",
+      policyVersion: "v1.0",
+      quantityMw: 3,
+      dataState: dataStateFixture(),
+      humanApproval: actionApprovalFixture({ modifiedQuantityMw: invalid, reason: "fixture: reducción declarada", provenance: INTERVENTION_PROVENANCE }),
+      atUtc: T0,
+    });
+    assert.equal(result.authorized, false, `modifiedQuantityMw=${String(invalid)} no debe autorizar`);
+    assert.equal(result.code, "INVALID_MODIFIED_QUANTITY", `modifiedQuantityMw=${String(invalid)}`);
+  }
+});
+
+test("IMP-24: declarar la misma cantidad recomendada no es una modificación", () => {
+  const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
+  const result = judge.authorizeRealAction({
+    action: "BUY",
+    policyVersion: "v1.0",
+    quantityMw: 3,
+    dataState: dataStateFixture(),
+    humanApproval: actionApprovalFixture({ modifiedQuantityMw: 3 }),
+    atUtc: T0,
+  });
+  assert.equal(result.authorized, true);
+  assert.equal(result.action.authorizedQuantityMw, 3);
+  assert.equal(result.action.modification, null);
+  assert.equal(result.action.modifiedOutcomeAttributableToRecommendation, true);
+});
 
 test("IMP-24: en A1 sin validación humana por acción la recomendación no ejecuta", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({ action: "BUY", policyVersion: "v1.0", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
   assert.equal(result.ok, true);
   assert.equal(result.authorized, false);
@@ -531,6 +621,7 @@ test("IMP-24: en A1 sin validación humana por acción la recomendación no ejec
 
 test("IMP-24: la validación humana por acción no puede venir de la policy", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -545,6 +636,7 @@ test("IMP-24: la validación humana por acción no puede venir de la policy", ()
 
 test("IMP-24: en A1 la validación humana autoriza; recomendación y decisión quedan separadas", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -562,6 +654,7 @@ test("IMP-24: en A1 la validación humana autoriza; recomendación y decisión q
 
 test("IMP-24: la validación adherida a otra acción no autoriza esta recomendación", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -576,6 +669,7 @@ test("IMP-24: la validación adherida a otra acción no autoriza esta recomendac
 
 test("IMP-24: el veto humano se registra con timestamp, razón y provenance, y no ejecuta", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -594,6 +688,7 @@ test("IMP-24: el veto humano se registra con timestamp, razón y provenance, y n
 
 test("IMP-24: la modificación humana de la cantidad se registra y no se atribuye a la recomendación", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -612,6 +707,7 @@ test("IMP-24: la modificación humana de la cantidad se registra y no se atribuy
 
 test("IMP-24: una intervención humana sin razón ni provenance no se registra (§18.1/§12.2)", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const base = { action: "BUY", policyVersion: "v1.0", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 };
 
   const vetoWithoutReason = judge.authorizeRealAction({ ...base, humanApproval: actionApprovalFixture({ decision: "VETOED", provenance: INTERVENTION_PROVENANCE }) });
@@ -637,6 +733,7 @@ test("IMP-24: una intervención humana sin razón ni provenance no se registra (
 
 test("IMP-24: la validación humana no sustituye al envelope: exceso sobre el límite se rechaza", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const approved = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -661,6 +758,7 @@ test("IMP-24: la validación humana no sustituye al envelope: exceso sobre el l�
 
 test("IMP-24: sin gates de admisión evaluados en dataState el acto falla dentro del envelope", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
+  activateFirstA1(judge);
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
@@ -886,7 +984,7 @@ test("IMP-24: sin versión válida ni fallback declarado, el rollback queda bloq
 });
 
 test("IMP-24: la cadena de receipts permite reconstruir cómo la versión obtuvo, conservó o perdió autoridad", () => {
-  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const judge = buildGovernor({ autonomyLevel: "A1" });
   const activated = judge.considerFirstActivation(firstActivationInput());
   assert.equal(activated.ok, true);
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-5", atUtc: T0 });

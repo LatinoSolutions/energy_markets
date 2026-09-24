@@ -271,8 +271,17 @@ function perActionApprovalProblem(approval, recommendation) {
   if (!["APPROVED", "VETOED", "DELAYED"].includes(approval.decision)) {
     return { code: "INVALID_ACTION_DECISION", message: "La decisión es APPROVED, VETOED o DELAYED (§18.1: intervención registrada)." };
   }
-  const modifiesQuantity = isFinitePositiveNumber(approval.modifiedQuantityMw)
-    && approval.modifiedQuantityMw !== recommendation.quantityMw;
+  // §18.1/§12.2: una cantidad modificada declarada pero inválida (cero,
+  // negativa, no numérica) no se descarta en silencio — eso convertiría una
+  // reducción humana declarada en "sin modificación" y atribuiría a la
+  // recomendación un outcome alterado. Fail-closed: se rechaza el acto; para
+  // no comprar, la decisión es VETOED, no una cantidad inválida.
+  const declaredModifiedQuantity = approval.modifiedQuantityMw;
+  const declaredModification = declaredModifiedQuantity !== undefined && declaredModifiedQuantity !== null;
+  if (declaredModification && !isFinitePositiveNumber(declaredModifiedQuantity)) {
+    return { code: "INVALID_MODIFIED_QUANTITY", message: "La cantidad modificada declarada debe ser un número MW positivo; una modificación declarada no se coacciona a \"sin modificación\" (§18.1/§12.2)." };
+  }
+  const modifiesQuantity = declaredModification && declaredModifiedQuantity !== recommendation.quantityMw;
   const isIntervention = approval.decision !== "APPROVED" || modifiesQuantity;
   if (isIntervention) {
     const provenanceProblem = interventionProvenanceProblem(approval);
@@ -341,7 +350,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // Estado operacional: baja inmediatamente por DEMOTE/HALT (§16.2:
   // "autonomy can increase slowly, but decrease immediately"); sube sólo
   // por PROMOTE gobernada. El envelope congelado no se muta.
-  const state = { level: envelope.autonomyLevel, status: "ACTIVE", lastHaltingMandate: null };
+  const state = { level: envelope.autonomyLevel, status: "ACTIVE", lastHaltingMandate: null, firstActivationRecorded: false };
 
   function authorizationProblem(policyVersion) {
     const authorization = Array.isArray(envelope.authorizedPolicyVersions)
@@ -369,11 +378,11 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // --- Hito 2: primera activación A1, si se autoriza (§18.1) ---
 
   // A diferencia de un ascenso posterior (considerSubsequentPromotion), la
-  // primera activación NO se limita al nivel que concede el envelope: §18.1 la
-  // hace depender de la aprobación humana explícita de DEP-25, que es la
-  // autoridad del acto. El envelope recibido es el de investigación previo
-  // (p.ej. A0) y el receipt documenta la autoridad del nivel A1 vía
-  // approvalRef + envelopeVersionKey, de forma reconstruible (§18.4).
+  // primera activación NO se limita a un paso desde el nivel vigente: §18.1 la
+  // hace depender de la aprobación humana explícita de DEP-25 y de que el
+  // envelope conceda la autoridad real (A1+; §16.2/§17). El acto se registra
+  // UNA vez (`firstActivationRecorded`) y su receipt documenta la autoridad
+  // del nivel A1 vía approvalRef + envelopeVersionKey (§18.4).
   function considerFirstActivation({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, apg, humanApproval, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
       return fail("MISSING_TIMESTAMP", "La activación declara su instante (§6.1).");
@@ -387,12 +396,18 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
     }
     // §18.3 (el estado no baja por una vía de promoción) y §18.4 (reconstrucción
-    // de receipts): la primera activación es UNA sola por governor. Sin guard de
-    // nivel, una segunda llamada registraría un PROMOTE duplicado A0→A1 con
-    // `previousState` falso, y sobre un governor ya en A2 esta vía lo DEMOTE a
-    // A1 incondicionalmente ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
-    if (state.level !== "A0") {
+    // de receipts): la primera activación es UNA sola por governor. El flag es
+    // la verdad de "ya activada": el nivel puede ser A1 por el propio envelope
+    // ANTES de que exista el acto humano de DEP-25 (el envelope autoriza el
+    // nivel, no sustituye la aprobación). Sin este guard, una segunda llamada
+    // registraría un PROMOTE duplicado A0→A1 con `previousState` falso, y sobre
+    // un governor ya en A2 esta vía lo DEMOTE a A1 incondicionalmente
+    // ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
+    if (state.firstActivationRecorded) {
       return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: la primera activación ya quedó registrada; no hay segunda (§18.1).`);
+    }
+    if (levelIndex(state.level) > levelIndex("A1")) {
+      return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: ya superó A1; la primera activación no procede (§18.1/§18.3).`);
     }
     if (!isNonEmptyString(policyVersion)) {
       return fail("MISSING_POLICY_VERSION", "La primera activación declara la Policy Version (§15.3: versión fija).");
@@ -416,6 +431,23 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       const holdReceiptId = holdFirstActivation({ triggerGate: "G_AUTONOMY_PROMOTION", triggerEvidenceRef: "APG_NOT_SATISFIED", policyVersion, atUtc });
       return fail("APG_NOT_SATISFIED", "El APG aplicable no está satisfecho: no hay promoción (§16.1).", { reasons: apgCheck.reasons, transitionReceiptId: holdReceiptId });
     }
+    // §17/§25.2.3 hito 2: el envelope declara la autoridad ("Authorized Policy
+    // Version / autonomy level"). Elevar a A1 bajo un envelope que sólo
+    // autoriza A0 (Research = "ninguna autoridad real", §16.2) registraría un
+    // PROMOTE cuyo autonomyLevel/envelopeVersionKey divergen: el receipt no
+    // reconstruye de dónde salió la autoridad (§18.4). La primera activación
+    // real exige un envelope que conceda A1; ampliarlo es un cambio de
+    // governance de dominio protegido (§18.2 lista 3, §20.2.12), nunca una
+    // auto-ampliación.
+    if (levelIndex(envelope.autonomyLevel) < levelIndex("A1")) {
+      const holdReceiptId = holdFirstActivation({
+        triggerGate: "G_ENVELOPE_REAL_AUTHORITY",
+        triggerEvidenceRef: `ENVELOPE_WITHOUT_REAL_AUTHORITY:${envelope.autonomyLevel}`,
+        policyVersion,
+        atUtc,
+      });
+      return fail("ENVELOPE_WITHOUT_REAL_AUTHORITY", `El envelope "${String(envelope.envelopeVersion)}" autoriza ${envelope.autonomyLevel} (Research, sin autoridad real; §16.2): la primera activación A1 exigiría un envelope que conceda A1 (§17/§25.2.3 hito 2).`, { transitionReceiptId: holdReceiptId });
+    }
 
     const activation = {
       artifactKind: "IMP-24_FIRST_ACTIVATION_RECORD",
@@ -435,6 +467,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     };
     activation.activationId = contentHashOf(activation);
     state.level = "A1";
+    state.firstActivationRecorded = true;
     const promoteReceiptId = registerTransition({
       registry,
       input: {
@@ -594,13 +627,29 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     const recommendation = { action: action ?? null, policyVersion: policyVersion ?? null, quantityMw: quantityMw ?? null };
     if (action === "BUY" && state.level === "A1") {
+      // §16.2/§17/§25.2.3 hito 2: un acto real exige que el envelope autorice
+      // autoridad real (A1+). El filtro de LEVEL_WITHOUT_BUY_AUTHORITY de más
+      // abajo sólo puede aplicar a un envelope A1: bajo A0 ("ninguna autoridad
+      // real") el rechazo del controller externo manda.
+      if (levelIndex(envelope.autonomyLevel) < levelIndex("A1")) {
+        return fail("ENVELOPE_WITHOUT_REAL_AUTHORITY", `El envelope "${String(envelope.envelopeVersion)}" autoriza ${envelope.autonomyLevel} (Research, sin autoridad real; §16.2): no se ejecuta un acto real (§17).`, { authorized: false, recommendation });
+      }
+      // §18.1/§25.2.3 hito 2: la primera Policy Version que pasa de Shadow a
+      // Real exige la aprobación humana explícita de DEP-25 (acto de primera
+      // activación) antes de ejercer autoridad real. La validación por acción
+      // no sustituye ese acto.
+      if (state.firstActivationRecorded !== true) {
+        return fail("FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION", "Sin la primera activación A1 registrada (DEP-25, §18.1) no se ejerce autoridad real; la validación por acción no la sustituye (§25.2.3 hito 2).", { authorized: false, recommendation });
+      }
       const approvalFailure = perActionApprovalProblem(humanApproval, recommendation);
       if (approvalFailure) {
         return { ok: true, authorized: false, code: approvalFailure.code, message: approvalFailure.message, recommendation, intervention: approvalFailure.intervention ?? null };
       }
-      const decidedQuantityMw = isFinitePositiveNumber(humanApproval.modifiedQuantityMw) ? humanApproval.modifiedQuantityMw : recommendation.quantityMw;
-      const modification = isFinitePositiveNumber(humanApproval.modifiedQuantityMw) && humanApproval.modifiedQuantityMw !== recommendation.quantityMw
-        ? { kind: "QUANTITY_MODIFIED", from: recommendation.quantityMw, to: humanApproval.modifiedQuantityMw }
+      const declaredModifiedQuantity = humanApproval.modifiedQuantityMw;
+      const quantityModified = isFinitePositiveNumber(declaredModifiedQuantity) && declaredModifiedQuantity !== recommendation.quantityMw;
+      const decidedQuantityMw = quantityModified ? declaredModifiedQuantity : recommendation.quantityMw;
+      const modification = quantityModified
+        ? { kind: "QUANTITY_MODIFIED", from: recommendation.quantityMw, to: declaredModifiedQuantity }
         : null;
       // El enforcement externo comprueba la acción decidida ANTES de
       // execution (§17); la validación humana no sustituye al envelope.
@@ -842,6 +891,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return Object.freeze({
         level: state.level,
         status: state.status,
+        firstActivationRecorded: state.firstActivationRecorded,
         lastHaltingMandate: state.lastHaltingMandate,
       });
     },
