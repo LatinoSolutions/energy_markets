@@ -1,5 +1,16 @@
 # UI-04: requisitos de datos, estado del backtest y TO-DO
 
+## Actualización 24-sep-2026 (tarde) — manda sobre las secciones de abajo
+
+- Owner patch 02 (`EM-SPEC-OWNER-PATCH-2026-09-24-02`, `docs/canonical/v1_1_1/OWNER_PATCH_STRATEGY_SCOPE_2026-09-24.md`):
+  volúmenes 60/10 MW Quarterly y 10/10 MW Monthly (gas/power), hora data-driven, fase exploratoria autorizada.
+- Backtest exploratorio corrido sobre best ask real: 3 Gas Quarterly + 10 Gas Monthly (`operations/exploratory/`).
+- Las 4 pantallas de http://100.92.44.106:8788 están pobladas con ese backtest, etiquetado EXPLORATORY y verificado por hash.
+- Bug corregido tras validación adversarial: el mes que vence no cotiza su último día hábil (ventana recortada; proxy a confirmar con EEX).
+- Siguen abiertos: fees (D2), benchmark canónico B (IMP-05), top of book histórico (pedido al cliente,
+  `solicitud de informacion/Energy_Markets_Client_Market_Data_Request_2026-09-24.md`), Power sin auditar, OOS sin sellar.
+
+
 Fecha: 24-sep-2026. Rama: `run/energy-markets-UI-04-20260924-owner` (solo rama, NO desplegado en :8788).
 Commits: `64156e8` (fidelidad DES-01 integrada), `664acf8` (loader canónico + /health). Tests: 1493/1493.
 
