@@ -34,3 +34,14 @@ export {
   renderProvenanceDrawerHtml,
   renderSemanticsKeyHtml,
 } from "./visual-language.mjs";
+
+// UI-02 — serving HTTP de la UI sobre rutas estables con health check. Se
+// sirve exactamente lo que UI-03 renderiza; sin estado canónico inyectado
+// todas las superficies quedan fail-closed (UNAVAILABLE/ERROR, §26.5).
+export {
+  DEFAULT_UI_HOST,
+  DEFAULT_UI_PORT,
+  UI_ROUTES,
+  buildUiViewModels,
+  createUiServer,
+} from "./server.mjs";
