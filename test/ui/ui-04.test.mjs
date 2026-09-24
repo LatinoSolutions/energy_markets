@@ -96,3 +96,25 @@ test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", 
   assert.equal(loaded.ok, false);
   assert.equal(loaded.code, "EXPLORATORY_HASH_MISMATCH");
 });
+
+test("UI-04: Campaigns y Replay muestran el backtest exploratorio con el layout del mockup", async () => {
+  const { renderSurfacePage } = await import("../../src/ui/render.mjs");
+  const canonical = loadCanonicalUiInputs();
+  const vms = buildUiViewModels(canonical.inputs);
+  const results = canonical.inputs.exploratoryBacktest.results;
+  const campaigns = renderSurfacePage("campaigns", vms.campaigns);
+  assert.equal((campaigns.match(/data-campaign="/g) ?? []).length, results.campaigns.length);
+  assert.match(campaigns, /What we don't know/);
+  const replay = renderSurfacePage("replay", vms.replay);
+  const purchases = results.replay.reduce((sum, episode) => sum + episode.inspector.length, 0);
+  assert.equal((replay.match(/data-decision="/g) ?? []).length, purchases);
+  assert.match(replay, /KNOWN AT T₀/);
+  assert.match(replay, /Sealed: after T₀/);
+});
+
+test("UI-04: sin backtest exploratorio, Replay sigue fail-closed", async () => {
+  const { renderSurfacePage } = await import("../../src/ui/render.mjs");
+  const replay = renderSurfacePage("replay", buildUiViewModels({}).replay);
+  assert.match(replay, /data-state="ERROR"/);
+  assert.doesNotMatch(replay, /data-exploratory="true"/);
+});

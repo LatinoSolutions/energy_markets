@@ -142,6 +142,84 @@ for (const product of Object.keys(TARGET_MW)) {
     }),
   });
 }
+// Replay (mockup DES-01 "decision inspector"): por episodio, la serie de asks de las
+// 11:00 y las decisiones de cada brazo. Lo "known at T0" y lo "later" se separan en la UI
+// por fecha; aquí solo se entregan los hechos con su fecha.
+const replay = results.map((entry) => {
+  const block = comparison[entry.product].perEpisode.find((item) => item.maturity === entry.maturity);
+  const series = slots.series[entry.episodeRef.key];
+  const armRuns = {
+    BASELINE: run(entry.episodeRef, "A0", clientSlotIndex, FILL_MODELS.CLIENT).ledger,
+    ARM_A: run(entry.episodeRef, "DIP10", clientSlotIndex, FILL_MODELS.CLIENT).ledger,
+  };
+  // Inspector por decisión con compra de Arm A: lo que se sabía a T0 (asks de las
+  // 11:00 hasta ese día), el fill y, aparte, la evaluación posterior contra Baseline.
+  const inspector = armRuns.ARM_A.map((decision, index) => ({ decision, index })).filter(({ decision }) => decision.filledMw > 0).map(({ decision, index }) => {
+    const base = armRuns.BASELINE[index];
+    const valueOf = (item) => (item.filledMw > 0 ? (block.benchmark - item.priceEurMwh) * item.filledMw * block.hours : 0);
+    return {
+      index,
+      day: decision.day,
+      requestedMw: decision.requestedMw,
+      filledMw: decision.filledMw,
+      ask: decision.ask,
+      askSz: decision.askSz,
+      bid: decision.bid,
+      quoteTm: decision.quoteTm,
+      priceEurMwh: decision.priceEurMwh,
+      remainingMwAfter: decision.remainingMw,
+      pastAsksUsed: armRuns.ARM_A.slice(Math.max(0, index - 10), index).filter((item) => typeof item.ask === "number").length,
+      baseline: { filledMw: base.filledMw, priceEurMwh: base.priceEurMwh ?? null },
+      deltaVEur: valueOf(decision) - valueOf(base),
+    };
+  });
+  return {
+    product: entry.product,
+    maturity: entry.maturity,
+    benchmark: block.benchmark,
+    hours: block.hours,
+    inspector,
+    hArmA: block.arms.ARM_A?.h ?? null,
+    hBaseline: block.arms.BASELINE?.h ?? null,
+    ask11: entry.episodeRef.tradingDays.map((day) => ({ day, ask: series[day]?.[clientSlotIndex]?.ask ?? null })),
+    decisions: armRuns,
+  };
+});
+
+// Campaigns & Runs: una campaign por episodio (completos e incompletos), con sus gates,
+// unknowns explícitos y los runs de cada brazo.
+const campaigns = episodes.map((episode) => {
+  const entry = results.find((item) => item.product === episode.product && item.maturity === episode.maturity);
+  const block = entry ? comparison[episode.product].perEpisode.find((item) => item.maturity === episode.maturity) : null;
+  const noQuote = entry ? entry.arms["A0@11:00/CLIENT"].noQuoteDays : null;
+  return {
+    id: `GAS-${episode.product === "G0BQ" ? "Q" : "M"}-${episode.maturity}`,
+    product: episode.product,
+    maturity: episode.maturity,
+    targetMw: TARGET_MW[episode.product],
+    firstDay: episode.tradingDays[0],
+    lastDay: episode.tradingDays.at(-1),
+    tradingDays: episode.tradingDays.length,
+    readiness: episode.complete ? "EXPLORATORY_COMPLETE" : "INSUFFICIENT_DATA",
+    gates: episode.complete ? [
+      { label: "Runs pinned to one data snapshot", status: "PASS", detail: `tob-slots sha ${output_slots_sha().slice(0, 12)} for every arm` },
+      { label: "Look-ahead guard", status: "PASS", detail: "quotes with Tm <= decision slot only (test/exploratory)" },
+      { label: "All arms complete", status: Object.values(block.arms).every((arm) => arm === null || arm.complete) ? "PASS" : "FAIL", detail: Object.entries(block.arms).map(([id, arm]) => `${id} ${arm ? `${arm.boughtMw}/${TARGET_MW[episode.product]} MW` : "not run"}`).join(" · ") },
+      { label: "Fresh 11:00 quote every decision day", status: noQuote === 0 ? "PASS" : "DEGRADED", detail: `${noQuote} day(s) without a fresh quote` },
+      { label: "Evaluation window closed", status: "PASS", detail: `window ended ${episode.tradingDays.at(-1)}` },
+    ] : [
+      { label: "Window inside the data period", status: "FAIL", detail: `data ${firstDataDay} → ${lastDataDay}; window ${episode.tradingDays[0]} → ${episode.tradingDays.at(-1)}` },
+    ],
+    runs: entry ? Object.entries(block.arms).map(([armId, arm]) => ({ armId, slot: arm?.slot ?? null, status: arm === null ? "NOT_RUN" : arm.complete ? "COMPLETE" : "INCOMPLETE", boughtMw: arm?.boughtMw ?? 0, decisions: episode.tradingDays.length, hEurMwh: arm?.h ?? null })) : [],
+  };
+});
+const campaignUnknowns = [
+  { id: "U-EM-1", blocking: true, title: "Execution fees unknown", detail: "EEX/ECC and broker fees per MWh not provided; V excludes them.", blocks: "Economic V and ΔV as final figures" },
+  { id: "U-EM-2", blocking: true, title: "Canonical benchmark B not reconciled (IMP-05)", detail: "B* is a proxy: equal-weighted 11:00 ask of the window.", blocks: "Canonical B / H / V" },
+  { id: "U-EM-3", blocking: false, title: "Historical top of book before 2025-07-25 missing", detail: "Requested from the client (solicitud de informacion, 2026-09-24).", blocks: "More episodes and a sealed OOS" },
+  { id: "U-EM-4", blocking: false, title: "Contract tradability read from quote presence", detail: "Last trading day inferred from the lake (proxy); EEX contract spec to confirm.", blocks: "Exact final day of each Monthly window" },
+];
+
 for (const entry of results) {
   delete entry.episodeRef;
 }
@@ -207,6 +285,9 @@ const output = {
   },
   summary,
   comparison,
+  replay,
+  campaigns,
+  campaignUnknowns,
   benchmarkNote: "B* = PROXY exploratorio: media equiponderada de los asks de las 11:00 de la ventana; no es el benchmark canónico B (IMP-05 sin reconciliar).",
   episodesSkippedIncomplete: episodes.filter((episode) => !episode.complete).map((episode) => `${episode.product} ${episode.maturity}`),
   results,

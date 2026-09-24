@@ -28,6 +28,7 @@ import { createServer } from "node:http";
 import {
   buildBacktestsViewModel,
   buildCampaignsViewModel,
+  projectExploratoryPages,
   buildReplayViewModel,
   buildResearchViewModel,
   SURFACES,
@@ -91,10 +92,10 @@ function pickInputs(inputs) {
 export function buildUiViewModels(inputs = {}) {
   const pouring = pickInputs(inputs);
   return {
-    [SURFACES.REPLAY]: buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }),
+    [SURFACES.REPLAY]: { ...buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
     [SURFACES.BACKTESTS]: buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest }),
     [SURFACES.RESEARCH]: buildResearchViewModel({ backendIndex: pouring.backendIndex, records: pouring.researchRecords }),
-    [SURFACES.CAMPAIGNS]: buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }),
+    [SURFACES.CAMPAIGNS]: { ...buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
   };
 }
 
@@ -107,7 +108,7 @@ function healthPayload(viewModels, backend) {
     surfaces[surface] = {
       state: vm.ok === true ? "READY" : "ERROR",
       canonicalData: vm.ok === true && vm.hasAnyBoundData === true,
-      exploratoryData: vm.ok === true && vm.exploratory != null,
+      exploratoryData: vm.exploratory != null,
     };
   }
   return {

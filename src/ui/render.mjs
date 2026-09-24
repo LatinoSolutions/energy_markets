@@ -698,6 +698,196 @@ function exploratoryComparisonHtml(exploratory) {
   return Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product)).join("");
 }
 
+// ---------- Campaigns & Runs y Replay exploratorios (owner patch 02 §4) ----------
+// Mismo layout que el mockup DES-01; cada campaign/decisión es una sección y la
+// navegación es por ancla (#id), sin JavaScript. Los datos llegan calculados del backend.
+
+const GATE_CHIP = {
+  PASS: ["pass", "✓", "Pass"],
+  FAIL: ["fail", "✕", "Fail"],
+  DEGRADED: ["warn", "!", "Degraded"],
+};
+const RUN_CHIP = {
+  COMPLETE: ["pass", "✓", "Complete"],
+  INCOMPLETE: ["fail", "✕", "Incomplete"],
+  NOT_RUN: ["unk", "?", "Not run"],
+};
+const MISSION_TITLE = { G0BQ: "Gas Quarterly", G0BM: "Gas Monthly" };
+
+const TARGET_SWITCH_CSS = `<style>
+.xsel { display: none; }
+.xsel:target { display: block; }
+.xwrap:not(:has(.xsel:target)) .xsel.xdefault { display: block; }
+.xlist a { display: block; text-decoration: none; color: inherit; }
+</style>`;
+
+function deliveryLabel(maturity) {
+  return `${maturity.slice(0, 4)}-${maturity.slice(4, 6)}`;
+}
+
+function campaignListHtml(campaigns) {
+  return campaigns.map((campaign) => {
+    const readiness = campaign.readiness === "EXPLORATORY_COMPLETE" ? chip("warn", "◇", "Exploratory · complete") : chip("unk", "?", "Insufficient data");
+    return `<a href="#cmp-${esc(campaign.id)}" class="card" style="margin-bottom:8px"><div class="bd"><div class="mono tiny muted">${esc(campaign.id)}</div><div><b>${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</b></div>${readiness}<div class="small muted">${campaign.firstDay ? `${esc(campaign.firstDay)} → ${esc(campaign.lastDay)}` : "no quoted day in the window"}</div></div></a>`;
+  }).join("");
+}
+
+function campaignDetailHtml(campaign, unknowns, provenance, isDefault) {
+  const gates = campaign.gates.map((gate) => {
+    const [kind, glyph, label] = GATE_CHIP[gate.status] ?? ["unk", "?", gate.status];
+    return `<div class="chk"><span>${esc(gate.label)}</span>${chip(kind, glyph, label)}<span class="d">${esc(gate.detail)}</span></div>`;
+  }).join("");
+  const unknownCards = unknowns.map((unknown) => `<div class="card" style="margin:6px 0;border-left:3px solid var(--unk)"><div class="bd"><span class="mono small">${esc(unknown.id)}</span> ${unknown.blocking ? chip("fail", "✕", "Blocks final economics") : chip("warn", "!", "Non-blocking")}<div><b>${esc(unknown.title)}</b></div><div class="small muted">${esc(unknown.detail)}</div><div class="small">Blocks: ${esc(unknown.blocks)}</div></div></div>`).join("");
+  const runs = campaign.runs.map((run) => {
+    const [kind, glyph, label] = RUN_CHIP[run.status] ?? ["unk", "?", run.status];
+    const replayLink = run.armId === "ARM_A" ? `<a class="btn" href="/replay#rep-${esc(campaign.product)}-${esc(campaign.maturity)}">Replay</a>` : "";
+    return `<tr data-status="EXPLORATORY" data-run="${esc(campaign.id)}-${esc(run.armId)}"><td class="mono">EXP-${esc(campaign.id)}-${esc(run.armId)}</td><td>${expArmTag(run.armId)}<div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td><td>${chip(kind, glyph, label)}</td><td class="mono small">${run.decisions} decisions · ${run.boughtMw}/${campaign.targetMw} MW</td><td class="mono num right">${eur(run.hEurMwh)}</td><td>${chip("pass", "✓", "Deterministic")}</td><td>${replayLink} <a class="btn" href="/backtests">Backtest</a></td></tr>`;
+  }).join("");
+  const runsTable = campaign.runs.length === 0
+    ? `<div class="bd"><span class="withheld">NO RUNS</span> <span class="small muted">the procurement window is not fully inside the data period; nothing is imputed</span></div>`
+    : `<table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · volume</th><th class="right">H · €/MWh</th><th>Determinism</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table>`;
+  const readinessChip = campaign.readiness === "EXPLORATORY_COMPLETE" ? chip("warn", "◇", "Exploratory · not final evidence") : chip("unk", "?", "Insufficient data");
+  return `<section class="xsel${isDefault ? " xdefault" : ""}" id="cmp-${esc(campaign.id)}" data-campaign="${esc(campaign.id)}">
+    <div class="mono muted small">${esc(campaign.id)} · THE ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
+    <div class="row" style="align-items:flex-end"><div class="grow"><h1 class="page">${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
+    <p class="lede">Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, client calendar rule), paying the real best ask. Which arm buys cheaper than the client's 11:00 practice?</p></div>
+    <div><div class="mono tiny muted">CAMPAIGN READINESS</div>${readinessChip}</div></div>
+    <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr); margin-top:12px">
+      <div class="card"><div class="hd"><h3>Readiness gates</h3><span class="small muted">from backend</span></div><div class="bd">${gates}</div></div>
+      <div class="card"><div class="hd"><h3>What we don't know</h3><span class="small muted">${unknowns.length} explicit unknowns · fail-closed</span></div><div class="bd">${unknownCards}</div></div>
+    </div>
+    <h3 style="margin-top:16px">Runs</h3>
+    <div class="card">${runsTable}</div>
+    <h3 style="margin-top:16px">Receipts</h3>
+    <div class="card"><div class="bd">
+      <div class="chk"><span>Exploratory manifest</span><span class="d mono">${esc(provenance.manifestPath)}</span></div>
+      <div class="chk"><span>Results artifact</span><span class="d mono">${esc(provenance.resultsPath)} · sha256 ${esc(provenance.resultsSha256.slice(0, 16))}…</span></div>
+      <div class="chk"><span>Best-ask slots (EEX lake)</span><span class="d mono">sha256 ${esc(provenance.slotsSha256.slice(0, 16))}…</span></div>
+      <div class="chk"><span>Owner decision</span><span class="d mono">EM-SPEC-OWNER-PATCH-2026-09-24-02</span></div>
+    </div></div>
+  </section>`;
+}
+
+export function exploratoryCampaignsBody(exploratory) {
+  const campaigns = exploratory.campaigns;
+  const firstComplete = campaigns.find((campaign) => campaign.readiness === "EXPLORATORY_COMPLETE") ?? campaigns[0];
+  const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory.campaignUnknowns, exploratory.provenance, campaign === firstComplete)).join("");
+  return `${TARGET_SWITCH_CSS}
+<section class="surface campaigns" data-surface="campaigns" data-exploratory="true">
+  <div class="grid xwrap" style="grid-template-columns: 300px minmax(0,1fr); gap:18px">
+    <div class="xlist"><div class="mono tiny muted" style="margin-bottom:8px">CAMPAIGNS · ${campaigns.length}</div>${campaignListHtml(campaigns)}<div class="tiny muted">Readiness is reported by the backend. The UI does not compute or upgrade it.</div></div>
+    <div>${details}</div>
+  </div>
+</section>`;
+}
+
+function timelineStripSvg(episode, selectedIndex) {
+  const width = 1200;
+  const height = 60;
+  const count = episode.ask11.length;
+  const step = (width - 40) / Math.max(1, count - 1);
+  const bought = new Set(episode.inspector.map((item) => item.index));
+  const marks = episode.ask11.map((point, index) => {
+    const x = 20 + index * step;
+    const selected = index === selectedIndex;
+    const size = selected ? 12 : 8;
+    const filled = bought.has(index);
+    return `<rect x="${x - size / 2}" y="${24 - size / 2}" width="${size}" height="${size}" fill="${filled ? "var(--asof)" : "var(--surface)"}" stroke="var(--asof)"><title>${esc(point.day)} ${filled ? "BUY" : "WAIT"}</title></rect>`;
+  }).join("");
+  const labels = episode.ask11.filter((_, index) => index % Math.max(1, Math.floor(count / 6)) === 0).map((point) => {
+    const index = episode.ask11.indexOf(point);
+    return `<text x="${20 + index * step}" y="52" font-size="10" text-anchor="middle" fill="var(--ink-3)">${esc(point.day.slice(5))}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Arm A decisions over the campaign">${marks}${labels}</svg>`;
+}
+
+function knownAtT0Svg(episode, selectedIndex) {
+  const width = 760;
+  const height = 240;
+  const pad = { left: 44, right: 16, top: 16, bottom: 26 };
+  const values = episode.ask11.map((point) => point.ask).filter((value) => typeof value === "number");
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(0.5, max - min);
+  const count = episode.ask11.length;
+  const x = (index) => pad.left + (index / Math.max(1, count - 1)) * (width - pad.left - pad.right);
+  const y = (value) => pad.top + ((max - value) / span) * (height - pad.top - pad.bottom);
+  const known = episode.ask11.slice(0, selectedIndex + 1).map((point, index) => (typeof point.ask === "number" ? `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point.ask).toFixed(1)}` : "")).join(" ");
+  const cut = x(selectedIndex);
+  const grid = [min, (min + max) / 2, max].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" stroke="var(--rule-2)" stroke-dasharray="2 3"/><text x="${pad.left - 6}" y="${y(value) + 3}" font-size="10" text-anchor="end" fill="var(--ink-3)">${value.toFixed(2)}</text>`).join("");
+  const selected = episode.ask11[selectedIndex];
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="11:00 best ask known at decision time">${grid}
+    <rect x="${cut}" y="${pad.top}" width="${width - pad.right - cut}" height="${height - pad.top - pad.bottom}" fill="var(--hind-bg)" opacity="0.7"/>
+    <text x="${(cut + width - pad.right) / 2}" y="${height / 2}" font-size="12" text-anchor="middle" fill="var(--hind)">Sealed: after T₀</text>
+    <text x="${(cut + width - pad.right) / 2}" y="${height / 2 + 16}" font-size="10" text-anchor="middle" fill="var(--ink-3)">not known at decision time</text>
+    <line x1="${cut}" x2="${cut}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--hind)" stroke-dasharray="3 3"/>
+    <path d="${known}" fill="none" stroke="var(--asof)" stroke-width="1.6"/>
+    ${typeof selected?.ask === "number" ? `<circle cx="${cut}" cy="${y(selected.ask)}" r="3.5" fill="var(--asof)"/>` : ""}
+    <text x="${cut - 4}" y="${pad.top + 10}" font-size="10" text-anchor="end" fill="var(--asof)">KNOWN AT T₀</text>
+    <text x="${pad.left}" y="${height - 6}" font-size="10" fill="var(--ink-3)">${esc(episode.ask11[0].day)}</text>
+    <text x="${width - pad.right}" y="${height - 6}" font-size="10" text-anchor="end" fill="var(--ink-3)">${esc(episode.ask11.at(-1).day)}</text>
+  </svg>`;
+}
+
+function decisionSectionHtml(episode, item, position, isDefault) {
+  const idBase = `rep-${episode.product}-${episode.maturity}`;
+  const sectionId = position === 0 ? idBase : `${idBase}-${item.index}`;
+  const others = episode.inspector.map((other, position) => {
+    const href = position === 0 ? `#${idBase}` : `#${idBase}-${other.index}`;
+    const active = other.index === item.index;
+    return `<a class="btn${active ? " on" : ""}" href="${href}" style="${active ? "background:var(--ink);color:var(--paper)" : ""}">#${String(other.index + 1).padStart(3, "0")} · BUY ${other.filledMw} MW</a>`;
+  }).join(" ");
+  const depthWarning = typeof item.askSz === "number" && item.filledMw > item.askSz
+    ? `<div class="note-ev" style="background:var(--warn-bg)"><b>Depth:</b> ${item.filledMw} MW filled against ${item.askSz} MW visible at the ask. Client rule assumes full fill; the depth-capped variant is in Backtests.</div>`
+    : "";
+  const spread = typeof item.bid === "number" ? (item.ask - item.bid).toFixed(3) : "—";
+  return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(sectionId)}" data-decision="${esc(episode.product)}-${esc(episode.maturity)}-${item.index}">
+  <div class="mono muted small">EXP-GAS-${episode.product === "G0BQ" ? "Q" : "M"}-${esc(episode.maturity)} · ${expArmTag("ARM_A")} DIP10 · 11:00 Europe/Berlin</div>
+  <div class="row" style="align-items:flex-end"><div class="grow"><h1 class="page">Decision #${String(item.index + 1).padStart(3, "0")} — BUY at ${esc(item.day)} 11:00 Berlin</h1>
+  <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p></div></div>
+  <div style="margin:6px 0">${others}</div>
+  <div class="card"><div class="hd"><h3>Run timeline · ${episode.ask11.length} decisions</h3><span class="small muted">■ BUY · □ WAIT (Arm A)</span></div><div class="bd">${timelineStripSvg(episode, item.index)}</div></div>
+  <div class="grid" style="grid-template-columns: repeat(4, minmax(0,1fr)); margin-top:12px">
+    <div class="card" style="border-top:3px solid var(--asof)"><div class="hd"><h3>◆ Recommendation</h3><span class="small muted">T₀ 11:00</span></div><div class="bd"><div style="font-size:20px">BUY ${item.requestedMw} MW</div><div class="small">Produced by DIP10 (ask below the mean of the previous ${item.pastAsksUsed} 11:00 asks) or the feasibility floor L<sub>t</sub>.</div><div class="small muted">Rule-based output. Not an instruction, not an order.</div></div></div>
+    <div class="card" style="border-top:3px solid var(--ink)"><div class="hd"><h3>▲ Requested action</h3></div><div class="bd"><div style="font-size:20px">BUY ${item.requestedMw} MW</div><div class="small">Same as recommendation (simulated desk).</div><div class="small muted">Remaining after this decision: ${item.remainingMwAfter} MW</div></div></div>
+    <div class="card" style="border-top:3px solid var(--exec)"><div class="hd"><h3>■ Execution · fill</h3></div><div class="bd">${chip("warn", "!", "SIMULATED · ask + 0.15")}<div style="font-size:20px">${item.filledMw} of ${item.requestedMw} MW · avg ${eur(item.priceEurMwh)}</div><div class="small mono">quote ${esc(item.quoteTm)} · ask ${eur(item.ask)}</div>${depthWarning}</div></div>
+    <div class="card" style="border-top:3px solid var(--hind)"><div class="hd"><h3>● Outcome · evaluation</h3><span class="small muted">after window closed</span></div><div class="bd"><div style="font-size:20px">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="small muted">vs Baseline</span></div><div class="small">B* ${eur(episode.benchmark)} · H this fill ${eur(item.priceEurMwh)} · Baseline same day ${item.baseline.filledMw} MW${item.baseline.priceEurMwh === null ? "" : ` at ${eur(item.baseline.priceEurMwh)}`}</div><div class="small muted">Computed after the window closed. B* is a proxy.</div></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:12px">
+    <div class="card"><div class="hd" style="background:var(--asof-bg)"><span class="st run">KNOWN AT T₀</span> <b>${esc(item.day)} 11:00 Berlin</b></div><div class="bd">
+      <div class="small"><b>THE ${esc(episode.product)} ${esc(deliveryLabel(episode.maturity))} · 11:00 best ask</b> <span class="muted">€/MWh · campaign window</span></div>
+      ${knownAtT0Svg(episode, item.index)}
+      <table class="t"><thead><tr><th>Input in decision snapshot</th><th>Value at T₀</th><th>Observed at</th><th>State</th></tr></thead><tbody>
+        <tr><td>Best ask</td><td class="mono">${eur(item.ask)} €/MWh</td><td class="mono small">${esc(item.quoteTm)}</td><td>${chip("pass", "✓", "Fresh ≤ 15 min")}</td></tr>
+        <tr><td>Ask size (visible)</td><td class="mono">${item.askSz ?? "—"} MW</td><td class="mono small">${esc(item.quoteTm)}</td><td>${chip("pass", "✓", "Fresh")}</td></tr>
+        <tr><td>Best bid · spread</td><td class="mono">${eur(item.bid)} · ${spread}</td><td class="mono small">${esc(item.quoteTm)}</td><td>${typeof item.bid === "number" ? chip("pass", "✓", "Fresh") : chip("unk", "?", "One-sided book")}</td></tr>
+        <tr><td>Previous 11:00 asks used</td><td class="mono">${item.pastAsksUsed}</td><td class="mono small">prior days only</td><td>${chip("pass", "✓", "Past only")}</td></tr>
+        <tr><td>Execution fees</td><td>${unknownValue()}</td><td>—</td><td>${chip("unk", "?", "Unknown")}</td></tr>
+      </tbody></table></div></div>
+    <div class="card"><div class="hd"><span class="st warn">LATER · EVALUATION</span> <b>not visible to the decision</b></div><div class="bd">
+      <div class="chk"><span>Evaluation window</span><span class="d mono">${esc(episode.ask11[0].day)} → ${esc(episode.ask11.at(-1).day)}</span></div>
+      <div class="chk"><span>Benchmark B* (window mean 11:00 ask)</span><span class="d mono">${eur(episode.benchmark)}</span></div>
+      <div class="chk"><span>Hedge price H · Arm A (campaign)</span><span class="d mono">${eur(episode.hArmA)}</span></div>
+      <div class="chk"><span>Hedge price H · Baseline (campaign)</span><span class="d mono">${eur(episode.hBaseline)}</span></div>
+      <div class="chk"><span><b>ΔV this decision</b></span><span class="d mono"><b>${kEur(item.deltaVEur / 1000)} k€</b></span></div>
+      <div class="note-ev"><span class="ev">EVIDENCE</span> One decision is one observation. It does not validate the strategy — see <a href="/backtests">Backtests</a> for the paired campaign effect.</div>
+    </div></div>
+  </div>
+</section>`;
+}
+
+export function exploratoryReplayBody(exploratory) {
+  const episodes = exploratory.replay.filter((episode) => episode.inspector.length > 0);
+  const firstQuarterly = episodes.find((episode) => episode.product === "G0BQ") ?? episodes[0];
+  const picker = episodes.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(MISSION_TITLE[episode.product])} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ");
+  const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position, position === 0 && episode === firstQuarterly))).join("");
+  return `${TARGET_SWITCH_CSS}
+<section class="surface replay" data-surface="replay" data-exploratory="true">
+  <div class="card" style="margin-bottom:12px"><div class="bd"><span class="mono tiny muted">CAMPAIGNS WITH ARM A PURCHASES</span><div style="margin-top:6px">${picker}</div></div></div>
+  <div class="xwrap">${sections}</div>
+</section>`;
+}
+
 function exploratoryBacktestHtml(exploratory) {
   if (!exploratory) {
     return "";
@@ -1037,8 +1227,25 @@ function renderValidated(surface, vm) {
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock, context });
 }
 
+// Replay y Campaigns: si hay backtest exploratorio verificado, esas superficies lo
+// muestran con el layout del mockup; si no, se mantiene el estado canónico fail-closed.
+const EXPLORATORY_BODIES = {
+  [SURFACES.REPLAY]: exploratoryReplayBody,
+  [SURFACES.CAMPAIGNS]: exploratoryCampaignsBody,
+};
+
+function renderExploratory(surface, vm) {
+  const body = EXPLORATORY_BODIES[surface](vm.exploratory);
+  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
+}
+
 function renderPageFor(surface) {
-  return (vm) => (vm?.ok !== true ? renderErrorState(surface, vm) : renderValidated(surface, vm));
+  return (vm) => {
+    if (EXPLORATORY_BODIES[surface] !== undefined && vm?.exploratory != null) {
+      return renderExploratory(surface, vm);
+    }
+    return vm?.ok !== true ? renderErrorState(surface, vm) : renderValidated(surface, vm);
+  };
 }
 
 export const renderReplayPage = renderPageFor(SURFACES.REPLAY);

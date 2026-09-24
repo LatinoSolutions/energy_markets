@@ -112,6 +112,21 @@ export function projectExploratoryBacktest(exploratory) {
   };
 }
 
+// Replay y Campaigns exploratorios: proyección directa del artifact verificado.
+export function projectExploratoryPages(exploratory) {
+  const results = exploratory?.results;
+  if (results?.status !== "EXPLORATORY" || !Array.isArray(results.replay) || !Array.isArray(results.campaigns)) {
+    return null;
+  }
+  return {
+    status: "EXPLORATORY",
+    provenance: exploratory.provenance,
+    replay: results.replay,
+    campaigns: results.campaigns,
+    campaignUnknowns: results.campaignUnknowns ?? [],
+  };
+}
+
 export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null } = {}) {
   if (!Array.isArray(rows)) {
     return unexpectedTimeline([{ field: "rows", code: "INVALID_ROWS", message: "rows debe ser una lista." }]);

@@ -130,7 +130,7 @@ export function runEpisode({ series, tradingDays, slotIndex, targetMw, policy, f
     costEur += filledMw * priceEurMwh;
     remainingMw -= filledMw;
     pastAsks.push(quote.ask);
-    ledger.push({ day, status: filledMw > 0 ? "FILLED" : "WAIT", ask: quote.ask, askSz: quote.askSz, quoteTm: quote.quoteTm, requestedMw: wanted, filledMw, priceEurMwh, remainingMw });
+    ledger.push({ day, status: filledMw > 0 ? "FILLED" : "WAIT", ask: quote.ask, askSz: quote.askSz, bid: quote.bid, quoteTm: quote.quoteTm, requestedMw: wanted, filledMw, priceEurMwh, remainingMw });
   }
   const boughtMw = targetMw - remainingMw;
   return {

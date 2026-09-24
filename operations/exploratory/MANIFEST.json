@@ -4,7 +4,7 @@
  "ownerPatch": "EM-SPEC-OWNER-PATCH-2026-09-24-02",
  "results": {
   "path": "operations/exploratory/backtest-results.json",
-  "sha256": "f2f59793b1be30043a461c7cd13e0fbd6bac2d777cfbc90e120d0fd1e22ac036"
+  "sha256": "5bcc36e8dfa8c784450cbd0463eca988607735c7a01bae22d2a0fac63a80f026"
  },
  "slots": {
   "path": "operations/exploratory/tob-slots-the-gas.json",
@@ -17,11 +17,11 @@
   },
   {
    "path": "operations/exploratory/run-exploratory-backtest.mjs",
-   "sha256": "ef4ac8e36aa357afffb8e736f81885fdf9e745bf9332b1444071c28701d415d1"
+   "sha256": "282c7fef2fb22114322ef86c760eaa7f6e6e24ad94b19302593c2b881feeb4cc"
   },
   {
    "path": "src/exploratory/backtest.mjs",
-   "sha256": "eda2afd2f75c10c756479b1d0dc819b7de43ca74f6cdbdffe7a7e373b82cd73e"
+   "sha256": "7ba8860d53cc879f8719c32eb91777cce20d04c952cfd50a3531cb966b26e1d0"
   },
   {
    "path": "src/exploratory/comparison.mjs",
