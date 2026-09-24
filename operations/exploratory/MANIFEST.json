@@ -4,24 +4,28 @@
  "ownerPatch": "EM-SPEC-OWNER-PATCH-2026-09-24-02",
  "results": {
   "path": "operations/exploratory/backtest-results.json",
-  "sha256": "485a12f9eab3c8c2f10e54b0f39637c8d926ced5e5e7c81dedc9e3fcca753f45"
+  "sha256": "f2f59793b1be30043a461c7cd13e0fbd6bac2d777cfbc90e120d0fd1e22ac036"
  },
  "slots": {
   "path": "operations/exploratory/tob-slots-the-gas.json",
-  "sha256": "14685976d8a082c2e03d2dc41b16092428ecd112a3cbfb63638d8e4169bdfe0b"
+  "sha256": "85d0c4ad5c8788fa1099ce847a376a1c34205dce802f2b34d098bfdfc9654797"
  },
  "generators": [
   {
    "path": "operations/exploratory/build_tob_slots.py",
-   "sha256": "fd362cdc7e229d3a874923de173e61791b1be37aabe7c97e07dd588201d3675d"
+   "sha256": "e142efcf127c20e2e829760b5c874fd6866b180fdee43df67079b50039b3dca4"
   },
   {
    "path": "operations/exploratory/run-exploratory-backtest.mjs",
-   "sha256": "b50da3bc01106ceb2dbc454a296de6bd43f1e34371808024ff6655de9af4c2e1"
+   "sha256": "ef4ac8e36aa357afffb8e736f81885fdf9e745bf9332b1444071c28701d415d1"
   },
   {
    "path": "src/exploratory/backtest.mjs",
-   "sha256": "d0350ca07a5975fa79904ae0a303bc31f533b5b428a26dea29e9029599a9005b"
+   "sha256": "eda2afd2f75c10c756479b1d0dc819b7de43ca74f6cdbdffe7a7e373b82cd73e"
+  },
+  {
+   "path": "src/exploratory/comparison.mjs",
+   "sha256": "ab09f7cefba71b6d9a5f94b7e0c81f141bf4083ea7e78513a4ceb3eafd0715fc"
   }
  ]
 }

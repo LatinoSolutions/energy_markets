@@ -75,7 +75,10 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
   const html = renderSurfacePage("backtests", buildUiViewModels(canonical.inputs).backtests);
   assert.match(html, /data-exploratory="true"/);
   assert.match(html, /EXPLORATORY/);
-  assert.equal((html.match(/data-status="EXPLORATORY"/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.results.length);
+  // Los paneles del mockup se llenan con la comparación: brazos, efecto emparejado, distribuciones.
+  assert.equal((html.match(/data-arm="(BASELINE|ARM_A|ARM_B)"/g) ?? []).length, 3 * Object.keys(canonical.inputs.exploratoryBacktest.results.comparison).length);
+  assert.doesNotMatch(html, /not produced by a canonical producer · not zero/);
+  assert.equal((html.match(/data-status="EXPLORATORY" data-product=/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.results.length);
 });
 
 test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", async () => {
@@ -85,7 +88,7 @@ test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", 
   const path = await import("node:path");
   const root = mkdtempSync(path.join(tmpdir(), "ui04-"));
   for (const dir of ["operations/exploratory", "src/exploratory"]) mkdirSync(path.join(root, dir), { recursive: true });
-  for (const file of ["operations/exploratory/MANIFEST.json", "operations/exploratory/tob-slots-the-gas.json", "operations/exploratory/build_tob_slots.py", "operations/exploratory/run-exploratory-backtest.mjs", "src/exploratory/backtest.mjs"]) {
+  for (const file of ["operations/exploratory/MANIFEST.json", "operations/exploratory/tob-slots-the-gas.json", "operations/exploratory/build_tob_slots.py", "operations/exploratory/run-exploratory-backtest.mjs", "src/exploratory/backtest.mjs", "src/exploratory/comparison.mjs"]) {
     cpSync(new URL("../../" + file, import.meta.url), path.join(root, file));
   }
   writeFileSync(path.join(root, "operations/exploratory/backtest-results.json"), JSON.stringify({ status: "EXPLORATORY", results: [] }));

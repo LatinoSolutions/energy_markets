@@ -580,6 +580,124 @@ function hourProfileSvg(profile) {
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Mean price difference by hour vs 11:00, ${esc(profile.product)}"><line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="var(--rule)"/>${bars.join("")}${labels}</svg>`;
 }
 
+// Paneles del mockup DES-01 (Backtests) poblados con la comparación exploratoria que
+// calcula src/exploratory/comparison.mjs. La UI no calcula: dibuja lo que llega.
+const EXP_ARM_SWATCH = { BASELINE: "var(--arm-base)", ARM_A: "var(--arm-a)", ARM_B: "var(--arm-b)" };
+const EXP_ARM_SHORT = { BASELINE: "Baseline", ARM_A: "Arm A", ARM_B: "Arm B" };
+const PRODUCT_TITLE = { G0BQ: "Gas Quarterly (THE)", G0BM: "Gas Monthly (THE)" };
+const CHECK_CHIP = {
+  PASS: ["pass", "✓", "Pass"],
+  SIMULATED: ["warn", "!", "Simulated"],
+  PROXY: ["warn", "!", "Proxy"],
+  PARTIAL: ["open", "○", "Partial"],
+  DEGRADED: ["warn", "!", "Degraded"],
+  FAIL: ["fail", "✕", "Fail"],
+};
+
+function expArmTag(armId) {
+  return `<span class="arm"><span class="sw" style="background:${EXP_ARM_SWATCH[armId]}"></span>${esc(EXP_ARM_SHORT[armId])}</span>`;
+}
+
+function kEur(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+}
+
+function comparisonTableHtml(block) {
+  const rows = block.table.map((row) => {
+    const statusChip = row.status === "COMPLETE" ? chip("pass", "✓", "Complete") : row.status === "PARTIAL" ? chip("open", "○", "Partial") : chip("fail", "✕", "Not comparable");
+    const delta = row.armId === "BASELINE" ? "reference" : kEur(row.deltaVKeur);
+    const range = row.deltaRangeKeur ? `episodes [${kEur(row.deltaRangeKeur[0])}, ${kEur(row.deltaRangeKeur[1])}]` : "—";
+    return `<tr data-status="EXPLORATORY" data-arm="${esc(row.armId)}"><td>${expArmTag(row.armId)}<div class="small muted">${esc(row.label)}</div></td><td class="mono">${row.closed} / ${row.total}${row.notRun > 0 ? ` <span class="st unk">${row.notRun} NOT RUN</span>` : ""}</td><td class="mono num right">${eur(row.bEurMwh)}</td><td class="mono num right">${eur(row.hEurMwh)}</td><td class="mono num right">${kEur(row.vKeur)}</td><td class="mono num right">${delta}</td><td class="mono small">${range}</td><td>${statusChip}</td></tr>`;
+  });
+  const canonicalRow = '<tr data-status="UNAVAILABLE"><td><span class="item-label">Canonical B / H / V (IMP-05)</span><div class="small muted">official benchmark not reconciled; not replaced by the proxy</div></td><td>' + unknownValue() + '</td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td>' + unknownValue() + '</td><td>' + chip("unk", "?", "Not produced") + '</td></tr>';
+  return `<table class="t"><thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B* · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">ΔV vs baseline · k€</th><th>Range (paired)</th><th>Status</th></tr></thead><tbody>${rows.join("")}${canonicalRow}</tbody></table>`;
+}
+
+function pairedEffectSvg(block) {
+  const width = 800;
+  const height = 330;
+  const pad = { left: 50, right: 20, top: 20, bottom: 40 };
+  const series = Object.entries(block.paired).filter(([, value]) => value.points.length > 0);
+  const all = series.flatMap(([, value]) => value.points).concat([0]);
+  const maxAbs = Math.max(1, ...all.map((value) => Math.abs(value)));
+  const count = Math.max(...series.map(([, value]) => value.points.length), 1);
+  const x = (index) => pad.left + (index / Math.max(1, count - 1)) * (width - pad.left - pad.right);
+  const y = (value) => pad.top + ((maxAbs - value) / (2 * maxAbs)) * (height - pad.top - pad.bottom);
+  const grid = [-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" stroke="var(--rule-2)" stroke-dasharray="${value === 0 ? "" : "2 3"}"/><text x="${pad.left - 6}" y="${y(value) + 3}" font-size="10" text-anchor="end" fill="var(--ink-3)">${kEur(value)}</text>`).join("");
+  const boundaries = (series[0]?.[1].boundaries ?? []).map((boundary) => `<line x1="${x(boundary.index)}" x2="${x(boundary.index)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--rule)" stroke-dasharray="3 3"/><text x="${x(boundary.index) + 3}" y="${height - pad.bottom + 14}" font-size="9" fill="var(--ink-3)">${esc(boundary.maturity)}</text>`).join("");
+  const lines = series.map(([armId, value]) => {
+    const path = value.points.map((point, index) => `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point).toFixed(1)}`).join(" ");
+    const last = value.points.length - 1;
+    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="1.6"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="3" fill="${EXP_ARM_SWATCH[armId]}"/><text x="${x(last) - 4}" y="${y(value.points[last]) - 8}" font-size="11" text-anchor="end" fill="var(--ink)">${esc(EXP_ARM_SHORT[armId])} ${kEur(value.finalKeur)}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ΔV vs baseline by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text></svg>`;
+}
+
+function distributionSvg(dist, armId) {
+  const width = 380;
+  const height = 150;
+  const pad = { left: 24, right: 8, top: 12, bottom: 22 };
+  const peak = Math.max(1, ...dist.counts);
+  const barWidth = (width - pad.left - pad.right) / dist.bins;
+  const bars = dist.counts.map((count, index) => {
+    const h = (count / peak) * (height - pad.top - pad.bottom);
+    return `<rect x="${pad.left + index * barWidth + 1}" y="${height - pad.bottom - h}" width="${barWidth - 2}" height="${h}" fill="${EXP_ARM_SWATCH[armId]}"><title>${(dist.min + index * ((dist.max - dist.min) / dist.bins)).toFixed(1)}: ${count}</title></rect>`;
+  }).join("");
+  const xOf = (value) => pad.left + ((value - dist.min) / (dist.max - dist.min)) * (width - pad.left - pad.right);
+  const zero = `<line x1="${xOf(0)}" x2="${xOf(0)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--ink-3)" stroke-dasharray="2 2"/>`;
+  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)"/><text x="${xOf(dist.mean) + 3}" y="${pad.top + 2}" font-size="10" fill="var(--ink)">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
+  const ticks = [dist.min, dist.min / 2, 0, dist.max / 2, dist.max].map((value) => `<text x="${xOf(value)}" y="${height - 6}" font-size="9" text-anchor="middle" fill="var(--ink-3)">${value > 0 ? "+" : ""}${value}</text>`).join("");
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="H minus B* per decision">${bars}${zero}${mean}${ticks}</svg><div class="tiny muted">n = ${dist.n} decisions with a fill${dist.outside > 0 ? ` · ${dist.outside} outside ±${dist.max}` : ""} · P95 ${eur(dist.p95)}</div>`;
+}
+
+function acrossCampaignsHtml(block) {
+  const values = block.acrossCampaigns.flatMap((entry) => Object.values(entry.arms)).filter((value) => typeof value === "number");
+  const maxAbs = Math.max(1, ...values.map((value) => Math.abs(value)));
+  const width = 220;
+  const xOf = (value) => width / 2 + (value / maxAbs) * (width / 2 - 8);
+  const rows = block.acrossCampaigns.map((entry) => {
+    const marks = Object.entries(entry.arms).map(([armId, value]) => (typeof value === "number"
+      ? `<svg x="0" y="0" width="${width}" height="14" style="position:absolute;left:0;top:0"><rect x="${xOf(value) - 4}" y="3" width="8" height="8" transform="rotate(45 ${xOf(value)} 7)" fill="${EXP_ARM_SWATCH[armId]}"><title>${esc(EXP_ARM_SHORT[armId])} ${kEur(value)} k€</title></rect></svg>`
+      : "")).join("");
+    const empty = Object.values(entry.arms).every((value) => value === null) ? '<span class="withheld small">NO ESTIMATE</span>' : "";
+    return `<div class="row" style="align-items:center;margin:3px 0"><span class="mono small" style="width:70px">${esc(entry.maturity)}</span><span style="position:relative;display:inline-block;width:${width}px;height:14px;border-left:1px solid var(--rule)" data-zero="center"><span style="position:absolute;left:${width / 2}px;top:0;bottom:0;border-left:1px dashed var(--ink-3)"></span>${marks}${empty}</span></div>`;
+  });
+  return `${rows.join("")}<div class="tiny muted" style="margin-top:4px">ΔV per episode, k€ · centre = 0 · ± ${maxAbs.toFixed(0)} k€ · ${Object.keys(block.paired).map((armId) => `${expArmTag(armId)}`).join(" ")}</div>`;
+}
+
+function comparisonBlockHtml(block, product) {
+  const checks = block.checks.map((check) => {
+    const [kind, glyph, label] = CHECK_CHIP[check.status] ?? ["unk", "?", check.status];
+    return `<div class="chk"><span><b>${esc(check.label)}</b></span>${chip(kind, glyph, label)}<span class="d">${esc(check.detail)}</span></div>`;
+  }).join("");
+  return `
+  <div class="exp-product" data-product="${esc(product)}" style="margin-top:22px">
+    <div class="mono muted small">${esc(product)} · exploratory paired comparison · real EEX best ask</div>
+    <h2 class="page" style="font-size:22px">${esc(PRODUCT_TITLE[product] ?? product)}: does another hour or a dip rule buy cheaper than the client's 11:00?</h2>
+    <div class="card" style="margin-top:10px">
+      <div class="hd"><h3>Economic measures</h3><span class="small muted">B* proxy benchmark · H achieved price · V = (B* − H) × MWh · ΔV = V<sub>arm</sub> − V<sub>baseline</sub></span><span class="grow"></span>${chip("warn", "!", "EXPLORATORY · B* is a proxy")}</div>
+      ${comparisonTableHtml(block)}
+    </div>
+    <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
+      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div><div class="bd" data-kind="paired">${pairedEffectSvg(block)}</div></div>
+      <div class="card"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend</span></div><div class="bd">${checks}<div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
+    </div>
+    <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); margin-top:14px">
+      <div class="card"><div class="hd"><h3>${expArmTag("BASELINE")}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.BASELINE, "BASELINE")}</div></div>
+      <div class="card"><div class="hd"><h3>${expArmTag("ARM_A")}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.ARM_A, "ARM_A")}</div></div>
+      <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">ΔV vs Baseline, k€</span></div><div class="bd" data-kind="campaign-effects">${acrossCampaignsHtml(block)}</div></div>
+    </div>
+  </div>`;
+}
+
+function exploratoryComparisonHtml(exploratory) {
+  if (!exploratory?.comparison) {
+    return "";
+  }
+  return Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product)).join("");
+}
+
 function exploratoryBacktestHtml(exploratory) {
   if (!exploratory) {
     return "";
@@ -608,6 +726,9 @@ function exploratoryBacktestHtml(exploratory) {
 
 function backtestsBody(vm, { errors = null } = {}) {
   const validated = errors === null;
+  // Con comparación exploratoria, sus paneles ocupan los espacios del mockup; los paneles
+  // canónicos vacíos no se duplican debajo (una sola verdad por panel).
+  const hasExploratory = validated && vm.exploratory?.comparison != null;
   const rows = validated ? vm.rows : [];
   const pending = validated ? vm.pendingComparisons ?? [] : [];
   const reasonNotValidated = "view model not validated (fail-closed, §26.5)";
@@ -654,8 +775,10 @@ function backtestsBody(vm, { errors = null } = {}) {
     <div class="armhead">${arms.length > 0 ? arms.map(armTag).join("") : `<span class="small muted">arms</span> ${unknownValue()}`}</div>
   </div>
 
+  ${validated ? exploratoryComparisonHtml(vm.exploratory) : ""}
   ${validated ? exploratoryBacktestHtml(vm.exploratory) : ""}
 
+  ${hasExploratory ? "" : `
   <div class="card" style="margin-top:14px">
     <div class="hd"><h3>Economic measures</h3><span class="small muted">B · H · V · ΔV as published by the canonical producer; definitions belong to the backend method</span><span class="grow"></span>${boundRows.length > 0 ? chip("run", "✓", `${boundRows.length} canonical row(s)`) : chip("unk", "?", "No canonical producer")}</div>
     ${table}
@@ -682,6 +805,7 @@ function backtestsBody(vm, { errors = null } = {}) {
     <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">paired ΔV by campaign</span></div><div class="bd" data-kind="campaign-effects">${noEstimateFrameSvg({ width: 380, height: 150, label: paired.label, reason: `${paired.label}: ${paired.reason}` })}
       <div class="tiny muted" style="margin-top:4px">◆ closed · ◇ interim · hatched = no estimate (not zero)</div></div></div>
   </div>
+`}
 </section>`;
 }
 

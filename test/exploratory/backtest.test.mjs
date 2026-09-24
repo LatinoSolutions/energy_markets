@@ -64,3 +64,11 @@ test("DIP10 solo usa asks pasados del mismo slot (sin look-ahead)", () => {
   runEpisode({ series: seriesWith([30, 31, 32]), tradingDays: DAYS, slotIndex: 0, targetMw: 3, policy, fillModel: FILL_MODELS.CLIENT });
   assert.deepEqual(seen, [[], [30], [30, 31]]);
 });
+
+test("días finales sin cotización se quitan de la ventana; los huecos intermedios se quedan como NO_QUOTE", () => {
+  const exchangeDays = ["2025-09-26", "2025-09-29", "2025-09-30"];
+  const quotedDays = new Set(["2025-09-26"]);
+  assert.deepEqual(episodeTradingDays({ product: "G0BM", maturity: "202510", exchangeDays, quotedDays }), ["2025-09-26"]);
+  const gap = new Set(["2025-09-26", "2025-09-30"]);
+  assert.deepEqual(episodeTradingDays({ product: "G0BQ", maturity: "202601", exchangeDays, quotedDays: gap }), exchangeDays);
+});

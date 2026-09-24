@@ -59,7 +59,8 @@ def main(out_path):
     day_dirs = sorted(glob.glob(f"{LAKE}/trd_date=*"))
     for d in day_dirs:
         day = date.fromisoformat(d.split("=")[-1])
-        t = load_day(glob.glob(f"{d}/**/*.parquet", recursive=True), counts)
+        # Orden fijo de archivos: con Tm empatados, el quote elegido no depende del orden de glob.
+        t = load_day(sorted(glob.glob(f"{d}/**/*.parquet", recursive=True)), counts)
         if t is None or t.num_rows == 0:
             continue
         sc = pc.utf8_slice_codeunits(t["ShortCode"], 0, 4).to_pylist()

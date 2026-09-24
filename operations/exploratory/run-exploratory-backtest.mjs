@@ -14,6 +14,7 @@ import {
   episodeTradingDays,
   runEpisode,
 } from "../../src/exploratory/backtest.mjs";
+import { buildComparison } from "../../src/exploratory/comparison.mjs";
 
 const [slotsPath, outPath] = process.argv.slice(2);
 const slotsBytes = readFileSync(slotsPath);
@@ -30,9 +31,13 @@ const lastDataDay = allDataDays.at(-1);
 const episodes = [];
 for (const key of Object.keys(slots.series)) {
   const [product, maturity] = key.split("|");
-  const tradingDays = episodeTradingDays({ product, maturity, exchangeDays });
-  if (tradingDays.length === 0) continue;
-  const complete = tradingDays[0] >= firstDataDay && tradingDays.at(-1) < lastDataDay;
+  const calendarWindow = episodeTradingDays({ product, maturity, exchangeDays });
+  if (calendarWindow.length === 0) continue;
+  // La ventana tiene que caer entera dentro de la data ANTES de recortar los días
+  // finales sin cotización; si no, un episodio cortado por falta de data parecería completo.
+  const complete = calendarWindow[0] >= firstDataDay && calendarWindow.at(-1) < lastDataDay;
+  const quotedDays = new Set(Object.entries(slots.series[key]).filter(([, daySlots]) => daySlots.some((slot) => slot !== null)).map(([day]) => day));
+  const tradingDays = episodeTradingDays({ product, maturity, exchangeDays, quotedDays });
   episodes.push({ product, maturity, key, tradingDays, complete });
 }
 const complete = episodes.filter((episode) => episode.complete);
@@ -74,6 +79,7 @@ for (const episode of complete) {
     lastDay: episode.tradingDays.at(-1),
     arms,
     hourProfile,
+    episodeRef: episode,
     ledgerClientA0: base.ledger,
     ledgerClientDip: run(episode, "DIP10", clientSlotIndex, FILL_MODELS.CLIENT).ledger,
   });
@@ -111,6 +117,52 @@ for (const entry of results) {
   };
 }
 
+// Comparación de brazos para la vista Backtests (mockup DES-01): Baseline = práctica
+// del cliente (A0 a las 11:00), Arm A = DIP10 a las 11:00, Arm B = A0 a la hora elegida
+// sin mirar el episodio (leave-one-out). Todos con fill CLIENT.
+const ARM_LABELS = { BASELINE: "Baseline · A0 11:00 (client practice)", ARM_A: "Arm A · DIP10 11:00", ARM_B: "Arm B · A0 at out-of-episode hour" };
+const comparison = {};
+for (const product of Object.keys(TARGET_MW)) {
+  const entries = results.filter((entry) => entry.product === product);
+  comparison[product] = buildComparison({
+    product,
+    armLabels: ARM_LABELS,
+    episodes: entries.map((entry) => {
+      const armBSlot = entry.leaveOneOutHour?.slotChosenOnOtherEpisodes ?? null;
+      const armB = armBSlot === null ? null : run(entry.episodeRef, "A0", slots.slotsBerlin.indexOf(armBSlot), FILL_MODELS.CLIENT);
+      const pack = (result, slot) => result && { ledger: result.ledger, summary: summarize(result), slot };
+      return {
+        maturity: entry.maturity,
+        arms: {
+          BASELINE: pack(run(entry.episodeRef, "A0", clientSlotIndex, FILL_MODELS.CLIENT), CLIENT_SLOT),
+          ARM_A: pack(run(entry.episodeRef, "DIP10", clientSlotIndex, FILL_MODELS.CLIENT), CLIENT_SLOT),
+          ARM_B: pack(armB, armBSlot),
+        },
+      };
+    }),
+  });
+}
+for (const entry of results) {
+  delete entry.episodeRef;
+}
+
+// Method & integrity (panel del mockup): cada check dice qué se verificó y dónde.
+for (const [product, block] of Object.entries(comparison)) {
+  const entries = results.filter((entry) => entry.product === product);
+  const incompleteArms = block.table.filter((row) => row.status !== "COMPLETE").map((row) => row.armId);
+  const noQuoteDays = entries.reduce((sum, entry) => sum + entry.arms["A0@11:00/CLIENT"].noQuoteDays, 0);
+  const decisionDays = entries.reduce((sum, entry) => sum + entry.tradingDays, 0);
+  block.checks = [
+    { label: "Pairing", status: "PASS", detail: "Same decision days and the same best-ask slots artifact for every arm (sha " + output_slots_sha().slice(0, 12) + ")." },
+    { label: "Look-ahead guard", status: "PASS", detail: "Policies see only quotes with Tm <= decision slot and past days (test/exploratory/backtest.test.mjs)." },
+    { label: "Execution", status: "SIMULATED", detail: "Fill at real best ask + 0.15 EUR/MWh, full quantity (client rule). Depth-capped variant reported per episode. Fees UNKNOWN." },
+    { label: "Evaluation closure", status: block.table[0].closed === block.table[0].total ? "PASS" : "PARTIAL", detail: block.table[0].closed + "/" + block.table[0].total + " episodes closed inside the data period." },
+    { label: "Arm completeness", status: incompleteArms.length === 0 ? "PASS" : "FAIL", detail: incompleteArms.length === 0 ? "Every arm reached the target in every episode." : "Incomplete: " + incompleteArms.join(", ") },
+    { label: "Benchmark", status: "PROXY", detail: "B* = equal-weighted 11:00 ask of the window. Canonical B (IMP-05) not reconciled." },
+    { label: "Input quality", status: noQuoteDays === 0 ? "PASS" : "DEGRADED", detail: noQuoteDays + " of " + decisionDays + " decision days without a fresh 11:00 quote (no fill, not imputed)." },
+  ];
+}
+
 // Resumen por producto: solo episodios donde los dos brazos completan el target,
 // para no comparar precios medios de cantidades distintas.
 function mean(values) {
@@ -129,6 +181,10 @@ for (const product of Object.keys(TARGET_MW)) {
     dipDepthCompleteEpisodes: rows.filter((entry) => entry.arms["DIP10@11:00/DEPTH"].complete).length,
     leaveOneOutHour: { evaluatedEpisodes: looDiffs.length, meanDiffEurMwh: mean(looDiffs), diffsEurMwh: looDiffs },
   };
+}
+
+function output_slots_sha() {
+  return createHash("sha256").update(slotsBytes).digest("hex");
 }
 
 const output = {
@@ -150,6 +206,8 @@ const output = {
     fillModels: { CLIENT: "cantidad completa al ask + slippage", DEPTH: "máximo AskSz visible del quote" },
   },
   summary,
+  comparison,
+  benchmarkNote: "B* = PROXY exploratorio: media equiponderada de los asks de las 11:00 de la ventana; no es el benchmark canónico B (IMP-05 sin reconciliar).",
   episodesSkippedIncomplete: episodes.filter((episode) => !episode.complete).map((episode) => `${episode.product} ${episode.maturity}`),
   results,
 };
@@ -168,6 +226,7 @@ const manifest = {
     "operations/exploratory/build_tob_slots.py",
     "operations/exploratory/run-exploratory-backtest.mjs",
     "src/exploratory/backtest.mjs",
+    "src/exploratory/comparison.mjs",
   ].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
 };
 writeFileSync("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));

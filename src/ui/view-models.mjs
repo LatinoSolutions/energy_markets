@@ -106,6 +106,7 @@ export function projectExploratoryBacktest(exploratory) {
     dataPeriod: results.inputs.dataPeriod,
     skipped: results.episodesSkippedIncomplete,
     summary: results.summary,
+    comparison: results.comparison ?? null,
     episodes,
     hourProfiles: Object.keys(results.summary).map((product) => ({ product, slots: hourProfileFor(results.results, product) })),
   };

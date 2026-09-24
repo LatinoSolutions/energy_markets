@@ -32,8 +32,24 @@ function addMonths(yyyymm, delta) {
   return `${y}${String(m).padStart(2, "0")}`;
 }
 
-// Días hábiles del episodio según la regla de calendario del cliente.
-export function episodeTradingDays({ product, maturity, exchangeDays }) {
+// Días hábiles del episodio según la regla de calendario del cliente. La regla exige
+// además que la maturity sea negociable ese día (01_shared_campaign_rules.md §2): los
+// días finales en que el contrato ya no cotiza se quitan. PROXY: la negociabilidad se
+// lee de la presencia de quotes en el lago (el mes que vence no cotiza su último día
+// hábil, 8/8 cierres observados); falta confirmarlo con la especificación EEX.
+export function episodeTradingDays({ product, maturity, exchangeDays, quotedDays = null }) {
+  const days = calendarDays({ product, maturity, exchangeDays });
+  if (quotedDays === null) {
+    return days;
+  }
+  let end = days.length;
+  while (end > 0 && !quotedDays.has(days[end - 1])) {
+    end -= 1;
+  }
+  return days.slice(0, end);
+}
+
+function calendarDays({ product, maturity, exchangeDays }) {
   const months = product === "G0BQ"
     ? [addMonths(maturity, -4), addMonths(maturity, -3), addMonths(maturity, -2)]
     : [addMonths(maturity, -1)];
