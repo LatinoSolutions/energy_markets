@@ -888,6 +888,73 @@ export function exploratoryReplayBody(exploratory) {
 </section>`;
 }
 
+// ---------- Research / Strategy Lab exploratorio (owner patch 02 §4) ----------
+const READINESS_CHIP = {
+  READY: ["pass", "✓", "Ready (reference)"],
+  NOT_READY: ["fail", "✕", "Not ready"],
+  NO_RUNS: ["open", "○", "No runs yet"],
+};
+const CRITERION_CHIP = {
+  MET: ["pass", "✓", "Met"],
+  NOT_MET: ["fail", "✕", "Not met"],
+  UNKNOWN: ["unk", "?", "Unknown"],
+};
+const INTEGRITY_CHIP = {
+  PASS: ["pass", "✓", "Pass"],
+  NOT_CLOSED: ["open", "○", "Not closed"],
+  UNKNOWN: ["unk", "?", "Unknown"],
+};
+
+function chipFrom(map, key) {
+  const [kind, glyph, label] = map[key] ?? ["unk", "?", key];
+  return chip(kind, glyph, label);
+}
+
+function candidateListHtml(candidates) {
+  return candidates.map((candidate) => `<a href="#res-${esc(candidate.id)}" class="card" style="margin-bottom:8px"><div class="bd"><div class="row"><span class="mono tiny muted grow">${esc(candidate.stage)}</span><span class="mono tiny muted">${esc(candidate.version)}</span></div><div><b>${esc(candidate.name)}</b></div><div class="small">Readiness ${chipFrom(READINESS_CHIP, candidate.readiness)}</div><div class="small">${candidate.armId ? expArmTag(candidate.armId) : ""} Authority <span class="st na">— ${esc(candidate.authority)}</span></div></div></a>`).join("");
+}
+
+function candidateDetailHtml(candidate, research, provenance, isDefault) {
+  const criteria = candidate.criteria.length === 0
+    ? '<div class="small muted">No success criteria measured: no run for this candidate.</div>'
+    : candidate.criteria.map((group) => `<div class="mono tiny muted" style="margin-top:8px">${esc(group.product)}</div>${group.items.map((item) => `<div class="chk"><span><b>${esc(item.label)}</b></span>${chipFrom(CRITERION_CHIP, item.status)}<span class="d">${esc(item.detail)}</span></div>`).join("")}`).join("");
+  const integrity = research.integrity.map((item) => `<div class="chk"><span>${esc(item.label)}</span>${chipFrom(INTEGRITY_CHIP, item.status)}<span class="d">${esc(item.detail)}</span></div>`).join("");
+  const lineage = candidate.armId && candidate.armId !== "BASELINE"
+    ? `<svg viewBox="0 0 700 90" width="100%" role="img" aria-label="Version lineage"><rect x="20" y="25" width="150" height="34" fill="var(--surface)" stroke="var(--ink)"/><text x="95" y="47" font-size="13" text-anchor="middle">A0 v1 · client 11:00</text><line x1="170" y1="42" x2="300" y2="42" stroke="var(--ink-3)" stroke-dasharray="4 3"/><rect x="300" y="25" width="200" height="34" fill="var(--ink)" stroke="var(--ink)"/><text x="400" y="47" font-size="13" text-anchor="middle" fill="var(--paper)">${esc(candidate.id)} ${esc(candidate.version)}</text><text x="400" y="78" font-size="10" text-anchor="middle" fill="var(--ink-3)">exploratory · owner patch 02</text></svg>`
+    : '<div class="small muted">No versions beyond the reference.</div>';
+  const receipts = [
+    ["BACKTEST RESULT", `${provenance.resultsPath} · sha256 ${provenance.resultsSha256.slice(0, 12)}…`],
+    ["DATA SNAPSHOT", `EEX best-ask slots · sha256 ${provenance.slotsSha256.slice(0, 12)}…`],
+    ["MANIFEST", provenance.manifestPath],
+    ["OWNER DECISION", "EM-SPEC-OWNER-PATCH-2026-09-24-02"],
+  ].map(([kind, what]) => `<tr><td><span class="st na">${esc(kind)}</span></td><td class="mono small">${esc(what)}</td></tr>`).join("");
+  return `<section class="xsel${isDefault ? " xdefault" : ""}" id="res-${esc(candidate.id)}" data-candidate="${esc(candidate.id)}">
+  <div class="row" style="align-items:flex-end"><div class="grow"><div class="mono muted small">${esc(candidate.id)} ${esc(candidate.version)} · owner Bru</div><h1 class="page">${esc(candidate.name)}</h1></div><div><div class="mono tiny muted">READINESS (BACKEND)</div>${chipFrom(READINESS_CHIP, candidate.readiness)}</div></div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:10px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered 2026-09-24 · exploratory phase</span></div><div class="bd"><p style="font-size:17px">${esc(candidate.hypothesis)}</p><div class="mono tiny muted">SUCCESS CRITERIA</div>${criteria}</div></div>
+    <div>
+      <div class="card" style="border:2px solid var(--auth)"><div class="bd"><div class="row"><span class="mono tiny grow">AUTHORITY</span><span class="st na">— ${esc(candidate.authority)}</span></div><div style="font-size:18px"><b>No adoption decision exists</b></div><div class="small">Authority to adopt: Bru. Evidence does not change this state; only a recorded owner decision can.</div></div></div>
+      <div class="card" style="margin-top:12px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd">${integrity}</div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments</span></div><div class="bd">${lineage}</div></div>
+  <div class="card" style="margin-top:12px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">evidence informs, it does not authorise</span></div><table class="t"><thead><tr><th>Kind</th><th>What</th></tr></thead><tbody>${receipts}</tbody></table></div>
+</section>`;
+}
+
+export function exploratoryResearchBody(exploratory) {
+  const research = exploratory.research;
+  const firstEvidence = research.candidates.find((candidate) => candidate.stage === "EVIDENCE GATHERING") ?? research.candidates[0];
+  const details = research.candidates.map((candidate) => candidateDetailHtml(candidate, research, exploratory.provenance, candidate === firstEvidence)).join("");
+  return `${TARGET_SWITCH_CSS}
+<section class="surface research" data-surface="research" data-exploratory="true">
+  <div class="grid xwrap" style="grid-template-columns: 300px minmax(0,1fr); gap:18px">
+    <div class="xlist"><div class="mono tiny muted" style="margin-bottom:8px">CANDIDATE STACK</div>${candidateListHtml(research.candidates)}<div class="tiny muted">Evidence and authority are separate on purpose: more evidence never turns into approval by itself.</div></div>
+    <div>${details}</div>
+  </div>
+</section>`;
+}
+
 function exploratoryBacktestHtml(exploratory) {
   if (!exploratory) {
     return "";
@@ -1232,6 +1299,7 @@ function renderValidated(surface, vm) {
 const EXPLORATORY_BODIES = {
   [SURFACES.REPLAY]: exploratoryReplayBody,
   [SURFACES.CAMPAIGNS]: exploratoryCampaignsBody,
+  [SURFACES.RESEARCH]: exploratoryResearchBody,
 };
 
 function renderExploratory(surface, vm) {

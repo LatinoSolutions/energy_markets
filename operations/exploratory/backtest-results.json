@@ -14514,6 +14514,232 @@
    "blocks": "Exact final day of each Monthly window"
   }
  ],
+ "research": {
+  "candidates": [
+   {
+    "id": "A0",
+    "stage": "REFERENCE BASELINE",
+    "name": "Client practice · calendar at 11:00",
+    "version": "v1",
+    "readiness": "READY",
+    "authority": "Current client practice",
+    "armId": "BASELINE",
+    "hypothesis": "Reference: buy the target on the client calendar at 11:00 Europe/Berlin, price-blind (canonical A0 controller).",
+    "criteria": []
+   },
+   {
+    "id": "DIP10",
+    "stage": "EVIDENCE GATHERING",
+    "name": "Dip buyer · derived from S1 Relative Price Location",
+    "version": "v1-exp",
+    "readiness": "NOT_READY",
+    "authority": "Not requested",
+    "armId": "ARM_A",
+    "hypothesis": "Buying the day's full cap when the 11:00 best ask is below the mean of the previous 10 11:00 asks (otherwise only the feasibility floor) lowers the price paid versus the client's 11:00 calendar.",
+    "criteria": [
+     {
+      "product": "G0BQ",
+      "items": [
+       {
+        "label": "ΔV vs Baseline > 0 over all campaigns",
+        "status": "MET",
+        "detail": "ΔV 31.8 k€ over 3 campaigns"
+       },
+       {
+        "label": "Cheaper than Baseline in most campaigns",
+        "status": "NOT_MET",
+        "detail": "1 of 3 campaigns"
+       },
+       {
+        "label": "P95 (H − B*) not worse than Baseline by > 1.00 €/MWh",
+        "status": "MET",
+        "detail": "P95 arm 2.46 vs Baseline 5.60"
+       },
+       {
+        "label": "No look-ahead: every input observed ≤ T₀",
+        "status": "MET",
+        "detail": "test/exploratory/backtest.test.mjs"
+       }
+      ]
+     },
+     {
+      "product": "G0BM",
+      "items": [
+       {
+        "label": "ΔV vs Baseline > 0 over all campaigns",
+        "status": "MET",
+        "detail": "ΔV 60.9 k€ over 10 campaigns"
+       },
+       {
+        "label": "Cheaper than Baseline in most campaigns",
+        "status": "NOT_MET",
+        "detail": "5 of 10 campaigns"
+       },
+       {
+        "label": "P95 (H − B*) not worse than Baseline by > 1.00 €/MWh",
+        "status": "MET",
+        "detail": "P95 arm 3.89 vs Baseline 6.85"
+       },
+       {
+        "label": "No look-ahead: every input observed ≤ T₀",
+        "status": "MET",
+        "detail": "test/exploratory/backtest.test.mjs"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "HOUR",
+    "stage": "EVIDENCE GATHERING",
+    "name": "Execution hour chosen by data",
+    "version": "v1-exp",
+    "readiness": "NOT_READY",
+    "authority": "Not requested",
+    "armId": "ARM_B",
+    "hypothesis": "Running the client calendar at the hour that was cheapest on the other campaigns (leave-one-out) lowers the price paid versus 11:00.",
+    "criteria": [
+     {
+      "product": "G0BQ",
+      "items": [
+       {
+        "label": "ΔV vs Baseline > 0 over all campaigns",
+        "status": "NOT_MET",
+        "detail": "ΔV -22.8 k€ over 3 campaigns"
+       },
+       {
+        "label": "Cheaper than Baseline in most campaigns",
+        "status": "NOT_MET",
+        "detail": "1 of 3 campaigns"
+       },
+       {
+        "label": "P95 (H − B*) not worse than Baseline by > 1.00 €/MWh",
+        "status": "MET",
+        "detail": "P95 arm 5.60 vs Baseline 5.60"
+       },
+       {
+        "label": "No look-ahead: every input observed ≤ T₀",
+        "status": "MET",
+        "detail": "test/exploratory/backtest.test.mjs"
+       }
+      ]
+     },
+     {
+      "product": "G0BM",
+      "items": [
+       {
+        "label": "ΔV vs Baseline > 0 over all campaigns",
+        "status": "MET",
+        "detail": "ΔV 4.9 k€ over 10 campaigns"
+       },
+       {
+        "label": "Cheaper than Baseline in most campaigns",
+        "status": "MET",
+        "detail": "7 of 10 campaigns"
+       },
+       {
+        "label": "P95 (H − B*) not worse than Baseline by > 1.00 €/MWh",
+        "status": "MET",
+        "detail": "P95 arm 5.84 vs Baseline 6.85"
+       },
+       {
+        "label": "No look-ahead: every input observed ≤ T₀",
+        "status": "MET",
+        "detail": "test/exploratory/backtest.test.mjs"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "S2",
+    "stage": "HYPOTHESIS ONLY",
+    "name": "Anomaly Detection",
+    "version": "—",
+    "readiness": "NO_RUNS",
+    "authority": "Not requested",
+    "armId": null,
+    "hypothesis": "Canonical strategy (SPEC §8). No observables materialised and no run yet.",
+    "criteria": []
+   },
+   {
+    "id": "S3",
+    "stage": "HYPOTHESIS ONLY",
+    "name": "Trajectory / Repricing",
+    "version": "—",
+    "readiness": "NO_RUNS",
+    "authority": "Not requested",
+    "armId": null,
+    "hypothesis": "Canonical strategy (SPEC §8). No observables materialised and no run yet.",
+    "criteria": []
+   },
+   {
+    "id": "S4",
+    "stage": "HYPOTHESIS ONLY",
+    "name": "Structure / Range Transition",
+    "version": "—",
+    "readiness": "NO_RUNS",
+    "authority": "Not requested",
+    "armId": null,
+    "hypothesis": "Canonical strategy (SPEC §8). No observables materialised and no run yet.",
+    "criteria": []
+   },
+   {
+    "id": "S5",
+    "stage": "HYPOTHESIS ONLY",
+    "name": "Conditional Pullback Timing",
+    "version": "—",
+    "readiness": "NO_RUNS",
+    "authority": "Not requested",
+    "armId": null,
+    "hypothesis": "Canonical strategy (SPEC §8). No observables materialised and no run yet.",
+    "criteria": []
+   },
+   {
+    "id": "Z",
+    "stage": "HYPOTHESIS ONLY",
+    "name": "Market state (Z)",
+    "version": "—",
+    "readiness": "NO_RUNS",
+    "authority": "Not requested",
+    "armId": null,
+    "hypothesis": "Canonical strategy (SPEC §8). No observables materialised and no run yet.",
+    "criteria": []
+   }
+  ],
+  "integrity": [
+   {
+    "label": "Code pinned",
+    "status": "PASS",
+    "detail": "generator sha256 in operations/exploratory/MANIFEST.json"
+   },
+   {
+    "label": "Data snapshot pinned",
+    "status": "PASS",
+    "detail": "tob-slots sha 85d0c4ad5c87"
+   },
+   {
+    "label": "Replay determinism",
+    "status": "PASS",
+    "detail": "same inputs → same results sha (manifest check in the UI loader)"
+   },
+   {
+    "label": "Evidence in ≥ 2 campaigns",
+    "status": "PASS",
+    "detail": "3 Gas Quarterly + 10 Gas Monthly"
+   },
+   {
+    "label": "Out-of-sample window",
+    "status": "NOT_CLOSED",
+    "detail": "exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)"
+   },
+   {
+    "label": "Execution fees",
+    "status": "UNKNOWN",
+    "detail": "not provided; requested from the client"
+   }
+  ]
+ },
  "benchmarkNote": "B* = PROXY exploratorio: media equiponderada de los asks de las 11:00 de la ventana; no es el benchmark canónico B (IMP-05 sin reconciliar).",
  "episodesSkippedIncomplete": [
   "G0BM 202509",

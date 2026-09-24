@@ -124,6 +124,7 @@ export function projectExploratoryPages(exploratory) {
     replay: results.replay,
     campaigns: results.campaigns,
     campaignUnknowns: results.campaignUnknowns ?? [],
+    research: results.research ?? null,
   };
 }
 

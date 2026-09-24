@@ -118,3 +118,11 @@ test("UI-04: sin backtest exploratorio, Replay sigue fail-closed", async () => {
   assert.match(replay, /data-state="ERROR"/);
   assert.doesNotMatch(replay, /data-exploratory="true"/);
 });
+
+test("UI-04: Research muestra candidatos con criterios medidos y sin autoridad concedida", async () => {
+  const { renderSurfacePage } = await import("../../src/ui/render.mjs");
+  const canonical = loadCanonicalUiInputs();
+  const html = renderSurfacePage("research", buildUiViewModels(canonical.inputs).research);
+  assert.equal((html.match(/data-candidate="/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.research.candidates.length);
+  assert.match(html, /No adoption decision exists/);
+});

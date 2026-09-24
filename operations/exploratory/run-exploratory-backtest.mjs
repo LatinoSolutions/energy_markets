@@ -220,6 +220,51 @@ const campaignUnknowns = [
   { id: "U-EM-4", blocking: false, title: "Contract tradability read from quote presence", detail: "Last trading day inferred from the lake (proxy); EEX contract spec to confirm.", blocks: "Exact final day of each Monthly window" },
 ];
 
+// Research / Strategy Lab: candidatos, hipótesis y criterios de éxito medidos. La
+// evidencia informa; la autoridad de adopción es de Bru y no se registra aquí.
+const P95_TOLERANCE_EUR_MWH = 1;
+function criteriaFor(armId) {
+  return Object.entries(comparison).map(([product, block]) => {
+    const row = block.table.find((item) => item.armId === armId);
+    const cheaper = block.acrossCampaigns.filter((item) => typeof item.arms[armId] === "number" && item.arms[armId] > 0).length;
+    const comparable = block.acrossCampaigns.filter((item) => typeof item.arms[armId] === "number").length;
+    const p95Arm = block.distributions[armId]?.p95;
+    const p95Base = block.distributions.BASELINE?.p95;
+    const tailOk = typeof p95Arm === "number" && typeof p95Base === "number" ? p95Arm - p95Base <= P95_TOLERANCE_EUR_MWH : null;
+    return {
+      product,
+      items: [
+        { label: "ΔV vs Baseline > 0 over all campaigns", status: row.deltaVKeur === null ? "UNKNOWN" : row.deltaVKeur > 0 ? "MET" : "NOT_MET", detail: `ΔV ${row.deltaVKeur === null ? "—" : row.deltaVKeur.toFixed(1)} k€ over ${row.closed} campaigns` },
+        { label: "Cheaper than Baseline in most campaigns", status: comparable === 0 ? "UNKNOWN" : cheaper * 2 > comparable ? "MET" : "NOT_MET", detail: `${cheaper} of ${comparable} campaigns` },
+        { label: `P95 (H − B*) not worse than Baseline by > ${P95_TOLERANCE_EUR_MWH.toFixed(2)} €/MWh`, status: tailOk === null ? "UNKNOWN" : tailOk ? "MET" : "NOT_MET", detail: `P95 arm ${p95Arm?.toFixed(2) ?? "—"} vs Baseline ${p95Base?.toFixed(2) ?? "—"}` },
+        { label: "No look-ahead: every input observed ≤ T₀", status: "MET", detail: "test/exploratory/backtest.test.mjs" },
+      ],
+    };
+  });
+}
+const research = {
+  candidates: [
+    { id: "A0", stage: "REFERENCE BASELINE", name: "Client practice · calendar at 11:00", version: "v1", readiness: "READY", authority: "Current client practice", armId: "BASELINE",
+      hypothesis: "Reference: buy the target on the client calendar at 11:00 Europe/Berlin, price-blind (canonical A0 controller).", criteria: [] },
+    { id: "DIP10", stage: "EVIDENCE GATHERING", name: "Dip buyer · derived from S1 Relative Price Location", version: "v1-exp", readiness: "NOT_READY", authority: "Not requested", armId: "ARM_A",
+      hypothesis: "Buying the day's full cap when the 11:00 best ask is below the mean of the previous 10 11:00 asks (otherwise only the feasibility floor) lowers the price paid versus the client's 11:00 calendar.", criteria: criteriaFor("ARM_A") },
+    { id: "HOUR", stage: "EVIDENCE GATHERING", name: "Execution hour chosen by data", version: "v1-exp", readiness: "NOT_READY", authority: "Not requested", armId: "ARM_B",
+      hypothesis: "Running the client calendar at the hour that was cheapest on the other campaigns (leave-one-out) lowers the price paid versus 11:00.", criteria: criteriaFor("ARM_B") },
+    ...[["S2", "Anomaly Detection"], ["S3", "Trajectory / Repricing"], ["S4", "Structure / Range Transition"], ["S5", "Conditional Pullback Timing"], ["Z", "Market state (Z)"]].map(([id, name]) => ({
+      id, stage: "HYPOTHESIS ONLY", name, version: "—", readiness: "NO_RUNS", authority: "Not requested", armId: null,
+      hypothesis: "Canonical strategy (SPEC §8). No observables materialised and no run yet.", criteria: [],
+    })),
+  ],
+  integrity: [
+    { label: "Code pinned", status: "PASS", detail: "generator sha256 in operations/exploratory/MANIFEST.json" },
+    { label: "Data snapshot pinned", status: "PASS", detail: `tob-slots sha ${output_slots_sha().slice(0, 12)}` },
+    { label: "Replay determinism", status: "PASS", detail: "same inputs → same results sha (manifest check in the UI loader)" },
+    { label: "Evidence in ≥ 2 campaigns", status: "PASS", detail: "3 Gas Quarterly + 10 Gas Monthly" },
+    { label: "Out-of-sample window", status: "NOT_CLOSED", detail: "exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)" },
+    { label: "Execution fees", status: "UNKNOWN", detail: "not provided; requested from the client" },
+  ],
+};
+
 for (const entry of results) {
   delete entry.episodeRef;
 }
@@ -288,6 +333,7 @@ const output = {
   replay,
   campaigns,
   campaignUnknowns,
+  research,
   benchmarkNote: "B* = PROXY exploratorio: media equiponderada de los asks de las 11:00 de la ventana; no es el benchmark canónico B (IMP-05 sin reconciliar).",
   episodesSkippedIncomplete: episodes.filter((episode) => !episode.complete).map((episode) => `${episode.product} ${episode.maturity}`),
   results,
