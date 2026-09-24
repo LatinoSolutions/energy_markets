@@ -12,7 +12,7 @@ import {
   createSyntheticFrozenProtocol,
   FIXTURE_SNAPSHOTS,
   EXPECTED_HARM_BY_HOUR_ID,
-  mutateFrozen,
+  mutateAndRefreeze,
 } from "./fixtures.mjs";
 
 const registry = createIntradaySnapshotRegistry("SYNTHETIC_FIXTURE_SOURCE", FIXTURE_SNAPSHOTS);
@@ -67,7 +67,7 @@ test("la secuencia de decisión es idéntica entre horas: cambia sólo el instan
 });
 
 test("sin snapshot causal en la hora del candidato el fill se DENIEGA (no look-ahead al precio futuro)", () => {
-  const frozen = mutateFrozen(createSyntheticFrozenProtocol(), (protocol) => {
+  const frozen = mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
     protocol.candidates = [
       { hourId: "H_06_00", kind: "FIXED_HOUR_AND_MINUTES", hour: 6, minutes: 0 },
       { hourId: "H_22_00", kind: "FIXED_HOUR_AND_MINUTES", hour: 22, minutes: 0 },
@@ -88,7 +88,7 @@ test("sin snapshot causal en la hora del candidato el fill se DENIEGA (no look-a
 });
 
 test("ventana dinámica: fill causal dentro de la ventana predeclarada; deny si no hay", () => {
-  const frozen = mutateFrozen(createSyntheticFrozenProtocol(), (protocol) => {
+  const frozen = mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
     protocol.candidates = [
       { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
       { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
@@ -109,4 +109,29 @@ test("ventana dinámica: fill causal dentro de la ventana predeclarada; deny si 
     const hourPart = Number(fill.asOfUtc.slice(11, 13));
     assert.ok(hourPart >= 12 && hourPart <= 17, `fill dentro de ventana (${fill.date})`);
   }
+});
+
+test("paridad H4: cobertura causal distinta entre horas no rompe la paridad de decisión", () => {
+  // W_EARLY no tiene snapshot en 9..11 (0 fills), W_LATE sí (5 fills): la
+  // paridad debe ceñirse a la secuencia de decisión, no al resultado de fills.
+  const frozen = mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
+    protocol.candidates = [
+      { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
+      { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
+    ];
+    protocol.referenceHourId = null;
+  });
+  const arms = ["W_EARLY", "W_LATE"].map((hourId) =>
+    runQ07HourArm({ frozen, hourId, snapshotRegistry: registry }));
+  assert.notEqual(arms[0].fills.length, arms[1].fills.length);
+  const parity = assertHourArmsParity(arms);
+  assert.equal(parity.ok, true, `paridad: ${parity.code}`);
+});
+
+test("anti-mutación H2: un brazo no corre sobre protocolo alterado post-freeze", () => {
+  const frozen = createSyntheticFrozenProtocol();
+  const attack = { ...frozen, minObservations: frozen.minObservations + 1 };
+  const arm = runQ07HourArm({ frozen: attack, hourId: "H_09_15", snapshotRegistry: registry });
+  assert.equal(arm.ok, false);
+  assert.equal(arm.code, "PROTOCOL_HASH_MISMATCH");
 });

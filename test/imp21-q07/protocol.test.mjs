@@ -1,14 +1,26 @@
 // Tests protocolo Q07 predeclarado y frozen (IMP-21).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 import {
   validateQ07Protocol,
   verifyFrozenQ07Protocol,
   assertNoDocumentedHourPresupposition,
   Q07_PROTOCOL_ID,
+  CANONICAL_SPEC_REF,
+  CANONICAL_SPEC_SHA256,
 } from "../../src/imp21-q07/index.mjs";
-import { createSyntheticFrozenProtocol, mutateFrozen } from "./fixtures.mjs";
+import {
+  createSyntheticFrozenProtocol,
+  freezeSyntheticProtocol,
+  mutateFrozen,
+} from "./fixtures.mjs";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 test("verifica frozen acepta un protocolo completo, congelado y con hash", () => {
   const frozen = createSyntheticFrozenProtocol();
@@ -66,4 +78,36 @@ test("no se fijan 11:00 ni settlement como hora óptima por documentación", () 
   // Un sílabo con etiquetas "optimalHour" es rechazado por el guard.
   const injectada = { ...frozen, optimalHour: '"11:00"' };
   assert.equal(assertNoDocumentedHourPresupposition(injectada).code, "DOCUMENTED_HOUR_PRESUPPOSITION_REJECTED");
+});
+
+test("H1: el hash cubre la lógica de buckets y el protocolo congelado es serializable", () => {
+  const base = createSyntheticFrozenProtocol();
+  const altered = freezeSyntheticProtocol({
+    buckets: base.buckets.map((bucket) => bucket.bucketId === "B_NO_DENIED"
+      ? { ...bucket, predicate: { ...bucket.predicate, value: 1 } }
+      : { ...bucket }),
+  });
+  // Dos protocolos que difieren SÓLO en la regla del bucket deben diferir.
+  assert.notEqual(altered.contentHash, base.contentHash);
+  // Round-trip JSON: si hubiera funciones (canonicalJson → undefined) el hash
+  // del objeto re-serializado no coincidiría.
+  const roundTripped = JSON.parse(JSON.stringify(base));
+  assert.equal(verifyFrozenQ07Protocol(roundTripped).ok, true);
+});
+
+test("H3: CANONICAL_SPEC_SHA256 coincide con los bytes reales del doc canónico", () => {
+  const bytes = readFileSync(resolve(repoRoot, CANONICAL_SPEC_REF));
+  const real = createHash("sha256").update(bytes).digest("hex");
+  assert.equal(CANONICAL_SPEC_SHA256, real);
+});
+
+test("H3: specSha256 no-hex o no-canónico se rechaza como binding de SPEC", () => {
+  const notHex = mutateFrozen(createSyntheticFrozenProtocol(), (protocol) => {
+    protocol.specSha256 = "z".repeat(64);
+  });
+  assert.equal(validateQ07Protocol(notHex).code, "INVALID_SPEC_SHA256");
+  const invented = mutateFrozen(createSyntheticFrozenProtocol(), (protocol) => {
+    protocol.specSha256 = "0".repeat(64);
+  });
+  assert.equal(validateQ07Protocol(invented).code, "SPEC_SHA256_NOT_CANONICAL");
 });

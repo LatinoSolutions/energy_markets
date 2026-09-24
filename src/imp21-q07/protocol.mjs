@@ -19,6 +19,31 @@ import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 export const Q07_PROTOCOL_ID = "Q07_INTRA_DAY_ENTRY_HOUR";
 export const Q07_PROTOCOL_VERSION = "v1.0.0";
 
+// Identidad de la SPEC que gobierna el protocolo (§25.2.1: SPEC ID/version/hash).
+// Pin de contenido real: sha256 de los bytes del doc canónico vigente en este
+// repo (rebind de la Oficina, commit ad46afb). Si el doc cambia, este binding
+// deja de coincidir y el protocolo se rechaza (fail-closed), en vez de aceptar
+// cualquier cadena de 64 chars como si fuera la SPEC.
+export const CANONICAL_SPEC_REF = "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md";
+export const CANONICAL_SPEC_SHA256 = "d1bb4172a494a8900f782ecd4256d90bbaddd547b098b034be2867ab7884ed8b";
+
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+// Predicados de bucket declarativos y serializables: un bucket del protocolo
+// congelado debe ser parte del contenido hasheado (§14.9 anti-mutación), así
+// que no puede contener funciones (canonicalJson las serializa como
+// undefined y el hash no cubriría la regla). El vocabulario es cerrado.
+export const BUCKET_PREDICATE_OPERATORS = ["EQUALS", "AT_LEAST", "AT_MOST", "GREATER_THAN", "LESS_THAN"];
+export const BUCKET_OBSERVABLE_FIELDS = [
+  "deniedFillsCount",
+  "coverageFraction",
+  "filledVolumeMw",
+  "observationCount",
+  "H",
+  "V",
+];
+export const BUCKET_PREDICATE_FIELDS = ["operator", "field", "value"];
+
 export const INTRADAY_CANDIDATE_KINDS = ["FIXED_HOUR_AND_MINUTES", "DYNAMIC_WINDOW"];
 
 export const ALLOWED_TIMING_CHANGE = {
@@ -95,6 +120,34 @@ function isMinuteNumber(value) {
     && value <= 59;
 }
 
+function isBucketPredicate(predicate) {
+  return hasShape(predicate, BUCKET_PREDICATE_FIELDS)
+    && BUCKET_PREDICATE_OPERATORS.includes(predicate.operator)
+    && BUCKET_OBSERVABLE_FIELDS.includes(predicate.field)
+    && isFiniteNumber(predicate.value);
+}
+
+// Evalúa el predicado declarativo de un bucket contra el contexto de un brazo.
+// Cierra la evaluación de reglas que antes vivía en funciones (no hasheables).
+export function evaluateBucketPredicate({ predicate, context = {} } = {}) {
+  if (!isBucketPredicate(predicate)) {
+    return { ok: false, code: "INVALID_BUCKET_PREDICATE" };
+  }
+  const observedValue = context[predicate.field];
+  if (!isFiniteNumber(observedValue)) {
+    return { ok: false, code: "BUCKET_OBSERVABLE_UNAVAILABLE", field: predicate.field };
+  }
+  const comparisons = {
+    EQUALS: (observed, target) => observed === target,
+    AT_LEAST: (observed, target) => observed >= target,
+    AT_MOST: (observed, target) => observed <= target,
+    GREATER_THAN: (observed, target) => observed > target,
+    LESS_THAN: (observed, target) => observed < target,
+  };
+  const passes = comparisons[predicate.operator](observedValue, predicate.value);
+  return { ok: true, passes, observedValue };
+}
+
 export function validateQ07Protocol(protocol = {}) {
   if (!hasShape(protocol, PROTOCOL_FIELDS)) {
     return { ok: false, code: "MISSING_PROTOCOL_FIELDS" };
@@ -104,8 +157,11 @@ export function validateQ07Protocol(protocol = {}) {
     || typeof protocol.protocolVersion !== "string") {
     return { ok: false, code: "INVALID_PROTOCOL_IDENTITY" };
   }
-  if (typeof protocol.specSha256 !== "string" || protocol.specSha256.length !== 64) {
+  if (typeof protocol.specSha256 !== "string" || !SHA256_HEX.test(protocol.specSha256)) {
     return { ok: false, code: "INVALID_SPEC_SHA256" };
+  }
+  if (protocol.specSha256 !== CANONICAL_SPEC_SHA256) {
+    return { ok: false, code: "SPEC_SHA256_NOT_CANONICAL", specSha256: protocol.specSha256 };
   }
 
   const obligation = protocol.obligationBinding ?? null;
@@ -167,6 +223,11 @@ export function validateQ07Protocol(protocol = {}) {
   if (!Array.isArray(protocol.buckets) || protocol.buckets.length === 0
     || !protocol.buckets.every((bucket) => hasShape(bucket, ["bucketId", "metricId", "predicate"]))) {
     return { ok: false, code: "INVALID_BUCKETS" };
+  }
+  for (const bucket of protocol.buckets) {
+    if (!isBucketPredicate(bucket.predicate)) {
+      return { ok: false, code: "INVALID_BUCKET_PREDICATE", bucketId: bucket.bucketId ?? null };
+    }
   }
   const metricIds = new Set(metrics.map((metric) => metric.metricId));
   if (!protocol.buckets.every((bucket) => metricIds.has(bucket.metricId))) {

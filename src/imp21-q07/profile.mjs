@@ -11,6 +11,7 @@
 // no se enmascara.
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
+import { verifyFrozenQ07Protocol, evaluateBucketPredicate } from "./protocol.mjs";
 import { runQ07HourArm, assertHourArmsParity } from "./intraday-execution.mjs";
 import { evaluateIntradayAuditGate, consumeIntradayAuditBinding } from "./gates.mjs";
 
@@ -37,6 +38,15 @@ export function buildEntryHourProfile({ frozen = null, snapshotRegistry = null, 
   if (!frozenProtocol || frozenProtocol.artifactKind !== "IMP-21_Q07_PROTOCOL"
     || frozenProtocol.status !== "FROZEN_PRE_EXPERIMENT") {
     return { ok: false, code: "PROTOCOL_NOT_FROZEN", profile: null };
+  }
+
+  // Anti-mutación (§14.9): el perfil consume el protocolo congelado SÓLO si su
+  // contentHash coincide con su contenido. Un contentHash falsificado o un
+  // protocolo alterado post-freeze no alimenta la evaluación; así el
+  // protocolContentHash emitido corresponde al contenido realmente usado.
+  const verification = verifyFrozenQ07Protocol(frozenProtocol);
+  if (!verification.ok) {
+    return { ok: false, code: verification.code ?? "PROTOCOL_NOT_VERIFIED", profile: null };
   }
 
   // REQUIRES_AUDIT DEP-17 [data audit intradía]: sin audit aceptado de las
@@ -88,8 +98,18 @@ export function buildEntryHourProfile({ frozen = null, snapshotRegistry = null, 
     const hourlyBuckets = [];
     for (const bucket of frozenProtocol.buckets) {
       const metric = frozenProtocol.metrics.find((item) => item.metricId === bucket.metricId);
-      const value = typeof bucket.predicate === "function" ? bucket.predicate({ arm, H: arm.H, V, fills: arm.fills, decisionSequence: arm.decisionSequence }) : null;
-      const passes = isFiniteNumber(value) ? true : value === true;
+      const evaluation = evaluateBucketPredicate({
+        predicate: bucket.predicate,
+        context: {
+          deniedFillsCount: arm.deniedFills.length,
+          coverageFraction: arm.coverageFraction,
+          filledVolumeMw: arm.filledVolumeMw,
+          observationCount: arm.decisionSequence.length,
+          H: arm.H,
+          V,
+        },
+      });
+      const passes = evaluation.ok ? evaluation.passes : false;
       const bucketObservations = passes ? observationCount : 0;
       const sufficiency = bucketSufficiencyOf({ observationCount: bucketObservations, minObservations: frozenProtocol.minObservations });
       hourlyBuckets.push({
@@ -97,7 +117,7 @@ export function buildEntryHourProfile({ frozen = null, snapshotRegistry = null, 
         metricId: bucket.metricId,
         metricKind: metric?.kind ?? null,
         passesMetric: passes,
-        observedValue: value,
+        observedValue: evaluation.observedValue ?? null,
         sufficiency,
       });
     }

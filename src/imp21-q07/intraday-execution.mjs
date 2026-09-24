@@ -13,6 +13,7 @@
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { reconcileControlQuantity } from "../sizing-controller/sizing-controller.mjs";
+import { verifyFrozenQ07Protocol } from "./protocol.mjs";
 
 export const FILL_DENIED_NO_CAUSAL_SNAPSHOT = "FILL_DENIED_NO_CAUSAL_SNAPSHOT";
 
@@ -98,6 +99,13 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
   if (!frozen || frozen.artifactKind !== "IMP-21_Q07_PROTOCOL"
     || frozen.status !== "FROZEN_PRE_EXPERIMENT") {
     return { ok: false, code: "PROTOCOL_NOT_FROZEN" };
+  }
+  // Anti-mutación (§14.9): un brazo sólo corre sobre el protocolo congelado
+  // cuyo hash coincide con su contenido; un protocolo alterado post-freeze no
+  // alimenta evaluación.
+  const verification = verifyFrozenQ07Protocol(frozen);
+  if (!verification.ok) {
+    return { ok: false, code: verification.code ?? "PROTOCOL_NOT_VERIFIED" };
   }
   const registry = snapshotRegistry?.registry ? snapshotRegistry.registry : snapshotRegistry;
   if (!registry || typeof registry !== "object" || !Array.isArray(registry.snapshots)) {
@@ -206,8 +214,12 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
 }
 
 // Paridad operacional entre brazos de hora: misma secuencia de decisión
-// (fechas, acciones y cantidades) y misma obligación + controller; difieren
-// sólo en timing de ejecución (§25.1).
+// (fechas, acciones y cantidades solicitadas) y misma obligación + controller;
+// difieren sólo en timing de ejecución (§25.1). La paridad NO exige resultados
+// de fill idénticos: dos horas con distinta cobertura causal (snapshot ausente
+// en una ventana) difieren legítimamente en fills y cobertura, y el perfil debe
+// poder reportarlo. Exigir volúmenes iguales abortaría el caso que el propio
+// diseño describe con FILL_DENIED_NO_CAUSAL_SNAPSHOT.
 export function assertHourArmsParity(arms = []) {
   if (!Array.isArray(arms) || arms.length < 2) {
     return { ok: false, code: "INVALID_PARITY_INPUT" };
@@ -221,10 +233,6 @@ export function assertHourArmsParity(arms = []) {
     }
     if (JSON.stringify(arm.decisionSequence) !== JSON.stringify(first.decisionSequence)) {
       return { ok: false, code: "DECISION_SEQUENCE_NOT_SHARED", hourId: arm.hourId };
-    }
-    if (JSON.stringify(arm.fills.map((fill) => ({ date: fill.date, quantity: fill.filledQuantityMw })))
-      !== JSON.stringify(first.fills.map((fill) => ({ date: fill.date, quantity: fill.filledQuantityMw })))) {
-      return { ok: false, code: "FILL_VOLUMES_NOT_SHARED", hourId: arm.hourId };
     }
   }
   return { ok: true, code: "HOUR_ARM_PARITY_HOLD" };

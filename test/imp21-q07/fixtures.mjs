@@ -4,14 +4,17 @@
 // IMP-13; aquí los valores esperados se derivan de las tablas del fixture).
 
 import { contentHashOf } from "../../src/execution-contract/execution-contract.mjs";
-import { freezeQ07Protocol } from "../../src/imp21-q07/protocol.mjs";
+import { freezeQ07Protocol, CANONICAL_SPEC_SHA256 } from "../../src/imp21-q07/protocol.mjs";
 
 export const SYNTHETIC_DECLARATION = {
   fixtureNature: "SYNTHETIC",
   evidenceClaim: "NINGUNO: prueban estructura del protocolo Q07, no edge ni datos de campaña real",
 };
 
-export const SPEC_SHA256 = "c0b30937cbf668cf6335849132142077ef1ca39cd11774da83116596ec7b3a09";
+// Pin real de la SPEC vigente (sha256 de los bytes del doc canónico v1.1.1 en
+// este repo). No es un valor inventado: debe coincidir con CANONICAL_SPEC_SHA256
+// o validateQ07Protocol rechaza el protocolo (§25.2.1 SPEC ID/version/hash).
+export const SPEC_SHA256 = CANONICAL_SPEC_SHA256;
 
 // Obligación sintética: 60 MW (Gas Quarterly análogo §4.1, confirmado; NO es
 // campaña real), 5 decisiones calendario, 12 MW/day, lote 12.
@@ -109,8 +112,8 @@ export function freezeSyntheticProtocol(overrides = {}) {
       { metricId: "COVERAGE_COMPLETE", kind: "BOOLEAN", description: "cobertura del volumen solicitado completa" },
     ],
     buckets: [
-      { bucketId: "B_NO_DENIED", metricId: "CONTAINS_DENIALS", predicate: ({ arm }) => arm.deniedFills.length === 0 },
-      { bucketId: "B_COVERAGE_COMPLETE", metricId: "COVERAGE_COMPLETE", predicate: ({ arm }) => arm.coverageFraction === 1 },
+      { bucketId: "B_NO_DENIED", metricId: "CONTAINS_DENIALS", predicate: { operator: "EQUALS", field: "deniedFillsCount", value: 0 } },
+      { bucketId: "B_COVERAGE_COMPLETE", metricId: "COVERAGE_COMPLETE", predicate: { operator: "EQUALS", field: "coverageFraction", value: 1 } },
     ],
     minObservations: 5,
     sampleBinding: {
@@ -146,5 +149,20 @@ export function mutateFrozen(frozen, mutator) {
   const mutado = { ...frozen };
   mutator(mutado);
   return mutado;
+}
+
+// Construye un protocolo ALTERNATIVO válido: muta el draft y lo re-congela,
+// de modo que su contentHash vuelve a corresponder al contenido. Se usa para
+// escenarios estructurales (otros candidatos/buckets), nunca para simular
+// mutación post-freeze (eso es mutateFrozen).
+export function mutateAndRefreeze(frozen, mutator) {
+  const draft = { ...frozen };
+  mutator(draft);
+  delete draft.contentHash;
+  const outcome = freezeQ07Protocol(draft);
+  if (!outcome.ok) {
+    throw new Error(`FIXTURE protocolo alternativo inválido: ${outcome.code}`);
+  }
+  return outcome.frozen;
 }
 

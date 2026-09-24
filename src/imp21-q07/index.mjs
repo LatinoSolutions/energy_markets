@@ -5,7 +5,12 @@
 export {
   Q07_PROTOCOL_ID,
   Q07_PROTOCOL_VERSION,
+  CANONICAL_SPEC_REF,
+  CANONICAL_SPEC_SHA256,
   INTRADAY_CANDIDATE_KINDS,
+  BUCKET_PREDICATE_OPERATORS,
+  BUCKET_OBSERVABLE_FIELDS,
+  BUCKET_PREDICATE_FIELDS,
   ALLOWED_TIMING_CHANGE,
   PROTOCOL_FIELDS,
   OBLIGATION_BINDING_FIELDS,
@@ -14,6 +19,7 @@ export {
   validateQ07Protocol,
   freezeQ07Protocol,
   verifyFrozenQ07Protocol,
+  evaluateBucketPredicate,
   assertProtocolIdentityFor,
   assertNoDocumentedHourPresupposition,
 } from "./protocol.mjs";

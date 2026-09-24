@@ -13,6 +13,7 @@ import {
   createSyntheticIntradayAudit,
   FIXTURE_SNAPSHOTS,
   FIXTURE_BENCHMARK_B,
+  mutateAndRefreeze,
 } from "./fixtures.mjs";
 import { createIntradaySnapshotRegistry } from "../../src/imp21-q07/index.mjs";
 
@@ -115,7 +116,7 @@ test("el profile no emite hora óptima ni selección automática", () => {
   assert.equal(assertProfileProducesNoSelection(outcome.profile).code, "NO_MANDATED_HOUR_SELECTION");
 });
 
-test("muestra declarada ex-ante queda bindings en el profile; protocolo mutado post-freeze es rechazado", () => {
+test("H2: protocolo mutado post-freeze (contentHash falsificado) NO alimenta el profile", () => {
   const frozen = createSyntheticFrozenProtocol();
   const outcome = buildEntryHourProfile({
     frozen: { ...frozen, hourRows: undefined, contentHash: "falsificado" },
@@ -123,6 +124,33 @@ test("muestra declarada ex-ante queda bindings en el profile; protocolo mutado p
     intradayAudit: createSyntheticIntradayAudit(),
     benchmarkB: FIXTURE_BENCHMARK_B,
   });
-  assert.equal(outcome.ok, true); // el profile re-verifica estructura frozen, no confianza ciega en campos extra
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.code, "PROTOCOL_HASH_MISMATCH");
+  assert.equal(outcome.profile, null);
   assert.equal(verifyFrozenQ07Protocol({ ...frozen, contentHash: "falsificado" }).code, "PROTOCOL_HASH_MISMATCH");
+});
+
+test("H4: cobertura causal distinta entre horas no aborta el profile", () => {
+  const frozen = mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
+    protocol.candidates = [
+      { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
+      { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
+    ];
+    protocol.referenceHourId = null;
+  });
+  const outcome = buildEntryHourProfile({
+    frozen,
+    snapshotRegistry: registry,
+    intradayAudit: createSyntheticIntradayAudit(),
+    benchmarkB: FIXTURE_BENCHMARK_B,
+  });
+  assert.equal(outcome.ok, true, `profile: ${outcome.code}`);
+  const byHour = Object.fromEntries(outcome.profile.hourRows.map((row) => [row.hourId, row]));
+  assert.equal(byHour.W_EARLY.coverageFraction, 0);
+  assert.equal(byHour.W_LATE.coverageFraction, 1);
+  // El bucket B_NO_DENIED distingue el brazo con denegaciones del que no.
+  const earlyNoDenied = byHour.W_EARLY.buckets.find((b) => b.bucketId === "B_NO_DENIED");
+  const lateNoDenied = byHour.W_LATE.buckets.find((b) => b.bucketId === "B_NO_DENIED");
+  assert.equal(earlyNoDenied.passesMetric, false);
+  assert.equal(lateNoDenied.passesMetric, true);
 });
