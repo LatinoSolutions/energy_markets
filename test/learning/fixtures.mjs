@@ -3,9 +3,21 @@
 // MECÁNICA de ingeniería, no evidencia de edge ni cierre de DEP-19/20/21. El
 // scope SYNTHETIC_FIXTURE del corpusAudit lo hace explícito en el ciclo.
 
-import { buildExperienceRecord } from "../../src/experience/index.mjs";
+import { buildExperienceRecord, closeExperienceRecord } from "../../src/experience/index.mjs";
 import { GLOBAL_REWARD_ID } from "../../src/learning/reward.mjs";
 import { buildLearningProtocol } from "../../src/learning/protocol.mjs";
+import {
+  freezeOosShadowProcessArtifact,
+  materializeRevalidationEvidence,
+} from "../../src/learning/offline-cycle.mjs";
+
+export function frozenProcessFor({ processRef = "frozen-shadow-process-v1", mode = "SHADOW", frozenAtUtc = "2026-01-01T00:00:00Z" } = {}) {
+  const frozen = freezeOosShadowProcessArtifact({ processRef, mode, frozenAtUtc, declaredBy: "test-fixture (sintético, IMP-19)" });
+  if (!frozen.ok) {
+    throw new Error(`fixture process inválido: ${JSON.stringify(frozen.errors)}`);
+  }
+  return frozen.process;
+}
 
 export function frozenRewardConfig(overrides = {}) {
   return {
@@ -90,19 +102,46 @@ export function syntheticExperienceRecord({ policyVersion = "policy-v1", campaig
   return built.record;
 }
 
+export function closedWindowOutcome() {
+  return { reward: 1, benchmarkVersion: "FIXTURE-BENCHMARK-V1" };
+}
+
+// §11.5 paso 3: el corpus del ciclo debe estar en cierre de ventana/campaña
+// (records CLOSED, §12.2). El cierre produce un record NUEVO (append-only).
 export function supportCorpus() {
-  return [
+  const openRecords = [
     syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY" }),
     syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT" }),
     syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q2", action: "BUY" }),
     syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q2", action: "WAIT" }),
   ];
+  return openRecords.map((record) => {
+    const closed = closeExperienceRecord({ record, outcome: closedWindowOutcome() });
+    if (!closed.ok) {
+      throw new Error(`fixture closure inválida: ${JSON.stringify(closed.errors)}`);
+    }
+    return closed.record;
+  });
 }
 
 export function markovStateDeclaration() {
   return {
     stateEncoding: "synthetic-[ProcurementState]",
     memory: { kind: "MARKOV", evidenceRef: "test/learning/fixtures.mjs#markov" },
+  };
+}
+
+export function pathRevalidation({ processRef = "frozen-shadow-process-v1", mode = "SHADOW", frozenAtUtc = "2026-01-01T00:00:00Z", evidenceValid = true, evaluatedAtUtc = "2026-02-01T00:00:00Z", evidence = undefined, overrides = {} } = {}) {
+  const frozenProcess = freezeOosShadowProcessArtifact({ processRef, mode, frozenAtUtc, declaredBy: "test-fixture (sintético, IMP-19)" }).process;
+  return {
+    processRef,
+    mode,
+    evaluatedAtUtc,
+    evidenceValid,
+    evidenceRef: "shadow-shakeout-1",
+    frozenProcess,
+    evidence,
+    ...overrides,
   };
 }
 

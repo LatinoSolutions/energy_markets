@@ -17,14 +17,18 @@ import {
   revalidateCandidate,
   runOfflineLearningCycle,
   materializeLearningEvidence,
+  materializeRevalidationEvidence,
   DEP_STATUS,
 } from "../../src/learning/index.mjs";
 import {
   SYNTHETIC_MDP,
   supportCorpus,
+  syntheticExperienceRecord,
   markovStateDeclaration,
   frozenRewardConfig,
   frozenProtocol,
+  pathRevalidation,
+  frozenProcessFor,
 } from "./fixtures.mjs";
 
 const GAMMA_JUSTIFICATION = "horizonte finito sin descuento económico justificado (§11.2)";
@@ -107,13 +111,14 @@ test("IMP-19 §11.5/§15.4 · ciclo offline produce candidate revalidada y NO mu
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
     learnerComparison: bestComparison(),
-    revalidation: { processRef: "frozen-shadow-process-v1", mode: "SHADOW", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: true, evidenceRef: "shadow-shakeout-1" },
+    revalidation: pathRevalidation(),
     producedAtUtc: "2026-02-01T00:00:00Z",
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
     provenance: { kind: "test-fixture", authority: "test/learning/fixtures.mjs" },
   });
   assert.equal(cycle.ok, true);
   assert.equal(cycle.outcome, "CANDIDATE_REVALIDATED_FIXTURE_ONLY");
+  assert.equal(cycle.revalidation.binding.verified, true);
   assert.equal(cycle.fixtureOnly, true);
   assert.equal(cycle.promotionRecommended, true);
   assert.equal(cycle.candidate.candidateVersion, "policy-v2");
@@ -136,7 +141,7 @@ test("IMP-19 §11.5 · sin evidencia de revalidación válida la candidate queda
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
     learnerComparison: bestComparison(),
-    revalidation: { processRef: "frozen-shadow-process-v1", mode: "SHADOW", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: false, evidenceRef: "shadow-shakeout-1" },
+    revalidation: pathRevalidation({ evidenceValid: false }),
     producedAtUtc: "2026-02-01T00:00:00Z",
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
     provenance: { kind: "test-fixture" },
@@ -170,7 +175,7 @@ test("IMP-19 §25.2.1 · construir el soporte no cierra DEP-19/20/21", () => {
     protocol: frozenProtocol(),
     candidateVersion: "policy-v2",
     learnerComparison: comparison,
-    revalidation: { processRef: "rp", mode: "SHADOW", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: true, evidenceRef: "ev-1" },
+    revalidation: pathRevalidation(),
     producedAtUtc: "2026-02-01T00:00:00Z",
     evaluatedAtUtc: "2026-02-01T00:00:00Z",
     provenance: { kind: "test-fixture" },
@@ -191,4 +196,82 @@ test("IMP-19 §25.2.1 · construir el soporte no cierra DEP-19/20/21", () => {
   assert.equal(evidence.bundle.fixtureOnly, true);
   assert.deepEqual(evidence.bundle.depClosure, { "DEP-19": DEP_STATUS.OPEN, "DEP-20": DEP_STATUS.OPEN, "DEP-21": DEP_STATUS.OPEN });
   assert.match(evidence.bundle.note, /PRODUCES_EVIDENCE/);
+});
+test("IMP19-H1 §11.5 paso 3 · ventana/campaña abierta no produce candidate", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const cycle = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus: [
+      syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY" }),
+      syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT" }),
+    ],
+    corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
+    rewardConfig: frozenRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison: bestComparison(),
+    revalidation: pathRevalidation(),
+    producedAtUtc: "2026-02-01T00:00:00Z",
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: { kind: "test-fixture" },
+  });
+  assert.equal(cycle.ok, false);
+  assert.equal(cycle.code, "LEARNING_GATES_NOT_SATISFIED");
+  assert.ok(cycle.reasons.some((reason) => reason.code === "EVALUATION_WINDOW_NOT_CLOSED"));
+  assert.equal(cycle.steps[2].step, 3);
+  assert.equal(cycle.steps[2].executed, false);
+  assert.equal(cycle.steps[2].openRecords, 2);
+  assert.equal(cycle.activeVersionUnchanged, true);
+  assert.equal(holder.current(), "policy-v1");
+  assert.equal(evaluateLearningGates({
+    corpus: [syntheticExperienceRecord()],
+    corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
+    rewardConfig: frozenRewardConfig(),
+    protocol: frozenProtocol(),
+    supportEvaluation: sufficientSupport(),
+  }).reasons.some((reason) => reason.code === "EVALUATION_WINDOW_NOT_CLOSED"), true);
+});
+
+test("IMP19-H2 §25.1 · evidencia testiguada a la mano sin proceso congelado no revalida", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const outcome = revalidateCandidate({
+    candidate,
+    revalidation: { processRef: "frozen-shadow-process-v1", mode: "SHADOW", evaluatedAtUtc: "2026-02-01T00:00:00Z", evidenceValid: true, evidenceRef: "shadow-shakeout-1" },
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.revalidated, false);
+  assert.equal(outcome.verdict, "HOLD");
+  assert.equal(outcome.binding.verified, false);
+  assert.ok(outcome.binding.reasons.some((reason) => reason.code === "EVIDENCE_PROCESS_MALFORMED"));
+});
+
+test("IMP19-H2 §15.2 · proceso congelado alterado hace fallar el binding de la evidencia", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const tampered = { ...frozenProcessFor(), contentHash: "0".repeat(64) };
+  const outcome = revalidateCandidate({ candidate, revalidation: pathRevalidation({ overrides: { frozenProcess: tampered } }) });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.revalidated, false);
+  assert.equal(outcome.verdict, "HOLD");
+  assert.ok(outcome.binding.reasons.some((reason) => reason.code === "EVIDENCE_PROCESS_HASH_MISMATCH"));
+});
+
+test("IMP19-H2 §25.1 · evidencia bindía a la candidate revalidada verificándose por hash", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const candidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v2", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const process = frozenProcessFor();
+  const evidence = materializeRevalidationEvidence({ process, candidate, evidenceRef: "shadow-shakeout-1" }).evidence;
+  const verified = revalidateCandidate({ candidate, revalidation: pathRevalidation({ overrides: { evidence } }) });
+  assert.equal(verified.ok, true);
+  assert.equal(verified.revalidated, true);
+  assert.equal(verified.binding.verified, true);
+
+  const otherCandidate = produceCandidatePolicyVersion({ activeVersionHolder: holder, candidateVersion: "policy-v3", learnerComparison: bestComparison(), provenance: { kind: "test" } }).candidate;
+  const mismatch = revalidateCandidate({ candidate: otherCandidate, revalidation: pathRevalidation({ overrides: { evidence } }) });
+  assert.equal(mismatch.ok, true);
+  assert.equal(mismatch.revalidated, false);
+  assert.equal(mismatch.verdict, "HOLD");
+  assert.ok(mismatch.binding.reasons.some((reason) => reason.code === "EVIDENCE_NOT_BOUND_TO_CANDIDATE"));
 });

@@ -78,6 +78,19 @@ export function evaluateLearningGates({ corpus = null, corpusAudit = null, rewar
   const corpusCheck = assertExperienceCorpus({ corpus });
   if (!corpusCheck.ok) {
     reasons.push({ code: corpusCheck.code, message: corpusCheck.message ?? "El corpus de Experience no es válido.", failures: corpusCheck.failures ?? null });
+  } else {
+    // §11.5 paso 3: la ventana/campaña de evaluación pertinente se CIERRA
+    // antes del Review/Learning offline. El cierre deriva del corpus mismo
+    // (records CLOSED, §12.2), no de un testigo declarado a mano.
+    const openRecordIndices = [];
+    for (const [index, record] of corpus.entries()) {
+      if (record.recordState !== "CLOSED") {
+        openRecordIndices.push(index);
+      }
+    }
+    if (openRecordIndices.length > 0) {
+      reasons.push({ code: "EVALUATION_WINDOW_NOT_CLOSED", message: "§11.5 paso 3: el Review/Learning offline sólo opera sobre la ventana/campaña cerrada; hay Experience records OPEN en el corpus (§12.2: el outcome sólo existe al cierre).", openRecordIndices });
+    }
   }
   if (corpusAudit.scope !== "SYNTHETIC_FIXTURE" && corpusAudit.scope !== "REAL_DATA") {
     reasons.push({ code: "INVALID_CORPUS_SCOPE", message: "corpusAudit.scope sólo toma SYNTHETIC_FIXTURE o REAL_DATA." });
@@ -173,7 +186,19 @@ export function revalidateCandidate({ candidate = null, revalidation = null } = 
   if (errors.length > 0) {
     return { ok: false, code: "INVALID_REVALIDATION", errors };
   }
-  const revalidated = revalidation.evidenceValid === true;
+  // A testigo declarado true se exige binding verificable al proceso/artefacto
+  // congelado (§25.1 IMP-19: la calidad no se atestúa a mano; §15.2). Sin él,
+  // la candidate queda HOLD, nunca revalidada.
+  let revalidated = revalidation.evidenceValid === true;
+  let binding = null;
+  if (revalidated) {
+    binding = verifyEvidenceBinding({ candidate, revalidation });
+    if (!binding.verified) {
+      revalidated = false;
+    }
+  } else {
+    binding = { verified: false, reasons: [{ code: "EVIDENCE_NOT_DECLARED_VALID", message: "El testigo declara la evidencia no válida; la revalidación no se produce (§25.1 IMP-19)." }] };
+  }
   return {
     ok: true,
     revalidated,
@@ -182,7 +207,151 @@ export function revalidateCandidate({ candidate = null, revalidation = null } = 
     processRef: revalidation.processRef,
     evidenceRef: revalidation.evidenceRef,
     evaluatedAtUtc: revalidation.evaluatedAtUtc,
+    binding,
   };
+}
+
+function isContentAddressedArtifact(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (typeof value.contentHash !== "string" || value.contentHash.length !== 64) return false;
+  const { contentHash, ...core } = value;
+  return contentHashOf(core) === contentHash;
+}
+
+// Artefacto del proceso OOS/Shadow congelado ex-ante (§15.2) que la
+// revalidación cita. Su integridad y identidad son content-addressed: el
+// binding no se atestúa a mano, se re-deriva (patrón de
+// gateResearchEvaluationAgainstFrozen, §13.6 regla 5).
+export function freezeOosShadowProcessArtifact({ processRef = null, mode = null, frozenAtUtc = null, declaredBy = null } = {}) {
+  const errors = [];
+  if (!isNonEmptyString(processRef)) {
+    errors.push({ field: "processRef", code: "MISSING_PROCESS_REF" });
+  }
+  if (mode !== "OOS" && mode !== "SHADOW") {
+    errors.push({ field: "mode", code: "INVALID_REVALIDATION_MODE" });
+  }
+  if (!isNonEmptyString(frozenAtUtc)) {
+    errors.push({ field: "frozenAtUtc", code: "MISSING_FROZEN_AT_UTC" });
+  }
+  if (!isNonEmptyString(declaredBy)) {
+    errors.push({ field: "declaredBy", code: "MISSING_DECLARED_BY" });
+  }
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+  const core = {
+    artifactKind: "IMP-19_FROZEN_OOS_SHADOW_PROCESS",
+    schemaVersion: "1.0",
+    processRef,
+    mode,
+    state: "FROZEN",
+    frozenAtUtc,
+    declaredBy,
+  };
+  core.contentHash = contentHashOf(core);
+  return { ok: true, process: Object.freeze(core) };
+}
+
+// Evidencia producida al aplicar el proceso congelado a una candidate
+// concreta: bindía por hash al proceso y a la candidate (§25.1 IMP-19: la
+// validez no se declara, se bindia al artefacto congelado).
+export function materializeRevalidationEvidence({ process = null, candidate = null, evidenceRef = null, producedAtUtc = null } = {}) {
+  const errors = [];
+  if (!isContentAddressedArtifact(process) || process.artifactKind !== "IMP-19_FROZEN_OOS_SHADOW_PROCESS") {
+    errors.push({ field: "process", code: "MISSING_FROZEN_PROCESS_ARTIFACT" });
+  }
+  if (!candidate || candidate.artifactKind !== CANDIDATE_POLICY_KIND) {
+    errors.push({ field: "candidate", code: "MISSING_CANDIDATE" });
+  }
+  if (!isNonEmptyString(evidenceRef)) {
+    errors.push({ field: "evidenceRef", code: "MISSING_EVIDENCE_REF" });
+  }
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+  const core = {
+    artifactKind: "IMP-19_REVALIDATION_EVIDENCE",
+    schemaVersion: "1.0",
+    evidenceRef,
+    processRef: process.processRef,
+    processContentHash: process.contentHash,
+    candidateContentHash: candidate.contentHash,
+    mode: process.mode,
+    producedAtUtc: producedAtUtc ?? null,
+  };
+  core.contentHash = contentHashOf(core);
+  return { ok: true, evidence: Object.freeze(core) };
+}
+
+// Verifica el binding declarativo→proceso→candidate; devuelve las razones de
+// fallo explícitas. La validez de la evidencia nunca se atestúa a mano:
+// sin binding verificable no existe "revalidated" (§25.1 IMP-19/§15.2).
+function verifyEvidenceBinding({ candidate, revalidation }) {
+  const reasons = [];
+  const process = revalidation.frozenProcess;
+  if (!process || typeof process !== "object" || process.artifactKind !== "IMP-19_FROZEN_OOS_SHADOW_PROCESS") {
+    reasons.push({ code: "EVIDENCE_PROCESS_MALFORMED", message: "El proceso congelado citado no es el artefacto IMP-19_FROZEN_OOS_SHADOW_PROCESS (§15.2)." });
+    return { verified: false, reasons };
+  }
+  if (typeof process.contentHash !== "string" || process.contentHash.length !== 64) {
+    reasons.push({ code: "EVIDENCE_PROCESS_MALFORMED", message: "El proceso congelado citado no lleva identidad content-addressed (§15.2)." });
+    return { verified: false, reasons };
+  }
+  const { contentHash, ...coreProcess } = process;
+  if (contentHashOf(coreProcess) !== process.contentHash) {
+    reasons.push({ code: "EVIDENCE_PROCESS_HASH_MISMATCH", message: "El proceso referenciado fue alterado: no gobierna la revalidación (§15.2)." });
+    return { verified: false, reasons };
+  }
+  if (process.state !== "FROZEN" || !isNonEmptyString(process.frozenAtUtc)) {
+    reasons.push({ code: "EVIDENCE_PROCESS_NOT_FROZEN", message: "El proceso de revalidación debe estar FROZEN ex-ante (§15.2)." });
+  }
+  if (isNonEmptyString(process.frozenAtUtc) && isNonEmptyString(revalidation.evaluatedAtUtc) && revalidation.evaluatedAtUtc < process.frozenAtUtc) {
+    reasons.push({ code: "EVIDENCE_PROCESS_FROZEN_AFTER_EVALUATION", message: "El proceso se congeló después de la evaluación que cita (§15.2)." });
+  }
+  if (process.processRef !== revalidation.processRef) {
+    reasons.push({ code: "EVIDENCE_PROCESS_NOT_REFERENCED", message: "processRef no coincide con el proceso congelado aportado (§15.2)." });
+  }
+  if (process.mode !== revalidation.mode) {
+    reasons.push({ code: "EVIDENCE_MODE_MISMATCH", message: "El modo OOS/SHADOW no coincide con el del proceso congelado (§15.1)." });
+  }
+  let evidence = revalidation.evidence ?? null;
+  if (evidence === null) {
+    // Proceso verificado: el artefacto de evidencia se materializa bindido por
+    // hash al proceso y a esta candidate; el binding lo deriva el hash, no un
+    // testigo (§25.1 IMP-19/§15.2).
+    const materialized = materializeRevalidationEvidence({ process, candidate, evidenceRef: revalidation.evidenceRef, producedAtUtc: revalidation.evaluatedAtUtc });
+    if (!materialized.ok) {
+      reasons.push({ code: "EVIDENCE_NOT_MATERIALIZABLE", message: "Sin proceso congelado verificado no se materializa evidencia bindida (§25.1 IMP-19)." });
+      return { verified: false, reasons };
+    }
+    evidence = materialized.evidence;
+  } else {
+    if (!evidence || typeof evidence !== "object" || evidence.artifactKind !== "IMP-19_REVALIDATION_EVIDENCE") {
+      reasons.push({ code: "EVIDENCE_ARTIFACT_MALFORMED", message: "La evidencia referenciada no es el artefacto IMP-19_REVALIDATION_EVIDENCE (§25.1 IMP-19)." });
+      return { verified: false, reasons };
+    }
+    if (!isContentAddressedArtifact(evidence)) {
+      reasons.push({ code: "EVIDENCE_HASH_MISMATCH", message: "La evidencia no es re-derivable: fue alterada o nunca se produjo del proceso referenciado (§25.1 IMP-19)." });
+      return { verified: false, reasons };
+    }
+    const { contentHash: evidenceHash, ...coreEvidence } = evidence;
+    if (contentHashOf(coreEvidence) !== evidenceHash) {
+      reasons.push({ code: "EVIDENCE_HASH_MISMATCH", message: "La evidencia fue alterada después de producirse (§25.1 IMP-19)." });
+    }
+    if (evidence.processContentHash !== process.contentHash) {
+      reasons.push({ code: "EVIDENCE_NOT_BOUND_TO_PROCESS", message: "La evidencia no bindía al proceso congelado referenciado: su validez no es verificable (§25.1 IMP-19)." });
+    }
+    if (evidence.processRef !== revalidation.processRef) {
+      reasons.push({ code: "EVIDENCE_PROCESS_REF_MISMATCH", message: "La evidencia cita un processRef distinto de la revalidación (§25.1 IMP-19)." });
+    }
+    if (evidence.candidateContentHash !== candidate.contentHash) {
+      reasons.push({ code: "EVIDENCE_NOT_BOUND_TO_CANDIDATE", message: "La evidencia no bindía a esta Candidate Policy Version (§25.1 IMP-19)." });
+    }
+    if (evidence.evidenceRef !== revalidation.evidenceRef) {
+      reasons.push({ code: "EVIDENCE_REF_MISMATCH", message: "evidenceRef no coincide con la evidencia aportada (§25.1 IMP-19)." });
+    }
+  }
+  return { verified: reasons.length === 0, reasons };
 }
 
 // Ejecuta el ciclo offline completo delegando la promoción real a governance
@@ -197,8 +366,13 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
 
   steps.push({ ...CYCLE_STEPS[0], executed: true, activeVersionBefore });
   steps.push({ ...CYCLE_STEPS[1], executed: true, corpusLength: Array.isArray(corpus) ? corpus.length : null });
-  steps.push({ ...CYCLE_STEPS[2], executed: true });
-  steps.push({ ...CYCLE_STEPS[3], executed: true });
+  // §11.5 paso 3: el cierre de la ventana/campaña se reporta tal como está
+  // derivado del corpus, no declarado por decreto.
+  const corpusLength = Array.isArray(corpus) ? corpus.length : null;
+  const closedRecords = corpusLength === null ? null : corpus.filter((record) => record?.recordState === "CLOSED").length;
+  const windowClosed = corpusLength !== null && closedRecords === corpusLength;
+  steps.push({ ...CYCLE_STEPS[2], executed: windowClosed, closedRecords, openRecords: corpusLength === null || closedRecords === null ? null : corpusLength - closedRecords });
+  steps.push({ ...CYCLE_STEPS[3], executed: windowClosed, note: windowClosed ? null : "Ventana/campaña no cerrada (§11.5 paso 3): el Review/Learning no produce candidate." });
 
   const gates = evaluateLearningGates({ corpus, corpusAudit, rewardConfig, protocol, supportEvaluation, evaluatedAtUtc });
   if (!gates.ok) {

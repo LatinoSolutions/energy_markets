@@ -54,6 +54,8 @@ export {
   produceCandidatePolicyVersion,
   revalidateCandidate,
   runOfflineLearningCycle,
+  freezeOosShadowProcessArtifact,
+  materializeRevalidationEvidence,
 } from "./offline-cycle.mjs";
 
 export {
