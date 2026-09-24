@@ -100,7 +100,7 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [] } = {})
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
     pendingComparisons: [
-      { label: "B / H / V / ΔV", status: "UNAVAILABLE", reason: "sin run P5/P6 persistido sobre un episodio real: IMP-05/07/12/16 aceptados como código, OOS en HOLD (IMP-09) y sin price series atestada (UI-04 TODO)" },
+      { label: "B / H / V / ΔV", status: "UNAVAILABLE", reason: "sin run P5/P6 persistido sobre un episodio real: IMP-05/07/12/16 aceptados en PLAN_STATUS pero sin IMP_RECEIPT en disco, OOS en HOLD (IMP-09) y sin price series atestada (UI-04 TODO)" },
       { label: "Efectos emparejados por campaña", status: "UNAVAILABLE", reason: "sin pares A0/A1 registrados en el backend" },
       { label: "Distribuciones", status: "UNAVAILABLE", reason: "sin distribución de resultados canónica; no se fabrica (§26.5)" },
       { label: "Contexto de integridad/método", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14 ni reserva OOS sellada en disco (IMP-09: HOLD, 0 sellados)" },

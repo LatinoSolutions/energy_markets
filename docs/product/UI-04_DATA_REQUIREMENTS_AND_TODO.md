@@ -12,7 +12,7 @@ Commits: `64156e8` (fidelidad DES-01 integrada), `664acf8` (loader canónico + /
 2. Solo hay 3 campañas completas: 2026Q1, 2026Q2 y 2026Q3. Las 3 caen dentro de las últimas 8, que la
    SPEC (§13.8) reserva como OOS final. Usarlas para backtest quema el OOS.
 3. Con menos de 8 campañas elegibles la reserva OOS queda en HOLD (IMP-09), y el motor se niega a correr
-   A0/A1 sin reserva sellada (`src/p5-experiment/run.mjs:135-150`). Es correcto que se niegue.
+   A0/A1 sin reserva sellada (`src/p5-experiment/run.mjs:135-150` exige manifest congelado; `freeze.mjs:76-83` lo niega si la reserva no es RESERVED). Es correcto que se niegue.
 
 **Lo que sí quedó hecho en la rama:**
 - La UI es la del mockup DES-01 (corrección de fidelidad af4d01b integrada).
@@ -40,9 +40,9 @@ Commits: `64156e8` (fidelidad DES-01 integrada), `664acf8` (loader canónico + /
 
 ## 2. Data real verificada en el lago `/srv/hot-data/EEX` (93 GB, 59.961 parquet)
 
-- Trades NATGAS/THE: 2020-11-02 a 2026-07-28, 282.693 filas; G0BQ 63.915 filas (maturities 2021Q1-2029Q1).
+- Trades NATGAS/THE: 2020-11-02 a 2026-07-28, 282.693 filas; G0BQ 63.915 filas con maturity (65.307 en total; maturities 2021Q1-2029Q1).
 - Top-of-book NATGAS/THE: 2025-07-25 a 2026-07-28, 94,7 M filas, solo front quarter (202510..202610).
-- Problemas encontrados: 15 variantes de schema (columnas ausentes), 49.862 filas duplicadas entre pulls,
+- Problemas encontrados: 14 variantes de schema en trades (columnas ausentes), 49.862 filas duplicadas entre pulls,
   25.249 trades G0BQ sin precio (`VolumeOnly`), spreads mezclados en pulls de quarterlies, quotes de un solo
   lado, cambio de modo de captura el 2026-06-12 (trades truncados), último día parcial.
 - Integridad física: 0 archivos ilegibles, 0 archivos vacíos.
@@ -55,7 +55,7 @@ el benchmark no entra a la decisión, y los costes UNKNOWN nunca se tratan como 
 
 Huecos que harían un primer backtest optimista, por gravedad:
 1. **Fill más grande que la profundidad visible.** Se llena hasta 12 MW/día al best ask, pero el libro
-   muestra 1-2 MW (2025-11-20, Q1-26: 3.269 de 4.491 asks con 1 MW). Regla propuesta: fill limitado al
+   muestra 1 MW casi siempre (2025-11-20, Q1-26: 22.253 de 27.897 asks deduplicados con 1 MW, el 80 %). Regla propuesta: fill limitado al
    `AskSz` visible, el resto queda como residual abierto. Alexandria tampoco modela profundidad.
 2. **Quote viejo y latencia 0.** Se toma "el último ask ≤ decisión" sin edad máxima
    (`src/execution-contract/causal-fill.mjs:52`). Propuesta: primer ask ≥ decisión + latencia, con edad
