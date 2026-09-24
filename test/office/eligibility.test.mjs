@@ -130,3 +130,9 @@ test("eligibleImps excluye accepted y ordena canónicamente, sin inventar scope"
 function getImpExists(graph, id) {
   return Object.prototype.hasOwnProperty.call(graph.imps, id);
 }
+
+test("HT-IMP-26-007: protocolo no verificable en la instancia accepted es fail-closed (no se reabre la instancia)", () => {
+  const acceptedWithoutProtocol = [{ scope: "s", version: "v1" }];
+  assert.equal(isNewInstance({ scope: "s", version: "v1", protocol: "p" }, acceptedWithoutProtocol), false);
+  assert.equal(isNewInstance({ scope: "s", version: "v1", protocol: "" }, acceptedWithoutProtocol), false);
+});

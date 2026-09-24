@@ -74,6 +74,41 @@ test("expansores de ids respetan el shorthand de la SPEC y las columnas que empi
   assert.deepEqual(normalizeImpId("IMP-5"), "IMP-05");
 });
 
+test("HT-IMP-26-002: la negación 'sin exigir … IMP-26' en §25.2.2 no crea REQUIRES para IMP-25 (§20.2.3)", async () => {
+  const graph = realGraph();
+  assert.deepEqual(getImp(graph, "IMP-25").requires, []);
+  const { evaluateEligibility } = await import("../../src/office/eligibility.mjs");
+  const outcome = evaluateEligibility({ graph, impId: "IMP-25", projectOn: true, acceptedInstances: [{ imp: "IMP-01" }] });
+  assert.ok(!outcome.blockers.some((blocker) => blocker.code === "REQUIRES_MISSING"), JSON.stringify(outcome.blockers));
+});
+
+test("HT-IMP-26-003: DEP-13/14 (IMP-16) y DEP-25 (IMP-23/24/29) negados/diferidos no se promueven a REQUIRES*", () => {
+  const graph = realGraph();
+  assert.deepEqual(getImp(graph, "IMP-16").requiresEvidenceDeps, ["DEP-11"]);
+  const imp23 = getImp(graph, "IMP-23");
+  assert.deepEqual(imp23.requiresAuditDeps, ["DEP-01", "DEP-03"]);
+  assert.ok(!imp23.requiresAuditDeps.includes("DEP-25"));
+  assert.ok(!getImp(graph, "IMP-24").requiresAuditDeps.includes("DEP-25"));
+  assert.ok(!getImp(graph, "IMP-29").requiresAuditDeps.includes("DEP-25"));
+});
+
+test("HT-IMP-26-004: el rango 'DEP-01/03–07' no añade DEP-02 (IMP-09/IMP-14)", () => {
+  const graph = realGraph();
+  assert.deepEqual(getImp(graph, "IMP-09").requiresAuditDeps, ["DEP-01", "DEP-03", "DEP-04", "DEP-05", "DEP-06", "DEP-07"]);
+  assert.deepEqual(getImp(graph, "IMP-14").requiresAuditDeps, ["DEP-01", "DEP-03", "DEP-04", "DEP-05", "DEP-06", "DEP-07", "DEP-08", "DEP-09"]);
+});
+
+test("HT-IMP-26-005: 'IMP-16 y/o18' expande ambas alternativas (IMP-19)", () => {
+  const graph = realGraph();
+  assert.deepEqual(getImp(graph, "IMP-19").conditionalRequires, ["IMP-16", "IMP-18"]);
+  assert.deepEqual(expandImpIds("IMP-16 y/o18 aceptados según la procedencia"), ["IMP-16", "IMP-18"]);
+  assert.deepEqual(expandImpIds("IMP-11 y16"), ["IMP-11", "IMP-16"]);
+});
+
+test("HT-IMP-26-006: IMP-26 UNLOCKS no incluye IMP-25 ('no añade prerequisite retroactivo')", () => {
+  assert.deepEqual(getImp(realGraph(), "IMP-26").unlocks, []);
+});
+
 test("una identidad declarada distinta de la canónica no produce grafo (fail-closed)", () => {
   const outcome = buildCanonicalGraph({ specMarkdown: SPEC_MARKDOWN, specIdentity: { ...CANONICAL_SPEC_IDENTITY, sha256: "0".repeat(64) } });
   assert.equal(outcome.ok, false);

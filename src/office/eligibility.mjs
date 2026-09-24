@@ -53,9 +53,12 @@ export function isNewInstance(instance, acceptedInstancesOfImp) {
   const protocolDeclared = normalizeLabel(instance.objectProtocolVersion ?? instance.protocol) !== "";
   for (const accepted of acceptedInstancesOfImp ?? []) {
     if (!sameScopeAndVersion(instance, accepted)) continue;
-    // Mismo scope/versión que una accepted: sin protocolo declarado la
-    // identidad es incompleta → no verificable → no nueva (fail-closed).
-    if (!protocolDeclared || sameInstance(instance, accepted)) return false;
+    // Mismo scope/versión que una accepted: si falta el protocolo en cualquiera
+    // de las dos tuplas la identidad no es verificable → no nueva (fail-closed,
+    // §25.2.1 tupla completa); sólo un protocolo distinto declarado en AMBAS
+    // abre instancia genuinamente nueva.
+    const acceptedProtocol = normalizeLabel(accepted.objectProtocolVersion ?? accepted.protocol);
+    if (!protocolDeclared || acceptedProtocol === "" || sameInstance(instance, accepted)) return false;
   }
   return true;
 }

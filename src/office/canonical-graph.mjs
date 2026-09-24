@@ -18,13 +18,26 @@ export const CANONICAL_IMP_COUNT = 29;
 const IMP_HEADER_RE = /^\|\s*ID\s*\|\s*Exact objective\s*\|/m;
 const DEPENDENCY_HEADER_RE = /^\|\s*IMP\s*\|\s*REQUIRES\s*\|\s*REQUIRES_AUDIT\s*\|/m;
 
-const IMP_RE = /\bIMP-(\d{1,3})((?:\s*[,/]\s*\d{1,3}\b)*)/g;
-const DEP_RE = /\bDEP-(\d{1,3})((?:\s*[,/]\s*\d{1,3}\b)*)(?:\s*[\u2013\u2014-]\s*(\d{1,3})\b)?/g;
+const IMP_RE = /\bIMP-(\d{1,3})((?:(?:\s*[,/&]\s*|\s+(?:y|o|and)(?:\s*\/\s*(?:o\s*)?)?\s*)\d{1,3}\b)*)/g;
+const DEP_RE = /\bDEP-(\d{1,3})((?:\s*[,/&]\s*\d{1,3}\b)*)(?:\s*[\u2013\u2014-]\s*(\d{1,3})\b)?/g;
 
 // Marcadores de alcance/procedencia que vuelven condicional una CLÁUSULA del
 // REQUIRES (validación/evaluación concreta, scope Q07, procedencia o disyunción).
 // El texto marcado describe un scope que Command decide, nunca el grafo.
 const CLAUSE_QUALIFIER_RE = /\b(si el scope|para (validaci[oó]n|evaluaci[oó]n) concreta|cuando corresponda|en (la )?evaluaci[oó]n concreta|seg[uú]n la procedencia|s[oó]lo para una versi[oó]n|y\/o)\b/i;
+
+// Cláusulas de la SPEC que NOMBRAN dependencias negadas/diferidas (§20.2.3 y
+// §25.2.2: "sin exigir…", "no exige…", "se verifica durante el trabajo…"). Los
+// ids citados dentro de esas cláusulas NO son requisitos para empezar.
+const NON_REQUIREMENT_RE = /\b(?:no se exige|no se exigen|no se requiere|no se requieren|no se presume|no exige|no requiere|no a\u00f1ade|no produce|sin exigir|sin requerir|durante el trabajo|antes del acto)\b/i;
+
+// Devuelve el texto con las cláusulas negadas/diferidas eliminadas.
+function stripNegatedClauses(text) {
+  return String(text ?? "")
+    .split(/[;.]\s*/)
+    .filter((clause) => !NON_REQUIREMENT_RE.test(clause))
+    .join(". ");
+}
 
 export function normalizeImpId(value) {
   const match = /^IMP-0*(\d+)$/.exec(String(value ?? "").trim());
@@ -33,9 +46,9 @@ export function normalizeImpId(value) {
 
 export function expandImpIds(text) {
   const out = [];
-  for (const match of String(text ?? "").matchAll(IMP_RE)) {
+  for (const match of stripNegatedClauses(text).matchAll(IMP_RE)) {
     out.push(`IMP-${match[1].padStart(2, "0")}`);
-    for (const extra of (match[2] ?? "").split(/[,/]/)) {
+    for (const extra of (match[2] ?? "").split(/[,/&]|(?:\s+(?:y|o|and)(?:\s*\/\s*(?:o\s*)?)?\s*)/)) {
       const number = extra.trim();
       if (/^\d{1,3}$/.test(number)) out.push(`IMP-${number.padStart(2, "0")}`);
     }
@@ -45,18 +58,20 @@ export function expandImpIds(text) {
 
 // Texto después de "No requiere" / "no exige" nombra lo que NO se exige.
 export function expandDepIds(text) {
-  const cut = String(text ?? "").split(/\b(no requiere|no exige|not required)\b/i)[0];
+  const cut = stripNegatedClauses(text).split(/\b(no requiere|no exige|not required)\b/i)[0];
   const out = [];
   for (const match of cut.matchAll(DEP_RE)) {
     const first = Number(match[1]);
     out.push(`DEP-${String(first).padStart(2, "0")}`);
-    for (const extra of (match[2] ?? "").split(/[,/]/)) {
+    for (const extra of (match[2] ?? "").split(/\s*[,/&]\s*/)) {
       const number = extra.trim();
       if (/^\d{1,3}$/.test(number)) out.push(`DEP-${number.padStart(2, "0")}`);
     }
     if (match[3]) {
+      const extraNumbers = (match[2] ?? "").match(/\d{1,3}/g) ?? [];
+      const rangeStart = extraNumbers.length > 0 ? Number(extraNumbers[extraNumbers.length - 1]) : first;
       const last = Number(match[3]);
-      for (let n = first + 1; n <= last && n - first < 40; n += 1) out.push(`DEP-${String(n).padStart(2, "0")}`);
+      for (let n = rangeStart + 1; n <= last && n - first < 40; n += 1) out.push(`DEP-${String(n).padStart(2, "0")}`);
     }
   }
   return [...new Set(out)];
@@ -67,7 +82,8 @@ export function expandDepIds(text) {
 export function requiredDepIds(column) {
   const text = String(column ?? "").trim();
   if (/^[\u2013\u2014-]/.test(text)) return [];
-  return expandDepIds(text);
+  if (!NON_REQUIREMENT_RE.test(text)) return expandDepIds(text);
+  return expandDepIds(stripNegatedClauses(text));
 }
 
 function splitRow(row) {
