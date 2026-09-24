@@ -225,6 +225,10 @@ function buildGovernor(options = {}) {
       { policyVersion: "v1.0", underEnvelopeVersion: options.envelopeVersion ?? "v1.0", status: "VALID" },
     ],
     rollbackBaselinePendingReason: "fixture: sin baseline declarado; el fallback de rollback es dependencia operativa explícita (§18.3)",
+    rollbackBaseline: options.rollbackBaseline,
+    rollbackBaselineAuthorizationRef: options.rollbackBaselineAuthorizationRef,
+    safeNonActionState: options.safeNonActionState,
+    safeNonActionStateProvenance: options.safeNonActionStateProvenance,
     quantityLimits: options.quantityLimits === "NONE" ? [] : [
       { limitId: "L-DAILY", limitKind: "DAILY_CAP", maxValueMw: 12, status: "APPROVED", approvalRef: "FIXTURE-APPROVAL-1", provenance: FIXTURE_PROVENANCE },
       { limitId: "L-POSITION", limitKind: "MAX_POSITION", maxValueMw: 60, status: "APPROVED", approvalRef: "FIXTURE-APPROVAL-1", provenance: FIXTURE_PROVENANCE },
@@ -1017,12 +1021,16 @@ test("IMP-24: el hard-gate puede HALT inmediatamente y ningún acto se autoriza 
 
 test("IMP-24: en HALT no se registra PROMOTE y el rollback no reanuda en un nivel superior (§18.3/§18.4)", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
+  // La versión que el rollback puede restaurar debe haber obtenido autoridad
+  // real por un acto gobernado (§18.3/§18.4): se activa antes del cese.
+  activateFirstA1(judge);
   // Baja un nivel (A2→A1) y luego detiene la operación.
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-1", requestedTransition: "DEMOTE", atUtc: T0 });
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-HALT-2", requestedTransition: "HALT", atUtc: T0 });
   assert.equal(judge.currentState().status, "HALTED");
   assert.equal(judge.currentState().level, "A1");
 
+  const promotesBefore = judge.receiptRegistry.transitionsOfType("PROMOTE").length;
   const promotion = judge.considerSubsequentPromotion({
     targetLevel: "A2",
     apg: apgFixture(),
@@ -1031,7 +1039,7 @@ test("IMP-24: en HALT no se registra PROMOTE y el rollback no reanuda en un nive
   });
   assert.equal(promotion.ok, false);
   assert.equal(promotion.code, "GOVERNOR_STATE_HALTED");
-  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, promotesBefore, "en HALT no se registra PROMOTE");
   assert.equal(judge.currentState().level, "A1");
 
   const history = [
@@ -1065,8 +1073,12 @@ test("IMP-24: el hard-gate DEMOTE en el nivel mínimo A0 no fabrica un receipt A
   assert.equal(receipt.transitionType, "HALT");
 });
 
-test("IMP-24: el HALT por DEMOTE en el piso A0 es revertible con ROLLBACK (§18.3)", () => {
-  const judge = buildGovernor({ autonomyLevel: "A0" });
+test("IMP-24: el HALT por DEMOTE en el piso A0 es revertible con ROLLBACK al fallback declarado (§18.3)", () => {
+  const judge = buildGovernor({
+    autonomyLevel: "A0",
+    safeNonActionState: "WAIT",
+    safeNonActionStateProvenance: { authority: "fixture: operaciones sintéticas de test" },
+  });
   const halted = judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-FLOOR-ROLLBACK", requestedTransition: "DEMOTE", atUtc: T0 });
   assert.equal(halted.transition, "HALT");
   assert.equal(judge.currentState().status, "HALTED");
@@ -1076,17 +1088,24 @@ test("IMP-24: el HALT por DEMOTE en el piso A0 es revertible con ROLLBACK (§18.
   assert.equal(judge.currentState().lastHaltingMandate.transition, "HALT");
   assert.equal(judge.currentState().lastHaltingMandate.requestedTransition, "DEMOTE");
 
+  // En A0 no hay ninguna Policy Version con autoridad real (no puede haber
+  // primera activación): el rollback no fabrica autoridad y usa el safe
+  // non-action state declarado por operaciones (§18.3).
   const history = [{ policyVersion: "v1.0", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] }];
   const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
   assert.equal(rollback.ok, true, "INSPECCIÓN: " + JSON.stringify(rollback));
+  assert.equal(rollback.rollback.target.destination, "SAFE_NON_ACTION_STATE");
   assert.equal(rollback.restoredLevel, "A0");
   assert.equal(judge.currentState().status, "ACTIVE");
+  assert.equal(judge.currentState().activePolicyVersion, null);
   const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
   assert.equal(receipt.transitionType, "ROLLBACK");
+  assert.equal(receipt.newState, "SAFE_NON_ACTION_STATE:A0");
 });
 
 test("IMP-24: el rollback del HALT restaura la última versión válida y no auto-amplía el nivel", () => {
   const judge = buildGovernor({ autonomyLevel: "A2" });
+  activateFirstA1(judge);
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-BREACH-3", atUtc: T0 });
   const history = [
     { policyVersion: "v0.9", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
@@ -1270,7 +1289,28 @@ test("IMP-24: no se promociona una versión que el envelope no autoriza (§17)",
   assert.equal(judge.currentState().activePolicyVersion, "vX");
 });
 
-test("IMP-24: rollback tras primera activación restaura la versión válida como autoridad real y deja receipt que la nombra (§18.3/§18.4)", () => {
+test("IMP-24: el rollback sólo elige entre Policy Versions con autoridad real: con historial [vX, vY] válido restaura vX, no vY (IMP24-ROLLBACK-GRANTS-UNGOVERNED-VERSION)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-ROLLBACK-BIND", atUtc: T0 });
+  const history = [
+    { policyVersion: "vX", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
+    { policyVersion: "vY", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
+  ];
+  const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
+  assert.equal(rollback.ok, true, "INSPECCIÓN: " + JSON.stringify(rollback));
+  assert.equal(rollback.rollback.target.policyVersion, "vX", "vY nunca obtuvo autoridad real por un acto gobernado: no es candidata de rollback (§18.3)");
+  assert.equal(judge.currentState().activePolicyVersion, "vX");
+  const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
+  assert.equal(receipt.transitionType, "ROLLBACK");
+  assert.equal(receipt.previousState, "vX@A2:HALT");
+  assert.equal(receipt.newState, "vX@A2");
+  const buysWithVY = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  assert.equal(buysWithVY.ok, false, "vY sigue sin autoridad real tras el rollback");
+  assert.equal(buysWithVY.code, "POLICY_VERSION_WITHOUT_REAL_AUTHORITY");
+});
+
+test("IMP-24: el rollback no da autoridad real a una versión sin acto gobernado: historial [vY] queda bloqueado y vY no compra (IMP24-ROLLBACK-GRANTS-UNGOVERNED-VERSION)", () => {
   const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
   activateVersion(judge, "vX");
   judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-ROLLBACK-BIND", atUtc: T0 });
@@ -1278,10 +1318,40 @@ test("IMP-24: rollback tras primera activación restaura la versión válida com
     { policyVersion: "vY", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
   ];
   const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
+  // vY nunca tuvo acto gobernado; sin ninguna versión con autoridad real válida
+  // y sin fallback declarado, el rollback no le da autoridad: queda bloqueado
+  // como pendiente operacional (§18.3), sin fabricar autoridad.
+  assert.equal(rollback.ok, false, "INSPECCIÓN: " + JSON.stringify(rollback));
+  assert.equal(rollback.code, "NO_ROLLBACK_TARGET");
+  assert.equal(rollback.pendingOperationsFallback, true);
+  assert.equal(judge.currentState().activePolicyVersion, "vX", "vY no hereda autoridad real; vX sigue siendo la versión con autoridad");
+  assert.equal(judge.currentState().status, "HALTED", "sin rollback viable el cese permanece fail-closed");
+  const buysWithVY = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  assert.equal(buysWithVY.ok, false);
+  assert.equal(buysWithVY.code, "GOVERNOR_STATE_HALTED");
+});
+
+test("IMP-24: si ninguna versión con autoridad real sigue válida, el rollback cae al safe non-action state y ninguna versión conserva autoridad (§18.3/§18.4)", () => {
+  const judge = buildGovernor({
+    autonomyLevel: "A2",
+    authorizedPolicyVersions: TWO_VERSIONS,
+    safeNonActionState: "WAIT",
+    safeNonActionStateProvenance: { authority: "fixture: operaciones sintéticas de test" },
+  });
+  activateVersion(judge, "vX");
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-ROLLBACK-SAFE", atUtc: T0 });
+  const history = [
+    { policyVersion: "vY", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
+  ];
+  const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
   assert.equal(rollback.ok, true, "INSPECCIÓN: " + JSON.stringify(rollback));
-  assert.equal(judge.currentState().activePolicyVersion, "vY");
+  assert.equal(rollback.rollback.target.destination, "SAFE_NON_ACTION_STATE");
+  assert.equal(judge.currentState().activePolicyVersion, null, "al caer al safe state ninguna versión conserva autoridad real");
+  assert.equal(judge.currentState().status, "ACTIVE");
   const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
   assert.equal(receipt.transitionType, "ROLLBACK");
-  assert.equal(receipt.previousState, "vX@A2:HALT");
-  assert.equal(receipt.newState, "vY@A2");
+  assert.equal(receipt.newState, "SAFE_NON_ACTION_STATE:A2");
+  const buysWithVX = judge.authorizeRealAction({ action: "BUY", policyVersion: "vX", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  assert.equal(buysWithVX.ok, false, "vX ya no ejerce autoridad tras el rollback al safe state");
+  assert.equal(buysWithVX.code, "FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION");
 });

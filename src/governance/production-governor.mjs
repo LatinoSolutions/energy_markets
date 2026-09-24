@@ -368,12 +368,18 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // `activePolicyVersion` nombra la versión concreta que hoy ejerce esa
   // autoridad (primera activación, promoción de versión o rollback gobernado).
   // Ninguna otra versión VALID del envelope queda autorizada por ello.
+  // `realAuthorityVersions` es el registro de las versiones que obtuvieron
+  // autoridad real por un acto gobernado (primera activación o PROMOTE de
+  // versión): es la única fuente de candidatos de rollback (§18.3), porque un
+  // rollback no puede conferir autoridad por primera vez a una versión que
+  // nunca la tuvo ( IMP24-ROLLBACK-GRANTS-UNGOVERNED-VERSION ).
   const state = {
     level: envelope.autonomyLevel,
     status: "ACTIVE",
     lastHaltingMandate: null,
     realAuthorityEntered: false,
     activePolicyVersion: null,
+    realAuthorityVersions: [],
   };
 
   function authorizationProblem(policyVersion) {
@@ -493,6 +499,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     activation.activationId = contentHashOf(activation);
     state.realAuthorityEntered = true;
     state.activePolicyVersion = policyVersion;
+    state.realAuthorityVersions.push(policyVersion);
     const promoteReceiptId = registerTransition({
       registry,
       input: {
@@ -900,6 +907,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     const fromPolicyVersion = state.activePolicyVersion;
     state.activePolicyVersion = policyVersion;
+    state.realAuthorityVersions.push(policyVersion);
     const promoteReceiptId = registerTransition({
       registry,
       input: {
@@ -998,6 +1006,24 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     return { ok: true, transition: "HALT", status: state.status, transitionReceiptId: receiptId, mandate, demoteAtMinimumLevel };
   }
 
+  // §18.3/§18.4: los candidatos de rollback no son todas las Policy Versions
+  // que el envelope declara VALID, sino sólo las que el governor registró con
+  // autoridad real por un acto gobernado (primera activación o PROMOTE de
+  // versión). Una versión que nunca obtuvo autoridad no la recibe por un
+  // rollback; si ninguna de las registradas sigue válida bajo el envelope, el
+  // rollback cae al baseline/safe state declarado o a bloqueo, sin dar
+  // autoridad ( IMP24-ROLLBACK-GRANTS-UNGOVERNED-VERSION ). Antes de la
+  // primera activación no hay ninguna versión registrada: el rollback no
+  // fabrica autoridad y cae igualmente al fallback declarado o a bloqueo.
+  function rollbackHistoryWithRealAuthority(policyVersionHistory) {
+    if (!Array.isArray(policyVersionHistory)) {
+      return [];
+    }
+    return policyVersionHistory.filter(
+      (entry) => entry && state.realAuthorityVersions.includes(entry.policyVersion),
+    );
+  }
+
   // Rollback del mandato de hard-gate (§18.3): destino = última Policy
   // Version válida bajo el envelope actual; sin versión válida → baseline
   // autorizado o safe non-action state declarado; sin nada → bloqueo
@@ -1010,14 +1036,24 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (state.status !== "HALTED" || state.lastHaltingMandate === null) {
       return fail("NO_ACTIVE_HALT", "El rollback ejecuta el mandato de un hard-gate HALT registrado; sin halt pendiente no hay rollback (§18.3).");
     }
-    const resolved = executeRollback({ mandate: state.lastHaltingMandate, envelope, policyVersionHistory, atUtc });
+    const resolved = executeRollback({
+      mandate: state.lastHaltingMandate,
+      envelope,
+      policyVersionHistory: rollbackHistoryWithRealAuthority(policyVersionHistory),
+      atUtc,
+    });
     if (!resolved.ok) {
       return { ok: false, code: resolved.code, message: resolved.message, pendingOperationsFallback: resolved.pendingOperationsFallback === true };
     }
     const target = resolved.rollback.target;
     // §18.3: el rollback restaura la última Policy Version válida como la que
-    // ejerce autoridad real (acto gobernado con su propio receipt). Si el
-    // governor nunca entró en Real (§18.1), el rollback no fabrica autoridad.
+    // ejerce autoridad real (acto gobernado con su propio receipt). Sólo puede
+    // ser una versión que YA obtuvo autoridad real (el historial de candidatos
+    // se cruzó con `realAuthorityVersions`); nunca fabrica autoridad para una
+    // versión nueva. Si el destino no es una Policy Version (baseline o safe
+    // non-action state), ninguna versión conserva autoridad: se limpia
+    // `activePolicyVersion` para que un BUY no siga autorizado por una versión
+    // que el rollback retiró (§18.3/§18.4).
     const restoresPolicyVersion = target.destination === "POLICY_VERSION";
     const receiptId = registerTransition({
       registry,
@@ -1033,9 +1069,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       },
       failures: internalFailures,
     })?.receiptId ?? null;
-    if (restoresPolicyVersion && state.realAuthorityEntered === true) {
-      state.activePolicyVersion = target.policyVersion;
-    }
+    state.activePolicyVersion = restoresPolicyVersion ? target.policyVersion : null;
     state.status = "ACTIVE";
     state.lastHaltingMandate = null;
     return { ok: true, rollback: resolved.rollback, transitionReceiptId: receiptId, restoredLevel: state.level, status: state.status };
