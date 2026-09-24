@@ -375,14 +375,18 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     return versions.join("|") || "SIN_VERSION_AUTORIZADA";
   }
 
-  // --- Hito 2: primera activación A1, si se autoriza (§18.1) ---
+  // --- Hito 2: primera activación, si se autoriza (§18.1) ---
 
   // A diferencia de un ascenso posterior (considerSubsequentPromotion), la
-  // primera activación NO se limita a un paso desde el nivel vigente: §18.1 la
-  // hace depender de la aprobación humana explícita de DEP-25 y de que el
-  // envelope conceda la autoridad real (A1+; §16.2/§17). El acto se registra
-  // UNA vez (`firstActivationRecorded`) y su receipt documenta la autoridad
-  // del nivel A1 vía approvalRef + envelopeVersionKey (§18.4).
+  // primera activación NO es un ascenso del nivel operativo: §18.1 registra
+  // el acto humano explícito (DEP-25) con el que la Policy Version pasa de
+  // Shadow a Real, junto con la evidencia OOS/Shadow elegible y el APG
+  // aplicable; el envelope debe conceder la autoridad real (A1+; §16.2/§17).
+  // El acto se registra UNA vez (`firstActivationRecorded`) y su receipt
+  // documenta el acto vía approvalRef + envelopeVersionKey (§184). El nivel
+  // operativo lo declara el envelope y baja por DEMOTE/HALT (§18.3):
+  // registrar el acto nunca lo mueve ( IMP24-FIRST-ACTIVATION-STATE-
+  // INCONSISTENCY ).
   function considerFirstActivation({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, apg, humanApproval, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
       return fail("MISSING_TIMESTAMP", "La activación declara su instante (§6.1).");
@@ -395,19 +399,15 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (state.status !== "ACTIVE") {
       return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
     }
-    // §18.3 (el estado no baja por una vía de promoción) y §18.4 (reconstrucción
-    // de receipts): la primera activación es UNA sola por governor. El flag es
-    // la verdad de "ya activada": el nivel puede ser A1 por el propio envelope
-    // ANTES de que exista el acto humano de DEP-25 (el envelope autoriza el
-    // nivel, no sustituye la aprobación). Sin este guard, una segunda llamada
-    // registraría un PROMOTE duplicado A0→A1 con `previousState` falso, y sobre
-    // un governor ya en A2 esta vía lo DEMOTE a A1 incondicionalmente
-    // ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
+    // §18.3/§18.4 (el estado no baja por una vía de promoción) y §18.4
+    // (reconstrucción de receipts): la primera activación es UNA sola por
+    // governor. El flag es la verdad de "ya activada": el nivel puede superar
+    // A1 por el propio envelope ANTES de que exista el acto humano de DEP-25
+    // (el envelope autoriza el nivel, no sustituye la aprobación; §17). Sin
+    // este guard, una segunda llamada registraría un PROMOTE duplicado A0→A1
+    // con `previousState` falso ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
     if (state.firstActivationRecorded) {
       return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: la primera activación ya quedó registrada; no hay segunda (§18.1).`);
-    }
-    if (levelIndex(state.level) > levelIndex("A1")) {
-      return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: ya superó A1; la primera activación no procede (§18.1/§18.3).`);
     }
     if (!isNonEmptyString(policyVersion)) {
       return fail("MISSING_POLICY_VERSION", "La primera activación declara la Policy Version (§15.3: versión fija).");
@@ -431,14 +431,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       const holdReceiptId = holdFirstActivation({ triggerGate: "G_AUTONOMY_PROMOTION", triggerEvidenceRef: "APG_NOT_SATISFIED", policyVersion, atUtc });
       return fail("APG_NOT_SATISFIED", "El APG aplicable no está satisfecho: no hay promoción (§16.1).", { reasons: apgCheck.reasons, transitionReceiptId: holdReceiptId });
     }
-    // §17/§25.2.3 hito 2: el envelope declara la autoridad ("Authorized Policy
-    // Version / autonomy level"). Elevar a A1 bajo un envelope que sólo
-    // autoriza A0 (Research = "ninguna autoridad real", §16.2) registraría un
-    // PROMOTE cuyo autonomyLevel/envelopeVersionKey divergen: el receipt no
-    // reconstruye de dónde salió la autoridad (§18.4). La primera activación
-    // real exige un envelope que conceda A1; ampliarlo es un cambio de
-    // governance de dominio protegido (§18.2 lista 3, §20.2.12), nunca una
-    // auto-ampliación.
+    // §18.1/§16.2: la primera activación registra el acto de DEP-25 para la
+    // Policy Version, no un nivel operativo. El envelope debe conceder
+    // autoridad real (A1+; §16.2/§17). Bajo un envelope que la concede, el
+    // acto también se registra cuando el nivel operativo está por encima
+    // (A2+): el gate manda sobre la versión, no sobre el nivel, y sin esta
+    // vía el acto quedaría imposible y el gate de BUY fail-open (§25.2.3
+    // hito 2). El nivel operativo NO baja: registrar el acto no es un DEMOTE
+    // (§18.3). Bajo un envelope A0 no hay autoridad real que activar.
     if (levelIndex(envelope.autonomyLevel) < levelIndex("A1")) {
       const holdReceiptId = holdFirstActivation({
         triggerGate: "G_ENVELOPE_REAL_AUTHORITY",
@@ -446,14 +446,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         policyVersion,
         atUtc,
       });
-      return fail("ENVELOPE_WITHOUT_REAL_AUTHORITY", `El envelope "${String(envelope.envelopeVersion)}" autoriza ${envelope.autonomyLevel} (Research, sin autoridad real; §16.2): la primera activación A1 exigiría un envelope que conceda A1 (§17/§25.2.3 hito 2).`, { transitionReceiptId: holdReceiptId });
+      return fail("ENVELOPE_WITHOUT_REAL_AUTHORITY", `El envelope "${String(envelope.envelopeVersion)}" autoriza ${envelope.autonomyLevel} (Research, sin autoridad real; §16.2): la primera activación exigiría un envelope que conceda A1 (§17/§25.2.3 hito 2).`, { transitionReceiptId: holdReceiptId });
     }
 
     const activation = {
       artifactKind: "IMP-24_FIRST_ACTIVATION_RECORD",
       policyVersion,
-      fromLevel: "A0",
-      toLevel: "A1",
+      fromStage: "SHADOW",
+      toStage: "REAL",
       humanApprovalScope: FIRST_ACTIVATION_SCOPE,
       approvalRef: humanApproval.approvalRef,
       approvedBy: { authority: humanApproval.approvedBy.authority, role: humanApproval.approvedBy.role },
@@ -462,11 +462,11 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       synthetic: evidenceCheck.synthetic,
       apgFrozenCriteriaRef: apg.frozenCriteriaRef,
       envelopeVersionKey,
+      operativeLevel: state.level,
       activatedAtUtc: atUtc,
-      note: "Primera activación A1 (§18.1): en A1 el 100% de las acciones reales exige validación humana por acción. Un record con evidencia sintética es una demostración de mecanismo y no acredita evidencia real (§25.2).",
+      note: "Primera activación (§18.1): registro del acto DEP-25 de la Policy Version (Shadow -> Real), no un ascenso de nivel operativo. En A1 operacional el 100% de las acciones reales exige validación humana por acción. Un record con evidencia sintética es una demostración de mecanismo y no acredita evidencia real (§25.2).",
     };
     activation.activationId = contentHashOf(activation);
-    state.level = "A1";
     state.firstActivationRecorded = true;
     const promoteReceiptId = registerTransition({
       registry,
@@ -474,9 +474,9 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         transitionType: "PROMOTE",
         triggerGate: "G_DEP25_FIRST_ACTIVATION",
         triggerEvidenceRef: humanApproval.approvalRef,
-        previousState: `${policyVersion}@A0`,
-        newState: `${policyVersion}@A1`,
-        autonomyLevel: "A1",
+        previousState: `${policyVersion}@SHADOW`,
+        newState: `${policyVersion}@REAL`,
+        autonomyLevel: state.level,
         envelopeVersionKey,
         atUtc,
       },
@@ -498,7 +498,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         transitionType: "HOLD",
         triggerGate,
         triggerEvidenceRef,
-        previousState: `${policyVersion}@A0`,
+        previousState: `${policyVersion}@SHADOW`,
         newState: `${policyVersion}@A1:HELD`,
         autonomyLevel: state.level,
         envelopeVersionKey,
@@ -615,8 +615,9 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     };
   }
 
-  // --- Approval enforcement A1: 100% acciones reales con validación humana
-  // por acción (§18.1); el enforcement externo del envelope sigue mandando. ---
+  // --- Approval enforcement de actos reales: gate común de primera
+  // activation (§18.1/§25.2.3 hito 2) para todo BUY, validación humana por
+  // acción en A1 operativo y enforcement externo en A2+ (§16.2/§17) ---
 
   function authorizeRealAction({ action, policyVersion, quantityMw, dataState, humanApproval, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
@@ -626,21 +627,35 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: ningún acto se autoriza hasta otra decisión de governance (§18.3).`);
     }
     const recommendation = { action: action ?? null, policyVersion: policyVersion ?? null, quantityMw: quantityMw ?? null };
-    if (action === "BUY" && state.level === "A1") {
-      // §16.2/§17/§25.2.3 hito 2: un acto real exige que el envelope autorice
-      // autoridad real (A1+). El filtro de LEVEL_WITHOUT_BUY_AUTHORITY de más
-      // abajo sólo puede aplicar a un envelope A1: bajo A0 ("ninguna autoridad
-      // real") el rechazo del controller externo manda.
-      if (levelIndex(envelope.autonomyLevel) < levelIndex("A1")) {
-        return fail("ENVELOPE_WITHOUT_REAL_AUTHORITY", `El envelope "${String(envelope.envelopeVersion)}" autoriza ${envelope.autonomyLevel} (Research, sin autoridad real; §16.2): no se ejecuta un acto real (§17).`, { authorized: false, recommendation });
+    if (action === "BUY") {
+      // --- Gates comunes de todo acto real de compra ---
+      // 1) §16.2/§17: la autoridad de compra exige nivel operativo A1+ y
+      //    envelope con autoridad real A1+; A0 en cualquiera de los dos es
+      //    "ninguna autoridad real" (§16.2).
+      const operativeBuys = levelIndex(state.level) >= levelIndex("A1")
+        && levelIndex(envelope.autonomyLevel) >= levelIndex("A1");
+      if (!operativeBuys) {
+        return {
+          ok: true, authorized: false, status: "REJECTED", recommendation,
+          reasons: [{
+            code: "LEVEL_WITHOUT_BUY_AUTHORITY",
+            field: "autonomyLevel",
+            message: `El nivel operativo ${state.level} (envelope ${envelope.autonomyLevel}) no concede autoridad de compra real (§16.2).`,
+          }],
+        };
       }
-      // §18.1/§25.2.3 hito 2: la primera Policy Version que pasa de Shadow a
-      // Real exige la aprobación humana explícita de DEP-25 (acto de primera
-      // activación) antes de ejercer autoridad real. La validación por acción
-      // no sustituye ese acto.
+      // 2) §18.1/§25.2.3 hito 2: la primera Policy Version que pasa de Shadow
+      //    a Real exige la aprobación humana explícita de DEP-25 (acto de
+      //    primera activación) ANTES de ejercer autoridad real, sea cual sea
+      //    el nivel ( IMP24-REAL-AUTHORITY-A2-WITHOUT-FIRST-ACTIVATION ). El
+      //    gate manda sobre la versión, no sobre un nivel concreto; la
+      //    validación por acción no lo sustituye.
       if (state.firstActivationRecorded !== true) {
-        return fail("FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION", "Sin la primera activación A1 registrada (DEP-25, §18.1) no se ejerce autoridad real; la validación por acción no la sustituye (§25.2.3 hito 2).", { authorized: false, recommendation });
+        return fail("FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION", "Sin la primera activación registrada (DEP-25, §18.1) no se ejerce autoridad real; la validación por acción no la sustituye (§25.2.3 hito 2).", { authorized: false, recommendation });
       }
+    }
+    if (state.level === "A1") {
+      // --- A1 operativo: validación humana por acción (§18.1) ---
       const approvalFailure = perActionApprovalProblem(humanApproval, recommendation);
       if (approvalFailure) {
         return { ok: true, authorized: false, code: approvalFailure.code, message: approvalFailure.message, recommendation, intervention: approvalFailure.intervention ?? null };
@@ -653,11 +668,10 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         : null;
       // El enforcement externo comprueba la acción decidida ANTES de
       // execution (§17); la validación humana no sustituye al envelope.
-      // Único motivo filtrable: LEVEL_WITHOUT_BUY_AUTHORITY — §16.2 deja el
-      // nivel A1 con autoridad de COMPRA EXCLUSIVAMENTE vía validación
-      // humana por acción (§18.1), expresamente fuera del controller
-      // IMP-23; el caller ya aportó aquí esa validación binada. Cualquier
-      // otro rechazo del envelope manda.
+      // Único motivo filtrable: LEVEL_WITHOUT_BUY_AUTHORITY — el gate común
+      // ya resolvió la autoridad de compra (nivel operativo y envelope A1+),
+      // el controller IMP-23 no ve la validación humana binada que §18.1
+      // exige aquí. Cualquier otro rechazo del envelope manda.
       const structural = enforcement.authorizeAction({ action, policyVersion, quantityMw: decidedQuantityMw, dataState, envelopeVersionKey });
       const onlyLevelRefusal = structural.reasons != null
         && structural.reasons.length > 0
@@ -688,13 +702,30 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return { ok: true, authorized: true, action: Object.freeze({ ...record }) };
     }
     // Niveles operativos con límites (A2+): la decisión estructural del
-    // enforcement externo del envelope manda sola (§17).
+    // enforcement externo del envelope manda (§17). En BUY ya aplicó el gate
+    // común de primera activación; en WAIT (safe non-action, §18.3) manda
+    // sólo el envelope, que es la no-acción. §18.1/§12.2/§18.4: todo acto
+    // real autorizado se registra con recommendation y decisión separadas
+    // (reconstruible, §18.4); la vía de niveles con límites no queda fuera
+    // del registro.
     const structural = enforcement.authorizeAction({ action, policyVersion, quantityMw, dataState, envelopeVersionKey });
-    const result = { ok: true, authorized: structural.authorized, status: structural.status };
     if (structural.authorized !== true) {
-      result.reasons = structural.reasons;
+      return { ok: true, authorized: false, status: structural.status, recommendation, reasons: structural.reasons };
     }
-    return result;
+    const record = {
+      artifactKind: "IMP-24_GOVERNED_ACTION_RECORD",
+      recommendation: { action: recommendation.action, policyVersion: recommendation.policyVersion, quantityMw: recommendation.quantityMw },
+      humanApprovalAction: null,
+      modification: null,
+      modifiedOutcomeAttributableToRecommendation: true,
+      authorizedAction: action,
+      authorizedQuantityMw: quantityMw,
+      envelopeVersionKey,
+      operativeLevel: state.level,
+      atUtc,
+    };
+    record.actionRecordId = contentHashOf(record);
+    return { ok: true, authorized: true, status: structural.status, action: Object.freeze({ ...record }) };
   }
 
   // --- Hito 3: promociones posteriores, DEMOTE/HALT/ROLLBACK (§18.2/§18.3) ---
