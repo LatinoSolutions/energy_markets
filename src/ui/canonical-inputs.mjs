@@ -7,6 +7,7 @@
 // artifact acreditado lo declara todavía, así que no se construye timeline: Replay
 // queda ERROR con la causa explícita, en vez de inventar un boundary.
 
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -40,7 +41,52 @@ function temporalManifestRef(repoRoot) {
   return { path: entry.path, sha256: entry.sha256 };
 }
 
+export const EXPLORATORY_MANIFEST_PATH = "operations/exploratory/MANIFEST.json";
+
+const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+// Backtest exploratorio (owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4). No es
+// un record canónico del boundary: se muestra aparte y etiquetado EXPLORATORY.
+// Solo se acepta si resultados e input coinciden byte a byte con el manifest.
+export function loadExploratoryBacktestAt(repoRoot) {
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(path.join(repoRoot, EXPLORATORY_MANIFEST_PATH), "utf8"));
+  } catch {
+    return { ok: false, code: "EXPLORATORY_MANIFEST_MISSING" };
+  }
+  const checks = [manifest.results, manifest.slots, ...(manifest.generators ?? [])];
+  for (const entry of checks) {
+    let bytes;
+    try {
+      bytes = readFileSync(path.join(repoRoot, entry?.path ?? ""));
+    } catch {
+      return { ok: false, code: "EXPLORATORY_ARTIFACT_MISSING", path: entry?.path ?? null };
+    }
+    if (sha256Of(bytes) !== entry.sha256) {
+      return { ok: false, code: "EXPLORATORY_HASH_MISMATCH", path: entry.path };
+    }
+  }
+  const results = JSON.parse(readFileSync(path.join(repoRoot, manifest.results.path), "utf8"));
+  if (results.status !== "EXPLORATORY" || results.inputs?.slots?.sha256 !== manifest.slots.sha256) {
+    return { ok: false, code: "EXPLORATORY_INPUT_MISMATCH" };
+  }
+  return { ok: true, results, provenance: { manifestPath: EXPLORATORY_MANIFEST_PATH, resultsPath: manifest.results.path, resultsSha256: manifest.results.sha256, slotsSha256: manifest.slots.sha256 } };
+}
+
+function withExploratory(result) {
+  const exploratory = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
+  return {
+    inputs: { ...result.inputs, exploratoryBacktest: exploratory.ok ? exploratory : null },
+    backend: { ...result.backend, exploratory: exploratory.ok ? { loaded: true, ...exploratory.provenance } : { loaded: false, code: exploratory.code } },
+  };
+}
+
 export function loadCanonicalUiInputs() {
+  return withExploratory(loadCanonicalManifestInputs());
+}
+
+function loadCanonicalManifestInputs() {
   let artifactRef;
   try {
     artifactRef = temporalManifestRef(DEFAULT_REPO_ROOT);

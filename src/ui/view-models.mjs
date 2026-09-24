@@ -60,7 +60,58 @@ function unexpectedTimeline(errors) {
 // { label, arm ("A0"|"A1"|null), measure ("B"|"H"|"V"|"ΔV"|null), recordKey,
 // revisionId, value }. Cada uno se somete a binding contra el manifest
 // verificado; los que fallan quedan explícitos como UNAVAILABLE con razón.
-export function buildBacktestsViewModel({ backendIndex = null, rows = [] } = {}) {
+// Proyección del backtest exploratorio (owner patch 02 §4) para la UI: solo lee el
+// artifact ya verificado por hash en ./canonical-inputs.mjs; no recalcula precios.
+const CLIENT_ARM = "A0@11:00/CLIENT";
+const DIP_ARM = "DIP10@11:00/CLIENT";
+const DIP_DEPTH_ARM = "DIP10@11:00/DEPTH";
+
+function hourProfileFor(results, product) {
+  const episodes = results.filter((entry) => entry.product === product);
+  const slots = episodes[0]?.hourProfile.map((item) => item.slot) ?? [];
+  return slots.map((slot) => {
+    const diffs = [];
+    for (const entry of episodes) {
+      const client = entry.hourProfile.find((item) => item.slot === "11:00");
+      const other = entry.hourProfile.find((item) => item.slot === slot);
+      if (client?.complete && other?.complete) {
+        diffs.push(other.avgPriceEurMwh - client.avgPriceEurMwh);
+      }
+    }
+    const meanDiff = diffs.length === 0 ? null : diffs.reduce((sum, value) => sum + value, 0) / diffs.length;
+    return { slot, meanDiffEurMwh: meanDiff, episodes: diffs.length };
+  });
+}
+
+export function projectExploratoryBacktest(exploratory) {
+  const results = exploratory?.results;
+  if (results?.status !== "EXPLORATORY" || !Array.isArray(results.results)) {
+    return null;
+  }
+  const episodes = results.results.map((entry) => ({
+    product: entry.product,
+    maturity: entry.maturity,
+    tradingDays: entry.tradingDays,
+    firstDay: entry.firstDay,
+    lastDay: entry.lastDay,
+    a0: entry.arms[CLIENT_ARM],
+    dip: entry.arms[DIP_ARM],
+    dipDepth: entry.arms[DIP_DEPTH_ARM],
+    leaveOneOut: entry.leaveOneOutHour,
+  }));
+  return {
+    status: "EXPLORATORY",
+    provenance: exploratory.provenance,
+    rules: results.rules,
+    dataPeriod: results.inputs.dataPeriod,
+    skipped: results.episodesSkippedIncomplete,
+    summary: results.summary,
+    episodes,
+    hourProfiles: Object.keys(results.summary).map((product) => ({ product, slots: hourProfileFor(results.results, product) })),
+  };
+}
+
+export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null } = {}) {
   if (!Array.isArray(rows)) {
     return unexpectedTimeline([{ field: "rows", code: "INVALID_ROWS", message: "rows debe ser una lista." }]);
   }
@@ -97,6 +148,7 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [] } = {})
     surface: SURFACES.BACKTESTS,
     rows: items,
     hasAnyBoundData: items.some((item) => item.status === "BOUND"),
+    exploratory: projectExploratoryBacktest(exploratory),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
     pendingComparisons: [

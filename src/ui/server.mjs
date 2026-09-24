@@ -78,6 +78,7 @@ function pickInputs(inputs) {
     exposure: inputs?.exposure ?? null,
     backendIndex: inputs?.backendIndex ?? null,
     backtestsRows: Array.isArray(inputs?.backtestsRows) ? inputs.backtestsRows : [],
+    exploratoryBacktest: inputs?.exploratoryBacktest ?? null,
     researchRecords: Array.isArray(inputs?.researchRecords) ? inputs.researchRecords : [],
     campaigns: campaignInput("campaigns"),
     runs: campaignInput("runs"),
@@ -91,7 +92,7 @@ export function buildUiViewModels(inputs = {}) {
   const pouring = pickInputs(inputs);
   return {
     [SURFACES.REPLAY]: buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }),
-    [SURFACES.BACKTESTS]: buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows }),
+    [SURFACES.BACKTESTS]: buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest }),
     [SURFACES.RESEARCH]: buildResearchViewModel({ backendIndex: pouring.backendIndex, records: pouring.researchRecords }),
     [SURFACES.CAMPAIGNS]: buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }),
   };
@@ -106,6 +107,7 @@ function healthPayload(viewModels, backend) {
     surfaces[surface] = {
       state: vm.ok === true ? "READY" : "ERROR",
       canonicalData: vm.ok === true && vm.hasAnyBoundData === true,
+      exploratoryData: vm.ok === true && vm.exploratory != null,
     };
   }
   return {

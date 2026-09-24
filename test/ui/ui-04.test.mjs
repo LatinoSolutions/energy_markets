@@ -67,3 +67,29 @@ test("UI-04: sin loader /health declara que no hay manifest", async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y etiquetado EXPLORATORY", async () => {
+  const { renderSurfacePage } = await import("../../src/ui/render.mjs");
+  const canonical = loadCanonicalUiInputs();
+  assert.equal(canonical.backend.exploratory.loaded, true, JSON.stringify(canonical.backend.exploratory));
+  const html = renderSurfacePage("backtests", buildUiViewModels(canonical.inputs).backtests);
+  assert.match(html, /data-exploratory="true"/);
+  assert.match(html, /EXPLORATORY/);
+  assert.equal((html.match(/data-status="EXPLORATORY"/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.results.length);
+});
+
+test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", async () => {
+  const { loadExploratoryBacktestAt } = await import("../../src/ui/canonical-inputs.mjs");
+  const { mkdtempSync, mkdirSync, writeFileSync, cpSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const root = mkdtempSync(path.join(tmpdir(), "ui04-"));
+  for (const dir of ["operations/exploratory", "src/exploratory"]) mkdirSync(path.join(root, dir), { recursive: true });
+  for (const file of ["operations/exploratory/MANIFEST.json", "operations/exploratory/tob-slots-the-gas.json", "operations/exploratory/build_tob_slots.py", "operations/exploratory/run-exploratory-backtest.mjs", "src/exploratory/backtest.mjs"]) {
+    cpSync(new URL("../../" + file, import.meta.url), path.join(root, file));
+  }
+  writeFileSync(path.join(root, "operations/exploratory/backtest-results.json"), JSON.stringify({ status: "EXPLORATORY", results: [] }));
+  const loaded = loadExploratoryBacktestAt(root);
+  assert.equal(loaded.ok, false);
+  assert.equal(loaded.code, "EXPLORATORY_HASH_MISMATCH");
+});

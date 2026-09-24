@@ -1,0 +1,27 @@
+{
+ "artifactKind": "EXPLORATORY_BACKTEST_MANIFEST",
+ "status": "EXPLORATORY",
+ "ownerPatch": "EM-SPEC-OWNER-PATCH-2026-09-24-02",
+ "results": {
+  "path": "operations/exploratory/backtest-results.json",
+  "sha256": "485a12f9eab3c8c2f10e54b0f39637c8d926ced5e5e7c81dedc9e3fcca753f45"
+ },
+ "slots": {
+  "path": "operations/exploratory/tob-slots-the-gas.json",
+  "sha256": "14685976d8a082c2e03d2dc41b16092428ecd112a3cbfb63638d8e4169bdfe0b"
+ },
+ "generators": [
+  {
+   "path": "operations/exploratory/build_tob_slots.py",
+   "sha256": "fd362cdc7e229d3a874923de173e61791b1be37aabe7c97e07dd588201d3675d"
+  },
+  {
+   "path": "operations/exploratory/run-exploratory-backtest.mjs",
+   "sha256": "b50da3bc01106ceb2dbc454a296de6bd43f1e34371808024ff6655de9af4c2e1"
+  },
+  {
+   "path": "src/exploratory/backtest.mjs",
+   "sha256": "d0350ca07a5975fa79904ae0a303bc31f533b5b428a26dea29e9029599a9005b"
+  }
+ ]
+}

@@ -534,6 +534,78 @@ function armTag(arm) {
   return `<span class="arm"><span class="sw" style="background:${color}"></span>${esc(arm)}</span>`;
 }
 
+// ---------- Backtest exploratorio (owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4) ----------
+// Se dibuja aparte de las medidas canónicas y siempre con la etiqueta EXPLORATORY.
+
+function eur(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "—";
+}
+
+function signedEur(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return '<span class="muted small">—</span>';
+  }
+  const color = value < 0 ? "var(--pass)" : value > 0 ? "var(--fail)" : "var(--ink-3)";
+  return `<span style="color:${color}">${value > 0 ? "+" : ""}${value.toFixed(2)}</span>`;
+}
+
+function armResultHtml(arm) {
+  if (!arm) {
+    return '<span class="muted small">—</span>';
+  }
+  const status = arm.complete ? "" : ` <span class="st warn"><span class="g">!</span>${arm.boughtMw}/${arm.targetMw} MW</span>`;
+  return `${eur(arm.avgPriceEurMwh)}${status}`;
+}
+
+function hourProfileSvg(profile) {
+  const width = 380;
+  const height = 150;
+  const values = profile.slots.map((slot) => slot.meanDiffEurMwh).filter((value) => typeof value === "number");
+  const span = Math.max(0.05, ...values.map((value) => Math.abs(value)));
+  const mid = height / 2;
+  const barWidth = width / profile.slots.length;
+  const bars = profile.slots.map((slot, index) => {
+    const x = index * barWidth + 2;
+    if (typeof slot.meanDiffEurMwh !== "number") {
+      return `<rect x="${x}" y="${mid - 3}" width="${barWidth - 4}" height="6" fill="var(--hatch-hind)" opacity="0.6"><title>${esc(slot.slot)}: no complete episode</title></rect>`;
+    }
+    const h = (Math.abs(slot.meanDiffEurMwh) / span) * (mid - 14);
+    const y = slot.meanDiffEurMwh < 0 ? mid : mid - h;
+    const fill = slot.meanDiffEurMwh < 0 ? "var(--pass)" : "var(--fail)";
+    return `<rect x="${x}" y="${y}" width="${barWidth - 4}" height="${Math.max(1, h)}" fill="${fill}"><title>${esc(slot.slot)} Berlin: ${slot.meanDiffEurMwh.toFixed(3)} EUR/MWh vs 11:00 (n=${slot.episodes})</title></rect>`;
+  });
+  const labels = profile.slots
+    .map((slot, index) => (index % 4 === 0 ? `<text x="${index * barWidth + 2}" y="${height - 2}" font-size="9" fill="var(--ink-3)">${esc(slot.slot)}</text>` : ""))
+    .join("");
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Mean price difference by hour vs 11:00, ${esc(profile.product)}"><line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="var(--rule)"/>${bars.join("")}${labels}</svg>`;
+}
+
+function exploratoryBacktestHtml(exploratory) {
+  if (!exploratory) {
+    return "";
+  }
+  const rows = exploratory.episodes.map((episode) => {
+    const dipDiff = episode.a0?.complete && episode.dip?.complete ? episode.dip.avgPriceEurMwh - episode.a0.avgPriceEurMwh : null;
+    const loo = episode.leaveOneOut;
+    return `<tr data-status="EXPLORATORY" data-product="${esc(episode.product)}" data-maturity="${esc(episode.maturity)}"><td class="mono">${esc(episode.product)}</td><td class="mono">${esc(episode.maturity)}</td><td class="mono small">${esc(episode.firstDay)} → ${esc(episode.lastDay)} · ${episode.tradingDays} d</td><td class="mono num right">${armResultHtml(episode.a0)}</td><td class="mono num right">${armResultHtml(episode.dip)}</td><td class="mono num right">${signedEur(dipDiff)}</td><td class="mono num right">${armResultHtml(episode.dipDepth)}</td><td class="mono">${esc(loo?.slotChosenOnOtherEpisodes ?? "—")}</td><td class="mono num right">${signedEur(loo?.diffOnThisEpisodeEurMwh)}</td></tr>`;
+  });
+  const summaries = Object.entries(exploratory.summary).map(([product, summary]) => `<div class="chk"><span><b>${esc(product)}</b> · ${summary.episodes} episodes</span><span class="d">DIP10 vs A0: ${signedEur(summary.dipVsA0.meanDiffEurMwh)} EUR/MWh mean, cheaper in ${summary.dipVsA0.episodesCheaper}/${summary.dipVsA0.pairedEpisodes} · hour chosen out-of-episode vs 11:00: ${signedEur(summary.leaveOneOutHour.meanDiffEurMwh)} EUR/MWh over ${summary.leaveOneOutHour.evaluatedEpisodes}</span></div>`);
+  const profiles = exploratory.hourProfiles.map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile)}</div></div>`);
+  const rules = exploratory.rules;
+  return `
+  <div class="card" style="margin-top:14px" data-exploratory="true">
+    <div class="hd"><h3>Exploratory backtest · real EEX best ask</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span><span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
+    <table class="t">
+      <thead><tr><th>Product</th><th>Delivery</th><th>Window</th><th class="right">A0 · 11:00 (client)</th><th class="right">DIP10 · 11:00</th><th class="right">DIP − A0</th><th class="right">DIP10 · depth-capped</th><th>Hour (out-of-episode)</th><th class="right">Δ vs 11:00</th></tr></thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>
+    <div class="bd">${summaries.join("")}
+      <div class="tiny muted" style="margin-top:6px">Prices in EUR/MWh paid (ask + slippage), volume-weighted. ! = target not completed (no fresh quote or depth). Not evidence of edge: ${exploratory.episodes.length} episodes, in-sample; skipped as incomplete: ${esc(exploratory.skipped.join(", "))}. Source ${esc(exploratory.provenance.resultsPath)} sha256 ${esc(exploratory.provenance.resultsSha256.slice(0, 12))}…</div>
+    </div>
+  </div>
+  <div class="grid" style="grid-template-columns: repeat(${profiles.length}, minmax(0,1fr)); margin-top:14px">${profiles.join("")}</div>`;
+}
+
 function backtestsBody(vm, { errors = null } = {}) {
   const validated = errors === null;
   const rows = validated ? vm.rows : [];
@@ -581,6 +653,8 @@ function backtestsBody(vm, { errors = null } = {}) {
     </div>
     <div class="armhead">${arms.length > 0 ? arms.map(armTag).join("") : `<span class="small muted">arms</span> ${unknownValue()}`}</div>
   </div>
+
+  ${validated ? exploratoryBacktestHtml(vm.exploratory) : ""}
 
   <div class="card" style="margin-top:14px">
     <div class="hd"><h3>Economic measures</h3><span class="small muted">B · H · V · ΔV as published by the canonical producer; definitions belong to the backend method</span><span class="grow"></span>${boundRows.length > 0 ? chip("run", "✓", `${boundRows.length} canonical row(s)`) : chip("unk", "?", "No canonical producer")}</div>
