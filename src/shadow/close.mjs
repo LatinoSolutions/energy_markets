@@ -17,7 +17,12 @@ import { closeExperienceRecord, RECORD_STATES } from "../experience/record.mjs";
 import { SHADOW_SESSION_KIND } from "./session.mjs";
 import { verifyShadowNonInterference } from "./non-interference.mjs";
 
+// artifactKind del receipt de evidencia Shadow; receiptKind (la etiqueta que
+// el governor consume para discriminar la etapa) es un valor propio que se
+// declara UNA vez aquí. Quien lo consuma lo importa, no lo re-declara (§25.2.3
+// hito 2: una sola identidad; corrección IMP24-SHADOW-KIND).
 export const SHADOW_EVIDENCE_RECEIPT_KIND = "IMP-18_SHADOW_EVIDENCE_RECEIPT";
+export const SHADOW_RECEIPT_KIND = "SHADOW_EVIDENCE_RECEIPT";
 
 function fail(code, message, extra = {}) {
   return { ok: false, code, message, ...extra };
@@ -214,7 +219,7 @@ export function closeShadowSession({ session, frozen, progress, records = [], st
   const core = {
     artifactKind: SHADOW_EVIDENCE_RECEIPT_KIND,
     schemaVersion: "1.0",
-    receiptKind: "SHADOW_EVIDENCE_RECEIPT",
+    receiptKind: SHADOW_RECEIPT_KIND,
     sessionId: session.sessionId,
     experiment: session.experiment,
     campaignId: session.campaignId,

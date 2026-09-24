@@ -20,4 +20,5 @@ export {
   closeShadowSession,
   applyShadowCorrection,
   SHADOW_EVIDENCE_RECEIPT_KIND,
+  SHADOW_RECEIPT_KIND,
 } from "./close.mjs";

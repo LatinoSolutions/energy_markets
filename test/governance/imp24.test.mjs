@@ -20,7 +20,22 @@ import {
   FIRST_ACTIVATION_REFUSAL_CODE,
   FIRST_ACTIVATION_SCOPE,
   PROMOTION_GATES,
+  RESEARCH_RECEIPT_KIND,
 } from "../../src/governance/index.mjs";
+import {
+  openShadowSession,
+  openShadowProgress,
+  captureShadowOpportunity,
+  closeShadowSession,
+  SHADOW_EVIDENCE_RECEIPT_KIND,
+  SHADOW_RECEIPT_KIND,
+} from "../../src/shadow/index.mjs";
+import {
+  frozenShadowFixture,
+  posteriorObservationsFor,
+  sightableObservationsFor,
+  benchmarkDailyClosesFixture,
+} from "../shadow/fixtures.mjs";
 import { contentHashOf } from "../../src/execution-contract/execution-contract.mjs";
 
 const FIXTURE_PROVENANCE = {
@@ -32,7 +47,7 @@ const T0 = "2026-09-24T10:00:00Z";
 
 function oosReceipt({ verdict = "PASS", synthetic = true } = {}) {
   const core = {
-    receiptKind: "IMP-16_P5_EXPERIMENT_RECEIPT",
+    receiptKind: RESEARCH_RECEIPT_KIND,
     schemaVersion: "1.0",
     experiment: { experimentId: "EXP-FIXTURE", experimentVersion: "1.0" },
     scope: { products: ["FIXTURE"], synthetic },
@@ -49,13 +64,13 @@ function oosReceipt({ verdict = "PASS", synthetic = true } = {}) {
   return { ...core, synthetic, receiptId: contentHashOf({ ...core, synthetic }) };
 }
 
-function shadowReceipt({ policyVersion = "v1.0", synthetic = true } = {}) {
+function shadowReceipt({ policyVersion = "v1.0", synthetic = true, experiment = { experimentId: "EXP-FIXTURE", experimentVersion: "1.0" } } = {}) {
   const core = {
-    artifactKind: "IMP-18_SHADOW_EVIDENCE_RECEIPT",
-    receiptKind: "IMP-18_SHADOW_EVIDENCE_RECEIPT",
+    artifactKind: SHADOW_EVIDENCE_RECEIPT_KIND,
+    receiptKind: SHADOW_RECEIPT_KIND,
     schemaVersion: "1.0",
     sessionId: "SHADOW-FIXTURE-1",
-    experiment: { experimentId: "EXP-FIXTURE", experimentVersion: "1.0" },
+    experiment,
     policyVersion,
     synthetic,
     stepCount: 3,
@@ -63,6 +78,52 @@ function shadowReceipt({ policyVersion = "v1.0", synthetic = true } = {}) {
     terminalCoverage: { status: "COVERED" },
   };
   return { ...core, contentHash: contentHashOf(core) };
+}
+
+// Receipt Shadow REAL producido por el productor IMP-18 (closeShadowSession).
+// No es un fixture con literales inventados: es la prueba de que el governor
+// consume la misma identidad que produce el cierre Shadow (IMP24-SHADOW-KIND).
+function realShadowReceipt() {
+  const { frozen } = frozenShadowFixture();
+  const opened = openShadowSession({
+    frozen,
+    startedAtUtc: "2021-06-21T00:00:00Z",
+    prospectivePermissions: {
+      permissionRefs: ["fixture://pit-permission/imp24-synthetic"],
+      declaredBy: "SYNTHETIC fixture per §25.2 DEP-06/07 declaration",
+    },
+    synthetic: true,
+  });
+  assert.equal(opened.ok, true, "INSPECCIÓN: la sesión Shadow fixture debe abrir");
+  const session = opened.session;
+  let progress = openShadowProgress({ session, frozen }).progress;
+  const records = [];
+  const steps = [];
+  while (progress.terminal !== true) {
+    const currentOpportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[progress.cursor] ?? null;
+    const outcome = captureShadowOpportunity({
+      session,
+      frozen,
+      progress,
+      sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: currentOpportunity?.decisionTimeUtc ?? null }),
+      posteriorObservations: currentOpportunity ? posteriorObservationsFor(currentOpportunity.date) : [],
+    });
+    assert.equal(outcome.ok, true, "INSPECCIÓN: la captura Shadow fixture debe avanzar");
+    records.push(outcome.record);
+    steps.push(outcome.step);
+    progress = outcome.nextProgress;
+  }
+  const closed = closeShadowSession({
+    session,
+    frozen,
+    progress: { sessionId: session.sessionId, sessionContentHash: session.contentHash, executedVolume: 12, remainingVolume: 0 },
+    records,
+    steps,
+    closedAtUtc: "2021-07-01T10:00:00Z",
+    benchmarkDailyCloses: benchmarkDailyClosesFixture(),
+  });
+  assert.equal(closed.ok, true, "INSPECCIÓN: el cierre Shadow fixture debe producir receipt");
+  return closed.receipt;
 }
 
 function approvalFixture(scope, { role = "OPERATIONS_HUMAN", decision = "APPROVED", modifiesProtectedDomains = undefined } = {}) {
@@ -100,7 +161,7 @@ function dataStateFixture() {
   };
 }
 
-function actionApprovalFixture({ validatedAction = "BUY", decision = "APPROVED", modifiedQuantityMw = undefined, reason = undefined } = {}) {
+function actionApprovalFixture({ validatedAction = "BUY", decision = "APPROVED", modifiedQuantityMw = undefined, reason = undefined, provenance = undefined } = {}) {
   const approval = {
     validatedAction,
     decision,
@@ -108,9 +169,15 @@ function actionApprovalFixture({ validatedAction = "BUY", decision = "APPROVED",
     decidedBy: { authority: "fixture: operador humano de test", role: "OPERATIONS_HUMAN" },
   };
   if (reason !== undefined) approval.reason = reason;
+  if (provenance !== undefined) approval.provenance = provenance;
   if (modifiedQuantityMw !== undefined) approval.modifiedQuantityMw = modifiedQuantityMw;
   return approval;
 }
+
+const INTERVENTION_PROVENANCE = {
+  authority: "fixture: operador humano de test",
+  locator: "test/governance/imp24.test.mjs",
+};
 
 function firstActivationInput(overrides = {}) {
   return {
@@ -196,6 +263,16 @@ test("IMP-24: un receipt Shadow mutado no es evidencia", () => {
   const received = receiveGovernanceEvidence({ evidence: mutated });
   assert.equal(received.ok, false);
   assert.equal(received.code, "RECEIPT_CONTENT_HASH_MISMATCH");
+});
+
+test("IMP-24: el governor consume el receipt Shadow real de IMP-18 (misma identidad que el productor)", () => {
+  const receipt = realShadowReceipt();
+  assert.equal(receipt.receiptKind, SHADOW_RECEIPT_KIND);
+  const received = receiveGovernanceEvidence({ evidence: receipt });
+  assert.equal(received.ok, true, "INSPECCIÓN: " + JSON.stringify(received));
+  assert.equal(received.evidence.stage, "SHADOW");
+  assert.equal(received.evidence.identity.policyVersion, receipt.policyVersion);
+  assert.equal(received.evidence.receiptId, receipt.contentHash);
 });
 
 // --- 2) APG conjuntivo ---
@@ -306,6 +383,15 @@ test("IMP-24: evidencia Shadow de otra versión no activa", () => {
   assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
 });
 
+test("IMP-24: OOS y Shadow de experimentos distintos no son la misma identidad de versión", () => {
+  const judge = buildGovernor({ autonomyLevel: "A0" });
+  const result = judge.considerFirstActivation(firstActivationInput({
+    shadowEvidence: shadowReceipt({ policyVersion: "v1.0", experiment: { experimentId: "EXP-OTRO", experimentVersion: "1.0" } }),
+  }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
+});
+
 test("IMP-24: sin APG satisfecho la activación no procede aunque exista aprobación", () => {
   const judge = buildGovernor({ autonomyLevel: "A0" });
   const result = judge.considerFirstActivation(firstActivationInput({ apg: null }));
@@ -375,20 +461,22 @@ test("IMP-24: la validación adherida a otra acción no autoriza esta recomendac
   assert.equal(result.code, "APPROVAL_ACTION_MISMATCH");
 });
 
-test("IMP-24: el veto humano se registra con timestamp y razón, y no ejecuta", () => {
+test("IMP-24: el veto humano se registra con timestamp, razón y provenance, y no ejecuta", () => {
   const judge = buildGovernor({ autonomyLevel: "A1" });
   const result = judge.authorizeRealAction({
     action: "BUY",
     policyVersion: "v1.0",
     quantityMw: 3,
     dataState: dataStateFixture(),
-    humanApproval: actionApprovalFixture({ decision: "VETOED", reason: "fixture: razón declarada del veto" }),
+    humanApproval: actionApprovalFixture({ decision: "VETOED", reason: "fixture: razón declarada del veto", provenance: INTERVENTION_PROVENANCE }),
     atUtc: T0,
   });
   assert.equal(result.authorized, false);
   assert.equal(result.code, "ACTION_VETOED");
   assert.equal(result.intervention.decision, "VETOED");
   assert.equal(typeof result.intervention.decidedAtUtc, "string");
+  assert.equal(result.intervention.reason, "fixture: razón declarada del veto");
+  assert.deepEqual(result.intervention.provenance, INTERVENTION_PROVENANCE);
 });
 
 test("IMP-24: la modificación humana de la cantidad se registra y no se atribuye a la recomendación", () => {
@@ -398,13 +486,40 @@ test("IMP-24: la modificación humana de la cantidad se registra y no se atribuy
     policyVersion: "v1.0",
     quantityMw: 3,
     dataState: dataStateFixture(),
-    humanApproval: actionApprovalFixture({ modifiedQuantityMw: 2 }),
+    humanApproval: actionApprovalFixture({ modifiedQuantityMw: 2, reason: "fixture: modificación de cantidad", provenance: INTERVENTION_PROVENANCE }),
     atUtc: T0,
   });
   assert.equal(result.authorized, true);
   assert.equal(result.action.authorizedQuantityMw, 2);
   assert.deepEqual(result.action.modification, { kind: "QUANTITY_MODIFIED", from: 3, to: 2 });
   assert.equal(result.action.modifiedOutcomeAttributableToRecommendation, false);
+  assert.equal(result.action.humanApprovalAction.reason, "fixture: modificación de cantidad");
+  assert.deepEqual(result.action.humanApprovalAction.provenance, INTERVENTION_PROVENANCE);
+});
+
+test("IMP-24: una intervención humana sin razón ni provenance no se registra (§18.1/§12.2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const base = { action: "BUY", policyVersion: "v1.0", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 };
+
+  const vetoWithoutReason = judge.authorizeRealAction({ ...base, humanApproval: actionApprovalFixture({ decision: "VETOED", provenance: INTERVENTION_PROVENANCE }) });
+  assert.equal(vetoWithoutReason.authorized, false);
+  assert.equal(vetoWithoutReason.code, "INTERVENTION_REASON_MISSING");
+
+  const delayedWithoutProvenance = judge.authorizeRealAction({ ...base, humanApproval: actionApprovalFixture({ decision: "DELAYED", reason: "fixture: demora" }) });
+  assert.equal(delayedWithoutProvenance.authorized, false);
+  assert.equal(delayedWithoutProvenance.code, "INTERVENTION_PROVENANCE_MISSING");
+
+  const modificationWithoutReason = judge.authorizeRealAction({ ...base, humanApproval: actionApprovalFixture({ modifiedQuantityMw: 2, provenance: INTERVENTION_PROVENANCE }) });
+  assert.equal(modificationWithoutReason.authorized, false);
+  assert.equal(modificationWithoutReason.code, "INTERVENTION_REASON_MISSING");
+
+  const modificationWithoutProvenance = judge.authorizeRealAction({ ...base, humanApproval: actionApprovalFixture({ modifiedQuantityMw: 2, reason: "fixture: modificación" }) });
+  assert.equal(modificationWithoutProvenance.authorized, false);
+  assert.equal(modificationWithoutProvenance.code, "INTERVENTION_PROVENANCE_MISSING");
+
+  // Una aprobación simple sin modificación no es intervención: no exige razón.
+  const plainApproval = judge.authorizeRealAction({ ...base, humanApproval: actionApprovalFixture() });
+  assert.equal(plainApproval.authorized, true);
 });
 
 test("IMP-24: la validación humana no sustituye al envelope: exceso sobre el límite se rechaza", () => {
@@ -455,8 +570,11 @@ test("IMP-24: la promoción posterior sin aprobación explícita queda HOLD regi
   assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
 });
 
-test("IMP-24: la promoción aprobada produce PROMOTE con autoridad previa", () => {
-  const judge = buildGovernor({ autonomyLevel: "A1" });
+test("IMP-24: la promoción aprobada produce PROMOTE sólo si el envelope autoriza el nivel destino", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2" });
+  // El envelope autoriza A2; una demotion previa deja el nivel operativo en A1.
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-PRE-PROMOTION", requestedTransition: "DEMOTE", atUtc: T0 });
+  assert.equal(judge.currentState().level, "A1");
   const result = judge.considerSubsequentPromotion({
     targetLevel: "A2",
     apg: apgFixture(),
@@ -469,6 +587,21 @@ test("IMP-24: la promoción aprobada produce PROMOTE con autoridad previa", () =
   const receipt = judge.receiptRegistry.receiptOf(result.transitionReceiptId);
   assert.equal(receipt.transitionType, "PROMOTE");
   assert.equal(receipt.autonomyLevel, "A2");
+  assert.equal(receipt.envelopeVersionKey, "version:v1.0");
+});
+
+test("IMP-24: un ascenso a un nivel no autorizado por el envelope no registra PROMOTE", () => {
+  const judge = buildGovernor({ autonomyLevel: "A1" });
+  const result = judge.considerSubsequentPromotion({
+    targetLevel: "A2",
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture("GOVERNANCE_PROMOTION:A2"),
+    atUtc: T0,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "TARGET_LEVEL_NOT_AUTHORIZED_BY_ENVELOPE");
+  assert.equal(judge.currentState().level, "A1");
+  assert.equal(judge.receiptRegistry.transitionsOfType("PROMOTE").length, 0);
 });
 
 test("IMP-24: ascenso de dos niveles no procede: progresión por fases", () => {

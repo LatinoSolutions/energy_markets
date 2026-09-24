@@ -13,6 +13,11 @@
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { deriveDatasetQuality } from "./verdict.mjs";
 
+// receiptKind del receipt de research P5 (IMP-16): la etiqueta que el governor
+// de IMP-24 consume para discriminar la etapa OOS. Se declara UNA vez aquí y
+// quien la consuma la importa, no la re-declara (corrección IMP24-SHADOW-KIND).
+export const P5_EXPERIMENT_RECEIPT_KIND = "IMP-16_P5_EXPERIMENT_RECEIPT";
+
 // IMP16-H10 (§13.6 regla 5 / §25.2 DEP-13/14): el receipt no puede
 // materializarse contradiciendo su propio manifest congelado — un veredicto
 // PASS exige calidad de datos derivada full y no-provisional, y el dataQuality
@@ -78,7 +83,7 @@ export function materializeP5ExperimentReceipt({ frozen = null, runOutcome = nul
   });
 
   const receipt = {
-    receiptKind: "IMP-16_P5_EXPERIMENT_RECEIPT",
+    receiptKind: P5_EXPERIMENT_RECEIPT_KIND,
     schemaVersion: "1.0",
     experiment: frozen.experiment,
     scope: frozen.scope,

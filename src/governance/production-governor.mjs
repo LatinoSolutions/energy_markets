@@ -20,6 +20,8 @@
 // con aprobación cuya autoridad no es la policy.
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
+import { P5_EXPERIMENT_RECEIPT_KIND } from "../p5-experiment/receipt.mjs";
+import { SHADOW_RECEIPT_KIND } from "../shadow/close.mjs";
 import {
   ADMISSION_GATE_KINDS,
   AUTONOMY_LEVELS,
@@ -35,9 +37,10 @@ export const PRODUCTION_GOVERNOR_KIND = "IMP-24_PRODUCTION_GOVERNOR";
 // Receipts de evidencia consumidos por etapa (§15.1; §25.2 REQUIRES_EVIDENCE
 // IMP-24: "Evidencia OOS/Shadow realmente disponible de la versión según
 // §§15–18"). El governor CONSUME los receipts; no los re-declara: una sola
-// verdad, los producen IMP-16 (OOS) e IMP-18 (Shadow).
-export const RESEARCH_RECEIPT_KIND = "IMP-16_P5_EXPERIMENT_RECEIPT";
-export const SHADOW_EVIDENCE_KIND = "IMP-18_SHADOW_EVIDENCE_RECEIPT";
+// verdad, los producen IMP-16 (OOS) e IMP-18 (Shadow). Las etiquetas de
+// discriminación se importan del productor (corrección IMP24-SHADOW-KIND).
+export const RESEARCH_RECEIPT_KIND = P5_EXPERIMENT_RECEIPT_KIND;
+export const SHADOW_EVIDENCE_KIND = SHADOW_RECEIPT_KIND;
 export const STAGE_RECEIPT_KINDS = { OOS: RESEARCH_RECEIPT_KIND, SHADOW: SHADOW_EVIDENCE_KIND };
 
 // §16.1: la promoción exige la CONJUNCIÓN de los seis gates.
@@ -226,9 +229,26 @@ function governanceApprovalProblem(approval, expectedScope) {
   return null;
 }
 
+// §18.1/§12.2: veto, retraso o modificación se registran mediante timestamp,
+// razón y provenance. Una intervención sin trazabilidad desaparecería del
+// dataset; el contrato aceptado validateHumanIntervention (IMP-17) ya exige
+// los cuatro campos, y aquí se aplica el mismo contrato (una sola verdad).
+function interventionProvenanceProblem(approval) {
+  if (!isNonEmptyString(approval.reason)) {
+    return { code: "INTERVENTION_REASON_MISSING", message: "La intervención humana (veto/retraso/modificación) declara su razón (§18.1/§12.2)." };
+  }
+  const provenance = approval.provenance;
+  if (!provenance || typeof provenance !== "object" || Array.isArray(provenance)
+    || !isNonEmptyString(provenance.authority) || !isNonEmptyString(provenance.locator)) {
+    return { code: "INTERVENTION_PROVENANCE_MISSING", message: "La intervención humana declara su provenance con authority y locator (§18.1/§12.2)." };
+  }
+  return null;
+}
+
 // Validación humana por acción real en A1 (§18.1): recomendación original,
-// decisión (APPROVED/VETOED/DELAYED), timestamp, razón y modificación
-// declaradas; nada se infiere por defecto.
+// decisión (APPROVED/VETOED/DELAYED), timestamp, razón y provenance
+// declaradas; nada se infiere por defecto. Un veto/retraso o una modificación
+// de cantidad es una intervención (§12.2) y exige razón y provenance.
 function perActionApprovalProblem(approval, recommendation) {
   if (!approval || typeof approval !== "object" || Array.isArray(approval)) {
     return { code: "MISSING_ACTION_APPROVAL", message: "En A1 el 100% de las acciones reales exige validación humana por acción (§18.1)." };
@@ -246,8 +266,26 @@ function perActionApprovalProblem(approval, recommendation) {
   if (!["APPROVED", "VETOED", "DELAYED"].includes(approval.decision)) {
     return { code: "INVALID_ACTION_DECISION", message: "La decisión es APPROVED, VETOED o DELAYED (§18.1: intervención registrada)." };
   }
+  const modifiesQuantity = isFinitePositiveNumber(approval.modifiedQuantityMw)
+    && approval.modifiedQuantityMw !== recommendation.quantityMw;
+  const isIntervention = approval.decision !== "APPROVED" || modifiesQuantity;
+  if (isIntervention) {
+    const provenanceProblem = interventionProvenanceProblem(approval);
+    if (provenanceProblem) {
+      return provenanceProblem;
+    }
+  }
   if (approval.decision !== "APPROVED") {
-    return { code: `ACTION_${approval.decision}`, message: `La validación humana registró "${approval.decision}" (§18.1); no ejecuta.`, intervention: { decision: approval.decision, decidedAtUtc: approval.decidedAtUtc, reason: approval.reason ?? null } };
+    return {
+      code: `ACTION_${approval.decision}`,
+      message: `La validación humana registró "${approval.decision}" (§18.1); no ejecuta.`,
+      intervention: {
+        decision: approval.decision,
+        decidedAtUtc: approval.decidedAtUtc,
+        reason: approval.reason ?? null,
+        provenance: approval.provenance ?? null,
+      },
+    };
   }
   return null;
 }
@@ -325,6 +363,12 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
 
   // --- Hito 2: primera activación A1, si se autoriza (§18.1) ---
 
+  // A diferencia de un ascenso posterior (considerSubsequentPromotion), la
+  // primera activación NO se limita al nivel que concede el envelope: §18.1 la
+  // hace depender de la aprobación humana explícita de DEP-25, que es la
+  // autoridad del acto. El envelope recibido es el de investigación previo
+  // (p.ej. A0) y el receipt documenta la autoridad del nivel A1 vía
+  // approvalRef + envelopeVersionKey, de forma reconstruible (§18.4).
   function considerFirstActivation({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, apg, humanApproval, atUtc } = {}) {
     if (!isNonEmptyString(atUtc)) {
       return fail("MISSING_TIMESTAMP", "La activación declara su instante (§6.1).");
@@ -427,6 +471,15 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (!receivedShadow.ok) {
       return fail(receivedShadow.code, `Evidencia Shadow insuficiente: ${receivedShadow.message}`, { stage: "SHADOW" });
     }
+    // §25.2.3 hito 2: OOS y Shadow deben pertenecer a UNA sola identidad de
+    // versión, que incluye el experimento. Declarar el mismo policyVersion con
+    // experimentos distintos no es la misma versión.
+    const oosExperiment = receivedOos.evidence.identity.experiment;
+    const shadowExperiment = receivedShadow.evidence.identity.experiment;
+    if (oosExperiment === null || shadowExperiment === null
+      || contentHashOf(oosExperiment) !== contentHashOf(shadowExperiment)) {
+      return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas OOS y Shadow no comparten la identidad de experimento (OOS ${JSON.stringify(oosExperiment)} vs Shadow ${JSON.stringify(shadowExperiment)}): una sola identidad de versión (§15/§25.2.3 hito 2).`);
+    }
     if (isNonEmptyString(oosPolicyVersion) && oosPolicyVersion !== receivedShadow.evidence.identity.policyVersion) {
       return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas declaran versiones distintas (OOS "${oosPolicyVersion}" vs Shadow "${receivedShadow.evidence.identity.policyVersion}"): una sola identidad de versión (§15).`);
     }
@@ -482,6 +535,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
           decidedBy: { authority: humanApproval.decidedBy.authority, role: humanApproval.decidedBy.role },
           decidedAtUtc: humanApproval.decidedAtUtc,
           reason: humanApproval.reason ?? null,
+          provenance: humanApproval.provenance ?? null,
         },
         modification,
         // §18.1: el outcome modificado no se atribuye a la recomendación
@@ -529,6 +583,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (approvalFailure) {
       const holdReceiptId = holdPromotion({ targetLevel, triggerGate: "G_DEP25_GOVERNANCE_CHANGE", triggerEvidenceRef: approvalFailure.code, atUtc });
       return { ok: false, authorized: false, code: approvalFailure.code, message: approvalFailure.message, transitionReceiptId: holdReceiptId };
+    }
+    // §17/§18.2: el envelope declara la autoridad/nivel ("Authorized Policy
+    // Version / autonomy level"). Un ascenso a un nivel que el envelope no
+    // autoriza es un cambio de governance que exige un envelope nuevo
+    // (§20.2.12); el governor nunca lo auto-amplía. Sin esto el receipt
+    // registraría un autonomyLevel que el envelopeVersionKey no respalda.
+    if (levelIndex(targetLevel) > levelIndex(envelope.autonomyLevel)) {
+      return fail("TARGET_LEVEL_NOT_AUTHORIZED_BY_ENVELOPE", `El envelope "${String(envelope.envelopeVersion)}" autoriza hasta ${envelope.autonomyLevel}; ${targetLevel} exigiría un nuevo envelope (§17/§18.2).`);
     }
     const fromLevel = state.level;
     state.level = targetLevel;
