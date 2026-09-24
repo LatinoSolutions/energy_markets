@@ -18,9 +18,19 @@
 // sizing reaccionara al resultado del fill, el timing — única variable permitida
 // — alteraría la lógica de decisión y la paridad entre brazos sería imposible
 // en escenarios con denegaciones causales. El faltante por fill denegado se
-// conserva explícito como cobertura no cubierta (§25.2.3), sin re-programación
-// posterior: re-agendar tras observar el deny sería ajustar tras outcome (§13.9
-// no rescue).
+// conserva explícito como cobertura no cubierta (§25.1 IMP-12 "partial/no-fill
+// no cubre cantidad solicitada"; §14.5 "coverage cambia por filled quantity,
+// nunca por requested quantity"), sin re-programación posterior: re-agendar
+// tras observar el deny sería ajustar tras outcome (§13.9 no rescue).
+//
+// Divergencia clasificada con el replay P6 (§14.5), no silenciosa: P6
+// dimensiona el remaining del controller sobre el volumen EJECUTADO
+// (obligación − filled); este protocolo Q07 lo hace sobre el volumen
+// SOLICITADO programado (obligación − requests) para que la secuencia de
+// decisión sea invariante al outcome de fill y quede una única variable —el
+// timing— entre brazos (§25.1 IMP-21 acepta "cambia sólo timing permitido").
+// Q07 queda fuera de P5 (§13.4:1252); la comparación con cifras P5 conserva
+// ese límite y no reescribe el ledger de P6.
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { reconcileControlQuantity } from "../sizing-controller/sizing-controller.mjs";
@@ -166,9 +176,9 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
     const quantity = reconciled.requestedQuantityMw;
     // El BUY programado consume la oportunidad: el remaining PROGRAMADO baja
     // por la cantidad solicitada, exista o no fill. Un fill denegado conserva
-    // su volumen como cobertura faltante (§25.2.3), NO se re-agenda: re-agendar
-    // tras observar el deny haría que el timing — única variable permitida —
-    // alterara las decisiones y rompería la paridad (§13.9 no rescue).
+    // su volumen como cobertura faltante (§25.1 IMP-12; §14.5), NO se re-agenda:
+    // re-agendar tras observar el deny haría que el timing —única variable
+    // permitida— alterara las decisiones y rompería la paridad (§13.9 no rescue).
     scheduledRemaining -= quantity;
     let fill = null;
     if (candidate.kind === "FIXED_HOUR_AND_MINUTES") {
@@ -199,7 +209,7 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
 
     if (!fill) {
       // El fill denegado NO re-programa el remaining: el faltante queda
-      // conservado como cobertura no cubierta (§25.2.3).
+      // conservado como cobertura no cubierta (§25.1 IMP-12; §14.5).
       continue;
     }
     filledTotalMw += quantity;

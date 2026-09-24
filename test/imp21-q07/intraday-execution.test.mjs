@@ -138,7 +138,7 @@ test("paridad H4/H5: cobertura causal distinta entre horas no rompe la paridad d
     assert.deepEqual(arm.decisionSequence, expected);
   }
   // Cobertura causal distinta conservada: el fill denegado deja su volumen
-  // como faltante (§25.2.3), no re-agendado.
+  // como faltante (§25.1 IMP-12; §14.5), no re-agendado.
   assert.equal(arms[0].coverageFraction, 0);
   assert.equal(arms[1].coverageFraction, 1);
   const parity = assertHourArmsParity(arms);

@@ -7,6 +7,8 @@
 
 export const INTRADAY_AUDIT_SCOPE = "DEP-17_INTRA_DAY_DATA_AUDIT";
 
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
 export function evaluateIntradayAuditGate({ intradayAudit = null } = {}) {
   if (!intradayAudit || typeof intradayAudit !== "object" || Array.isArray(intradayAudit)) {
     return {
@@ -38,11 +40,18 @@ export function evaluateIntradayAuditGate({ intradayAudit = null } = {}) {
       blocker: "Deben declararse las fuentes auditadas cubiertas y el IMP/revisión que produjo el artefacto.",
     };
   }
-  if (intradayAudit.producedByImp !== "IMP-03" && typeof intradayAudit.contentHash !== "string") {
+  // Integridad del artefacto consumido (§25.2.1: "audit realizado ≠ dato
+  // disponible ≠ gate satisfecho"; §14.9 binding por content-hash): todo audit
+  // aceptado se consume identificado por el sha256 de su contenido, no por
+  // auto-declaración. La procedencia se exige igual para IMP-03 y para un audit
+  // factual equivalente: un `status:"ACCEPTED"` sin identidad de contenido no
+  // satisface el REQUIRES_AUDIT. El gate no ve los bytes del artefacto, por eso
+  // exige el sha256 verificable y lo expone para trazabilidad downstream.
+  if (typeof intradayAudit.contentHash !== "string" || !SHA256_HEX.test(intradayAudit.contentHash)) {
     return {
       ok: false,
-      code: "INTRADAY_AUDIT_EQUIVALENT_NOT_SOURCED",
-      blocker: "Un audit factual equivalente exige trazabilidad de origen (hash/identidad verificable).",
+      code: "INTRADAY_AUDIT_NOT_SOURCED",
+      blocker: "Todo audit intradía consumido debe identificarse por el sha256 de su contenido (IMP-03 o equivalente factual); un ACCEPTED autodeclarado sin provenance no satisface el gate (§25.2.1, §14.9).",
     };
   }
   return { ok: true, code: "INTRADAY_AUDIT_GATE_HOLD", intradayAudit };
@@ -60,6 +69,7 @@ export function consumeIntradayAuditBinding({ gate } = {}) {
     consumed: {
       auditScope: gate.intradayAudit.auditScope,
       producedByImp: gate.intradayAudit.producedByImp,
+      contentHash: gate.intradayAudit.contentHash,
       evidenceRole: "DEPENDencia CONSUMIDA (REQUIRES_AUDIT), no evidencia del experimento Q07",
     },
   };
