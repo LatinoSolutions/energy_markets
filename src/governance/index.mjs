@@ -33,3 +33,21 @@ export {
   receiptIdentityOf,
   createGovernanceReceiptRegistry,
 } from "./receipts.mjs";
+
+// IMP-24: materialización del governor de Production Governance. Fuente:
+// SPEC v1.1.1 §25.1 fila IMP-24, §25.2 nota IMP-24 (tres hitos) y §§16–18.
+export {
+  PRODUCTION_GOVERNOR_KIND,
+  RESEARCH_RECEIPT_KIND,
+  SHADOW_EVIDENCE_KIND,
+  STAGE_RECEIPT_KINDS,
+  PROMOTION_GATES,
+  FORBIDDEN_AUTHORITY_ROLES,
+  PROTECTED_GOVERNANCE_DOMAINS,
+  FIRST_ACTIVATION_REFUSAL_CODE,
+  FIRST_ACTIVATION_SCOPE,
+  GOVERNANCE_CHANGE_SCOPE_PREFIX,
+  receiveGovernanceEvidence,
+  evaluateAutonomyPromotionGate,
+  createProductionGovernor,
+} from "./production-governor.mjs";
