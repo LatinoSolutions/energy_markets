@@ -30,7 +30,7 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-12 | aceptado | IMP-01, IMP-02, IMP-06, IMP-07, IMP-10 | Construir replay y ledgers P6. |  |
 | IMP-13 | aceptado | IMP-08, IMP-12 | Codificar fixtures previamente verificados a mano. |  |
 | IMP-14 | aceptado | IMP-01, IMP-05, IMP-06, IMP-07, IMP-12 | Materializar run receipts y reproducibilidad. |  |
-| IMP-15 | pendiente | IMP-05, IMP-07, IMP-08, IMP-13, IMP-14 | Cerrar instrumento P6 y campaña manual end-to-end. | |
+| IMP-15 | pendiente | IMP-05, IMP-07, IMP-08, IMP-13, IMP-14 | Cerrar instrumento P6 y campaña manual end-to-end. | Ingeniería del instrumento completa y revisada (closure gate/receipt §14.10, items fail-closed; suite 999/0). Bloqueo de acceptance del parent: §25.2.2 REQUIRES_AUDIT DEP-01–09 [campaña manual real y parámetros utilizados]. El paquete cliente (`01_campaigns/gas_quarterly.md`) aporta parámetros pero ningún Campaign ID/delivery/ownership ni días de decisión reales (mismos faltantes que IMP-02). El ACTO que depende del dato es el acceptance del parent: la coincidencia manual/evaluator en B/H/V/coverage sobre la campaña real no puede demostrarse con fixtures sintéticos. Falta un dato que solo Bru tiene; sin P-ID registrado. |
 | IMP-16 | pendiente | IMP-09, IMP-11, IMP-15 | Confirmar reserva OOS intacta, congelar bundle P5 completo y ejecutar A0/A1. | |
 | IMP-17 | aceptado | IMP-01, IMP-12, IMP-14 | Materializar Experience con provenance y atribución. |  |
 | IMP-18 | pendiente | IMP-16, IMP-17 | Implementar captura Shadow y verificar non-interference. | |
