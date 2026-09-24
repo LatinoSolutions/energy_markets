@@ -250,6 +250,9 @@ export function resolveEligibilityBasis(campaigns) {
 // Identidad de la SPEC que gobierna la reserva. Fuente única: el binding
 // canónico de src/office/spec-binding.mjs (IMP-26), que revalida el owner patch
 // del 24-sep-2026. Antes de IMP-26 este literal fijaba el hash previo al patch.
+// El valor resuelve al hash del doc canónico vigente (docs/canonical/v1_1_1/
+// SHA256SUMS, d1bb4172…), igual que el literal que traía main: mismo dato,
+// una sola verdad.
 export const IMP09_SPEC_IDENTITY = CANONICAL_SPEC_IDENTITY;
 
 export function validateSpecIdentity(spec) {

@@ -4,7 +4,9 @@
 // (tooling reportado: `src/economic-calculation/benchmark.mjs`, aceptado en
 // IMP-08, y `/home/op/apps/power-markets-explorer/scripts/generate_eex_snapshot.py`)
 // y §25.1 IMP-04 ("Interfaces reales, fixtures sintéticos, constraints de
-// uso"). Los hashes son de los bytes presentes en este worktree.
+// uso"). Los hashes son de los bytes presentes en este worktree. El hash de la
+// SPEC (d1bb4172…) es el del doc canónico vigente tras el owner patch
+// EM-SPEC-OWNER-PATCH-2026-09-24-01 (docs/canonical/v1_1_1/SHA256SUMS).
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
