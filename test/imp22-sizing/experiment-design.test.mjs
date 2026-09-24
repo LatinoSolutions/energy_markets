@@ -18,6 +18,7 @@ test("los diseños predeclarados pasan la validación estructural completa", () 
 test("un diseño nuevo de Mission Quarterly usa los mínimos DEP-12 canónicos, no los de otra Mission", () => {
   const design = getDesign(DESIGN_IDS.GAS_MONTHLY);
   design.identity.missionId = "POWER-QUARTERLY";
+  design.mission.missionId = "POWER-QUARTERLY";
   design.reserve.missionId = "POWER-QUARTERLY";
   design.reserve.minimumEvidence = { cadence: "QUARTERLY", minCompleteQuartersOos: 8, minCalendarYearsOos: 2 };
   design.candidates = design.candidates.map((candidate) => ({ ...candidate, identity: { ...candidate.identity, missionId: "POWER-QUARTERLY" } }));
@@ -100,9 +101,21 @@ test("freeze excluye STATE act-over: exige reserva RESERVED, brazos paritarios y
   assert.equal(boundaryCheck.ok, false);
   assert.ok(boundaryCheck.errors.some((error) => error.code === "SPLIT_BOUNDARY_REQUIRED"));
 
-  // Cadena completa: reserva RESERVED + frontera + brazos paritarios + freeze.
-  const complete = validateFreezeBeforeEvaluation(attributionArmsFor(frozenStateFor(reservedStateFor(deepCloneDesign(design))), {}));
+  // Cadena completa: reserva RESERVED + frontera + candidato AUDITED +
+  // brazos paritarios + freeze. La regla AUDITED del gate es el cierre del
+  // hallazgo IMP22-H1 (§4.2; P5.6 reglas 4/5).
+  const complete = validateFreezeBeforeEvaluation(
+    attributionArmsFor(frozenStateFor(candidateWithAudit(reservedStateFor(deepCloneDesign(design)))), {})
+  );
   assert.equal(complete.ok, true, JSON.stringify(complete.errors));
+
+  // Sin restricciones AUDITED el covenant no calibra: el candidato
+  // AUDIT_PENDING con lotes/redondeo desconocidos queda fijo (P5.6 regla 5).
+  const unaudited = validateFreezeBeforeEvaluation(
+    attributionArmsFor(frozenStateFor(reservedStateFor(deepCloneDesign(design))), {})
+  );
+  assert.equal(unaudited.ok, false);
+  assert.ok(unaudited.errors.some((error) => error.code === "CONSTRAINT_AUDITED_REQUIRED"));
 });
 
 test("paridad rota entre brazos bloquea la evaluación aunque el freeze esté declarado (§13.9)", () => {

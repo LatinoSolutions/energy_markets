@@ -8,9 +8,7 @@ const POOLING_FIELDS = [
   "samplePoolingAcrossMissions",
   "weightedCrossMissionScore",
   "portfolioObjective",
-];
-
-// Los campos de pooling/aggregación no pueden estar presentes: el resultado
+];// Los campos de pooling/aggregación no pueden estar presentes: el resultado
 // de este alcance son evaluaciones separadas, común semántico de reward, no
 // agregador (D18 D5.1–D5.4; §23 OD-01; §10).
 export function assertNoPoolingOrPortfolioAggregation(design) {
@@ -74,15 +72,28 @@ export function assertActionSpaceInvariant(design) {
 }
 
 // El controller compartido P5.2 aportado aquí no es la Sizing Policy final:
-// ningún diseño puede declararlo validado por-name (§13.2; DEP-18 sigue
-// abierto hasta su propia evidencia).
+// el enunciado normativo vive en el módulo aceptado del controller (IMP-10)
+// y el diseño debe declarar el controllerKind experimental, no uno propio
+// re-implementado (§13.2; DEP-18 sigue abierto hasta su propia evidencia).
+// Ref: hallazgo IMP22-H6.
+import { CONTROLLER_KIND, IS_NOT_FINAL_SIZING_POLICY } from "../sizing-controller/sizing-controller.mjs";
+
+export { CONTROLLER_KIND, IS_NOT_FINAL_SIZING_POLICY };
+
 export function assertControllerIsNotFinalPolicy(design) {
   const errors = [];
+  if (design?.controllerKind !== CONTROLLER_KIND) {
+    errors.push({
+      field: "controllerKind",
+      code: "CONTROLLER_KIND_UNBOUND",
+      message: `El diseño debe declarar controllerKind "${CONTROLLER_KIND}" del módulo aceptado de controller; ${IS_NOT_FINAL_SIZING_POLICY} (§13.2; DEP-18).`,
+    });
+  }
   if (design?.decessorControllerClaim === true || design?.controllerIsFinalSizingPolicy === true) {
     errors.push({
       field: "controllerIsFinalSizingPolicy",
       code: "CONTROLLER_UPDATE_FORBIDDEN",
-      message: "El controller experimental P5.2 no se declara Sizing Policy final: la familia final exige DEP-18 [forma/parámetros/validación] (§13.2; DEP-18).",
+      message: `El controller experimental P5.2 no se declara Sizing Policy final: ${IS_NOT_FINAL_SIZING_POLICY} (§13.2; DEP-18).`,
     });
   }
   return { ok: errors.length === 0, errors };

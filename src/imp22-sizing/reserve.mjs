@@ -7,6 +7,13 @@
 
 import { IMP22_RESERVE_ID_PATTERN } from "./identity.mjs";
 import { getMission, isMissionId } from "./missions.mjs";
+// Contratos ya aceptados (IMP-09): el scope de la reserva de Gas Quarterly y
+// el hashing canónico de estado se consumen del módulo aceptado, no se
+// re-implementan aquí (Ref: hallazgo IMP22-H6).
+import { OOS_PRODUCT, OOS_MISSION } from "../oos-reservation/campaign-register.mjs";
+import { contentHashOf } from "../oos-reservation/reservation.mjs";
+
+export { contentHashOf as reserveContentHashOf, OOS_PRODUCT as IMP09_OOS_PRODUCT, OOS_MISSION as IMP09_OOS_MISSION };
 
 export const RESERVE_STATUS = { RESERVED: "RESERVED", HOLD: "HOLD" };
 
@@ -79,7 +86,7 @@ export function validateMissionReserve(reserve) {
     errors.push({
       field: "reusesGasQuarterlyImp09Reservation",
       code: "OOS_REUSE_FORBIDDEN",
-      message: "La reserva Gas Quarterly de IMP-09 no cubre Power/Monthly: prohibido reutilizarla para esta evaluación (§25.2.3 IMP-22).",
+      message: `La reserva Gas Quarterly de IMP-09 sólo acredita ${OOS_PRODUCT} ${OOS_MISSION} P5: prohibido reutilizarla para Power/Monthly (§25.2.3 IMP-22).`,
     });
   }
 

@@ -10,6 +10,11 @@ import { makeDesign } from "./builder.mjs";
 
 export const DESIGN_IDS = { GAS_MONTHLY: "IMP22-EX-SZ01-01", POWER_MONTHLY: "IMP22-EX-SZ02-01" };
 
+// Cada Mission es una unidad versionada separada: el sizingCandidateId es
+// propio de la Mission, sin reutilización entre misiones distintas (Ref:
+// hallazgo IMP22-H5; el registro detecta colisiones).
+export const SIZING_CANDIDATE_IDS = { GAS_MONTHLY: "IMP22-SZ-01-01", POWER_MONTHLY: "IMP22-SZ-02-01" };
+
 export const EXPERIMENT_DESIGNS = [makeGasMonthlyDesign(), makePowerMonthlyDesign()];
 
 export function getDesign(designId) {
@@ -41,10 +46,10 @@ function guardClampToRemaining(projectedQuantity, remainingVolume) {
   return Math.min(projectedQuantity, remainingVolume);
 }
 
-function homogeneousCandidate(missionId) {
+function homogeneousCandidate(missionId, sizingCandidateId) {
   return {
     identity: {
-      sizingCandidateId: "IMP22-SZ-01-01",
+      sizingCandidateId,
       parametrizationVersion: "v1-rule-homogeneous",
       missionId,
     },
@@ -53,9 +58,10 @@ function homogeneousCandidate(missionId) {
     constraints: {
       lotSizeAvailable: false,
       roundingRuleAvailable: false,
+      deadlineRuleAvailable: false,
       feasibilityGuardsInstalled: true,
       guardFunction: guardClampToRemaining,
-      unknownsDeclared: ["lotSize", "roundingRule"],
+      unknownsDeclared: ["lotSize", "roundingRule", "deadlineRule"],
     },
     evaluationBinding: { sizeOnlyArm: true, executedStandalone: false },
   };
@@ -65,12 +71,12 @@ function homogeneousCandidate(missionId) {
 // (§13.2 aplicado por Mission) como brazo size-only único de arranque.
 function makeGasMonthlyDesign() {
   const design = makeDesign("IMP22-EX-SZ01-01", "GAS-MONTHLY", "IMP22-RSV-01-01");
-  design.candidates = [homogeneousCandidate("GAS-MONTHLY")];
+  design.candidates = [homogeneousCandidate("GAS-MONTHLY", SIZING_CANDIDATE_IDS.GAS_MONTHLY)];
   return design;
 }
 
 function makePowerMonthlyDesign() {
   const design = makeDesign("IMP22-EX-SZ02-01", "POWER-MONTHLY", "IMP22-RSV-01-02");
-  design.candidates = [homogeneousCandidate("POWER-MONTHLY")];
+  design.candidates = [homogeneousCandidate("POWER-MONTHLY", SIZING_CANDIDATE_IDS.POWER_MONTHLY)];
   return design;
 }

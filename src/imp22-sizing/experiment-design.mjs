@@ -10,6 +10,7 @@ import { validateSizingCandidate, CONSTRAINT_STATUSES } from "./sizing-candidate
 import { validateMissionReserve, RESERVE_STATUS } from "./reserve.mjs";
 import { validateArmParity } from "./attribution.mjs";
 import { assertNoPoolingOrPortfolioAggregation, assertActionSpaceInvariant, assertControllerIsNotFinalPolicy } from "./constraints.mjs";
+import { validateCoverageDeclarations } from "./coverage.mjs";
 
 export const IMP22_DESIGN_FIELDS = [
   "identity",
@@ -17,9 +18,44 @@ export const IMP22_DESIGN_FIELDS = [
   "reserve",
   "candidates",
   "attribution",
+  "coverage",
   "separateEvaluation",
   "honestUnknowns",
 ];
+
+// Verificación del bloque design.mission: las extas declaraciones de la
+// Mission tienen que estar vivas (propias del propio experimento), no inertes
+// frente al registro canónico (Ref: hallazgo IMP22-H4).
+function validateMissionDeclarations(design) {
+  const errors = [];
+  const missionId = design?.identity?.missionId;
+  const mission = design?.mission;
+  if (mission == null || typeof mission !== "object") {
+    errors.push({
+      field: "mission",
+      code: "MISSION_BLOCK_REQUIRED",
+      message: "El bloque mission del diseño es requerido: el experimento declara su extensión de Mission (§25.1 aceptación IMP-22).",
+    });
+    return errors;
+  }
+  if (mission.missionId !== missionId) {
+    errors.push({
+      field: "mission.missionId",
+      code: "MISSION_MISMATCH",
+      message: "mission.missionId debe coincidir con identity.missionId: un diseño es una Mission separada (§23).",
+    });
+  }
+  for (const field of ["ownBenchmarkBDeclaration", "separateEvaluationDeclaration", "minimumEvidenceDeclaration"]) {
+    if (mission[field] !== true) {
+      errors.push({
+        field: `mission.${field}`,
+        code: "MISSION_DECLARATION_REQUIRED",
+        message: `mission.${field} debe declararse true en el propio experimento: B propio, evaluación separada y mínimos de la Mission (§25.1; DEP-12).`,
+      });
+    }
+  }
+  return errors;
+}
 
 export function validateExperimentDesign(design) {
   const errors = [];
@@ -46,13 +82,32 @@ export function validateExperimentDesign(design) {
     });
   }
 
+  errors.push(...validateMissionDeclarations(design));
+
+  errors.push(...validateCoverageDeclarations(design.coverage));
+
   const candidates = design.candidates;
   if (!Array.isArray(candidates) || candidates.length === 0) {
     errors.push({ field: "candidates", code: "CANDIDATES_REQUIRED", message: "Al menos un candidato de sizing versionado debe declararse (§4.2; DEP-18 familia/parametrización).", });
   } else {
+    // El tamaño de una misma Mission es un objeto único versionado: dos
+    // candidatos con el mismo sizingCandidateId dentro del diseño son una
+    // identidad ambigua (Ref: hallazgo IMP22-H5).
+    const seenCandidateIds = new Set();
     for (const candidate of candidates) {
       const check = validateSizingCandidate(candidate);
       errors.push(...check.errors.map((error) => ({ ...error, field: `candidates[].${error.field}` })));
+      const candidateId = candidate?.identity?.sizingCandidateId;
+      if (typeof candidateId === "string" && candidateId.trim() !== "") {
+        if (seenCandidateIds.has(candidateId)) {
+          errors.push({
+            field: "candidates[].identity.sizingCandidateId",
+            code: "SIZING_CANDIDATE_ID_COLLISION",
+            message: `sizingCandidateId duplicado dentro del diseño: ${candidateId} (§4.2 identidad versionada).`,
+          });
+        }
+        seenCandidateIds.add(candidateId);
+      }
       if (typeof missionId === "string" && candidate.identity?.missionId !== missionId) {
         errors.push({
           field: "candidates[].identity.missionId",
@@ -70,12 +125,55 @@ export function validateExperimentDesign(design) {
     errors.push(...attributionCheck.errors.map((error) => ({ ...error, field: `attribution.${error.field}` })));
   }
 
+  // Un diseño sin un solo desconocido visible es un faltante disimulado: los
+  // DEP-01–08 [Mission/sizing] deben quedar registrados como AUDIT_MISSING
+  // (o confirmados con datos auditados); array vacío no descarta nada (§6.4;
+  // §25.1). Ref: hallazgo IMP22-H2.
   const unknowns = design.honestUnknowns;
-  if (!Array.isArray(unknowns)) {
+  if (!Array.isArray(unknowns) || unknowns.length === 0) {
     errors.push({
       field: "honestUnknowns",
-      code: "HONEST_UNKNOWNS_REQUIRED",
-      message: "Jo survey abstracto: DEP-01–08 [Mission/sizing del nuevo experimento] deben quedar declarados como unknowns AUDIT-DEPENDENT o confirmados con datos auditados; nada se descarta (§6.4).",
+      code: "UNKNOWN_NOT_VISIBLE",
+      message: "El diseño no declaró ningún desconocido visible; los DEP-01–08 [Mission/sizing del nuevo experimento] deben quedar en el registro (§6.4).",
+    });
+  } else {
+    const seenUnknownIds = new Set();
+    for (const unknown of unknowns) {
+      if (unknown == null || typeof unknown !== "object") {
+        errors.push({ field: "honestUnknowns[]", code: "INVALID_UNKNOWN", message: "Cada desconocido visible debe ser un objeto con sujeto y razón." });
+        continue;
+      }
+      for (const field of ["unknownId", "subject", "reason"]) {
+        if (typeof unknown[field] !== "string" || unknown[field].trim().length === 0) {
+          errors.push({
+            field: `honestUnknowns[].${field}`,
+            code: "UNKNOWN_FIELD_REQUIRED",
+            message: `La entrada de desconocido necesita ${field} estable y con razón preservada (§6.2).`,
+          });
+        }
+      }
+      if (typeof unknown.unknownId === "string") {
+        if (seenUnknownIds.has(unknown.unknownId)) {
+          errors.push({
+            field: "honestUnknowns[].unknownId",
+            code: "DUPLICATE_UNKNOWN",
+            message: `Desconocido duplicado: ${unknown.unknownId}.`,
+          });
+        }
+        seenUnknownIds.add(unknown.unknownId);
+      }
+    }
+  }
+
+  // El scope de referencia que declara el builder debe enlazar el registro de
+  // desconocidos con los DEP del §24; si desaparece, la encuesta pierde su
+  // ancla (Ref: hallazgo IMP22-H2).
+  const referenceScope = design.honestUnknownReferenceScope;
+  if (!Array.isArray(referenceScope) || referenceScope.length === 0 || referenceScope.some((entry) => typeof entry !== "string" || entry.trim().length === 0)) {
+    errors.push({
+      field: "honestUnknownReferenceScope",
+      code: "REFERENCE_SCOPE_REQUIRED",
+      message: "honestUnknownReferenceScope debe enlazar cada desconocido con su DEP del §24; nada se descarta (§25.1; §6.4).",
     });
   }
 
@@ -139,6 +237,25 @@ export function validateFreezeBeforeEvaluation(design) {
     const parityCheck = validateArmParity(design.attribution.arms);
     errors.push(...parityCheck.errors.map((error) => ({ ...error, field: `attribution.${error.field}` })));
   }
+
+  // §4.2: las cantidades deben respetar las restricciones AUDITADAS antes de
+  // evaluar/calibrar; con restricciones pendientes de audit el candidato
+  // queda HOLD y no administrar la evaluación (P5.6 reglas 4/5 aplicadas al
+  // sizing). Ref: hallazgo IMP22-H1.
+  for (const candidate of Array.isArray(design?.candidates) ? design.candidates : []) {
+    if (candidate?.constraintStatus !== CONSTRAINT_STATUSES.AUDITED) {
+      errors.push({
+        field: "candidates[].constraintStatus",
+        code: "CONSTRAINT_AUDITED_REQUIRED",
+        message: "El gate de freeze/evaluación exige constraintStatus AUDITED (lotes/redondeo disponible y unknowns consumidos); AUDIT_PENDING no calibra (§4.2; P5.6 regla 5).",
+      });
+    }
+  }
+
+  // La cobertura declarada (§4.3) debe seguir en pie antes de evaluar:
+  // identidad Opening = Executed + Remaining y prohibición de doble conteo
+  // declaradas ex-ante (Ref: hallazgo IMP22-H7).
+  errors.push(...validateCoverageDeclarations(design?.coverage));
 
   return { ok: errors.length === 0, errors };
 }

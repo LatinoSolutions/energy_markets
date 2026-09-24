@@ -6,6 +6,7 @@ import { validateExperimentDesign } from "./experiment-design.mjs";
 
 export function createImp22DesignRegistry() {
   const designs = new Map();
+  const candidateOwners = new Map();
   const trades = [];
 
   function register(design) {
@@ -24,6 +25,27 @@ export function createImp22DesignRegistry() {
         errors: [{ field: "identity.experimentId", code: "IDENTITY_COLLISION", message: `Ya existe un diseño con experimentId ${experimentId}.` }],
       };
     }
+    // El sizingCandidateId es la identidad versionada del candidato: un
+    // mismo ID en experimentos (o Mission) distintos es una colisión
+    // detectable, no un alias seguro (Ref: hallazgo IMP22-H5).
+    for (const candidate of Array.isArray(design.candidates) ? design.candidates : []) {
+      const candidateId = candidate?.identity?.sizingCandidateId;
+      if (typeof candidateId !== "string" || candidateId.trim() === "") continue;
+      const owner = candidateOwners.get(candidateId);
+      if (owner != null && owner !== experimentId) {
+        trades.push({ rejected: true, code: "SIZING_CANDIDATE_ID_COLLISION", experimentId, candidateId });
+        return {
+          ok: false,
+          code: "SIZING_CANDIDATE_ID_COLLISION",
+          errors: [{
+            field: "candidates[].identity.sizingCandidateId",
+            code: "SIZING_CANDIDATE_ID_COLLISION",
+            message: `sizingCandidateId ${candidateId} ya está registrado para el experimento ${owner}.`,
+          }],
+        };
+      }
+      candidateOwners.set(candidateId, experimentId);
+    }
     designs.set(experimentId, design);
     trades.push({ rejected: false, experimentId });
     return { ok: true, code: "VALID" };
@@ -33,6 +55,7 @@ export function createImp22DesignRegistry() {
     register,
     get: (experimentId) => designs.get(experimentId) ?? null,
     list: () => [...designs.values()],
+    ownerOf: (sizingCandidateId) => candidateOwners.get(sizingCandidateId) ?? null,
     trades: () => [...trades],
   };
 }

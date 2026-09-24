@@ -50,6 +50,7 @@ export function candidateWithAudit(design) {
   candidate.constraintStatus = "AUDITED";
   candidate.constraints.lotSizeAvailable = true;
   candidate.constraints.roundingRuleAvailable = true;
+  candidate.constraints.deadlineRuleAvailable = true;
   candidate.constraints.unknownsDeclared = [];
   return design;
 }

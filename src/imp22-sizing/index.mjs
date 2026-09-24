@@ -30,7 +30,9 @@ export {
   validateSizingCandidate,
 } from "./sizing-candidate.mjs";
 
-export { RESERVE_STATUS, validateMissionReserve } from "./reserve.mjs";
+export { RESERVE_STATUS, validateMissionReserve, reserveContentHashOf, IMP09_OOS_PRODUCT, IMP09_OOS_MISSION } from "./reserve.mjs";
+
+export { COVERAGE_IDENTITY, validateCoverageDeclarations, validateCoverageTrace, validateGuardCoverage } from "./coverage.mjs";
 
 export { ATTRIBUTION_ARMS, attributeTimingVsetSize, validateArmParity } from "./attribution.mjs";
 
@@ -44,6 +46,6 @@ export { IMP22_DESIGN_FIELDS, validateExperimentDesign, validateFreezeBeforeEval
 
 export { makeDesign } from "./builder.mjs";
 
-export { DESIGN_IDS, EXPERIMENT_DESIGNS, getDesign } from "./designs.mjs";
+export { DESIGN_IDS, EXPERIMENT_DESIGNS, SIZING_CANDIDATE_IDS, getDesign } from "./designs.mjs";
 
 export { createImp22DesignRegistry } from "./registry.mjs";

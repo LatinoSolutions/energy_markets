@@ -65,7 +65,9 @@ test("paridad de brazos: campos compartidos ausentes o divergentes invalidan la 
   drifting.timingOnly.executionContractVersion = "EXEC-V2";
   const driftResult = validateArmParity(drifting);
   assert.equal(driftResult.ok, false);
-  assert.ok(driftResult.errors.some((error) => error.code === "PARITY_VIOLATION" && error.field === "arms.*.executionContractVersion"));
+  // La paridad execution/cost la decide el contrato aceptado del IMP-07:
+  // el verifier delegado reporta la violación por brazo (HALLAZGO_TECNICO IMP22-H6).
+  assert.ok(driftResult.errors.some((error) => error.code === "PARITY_VIOLATION" && error.field === "arms.timingOnly.executionContractVersion"));
 
   const missingField = structuredClone(arms);
   delete missingField.sizingOnly.benchmarkBVersion;

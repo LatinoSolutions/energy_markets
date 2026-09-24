@@ -54,9 +54,18 @@ export function attributeTimingVsetSize(armValues) {
 // Un mismo par de brazos no puede compararse si cambia algún componente
 // compartido; la paridad se declara ex-ante y se verifica por indentidad de
 // contratos, no por outcome (§13.9).
+// Un mismo par de brazos no puede compararse si cambia algún componente
+// compartido; la paridad se declara ex-ante y se verifica por identidad de
+// contratos, no por outcome (§13.9). El par executionContract/costLedger lo
+// decide el contrato aceptado de ejecución (IMP-07): delegamos en
+// assertArmParity los dos campos que ese contrato ya regula (§13.6 regla 3)
+// en vez de re-implementarlos (Ref: hallazgo IMP22-H6).
+import { assertArmParity } from "../execution-contract/execution-contract.mjs";
+
+const PARITY_KEYS = ["obligationId", "deadline", "opportunitiesSchedule", "benchmarkBVersion", "splitVersion"];
+
 export function validateArmParity(arms) {
   const errors = [];
-  const keys = ["obligationId", "deadline", "opportunitiesSchedule", "executionContractVersion", "benchmarkBVersion", "costLedgerVersion", "splitVersion"];
 
   for (const armName of ATTRIBUTION_ARMS) {
     const arm = arms?.[armName];
@@ -64,7 +73,7 @@ export function validateArmParity(arms) {
       errors.push({ field: `arms.${armName}`, code: "ARM_MISSING", message: `Brazo ${armName} requerido para la atribución.` });
       continue;
     }
-    for (const key of keys) {
+    for (const key of PARITY_KEYS) {
       if (typeof arm[key] !== "string" || arm[key].trim() === "") {
         errors.push({
           field: `arms.${armName}.${key}`,
@@ -75,8 +84,20 @@ export function validateArmParity(arms) {
     }
   }
 
+  // Paridad de execution contract y cost ledger bajo el contrato aceptado
+  // del IMP-07 (cada brazo vs baseline; §13.6 regla 3).
+  if (arms?.baseline != null) {
+    for (const armName of ATTRIBUTION_ARMS) {
+      if (armName === "baseline") continue;
+      const pairwise = assertArmParity({ a0: arms.baseline, a1: arms[armName] });
+      for (const error of pairwise.errors) {
+        errors.push({ field: `arms.${armName}.${error.field}`, code: error.code, message: error.message });
+      }
+    }
+  }
+
   const identical = (key) => ATTRIBUTION_ARMS.every((armName) => arms?.[armName]?.[key] === arms?.baseline?.[key]);
-  for (const key of keys) {
+  for (const key of PARITY_KEYS) {
     if (arms != null && !identical(key)) {
       errors.push({
         field: `arms.*.${key}`,

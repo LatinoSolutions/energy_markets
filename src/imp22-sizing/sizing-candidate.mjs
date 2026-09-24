@@ -93,9 +93,12 @@ export function validateSizingCandidate(candidate) {
   } else {
     // Disponibilidad de restricción se declara explícita (true/false); el
     // faltante se registra en unknownsDeclared, no se sustituye por inventado
-    // (P5.6 regla 4). Sólo AUDITED exige ambas a true con unknowns vacíos.
+    // (P5.6 regla 4). Sólo AUDITED exige todas a true con unknowns vacíos.
+    // El lot y el redondeo cubren P5.6 regla 4/5; el deadline entra porque el
+    // guard declara cobertura de factibilidad "RemainingVolume y deadline"
+    // (§4.2). Ref: hallazgo IMP22-H7.
     const auditedExpectationsMet = candidate.constraintStatus === CONSTRAINT_STATUSES.AUDITED;
-    for (const field of ["lotSizeAvailable", "roundingRuleAvailable"]) {
+    for (const field of ["lotSizeAvailable", "roundingRuleAvailable", "deadlineRuleAvailable"]) {
       if (typeof constraints[field] !== "boolean") {
         errors.push({
           field: `constraints.${field}`,

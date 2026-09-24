@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { MISSION_IDS, validateIdentity } from "../../src/imp22-sizing/identity.mjs";
+import { MISSION_IDS, validateIdentity, IMP22_SPEC_IDENTITY } from "../../src/imp22-sizing/identity.mjs";
 import {
   MISSIONS,
   MISSION_MINIMUM_EVIDENCE,
@@ -14,6 +14,22 @@ import {
 import { validateMissionReserve, RESERVE_STATUS } from "../../src/imp22-sizing/reserve.mjs";
 import { validateSizingCandidate, SIZING_FAMILIES, CONSTRAINT_STATUSES } from "../../src/imp22-sizing/sizing-candidate.mjs";
 import { deepCloneDesign } from "./fixtures.mjs";
+
+function okIdentityFixture() {
+  return {
+    experimentId: "IMP22-EX-SZ09-01",
+    missionId: "GAS-QUARTERLY",
+    actionSpaceVersion: "BUY-WAIT-V1",
+    createdAt: "2026-09-24T00:00:00.000Z",
+    specId: IMP22_SPEC_IDENTITY.id,
+    specVersion: IMP22_SPEC_IDENTITY.version,
+    specSha256: IMP22_SPEC_IDENTITY.sha256,
+    parentImp: "IMP-22",
+    scope: "Sizing research Gas Quarterly",
+    objectVersion: "1.0",
+    protocolVersion: "1.0",
+  };
+}
 
 function syntheticGuard(projectedQuantity, remainingVolume) {
   if (projectedQuantity <= 0) return 0;
@@ -42,22 +58,42 @@ test("acortar el estándar de evidencia de una Mission deja falta circunscripta 
   assert.equal(getMission("GAS-SQUARED"), null, "una Mission desconocida no existe: no se inventa");
 });
 
-test("identidad: Mission conocida y action space versionado obligatorios (§25.1 MUST NOT CHANGE)", () => {
+test("identidad: Mission conocida, action space versionado e identidad de instancia §25.2.1 obligatorios", () => {
   const ok = validateIdentity({
     experimentId: "IMP22-EX-SZ09-01",
     missionId: "GAS-QUARTERLY",
     actionSpaceVersion: "BUY-WAIT-V1",
     createdAt: "2026-09-24T00:00:00.000Z",
+    specId: IMP22_SPEC_IDENTITY.id,
+    specVersion: IMP22_SPEC_IDENTITY.version,
+    specSha256: IMP22_SPEC_IDENTITY.sha256,
+    parentImp: "IMP-22",
+    scope: "Sizing research Gas Quarterly",
+    objectVersion: "1.0",
+    protocolVersion: "1.0",
   });
   assert.equal(ok.ok, true, JSON.stringify(ok.errors));
 
-  const noActionSpace = validateIdentity({
+  const noActionSpace = { ...okIdentityFixture(), actionSpaceVersion: undefined };
+  const noActionSpaceResult = validateIdentity(noActionSpace);
+  assert.equal(noActionSpaceResult.ok, false);
+  assert.ok(noActionSpaceResult.errors.some((error) => error.code === "ACTION_SPACE_VERSION_REQUIRED"));
+
+  // §25.2.1: sin SPEC hash/parent/scope no hay binding de procedencia (H3).
+  const bare = validateIdentity({
     experimentId: "IMP22-EX-SZ09-01",
     missionId: "GAS-QUARTERLY",
+    actionSpaceVersion: "BUY-WAIT-V1",
     createdAt: "2026-09-24T00:00:00.000Z",
   });
-  assert.equal(noActionSpace.ok, false);
-  assert.ok(noActionSpace.errors.some((error) => error.code === "ACTION_SPACE_VERSION_REQUIRED"));
+  assert.equal(bare.ok, false);
+  for (const code of ["SPEC_IDENTITY_INVALID", "PARENT_IMP_REQUIRED", "SCOPE_REQUIRED", "OBJECT_VERSION_REQUIRED", "PROTOCOL_VERSION_REQUIRED"]) {
+    assert.ok(bare.errors.some((error) => error.code === code), code);
+  }
+
+  // El parent está fijado: una instancia no cambia de parent por su cuenta.
+  const wrongParent = validateIdentity({ ...okIdentityFixture(), parentImp: "IMP-20" });
+  assert.ok(wrongParent.errors.some((error) => error.code === "PARENT_IMP_REQUIRED"));
 });
 
 test("reserva: frontera ex-ante, cronológico sin shuffle, HOLD en insuficiencia y sin IMP-09", () => {
