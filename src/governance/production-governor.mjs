@@ -18,7 +18,13 @@
 // lista 1–7) y A4 no auto-amplía autoridad: la autoridad efectiva baja
 // inmediatamente por DEMOTE/HALT y sube sólo por una PROMOTE gobernada
 // con aprobación cuya autoridad no es la policy.
-
+//
+// La autoridad real está ligada a la Policy Version CONCRETA que la obtuvo por
+// un acto gobernado (primera activación o promoción de versión), no a un
+// booleano global ni a la mera presencia VALID en el envelope: una versión
+// posterior se promociona sólo si vuelve a cumplir todos los Promotion Gates
+// congelados y deja receipt que nombra la versión anterior y la nueva (§18.2,
+// §18.4, §25.2.3 hito 3).
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { P5_EXPERIMENT_RECEIPT_KIND } from "../p5-experiment/receipt.mjs";
 import { SHADOW_NON_INTERFERENCE_VERIFIED, SHADOW_RECEIPT_KIND } from "../shadow/index.mjs";
@@ -68,6 +74,12 @@ export const PROTECTED_GOVERNANCE_DOMAINS = [
 export const FIRST_ACTIVATION_REFUSAL_CODE = "FIRST_ACTIVATION_REQUIRES_EXPLICIT_HUMAN_APPROVAL";
 export const FIRST_ACTIVATION_SCOPE = "FIRST_ACTIVATION_A1";
 export const GOVERNANCE_CHANGE_SCOPE_PREFIX = "GOVERNANCE_PROMOTION";
+// §18.2: la autoridad de una Policy Version posterior no se hereda de otra
+// versión VALID del envelope; se concede por un acto gobernado propio
+// (revalidación OOS/Shadow + APG) cuyo scope se declara.
+export const POLICY_VERSION_PROMOTION_SCOPE_PREFIX = "POLICY_VERSION_PROMOTION";
+// §18.2/§18.4: una versión sin acto gobernado no ejerce autoridad real.
+export const POLICY_VERSION_WITHOUT_REAL_AUTHORITY = "POLICY_VERSION_WITHOUT_REAL_AUTHORITY";
 
 function fail(code, message, extra = {}) {
   return { ok: false, code, message, ...extra };
@@ -350,7 +362,19 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // Estado operacional: baja inmediatamente por DEMOTE/HALT (§16.2:
   // "autonomy can increase slowly, but decrease immediately"); sube sólo
   // por PROMOTE gobernada. El envelope congelado no se muta.
-  const state = { level: envelope.autonomyLevel, status: "ACTIVE", lastHaltingMandate: null, firstActivationRecorded: false };
+  //
+  // §18.2/§18.4: la autoridad real no es un booleano global. `realAuthorityEntered`
+  // registra que la PRIMERA Policy Version cruzó Shadow→Real (§18.1) y
+  // `activePolicyVersion` nombra la versión concreta que hoy ejerce esa
+  // autoridad (primera activación, promoción de versión o rollback gobernado).
+  // Ninguna otra versión VALID del envelope queda autorizada por ello.
+  const state = {
+    level: envelope.autonomyLevel,
+    status: "ACTIVE",
+    lastHaltingMandate: null,
+    realAuthorityEntered: false,
+    activePolicyVersion: null,
+  };
 
   function authorizationProblem(policyVersion) {
     const authorization = Array.isArray(envelope.authorizedPolicyVersions)
@@ -365,14 +389,13 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     return null;
   }
 
-  // Etiqueta humana de los receipts: ninguna Policy Version activa queda
-  // implícita — la lista es la de autorizaciones VALID del envelope (§17)/
-  // una sola verdad consumida, no re-declarada.
-  function stateLabel() {
-    const versions = Array.isArray(envelope.authorizedPolicyVersions)
-      ? envelope.authorizedPolicyVersions.filter((entry) => entry?.status === "VALID").map((entry) => entry.policyVersion)
-      : [];
-    return versions.join("|") || "SIN_VERSION_AUTORIZADA";
+  // Etiqueta humana de los receipts: la Policy Version que la transición
+  // nombra es la que realmente ejerce autoridad (`activePolicyVersion`), no la
+  // unión de las autorizaciones VALID del envelope (§18.4: poder reconstruir
+  // por qué una versión obtuvo, conservó o perdió autoridad). Antes de la
+  // primera activación no hay versión activa: se declara explícitamente.
+  function activeVersionLabel() {
+    return isNonEmptyString(state.activePolicyVersion) ? state.activePolicyVersion : "SIN_VERSION_ACTIVA";
   }
 
   // --- Hito 2: primera activación, si se autoriza (§18.1) ---
@@ -382,8 +405,9 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // el acto humano explícito (DEP-25) con el que la Policy Version pasa de
   // Shadow a Real, junto con la evidencia OOS/Shadow elegible y el APG
   // aplicable; el envelope debe conceder la autoridad real (A1+; §16.2/§17).
-  // El acto se registra UNA vez (`firstActivationRecorded`) y su receipt
-  // documenta el acto vía approvalRef + envelopeVersionKey (§184). El nivel
+  // El acto se registra UNA vez (`realAuthorityEntered`) y fija la
+  // `activePolicyVersion`; su receipt documenta el acto vía approvalRef +
+  // envelopeVersionKey (§18.4). El nivel
   // operativo lo declara el envelope y baja por DEMOTE/HALT (§18.3):
   // registrar el acto nunca lo mueve ( IMP24-FIRST-ACTIVATION-STATE-
   // INCONSISTENCY ).
@@ -406,7 +430,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     // (el envelope autoriza el nivel, no sustituye la aprobación; §17). Sin
     // este guard, una segunda llamada registraría un PROMOTE duplicado A0→A1
     // con `previousState` falso ( IMP24-FIRST-ACTIVATION-STATE-INCONSISTENCY ).
-    if (state.firstActivationRecorded) {
+    if (state.realAuthorityEntered) {
       return fail("FIRST_ACTIVATION_ALREADY_RECORDED", `El estado operacional es ${state.level}: la primera activación ya quedó registrada; no hay segunda (§18.1).`);
     }
     if (!isNonEmptyString(policyVersion)) {
@@ -467,7 +491,8 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       note: "Primera activación (§18.1): registro del acto DEP-25 de la Policy Version (Shadow -> Real), no un ascenso de nivel operativo. En A1 operacional el 100% de las acciones reales exige validación humana por acción. Un record con evidencia sintética es una demostración de mecanismo y no acredita evidencia real (§25.2).",
     };
     activation.activationId = contentHashOf(activation);
-    state.firstActivationRecorded = true;
+    state.realAuthorityEntered = true;
+    state.activePolicyVersion = policyVersion;
     const promoteReceiptId = registerTransition({
       registry,
       input: {
@@ -519,10 +544,14 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
   // necesaria; la primera activación exige ambas evidencias intactas y
   // ligadas a UNA sola identidad de versión, con el veredicto de research
   // declarado. Ninguna etapa silencia la otra.
-  function eligibleEvidence({ oosEvidence, shadowEvidence, oosPolicyVersion, policyVersion, atUtc }) {
+  function eligibleEvidence({ oosEvidence, shadowEvidence, oosPolicyVersion, policyVersion, atUtc, holdTriggerGate = "G_DEP25_FIRST_ACTIVATION" }) {
+    // §18.4: el HOLD nombra el gate que lo desencadena. La primera activación y
+    // la promoción de versión comparten este borde de evidencia, pero no el
+    // gate: el caller elige la etiqueta correcta.
+    const registerHold = ({ triggerEvidenceRef }) => holdFirstActivation({ triggerGate: holdTriggerGate, triggerEvidenceRef, policyVersion, atUtc });
     const receivedOos = receiveGovernanceEvidence({ evidence: oosEvidence });
     if (!receivedOos.ok) {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `${receivedOos.code}:STAGE_OOS`,
         policyVersion,
         atUtc,
@@ -535,7 +564,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     // `researchVerdict` (null para Shadow) y rompería por excepción en vez de
     // rechazar fail-closed (§18.1). Se rechaza con HOLD, nunca se lanza.
     if (receivedOos.evidence.stage !== "OOS") {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `EVIDENCE_STAGE_MISMATCH:${receivedOos.evidence.stage}:STAGE_OOS`,
         policyVersion,
         atUtc,
@@ -544,7 +573,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     if (!receivedOos.evidence.researchVerdict.evaluated || receivedOos.evidence.researchVerdict.verdict !== "PASS") {
       const verdict = receivedOos.evidence.researchVerdict.verdict ?? "SIN_EVALUAR";
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `OOS_EVIDENCE_NOT_ELIGIBLE:${verdict}`,
         policyVersion,
         atUtc,
@@ -553,7 +582,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     const receivedShadow = receiveGovernanceEvidence({ evidence: shadowEvidence });
     if (!receivedShadow.ok) {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `${receivedShadow.code}:STAGE_SHADOW`,
         policyVersion,
         atUtc,
@@ -562,7 +591,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     }
     // Mismo control de etapa para el slot Shadow (rechazo HOLD fail-closed).
     if (receivedShadow.evidence.stage !== "SHADOW") {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `EVIDENCE_STAGE_MISMATCH:${receivedShadow.evidence.stage}:STAGE_SHADOW`,
         policyVersion,
         atUtc,
@@ -577,7 +606,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     if (shadowSufficiency === null
       || shadowSufficiency.nonInterferenceVerdict !== SHADOW_NON_INTERFERENCE_VERIFIED
       || shadowSufficiency.terminalCoverageStatus !== "COVERED") {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `SHADOW_EVIDENCE_NOT_ELIGIBLE:${shadowSufficiency?.nonInterferenceVerdict ?? "SIN_DECLARAR"}:${shadowSufficiency?.terminalCoverageStatus ?? "SIN_DECLARAR"}`,
         policyVersion,
         atUtc,
@@ -591,7 +620,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     const shadowExperiment = receivedShadow.evidence.identity.experiment;
     if (oosExperiment === null || shadowExperiment === null
       || contentHashOf(oosExperiment) !== contentHashOf(shadowExperiment)) {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: "EVIDENCE_VERSION_MISMATCH:EXPERIMENT",
         policyVersion,
         atUtc,
@@ -599,7 +628,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas OOS y Shadow no comparten la identidad de experimento (OOS ${JSON.stringify(oosExperiment)} vs Shadow ${JSON.stringify(shadowExperiment)}): una sola identidad de versión (§15/§25.2.3 hito 2).`, { transitionReceiptId: holdReceiptId });
     }
     if (isNonEmptyString(oosPolicyVersion) && oosPolicyVersion !== receivedShadow.evidence.identity.policyVersion) {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `EVIDENCE_VERSION_MISMATCH:POLICY_VERSION:${oosPolicyVersion}`,
         policyVersion,
         atUtc,
@@ -607,7 +636,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return fail("EVIDENCE_VERSION_MISMATCH", `Las etapas declaran versiones distintas (OOS "${oosPolicyVersion}" vs Shadow "${receivedShadow.evidence.identity.policyVersion}"): una sola identidad de versión (§15).`, { transitionReceiptId: holdReceiptId });
     }
     if (receivedShadow.evidence.identity.policyVersion !== policyVersion) {
-      const holdReceiptId = holdFirstActivation({
+      const holdReceiptId = registerHold({
         triggerEvidenceRef: `SHADOW_EVIDENCE_VERSION_MISMATCH:${String(receivedShadow.evidence.identity.policyVersion)}`,
         policyVersion,
         atUtc,
@@ -656,8 +685,18 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       //    el nivel ( IMP24-REAL-AUTHORITY-A2-WITHOUT-FIRST-ACTIVATION ). El
       //    gate manda sobre la versión, no sobre un nivel concreto; la
       //    validación por acción no lo sustituye.
-      if (state.firstActivationRecorded !== true) {
+      if (state.realAuthorityEntered !== true || !isNonEmptyString(state.activePolicyVersion)) {
         return fail("FIRST_ACTIVATION_REQUIRED_BEFORE_REAL_ACTION", "Sin la primera activación registrada (DEP-25, §18.1) no se ejerce autoridad real; la validación por acción no la sustituye (§25.2.3 hito 2).", { authorized: false, recommendation });
+      }
+      // 3) §18.2/§18.4: la autoridad real está ligada a la versión concreta
+      //    que la obtuvo por un acto gobernado. Estar VALID en el envelope no
+      //    basta: una versión posterior debe pasar de nuevo por el APG y su
+      //    PROMOTE de versión antes de ejercer ( IMP24-REAL-AUTHORITY-UNBOUND-
+      //    POLICY-VERSION ). Sin este gate, activar vX autorizaría cualquier
+      //    vY VALID del mismo envelope, incluidas versiones sin evidencia
+      //    OOS/Shadow ni revalidación (§25.2.3 hito 3).
+      if (state.activePolicyVersion !== policyVersion) {
+        return fail(POLICY_VERSION_WITHOUT_REAL_AUTHORITY, `La Policy Version "${String(policyVersion)}" no obtuvo autoridad real por un acto gobernado (primera activación o PROMOTE de versión); estar VALID en el envelope no se hereda (§18.2/§18.4). Versión activa: "${String(state.activePolicyVersion)}".`, { authorized: false, recommendation });
       }
     }
     if (state.level === "A1") {
@@ -783,8 +822,8 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         transitionType: "PROMOTE",
         triggerGate: "G_DEP25_GOVERNANCE_CHANGE",
         triggerEvidenceRef: governanceChangeApproval.approvalRef,
-        previousState: `${stateLabel()}@${fromLevel}`,
-        newState: `${stateLabel()}@${targetLevel}`,
+        previousState: `${activeVersionLabel()}@${fromLevel}`,
+        newState: `${activeVersionLabel()}@${targetLevel}`,
         autonomyLevel: targetLevel,
         envelopeVersionKey,
         atUtc,
@@ -801,8 +840,92 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         transitionType: "HOLD",
         triggerGate,
         triggerEvidenceRef,
-        previousState: `${stateLabel()}@${state.level}`,
-        newState: `${stateLabel()}@${targetLevel}:HELD`,
+        previousState: `${activeVersionLabel()}@${state.level}`,
+        newState: `${activeVersionLabel()}@${targetLevel}:HELD`,
+        autonomyLevel: state.level,
+        envelopeVersionKey,
+        atUtc,
+      },
+      failures: internalFailures,
+    });
+    return held?.receiptId ?? null;
+  }
+
+  // --- Hito 3: promoción de una Policy Version posterior (§18.2) ---
+
+  // §18.2/§18.4/§25.2.3 hito 3: una Policy Version posterior puede obtener
+  // autoridad real sólo si vuelve a cumplir TODOS los Promotion Gates
+  // congelados con su propia evidencia OOS/Shadow. El acto deja un receipt
+  // PROMOTE que nombra la versión activa anterior y la nueva: así se
+  // reconstruye por qué versión obtuvo autoridad. El nivel operativo no cambia.
+  function considerPolicyVersionPromotion({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, apg, governanceChangeApproval, atUtc } = {}) {
+    if (!isNonEmptyString(atUtc)) {
+      return fail("MISSING_TIMESTAMP", "La promoción de versión declara su instante (§6.1).");
+    }
+    if (state.status !== "ACTIVE") {
+      return fail("GOVERNOR_STATE_HALTED", `El estado operacional es ${state.status}: la progresión de governance no procede hasta el rollback (§18.3).`);
+    }
+    if (state.realAuthorityEntered !== true || !isNonEmptyString(state.activePolicyVersion)) {
+      return fail("NO_REAL_AUTHORITY_TO_SUCCEED", "Una versión posterior se promociona dentro del espacio real ya autorizado; sin la primera activación (§18.1) no hay promoción posterior (§18.2).");
+    }
+    if (!isNonEmptyString(policyVersion)) {
+      return fail("MISSING_POLICY_VERSION", "La promoción de versión declara la Policy Version destino (§15.3).");
+    }
+    if (policyVersion === state.activePolicyVersion) {
+      return fail("POLICY_VERSION_ALREADY_ACTIVE", `"${policyVersion}" ya ejerce autoridad real; no hay promoción que registrar (§18.2).`);
+    }
+    const authorizationFailure = authorizationProblem(policyVersion);
+    if (authorizationFailure) {
+      return fail(authorizationFailure.code, authorizationFailure.message);
+    }
+    // §25.2.3 hito 3: la versión posterior se revalida con evidencia propia,
+    // no con la de la versión activa.
+    const evidenceCheck = eligibleEvidence({ policyVersion, oosPolicyVersion, oosEvidence, shadowEvidence, atUtc, holdTriggerGate: "G_AUTONOMY_PROMOTION" });
+    if (!evidenceCheck.ok) {
+      return evidenceCheck;
+    }
+    const apgCheck = evaluateAutonomyPromotionGate({ apg });
+    if (apgCheck.reasons.length > 0) {
+      const holdReceiptId = holdPolicyVersionPromotion({ targetVersion: policyVersion, triggerGate: "G_AUTONOMY_PROMOTION", triggerEvidenceRef: "APG_NOT_SATISFIED", atUtc });
+      return { ok: false, authorized: false, code: "APG_NOT_SATISFIED", message: "La versión posterior no satisface nuevamente todos los Promotion Gates congelados (§18.2).", reasons: apgCheck.reasons, transitionReceiptId: holdReceiptId };
+    }
+    // §18.2 ("sólo si el nivel de autonomía vigente lo permite")/§16.2: el
+    // envelope no declara una autorización de promoción automática de versión.
+    // Fail-closed: el acto exige la misma aprobación de governance que el resto
+    // de cambios, con autoridad distinta de la policy; no se inventa automatismo.
+    const approvalFailure = governanceApprovalProblem(governanceChangeApproval, `${POLICY_VERSION_PROMOTION_SCOPE_PREFIX}:${policyVersion}`);
+    if (approvalFailure) {
+      const holdReceiptId = holdPolicyVersionPromotion({ targetVersion: policyVersion, triggerGate: "G_DEP25_GOVERNANCE_CHANGE", triggerEvidenceRef: approvalFailure.code, atUtc });
+      return { ok: false, authorized: false, code: approvalFailure.code, message: approvalFailure.message, transitionReceiptId: holdReceiptId };
+    }
+    const fromPolicyVersion = state.activePolicyVersion;
+    state.activePolicyVersion = policyVersion;
+    const promoteReceiptId = registerTransition({
+      registry,
+      input: {
+        transitionType: "PROMOTE",
+        triggerGate: "G_DEP25_GOVERNANCE_CHANGE",
+        triggerEvidenceRef: governanceChangeApproval.approvalRef,
+        previousState: `${fromPolicyVersion}@REAL`,
+        newState: `${policyVersion}@REAL`,
+        autonomyLevel: state.level,
+        envelopeVersionKey,
+        atUtc,
+      },
+      failures: internalFailures,
+    })?.receiptId ?? null;
+    return { ok: true, authorized: true, status: "POLICY_VERSION_PROMOTED", fromPolicyVersion, toPolicyVersion: policyVersion, transitionReceiptId: promoteReceiptId };
+  }
+
+  function holdPolicyVersionPromotion({ targetVersion, triggerGate, triggerEvidenceRef, atUtc }) {
+    const held = registerTransition({
+      registry,
+      input: {
+        transitionType: "HOLD",
+        triggerGate,
+        triggerEvidenceRef,
+        previousState: `${activeVersionLabel()}@REAL`,
+        newState: `${targetVersion}@REAL:HELD`,
         autonomyLevel: state.level,
         envelopeVersionKey,
         atUtc,
@@ -840,8 +963,8 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
           transitionType: "DEMOTE",
           triggerGate: `HARD_GATE:${gateId}`,
           triggerEvidenceRef: evidenceRef,
-          previousState: `${stateLabel()}@${fromLevel}`,
-          newState: `${stateLabel()}@${toLevel}`,
+          previousState: `${activeVersionLabel()}@${fromLevel}`,
+          newState: `${activeVersionLabel()}@${toLevel}`,
           autonomyLevel: toLevel,
           envelopeVersionKey,
           atUtc,
@@ -863,8 +986,8 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
         transitionType: "HALT",
         triggerGate: `HARD_GATE:${gateId}`,
         triggerEvidenceRef: evidenceRef,
-        previousState: `${stateLabel()}@${state.level}`,
-        newState: `${stateLabel()}@${state.level}:HALTED`,
+        previousState: `${activeVersionLabel()}@${state.level}`,
+        newState: `${activeVersionLabel()}@${state.level}:HALTED`,
         autonomyLevel: state.level,
         envelopeVersionKey,
         atUtc,
@@ -892,20 +1015,27 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return { ok: false, code: resolved.code, message: resolved.message, pendingOperationsFallback: resolved.pendingOperationsFallback === true };
     }
     const target = resolved.rollback.target;
+    // §18.3: el rollback restaura la última Policy Version válida como la que
+    // ejerce autoridad real (acto gobernado con su propio receipt). Si el
+    // governor nunca entró en Real (§18.1), el rollback no fabrica autoridad.
+    const restoresPolicyVersion = target.destination === "POLICY_VERSION";
     const receiptId = registerTransition({
       registry,
       input: {
         transitionType: "ROLLBACK",
         triggerGate: `HARD_GATE:${state.lastHaltingMandate.gateId}`,
         triggerEvidenceRef: state.lastHaltingMandate.evidenceRef,
-        previousState: `${stateLabel()}@${state.level}:HALT`,
-        newState: target.destination === "POLICY_VERSION" ? `${target.policyVersion}@${state.level}` : `${target.destination}:${state.level}`,
+        previousState: `${activeVersionLabel()}@${state.level}:HALT`,
+        newState: restoresPolicyVersion ? `${target.policyVersion}@${state.level}` : `${target.destination}:${state.level}`,
         autonomyLevel: state.level,
         envelopeVersionKey,
         atUtc,
       },
       failures: internalFailures,
     })?.receiptId ?? null;
+    if (restoresPolicyVersion && state.realAuthorityEntered === true) {
+      state.activePolicyVersion = target.policyVersion;
+    }
     state.status = "ACTIVE";
     state.lastHaltingMandate = null;
     return { ok: true, rollback: resolved.rollback, transitionReceiptId: receiptId, restoredLevel: state.level, status: state.status };
@@ -928,7 +1058,8 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
       return Object.freeze({
         level: state.level,
         status: state.status,
-        firstActivationRecorded: state.firstActivationRecorded,
+        firstActivationRecorded: state.realAuthorityEntered,
+        activePolicyVersion: state.activePolicyVersion,
         lastHaltingMandate: state.lastHaltingMandate,
       });
     },
@@ -936,6 +1067,7 @@ export function createProductionGovernor({ envelope, atUtc } = {}) {
     considerFirstActivation,
     authorizeRealAction,
     considerSubsequentPromotion,
+    considerPolicyVersionPromotion,
     applyHardGateMandate,
     executeHaltingRollback,
     internalFailures,

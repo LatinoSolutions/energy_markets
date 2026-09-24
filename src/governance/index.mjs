@@ -47,6 +47,7 @@ export {
   FIRST_ACTIVATION_REFUSAL_CODE,
   FIRST_ACTIVATION_SCOPE,
   GOVERNANCE_CHANGE_SCOPE_PREFIX,
+  POLICY_VERSION_PROMOTION_SCOPE_PREFIX,
   receiveGovernanceEvidence,
   evaluateAutonomyPromotionGate,
   createProductionGovernor,

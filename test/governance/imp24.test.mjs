@@ -19,6 +19,7 @@ import {
   evaluateAutonomyPromotionGate,
   FIRST_ACTIVATION_REFUSAL_CODE,
   FIRST_ACTIVATION_SCOPE,
+  POLICY_VERSION_PROMOTION_SCOPE_PREFIX,
   PROMOTION_GATES,
   RESEARCH_RECEIPT_KIND,
 } from "../../src/governance/index.mjs";
@@ -1123,4 +1124,164 @@ test("IMP-24: la cadena de receipts permite reconstruir cómo la versión obtuvo
     assert.equal(entry.receipt.envelopeVersionKey, "version:v1.0");
     assert.equal(typeof entry.receipt.executedAtUtc, "string");
   }
+});
+
+// --- 6) Autoridad real ligada a la Policy Version concreta
+// ( IMP24-REAL-AUTHORITY-UNBOUND-POLICY-VERSION ): la autoridad no se hereda
+// por estar VALID en el envelope; cada versión la obtiene por su propio acto
+// gobernado (§18.2/§18.4/§25.2.3 hito 3). ---
+
+const TWO_VERSIONS = [
+  { policyVersion: "vX", underEnvelopeVersion: "v1.0", status: "VALID" },
+  { policyVersion: "vY", underEnvelopeVersion: "v1.0", status: "VALID" },
+];
+
+function activateVersion(judge, version) {
+  const activation = judge.considerFirstActivation(firstActivationInput({
+    policyVersion: version,
+    oosPolicyVersion: version,
+    shadowEvidence: shadowReceipt({ policyVersion: version }),
+  }));
+  assert.equal(activation.ok, true, `INSPECCIÓN: activación de ${version}: ` + JSON.stringify(activation));
+  return activation;
+}
+
+function versionPromotionInput(version, overrides = {}) {
+  return {
+    policyVersion: version,
+    oosPolicyVersion: version,
+    oosEvidence: oosReceipt(),
+    shadowEvidence: shadowReceipt({ policyVersion: version }),
+    apg: apgFixture(),
+    governanceChangeApproval: approvalFixture(`${POLICY_VERSION_PROMOTION_SCOPE_PREFIX}:${version}`),
+    atUtc: T0,
+    ...overrides,
+  };
+}
+
+test("IMP-24: tras activar vX, otra Policy Version VALID del envelope (vY) no hereda autoridad real en A1 ni en A2 (IMP24-REAL-AUTHORITY-UNBOUND-POLICY-VERSION)", () => {
+  for (const level of ["A1", "A2"]) {
+    const judge = buildGovernor({ autonomyLevel: level, authorizedPolicyVersions: TWO_VERSIONS });
+    activateVersion(judge, "vX");
+    assert.equal(judge.currentState().activePolicyVersion, "vX", `${level}: la versión activa es la activada`);
+    const result = judge.authorizeRealAction({
+      action: "BUY",
+      policyVersion: "vY",
+      quantityMw: 3,
+      dataState: dataStateFixture(),
+      humanApproval: actionApprovalFixture(),
+      atUtc: T0,
+    });
+    assert.equal(result.ok, false, `${level}: vY no debe autorizar sin acto gobernado`);
+    assert.equal(result.code, "POLICY_VERSION_WITHOUT_REAL_AUTHORITY", `${level}`);
+    assert.notEqual(result.authorized, true, `${level}`);
+  }
+});
+
+test("IMP-24: los receipts nombran la Policy Version activa real, no la unión de versiones VALID del envelope (§18.4)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  const activation = activateVersion(judge, "vX");
+  const activationReceipt = judge.receiptRegistry.receiptOf(activation.transitionReceiptId);
+  assert.equal(activationReceipt.previousState, "vX@SHADOW");
+  assert.equal(activationReceipt.newState, "vX@REAL");
+
+  const halted = judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-UNION-1", atUtc: T0 });
+  const receipt = judge.receiptRegistry.receiptOf(halted.transitionReceiptId);
+  assert.equal(receipt.previousState, "vX@A2");
+  assert.equal(receipt.newState, "vX@A2:HALTED");
+  assert.equal(receipt.previousState.includes("vY"), false);
+  assert.equal(receipt.newState.includes("vY"), false);
+});
+
+test("IMP-24: una versión posterior obtiene autoridad sólo por su PROMOTE de versión con evidencia, APG y receipt (§18.2/§25.2.3 hito 3)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  const promoted = judge.considerPolicyVersionPromotion(versionPromotionInput("vY"));
+  assert.equal(promoted.ok, true, "INSPECCIÓN: " + JSON.stringify(promoted));
+  assert.equal(promoted.status, "POLICY_VERSION_PROMOTED");
+  assert.equal(promoted.fromPolicyVersion, "vX");
+  assert.equal(promoted.toPolicyVersion, "vY");
+  assert.equal(judge.currentState().level, "A2", "la promoción de versión no mueve el nivel operativo");
+  assert.equal(judge.currentState().activePolicyVersion, "vY");
+
+  const receipt = judge.receiptRegistry.receiptOf(promoted.transitionReceiptId);
+  assert.equal(receipt.transitionType, "PROMOTE");
+  assert.equal(receipt.previousState, "vX@REAL");
+  assert.equal(receipt.newState, "vY@REAL");
+  assert.equal(receipt.autonomyLevel, "A2");
+
+  const buysWithVY = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  assert.equal(buysWithVY.authorized, true, "INSPECCIÓN: " + JSON.stringify(buysWithVY));
+  const buysWithVX = judge.authorizeRealAction({ action: "BUY", policyVersion: "vX", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  assert.equal(buysWithVX.ok, false, "la versión anterior deja de ejercer autoridad");
+  assert.equal(buysWithVX.code, "POLICY_VERSION_WITHOUT_REAL_AUTHORITY");
+});
+
+test("IMP-24: la promoción de versión sin APG satisfecho queda HOLD y no da autoridad (§18.2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  const result = judge.considerPolicyVersionPromotion(versionPromotionInput("vY", { apg: null }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "APG_NOT_SATISFIED");
+  assert.equal(judge.currentState().activePolicyVersion, "vX");
+  assert.equal(judge.receiptRegistry.transitionsOfType("HOLD").length, 1);
+  assert.equal(result.transitionReceiptId, judge.receiptRegistry.transitionsOfType("HOLD")[0].receiptId);
+  const buy = judge.authorizeRealAction({ action: "BUY", policyVersion: "vY", quantityMw: 3, dataState: dataStateFixture(), atUtc: T0 });
+  assert.equal(buy.code, "POLICY_VERSION_WITHOUT_REAL_AUTHORITY");
+});
+
+test("IMP-24: la promoción de versión sin evidencia propia de la versión queda HOLD (§25.2.3 hito 3)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  const result = judge.considerPolicyVersionPromotion(versionPromotionInput("vY", { shadowEvidence: shadowReceipt({ policyVersion: "vX" }) }));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "EVIDENCE_VERSION_MISMATCH");
+  assert.equal(judge.currentState().activePolicyVersion, "vX");
+  // §18.4: el HOLD de promoción de versión nombra SU gate, no el de primera activación.
+  const hold = judge.receiptRegistry.receiptOf(result.transitionReceiptId);
+  assert.equal(hold.transitionType, "HOLD");
+  assert.equal(hold.triggerGate, "G_AUTONOMY_PROMOTION");
+  assert.equal(hold.previousState, "vY@SHADOW", "la versión destino permanece en Shadow");
+});
+
+test("IMP-24: la promoción de versión exige aprobación de governance externa a la policy (§18.2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  const missing = judge.considerPolicyVersionPromotion(versionPromotionInput("vY", { governanceChangeApproval: undefined }));
+  assert.equal(missing.ok, false);
+  assert.equal(missing.code, "MISSING_APPROVAL");
+  assert.equal(judge.currentState().activePolicyVersion, "vX");
+});
+
+test("IMP-24: sin primera activación no hay promoción de versión posterior (§18.2)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  const result = judge.considerPolicyVersionPromotion(versionPromotionInput("vY"));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "NO_REAL_AUTHORITY_TO_SUCCEED");
+  assert.equal(judge.currentState().activePolicyVersion, null);
+});
+
+test("IMP-24: no se promociona una versión que el envelope no autoriza (§17)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  const result = judge.considerPolicyVersionPromotion(versionPromotionInput("vZ"));
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "POLICY_VERSION_NOT_AUTHORIZED");
+  assert.equal(judge.currentState().activePolicyVersion, "vX");
+});
+
+test("IMP-24: rollback tras primera activación restaura la versión válida como autoridad real y deja receipt que la nombra (§18.3/§18.4)", () => {
+  const judge = buildGovernor({ autonomyLevel: "A2", authorizedPolicyVersions: TWO_VERSIONS });
+  activateVersion(judge, "vX");
+  judge.applyHardGateMandate({ gateId: "G-OOD", evidenceRef: "FIXTURE-ROLLBACK-BIND", atUtc: T0 });
+  const history = [
+    { policyVersion: "vY", validity: [{ underEnvelopeVersion: "version:v1.0", currentValid: true }] },
+  ];
+  const rollback = judge.executeHaltingRollback({ policyVersionHistory: history, atUtc: "2026-09-24T11:00:00Z" });
+  assert.equal(rollback.ok, true, "INSPECCIÓN: " + JSON.stringify(rollback));
+  assert.equal(judge.currentState().activePolicyVersion, "vY");
+  const receipt = judge.receiptRegistry.receiptOf(rollback.transitionReceiptId);
+  assert.equal(receipt.transitionType, "ROLLBACK");
+  assert.equal(receipt.previousState, "vX@A2:HALT");
+  assert.equal(receipt.newState, "vY@A2");
 });
