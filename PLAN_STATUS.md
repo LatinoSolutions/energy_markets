@@ -35,13 +35,13 @@ Los REQUIERE son idénticos en la SPEC v1.1.1 del 22-sep (comparado columna por 
 | IMP-17 | aceptado | IMP-01, IMP-12, IMP-14 | Materializar Experience con provenance y atribución. |  |
 | IMP-18 | pendiente | IMP-16, IMP-17 | Implementar captura Shadow y verificar non-interference. | |
 | IMP-19 | pendiente | IMP-15, IMP-16, IMP-17 | Implementar ciclo offline y evaluar Value/Policy Learning. | §25.2.2: IMP-16 y/o IMP-18 según procedencia; aquí se exige IMP-16. |
-| IMP-20 | pendiente | IMP-16 | Diseñar después experimentos de S2–S5 y Z/drivers admitidos. | |
+| IMP-20 | aceptado | IMP-16 | Diseñar después experimentos de S2–S5 y Z/drivers admitidos. |  |
 | IMP-21 | pendiente | IMP-15, IMP-16 | Evaluar Q07 en protocolo separado. | |
 | IMP-22 | pendiente | IMP-16 | Investigar Sizing Policy y extensiones de misión. | |
 | IMP-23 | aceptado | IMP-01, IMP-07, IMP-17 | Materializar enforcement externo del envelope y rollback. |  |
 | IMP-24 | pendiente | IMP-16, IMP-18, IMP-23 | Materializar governance, primera activación humana y después progresión autorizada por fases. | IMP-19 solo para versiones de ese Learning Loop. |
 | IMP-25 | aceptado | — | Auditar Paperclip existente y mapear su workflow al handoff canónico, preservando la oficina. | Receipt 2026-09-19. |
-| IMP-26 | pausado | IMP-01, IMP-25 | Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas. | Pausado 23-sep: Paperclip quedó retirado; la Oficina propia (/srv/hot-data/oficina) cumple su función. Queda para que Bru decida si se reescribe en la SPEC. |
+| IMP-26 | pendiente | IMP-01, IMP-25 | Vincular la SPEC y canonical IMP graph a la ejecución del office, extendiendo sólo las brechas verificadas. | Owner decision 24-sep: EM-SPEC-OWNER-PATCH-2026-09-24-01 rebindea el runtime a la Oficina canónica propia; conservar audit histórico, revalidar delta factual actual y extender sólo brechas verificadas. |
 | IMP-27 | aceptado | IMP-01 | Materializar el Strategy Admission framework y validaciones acotadas de candidatos futuros. | Receipt 2026-09-19, solo framework. |
 | IMP-28 | aceptado | IMP-01 | Materializar evaluación por rol de componentes externos. | Receipt 2026-09-19, solo framework. |
 | IMP-29 | aceptado | IMP-01, IMP-06 | Materializar Operator Interface Boundary y exposición backend que soporte Human Visual Observability. |  |
