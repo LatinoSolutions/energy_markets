@@ -15,9 +15,12 @@ export {
 } from "./capture.mjs";
 export {
   verifyShadowNonInterference,
+  SHADOW_NON_INTERFERENCE_VERIFIED,
+  SHADOW_NON_INTERFERENCE_BROKEN,
 } from "./non-interference.mjs";
 export {
   closeShadowSession,
   applyShadowCorrection,
   SHADOW_EVIDENCE_RECEIPT_KIND,
+  SHADOW_RECEIPT_KIND,
 } from "./close.mjs";
