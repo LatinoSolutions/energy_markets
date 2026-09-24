@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { validateExperimentDesign, EXPERIMENT_DESIGN_FIELDS } from "../../src/imp20-experiments/experiment-design.mjs";
-import { EXPERIMENT_DESIGNS } from "../../src/imp20-experiments/designs.mjs";
+import { EXPERIMENT_DESIGNS, SPEC_SHA256 } from "../../src/imp20-experiments/designs.mjs";
+import { IMP09_SPEC_IDENTITY } from "../../src/oos-reservation/campaign-register.mjs";
 
 test("los seis diseños predeclarados validan íntegros (§25.1: experimentos independientes, paralelos o seriales predeclarados)", () => {
   assert.equal(EXPERIMENT_DESIGNS.length, 6);
@@ -93,4 +94,62 @@ test("el mapping de datos declara no-invented-data y cada audit scope entregable
     assert.equal(design.dataMapping.noInventedData, true, design.identity.experimentId);
     assert.ok(design.dataMapping.policySummary.length > 0);
   }
+});
+
+test("la identidad de instancia usa el SPEC ID canónico vigente (§25.2.1; review IMP20-H2)", () => {
+  for (const design of EXPERIMENT_DESIGNS) {
+    assert.equal(design.identity.specId, IMP09_SPEC_IDENTITY.id, design.identity.experimentId);
+    assert.equal(design.identity.specVersion, IMP09_SPEC_IDENTITY.version, design.identity.experimentId);
+    assert.equal(design.identity.specSha256, IMP09_SPEC_IDENTITY.sha256, design.identity.experimentId);
+    assert.equal(design.identity.specSha256, SPEC_SHA256, design.identity.experimentId);
+  }
+});
+
+test("cada diseño predeclara su espacio de búsqueda: dimensiones o desconocido visible con razón (§8.6)", () => {
+  for (const design of EXPERIMENT_DESIGNS) {
+    const searchSpace = design.searchSpace;
+    assert.ok(searchSpace, `${design.identity.experimentId} sin searchSpace`);
+    assert.equal(searchSpace.predeclared, true, design.identity.experimentId);
+    assert.equal(searchSpace.frozenBeforeOOS, true, design.identity.experimentId);
+    assert.equal(searchSpace.calibrationRegime, "DEVELOPMENT_CHRONOLOGICAL", design.identity.experimentId);
+    assert.ok(Array.isArray(searchSpace.dimensions) && searchSpace.dimensions.length > 0, design.identity.experimentId);
+    for (const dimension of searchSpace.dimensions) {
+      assert.ok(typeof dimension === "string" && dimension.length > 0, design.identity.experimentId);
+    }
+    if (searchSpace.unknownScope) {
+      const registered = design.unknowns.some((unknown) => unknown.unknownId === searchSpace.unknownScope.unknownId);
+      assert.ok(registered, `${design.identity.experimentId}: unknownScope no registrado como desconocido visible`);
+      assert.ok(searchSpace.unknownScope.reason.length > 0, design.identity.experimentId);
+    }
+  }
+});
+
+test("el validador rechaza un diseño sin espacio de búsqueda o sin desconocido visible (fail-closed, §8.6/§25.1)", () => {
+  const missing = structuredClone(EXPERIMENT_DESIGNS[0]);
+  delete missing.searchSpace;
+  const missingResult = validateExperimentDesign(missing);
+  assert.equal(missingResult.ok, false);
+  assert.ok(missingResult.errors.some((error) => error.code === "MISSING_SEARCH_SPACE"), JSON.stringify(missingResult.errors));
+
+  const empty = structuredClone(EXPERIMENT_DESIGNS[0]);
+  empty.searchSpace = { ...empty.searchSpace, dimensions: [] };
+  const emptyResult = validateExperimentDesign(empty);
+  assert.equal(emptyResult.ok, false);
+  assert.ok(emptyResult.errors.some((error) => error.code === "SEARCH_SPACE_NOT_DECLARED_OR_VISIBLE_UNKNOWN"), JSON.stringify(emptyResult.errors));
+
+  const unregistered = structuredClone(EXPERIMENT_DESIGNS[0]);
+  unregistered.searchSpace = {
+    ...unregistered.searchSpace,
+    dimensions: [],
+    unknownScope: { unknownId: "UNK-NO-EXISTE", reason: "no registrado" },
+  };
+  const unregisteredResult = validateExperimentDesign(unregistered);
+  assert.equal(unregisteredResult.ok, false);
+  assert.ok(unregisteredResult.errors.some((error) => error.code === "SEARCH_SPACE_UNKNOWN_NOT_VISIBLE"), JSON.stringify(unregisteredResult.errors));
+
+  const unfrozen = structuredClone(EXPERIMENT_DESIGNS[0]);
+  unfrozen.searchSpace = { ...unfrozen.searchSpace, frozenBeforeOOS: false };
+  const unfrozenResult = validateExperimentDesign(unfrozen);
+  assert.equal(unfrozenResult.ok, false);
+  assert.ok(unfrozenResult.errors.some((error) => error.code === "SEARCH_SPACE_NOT_FROZEN"), JSON.stringify(unfrozenResult.errors));
 });

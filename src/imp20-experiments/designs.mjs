@@ -6,8 +6,12 @@
 
 import { COMPARATOR_RULE } from "./accounting.mjs";
 import { CANDIDATE_LAYERS } from "./layers.mjs";
+// La identidad de instancia (§25.2.1) se liga a la identidad canónica de la
+// SPEC vigente ya registrada en el repo, para que el SPEC ID no pueda divergir
+// por un literal escrito de memoria (review IMP20-H2).
+import { IMP09_SPEC_IDENTITY as CANONICAL_SPEC_IDENTITY } from "../oos-reservation/campaign-register.mjs";
 
-export const SPEC_SHA256 = "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3";
+export const SPEC_SHA256 = CANONICAL_SPEC_IDENTITY.sha256;
 
 const CORE_COMPARATOR = Object.freeze({
   coreEvidenceReference:
@@ -92,12 +96,87 @@ const GATES = Object.freeze([
   { block: "Forward / governance", note: "§19.1: la evidencia técnica no autoriza compras; promoción/admisión por sus gates (§§15–18; §8.7)." },
 ]);
 
+// §8.6 (protocolo compartido): "congelar semántica y refutación; predeclarar
+// espacio de búsqueda; usar development/calibration cronológicos; ... congelar
+// parámetros; validar OOS/walk-forward". El espacio de búsqueda se declara
+// como FAMILIAS de parámetros a calibrar —nunca valores numéricos inventados
+// (§0.2)—. La porción que la SPEC deja indeterminada se registra como
+// desconocido visible con razón (§25.1), no se disimula.
+function makeSearchSpace(dimensions, unknownScope = null) {
+  return Object.freeze({
+    predeclared: true,
+    frozenBeforeOOS: true,
+    calibrationRegime: "DEVELOPMENT_CHRONOLOGICAL",
+    dimensions: Object.freeze([...dimensions]),
+    unknownScope,
+  });
+}
+
+const SEARCH_SPACE_S2 = makeSearchSpace([
+  "Thresholds de magnitud/normalización de la evidencia S2",
+  "Ventanas causales (lookbacks) de volatilidad y escala",
+  "Velocidad y expansión de la señal",
+  "Mapeo de severity a evidencia continua (no a BUY/WAIT)",
+]);
+
+const SEARCH_SPACE_S3 = makeSearchSpace([
+  "Horizontes de trayectoria predeclarados",
+  "Parámetros de direction y magnitud de S3",
+  "Rhythm: periodicidad/fase de persistencia",
+  "Umbrales de estabilidad de labels",
+]);
+
+const SEARCH_SPACE_S4 = makeSearchSpace([
+  "Definición de rango (fronteras y tolerancias versionadas)",
+  "Criterios point-in-time intact/testing/transition/newly accepted",
+  "Parámetros de confirmación causal (sin confirmación futura)",
+]);
+
+const SEARCH_SPACE_S5 = makeSearchSpace(
+  [
+    "Threshold de pullback frente a referencia causal",
+    "Regla de invalidación de la premisa",
+    "Wait budget y tiempo máximo de espera",
+    "Coste de oportunidad declarado ex-ante",
+  ],
+  Object.freeze({
+    unknownId: "UNK-SERIAL-ADMITTED-LAYERS",
+    reason:
+      "La premisa serial depende de qué capas se admitan realmente (§8.7); esa porción del espacio de búsqueda no puede cerrarse antes de las admisiones.",
+  })
+);
+
+const SEARCH_SPACE_Z = makeSearchSpace(
+  [
+    "Representación candidata por componente m/e/c/q/u",
+    "Subsets de componentes para poda por ablation",
+  ],
+  Object.freeze({
+    unknownId: "UNK-Z-CALCULUS",
+    reason:
+      "§7.1 congela el rol/semántica de Z, no los cálculos concretos; cada cálculo se instancia por experimento y se poda por ablation.",
+  })
+);
+
+const SEARCH_SPACE_DRIVERS = makeSearchSpace(
+  [
+    "Bloques de la taxonomía cerrada incluidos por muestra mapeada/a auditada",
+    "Variantes de mapping por bloque a fuentes EEX/operativas disponibles",
+    "Tratamiento de Uncertainty por bloque (STATE/CHANGE/SURPRISE)",
+  ],
+  Object.freeze({
+    unknownId: "UNK-SURPRISE-REFERENCE",
+    reason:
+      "SURPRISE exige expectativa documentada previa (§7.2.1); sin ella esa dimensión queda UNAVAILABLE y no se inventan expectativas.",
+  })
+);
+
 function makeIdentity(experimentId, scope) {
   return {
     experimentId,
-    specId: "PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC",
-    specVersion: "1.1.1",
-    specSha256: SPEC_SHA256,
+    specId: CANONICAL_SPEC_IDENTITY.id,
+    specVersion: CANONICAL_SPEC_IDENTITY.version,
+    specSha256: CANONICAL_SPEC_IDENTITY.sha256,
     parentImp: "IMP-20",
     scope,
     objectVersion: "1.0.0",
@@ -185,6 +264,7 @@ function driversLayer() {
 export const EXPERIMENT_DESIGNS = Object.freeze([
   {
     identity: makeIdentity("IMP20-EX-S02-01", "Ablation independiente: S2 Anomaly Detection como evidence generator sobre el núcleo aceptado A0/A1"),
+    searchSpace: SEARCH_SPACE_S2,
     objective:
       "Medir el valor marginal de S2 como capa aislada (A0/A1 core vs A2 = A1 + S2) con la misma contabilidad del núcleo, y su redundancia frente a S1; simetría de detección up/down sin convertir severity en BUY/WAIT.",
     layers: [s2Layer()],
@@ -219,6 +299,7 @@ export const EXPERIMENT_DESIGNS = Object.freeze([
   },
   {
     identity: makeIdentity("IMP20-EX-S03-01", "Ablation independiente: S3 Trajectory / Repricing sobre el núcleo aceptado, con chequeo de absorción por Dynamic Mode"),
+    searchSpace: SEARCH_SPACE_S3,
     objective:
       "Medir si la evidencia de trayectoria/persistencia de S3 identifica establemente OOS cuándo WAIT empeora el procurement; probar si su valor queda absorbido por Dynamic Mode de Z_t (refutation §8.3).",
     layers: [s3Layer()],
@@ -251,6 +332,7 @@ export const EXPERIMENT_DESIGNS = Object.freeze([
   },
   {
     identity: makeIdentity("IMP20-EX-S04-01", "Productor paralelo: S4 Structure / Range Transition como evidencia/gate en paralelo con el núcleo, con ablation de redundancia"),
+    searchSpace: SEARCH_SPACE_S4,
     objective:
       "Determinar point-in-time reproducible structure intact/testing/transition/newly accepted y su valor como gate sobre premisas, sin absorber todo Dynamic Mode y sin acción automática.",
     layers: [s4Layer()],
@@ -282,6 +364,7 @@ export const EXPERIMENT_DESIGNS = Object.freeze([
   },
   {
     identity: makeIdentity("IMP20-EX-S05-01", "Composición serial seleccionada S1→S5: pullback conditional sobre premisa de ubicación del núcleo, con regla de invalidación y wait budget"),
+    searchSpace: SEARCH_SPACE_S5,
     objective:
       "Probar la hipótesis de composición serial S1→S5 (única capa serial S5 consumiendo la premisa de ubicación ya admitida del núcleo): ¿esperar un pullback favorable mejora el coste sin elevar demasiado el riesgo de perder la compra y pagar más después (§8.5)?",
     layers: [s5Layer("Premisa: features de ubicación S1 del bundle frozen del núcleo (referencia causal frozen, §8.1); provenance registrada; invalidación de premisa con S4 como futuro gate cuando S4 se admita.")],
@@ -316,6 +399,7 @@ export const EXPERIMENT_DESIGNS = Object.freeze([
   },
   {
     identity: makeIdentity("IMP20-EX-Z01-01", "Ablation de representaciones: componentes de Z_t (m/e/c/q/u) frente al núcleo y a representaciones más simples; póda por ablation"),
+    searchSpace: SEARCH_SPACE_Z,
     objective:
       "Evaluar con la misma contabilidad si alguna representación candidata de los componentes de Z_t añade valor incremental procured sobre el núcleo, o si representaciones más simples (y las evidencias S1–S5) absorben su valor; utilidad por demostrar, no por diseño (§7.1).",
     layers: [zLayer()],
@@ -352,6 +436,7 @@ export const EXPERIMENT_DESIGNS = Object.freeze([
   },
   {
     identity: makeIdentity("IMP20-EX-D01-01", "Audit/mapping y póda de Fundamental Price Drivers (E1–E9/G1–G10/X1–X4): mapping a fuentes reales, redundancia y valor marginal por muestra, sin 23 features obligatorias"),
+    searchSpace: SEARCH_SPACE_DRIVERS,
     objective:
       "Auditar/mapar bloques de la taxonomía cerrada a fuentes disponibles, medir redundancia y valor marginal de los bloques mapeados con la misma contabilidad, y podar/asegurar completitud por evidencia (§7.2.5 invariante 5); no se añaden categorías por intuición, ni 23 features obligatorias.",
     layers: [driversLayer()],

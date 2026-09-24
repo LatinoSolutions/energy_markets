@@ -29,6 +29,7 @@ export const EXPERIMENT_DESIGN_FIELDS = Object.freeze([
   { key: "marginalValueMethod", source: "§10.2 Contribution_i; §25.1 valor marginal" },
   { key: "redundancyMethod", source: "§25.1 redundancia; §8.4/§8.8" },
   { key: "refutationCriteria", source: "§8.2–8.5 refutation; §13.7/§5.8; predeclarado §8.6/§19.4" },
+  { key: "searchSpace", source: "§8.6 protocolo compartido: predeclarar espacio de búsqueda; §25.1 desconocidos visibles" },
   { key: "dataMapping", source: "§25.2 REQUIRES_AUDIT DEP-06/07 [inputs de las capas concretas]; §7.2.1 STATE/CHANGE/SURPRISE/Uncertainty" },
   { key: "requiredAuditScopes", source: "§25.2 REQUIRES_AUDIT + audit/mapping requerido por el experimento nuevo" },
   { key: "unknowns", source: "§25.1 desconocidos visibles; §6.2 preservación de razón" },
@@ -236,6 +237,90 @@ function validatePredeclared(design, errors) {
   }
 }
 
+// §8.6 protocolo compartido exige "predeclarar espacio de búsqueda" además de
+// congelar semántica y refutación. El espacio se declara como familias de
+// parámetros a calibrar (nunca valores inventados, §0.2); la porción que la
+// SPEC deja indeterminada debe registrarse como desconocido visible con razón
+// (§25.1), no omitirse. Mismo requisito que el mensaje de `predeclared` de
+// arriba: aquí se VERIFICA, no sólo se enuncia (review IMP20-H1).
+function validateSearchSpace(design, errors) {
+  const searchSpace = design.searchSpace;
+  if (searchSpace === undefined || searchSpace === null) {
+    errors.push({
+      field: "searchSpace",
+      code: "MISSING_SEARCH_SPACE",
+      message: "El protocolo compartido exige PREDECLARAR el espacio de búsqueda (dimensiones/familias a calibrar) antes de development/OOS; sin él el experimento no está predeclarado (§8.6).",
+    });
+    return;
+  }
+  if (typeof searchSpace !== "object" || Array.isArray(searchSpace)) {
+    errors.push({
+      field: "searchSpace",
+      code: "INVALID_SEARCH_SPACE",
+      message: "searchSpace debe ser la declaración del espacio de búsqueda predeclarado (§8.6).",
+    });
+    return;
+  }
+  if (searchSpace.predeclared !== true) {
+    errors.push({ field: "searchSpace.predeclared", code: "SEARCH_SPACE_NOT_PREDECLARED", message: "El espacio de búsqueda se declara ex-ante (predeclared=true; §8.6)." });
+  }
+  if (searchSpace.frozenBeforeOOS !== true) {
+    errors.push({ field: "searchSpace.frozenBeforeOOS", code: "SEARCH_SPACE_NOT_FROZEN", message: "Los parámetros elegidos se congelan antes de validar OOS/walk-forward (§8.6)." });
+  }
+  if (searchSpace.calibrationRegime !== "DEVELOPMENT_CHRONOLOGICAL") {
+    errors.push({ field: "searchSpace.calibrationRegime", code: "INVALID_CALIBRATION_REGIME", message: "La calibración usa development/calibration cronológicos, congelando parámetros antes de OOS (§8.6)." });
+  }
+  const dimensions = searchSpace.dimensions;
+  if (!Array.isArray(dimensions)) {
+    errors.push({ field: "searchSpace.dimensions", code: "INVALID_SEARCH_SPACE", message: "searchSpace.dimensions debe listar las familias/dimensiones de parámetros a calibrar (§8.6)." });
+    return;
+  }
+  for (const dimension of dimensions) {
+    if (typeof dimension !== "string" || dimension.trim().length === 0) {
+      errors.push({
+        field: "searchSpace.dimensions[]",
+        code: "INVALID_SEARCH_SPACE",
+        message: "Cada dimensión del espacio de búsqueda es una familia de parámetros nombrada, sin valores numéricos inventados (§8.6; §0.2).",
+      });
+    }
+  }
+  const hasVisibleUnknown = validateSearchSpaceUnknown(design, searchSpace, errors);
+  if (dimensions.length === 0 && !hasVisibleUnknown) {
+    errors.push({
+      field: "searchSpace.dimensions",
+      code: "SEARCH_SPACE_NOT_DECLARED_OR_VISIBLE_UNKNOWN",
+      message: "Un espacio de búsqueda vacío debe registrarse como desconocido visible con razón; una ausencia sin razón es un faltante disimulado (§8.6; §25.1).",
+    });
+  }
+}
+
+// La porción no cerrada del espacio de búsqueda sólo es aceptable si apunta a
+// un desconocido YA registrado en el diseño y preserva su razón (§25.1; §6.2).
+function validateSearchSpaceUnknown(design, searchSpace, errors) {
+  const unknownScope = searchSpace.unknownScope;
+  if (unknownScope === null || unknownScope === undefined) {
+    return false;
+  }
+  if (typeof unknownScope !== "object" || Array.isArray(unknownScope)) {
+    errors.push({ field: "searchSpace.unknownScope", code: "INVALID_SEARCH_SPACE_UNKNOWN", message: "unknownScope debe referenciar un desconocido visible del diseño (§25.1)." });
+    return false;
+  }
+  const registered = new Set((design.unknowns ?? []).map((unknown) => unknown?.unknownId).filter(Boolean));
+  if (typeof unknownScope.unknownId !== "string" || !registered.has(unknownScope.unknownId)) {
+    errors.push({
+      field: "searchSpace.unknownScope.unknownId",
+      code: "SEARCH_SPACE_UNKNOWN_NOT_VISIBLE",
+      message: "La porción no cerrada del espacio de búsqueda debe corresponder a un desconocido registrado y visible del diseño (§25.1 desconocidos visibles; §6.2).",
+    });
+    return false;
+  }
+  if (typeof unknownScope.reason !== "string" || unknownScope.reason.trim().length === 0) {
+    errors.push({ field: "searchSpace.unknownScope.reason", code: "MISSING_REASON", message: "La porción desconocida del espacio de búsqueda preserva su razón (§6.2)." });
+    return false;
+  }
+  return true;
+}
+
 // Validación completa de un diseño de experimento IMP-20. Devuelve el primer
 // error dominante como `code` para que la Oficina lo gestione por tipo.
 // Requiere todos los guards de constraints y la validación de desconocidos;
@@ -269,6 +354,7 @@ export function validateExperimentDesign(design) {
   validateAdmissionPath(design, errors);
   validateGatesChecklist(design, errors);
   validatePredeclared(design, errors);
+  validateSearchSpace(design, errors);
 
   const identityResult = design.identity ? validateExperimentIdentity(design.identity) : { ok: false, errors: [] };
   if (!identityResult.ok) {

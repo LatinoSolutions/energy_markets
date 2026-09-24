@@ -5,7 +5,15 @@ Fuente normativa: `docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEER
 
 ## Qué es esta entrega
 
-Materializa el objetivo de IMP-20: **diseñar** (predeclarar) los experimentos "después" del núcleo, no ejecutarlos. Cada diseño declara identidad de instancia (§25.2.1), capa(s) ensayada(s), topología de §8.6, arms con ablation, **misma contabilidad** que el núcleo (§25.1: valor marginal y redundancia con misma contabilidad), criterios de refutación predeclarados, scopes de audit/mapping a consumir (REQUIRES_AUDIT, no RESOLVES_AUDIT), desconocidos visibles y ruta de admisión posterior vía §8.7 — nunca automática.
+Materializa el objetivo de IMP-20: **diseñar** (predeclarar) los experimentos "después" del núcleo, no ejecutarlos. Cada diseño declara identidad de instancia (§25.2.1), capa(s) ensayada(s), topología de §8.6, **espacio de búsqueda predeclarado** (§8.6), arms con ablation, **misma contabilidad** que el núcleo (§25.1: valor marginal y redundancia con misma contabilidad), criterios de refutación predeclarados, scopes de audit/mapping a consumir (REQUIRES_AUDIT, no RESOLVES_AUDIT), desconocidos visibles y ruta de admisión posterior vía §8.7 — nunca automática.
+
+Corrección review IMP20-H1/H2 (2026-09-24): el espacio de búsqueda se declara como familias de parámetros a calibrar (`searchSpace`, con `predeclared`, `frozenBeforeOOS`, `calibrationRegime: DEVELOPMENT_CHRONOLOGICAL` y dimensiones); la porción que la SPEC deja indeterminada apunta a un desconocido visible registrado (`unknownScope`) — no se omite. La identidad de instancia liga su `specId`/`specVersion`/`specSha256` a la identidad canónica vigente ya registrada en el repo, no a un literal escrito de memoria.
+
+## Protocolo compartido (§8.6): espacio de búsqueda predeclarado
+
+- Cada diseño porta `searchSpace.dimensions` (familias de parámetros, **sin valores numéricos inventados**), congeladas antes de OOS (`frozenBeforeOOS=true`) y calibradas en development cronológico.
+- La porción indeterminada por la SPEC se registra con `searchSpace.unknownScope` apuntando a un desconocido ya visible del diseño y preservando su razón: S5 → `UNK-SERIAL-ADMITTED-LAYERS`; Z → `UNK-Z-CALCULUS`; drivers → `UNK-SURPRISE-REFERENCE`.
+- `validateExperimentDesign` rechaza fail-closed: `MISSING_SEARCH_SPACE`, `SEARCH_SPACE_NOT_PREDECLARED`, `SEARCH_SPACE_NOT_FROZEN`, `INVALID_CALIBRATION_REGIME`, `SEARCH_SPACE_NOT_DECLARED_OR_VISIBLE_UNKNOWN`, `SEARCH_SPACE_UNKNOWN_NOT_VISIBLE`.
 
 ## Los seis diseños predeclarados
 
