@@ -84,6 +84,22 @@ test("sameInstance exige la tupla completa (scope+versión+protocolo)", () => {
   assert.equal(isNewInstance({ scope: "s" }, [{ scope: "s", version: "v1" }]), false);
 });
 
+test("HT-IMP-26-001: redeclaración que omite el protocolo ante instancia accepted de igual scope/versión es fail-closed (IMP_ALREADY_ACCEPTED)", () => {
+  const acceptedInstances = [{ imp: "IMP-03", scope: "P5-gas-quarterly", version: "v1", objectProtocolVersion: "proto-1" }];
+
+  assert.equal(isNewInstance({ scope: "P5-gas-quarterly", version: "v1" }, acceptedInstances.filter((entry) => entry.imp === "IMP-03")), false);
+
+  const result = evaluateEligibility({ graph: graph(), impId: "IMP-03", projectOn: true, acceptedInstances, instance: { scope: "P5-gas-quarterly", version: "v1" } });
+  assert.equal(result.eligible, false);
+  assert.deepEqual(codes(result), ["IMP_ALREADY_ACCEPTED"]);
+});
+
+test("HT-IMP-26-001: protocolo distinto declarado ante igual scope/versión sí es instancia nueva", () => {
+  const acceptedInstances = [{ imp: "IMP-03", scope: "P5-gas-quarterly", version: "v1", objectProtocolVersion: "proto-1" }];
+  const result = evaluateEligibility({ graph: graph(), impId: "IMP-03", projectOn: true, acceptedInstances, instance: { scope: "P5-gas-quarterly", version: "v1", objectProtocolVersion: "proto-2" } });
+  assert.equal(result.eligible, true, JSON.stringify(result.blockers));
+});
+
 test("un SPEC_CHANGE_REQUEST abierto bloquea sólo su rama (SPEC_CONTRADICTION)", () => {
   const options = { graph: graph(), projectOn: true, acceptedInstances: [{ imp: "IMP-01" }, { imp: "IMP-25" }], auditSatisfied: ["DEP-27"] };
   const blocked = evaluateEligibility({ ...options, impId: "IMP-26", openSpecChangeRequests: [{ id: "SCR-1", branch: "IMP-26", resolved: false }] });

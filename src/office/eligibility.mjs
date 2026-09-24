@@ -23,9 +23,11 @@ function normalizeLabel(value) {
   return String(value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-// §25.2.1: instancia de ejecución = SPEC + IMP + scope + versión del
-// objeto/protocolo. Dos instancias son la misma sólo si coincide la tupla
-// completa; comparar menos es fail-closed (la misma instancia nunca se repite).
+// §25.2.1 (líneas 2191/2195): instancia de ejecución = SPEC + IMP + scope +
+// versión del objeto/protocolo; no se denomina instancia nueva al mismo
+// trabajo accepted para reabrirlo. Comparar menos es fail-closed: si la
+// instancia declara menos campos que una accepted de igual scope/versión,
+// la identidad no es verificable y NO cuenta como nueva.
 export function sameInstance(left, right) {
   if (!left || !right) return false;
   const scope = normalizeLabel(left.scope);
@@ -38,9 +40,24 @@ export function sameInstance(left, right) {
   return sameScope && sameVersion && sameProtocol;
 }
 
+function sameScopeAndVersion(left, right) {
+  if (!left || !right) return false;
+  const scope = normalizeLabel(left.scope);
+  const version = normalizeLabel(left.version);
+  if (!scope || !version) return false;
+  return normalizeLabel(right.scope) === scope && normalizeLabel(right.version) === version;
+}
+
 export function isNewInstance(instance, acceptedInstancesOfImp) {
   if (!instance?.scope || !instance?.version) return false;
-  return (acceptedInstancesOfImp ?? []).every((accepted) => !sameInstance(instance, accepted));
+  const protocolDeclared = normalizeLabel(instance.objectProtocolVersion ?? instance.protocol) !== "";
+  for (const accepted of acceptedInstancesOfImp ?? []) {
+    if (!sameScopeAndVersion(instance, accepted)) continue;
+    // Mismo scope/versión que una accepted: sin protocolo declarado la
+    // identidad es incompleta → no verificable → no nueva (fail-closed).
+    if (!protocolDeclared || sameInstance(instance, accepted)) return false;
+  }
+  return true;
 }
 
 function blocker(kind, code, message, branch, detail = null) {
