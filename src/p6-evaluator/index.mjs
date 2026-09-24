@@ -23,3 +23,21 @@ export {
   receiptIdentityOf,
   outputBundleDigestsOf,
 } from "./run-receipts.mjs";
+// Campaña manual end-to-end y closure gate P6 (IMP-15).
+export {
+  evaluateCampaignManually,
+  evaluateCampaignFromRun,
+  compareManualVsEvaluator,
+  manualComparisonDigest,
+} from "./manual-campaign.mjs";
+export {
+  evaluateP6ClosureGate,
+  materializeP6ClosureReceipt,
+  MANUAL_FIXTURE_IDS,
+} from "./closure-gate.mjs";
+// Evidencia de ejecución real del suite de fixtures §14.8 (IMP-13→IMP-15).
+export {
+  FIXTURE_SUITE_RUN_EVIDENCE_KIND,
+  imp13FixtureSuiteDigest,
+  validateFixtureSuiteRunEvidence,
+} from "./fixture-suite-evidence.mjs";
