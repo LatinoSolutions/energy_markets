@@ -43,6 +43,7 @@ export {
   LEARNING_PROTOCOL_STATES,
   buildLearningProtocol,
   isLearningProtocol,
+  validateLearningProtocolContract,
   assertProtocolFrozenBeforeEvaluation,
 } from "./protocol.mjs";
 

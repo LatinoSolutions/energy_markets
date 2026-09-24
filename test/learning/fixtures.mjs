@@ -4,8 +4,9 @@
 // scope SYNTHETIC_FIXTURE del corpusAudit lo hace explícito en el ciclo.
 
 import { buildExperienceRecord, closeExperienceRecord } from "../../src/experience/index.mjs";
+import { contentHashOf } from "../../src/execution-contract/execution-contract.mjs";
 import { GLOBAL_REWARD_ID } from "../../src/learning/reward.mjs";
-import { buildLearningProtocol } from "../../src/learning/protocol.mjs";
+import { buildLearningProtocol, LEARNING_PROTOCOL_KIND } from "../../src/learning/protocol.mjs";
 import {
   freezeOosShadowProcessArtifact,
   materializeRevalidationEvidence,
@@ -71,6 +72,29 @@ export function frozenProtocol(overrides = {}) {
     throw new Error(`fixture protocol inválido: ${JSON.stringify(built.errors)}`);
   }
   return built.protocol;
+}
+
+// Protocolo content-addressed armado a mano (hash válido) pero con contrato
+// semántico inválido: sirve para probar que el gate no confía en la sola
+// integridad del hash (§25.2.3 IMP-19: "congelado y autorizado").
+export function forgedFrozenProtocol(overrides = {}) {
+  const core = {
+    protocolKind: LEARNING_PROTOCOL_KIND,
+    schemaVersion: "1.0",
+    protocolVersion: "forged-protocol-v1",
+    state: "FROZEN",
+    declaredBy: "test-fixture (forjado, IMP-19)",
+    frozenAtUtc: "2026-01-01T00:00:00Z",
+    mixtureDeclaration: {
+      declarationVersion: "mix-v1",
+      declaredBy: "test-fixture (forjado, IMP-19)",
+      weights: { REPLAY: 1 },
+    },
+    cadence: { reviewTrigger: "campaign_close", trainingTrigger: "window_close" },
+    ...overrides,
+  };
+  core.contentHash = contentHashOf(core);
+  return core;
 }
 
 export function syntheticExperienceRecord({ policyVersion = "policy-v1", campaignId = "GAS-Q-2024Q1", action = "BUY", sourceType = "REPLAY", overrides = {} } = {}) {

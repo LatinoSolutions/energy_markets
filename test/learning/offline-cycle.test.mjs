@@ -30,6 +30,7 @@ import {
   frozenRewardConfig,
   openRewardConfig,
   frozenProtocol,
+  forgedFrozenProtocol,
   pathRevalidation,
   frozenProcessFor,
 } from "./fixtures.mjs";
@@ -116,6 +117,29 @@ test("IMP-19 §25.2.3 · reward/protocol sin congelar no habilitan la candidate"
   });
   assert.equal(gates.ok, false);
   assert.ok(gates.reasons.some((reason) => reason.code === "REWARD_CONFIG_NOT_FROZEN"));
+});
+
+test("IMP-19 §25.2.3 · el gate exige protocolo con contrato autorizado, no sólo hash válido", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const cycle = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus: supportCorpus(),
+    corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
+    rewardConfig: frozenRewardConfig(),
+    protocol: forgedFrozenProtocol({ mixtureDeclaration: null }),
+    supportEvaluation: sufficientSupport(),
+    candidateVersion: "policy-v2",
+    learnerComparison: bestComparison(),
+    revalidation: null,
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(cycle.ok, false);
+  assert.equal(cycle.code, "LEARNING_GATES_NOT_SATISFIED");
+  assert.ok(cycle.reasons.some((reason) => reason.code === "PROTOCOL_CONTRACT_INVALID"));
+  assert.equal(cycle.activeVersionUnchanged, true);
+  assert.equal(holder.current(), "policy-v1");
 });
 
 test("IMP-19 §11.5 · la candidate debe ser nueva y partir de una comparación evaluada", () => {

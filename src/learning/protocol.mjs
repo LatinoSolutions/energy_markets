@@ -25,11 +25,13 @@ function fail(errors) {
   return { ok: errors.length === 0, errors };
 }
 
-// Construye el protocolo DEP-21 con mezcla predeclarada/versionada y cadence
-// explícita. La provenance de las fuentes vive en cada Experience record; el
-// protocolo sólo fija las reglas de combinación y los disparadores, que no se
-// infieren por defecto.
-export function buildLearningProtocol({ mixtureDeclaration = null, cadence = null, declaredBy = null, protocolVersion = null, state = LEARNING_PROTOCOL_STATES.OPEN, frozenAtUtc = null } = {}) {
+// §12.3/§11.5: contrato semántico del protocolo (versión, declarante, mezcla
+// predeclarada y cadence explícita, estado/sello FROZEN). Se comparte entre la
+// construcción y el gate de evaluación: la integridad content-addressed sólo
+// prueba que el artefacto no cambió, NO que su contenido sea el autorizado. Un
+// protocolo con hash válido pero mezcla/cadence ausentes o inválidas no queda
+// "congelado y autorizado" (§25.2.3 IMP-19; §12.3).
+export function validateLearningProtocolContract({ protocolVersion = null, declaredBy = null, mixtureDeclaration = null, cadence = null, state = null, frozenAtUtc = null } = {}) {
   const errors = [];
   if (!isNonEmptyString(protocolVersion)) {
     errors.push({ field: "protocolVersion", code: "MISSING_PROTOCOL_VERSION", message: "El protocolo offline se versiona (§12.3/§25.2 DEP-21)." });
@@ -57,8 +59,17 @@ export function buildLearningProtocol({ mixtureDeclaration = null, cadence = nul
   if (state === LEARNING_PROTOCOL_STATES.FROZEN && !isNonEmptyString(frozenAtUtc)) {
     errors.push({ field: "frozenAtUtc", code: "MISSING_FROZEN_AT_UTC", message: "Un protocolo FROZEN lleva su sello UTC de congelación ex-ante (§15.2)." });
   }
-  if (errors.length > 0) {
-    return { ok: false, errors };
+  return fail(errors);
+}
+
+// Construye el protocolo DEP-21 con mezcla predeclarada/versionada y cadence
+// explícita. La provenance de las fuentes vive en cada Experience record; el
+// protocolo sólo fija las reglas de combinación y los disparadores, que no se
+// infieren por defecto.
+export function buildLearningProtocol({ mixtureDeclaration = null, cadence = null, declaredBy = null, protocolVersion = null, state = LEARNING_PROTOCOL_STATES.OPEN, frozenAtUtc = null } = {}) {
+  const validation = validateLearningProtocolContract({ protocolVersion, declaredBy, mixtureDeclaration, cadence, state, frozenAtUtc });
+  if (!validation.ok) {
+    return { ok: false, errors: validation.errors };
   }
   const core = {
     protocolKind: LEARNING_PROTOCOL_KIND,
@@ -103,6 +114,14 @@ export function assertProtocolFrozenBeforeEvaluation({ protocol = null, evaluate
   }
   if (isNonEmptyString(evaluatedAtUtc) && isNonEmptyString(protocol.frozenAtUtc) && evaluatedAtUtc < protocol.frozenAtUtc) {
     return { ok: false, code: "PROTOCOL_FROZEN_AFTER_EVALUATION", message: "El protocolo debe congelarse ANTES de la evaluación: el sello temporal es posterior (§15.2)." };
+  }
+  // §25.2.3 IMP-19: "congelado y autorizado". La integridad del hash prueba que
+  // el artefacto no cambió, no que su contenido cumpla el contrato. Se re-valida
+  // la semántica en el gate (no se confía en la forma): mezcla predeclarada,
+  // cadence y versión/declarante. Sin conformidad, el protocolo no autoriza.
+  const contract = validateLearningProtocolContract(protocol);
+  if (!contract.ok) {
+    return { ok: false, code: "PROTOCOL_CONTRACT_INVALID", message: "El protocolo FROZEN no satisface el contrato de §12.3/§11.5 (mezcla/cadence/versión/declarante): su integridad no lo autoriza (§25.2.3 IMP-19).", errors: contract.errors };
   }
   return { ok: true, code: "PROTOCOL_FROZEN" };
 }
