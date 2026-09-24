@@ -270,3 +270,17 @@ export function validateSpecIdentity(spec) {
   }
   return { ok: errors.length === 0, errors };
 }
+
+// Revisión IMP-09 2026-09-24 (observación del revisor sobre HEAD 2915b9d):
+// validar la forma no basta; la reserva sólo puede sellarse bajo la SPEC
+// canónica vigente, no bajo una identidad distinta declarada en el input.
+export function specIdentityMismatches(spec) {
+  const mismatches = [];
+  if (!spec || typeof spec !== "object") return [];
+  for (const field of ["id", "version", "sha256"]) {
+    if (spec[field] !== undefined && spec[field] !== IMP09_SPEC_IDENTITY[field]) {
+      mismatches.push(field);
+    }
+  }
+  return mismatches;
+}

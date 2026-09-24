@@ -16,6 +16,7 @@ export {
   parseIsoDate,
   quarterIndex,
   resolveEligibilityBasis,
+  specIdentityMismatches,
   validateEligibilityRegister,
   validateSpecIdentity,
 } from "./campaign-register.mjs";

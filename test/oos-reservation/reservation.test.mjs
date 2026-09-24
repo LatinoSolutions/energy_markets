@@ -216,6 +216,32 @@ test("la identidad de la SPEC es la vigente v1.1.1", () => {
   assert.equal(CHRONOLOGICAL_RESERVATION_BASIS, "CHRONOLOGICAL_ELIGIBLE");
 });
 
+test("una SPEC declarada distinta a la canónica no sella (fail-closed, SPEC_IDENTITY_MISMATCH)", () => {
+  // Revisión IMP-09 2026-09-24: repro del revisor sobre HEAD 2915b9d — antes,
+  // validateSpecIdentity sólo comprobaba la forma y una spec {WRONG_SPEC,
+  // 9.9.9, 0…0} sellaba RESERVED con el campo inerte. Ya no.
+  const input = validReservationInput();
+  input.spec = { id: "WRONG_SPEC", version: "9.9.9", sha256: "0".repeat(64) };
+  const result = reserveSealedOos(input);
+  assert.equal(result.decision, "HOLD");
+  assert.deepEqual(result.blockedBy, ["SPEC_IDENTITY_MISMATCH"]);
+  assert.ok(result.errors.some((error) => error.code === "SPEC_IDENTITY_MISMATCH"));
+  assert.deepEqual(result.sealedOosCampaignIds, []);
+  assert.equal(result.chronologicalSplit, null);
+  const verdict = evaluateImp09Acceptance(result);
+  assert.equal(verdict.criterionMet, false);
+});
+
+test("una SPEC canónica mutada en un sólo campo tampoco sella (fail-closed por campo)", () => {
+  for (const [field, value] of [["id", "OTHER_SPEC.md"], ["version", "1.1.0"], ["sha256", "a".repeat(64)]]) {
+    const input = validReservationInput();
+    input.spec = { ...IMP09_SPEC_IDENTITY, [field]: value };
+    const result = reserveSealedOos(input);
+    assert.equal(result.decision, "HOLD");
+    assert.deepEqual(result.blockedBy, ["SPEC_IDENTITY_MISMATCH"]);
+  }
+});
+
 test("un hueco en la secuencia elegible mantiene HOLD (un quarter omitido desplaza el corte)", () => {
   const input = validReservationInput();
   input.campaigns = gasQuarterlyRegister({ year: 2021, quarter: 1, count: 11 })

@@ -21,6 +21,7 @@ import {
   parseIsoDate,
   quarterIndex,
   resolveEligibilityBasis,
+  specIdentityMismatches,
   validateEligibilityRegister,
   validateSpecIdentity,
 } from "./campaign-register.mjs";
@@ -248,9 +249,12 @@ export function reserveSealedOos(input = {}) {
     }
   }
 
-  const specOutcome = validateSpecIdentity(input.spec ?? IMP09_SPEC_IDENTITY);
-  if (!specOutcome.ok) {
-    errors.push(...specOutcome.errors);
+  const declaredSpec = input.spec ?? IMP09_SPEC_IDENTITY;
+  const specOutcome = validateSpecIdentity(declaredSpec);
+  errors.push(...specOutcome.errors);
+  const specMismatches = specIdentityMismatches(declaredSpec);
+  if (specMismatches.length > 0) {
+    pushError(errors, "SPEC_IDENTITY_MISMATCH", `La reserva declara una SPEC que no es la vigente (campo(s): ${specMismatches.join(", ")}); sólo puede sellarse bajo la SPEC canónica (PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md, v1.1.1).`);
   }
 
   const registerOutcome = validateEligibilityRegister(input.campaigns);
