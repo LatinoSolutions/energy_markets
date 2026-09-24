@@ -28,6 +28,7 @@ import {
   syntheticExperienceRecord,
   markovStateDeclaration,
   frozenRewardConfig,
+  openRewardConfig,
   frozenProtocol,
   pathRevalidation,
   frozenProcessFor,
@@ -460,4 +461,99 @@ test("IMP19-R2 §25.2.3 · la evidencia sin marca fixtureOnly no se materializa 
   const unmarked = materializeRevalidationEvidence({ process: frozenProcessFor(), candidate, evidenceRef: "shadow-shakeout-1" });
   assert.equal(unmarked.ok, false);
   assert.ok(unmarked.errors.some((error) => error.code === "MISSING_REAL_MARK"));
+});
+
+// IMP19-R3 (revisión 2026-09-24): si la comparación por mérito refuta al
+// learner (§25.1/§25.2.3 IMP-19: "Q-learning compite por mérito"; "si la prueba
+// refuta al learner, se registra el resultado"), el ciclo NO produce
+// recomendación de promoción ni outcome CANDIDATE_REVALIDATED. Reproducción
+// del hallazgo: learnerComparison refutado → outcome positivo y
+// promotionRecommended:true con candidate.learnerRefuted:true (doble verdad).
+test("IMP19-R3 §25.2.3 · learner refutado por mérito no queda recomendado para promoción", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const corpus = supportCorpus();
+  const refutedComparison = comparePoliciesByMerit({
+    candidate: { name: "ALWAYS_BUY", policy: fixedPolicy({ states: SYNTHETIC_MDP.states, action: "BUY" }).policy },
+    baselines: [
+      { name: "LEARNER_OPTIMAL", policy: { A: "BUY", B: "WAIT", TERM: "WAIT" } },
+    ],
+    ...mdpArgs,
+    gamma: 1,
+    horizon: "finite",
+    gammaJustification: GAMMA_JUSTIFICATION,
+    initialStates: SYNTHETIC_MDP.initialStates,
+  });
+  assert.equal(refutedComparison.ok, true);
+  assert.equal(refutedComparison.refuted, true);
+  assert.equal(refutedComparison.selectedByMerit, false);
+  const revalidation = pathRevalidation({ candidate: cycleCandidate({ holder, corpus, learnerComparison: refutedComparison }) });
+  const cycle = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus,
+    corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
+    rewardConfig: frozenRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison: refutedComparison,
+    revalidation,
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(cycle.ok, true);
+  assert.equal(cycle.candidate.learnerRefuted, true);
+  assert.equal(cycle.revalidation.revalidated, true);
+  assert.equal(cycle.outcome, "LEARNER_REFUTED_FIXTURE_ONLY");
+  assert.ok(!cycle.outcome.includes("CANDIDATE_REVALIDATED"));
+  assert.equal(cycle.promotionRecommended, false);
+  assert.match(cycle.note, /refuta al learner/);
+  assert.equal(cycle.activeVersionUnchanged, true);
+  assert.equal(holder.current(), "policy-v1");
+});
+
+// IMP19-R4 (revisión 2026-09-24): la traza del ciclo debe tener UNA sola
+// entrada por paso y con estado consistente. Reproducción del hallazgo: con
+// ventana cerrada y un gate fallido (reward OPEN) la traza contenía el paso 4
+// DOS veces (executed:true y luego executed:false).
+test("IMP19-R4 §11.5 · la traza del ciclo no duplica pasos ni se contradice", () => {
+  const holder = createActivePolicyVersionHolder({ initialVersion: "policy-v1" });
+  const truncated = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus: supportCorpus(),
+    corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
+    rewardConfig: openRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison: bestComparison(),
+    revalidation: pathRevalidation({ candidate: cycleCandidate({ holder, corpus: supportCorpus() }) }),
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(truncated.ok, false);
+  assert.equal(truncated.code, "LEARNING_GATES_NOT_SATISFIED");
+  const step4Entries = truncated.steps.filter((entry) => entry.step === 4);
+  assert.equal(step4Entries.length, 1);
+  assert.equal(step4Entries[0].executed, false);
+  const windowOpen = runOfflineLearningCycle({
+    activeVersionHolder: holder,
+    corpus: [
+      syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "BUY" }),
+      syntheticExperienceRecord({ campaignId: "GAS-Q-2024Q1", action: "WAIT" }),
+    ],
+    corpusAudit: { scope: "SYNTHETIC_FIXTURE", sourceRef: "test/learning/fixtures.mjs" },
+    rewardConfig: frozenRewardConfig(),
+    supportEvaluation: sufficientSupport(),
+    protocol: frozenProtocol(),
+    candidateVersion: "policy-v2",
+    learnerComparison: bestComparison(),
+    revalidation: pathRevalidation({ candidate: cycleCandidate({ holder, corpus: [syntheticExperienceRecord()] }) }),
+    producedAtUtc: PRODUCED_AT,
+    evaluatedAtUtc: "2026-02-01T00:00:00Z",
+    provenance: FIXED_PROVENANCE,
+  });
+  assert.equal(windowOpen.ok, false);
+  assert.equal(windowOpen.steps.filter((entry) => entry.step === 4).length, 1);
 });

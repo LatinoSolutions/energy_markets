@@ -401,11 +401,14 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
   const closedRecords = corpusLength === null ? null : corpus.filter((record) => record?.recordState === "CLOSED").length;
   const windowClosed = corpusLength !== null && closedRecords === corpusLength;
   steps.push({ ...CYCLE_STEPS[2], executed: windowClosed, closedRecords, openRecords: corpusLength === null || closedRecords === null ? null : corpusLength - closedRecords });
-  steps.push({ ...CYCLE_STEPS[3], executed: windowClosed, note: windowClosed ? null : "Ventana/campaña no cerrada (§11.5 paso 3): el Review/Learning no produce candidate." });
 
   const gates = evaluateLearningGates({ corpus, corpusAudit, rewardConfig, protocol, supportEvaluation, evaluatedAtUtc });
   if (!gates.ok) {
-    steps.push({ ...CYCLE_STEPS[3], executed: false, note: "Gates no satisfechos: el Review/Learning no produce candidate." });
+    // IMP19-R4 (revisión 2026-09-24): el paso 4 se registra UNA sola vez, con
+    // estado consistente y la razón del fallo (ventana abierta u otros gates).
+    steps.push({ ...CYCLE_STEPS[3], executed: false, note: windowClosed
+      ? "Gates no satisfechos: el Review/Learning no produce candidate."
+      : "Ventana/campaña no cerrada (§11.5 paso 3): el Review/Learning no produce candidate." });
     const activeVersionAfter = activeVersionHolder.current();
     return {
       ok: false,
@@ -418,6 +421,7 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
       activeVersionUnchanged: activeVersionBefore === activeVersionAfter,
     };
   }
+  steps.push({ ...CYCLE_STEPS[3], executed: true });
 
   const corpusHash = Array.isArray(corpus) ? contentHashOf(corpus) : null;
   const produced = produceCandidatePolicyVersion({
@@ -460,15 +464,26 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
   }
   steps.push({ ...CYCLE_STEPS[5], executed: true, revalidated: revalidationOutcome.revalidated });
 
+  // IMP19-R3 (revisión 2026-09-24): la refutación del learner por mérito
+  // (§25.1 IMP-19 "Q-learning compite por mérito"; §25.2.3 IMP-19 "si la
+  // prueba refuta al learner, se registra el resultado") NO produce
+  // recomendación de promoción: el outcome es LEARNER_REFUTED (HOLD). El
+  // outcome puede seguir siendo fixtureOnly-qualified si el corpus/evidencia
+  // lo son: un resultado refutado sobre fixtures no ingresa a governance como
+  // si fuera real. La activación real pertenece a governance (IMP-24); aquí
+  // sólo se registra el resultado del ciclo.
   // IMP19-R2 (revisión 2026-09-24): el calificador FIXTURE_ONLY del outcome
   // deriva del scope declarado del corpus, del cotejo de records synthetic y
   // de la marca fixtureOnly sellada en la evidencia bindida: corpus o
   // evidencia sintéticos no producen CANDIDATE_REVALIDATED sin el calificador
   // FIXTURE_ONLY.
   const fixtureQualifier = gates.fixtureOnly || revalidationOutcome.evidenceFixtureOnly === true;
-  const outcome = revalidationOutcome.revalidated
-    ? (fixtureQualifier ? "CANDIDATE_REVALIDATED_FIXTURE_ONLY" : "CANDIDATE_REVALIDATED")
-    : "HOLD";
+  const learnerRefuted = produced.candidate.learnerRefuted === true;
+  const outcome = !revalidationOutcome.revalidated
+    ? "HOLD"
+    : learnerRefuted
+      ? (fixtureQualifier ? "LEARNER_REFUTED_FIXTURE_ONLY" : "LEARNER_REFUTED")
+      : (fixtureQualifier ? "CANDIDATE_REVALIDATED_FIXTURE_ONLY" : "CANDIDATE_REVALIDATED");
   steps.push({ ...CYCLE_STEPS[6], executed: true, outcome, activationOwner: "IMP-24" });
 
   const activeVersionAfter = activeVersionHolder.current();
@@ -481,13 +496,20 @@ export function runOfflineLearningCycle({ activeVersionHolder = null, corpus = n
     candidate: produced.candidate,
     revalidation: revalidationOutcome,
     outcome,
-    promotionRecommended: revalidationOutcome.revalidated,
+    learnerRefuted,
+    // IMP19-R3: la revalidación de evidencia no recomienda promoción de un
+    // learner refutado por mérito (§25.1/§25.2.3 IMP-19).
+    promotionRecommended: revalidationOutcome.revalidated && !learnerRefuted,
     activeVersionBefore,
     activeVersionAfter,
     activeVersionUnchanged: activeVersionBefore === activeVersionAfter,
-    note: fixtureQualifier
-      ? "Fixtures/scope sintético: la revalidación es de ingeniería y NO cierra DEP-19/20/21 ni demuestra edge ni datos del cliente."
-      : "La candidate revalidada queda recomendada para governance (IMP-24); la activación real exige aprobación/autoridad propias.",
+    note: learnerRefuted
+      ? (fixtureQualifier
+        ? "La comparación por mérito refuta al learner (§25.2.3 IMP-19): se registra el resultado sin recomendación de promoción. Fixtures/scope sintético: es ejecución de ingeniería y NO cierra DEP-19/20/21 ni demuestra edge ni datos del cliente."
+        : "La comparación por mérito refuta al learner (§25.2.3 IMP-19): se registra el resultado; la candidate NO queda recomendada para promoción (governance/IMP-24 decide).")
+      : (fixtureQualifier
+        ? "Fixtures/scope sintético: la revalidación es de ingeniería y NO cierra DEP-19/20/21 ni demuestra edge ni datos del cliente."
+        : "La candidate revalidada queda recomendada para governance (IMP-24); la activación real exige aprobación/autoridad propias."),
   };
 }
 
