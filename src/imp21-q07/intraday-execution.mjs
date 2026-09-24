@@ -9,7 +9,11 @@
 // de ejecución del fill. El precio consumido para cada fill debe existir con
 // asOf <= instante de decisión (causalidad por hora, fail-closed): si no hay
 // snapshot causal, el fill se deniega y el volumen sigue pendiente — nunca se
-// consume un snapshot futuro.
+// consume un snapshot futuro. La causalidad es además INTRADÍA: la ejecución
+// del día D consume snapshots del día D; un snapshot de D−1 (u otro día
+// anterior) no es el precio de la ejecución declarada de D y no es consumible
+// (política de staleza predeclarada: sin snapshot intradía del día → deny,
+// mismo criterio día-scoped que DYNAMIC_WINDOW aplica vía daySnapshots).
 //
 // La secuencia de decisión es calendar-only/price-blind (§13.4/§13.5: A0 decide
 // BUY/WAIT por calendario; §25.1 "misma lógica/parámetros/obligación; cambia
@@ -81,17 +85,25 @@ export function createIntradaySnapshotRegistry(sourceId, snapshots = []) {
 
 // Último snapshot con asOf <= decisionAtUtc: un snapshot posterior existe en
 // el registro pero no es consumible en el momento de decisión (§6 unavailable
-// explícito, no look-ahead). El registro es el objeto plano devuelto por el
+// explícito, no look-ahead). Si se declara decisionDayKey, la selección se
+// acota además a snapshots del MISMO día de decisión (causalidad intradía;
+// ver encabezado del módulo). El registro es el objeto plano devuelto por el
 // registry ({sourceId, snapshots, contentHash}).
-export function selectCausalSnapshot({ registry, decisionAtUtc } = {}) {
+export function selectCausalSnapshot({ registry, decisionAtUtc, decisionDayKey } = {}) {
   if (!registry || typeof registry !== "object" || !Array.isArray(registry.snapshots)) {
     return { ok: false, code: "INVALID_REGISTRY" };
   }
   if (typeof decisionAtUtc !== "string") {
     return { ok: false, code: "INVALID_DECISION_AT" };
   }
-  const causal = registry.snapshots.filter((snapshot) => snapshot.asOfUtc <= decisionAtUtc);
-  const latest = causal[causal.length - 1] ?? null;
+  let eligible = registry.snapshots.filter((snapshot) => snapshot.asOfUtc <= decisionAtUtc);
+  if (decisionDayKey !== undefined) {
+    if (typeof decisionDayKey !== "string" || !isDateKey(decisionDayKey)) {
+      return { ok: false, code: "INVALID_DECISION_DAY_KEY" };
+    }
+    eligible = eligible.filter((snapshot) => snapshot.asOfUtc.startsWith(decisionDayKey));
+  }
+  const latest = eligible[eligible.length - 1] ?? null;
   if (!latest) {
     return { ok: true, snapshot: null, code: "NO_CAUSAL_SNAPSHOT" };
   }
@@ -183,7 +195,10 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
     let fill = null;
     if (candidate.kind === "FIXED_HOUR_AND_MINUTES") {
       const decisionAtUtc = utcAt(date, candidate.hour, candidate.minutes);
-      const causal = selectCausalSnapshot({ registry, decisionAtUtc });
+      // Causalidad scoped al día de decisión: el snapshot de un día anterior
+      // no es el precio de la ejecución declarada de hoy → deny (ver
+      // encabezado; mismo criterio día-scoped que DYNAMIC_WINDOW).
+      const causal = selectCausalSnapshot({ registry, decisionAtUtc, decisionDayKey: date });
       if (causal.snapshot) {
         fill = { ...causal.snapshot, decisionAtUtc };
       } else {
@@ -191,8 +206,8 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
         deniedFills.push({ date, hourId, code: FILL_DENIED_NO_CAUSAL_SNAPSHOT, decisionAtUtc, requestedQuantityMw: quantity });
       }
     } else {
-      // DYNAMIC_WINDOW: primer snapshot causal cuya HORA cae dentro de la
-      // ventana predeclarada; fuera de ventana no hay fill y no se mueve el
+      // DYNAMIC_WINDOW: último snapshot causal del día cuya HORA cae dentro de
+      // la ventana predeclarada; fuera de ventana no hay fill y no se mueve el
       // tiempo (fail-closed).
       const daySnapshots = registry.snapshots.filter((snapshot) => snapshot.asOfUtc.startsWith(date));
       const inWindow = daySnapshots.filter((snapshot) => {

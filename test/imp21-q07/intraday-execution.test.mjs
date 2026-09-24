@@ -37,6 +37,23 @@ test("causalidad: devuelve el último snapshot asOf <= decisión; el futuro no e
   assert.equal(beforeAny.code, "NO_CAUSAL_SNAPSHOT");
 });
 
+test("causalidad intradía H10: sin decisionDayKey no se acota; con él, un snapshot de otro día no es consumible", () => {
+  // Snapshot del 10-09 siguiendo en el registro: en 10-16 es causal en -/
+  // tiempo pero NO es el precio intradía de la ejecución declarada de 10-16.
+  const crossRegistry = createIntradaySnapshotRegistry("SRC_CRUZADO", [
+    { snapshotId: "B", asOfUtc: "2026-10-09T12:00:00Z", priceEurPerMwh: 35 },
+    { snapshotId: "C", asOfUtc: "2026-10-16T14:00:00Z", priceEurPerMwh: 30 },
+  ]).registry;
+  const unconstrained = selectCausalSnapshot({ registry: crossRegistry, decisionAtUtc: "2026-10-16T13:45:00Z" });
+  assert.equal(unconstrained.snapshot.snapshotId, "B"); // defective behavior sin acotar
+  const scoped = selectCausalSnapshot({ registry: crossRegistry, decisionAtUtc: "2026-10-16T13:45:00Z", decisionDayKey: "2026-10-16" });
+  assert.equal(scoped.snapshot, null);
+  assert.equal(scoped.code, "NO_CAUSAL_SNAPSHOT");
+  const invalidKey = selectCausalSnapshot({ registry: crossRegistry, decisionAtUtc: "2026-10-16T13:45:00Z", decisionDayKey: "20261016" });
+  assert.equal(invalidKey.ok, false);
+  assert.equal(invalidKey.code, "INVALID_DECISION_DAY_KEY");
+});
+
 test("cada brazo de hora reproduce el H esperado calculado a mano (IMP-13: expected independiente)", () => {
   const frozen = createSyntheticFrozenProtocol();
   for (const hourId of Object.keys(EXPECTED_HARM_BY_HOUR_ID)) {
@@ -142,6 +159,55 @@ test("paridad H4/H5: cobertura causal distinta entre horas no rompe la paridad d
   assert.equal(arms[0].coverageFraction, 0);
   assert.equal(arms[1].coverageFraction, 1);
   const parity = assertHourArmsParity(arms);
+  assert.equal(parity.ok, true, `paridad: ${parity.code}`);
+});
+
+test("H10: día sin snapshot en la hora fija del candidato → DENY, nunca precio intradía de un día anterior", () => {
+  // Escenario del reviewer (no vacío, reproducido pre-fix): el registro tiene
+  // snapshots en 10-02 y 10-09 pero NO en 10-16; el fill de 10-16 a 13:45 no
+  // debe consumir el último snapshot global (10-09T12:00, precio de mercado de
+  // otro día) sino negarse y conservar el faltante.
+  const frozen = createNondenerateFrozenProtocol([
+    { hourId: "H_13_45", kind: "FIXED_HOUR_AND_MINUTES", hour: 13, minutes: 45 },
+    { hourId: "H_09_15", kind: "FIXED_HOUR_AND_MINUTES", hour: 9, minutes: 15 },
+  ]);
+  const sparseRegistry = createIntradaySnapshotRegistry("SRC_DISPERSO", [
+    { snapshotId: "A", asOfUtc: "2026-10-02T12:00:00Z", priceEurPerMwh: 33 },
+    { snapshotId: "B", asOfUtc: "2026-10-09T12:00:00Z", priceEurPerMwh: 35 },
+  ]);
+  const arm = runQ07HourArm({ frozen, hourId: "H_13_45", snapshotRegistry: sparseRegistry });
+  assert.equal(arm.ok, true);
+  const byDate = Object.fromEntries(arm.fills.map((fill) => [fill.date, fill]));
+  assert.deepEqual(byDate["2026-10-02"], {
+    date: "2026-10-02",
+    hourId: "H_13_45",
+    snapshotId: "A",
+    asOfUtc: "2026-10-02T12:00:00Z",
+    decisionAtUtc: "2026-10-02T13:45:00Z",
+    filledQuantityMw: 33,
+    priceEurPerMwh: 33,
+    costEur: 1089,
+  });
+  assert.equal(byDate["2026-10-09"].asOfUtc, "2026-10-09T12:00:00Z");
+  assert.equal(byDate["2026-10-16"], undefined); // no fill con precio de 10-09
+  assert.deepEqual(arm.deniedFills, [{
+    date: "2026-10-16",
+    hourId: "H_13_45",
+    code: "FILL_DENIED_NO_CAUSAL_SNAPSHOT",
+    decisionAtUtc: "2026-10-16T13:45:00Z",
+    requestedQuantityMw: 34,
+  }]);
+  // Precio consumido válido: sólo snapshots del mismo día que la ejecución.
+  for (const fill of arm.fills) {
+    assert.ok(fill.asOfUtc.startsWith(fill.date), `fill intradia de ${fill.date}`);
+  }
+  // Cobertura: los dos primeros fills llenan 33+33 de 100 MW; el faltante del
+  // deny (34 MW) queda conservado (§25.1 IMP-12; §14.5), no re-agendado.
+  assert.equal(arm.filledVolumeMw, 66);
+  assert.equal(arm.coverageFraction, 0.66);
+  // La paridad no se toca: la secuencia de decisión sigue calendar-only.
+  const otherArm = runQ07HourArm({ frozen, hourId: "H_09_15", snapshotRegistry: sparseRegistry });
+  const parity = assertHourArmsParity([arm, otherArm]);
   assert.equal(parity.ok, true, `paridad: ${parity.code}`);
 });
 
