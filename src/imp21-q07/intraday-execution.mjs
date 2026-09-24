@@ -10,6 +10,17 @@
 // asOf <= instante de decisión (causalidad por hora, fail-closed): si no hay
 // snapshot causal, el fill se deniega y el volumen sigue pendiente — nunca se
 // consume un snapshot futuro.
+//
+// La secuencia de decisión es calendar-only/price-blind (§13.4/§13.5: A0 decide
+// BUY/WAIT por calendario; §25.1 "misma lógica/parámetros/obligación; cambia
+// sólo timing permitido"): el controller dimensiona sobre el volumen PROGRAMADO
+// (obligación − solicitudes previas), nunca sobre el volumen LLENADO. Si el
+// sizing reaccionara al resultado del fill, el timing — única variable permitida
+// — alteraría la lógica de decisión y la paridad entre brazos sería imposible
+// en escenarios con denegaciones causales. El faltante por fill denegado se
+// conserva explícito como cobertura no cubierta (§25.2.3), sin re-programación
+// posterior: re-agendar tras observar el deny sería ajustar tras outcome (§13.9
+// no rescue).
 
 import { contentHashOf } from "../execution-contract/execution-contract.mjs";
 import { reconcileControlQuantity } from "../sizing-controller/sizing-controller.mjs";
@@ -120,15 +131,20 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
   const fills = [];
   const deniedFills = [];
   const decisionSequence = [];
-  let remaining = frozen.obligationBinding.openingObligationMw;
+  const openingObligationMw = frozen.obligationBinding.openingObligationMw;
+  // Volume PROGRAMADO (obligación − solicitudes previas), independiente del
+  // resultado de los fills: base de la secuencia de decisión compartida.
+  let scheduledRemaining = openingObligationMw;
+  // Volume LLENADO real, sólo para métricas de cobertura; nunca dimensiona.
+  let filledTotalMw = 0;
 
   for (let index = 0; index < opportunities.length; index += 1) {
     const date = opportunities[index].date;
-    const remainingScheduled = opportunities.length - index;
+    const opportunitiesLeft = opportunities.length - index;
     const reconciled = reconcileControlQuantity({
-      remainingVolumeMw: remaining,
-      remainingOpportunitiesCount: remainingScheduled,
-      isLastScheduledOpportunity: remainingScheduled === 1,
+      remainingVolumeMw: scheduledRemaining,
+      remainingOpportunitiesCount: opportunitiesLeft,
+      isLastScheduledOpportunity: opportunitiesLeft === 1,
       controller: { lotSizeMw: frozen.controllerBinding.lotSizeMw, dailyCapMw: frozen.controllerBinding.dailyCapMw ?? null },
     });
     if (!reconciled.ok) {
@@ -148,6 +164,12 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
     // ejecución declarado del candidato (§25.1 "execution causal por hora";
     // §6 unavailable explícito).
     const quantity = reconciled.requestedQuantityMw;
+    // El BUY programado consume la oportunidad: el remaining PROGRAMADO baja
+    // por la cantidad solicitada, exista o no fill. Un fill denegado conserva
+    // su volumen como cobertura faltante (§25.2.3), NO se re-agenda: re-agendar
+    // tras observar el deny haría que el timing — única variable permitida —
+    // alterara las decisiones y rompería la paridad (§13.9 no rescue).
+    scheduledRemaining -= quantity;
     let fill = null;
     if (candidate.kind === "FIXED_HOUR_AND_MINUTES") {
       const decisionAtUtc = utcAt(date, candidate.hour, candidate.minutes);
@@ -176,26 +198,27 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
     }
 
     if (!fill) {
+      // El fill denegado NO re-programa el remaining: el faltante queda
+      // conservado como cobertura no cubierta (§25.2.3).
       continue;
     }
-    const filledQuantity = quantity;
-    remaining -= filledQuantity;
+    filledTotalMw += quantity;
     fills.push({
       date,
       hourId,
       snapshotId: fill.snapshotId,
       asOfUtc: fill.asOfUtc,
       decisionAtUtc: fill.decisionAtUtc,
-      filledQuantityMw: filledQuantity,
+      filledQuantityMw: quantity,
       priceEurPerMwh: fill.priceEurPerMwh,
-      costEur: filledQuantity * fill.priceEurPerMwh,
+      costEur: quantity * fill.priceEurPerMwh,
     });
   }
 
   const H = fills.reduce((total, fill) => total + fill.costEur, 0);
-  const filledVolumeMw = fills.reduce((total, fill) => total + fill.filledQuantityMw, 0);
-  const coverage = frozen.obligationBinding.openingObligationMw > 0
-    ? filledVolumeMw / frozen.obligationBinding.openingObligationMw
+  const filledVolumeMw = filledTotalMw;
+  const coverage = openingObligationMw > 0
+    ? filledVolumeMw / openingObligationMw
     : null;
 
   return {
@@ -214,12 +237,13 @@ export function runQ07HourArm({ frozen, hourId, snapshotRegistry } = {}) {
 }
 
 // Paridad operacional entre brazos de hora: misma secuencia de decisión
-// (fechas, acciones y cantidades solicitadas) y misma obligación + controller;
-// difieren sólo en timing de ejecución (§25.1). La paridad NO exige resultados
-// de fill idénticos: dos horas con distinta cobertura causal (snapshot ausente
-// en una ventana) difieren legítimamente en fills y cobertura, y el perfil debe
-// poder reportarlo. Exigir volúmenes iguales abortaría el caso que el propio
-// diseño describe con FILL_DENIED_NO_CAUSAL_SNAPSHOT.
+// (fechas, acciones y cantidades solicitadas programadas por el controller
+// calendar-only) y misma obligación + controller; difieren sólo en timing de
+// ejecución (§25.1). La paridad NO exige resultados de fill idénticos: dos
+// horas con distinta cobertura causal (snapshot ausente en una ventana)
+// difieren legítimamente en fills y cobertura, y el perfil debe poder
+// reportarlo con coverageFraction/distinct fills. Exigir volúmenes iguales
+// abortaría el caso que el propio diseño describe con FILL_DENIED_NO_CAUSAL_SNAPSHOT.
 export function assertHourArmsParity(arms = []) {
   if (!Array.isArray(arms) || arms.length < 2) {
     return { ok: false, code: "INVALID_PARITY_INPUT" };

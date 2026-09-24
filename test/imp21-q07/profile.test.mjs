@@ -11,9 +11,9 @@ import {
 import {
   createSyntheticFrozenProtocol,
   createSyntheticIntradayAudit,
+  createNondenerateFrozenProtocol,
   FIXTURE_SNAPSHOTS,
   FIXTURE_BENCHMARK_B,
-  mutateAndRefreeze,
 } from "./fixtures.mjs";
 import { createIntradaySnapshotRegistry } from "../../src/imp21-q07/index.mjs";
 
@@ -130,14 +130,17 @@ test("H2: protocolo mutado post-freeze (contentHash falsificado) NO alimenta el 
   assert.equal(verifyFrozenQ07Protocol({ ...frozen, contentHash: "falsificado" }).code, "PROTOCOL_HASH_MISMATCH");
 });
 
-test("H4: cobertura causal distinta entre horas no aborta el profile", () => {
-  const frozen = mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
-    protocol.candidates = [
-      { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
-      { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
-    ];
-    protocol.referenceHourId = null;
-  });
+test("H4/H5/H6: cobertura causal distinta entre horas no aborta el profile, con plan no degenerado", () => {
+  // H6: el fixture degenerado (lot=cap=12) forzaba 12 MW/día constante y
+  // ocultaba la divergencia de sizing ante deny. Escenario no degenerado:
+  // lote 1 MW (parámetro auditado, IMP-07) y cap que no clipea; si la
+  // secuencia de decisión se re-derivara del remaining vivo, los brazos
+  // divergirían y el profile abortaría con DECISION_SEQUENCE_NOT_SHARED.
+  const candidates = [
+    { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
+    { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
+  ];
+  const frozen = createNondenerateFrozenProtocol(candidates);
   const outcome = buildEntryHourProfile({
     frozen,
     snapshotRegistry: registry,

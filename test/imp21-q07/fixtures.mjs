@@ -38,6 +38,43 @@ export const FIXTURE_CONTROLLER = {
   dailyCapMw: 12,
 };
 
+// Controller del escenario NO degenerado (H5/H6): lote 1 MW (trade_increment
+// AUDITED según IMP-07) y cap diario 100 que NO clipea. Con lot=cap=12 la
+// cantidad pedida es constante (12 MW/día) sea cual sea el resultado de los
+// fills, y el fixture no puede ejercer la recomputación del sizing; aquí la
+// recomputación es real y una secuencia contaminada por outcomes de fill se
+// vuelve visible.
+export const FIXTURE_NONDEGENERATE_CONTROLLER = {
+  ruleId: "GAS_Q_FIXTURE_CONTROLLER_ND_V1",
+  contentHash: contentHashOf({ ruleId: "GAS_Q_FIXTURE_CONTROLLER_ND_V1", lotSizeMw: 1, dailyCapMw: 100 }),
+  lotSizeMw: 1,
+  dailyCapMw: 100,
+};
+
+// Protocolo no-degenerado: 100 MW en 3 fechas, sin clipping. Expected a mano
+// (IMP-13): q1 = floor(100/3 a lote 1) = 33; q2 = floor(67/2) = 33; q3 última
+// oportunidad = min(34, 100) = 34 → [33, 33, 34]. Como no clipea, si una
+// fecha cae en deny el remaining programado NO se re-deriva del fill: la
+// secuencia de decisión es la del plan y los brazos la comparten aunque su
+// cobertura causal difiera (§14.9; §25.1).
+export function createNondenerateFrozenProtocol(candidates, overrides = {}) {
+  return mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
+    protocol.obligationBinding = { ...FIXTURE_OBLIGATION, openingObligationMw: 100 };
+    protocol.controllerBinding = {
+      ruleId: FIXTURE_NONDEGENERATE_CONTROLLER.ruleId,
+      contentHash: FIXTURE_NONDEGENERATE_CONTROLLER.contentHash,
+      lotSizeMw: FIXTURE_NONDEGENERATE_CONTROLLER.lotSizeMw,
+      dailyCapMw: FIXTURE_NONDEGENERATE_CONTROLLER.dailyCapMw,
+    };
+    protocol.decisionDates = [...FIXTURE_DECISION_DATES.slice(0, 3)];
+    protocol.candidates = candidates.map((candidate) => ({ ...candidate }));
+    protocol.referenceHourId = null;
+    for (const [field, value] of Object.entries(overrides)) {
+      protocol[field] = value;
+    }
+  });
+}
+
 // Candidatos predeclarados: dos horas fijas y una ventana dinámica. No son
 // horas "óptimas": son candidatos del test declarados ex-ante.
 export const FIXTURE_CANDIDATES = [

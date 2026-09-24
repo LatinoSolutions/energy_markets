@@ -10,6 +10,7 @@ import {
 } from "../../src/imp21-q07/index.mjs";
 import {
   createSyntheticFrozenProtocol,
+  createNondenerateFrozenProtocol,
   FIXTURE_SNAPSHOTS,
   EXPECTED_HARM_BY_HOUR_ID,
   mutateAndRefreeze,
@@ -111,19 +112,35 @@ test("ventana dinámica: fill causal dentro de la ventana predeclarada; deny si 
   }
 });
 
-test("paridad H4: cobertura causal distinta entre horas no rompe la paridad de decisión", () => {
-  // W_EARLY no tiene snapshot en 9..11 (0 fills), W_LATE sí (5 fills): la
+test("paridad H4/H5: cobertura causal distinta entre horas no rompe la paridad de decisión, con plan no degenerado", () => {
+  // W_EARLY no tiene snapshot en 9..11 (0 fills), W_LATE sí (3 fills): la
   // paridad debe ceñirse a la secuencia de decisión, no al resultado de fills.
-  const frozen = mutateAndRefreeze(createSyntheticFrozenProtocol(), (protocol) => {
-    protocol.candidates = [
-      { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
-      { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
-    ];
-    protocol.referenceHourId = null;
-  });
-  const arms = ["W_EARLY", "W_LATE"].map((hourId) =>
-    runQ07HourArm({ frozen, hourId, snapshotRegistry: registry }));
+  // Escenario NO degenerado (H6: lot=cap=12 forzaba 12 MW/día constante y
+  // ocultaba el defecto): lote 1 MW (parámetro auditado, IMP-07) y cap que
+  // no clipea; si la secuencia se re-derivara del remaining vivo (contaminado
+  // por outcomes de fill), brazos con deny divergirían y el profile abortaría.
+  const candidates = [
+    { hourId: "W_EARLY", kind: "DYNAMIC_WINDOW", windowStartHour: 9, windowEndHour: 11 },
+    { hourId: "W_LATE", kind: "DYNAMIC_WINDOW", windowStartHour: 12, windowEndHour: 17 },
+  ];
+  const frozen = createNondenerateFrozenProtocol(candidates);
+  const arms = candidates.map((candidate) =>
+    runQ07HourArm({ frozen, hourId: candidate.hourId, snapshotRegistry: registry }));
   assert.notEqual(arms[0].fills.length, arms[1].fills.length);
+  // La secuencia de decisión es la del plan de calendario, compartida por los
+  // dos brazos aunque su cobertura causal difiera (§25.1; §13.9 no rescue).
+  const expected = [
+    { date: "2026-10-02", action: "BUY", requestedQuantityMw: 33 },
+    { date: "2026-10-09", action: "BUY", requestedQuantityMw: 33 },
+    { date: "2026-10-16", action: "BUY", requestedQuantityMw: 34 },
+  ];
+  for (const arm of arms) {
+    assert.deepEqual(arm.decisionSequence, expected);
+  }
+  // Cobertura causal distinta conservada: el fill denegado deja su volumen
+  // como faltante (§25.2.3), no re-agendado.
+  assert.equal(arms[0].coverageFraction, 0);
+  assert.equal(arms[1].coverageFraction, 1);
   const parity = assertHourArmsParity(arms);
   assert.equal(parity.ok, true, `paridad: ${parity.code}`);
 });
