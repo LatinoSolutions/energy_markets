@@ -4,8 +4,16 @@
   "parentImp": "IMP-09",
   "workId": "energy-markets-IMP-09-20260923-212852-openrouter",
   "createdAtUtc": "2026-09-23T22:38:18Z",
-  "updatedAtUtc": "2026-09-23T23:51:38Z",
+  "updatedAtUtc": "2026-09-24T00:12:08Z",
   "revisions": [
+    {
+      "revision": 5,
+      "atUtc": "2026-09-24T00:12:08Z",
+      "reason": "Limpieza de comentarios tras la revisión independiente (run energy-markets-IMP-09-20260924-000543): se elimina un comentario duplicado en register-builder.mjs y se corrigen typos en su test. Cero cambio de comportamiento: el artefacto de evaluación se regeneró byte-idéntico (hash af06ed7c sin cambios); sólo se actualiza el hash del builder (protocolo append-only; nota de R-01: si el builder cambia, una revisión nueva actualiza el hash sin editar contribuciones previas).",
+      "changedSources": [
+        { "path": "src/oos-reservation/register-builder.mjs", "previousSha256": "313b6265474978fd798cd67f4f898fcfab5f7bb2467775ec412452b2cdf43fd4", "sha256": "60ade4a299d3128e3e1d409c2146d88b72a0e80b5ea615ef172a1f4242d45e7f" }
+      ]
+    },
     {
       "revision": 4,
       "atUtc": "2026-09-23T23:51:38Z",
@@ -64,7 +72,7 @@
           { "path": "client-inputs/full-package/01_campaigns/campaign_rules.csv", "sha256": "bbd5ffa35fbac490e0943f632df00a949c515d3bca70f14da0bc0fd6d86036ad" },
           { "path": "src/procurement-contract/campaign-contract.mjs (OWNER_P006_CONFIRMATION, identidad determinista del episodio)", "sha256": "2aeb94c46fbde5c3e2268a6a8ffd61df6621830a861dbc51ee383589e560872a" },
           { "path": "docs/canonical/v1_1_1/PROCUREMENT_RESEARCH_CANONICAL_ENGINEERING_SPEC_v1_1_1.md", "sha256": "666a9735d9daf62764582f017056171acae52070d18499b26c5c6e426cff3ef3" },
-          { "path": "src/oos-reservation/register-builder.mjs", "sha256": "313b6265474978fd798cd67f4f898fcfab5f7bb2467775ec412452b2cdf43fd4", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz. Marca el registro derivado como eligibilityBasis PROXY (OOS-PROXY-01)" },
+          { "path": "src/oos-reservation/register-builder.mjs", "sha256": "60ade4a299d3128e3e1d409c2146d88b72a0e80b5ea615ef172a1f4242d45e7f", "note": "hash del contenido commiteado; si el builder cambia, una nueva contribución append-only actualiza el hash sin editar la matriz (revisión 5: limpieza de comentarios, cero cambio de comportamiento). Marca el registro derivado como eligibilityBasis PROXY (OOS-PROXY-01)" },
           { "path": "operations/audit/IMP-09/eex-exchange-calendar.json (calendario OFICIAL de Exchange Days EEX 2020-2026, derivado del Holiday Calendar continuo + xlsx oficial 2026 PARSEADO)", "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5" }
         ],
         "limits": "La lista derivada es una derivación de evidencia verificada, no una declaración nueva del procurement owner: lo disponible AHORA es identidad y ventana; la elegibilidad calculada es materia de R-17. El data-readiness del candidato NO cambia: eso es la matriz, que queda intacta."

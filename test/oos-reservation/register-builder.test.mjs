@@ -74,7 +74,7 @@ test("con evidencia sintética completa deriva un registro contiguo de episodios
   assert.ok(outcome.registerHash.length === 64);
 });
 
-test("la derivaciónvable reproducible: mismo input → mismo registro hash", () => {
+test("la derivación es reproducible: mismo input → mismo registro hash", () => {
   const input = syntheticInput({ from: "2021-01-01", to: "2023-08-31" });
   const first = buildEligibilityRegister(input);
   const second = buildEligibilityRegister(input);
@@ -136,7 +136,7 @@ test("la evidencia sin TOB completo deja el episodio INCOMPLETE (cálculo contra
   assert.ok(episode.missingTobDays.includes("2023-02-28"));
 });
 
-test("identity de producto/Mission y DELISTING por trienio (año 2021)", () => {
+test("identity de producto/mission y DELISTING por trienio (año 2021)", () => {
   const built = buildEligibilityRegister(syntheticInput({ from: "2021-01-01", to: "2022-12-31" }));
   assert.ok(built.register.every((episode) => episode.product === OOS_PRODUCT && episode.mission === OOS_MISSION));
   assert.equal(built.register[0].campaignId, `GAS-Q-2021Q1`);

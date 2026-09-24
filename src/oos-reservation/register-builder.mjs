@@ -43,9 +43,7 @@ function isoDateOf(year, month, day) {
 
 // Ventana fiscal 3-1-3 del episodio (regla del cliente: los tres meses
 // anteriores al gap que termina dos meses antes del inicio del delivery).
-// Ventana fiscal 3-1-3 del episodio (regla del cliente: los tres meses
-// anteriores al gap que termina dos meses antes del inicio del delivery).
-// Mismos meses que quarterlyWindow del fixtures y que la evidencia del audit.
+// Mismos meses que quarterlyWindow de los fixtures y que la evidencia del audit.
 function fiscalWindow(maturity) {
   const year = Number(maturity.slice(0, 4));
   const quarter = Number(maturity.slice(5));
