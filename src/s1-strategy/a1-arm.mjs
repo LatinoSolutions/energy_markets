@@ -159,6 +159,60 @@ export function assertTimingIndependentOfProcurementState({ a1Arm, currentDate, 
   return { ok: true, action: unique[0], actions };
 }
 
+// §13.5/§25.1 MUST NOT "Procurement State no añade alpha independiente": a
+// iguales features S1, la acción BUY/WAIT no puede variar con el remaining
+// volume. Se demuestra POR EJECUCIÓN del brazo real variando remainingVolumeMw
+// sobre uno o más conjuntos de features S1 fijos.
+//
+// §13.4 A0 reparte el volumen restante y, si el remaining no alcanza para un
+// lote por oportunidad, su propio calendario da WAIT por factibilidad (no es
+// timing alpha). Esos variantes se excluyen: sólo se comparan los remaining en
+// los que A0 SÍ ofrece BUY. La aplicabilidad se determina con el A0 compartido
+// cuando se provee; sin él, con el propio s1Status del brazo (createA1Arm marca
+// "NOT_APPLICABLE" cuando A0 no ofrece BUY). Si ningún variante ofrece BUY, no
+// hay evidencia y el probe es fail-closed. Productor de la check
+// procurementStateAddsNoTimingAlpha del acceptance de IMP-11 (H-IMP11-03,
+// review 2026-09-24).
+export function probeTimingIndependentOfProcurementState({ a1Arm, a0Arm, currentDate, featureSets, s1Features, remainingVariants } = {}) {
+  if (typeof a1Arm?.decideAtOpportunity !== "function") {
+    return { ok: false, code: "MISSING_A1_ARM", procurementStateAddsNoTimingAlpha: false };
+  }
+  const sets = featureSets ?? (s1Features === undefined ? [] : [s1Features]);
+  if (!Array.isArray(sets) || sets.length === 0) {
+    return { ok: false, code: "INVALID_PROBE_FEATURES", procurementStateAddsNoTimingAlpha: false };
+  }
+  if (!Array.isArray(remainingVariants) || remainingVariants.length === 0) {
+    return { ok: false, code: "INVALID_PROCUREMENT_VARIANTS", procurementStateAddsNoTimingAlpha: false };
+  }
+  const hasA0 = typeof a0Arm?.decideAtOpportunity === "function";
+  const probes = sets.map((features) => {
+    const applicableVariants = remainingVariants.filter((remainingVolumeMw) => {
+      if (hasA0) {
+        const a0Decision = a0Arm.decideAtOpportunity({ currentDate, remainingVolumeMw });
+        return a0Decision?.ok === true && a0Decision.action === "BUY" && (a0Decision.requestedQuantityMw ?? 0) > 0;
+      }
+      const decision = a1Arm.decideAtOpportunity({ currentDate, remainingVolumeMw, s1Features: features });
+      return decision?.ok === true && decision.s1Status !== "NOT_APPLICABLE";
+    });
+    if (applicableVariants.length === 0) {
+      return { ok: false, code: "NO_APPLICABLE_PROCUREMENT_VARIANTS" };
+    }
+    return assertTimingIndependentOfProcurementState({
+      a1Arm,
+      currentDate,
+      s1Features: features,
+      remainingVariants: applicableVariants,
+    });
+  });
+  const procurementStateAddsNoTimingAlpha = probes.every((probe) => probe.ok === true);
+  return {
+    ok: true,
+    procurementStateAddsNoTimingAlpha,
+    code: procurementStateAddsNoTimingAlpha ? "OK" : "PROCUREMENT_STATE_ADDS_TIMING_ALPHA",
+    probes,
+  };
+}
+
 // §13.5: prueba por ejecución (no declaración) de que un input prohibido es
 // RECHAZADO en el camino de decisión: el guard validateA1TimingState corre
 // dentro de decideAtOpportunity (a1-arm.mjs, §13.5/P5.5). Es el productor de

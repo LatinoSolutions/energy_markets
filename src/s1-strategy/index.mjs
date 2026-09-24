@@ -47,6 +47,7 @@ export {
   createA1Arm,
   probeForbiddenTimingInputsRejected,
   probeStaticLocationTiming,
+  probeTimingIndependentOfProcurementState,
   s1Preference,
 } from "./a1-arm.mjs";
 

@@ -17,6 +17,7 @@ import {
   materializeGasQuarterlyS1,
   probeForbiddenTimingInputsRejected,
   probeStaticLocationTiming,
+  probeTimingIndependentOfProcurementState,
   s1Preference,
   validateA1TimingState,
 } from "../../src/s1-strategy/index.mjs";
@@ -288,6 +289,41 @@ test("la acción BUY/WAIT de A1 no depende del remaining volume", () => {
   assert.equal(outcome.action, "WAIT");
 });
 
+// §13.5/§25.1 MUST NOT: la independencia del Procurement State se demuestra
+// POR EJECUCIÓN variando el remaining volume a features S1 fijas (H-IMP11-03).
+test("probeTimingIndependentOfProcurementState varía el remaining a features fijas", () => {
+  const { a1Arm } = buildArms();
+  const independent = probeTimingIndependentOfProcurementState({
+    a1Arm,
+    currentDate: "2021-01-15",
+    featureSets: [{ percentile: 0.05 }, { percentile: 0.9 }],
+    remainingVariants: [1, 10, 30, 60, 120],
+  });
+  assert.equal(independent.ok, true);
+  assert.equal(independent.procurementStateAddsNoTimingAlpha, true);
+  const dependentArm = {
+    ...a1Arm,
+    decideAtOpportunity(state = {}) {
+      const decision = a1Arm.decideAtOpportunity(state);
+      if (decision?.ok === true && decision.action === "BUY" && state.remainingVolumeMw < 10) {
+        return { ...decision, action: "WAIT", requestedQuantityMw: 0 };
+      }
+      return decision;
+    },
+  };
+  const dependent = probeTimingIndependentOfProcurementState({
+    a1Arm: dependentArm,
+    currentDate: "2021-01-15",
+    featureSets: [{ percentile: 0.05 }],
+    remainingVariants: [5, 30, 60],
+  });
+  assert.equal(dependent.procurementStateAddsNoTimingAlpha, false);
+  assert.equal(dependent.code, "PROCUREMENT_STATE_ADDS_TIMING_ALPHA");
+  const noArm = probeTimingIndependentOfProcurementState({ a1Arm: null, featureSets: [{ percentile: 0.05 }], remainingVariants: [1, 10] });
+  assert.equal(noArm.ok, false);
+  assert.equal(noArm.procurementStateAddsNoTimingAlpha, false);
+});
+
 // §13.9/§25.1: A1=A0+S1 con el MISMO controller.
 test("assertA1IsA0PlusS1 exige controller y oportunidades compartidos", () => {
   const { controller, a0Arm, a1Arm } = buildArms();
@@ -383,6 +419,8 @@ test("evaluateImp11Acceptance marca criterionMet con evidencia completa y lo nie
   assert.equal(met.criterionMet, true, JSON.stringify(met.blockedBy));
   assert.deepEqual(met.blockedBy, []);
   assert.equal(met.timingEvidence.onlyStaticLocationAltersTiming.onlyStaticLocationAltersTiming, true);
+  assert.equal(met.timingEvidence.procurementTimingIndependence.procurementStateAddsNoTimingAlpha, true);
+  assert.equal(met.checks.procurementStateAddsNoTimingAlpha, true);
   assert.equal(met.timingEvidence.forbiddenInputsRejected.forbiddenInputsRejected, true);
   const blocked = evaluateImp11Acceptance({ ...common, prerequisites: { developmentPriceReferences: { available: false } } });
   assert.equal(blocked.criterionMet, false);
@@ -393,6 +431,45 @@ test("evaluateImp11Acceptance marca criterionMet con evidencia completa y lo nie
   assert.equal(withoutArm.criterionMet, false);
   assert.ok(withoutArm.blockedBy.includes("A1_PARITY_NOT_PROVIDED"));
   assert.equal(withoutArm.checks.noForbiddenTimingInputs, false);
+});
+
+// §13.5/§25.1 MUST NOT: un A1 cuya acción BUY/WAIT depende del remaining
+// volume (Procurement State añadiendo timing alpha) NO puede pasar la
+// acceptance aunque sólo la ubicación estática altere el timing dentro de un
+// único remaining (H-IMP11-03, review 2026-09-24).
+test("evaluateImp11Acceptance bloquea un A1 dependiente del remaining volume", () => {
+  const reservation = sealedReservation();
+  const { controller, a0Arm, a1Arm } = buildArms();
+  const dependentArm = {
+    ...a1Arm,
+    decideAtOpportunity(state = {}) {
+      const decision = a1Arm.decideAtOpportunity(state);
+      if (decision?.ok === true && decision.action === "BUY" && state.remainingVolumeMw < 10) {
+        return { ...decision, action: "WAIT", requestedQuantityMw: 0 };
+      }
+      return decision;
+    },
+  };
+  const result = evaluateImp11Acceptance({
+    configuration: configuration(),
+    searchSpace: searchSpace(),
+    reservation,
+    a0Arm,
+    a1Arm: dependentArm,
+    a0ControllerVersion: controller.contentHash,
+    a1ControllerVersion: controller.contentHash,
+    timingProbeState: {
+      currentDate: "2021-01-15",
+      remainingVolumeMw: 30,
+      favorableFeatures: { percentile: 0.05 },
+      unfavorableFeatures: { percentile: 0.9 },
+    },
+    prerequisites: { developmentPriceReferences: { available: true } },
+  });
+  assert.equal(result.criterionMet, false);
+  assert.ok(result.blockedBy.includes("PROCUREMENT_STATE_ADDS_TIMING_ALPHA"));
+  assert.equal(result.checks.procurementStateAddsNoTimingAlpha, false);
+  assert.equal(result.checks.onlyStaticLocationAltersTiming, true);
 });
 
 // §25.2: el caso real no puede instanciarse sin referencias de precio ni reserva.
