@@ -124,8 +124,19 @@ function healthPayload(viewModels, backend, jobRunner) {
     visualLanguage: VISUAL_LANGUAGE_ID,
     surfaces,
     backend,
-    backtestJobs: jobRunner == null ? { configured: false } : { configured: true, running: jobRunner.status().running },
+    backtestJobs: backtestJobsHealth(jobRunner),
   };
+}
+
+// Mismo criterio que jobStatusForPage: si el estado del runner no se puede leer,
+// /health responde igual y lo dice (running: null), en vez de tumbar el proceso.
+function backtestJobsHealth(jobRunner) {
+  if (jobRunner == null) return { configured: false };
+  try {
+    return { configured: true, statusReadable: true, running: jobRunner.status().running };
+  } catch {
+    return { configured: true, statusReadable: false, running: null };
+  }
 }
 
 function sendResponse(res, { status, contentType, body }) {

@@ -276,7 +276,7 @@ test("BT-05: el endpoint lanza el job, expone estado y receipt, y rechaza lo que
     assert.equal(during.running, true);
     assert.equal(during.current.runId, job.runId);
     const health = await (await fetch(`${base}/health`)).json();
-    assert.deepEqual(health.backtestJobs, { configured: true, running: true });
+    assert.deepEqual(health.backtestJobs, { configured: true, statusReadable: true, running: true });
 
     await runner.waitForIdle();
     const after = await (await fetch(`${base}${BACKTEST_JOBS_PATH}`)).json();
@@ -415,6 +415,18 @@ test("BT-05 P-009: si el estado del job no se puede leer, /backtests sirve el co
     const response = await fetch(`${base}/backtests`);
     assert.equal(response.status, 200);
     assert.equal(jobLineOf(await response.text()), "Backtest status unavailable");
+  });
+});
+
+test("BT-05: si el estado del job no se puede leer, /health responde y lo declara sin tumbar el proceso", async () => {
+  const brokenRunner = { now: () => new Date(), status: () => { throw new Error("disco ilegible"); } };
+  await withServer({ jobRunner: brokenRunner }, async (base) => {
+    const response = await fetch(`${base}/health`);
+    assert.equal(response.status, 200);
+    const health = await response.json();
+    assert.deepEqual(health.backtestJobs, { configured: true, statusReadable: false, running: null });
+    // el servidor sigue vivo tras el fallo
+    assert.equal((await fetch(`${base}/health`)).status, 200);
   });
 });
 
