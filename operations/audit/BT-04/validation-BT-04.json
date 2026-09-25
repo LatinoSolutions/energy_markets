@@ -23,6 +23,14 @@
     "bt02Manifest": {
       "path": "operations/exploratory/reconciled-results-BT-02.MANIFEST.json",
       "sha256": "97e9d112e53fc56a9e6b9783d88d067683130d56ca598c05c1e05e44727d3042"
+    },
+    "exploratoryResults": {
+      "path": "operations/exploratory/backtest-results.json",
+      "sha256": "ce51969129b44464324276f66ec76f969710628ea32143f522e6ff94d7df44a9"
+    },
+    "calendar": {
+      "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
+      "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5"
     }
   },
   "tolerances": {
@@ -49,6 +57,11 @@
           "independent": []
         },
         "definitionMismatches": [],
+        "aggregateHolds": {
+          "independent": true,
+          "bt01": true
+        },
+        "bt02UsesBt01B": true,
         "bt01EmulationMaxPerDateDiff": 1.1723955140041653e-12,
         "verdict": "ATTRIBUTED_DIFFERENCE",
         "cause": "BT01_PROXY_IMPLEMENTATION_CHOICES",
@@ -81,6 +94,7 @@
           "independentV": -0.1372436062158684,
           "vDifference": -0.0024018338406790463,
           "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
           "verdict": "ATTRIBUTED_DIFFERENCE"
         },
@@ -97,6 +111,7 @@
           "independentV": -1.2366602728825313,
           "vDifference": 0.000014832825989685716,
           "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
           "verdict": "MATCH"
         }
@@ -105,6 +120,9 @@
         "bt02": -1.0969999999999942,
         "independent": -1.099416666666663,
         "difference": 0.002416666666668732,
+        "differenceCarriedByH": 0.002416666666668732,
+        "bt02Coherent": true,
+        "independentCoherent": true,
         "verdict": "ATTRIBUTED_DIFFERENCE"
       },
       "arithmeticArms": [
@@ -161,6 +179,11 @@
           ]
         },
         "definitionMismatches": [],
+        "aggregateHolds": {
+          "independent": true,
+          "bt01": true
+        },
+        "bt02UsesBt01B": true,
         "bt01EmulationMaxPerDateDiff": 1.7053025658242404e-13,
         "verdict": "ATTRIBUTED_DIFFERENCE",
         "cause": "BT01_PROXY_IMPLEMENTATION_CHOICES",
@@ -180,6 +203,7 @@
           "independentV": -0.039974869134240976,
           "vDifference": -0.000013195669232857199,
           "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
           "verdict": "MATCH"
         },
@@ -196,6 +220,7 @@
           "independentV": -0.07747486913423529,
           "vDifference": -0.000013195669232857199,
           "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
           "verdict": "MATCH"
         }
@@ -204,6 +229,9 @@
         "bt02": -0.037499999999994316,
         "independent": -0.037499999999994316,
         "difference": 0,
+        "differenceCarriedByH": 0,
+        "bt02Coherent": true,
+        "independentCoherent": true,
         "verdict": "MATCH"
       },
       "arithmeticArms": [

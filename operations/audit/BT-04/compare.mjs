@@ -18,6 +18,8 @@ export const PATHS = {
   bt01Manifest: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
   bt02: "operations/exploratory/reconciled-results-BT-02.json",
   bt02Manifest: "operations/exploratory/reconciled-results-BT-02.MANIFEST.json",
+  exploratoryResults: "operations/exploratory/backtest-results.json",
+  calendar: "operations/audit/IMP-09/eex-exchange-calendar.json",
   output: "operations/audit/BT-04/validation-BT-04.json",
 };
 
@@ -27,9 +29,21 @@ export const CAUSES = {
 };
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const close = (left, right, bound = FLOAT_NOISE) => Math.abs(left - right) <= bound;
+const close = (left, right, bound = FLOAT_NOISE) => Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) <= bound;
+const mean = (values) => values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
 
-function compareBenchmark(independentCampaign, bt01Campaign) {
+// SPEC §5.3: B_t = (1/|D_t|) Σ R_d over the traced dates with a reference;
+// coverage and missing dates must describe the same per-date records.
+function aggregateHolds({ B, coverage, missingDates, perDate, referenceOf }) {
+  const defined = perDate.filter((record) => record.defined);
+  const expectedB = mean(defined.map(referenceOf));
+  const bHolds = expectedB === null ? B === null : close(B, expectedB);
+  return bHolds
+    && coverage === `${defined.length}/${perDate.length}`
+    && JSON.stringify(missingDates) === JSON.stringify(perDate.filter((record) => !record.defined).map((record) => record.trdDate));
+}
+
+function compareBenchmark(independentCampaign, bt01Campaign, bt02B) {
   const bt01ByDate = new Map(bt01Campaign.perDate.map((record) => [record.trdDate, record]));
   let emulationMaxDiff = 0;
   const definitionMismatches = [];
@@ -47,10 +61,27 @@ function compareBenchmark(independentCampaign, bt01Campaign) {
   const sameCoverage = independentCampaign.coverage === bt01Campaign.benchmark.coverage
     && JSON.stringify(independentCampaign.missingDates) === JSON.stringify(bt01Campaign.benchmark.missingDates);
   const causeProven = emulationMaxDiff <= FLOAT_NOISE;
+  const independentAggregateHolds = aggregateHolds({
+    B: independentCampaign.B,
+    coverage: independentCampaign.coverage,
+    missingDates: independentCampaign.missingDates,
+    perDate: independentCampaign.perDate,
+    referenceOf: (record) => record.R,
+  });
+  const bt01AggregateHolds = aggregateHolds({
+    B: bt01B,
+    coverage: bt01Campaign.benchmark.coverage,
+    missingDates: bt01Campaign.benchmark.missingDates,
+    perDate: bt01Campaign.perDate,
+    referenceOf: (record) => record.dailyReference,
+  });
+  // BT-02 must price V against exactly the BT-01 B being validated here.
+  const bt02UsesBt01B = bt02B === bt01B;
+  const comparable = definitionMismatches.length === 0 && sameCoverage && independentAggregateHolds && bt01AggregateHolds && bt02UsesBt01B;
 
   let verdict = "UNEXPLAINED";
-  if (definitionMismatches.length === 0 && sameCoverage && close(difference, 0)) verdict = "MATCH";
-  else if (definitionMismatches.length === 0 && sameCoverage && causeProven && Math.abs(difference) <= ATTRIBUTED_B_BOUND) verdict = "ATTRIBUTED_DIFFERENCE";
+  if (comparable && close(difference, 0)) verdict = "MATCH";
+  else if (comparable && causeProven && Math.abs(difference) <= ATTRIBUTED_B_BOUND) verdict = "ATTRIBUTED_DIFFERENCE";
 
   return {
     bt01B,
@@ -59,6 +90,8 @@ function compareBenchmark(independentCampaign, bt01Campaign) {
     coverage: { bt01: bt01Campaign.benchmark.coverage, independent: independentCampaign.coverage },
     missingDates: { bt01: bt01Campaign.benchmark.missingDates, independent: independentCampaign.missingDates },
     definitionMismatches,
+    aggregateHolds: { independent: independentAggregateHolds, bt01: bt01AggregateHolds },
+    bt02UsesBt01B,
     bt01EmulationMaxPerDateDiff: emulationMaxDiff,
     verdict,
     cause: verdict === "ATTRIBUTED_DIFFERENCE" ? "BT01_PROXY_IMPLEMENTATION_CHOICES" : null,
@@ -66,7 +99,7 @@ function compareBenchmark(independentCampaign, bt01Campaign) {
   };
 }
 
-function compareLedgerArm(armId, independentArm, bt02Arm) {
+function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
   const mismatchedFills = independentArm.fills
     .filter((fill) => fill.independentPriceEurMwh === null || !close(fill.independentPriceEurMwh, fill.ledgerPriceEurMwh))
     .map((fill) => {
@@ -88,11 +121,15 @@ function compareLedgerArm(armId, independentArm, bt02Arm) {
   const independentV = independentArm.V;
   const vDifference = bt02Arm.vEurMwh === null || independentV === null ? null : bt02Arm.vEurMwh - independentV;
   const allAttributed = mismatchedFills.every((fill) => fill.cause !== null);
+  // SPEC §5.5 V = B − H inside BT-02 itself, before comparing against the independent side.
+  const bt02VCoherent = bt02Arm.vStatus === "PROVISIONAL"
+    ? close(bt02Arm.vEurMwh, bt02B - bt02Arm.hEurMwh)
+    : bt02Arm.vEurMwh === null;
 
   let verdict = "UNEXPLAINED";
   if (mismatchedFills.length === 0 && close(hDifference, 0)) verdict = "MATCH";
   else if (allAttributed) verdict = "ATTRIBUTED_DIFFERENCE";
-  if (independentArm.complete !== bt02Arm.complete || !close(independentArm.filledMw, bt02Arm.boughtMw)) verdict = "UNEXPLAINED";
+  if (independentArm.complete !== bt02Arm.complete || !close(independentArm.filledMw, bt02Arm.boughtMw) || !bt02VCoherent) verdict = "UNEXPLAINED";
 
   return {
     armId,
@@ -107,6 +144,7 @@ function compareLedgerArm(armId, independentArm, bt02Arm) {
     independentV,
     vDifference,
     vStatus: bt02Arm.vStatus,
+    bt02VCoherent,
     hCostCompleteness: bt02Arm.hCostCompleteness,
     verdict,
   };
@@ -114,6 +152,39 @@ function compareLedgerArm(armId, independentArm, bt02Arm) {
 
 // Arms without a stored per-day ledger (ARM_B, *@DEPTH) cannot be re-priced
 // independently here; only V = B − H and the paired ΔV arithmetic are checked.
+// SPEC §5.5: ΔV = H_A0 − H_A1. Each side must satisfy it with its own H, and
+// the BT-02 − independent ΔV gap must be exactly the gap carried by the two
+// ledger arms' H; any other ΔV difference is UNEXPLAINED.
+function compareDeltaV({ bt02DeltaV, independentDeltaV, bt02Arms, independentArms, ledgerArms }) {
+  const [baseline, armA] = ["BASELINE", "ARM_A"].map((armId) => ledgerArms.find((arm) => arm.armId === armId));
+  const bt02Coherent = bt02DeltaV === null
+    ? bt02Arms.ARM_A.deltaVStatus !== "PROVISIONAL"
+    : close(bt02DeltaV, bt02Arms.BASELINE.hEurMwh - bt02Arms.ARM_A.hEurMwh);
+  const independentCoherent = independentDeltaV === null
+    ? !(independentArms.BASELINE.complete && independentArms.ARM_A.complete)
+    : close(independentDeltaV, independentArms.BASELINE.H - independentArms.ARM_A.H);
+  const bothDefined = bt02DeltaV !== null && independentDeltaV !== null;
+  const bothNull = bt02DeltaV === null && independentDeltaV === null;
+  const difference = bothDefined ? bt02DeltaV - independentDeltaV : null;
+  const differenceCarriedByH = bothDefined ? baseline.hDifference - armA.hDifference : null;
+  const differenceExplained = bothNull || close(difference, differenceCarriedByH);
+
+  let verdict = "UNEXPLAINED";
+  if (bt02Coherent && independentCoherent && differenceExplained) {
+    if (ledgerArms.every((arm) => arm.verdict === "MATCH") && (bothNull || close(difference, 0))) verdict = "MATCH";
+    else if (ledgerArms.every((arm) => arm.verdict !== "UNEXPLAINED")) verdict = "ATTRIBUTED_DIFFERENCE";
+  }
+  return {
+    bt02: bt02DeltaV,
+    independent: independentDeltaV,
+    difference,
+    differenceCarriedByH,
+    bt02Coherent,
+    independentCoherent,
+    verdict,
+  };
+}
+
 function checkArithmeticOnly(armId, bt02Arm, bt02Campaign, bt02Arms) {
   const expectedV = bt02Arm.vStatus === "PROVISIONAL" ? bt02Campaign.benchmark.B - bt02Arm.hEurMwh : null;
   const vOk = expectedV === null ? bt02Arm.vEurMwh === null : close(bt02Arm.vEurMwh, expectedV);
@@ -141,11 +212,16 @@ export function buildBt04Validation({ independent, bt01, bt02, hashes }) {
     const bt02Campaign = bt02.campaigns.find((item) => item.campaignKey === key);
     if (!bt01Campaign || !bt02Campaign) throw new Error(`${key} missing from BT-01 or BT-02`);
 
-    const benchmark = compareBenchmark(independentCampaign, bt01Campaign);
+    const benchmark = compareBenchmark(independentCampaign, bt01Campaign, bt02Campaign.benchmark.B);
     const ledgerArms = ["BASELINE", "ARM_A"].map((armId) =>
-      compareLedgerArm(armId, independentCampaign.arms[armId], bt02Campaign.arms[armId]));
-    const independentDeltaV = independentCampaign.deltaV_ARM_A_vs_BASELINE;
-    const bt02DeltaV = bt02Campaign.arms.ARM_A.deltaVEurMwh;
+      compareLedgerArm(armId, independentCampaign.arms[armId], bt02Campaign.arms[armId], bt02Campaign.benchmark.B));
+    const deltaV = compareDeltaV({
+      bt02DeltaV: bt02Campaign.arms.ARM_A.deltaVEurMwh,
+      independentDeltaV: independentCampaign.deltaV_ARM_A_vs_BASELINE,
+      bt02Arms: bt02Campaign.arms,
+      independentArms: independentCampaign.arms,
+      ledgerArms,
+    });
     const arithmeticArms = Object.entries(bt02Campaign.arms)
       .filter(([armId]) => armId !== "BASELINE" && armId !== "ARM_A")
       .map(([armId, arm]) => checkArithmeticOnly(armId, arm, bt02Campaign, bt02Campaign.arms));
@@ -154,14 +230,7 @@ export function buildBt04Validation({ independent, bt01, bt02, hashes }) {
       campaignKey: key,
       benchmark,
       ledgerArms,
-      deltaV_ARM_A_vs_BASELINE: {
-        bt02: bt02DeltaV,
-        independent: independentDeltaV,
-        difference: bt02DeltaV - independentDeltaV,
-        verdict: ledgerArms.every((arm) => arm.verdict === "MATCH") && close(bt02DeltaV, independentDeltaV)
-          ? "MATCH"
-          : ledgerArms.every((arm) => arm.verdict !== "UNEXPLAINED") ? "ATTRIBUTED_DIFFERENCE" : "UNEXPLAINED",
-      },
+      deltaV_ARM_A_vs_BASELINE: deltaV,
       arithmeticArms,
       failClosed: {
         benchmarkStatus: bt01Campaign.status.status,
@@ -198,6 +267,22 @@ export function buildBt04Validation({ independent, bt01, bt02, hashes }) {
   };
 }
 
+// Every input the independent check and BT-02 declare must be the exact bytes
+// read here; a declared hash that does not match its file breaks provenance.
+export function verifyInputBinding({ independent, bt01Manifest, bt02Manifest, fileHashes }) {
+  const failures = [];
+  const expect = (label, declared, path) => {
+    if (declared?.path !== path || declared?.sha256 !== fileHashes[path]) failures.push(label);
+  };
+  expect("independent.inputs.calendar", independent.inputs?.calendar, PATHS.calendar);
+  expect("independent.inputs.exploratoryResults", independent.inputs?.exploratoryResults, PATHS.exploratoryResults);
+  expect("bt01Manifest.inputs.calendar", bt01Manifest.inputs?.calendar, PATHS.calendar);
+  expect("bt02Manifest.inputs.exploratoryResults", bt02Manifest.inputs?.exploratoryResults, PATHS.exploratoryResults);
+  expect("bt02Manifest.inputs.bt01Benchmark", bt02Manifest.inputs?.bt01Benchmark, PATHS.bt01);
+  expect("bt02Manifest.inputs.bt01Manifest", bt02Manifest.inputs?.bt01Manifest, PATHS.bt01Manifest);
+  if (failures.length > 0) throw new Error(`input hash binding failed: ${failures.join(", ")}`);
+}
+
 export function loadAndBuild(root) {
   const bytes = (path) => readFileSync(resolve(root, path));
   const raw = Object.fromEntries(Object.entries(PATHS).filter(([name]) => name !== "output").map(([name, path]) => [name, bytes(path)]));
@@ -206,6 +291,8 @@ export function loadAndBuild(root) {
   if (bt01Manifest.artifact.sha256 !== sha256(raw.bt01)) throw new Error("BT-01 artifact does not match its manifest");
   if (bt02Manifest.artifact.sha256 !== sha256(raw.bt02)) throw new Error("BT-02 artifact does not match its manifest");
   const independent = JSON.parse(raw.independent);
+  const fileHashes = Object.fromEntries(Object.entries(raw).map(([name, content]) => [PATHS[name], sha256(content)]));
+  verifyInputBinding({ independent, bt01Manifest, bt02Manifest, fileHashes });
   // Same lake bytes: every file the independent check read must carry the BT-01 manifest hash.
   for (const [path, hash] of Object.entries(independent.inputs.sourceFileHashes)) {
     if (bt01Manifest.inputs.sourceFileHashes[path] !== hash) throw new Error(`lake file not bound to BT-01 manifest: ${path}`);

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildBt04Validation, loadAndBuild, PATHS } from "../../operations/audit/BT-04/compare.mjs";
+import { buildBt04Validation, loadAndBuild, PATHS, verifyInputBinding } from "../../operations/audit/BT-04/compare.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
@@ -119,4 +119,60 @@ test("fees represented as zero/included, or an official-equivalence claim, fail 
   const official = inputs();
   official.bt01.campaigns.find((item) => item.campaignKey === "G0BQ-202601").reconciliation.equivalent = true;
   assert.equal(buildBt04Validation(official).verdict, "FAIL");
+});
+
+test("BT04-DELTA-GATE: a ΔV that does not follow from both arms' H fails even when the arms are attributed", () => {
+  const data = inputs();
+  data.bt02.campaigns.find((item) => item.campaignKey === "G0BQ-202601").arms.ARM_A.deltaVEurMwh += 10;
+  const validation = buildBt04Validation(data);
+  assert.equal(validation.verdict, "FAIL");
+  assert.equal(campaign(validation, "G0BQ-202601").deltaV_ARM_A_vs_BASELINE.verdict, "UNEXPLAINED");
+});
+
+test("BT04-DELTA-GATE: an independent ΔV inconsistent with its own H fails", () => {
+  const data = inputs();
+  data.independent.campaigns.find((item) => item.campaignKey === "G0BM-202510").deltaV_ARM_A_vs_BASELINE += 0.001;
+  assert.equal(buildBt04Validation(data).verdict, "FAIL");
+});
+
+test("BT04-B-AGGREGATE: a B that is not the mean of its per-date references fails (SPEC §5.3)", () => {
+  const independentB = inputs();
+  independentB.independent.campaigns.find((item) => item.campaignKey === "G0BQ-202601").B += 0.00005;
+  const validation = buildBt04Validation(independentB);
+  assert.equal(validation.verdict, "FAIL");
+  assert.equal(campaign(validation, "G0BQ-202601").benchmark.aggregateHolds.independent, false);
+
+  const bt01B = inputs();
+  bt01B.bt01.campaigns.find((item) => item.campaignKey === "G0BM-202510").benchmark.B += 0.00005;
+  assert.equal(buildBt04Validation(bt01B).verdict, "FAIL");
+});
+
+test("BT04-B-AGGREGATE: BT-02 pricing V against a different B than BT-01 fails", () => {
+  const data = inputs();
+  data.bt02.campaigns.find((item) => item.campaignKey === "G0BM-202510").benchmark.B += 0.00005;
+  assert.equal(buildBt04Validation(data).verdict, "FAIL");
+});
+
+test("BT04-INPUT-BINDING: declared calendar / ledger / BT-01 hashes must match the files read", () => {
+  const read = (path) => readJson(path);
+  const fileHashes = Object.fromEntries(Object.values(committed.inputs).map(({ path, sha256 }) => [path, sha256]));
+  const base = () => ({
+    independent: read(PATHS.independent),
+    bt01Manifest: read(PATHS.bt01Manifest),
+    bt02Manifest: read(PATHS.bt02Manifest),
+    fileHashes,
+  });
+  assert.doesNotThrow(() => verifyInputBinding(base()));
+
+  const calendar = base();
+  calendar.independent.inputs.calendar.sha256 = "0".repeat(64);
+  assert.throws(() => verifyInputBinding(calendar), /independent.inputs.calendar/);
+
+  const ledger = base();
+  ledger.independent.inputs.exploratoryResults.sha256 = "0".repeat(64);
+  assert.throws(() => verifyInputBinding(ledger), /independent.inputs.exploratoryResults/);
+
+  const bt02Ledger = base();
+  bt02Ledger.bt02Manifest.inputs.exploratoryResults.sha256 = "0".repeat(64);
+  assert.throws(() => verifyInputBinding(bt02Ledger), /bt02Manifest.inputs.exploratoryResults/);
 });
