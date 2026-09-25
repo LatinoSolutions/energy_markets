@@ -60,6 +60,22 @@ test("con medición pero sin aprobación publica el candidato y su configHash", 
   assert.equal(artifact.candidate.configHash, artifact.humanGate.configHash);
   assert.equal(artifact.frozenContract, null);
   assert.equal(artifact.inputs.measurement.brokenSpreadPolicy, "INCLUDE");
+  // La configuración aprobada queda ligada a la identidad de la medición (TR-03).
+  assert.match(artifact.candidate.generatedFrom.bridgeMeasurementSha256, /^[0-9a-f]{64}$/);
+});
+
+test("cambiar los bytes de la medición cambia el configHash del candidato", () => {
+  const measurement = measurementFixture();
+  const inputsPresent = { measurement: true, sourceDecision: true };
+  const base = buildTradesFreezeArtifact({ measurement, sourceDecision: sourceDecisionFixture(), inputsPresent });
+  const altered = measurementFixture();
+  altered.counts.rowsSeen += 1;
+  const changed = buildTradesFreezeArtifact({ measurement: altered, sourceDecision: sourceDecisionFixture(), inputsPresent });
+  assert.notEqual(
+    changed.artifact.candidate.generatedFrom.bridgeMeasurementSha256,
+    base.artifact.candidate.generatedFrom.bridgeMeasurementSha256,
+  );
+  assert.notEqual(changed.artifact.humanGate.configHash, base.artifact.humanGate.configHash);
 });
 
 test("con medición y aprobación de Bru el artefacto queda FROZEN", () => {

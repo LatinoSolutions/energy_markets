@@ -71,8 +71,10 @@ function tradeRow({ spec, day, slotLabel, price, aggressor }) {
 
 // Construye una medición REAL con el productor de TR-03. `penalties` permite fijar
 // el gap por misión; `contaminationPenalty` añade días de la mitad de evaluación
-// con otro gap para probar que NO contaminan la calibración.
-export function measurementFixture({ penalties = {}, days = 40, contaminationPenalty = null, evaluationDays = 0 } = {}) {
+// con otro gap para probar que NO contaminan la calibración. `tradeEveryNDays`
+// emite trades sólo cada N días de la ventana (para probar que la penalización no
+// se calibra con observaciones fuera del límite de frescura).
+export function measurementFixture({ penalties = {}, days = 40, contaminationPenalty = null, evaluationDays = 0, tradeEveryNDays = 1 } = {}) {
   const calibrationDays = weekdays(CALIBRATION_START, days);
   const evaluationDaysList = contaminationPenalty === null ? [] : weekdays(EVALUATION_START, evaluationDays || 10);
   const campaigns = [];
@@ -103,8 +105,10 @@ export function measurementFixture({ penalties = {}, days = 40, contaminationPen
       const isContamination = index >= calibrationDays.length;
       const gapOffset = isContamination ? contaminationPenalty : penalty;
       seriesDays.set(day, askDay(price + gapOffset));
-      for (const slotLabel of SLOT_LABELS) {
-        rows.push(tradeRow({ spec, day, slotLabel, price, aggressor: spec.aggressor }));
+      if (index % tradeEveryNDays === 0) {
+        for (const slotLabel of SLOT_LABELS) {
+          rows.push(tradeRow({ spec, day, slotLabel, price, aggressor: spec.aggressor }));
+        }
       }
     }
     askSeries.set(`${spec.shortCode}|${spec.legacyMaturity}`, seriesDays);

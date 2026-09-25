@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildBridgeArtifact,
   DIP10_HISTORY_RULE,
+  FRESHNESS_LIMIT_CANDIDATES_SECONDS,
   measureBridgeCampaigns,
 } from "../../src/trades-bridge/index.mjs";
 import { askDay, askSeries, gasQuarterlyCampaign, gasQuarterlyTrade } from "./fixtures.mjs";
@@ -244,4 +245,35 @@ test("TR-04: el cross-tab señal × agresor se parte por mitad del puente", () =
   const crossedCount = byHalf.reduce((sum, entry) => sum + entry.count, 0);
   const crossedOverall = campaign.gaps.LAST_TRADE.byDip10StateByAggressor.reduce((sum, entry) => sum + entry.count, 0);
   assert.equal(crossedCount, crossedOverall);
+});
+
+test("TR-04: el cross-tab por límite excluye las observaciones fuera del límite de frescura", () => {
+  // Un único trade el día 1 a las 09:00; el día 2 no hay trades y el arrastre
+  // deja observaciones de 24h a 32,5h de antigüedad. El cross-tab por límite
+  // debe excluir las que superan cada límite (patch 03 §3.4).
+  const rows = [
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T09:00:00Z", Px: "90", TrdID: "1", AgrsrAct: "BUY" }),
+  ];
+  const series = askSeries({ "G0BQ|202601": { "2025-09-01": askDay(100), "2025-09-02": askDay(100) } });
+  const { artifact } = run({
+    campaigns: [gasQuarterlyCampaign({ windowDays: ["2025-09-01", "2025-09-02"] })],
+    rows,
+    series,
+  });
+  const campaign = artifact.markets.GAS_THE.missions.GAS_QUARTERLY.campaigns[0];
+  const byLimit = campaign.gaps.LAST_TRADE.byHalfByDip10StateByAggressorByLimit;
+  assert.ok(byLimit.length >= 1);
+  for (const entry of byLimit) {
+    const limit = Number(entry.combination.split("|")[0]);
+    assert.ok(FRESHNESS_LIMIT_CANDIDATES_SECONDS.includes(limit), `límite inesperado ${entry.combination}`);
+  }
+  const totalUpTo = (limit) => byLimit
+    .filter((entry) => entry.combination.startsWith(`${limit}|`))
+    .reduce((sum, entry) => sum + entry.count, 0);
+  const overall = campaign.gaps.LAST_TRADE.byHalfByDip10StateByAggressor.reduce((sum, entry) => sum + entry.count, 0);
+  // El límite mayor tiene menos observaciones que el total: hay antigüedades que
+  // superan incluso el candidato más largo.
+  assert.ok(totalUpTo(FRESHNESS_LIMIT_CANDIDATES_SECONDS[FRESHNESS_LIMIT_CANDIDATES_SECONDS.length - 1]) < overall);
+  // Los límites más cortos no pueden tener más observaciones que los largos.
+  assert.ok(totalUpTo(FRESHNESS_LIMIT_CANDIDATES_SECONDS[0]) <= totalUpTo(FRESHNESS_LIMIT_CANDIDATES_SECONDS[FRESHNESS_LIMIT_CANDIDATES_SECONDS.length - 1]));
 });

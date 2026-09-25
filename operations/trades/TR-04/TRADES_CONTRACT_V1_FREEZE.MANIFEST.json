@@ -7,12 +7,12 @@
  },
  "generator": {
   "path": "operations/trades/TR-04/build-trades-freeze.mjs",
-  "sha256": "fb1f78169b2b0d672343b2e2d0b07bc4237bc3d338ecdd52b3d03ce4f7ac24bc"
+  "sha256": "2979cf01ec4706b9aaa033c34066691f78d001510ca5715e60a8a6e5dd659272"
  },
  "modules": [
   {
    "path": "src/execution-contract/trades-contract.mjs",
-   "sha256": "f66cda1b8e815b81921fda2bd0d589a0fda9788dc772e6ac147a2cbe31c8c67c"
+   "sha256": "e9d9d03616ac6618722e764bd64e85dac760c492098d12979aed9fb9eff145d0"
   },
   {
    "path": "src/execution-contract/execution-contract.mjs",

@@ -37,6 +37,7 @@ export {
 } from "./causal-fill.mjs";
 
 export {
+  BRIDGE_GATE_CONTRAST_THRESHOLD_KINDS,
   BRIDGE_GATE_THRESHOLDS,
   DECLARED_BROKEN_SPREAD_POLICIES,
   FRESHNESS_COVERAGE_TARGET,
@@ -58,8 +59,11 @@ export {
   deriveFreshnessForMission,
   derivePenaltyForMission,
   deriveTradesFillPrice,
+  evaluateBridgeGateMetric,
+  evaluateTradesBridgeGate,
   evaluateTradesFreeze,
   freezeApprovalProblem,
+  isContrastGateThreshold,
   isDeclaredBrokenSpreadPolicy,
   tradesConfigHash,
   validateTradesContract,

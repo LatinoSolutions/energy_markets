@@ -95,6 +95,11 @@ export const TRADES_FROZEN_RULES = Object.freeze([
     text: "la política de inclusión de broken spread que se congela es la que se usó en la medición del puente (TR-03); si la decisión de fuente de TR-01 declara una política distinta, el freeze queda en HOLD por inconsistencia.",
   },
   {
+    id: "DELETE_POINT_IN_TIME_DECLARED",
+    section: "patch 03 §3.1",
+    text: "el trade elegible exige declarar la regla de Delete point-in-time: si la fila Delete lleva la hora del borrado o la del trade original, o el supuesto declarado si no puede saberse; el contrato no se congela con la regla vacía.",
+  },
+  {
     id: "WINDOW_FROM_CALENDAR",
     section: "patch 03 §3.4",
     text: "la ventana de cada campaign sale del calendario de la misión y del calendario de negociación del mercado, nunca de la presencia de trades.",
@@ -136,10 +141,29 @@ export const TRADES_SENSITIVITY_GRID = Object.freeze({
 // TR-04 fija sólo la regla de signo/orden de brazos; el resto de umbrales son
 // elecciones de ingeniería predeclaradas antes de cualquier run, no valores
 // canónicos. Forman parte del config que Bru aprueba al congelar.
+//
+// Corrección TR04-GATE-NONCONTRAST: el plan TR-04 pide el gate como CONTRASTE
+// TOB vs TRADES. Cada métrica debe comparar los dos modos, no sólo declarar que
+// su propio cómputo es válido; si no, el gate no puede fallar. Los tres umbrales
+// de contraste son elecciones de ingeniería declaradas.
 export const BRIDGE_GATE_THRESHOLDS = Object.freeze({
   BUY_WAIT_AGREEMENT_MIN: 0.80,
-  BOUGHT_MW_MIN_COMPLETION: 1.0,
+  BOUGHT_MW_MAX_ABS_COMPLETION_DELTA_VS_TOB: 0.05,
+  FILL_PRICE_MAX_ABS_DELTA_EUR_MWH_VS_TOB: 0.5,
+  H_MAX_ABS_DELTA_EUR_MWH_VS_TOB: 0.5,
 });
+
+// Sólo estos tipos de umbral comparan TOB con TRADES. El validador rechaza un
+// gate cuyas métricas no sean de contraste (TR04-GATE-NONCONTRAST).
+export const BRIDGE_GATE_CONTRAST_THRESHOLD_KINDS = Object.freeze([
+  "min_agreement_fraction_vs_tob",
+  "max_abs_delta_vs_tob",
+  "sign_order_match_vs_tob",
+]);
+
+export function isContrastGateThreshold(kind) {
+  return BRIDGE_GATE_CONTRAST_THRESHOLD_KINDS.includes(kind);
+}
 
 // Gate del puente predeclarado (plan TR-04). Declara que los resultados TOB del
 // puente ya son conocidos: no es validación independiente (patch 03 §5 riesgo 2).
@@ -161,48 +185,48 @@ export const TRADES_BRIDGE_GATE = Object.freeze({
       definition: "fracción de días-decisión con la misma decisión BUY/WAIT entre TOB y TRADES, por misión y por brazo",
       unit: "fraction",
       aggregate: "por misión y por brazo",
-      threshold: Object.freeze({ kind: "min_fraction", value: BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN }),
-      passCriterion: `agreement >= ${BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN}`,
-      failCriterion: `agreement < ${BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN}`,
+      threshold: Object.freeze({ kind: "min_agreement_fraction_vs_tob", value: BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN }),
+      passCriterion: `agreement(TOB, TRADES) >= ${BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN}`,
+      failCriterion: `agreement(TOB, TRADES) < ${BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN}`,
     },
     {
       id: "BOUGHT_MW",
       section: "plan TR-04",
-      description: "MW comprados",
-      definition: "MW comprados por la policy contra el target de obligación de la misión (completion = comprado / target)",
-      unit: "MW",
-      threshold: Object.freeze({ kind: "min_completion_fraction", value: BRIDGE_GATE_THRESHOLDS.BOUGHT_MW_MIN_COMPLETION }),
-      passCriterion: `completion >= ${BRIDGE_GATE_THRESHOLDS.BOUGHT_MW_MIN_COMPLETION}; una obligación que no puede completarse por falta de trades se declara DATA_INCOMPLETE, no FAIL`,
-      failCriterion: `completion < ${BRIDGE_GATE_THRESHOLDS.BOUGHT_MW_MIN_COMPLETION} con trades disponibles`,
+      description: "MW comprados: contraste TOB vs TRADES",
+      definition: "diferencia absoluta entre la fracción de completion (comprado / target de la obligación) de TRADES y la de TOB, por misión y por brazo; una obligación que no puede completarse por falta de trades se declara DATA_INCOMPLETE, no FAIL",
+      unit: "fraction_of_target",
+      threshold: Object.freeze({ kind: "max_abs_delta_vs_tob", value: BRIDGE_GATE_THRESHOLDS.BOUGHT_MW_MAX_ABS_COMPLETION_DELTA_VS_TOB }),
+      passCriterion: `abs(completion(TRADES) - completion(TOB)) <= ${BRIDGE_GATE_THRESHOLDS.BOUGHT_MW_MAX_ABS_COMPLETION_DELTA_VS_TOB}`,
+      failCriterion: `abs(completion(TRADES) - completion(TOB)) > ${BRIDGE_GATE_THRESHOLDS.BOUGHT_MW_MAX_ABS_COMPLETION_DELTA_VS_TOB}`,
     },
     {
       id: "FILL_PRICE",
       section: "plan TR-04",
-      description: "precio de fill",
-      definition: "precio de fill por decisión: trade observado + penalización trade->ask + 0,15 EUR/MWh (patch 03 §3.3)",
+      description: "precio de fill: contraste TOB vs TRADES",
+      definition: "diferencia absoluta entre el precio de fill medio de TRADES (trade observado + penalización trade->ask + 0,15 EUR/MWh, patch 03 §3.3) y el de TOB, por misión y por brazo",
       unit: "EUR/MWh",
-      threshold: Object.freeze({ kind: "model_identity", value: "trade + penaltyEurMwh + 0.15" }),
-      passCriterion: "el fill reproduce la identidad del modelo (trade + penalización + 0,15) en cada decisión",
-      failCriterion: "el fill omite el 0,15 o la penalización, o cuenta el 0,15 dos veces",
+      threshold: Object.freeze({ kind: "max_abs_delta_vs_tob", value: BRIDGE_GATE_THRESHOLDS.FILL_PRICE_MAX_ABS_DELTA_EUR_MWH_VS_TOB }),
+      passCriterion: `abs(fillEurMwh(TRADES) - fillEurMwh(TOB)) <= ${BRIDGE_GATE_THRESHOLDS.FILL_PRICE_MAX_ABS_DELTA_EUR_MWH_VS_TOB}`,
+      failCriterion: `abs(fillEurMwh(TRADES) - fillEurMwh(TOB)) > ${BRIDGE_GATE_THRESHOLDS.FILL_PRICE_MAX_ABS_DELTA_EUR_MWH_VS_TOB}`,
     },
     {
       id: "H",
       section: "plan TR-04 / SPEC §5.5",
-      description: "H: coste all-in unitario de cubrir la obligación completa",
-      definition: "coste all-in unitario de cubrir la obligación completa con la policy, derivado del execution ledger (SPEC §5.5); cada coste atribuible entra exactamente una vez y fees UNKNOWN no se representan como cero",
+      description: "H: coste all-in unitario de cubrir la obligación completa; contraste TOB vs TRADES",
+      definition: "diferencia absoluta entre el coste all-in unitario H de TRADES y el de TOB, derivados del execution ledger (SPEC §5.5); cada coste atribuible entra exactamente una vez y fees UNKNOWN no se representan como cero",
       unit: "EUR/MWh",
-      threshold: Object.freeze({ kind: "cost_state_declared", value: true }),
-      passCriterion: "H es computable y su estado de completitud de coste está declarado (fees UNKNOWN => H partial, nunca completo)",
-      failCriterion: "H se presenta completo con fees UNKNOWN, o H no es computable",
+      threshold: Object.freeze({ kind: "max_abs_delta_vs_tob", value: BRIDGE_GATE_THRESHOLDS.H_MAX_ABS_DELTA_EUR_MWH_VS_TOB }),
+      passCriterion: `abs(h(TRADES) - h(TOB)) <= ${BRIDGE_GATE_THRESHOLDS.H_MAX_ABS_DELTA_EUR_MWH_VS_TOB}`,
+      failCriterion: `abs(h(TRADES) - h(TOB)) > ${BRIDGE_GATE_THRESHOLDS.H_MAX_ABS_DELTA_EUR_MWH_VS_TOB}`,
     },
     {
       id: "DELTA_V",
       section: "plan TR-04",
-      description: "ΔV entre brazos (sólo con los dos brazos completos; el benchmark se cancela)",
-      definition: "ΔV por brazo respecto de Baseline, sólo con ambos brazos completos (el benchmark se cancela, SPEC §13.7)",
+      description: "ΔV entre brazos (sólo con los dos brazos completos; el benchmark se cancela) y contraste con TOB",
+      definition: "ΔV por brazo respecto de Baseline, sólo con ambos brazos completos (el benchmark se cancela, SPEC §13.7); se compara el signo de cada brazo y el orden Baseline / DIP10 / HOUR contra el puente TOB",
       unit: "EUR",
-      threshold: Object.freeze({ kind: "sign_order_match", value: Object.freeze(["BASELINE", "DIP10", "HOUR"]) }),
-      passCriterion: "el signo de ΔV y el orden Baseline / DIP10 / HOUR coinciden con el puente TOB",
+      threshold: Object.freeze({ kind: "sign_order_match_vs_tob", value: Object.freeze(["BASELINE", "DIP10", "HOUR"]) }),
+      passCriterion: "el signo de ΔV de cada brazo y el orden Baseline / DIP10 / HOUR coinciden con el puente TOB",
       failCriterion: "una inversión del signo de ΔV o del orden de brazos respecto del puente TOB",
     },
   ]),
@@ -213,6 +237,68 @@ export const TRADES_BRIDGE_GATE = Object.freeze({
   }),
   declaration: "DECLARED: los resultados TOB del puente ya son conocidos; el gate se predeclara sabiéndolo y tiene poca potencia (3 Gas Q con TOB). No es validación independiente (patch 03 §5 riesgo 2).",
 });
+
+// Evalúa UNA métrica del gate comparando TOB con TRADES (TR04-GATE-NONCONTRAST).
+// `tobValue`/`tradesValue` son el valor observado de esa métrica en cada modo:
+//   - BUY_WAIT_AGREEMENT: array de decisiones BUY/WAIT por día;
+//   - BOUGHT_MW / FILL_PRICE / H: número (fracción de target o EUR/MWh);
+//   - DELTA_V: objeto { BASELINE, DIP10, HOUR } con el ΔV de cada brazo.
+// Una métrica no finita no se evalúa como PASS: devuelve NOT_EVALUABLE.
+export function evaluateBridgeGateMetric(metric, { tobValue, tradesValue } = {}) {
+  const threshold = metric?.threshold;
+  const id = metric?.id ?? null;
+  if (!threshold || !isContrastGateThreshold(threshold.kind)) {
+    return { id, status: "NOT_EVALUABLE", reason: "La métrica no declara un umbral de contraste TOB vs TRADES (plan TR-04)." };
+  }
+  if (threshold.kind === "min_agreement_fraction_vs_tob") {
+    if (!Array.isArray(tobValue) || !Array.isArray(tradesValue) || tobValue.length === 0 || tobValue.length !== tradesValue.length) {
+      return { id, status: "NOT_EVALUABLE", reason: "La comparación de decisiones exige dos secuencias BUY/WAIT de igual longitud." };
+    }
+    let equal = 0;
+    for (let index = 0; index < tobValue.length; index += 1) {
+      if (tobValue[index] === tradesValue[index]) equal += 1;
+    }
+    const observed = equal / tobValue.length;
+    return { id, status: observed >= threshold.value ? "PASS" : "FAIL", observed, thresholdValue: threshold.value, kind: threshold.kind };
+  }
+  if (threshold.kind === "max_abs_delta_vs_tob") {
+    if (!isFiniteNumber(tobValue) || !isFiniteNumber(tradesValue)) {
+      return { id, status: "NOT_EVALUABLE", reason: "La comparación de contraste exige un valor finito de TOB y de TRADES." };
+    }
+    const observed = Math.abs(tradesValue - tobValue);
+    return { id, status: observed <= threshold.value ? "PASS" : "FAIL", observed, thresholdValue: threshold.value, kind: threshold.kind };
+  }
+  // sign_order_match_vs_tob
+  const arms = Array.isArray(threshold.value) ? threshold.value : [];
+  if (!tobValue || typeof tobValue !== "object" || !tradesValue || typeof tradesValue !== "object" || arms.length === 0) {
+    return { id, status: "NOT_EVALUABLE", reason: "La comparación de signo/orden exige el ΔV de cada brazo en TOB y en TRADES." };
+  }
+  const allFinite = arms.every((arm) => isFiniteNumber(tobValue[arm]) && isFiniteNumber(tradesValue[arm]));
+  if (!allFinite) {
+    return { id, status: "NOT_EVALUABLE", reason: "Falta el ΔV de algún brazo; el signo/orden no se compara con datos incompletos." };
+  }
+  const signMatches = arms.every((arm) => Math.sign(tradesValue[arm]) === Math.sign(tobValue[arm]));
+  const orderOf = (values) => arms.slice().sort((left, right) => values[left] - values[right]);
+  const orderMatches = orderOf(tradesValue).join("|") === orderOf(tobValue).join("|");
+  return {
+    id,
+    status: signMatches && orderMatches ? "PASS" : "FAIL",
+    signMatches,
+    orderMatches,
+    kind: threshold.kind,
+  };
+}
+
+// Evalúa el gate completo del puente. FAIL si alguna métrica falla; HOLD si
+// ninguna falla pero alguna no es evaluable (no se inventa un PASS parcial);
+// PASS sólo si todas pasan.
+export function evaluateTradesBridgeGate({ metrics = TRADES_BRIDGE_GATE.metrics, tob = {}, trades = {} } = {}) {
+  const results = metrics.map((metric) => evaluateBridgeGateMetric(metric, { tobValue: tob[metric.id], tradesValue: trades[metric.id] }));
+  const failed = results.filter((result) => result.status === "FAIL");
+  const notEvaluable = results.filter((result) => result.status === "NOT_EVALUABLE");
+  const decision = failed.length > 0 ? "FAIL" : (notEvaluable.length > 0 ? "HOLD" : "PASS");
+  return { gateId: TRADES_BRIDGE_GATE.id, decision, metrics: results, failed, notEvaluable };
+}
 
 // Provenance del 0,15: la MISMA suposición de ejecución del cliente que fija el
 // contrato TOB (02_execution_costs). La penalización trade->ask es un parámetro
@@ -312,18 +398,37 @@ export const TRADES_PENALTY_SIGN_RULE = Object.freeze({
 // ask - trade = -gap. La señal es BELOW_MEAN (los momentos en que DIP10
 // compraría). Cada grupo agresor aporta su propia media observada; el grupo sin
 // agresor (UNKNOWN / MIXED) nunca se reasigna a un lado.
-export function derivePenaltyForMission({ measurement, market, mission, observationRule = OBSERVATION_RULES.LAST_TRADE } = {}) {
+//
+// Patch 03 §3.4 (corrección TR04-PENALTY-STALE-OBS): un trade fuera del límite de
+// frescura cuenta como SIN observación; la penalización sólo puede calibrarse con
+// observaciones de antigüedad <= el límite de frescura congelado para esa
+// misión/regla. Por eso se lee el cross-tab por límite, no el cross-tab total.
+export function derivePenaltyForMission({ measurement, market, mission, observationRule = OBSERVATION_RULES.LAST_TRADE, freshnessLimitSeconds = null } = {}) {
+  const freshness = deriveFreshnessForMission({ measurement, market, mission, observationRule });
+  const limit = freshnessLimitSeconds ?? freshness.value;
   const summary = measurement?.markets?.[market]?.missions?.[mission]?.summary;
-  const cells = summary?.gaps?.[observationRule]?.byHalfByDip10StateByAggressor;
+  const cells = summary?.gaps?.[observationRule]?.byHalfByDip10StateByAggressorByLimit;
   const list = Array.isArray(cells) ? cells : [];
   const byAggressor = [];
+  if (limit === null) {
+    return {
+      status: "UNKNOWN",
+      value: null,
+      observations: 0,
+      freshnessLimitSeconds: null,
+      byAggressor,
+      aggregationRuleId: TRADES_PENALTY_AGGRESSION_RULE.id,
+      signRuleId: TRADES_PENALTY_SIGN_RULE.id,
+      reason: "Sin límite de frescura medido en la mitad de calibración; la penalización no se calibra sin saber qué observaciones cuentan (patch 03 §3.4).",
+    };
+  }
   let observations = 0;
   let weighted = 0;
-  const calibrationPrefix = `${HALVES.CALIBRATION}|BELOW_MEAN|`;
+  const calibrationPrefix = `${limit}|${HALVES.CALIBRATION}|BELOW_MEAN|`;
   for (const cell of list) {
     const combination = String(cell?.combination ?? "");
     if (!combination.startsWith(calibrationPrefix)) continue;
-    const aggressor = combination.split("|")[2] ?? "UNKNOWN";
+    const aggressor = combination.split("|")[3] ?? "UNKNOWN";
     if (typeof cell.mean !== "number" || !Number.isFinite(cell.mean) || !Number.isFinite(cell.count)) continue;
     const penaltyEurMwh = -cell.mean;
     byAggressor.push({ aggressor, count: cell.count, meanGapEurMwh: cell.mean, penaltyEurMwh });
@@ -336,16 +441,18 @@ export function derivePenaltyForMission({ measurement, market, mission, observat
       status: "UNKNOWN",
       value: null,
       observations,
+      freshnessLimitSeconds: limit,
       byAggressor,
       aggregationRuleId: TRADES_PENALTY_AGGRESSION_RULE.id,
       signRuleId: TRADES_PENALTY_SIGN_RULE.id,
-      reason: `Menos de ${MIN_PENALTY_OBSERVATIONS} observaciones BELOW_MEAN en la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero).`,
+      reason: `Menos de ${MIN_PENALTY_OBSERVATIONS} observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero).`,
     };
   }
   return {
     status: "MEASURED",
     value: weighted / observations,
     observations,
+    freshnessLimitSeconds: limit,
     byAggressor,
     aggregationRuleId: TRADES_PENALTY_AGGRESSION_RULE.id,
     signRuleId: TRADES_PENALTY_SIGN_RULE.id,
@@ -447,6 +554,12 @@ export function buildTradesFreezeCandidate({
   const brokenSpreadPolicy = isDeclaredBrokenSpreadPolicy(measurement?.brokenSpreadPolicy)
     ? measurement.brokenSpreadPolicy
     : null;
+  // TR04-MEASUREMENT-HASH-UNBOUND: el config congelado queda ligado a la identidad
+  // (sha256 canónico) de la medición de TR-03, no sólo a su ruta. Si el builder
+  // pasa el sha de los bytes del archivo, ese manda; si no, se deriva del objeto.
+  const boundGeneratedFrom = (measurement && typeof measurement === "object" && generatedFrom.bridgeMeasurementSha256 == null)
+    ? { ...generatedFrom, bridgeMeasurementSha256: contentHashOf(measurement) }
+    : generatedFrom;
   const contract = {
     artifactKind: "TRADES_CONTRACT_V1",
     contractId: TRADES_CONTRACT_ID,
@@ -487,7 +600,7 @@ export function buildTradesFreezeCandidate({
     markets: buildMarkets({ measurement }),
     sensitivityGrid: TRADES_SENSITIVITY_GRID,
     bridgeGate: TRADES_BRIDGE_GATE,
-    generatedFrom,
+    generatedFrom: boundGeneratedFrom,
   };
   return { ...contract, configHash: tradesConfigHash(contract) };
 }
@@ -539,6 +652,11 @@ export function validateTradesContract(contract) {
   if (!isDeclaredBrokenSpreadPolicy(contract.tradeEligibility?.brokenSpreadPolicy)) {
     pushError(errors, "tradeEligibility.brokenSpreadPolicy", "INVALID_BROKEN_SPREAD_POLICY", `La política de broken spread congelada debe ser una de ${DECLARED_BROKEN_SPREAD_POLICIES.join(" / ")} (patch 03 §3.1).`);
   }
+  // Corrección TR04-DELETE-SEMANTICS-UNDECLARED: el patch 03 §3.1 exige declarar
+  // la regla de Delete point-in-time (o su supuesto); no se congela vacía.
+  if (!isNonEmptyString(contract.tradeEligibility?.deleteTmSemantics)) {
+    pushError(errors, "tradeEligibility.deleteTmSemantics", "MISSING_DELETE_TM_SEMANTICS", "El contrato TRADES no declara la regla de Delete point-in-time del trade elegible; el patch 03 §3.1 exige declararla (o su supuesto) y no se congela vacía.");
+  }
 
   for (const [missionKey, definition] of Object.entries(TRADES_MISSIONS)) {
     const entry = contract.markets?.[definition.market]?.missions?.[missionKey];
@@ -586,6 +704,8 @@ export function validateTradesContract(contract) {
       }
       if (!metric?.threshold || !isNonEmptyString(metric.threshold.kind)) {
         pushError(errors, `bridgeGate.metrics.${metric?.id}`, "MISSING_GATE_THRESHOLD", `La métrica ${metric?.id} del gate no declara umbral de pase/fallo; el gate no estaría predeclarado (plan TR-04).`);
+      } else if (!isContrastGateThreshold(metric.threshold.kind)) {
+        pushError(errors, `bridgeGate.metrics.${metric?.id}`, "NON_CONTRAST_GATE_THRESHOLD", `La métrica ${metric?.id} del gate usa el umbral "${metric.threshold.kind}", que no compara TOB con TRADES; el gate del puente es un contraste (plan TR-04).`);
       }
     }
   }

@@ -9,6 +9,7 @@ import {
   createGasQuarterlyExecutionContract,
 } from "../../src/execution-contract/execution-contract.mjs";
 import {
+  BRIDGE_GATE_CONTRAST_THRESHOLD_KINDS,
   BRIDGE_GATE_THRESHOLDS,
   FRESHNESS_COVERAGE_TARGET,
   MIN_PENALTY_OBSERVATIONS,
@@ -23,6 +24,7 @@ import {
   deriveFreshnessForMission,
   derivePenaltyForMission,
   deriveTradesFillPrice,
+  evaluateTradesBridgeGate,
   evaluateTradesFreeze,
   tradesConfigHash,
   validateTradesContract,
@@ -200,8 +202,9 @@ test("cada métrica del gate declara definición y umbral, y el validador los ex
   for (const metric of TRADES_BRIDGE_GATE.metrics) {
     assert.ok(metric.definition && metric.definition.length > 0, `definición ausente en ${metric.id}`);
     assert.ok(metric.threshold && metric.threshold.kind, `umbral ausente en ${metric.id}`);
+    assert.ok(BRIDGE_GATE_CONTRAST_THRESHOLD_KINDS.includes(metric.threshold.kind), `umbral no contrasta TOB vs TRADES en ${metric.id}`);
   }
-  assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "H").threshold.kind, "cost_state_declared");
+  assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "H").threshold.kind, "max_abs_delta_vs_tob");
   assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "BUY_WAIT_AGREEMENT").threshold.value, BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN);
 
   const candidate = buildTradesFreezeCandidate(frozenInput());
@@ -212,6 +215,63 @@ test("cada métrica del gate declara definición y umbral, y el validador los ex
   const outcome = validateTradesContract(candidate);
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "MISSING_GATE_THRESHOLD"));
+});
+
+// --- Defecto 2 (corrección): el gate es un contraste TOB vs TRADES --------
+
+test("el validador rechaza una métrica del gate cuyo umbral no compara TOB con TRADES", () => {
+  const candidate = buildTradesFreezeCandidate(frozenInput());
+  candidate.bridgeGate = {
+    ...candidate.bridgeGate,
+    metrics: candidate.bridgeGate.metrics.map((metric) => (metric.id === "FILL_PRICE"
+      ? { ...metric, threshold: { kind: "model_identity", value: "trade + penaltyEurMwh + 0.15" } }
+      : metric)),
+  };
+  const outcome = validateTradesContract(candidate);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "NON_CONTRAST_GATE_THRESHOLD"));
+});
+
+test("el gate falla cuando el fill o la H de TRADES difieren mucho de TOB", () => {
+  const tob = {
+    BUY_WAIT_AGREEMENT: ["BUY", "WAIT", "BUY", "BUY", "WAIT"],
+    BOUGHT_MW: 1.0,
+    FILL_PRICE: 100,
+    H: 101,
+    DELTA_V: { BASELINE: 0, DIP10: 2, HOUR: 1 },
+  };
+  const same = {
+    BUY_WAIT_AGREEMENT: ["BUY", "WAIT", "BUY", "BUY", "WAIT"],
+    BOUGHT_MW: 1.0,
+    FILL_PRICE: 100.1,
+    H: 101.1,
+    DELTA_V: { BASELINE: 0, DIP10: 2.5, HOUR: 1.5 },
+  };
+  const pass = evaluateTradesBridgeGate({ tob, trades: same });
+  assert.equal(pass.decision, "PASS", JSON.stringify(pass.metrics));
+
+  const far = {
+    BUY_WAIT_AGREEMENT: ["BUY", "BUY", "BUY", "BUY", "WAIT"],
+    BOUGHT_MW: 0.5,
+    FILL_PRICE: 130,
+    H: 130,
+    DELTA_V: { BASELINE: 0, DIP10: -2, HOUR: 1 },
+  };
+  const fail = evaluateTradesBridgeGate({ tob, trades: far });
+  assert.equal(fail.decision, "FAIL");
+  const failedIds = fail.failed.map((metric) => metric.id);
+  assert.ok(failedIds.includes("FILL_PRICE"));
+  assert.ok(failedIds.includes("H"));
+  assert.ok(failedIds.includes("BOUGHT_MW"));
+});
+
+test("el gate no declara PASS con una métrica no evaluable", () => {
+  const outcome = evaluateTradesBridgeGate({
+    tob: { BUY_WAIT_AGREEMENT: ["BUY"], BOUGHT_MW: 1, FILL_PRICE: 100, H: 101, DELTA_V: { BASELINE: 0, DIP10: 1, HOUR: 2 } },
+    trades: { BUY_WAIT_AGREEMENT: ["BUY"], BOUGHT_MW: 1, FILL_PRICE: 100, H: 101, DELTA_V: { BASELINE: 0, DIP10: 1 } },
+  });
+  assert.equal(outcome.decision, "HOLD");
+  assert.ok(outcome.notEvaluable.some((metric) => metric.id === "DELTA_V"));
 });
 
 // --- Defecto 7: política de broken spread ligada a la medición -----------
@@ -326,4 +386,52 @@ test("el fill TRADES suma trade + penalización + 0,15 sin omitir ni duplicar", 
   assert.equal(deriveTradesFillPrice({ tradePrice: -10, penaltyEurMwh: 1, slippageEurMwh: 0.15 }).price, -8.85);
   assert.equal(deriveTradesFillPrice({ tradePrice: 100, penaltyEurMwh: 1, slippageEurMwh: -0.15 }).ok, false);
   assert.equal(deriveTradesFillPrice({ tradePrice: 100, penaltyEurMwh: null }).ok, false);
+});
+
+// --- Corrección TR04-PENALTY-STALE-OBS: sin observaciones fuera del límite --
+
+test("la penalización sólo se calibra con observaciones dentro del límite de frescura", () => {
+  // Trades escasos (uno cada 3 días): la mitad de calibración queda LOW_COVERAGE y
+  // muchas observaciones superan el límite. El cross-tab total las incluye; la
+  // penalización NO puede usarlas (patch 03 §3.4: fuera del límite = sin
+  // observación).
+  const measurement = measurementFixture({ days: 60, tradeEveryNDays: 3 });
+  for (const [market, mission] of [["GAS_THE", "GAS_QUARTERLY"], ["POWER_DE", "POWER_MONTHLY"]]) {
+    const freshness = deriveFreshnessForMission({ measurement, market, mission });
+    const penalty = derivePenaltyForMission({ measurement, market, mission });
+    const cells = measurement.markets[market].missions[mission].summary.gaps.LAST_TRADE;
+    const stale = cells.byHalfByDip10StateByAggressor
+      .filter((cell) => cell.combination.includes("|BELOW_MEAN|"))
+      .reduce((sum, cell) => sum + cell.count, 0);
+    const fresh = cells.byHalfByDip10StateByAggressorByLimit
+      .filter((cell) => cell.combination.startsWith(`${freshness.value}|`) && cell.combination.includes("|BELOW_MEAN|"))
+      .reduce((sum, cell) => sum + cell.count, 0);
+    assert.equal(penalty.freshnessLimitSeconds, freshness.value);
+    assert.equal(penalty.observations, fresh, `${mission}: la penalización debe usar sólo observaciones dentro del límite`);
+    assert.ok(stale > fresh, `${mission}: el fixture debe tener observaciones fuera del límite (stale=${stale}, fresh=${fresh})`);
+  }
+});
+
+// --- Corrección TR04-DELETE-SEMANTICS-UNDECLARED --------------------------
+
+test("un contrato con deleteTmSemantics vacío se rechaza (patch 03 §3.1)", () => {
+  const candidate = buildTradesFreezeCandidate({ ...frozenInput(), deleteTmSemantics: null });
+  const validation = validateTradesContract(candidate);
+  assert.equal(validation.ok, false);
+  assert.ok(validation.errors.some((error) => error.code === "MISSING_DELETE_TM_SEMANTICS"));
+  const outcome = evaluateTradesFreeze({ ...frozenInput(), deleteTmSemantics: null });
+  assert.equal(outcome.status, "REJECTED");
+  assert.ok(outcome.blockedBy.includes("MISSING_DELETE_TM_SEMANTICS"));
+});
+
+// --- Corrección TR04-MEASUREMENT-HASH-UNBOUND -----------------------------
+
+test("el configHash liga la identidad (sha256) de la medición de TR-03", () => {
+  const base = buildTradesFreezeCandidate(frozenInput());
+  assert.match(base.generatedFrom.bridgeMeasurementSha256, /^[0-9a-f]{64}$/);
+  const altered = measurementFixture();
+  altered.counts.rowsSeen += 1;
+  const changed = buildTradesFreezeCandidate(frozenInput({ measurement: altered }));
+  assert.notEqual(changed.generatedFrom.bridgeMeasurementSha256, base.generatedFrom.bridgeMeasurementSha256);
+  assert.notEqual(changed.configHash, base.configHash);
 });

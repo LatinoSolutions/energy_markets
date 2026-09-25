@@ -18,8 +18,9 @@ import {
   TRADES_CONTRACT_ID,
   TRADES_FREEZE_SCOPE,
   TRADES_VERSION_LABEL,
+  contentHashOf,
   evaluateTradesFreeze,
-} from "../../../src/execution-contract/trades-contract.mjs";
+} from "../../../src/execution-contract/index.mjs";
 import { TRADES_PATCH_IDENTITY } from "../../../src/oos-reservation/trades-zones.mjs";
 
 export const MEASUREMENT_PATH = "operations/trades/TR-03/bridge-measurement.json";
@@ -33,10 +34,18 @@ export const MANIFEST_PATH = "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.
 // broken spread que se congela sale de la MEDICIÓN del puente (TR-03), que se
 // corrió bajo una política concreta (patch 03 §3.1); la decisión de fuente de
 // TR-01 sólo se usa para comprobar consistencia.
-export function buildTradesFreezeArtifact({ measurement = null, sourceDecision = null, ownerApproval = null, inputsPresent = {} } = {}) {
+//
+// TR04-MEASUREMENT-HASH-UNBOUND: el config aprobado no puede quedar ligado sólo a
+// rutas. `generatedFrom.bridgeMeasurementSha256` ata el hash del config a los
+// bytes de la medición de TR-03; si se pasa explícito (main lo calcula del
+// archivo), se usa ese sha; si no, se deriva del objeto de medición.
+export function buildTradesFreezeArtifact({ measurement = null, sourceDecision = null, ownerApproval = null, inputsPresent = {}, bridgeMeasurementSha256 = null } = {}) {
   const deleteTmSemantics = sourceDecision?.measurements?.deleteTmSemantics?.value
     ?? sourceDecision?.deleteTmSemantics
     ?? null;
+
+  const measurementSha256 = bridgeMeasurementSha256
+    ?? (measurement && typeof measurement === "object" ? contentHashOf(measurement) : null);
 
   const outcome = evaluateTradesFreeze({
     measurement,
@@ -45,6 +54,7 @@ export function buildTradesFreezeArtifact({ measurement = null, sourceDecision =
     ownerApproval,
     generatedFrom: {
       bridgeMeasurement: inputsPresent.measurement ? MEASUREMENT_PATH : null,
+      bridgeMeasurementSha256: measurementSha256,
       sourceDecision: inputsPresent.sourceDecision ? SOURCE_DECISION_PATH : null,
     },
   });
@@ -103,6 +113,7 @@ function main() {
     measurement: readJson(MEASUREMENT_PATH),
     sourceDecision: readJson(SOURCE_DECISION_PATH),
     ownerApproval: readJson(OWNER_APPROVAL_PATH),
+    bridgeMeasurementSha256: inputsPresent.measurement ? hashFile(MEASUREMENT_PATH) : null,
     inputsPresent,
   });
   const outputBytes = Buffer.from(`${JSON.stringify(artifact, null, 1)}\n`);
