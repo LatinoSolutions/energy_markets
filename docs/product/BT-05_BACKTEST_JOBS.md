@@ -5,7 +5,8 @@ Fuente: PLAN_STATUS.md, fila BT-05 (owner request 25-sep-2026), incluida la part
 
 ## Qué corre
 
-El job `EXPLORATORY_BACKTEST` v1 ejecuta el generador existente
+El job `EXPLORATORY_BACKTEST` (versión = `JOB_VERSION` en `src/backtest-jobs/runner.mjs`,
+sellada en cada receipt como `jobVersion`) ejecuta el generador existente
 `operations/exploratory/run-exploratory-backtest.mjs` sobre el snapshot fijado en
 `operations/exploratory/MANIFEST.json` (owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4).
 Antes de arrancar verifica por sha256 los slots y cada generador del manifest; si algo

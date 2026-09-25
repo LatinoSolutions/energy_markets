@@ -732,3 +732,11 @@ test("BT-05 identidad: si el código del workspace cambia durante el run, cierra
   assert.equal(runner.status().currentResult, null);
   assert.equal(lockIsFree(runner), true);
 });
+
+// Hallazgo BT05-DOCS-09 (review 25-sep-2026): la nota publicaba una versión del job que no existía.
+test("BT-05 docs: la nota no fija un número de versión del job; remite a JOB_VERSION", () => {
+  const note = readFileSync(path.join(DEFAULT_REPO_ROOT, "docs/product/BT-05_BACKTEST_JOBS.md"), "utf8");
+  const hardcodedJobVersion = /EXPLORATORY_BACKTEST`?\s+v\d+/;
+  assert.doesNotMatch(note, hardcodedJobVersion);
+  assert.match(note, /JOB_VERSION/);
+});
