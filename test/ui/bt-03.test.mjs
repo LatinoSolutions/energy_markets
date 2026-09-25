@@ -136,9 +136,10 @@ test("BT-03: PARTIAL with value shows the value with the Partial chip; prices ar
 
   assert.match(h, /data-status="PARTIAL" data-value="29\.975"[^>]*>29\.975 €\/MWh/);
   assert.match(h, /○<\/span>Partial/);
-  assert.match(b, /data-status="BENCHMARK_PROVISIONAL"[^>]*>35\.787 €\/MWh/);
+  // BT-02 v2 (BT04-C1-PROXY-WINDOW-DEDUP): B 35.78649 y V 5.81149 (v1 mostraba 35.787 / +5.812).
+  assert.match(b, /data-status="BENCHMARK_PROVISIONAL"[^>]*>35\.786 €\/MWh/);
   assert.match(b, /~<\/span>Provisional/);
-  assert.match(v, /data-status="PROVISIONAL"[^>]*>\+5\.812 €\/MWh/);
+  assert.match(v, /data-status="PROVISIONAL"[^>]*>\+5\.811 €\/MWh/);
   assert.match(deltaV, />\+9\.892 €\/MWh/);
   assert.doesNotMatch(html, /✓<\/span>Official/);
 });

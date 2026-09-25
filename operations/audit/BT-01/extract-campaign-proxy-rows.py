@@ -4,6 +4,12 @@
 The campaign list comes from the committed exploratory results. Expected
 trading dates come from the accepted IMP-09 calendar. Rows are restricted to
 the exact ShortCode + Maturity and retain row and source-file hashes.
+
+v2 (2026-09-25, BT04-C1-PROXY-WINDOW-DEDUP): each row carries `observationKey`,
+a digest of every market column (all non-`_` columns), so only the same market
+observation is deduplicated (SPEC §5.2 «filas deduplicadas»); `_row_sha256` is
+not usable because a re-pull of the same observation gets a new hash. Window
+prefilter keeps fractional seconds. v1 artifacts stay in operations/audit/BT-01/.
 """
 
 import hashlib
@@ -20,9 +26,9 @@ import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[3]
 LAKE = Path(os.environ.get("EEX_LAKE_ROOT", "/srv/hot-data/EEX"))
-OUTPUT = ROOT / "operations/audit/BT-01/campaign-proxy-rows-BT-01.json"
+OUTPUT = ROOT / "operations/audit/BT-01/v2/campaign-proxy-rows-BT-01.json"
 PROXY_WORKER = ROOT / "operations/audit/BT-01/calculate-campaign-daily-proxies.mjs"
-RESULTS = ROOT / "operations/exploratory/backtest-results.json"
+RESULTS = ROOT / "operations/exploratory/v2/backtest-results.json"
 CALENDAR = ROOT / "operations/audit/IMP-09/eex-exchange-calendar.json"
 TABLES = {
     "eex_derivative_trade": ("Px", None, None),
@@ -47,6 +53,11 @@ def as_float(value):
         return float(value) if value not in (None, "") else None
     except (TypeError, ValueError):
         return None
+
+
+def observation_key(row):
+    market = sorted((name, value) for name, value in row.items() if not name.startswith("_"))
+    return sha256_bytes(json.dumps(market, default=str, ensure_ascii=False, separators=(",", ":")).encode())
 
 
 def month_start(maturity):
@@ -129,11 +140,13 @@ def extract(campaigns, exchange_days):
                 if bid_col:
                     needed.update((bid_col, ask_col))
                 parquet = pq.ParquetFile(path)
-                if not needed.issubset(set(parquet.schema.names)):
+                schema_names = set(parquet.schema_arrow.names)
+                if not needed.issubset(schema_names):
                     continue
+                read_columns = sorted(name for name in schema_names if not name.startswith("_")) + ["_row_sha256"]
                 relative_path = path.relative_to(LAKE).as_posix()
                 matched_campaigns = set()
-                for batch in parquet.iter_batches(batch_size=4096, columns=sorted(needed), use_threads=False):
+                for batch in parquet.iter_batches(batch_size=4096, columns=read_columns, use_threads=False):
                     code_index = batch.schema.get_field_index("ShortCode")
                     maturity_index = batch.schema.get_field_index("Maturity")
                     products = sorted({campaign["product"] for campaign in active_campaigns})
@@ -170,7 +183,7 @@ def extract(campaigns, exchange_days):
                         if local.date().isoformat() != day:
                             target["exclusions"]["outsideLocalDate"] += 1
                             continue
-                        seconds = local.hour * 3600 + local.minute * 60 + local.second
+                        seconds = local.hour * 3600 + local.minute * 60 + local.second + local.microsecond / 1e6
                         if not (16 * 3600 + 15 * 60 <= seconds <= 18 * 3600 + 15 * 60):
                             target["exclusions"]["outsideWindow"] += 1
                             continue
@@ -182,6 +195,7 @@ def extract(campaigns, exchange_days):
                             "bid": as_float(row.get(bid_col)) if bid_col else None,
                             "ask": as_float(row.get(ask_col)) if ask_col else None,
                             "rowHash": row.get("_row_sha256"),
+                            "observationKey": observation_key(row),
                         })
                         if len(target["rows"]) == 512:
                             worker.stdin.write(json.dumps({"type": "rows", "campaignKey": key, "rows": target["rows"]}, ensure_ascii=False) + "\n")
@@ -257,14 +271,18 @@ def main():
         "artifactKind": "BT-01_CAMPAIGN_PROXY_ROWS",
         "schemaVersion": "1.0",
         "status": "BENCHMARK_PROVISIONAL",
+        "methodologyVersion": 2,
+        "dedupRule": "observationKey = sha256 of every non-underscore market column",
+        "windowTimeResolution": "fractional seconds from Tm",
         "sourceLakeRoot": str(LAKE),
         "sourceRule": "EEX gas trade and top-of-book; exact product + maturity; EUR/MWh Simple Instrument; strict and IMP-05 fallback windows only",
         "calendar": {"path": "operations/audit/IMP-09/eex-exchange-calendar.json", "sha256": sha256_bytes(calendar_bytes)},
-        "campaignPopulation": {"path": "operations/exploratory/backtest-results.json", "sha256": sha256_bytes(results_bytes)},
+        "campaignPopulation": {"path": RESULTS.relative_to(ROOT).as_posix(), "sha256": sha256_bytes(results_bytes)},
         "sourceFileHashes": dict(sorted(source_hashes.items())),
         "campaigns": per_campaign,
     }
     serialized = json.dumps(artifact, indent=2, ensure_ascii=False) + "\n"
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(serialized, encoding="utf-8")
     print(f"artifact={OUTPUT}")
     print(f"campaigns={len(per_campaign)} sourceFiles={len(source_hashes)} sha256={sha256_bytes(serialized.encode())}")

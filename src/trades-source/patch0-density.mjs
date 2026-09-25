@@ -1,0 +1,250 @@
+// Reproducción de las mediciones preliminares del patch 03 §0 (densidad, días sin
+// trades). Fuente: docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md §0
+// ("Gas Quarterly front sin ningún trade el 58 % de los días en 2021 ... Power DE
+// con <= 3,3 % de días sin trades en Q y M hasta 3 meses de distancia") y
+// TRADES_MODE_PLAN.md TR-01 ("Reproducir como artefacto las mediciones
+// preliminares del patch 03 §0 (densidad, días sin trades, duplicación)").
+//
+// Este módulo sólo materializa la medición; no decide la regla de elegibilidad
+// (eligibility.mjs). El % de días sin trades se cuenta contra el calendario de
+// negociación del mercado (gas THE o power DE, por separado), nunca contra la
+// presencia de trades, y desglosado por año.
+
+import { DEFAULT_BROKEN_SPREAD_POLICY, isEligibleTrade } from "./eligibility.mjs";
+import { contractKey, coverageByInstrumentDay } from "./coverage.mjs";
+
+export const MISSION = Object.freeze({
+  GAS_QUARTERLY: "GAS_QUARTERLY",
+  GAS_MONTHLY: "GAS_MONTHLY",
+  POWER_QUARTERLY: "POWER_QUARTERLY",
+  POWER_MONTHLY: "POWER_MONTHLY",
+});
+
+// Productos base declarados: TRADES_MODE_PLAN.md TR-05 (G0BQ/G0BM) y patch 03 §6
+// (Power base DEBQ/DEBM salvo decisión de Bru). El sufijo Q/M fija el tenor.
+const MARKETS = Object.freeze({
+  GAS_THE: { cmdty: "NATGAS", area: "THE", productPrefix: "G0B" },
+  POWER_DE: { cmdty: "POWER", area: "DE", productPrefix: "DEB" },
+});
+
+export function marketOf(row) {
+  for (const [market, definition] of Object.entries(MARKETS)) {
+    if (row?.Cmdty === definition.cmdty && row?.Area === definition.area) return market;
+  }
+  return null;
+}
+
+export function classifyMission(row) {
+  const market = marketOf(row);
+  if (market === null) return null;
+  const shortCode = String(row?.ShortCode ?? "");
+  if (!shortCode.startsWith(MARKETS[market].productPrefix)) return null;
+  const tenor = shortCode.slice(-1);
+  if (tenor !== "Q" && tenor !== "M") return null;
+  return {
+    market,
+    tenor,
+    mission:
+      market === "GAS_THE"
+        ? tenor === "Q"
+          ? MISSION.GAS_QUARTERLY
+          : MISSION.GAS_MONTHLY
+        : tenor === "Q"
+          ? MISSION.POWER_QUARTERLY
+          : MISSION.POWER_MONTHLY,
+  };
+}
+
+// Igual que classifyMission pero sobre un registro ya agregado por
+// coverageByInstrumentDay (claves cmdty/area/shortCode en minúscula).
+function classifyCoverageRecord(record) {
+  return classifyMission({
+    Cmdty: record?.cmdty,
+    Area: record?.area,
+    ShortCode: record?.shortCode,
+    Maturity: record?.maturity,
+  });
+}
+
+// Meses entre la fecha de trade (YYYY-MM-DD) y el mes de entrega (Maturity
+// YYYYMM). Negativo = contrato ya entregado; null = sin dato. Es la "distancia a
+// entrega" del patch 03 §4.
+export function monthsToDelivery(trdDate, maturity) {
+  const [trdYear, trdMonth] = String(trdDate).split("-").map(Number);
+  const month = String(maturity ?? "");
+  if (!Number.isInteger(trdYear) || month.length !== 6) return null;
+  const maturityYear = Number(month.slice(0, 4));
+  const maturityMonth = Number(month.slice(4, 6));
+  if (!Number.isInteger(maturityYear) || !Number.isInteger(maturityMonth)) return null;
+  return (maturityYear - trdYear) * 12 + (maturityMonth - trdMonth);
+}
+
+// Contrato front de `day`: el de menor distancia a entrega ESTRICTAMENTE futura,
+// y dentro de `maxDistanceMonths` si se fija (patch 03 §0: Power "<= 3 meses de
+// distancia"). Distancia 0 = mes de entrega en curso, que ya no se negocia; el
+// front es el contrato siguiente, nunca el que está en entrega. `catalog` está
+// indexado por `ShortCode|Maturity` (contractKey), que es también la clave con la
+// que se cruzan los trades. Devuelve null si no hay contrato elegible ese día.
+export function frontContract(day, catalog, { maxDistanceMonths = Infinity } = {}) {
+  let best = null;
+  for (const [contract, maturity] of catalog) {
+    const distance = monthsToDelivery(day, maturity);
+    if (distance === null || distance <= 0 || distance > maxDistanceMonths) continue;
+    if (best === null || distance < best.distance || (distance === best.distance && maturity < best.maturity)) {
+      best = { contractKey: contract, maturity, distanceMonths: distance };
+    }
+  }
+  return best;
+}
+
+// Catálogo contrato->entrega de una misión tomado de
+// `eex_derivative_reference` (ShortCode/Maturity). Es la fuente del front: NUNCA
+// la presencia de trades (patch 03 §3.4). `cmdty`/`area` rellenan los campos que
+// la tabla de referencia no repita como columna (vienen del filtro hive del
+// escaneo). La clave es `ShortCode|Maturity` para cruzar con los trades, que
+// traen el mismo par aunque no traigan `InstrumentISIN`. Un contrato sin
+// ShortCode o sin Maturity no entra al catálogo.
+//
+// SUPUESTO DECLARADO (falta auditar contra el archivo real): que la tabla de
+// referencia trae `Maturity` y `ShortCode` como columnas. Sólo se verificó
+// `StartDate`/`EndDate`. Si no las trae, el catálogo queda vacío y la medición
+// cae al fallback de trades (declarado, no silencioso) hasta confirmar el
+// esquema real.
+export function referenceCatalogForMission(referenceRows, mission, { cmdty = null, area = null } = {}) {
+  const catalog = new Map();
+  for (const row of referenceRows ?? []) {
+    const classified = classifyMission({
+      Cmdty: row?.Cmdty ?? cmdty,
+      Area: row?.Area ?? area,
+      ShortCode: row?.ShortCode,
+      Maturity: row?.Maturity,
+    });
+    if (classified?.mission !== mission) continue;
+    const contract = contractKey(row);
+    if (!contract) continue;
+    catalog.set(contract, row.Maturity);
+  }
+  return catalog;
+}
+
+// Contratos con trade elegible por día, indexados por `ShortCode|Maturity`. El
+// catálogo del front no sale de aquí; esto sólo dice qué contratos cotizaron
+// cada día.
+function coverageInstrumentsByDay(records, mission) {
+  const instrumentsByDay = new Map();
+  for (const record of records) {
+    if (classifyCoverageRecord(record)?.mission !== mission) continue;
+    const contract = contractKey({ ShortCode: record.shortCode, Maturity: record.maturity });
+    if (!contract) continue;
+    if (!instrumentsByDay.has(record.trdDate)) instrumentsByDay.set(record.trdDate, new Set());
+    instrumentsByDay.get(record.trdDate).add(contract);
+  }
+  return instrumentsByDay;
+}
+
+// Catálogo contrato->entrega derivado de los trades. Sólo se usa como
+// fallback DECLARADO cuando no hay `eex_derivative_reference` disponible; la
+// medición lo marca como `catalogSource: "TRADES_FALLBACK"` para que no se
+// confunda con la medición canónica.
+function tradeCatalogForMission(records, mission) {
+  const catalog = new Map();
+  for (const record of records) {
+    if (classifyCoverageRecord(record)?.mission !== mission) continue;
+    const contract = contractKey({ ShortCode: record.shortCode, Maturity: record.maturity });
+    if (!contract) continue;
+    catalog.set(contract, record.maturity);
+  }
+  return catalog;
+}
+
+// Resuelve el catálogo de una misión: reference si aporta contratos, si no el
+// fallback declarado.
+function catalogForMission({ coverageRecords, referenceRows, referenceArea, mission }) {
+  const referenceCatalog = referenceCatalogForMission(referenceRows, mission, referenceArea ?? {});
+  if (referenceCatalog.size > 0) return { catalog: referenceCatalog, catalogSource: "REFERENCE" };
+  return { catalog: tradeCatalogForMission(coverageRecords, mission), catalogSource: "TRADES_FALLBACK" };
+}
+
+export function densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths = Infinity, catalogSource = null }) {
+  const tradedContracts = new Set();
+  for (const contracts of instrumentsByDay.values()) {
+    for (const contract of contracts) tradedContracts.add(contract);
+  }
+  let catalogTradesOverlap = 0;
+  for (const contract of catalog.keys()) {
+    if (tradedContracts.has(contract)) catalogTradesOverlap += 1;
+  }
+  // Aviso fail-closed: si la misión tiene trades pero NINGÚN contrato del
+  // catálogo del reference coincide con ellos, el catálogo y los trades no están
+  // hablando del mismo contrato (esquema/clave distintos). No se etiqueta como
+  // medición canónica `REFERENCE`; se marca como no coincidente. Si no hay trades
+  // de la misión, no se puede concluir desajuste y `REFERENCE` se conserva.
+  const resolvedCatalogSource =
+    catalogSource === "REFERENCE" && catalog.size > 0 && tradedContracts.size > 0 && catalogTradesOverlap === 0
+      ? "REFERENCE_UNMATCHED_TRADES"
+      : catalogSource;
+  const byYear = new Map();
+  for (const day of calendarDays) {
+    const year = day.slice(0, 4);
+    if (!byYear.has(year)) {
+      byYear.set(year, { year, exchangeDays: 0, daysWithFrontTrade: 0, daysWithoutTrades: 0 });
+    }
+    const entry = byYear.get(year);
+    entry.exchangeDays += 1;
+    const front = frontContract(day, catalog, { maxDistanceMonths });
+    const hasFrontTrade = front !== null && (instrumentsByDay.get(day)?.has(front.contractKey) ?? false);
+    if (hasFrontTrade) entry.daysWithFrontTrade += 1;
+    else entry.daysWithoutTrades += 1;
+  }
+  return {
+    mission,
+    maxDistanceMonths: Number.isFinite(maxDistanceMonths) ? maxDistanceMonths : null,
+    catalogSource: resolvedCatalogSource,
+    catalogTradesOverlap,
+    contractCount: catalog.size,
+    years: [...byYear.values()].map((entry) => ({
+      ...entry,
+      rateOfDaysWithoutTrades: entry.exchangeDays === 0 ? null : entry.daysWithoutTrades / entry.exchangeDays,
+    })),
+  };
+}
+
+// Densidad §0 a partir de los registros de cobertura del agregador (day-local,
+// sin volver a tener las filas crudas en memoria). El catálogo del front sale
+// del reference cuando está disponible (`referenceRows`); sin él queda el
+// fallback declarado.
+export function measurePatch0FromCoverage({
+  coverageRecords,
+  calendars,
+  referenceRows = null,
+  referenceArea = null,
+  maxDistanceMonths = Infinity,
+}) {
+  const results = [];
+  for (const [mission, calendarDays] of Object.entries(calendars ?? {})) {
+    if (!calendarDays || calendarDays.length === 0) continue;
+    const instrumentsByDay = coverageInstrumentsByDay(coverageRecords, mission);
+    const { catalog, catalogSource } = catalogForMission({ coverageRecords, referenceRows, referenceArea, mission });
+    results.push(densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths, catalogSource }));
+  }
+  return results.sort((a, b) => (a.mission < b.mission ? -1 : 1));
+}
+
+// API de prueba: densidad de una misión directamente desde filas crudas.
+export function measurePatch0Density({
+  rows,
+  mission,
+  calendarDays,
+  maxDistanceMonths = Infinity,
+  brokenSpreadPolicy = DEFAULT_BROKEN_SPREAD_POLICY,
+  referenceRows = null,
+  referenceArea = null,
+}) {
+  const eligible = rows.filter(
+    (row) => classifyMission(row)?.mission === mission && isEligibleTrade(row, { brokenSpreadPolicy }),
+  );
+  const coverageRecords = coverageByInstrumentDay(eligible);
+  const instrumentsByDay = coverageInstrumentsByDay(coverageRecords, mission);
+  const { catalog, catalogSource } = catalogForMission({ coverageRecords, referenceRows, referenceArea, mission });
+  return densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths, catalogSource });
+}

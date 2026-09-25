@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import { buildLakeBenchmarkReceipt, rowsArtifactPath, receiptPath } from "../../operations/audit/IMP-05/build-lake-benchmark.mjs";
+import { buildLakeBenchmarkReceipt, rowsArtifactPath, receiptPath, SUPERSEDED_RECEIPT } from "../../operations/audit/IMP-05/build-lake-benchmark.mjs";
 
 // IMP05-SCOPE-01 review 2026-09-23 (§25.2.2 IMP-05: DEP-08/09 son
 // RESOLVES_AUDIT de este IMP): el benchmark se reprodujo proxy-side sobre
@@ -62,4 +62,56 @@ test("IMP-05 lago: reconciliación official fail-closed (P-007): proxy conservad
   assert.equal(committed.reconciliation.proxyPreserved, true, "la vista proxy no se borra por reconciliar");
   assert.deepEqual(Object.keys(committed.engineReceipt).sort(), ["algorithm", "receiptId"], "el motor emite un receipt reproducible de §25.1");
   assert.match(committed.engineReceipt.receiptId, /^[0-9a-f]{64}$/);
+});
+
+test("IMP-05 lago v2: la versión anterior se conserva byte a byte y la v2 la referencia (SPEC §5.3 versiones anteriores)", () => {
+  const previousBytes = readFileSync(new URL(`../../${SUPERSEDED_RECEIPT.path}`, import.meta.url));
+  assert.equal(createHash("sha256").update(previousBytes).digest("hex"), SUPERSEDED_RECEIPT.sha256);
+  assert.deepEqual(committed.supersedes, SUPERSEDED_RECEIPT);
+  const previous = JSON.parse(previousBytes);
+  assert.equal(previous.benchmarkVersion.versionTag, "IMP-05-lake-proxy-eval-1");
+  assert.equal(committed.benchmarkVersion.versionTag, "IMP-05-lake-proxy-eval-2");
+  assert.notEqual(committed.benchmarkVersion.versionId, previous.benchmarkVersion.versionId);
+});
+
+test("IMP-05 lago v2: filas en 17:15:00.xxx ya no entran en la ventana estricta (BT04-C1-PROXY-WINDOW-DEDUP)", () => {
+  const previous = JSON.parse(readFileSync(new URL(`../../${SUPERSEDED_RECEIPT.path}`, import.meta.url)));
+  const byDate = new Map(previous.perDate.map((record) => [record.trdDate, record]));
+  let strictlyFewer = 0;
+  for (const record of committed.perDate) {
+    const before = byDate.get(record.trdDate);
+    assert.ok(record.strictCounts.midpoints <= before.strictCounts.midpoints);
+    if (record.strictCounts.midpoints < before.strictCounts.midpoints) strictlyFewer += 1;
+  }
+  assert.ok(strictlyFewer > 0, "el lago auditado sí tiene observaciones en 17:15:00.xxx");
+});
+
+// BT04-C1-IMP05-DEDUP-NOT-APPLIED (revisión 2026-09-25): el receipt v2 no puede
+// presentarse como corregido si el dedup sigue siendo por tupla. SPEC v1.1.1
+// §5.2 «filas deduplicadas» = misma observación de mercado.
+test("IMP-05 lago v2: el dedup aplicado es por observationKey y coincide con lo declarado", () => {
+  assert.equal(rowsArtifact.dedupRule, "observation-key");
+  for (const dateRecord of rowsArtifact.perDate) {
+    for (const row of dateRecord.rows) {
+      assert.match(row.observationKey, /^[0-9a-f]{64}$/, `${dateRecord.trdDate}: fila sin observationKey cae al dedup por tupla`);
+    }
+  }
+  for (const record of committed.perDate.filter((dateRecord) => dateRecord.defined)) {
+    assert.equal(record.dedupRule, "observationKey", `${record.trdDate}: el motor aplicó ${record.dedupRule}`);
+  }
+});
+
+test("IMP-05 lago v2: misma muestra que v1 y observaciones distintas con igual tupla ya no se funden", () => {
+  const previousRows = JSON.parse(readFileSync(new URL("../../operations/audit/IMP-05/lake-proxy-rows-IMP-05.json", import.meta.url), "utf8"));
+  assert.deepEqual(rowsArtifact.perDate.map((record) => record.trdDate), previousRows.perDate.map((record) => record.trdDate));
+  const tupleOf = (row) => JSON.stringify([row.tmUtc, row.source, row.price, row.bid, row.ask]);
+  let keptDistinct = 0;
+  for (const [index, record] of rowsArtifact.perDate.entries()) {
+    const previousTuples = new Set(previousRows.perDate[index].rows.map(tupleOf));
+    const currentTuples = new Set(record.rows.map(tupleOf));
+    assert.deepEqual([...currentTuples].sort(), [...previousTuples].sort(), "v2 no agrega ni pierde tuplas: sólo deja de fundir");
+    keptDistinct += record.rows.length - currentTuples.size;
+    assert.equal(new Set(record.rows.map((row) => `${row.source}|${row.observationKey}`)).size, record.rows.length);
+  }
+  assert.ok(keptDistinct > 0, "el lago auditado tiene observaciones distintas con la misma tupla");
 });

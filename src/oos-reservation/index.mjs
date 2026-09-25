@@ -35,6 +35,7 @@ export {
   IMP09_ACCEPTANCE_TEST,
   SEALED_OOS_CAMPAIGN_COUNT,
   SEALED_OOS_MIN_CALENDAR_YEARS,
+  TRADES_ACCESS_PURPOSES,
   computeOosSpan,
   contentHashOf,
   evaluateImp09Acceptance,
@@ -43,3 +44,36 @@ export {
   reserveGasQuarterlySealedOos,
   reserveSealedOos,
 } from "./reservation.mjs";
+
+// TR-02: zonas de evidencia y OOS histórico del modo TRADES (patch 03 §4),
+// versión nueva y separada de la reserva IMP-09.
+export {
+  TRADES_DEV_START,
+  TRADES_MISSIONS,
+  TRADES_WINDOW_RULES,
+  canonicalCampaignIdFromLegacy,
+  deadlineFromExchangeDays,
+  legacyMaturityFor,
+  materializeMissionCampaigns,
+  materializeTradesWindows,
+  maturityIndex,
+  monthlyMaturityOfIndex,
+  monthlyWindow,
+  quarterlyMaturityOfIndex,
+  quarterlyWindow,
+} from "./trades-windows.mjs";
+
+export {
+  EVIDENCE_HORIZON_END,
+  FORWARD_STATUS,
+  TRADES_PATCH_IDENTITY,
+  TRADES_ZONES_ACCEPTANCE_TEST,
+  TRADES_ZONES_VERSION,
+  ZONE_BOUNDARIES,
+  ZONES,
+  assignZone,
+  evaluateTradesZonesAcceptance,
+  recordTradesOosAccess,
+  registerTobSeenEpisodes,
+  reserveTradesZones,
+} from "./trades-zones.mjs";

@@ -14,6 +14,7 @@ import path from "node:path";
 import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 import { buildPitManifestFromAudit } from "../pit-views/views.mjs";
 import { backendIndexFromManifest } from "../operator-interface/index.mjs";
+import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../exploratory/reconciliation.mjs";
 
 export const TEMPORAL_MANIFEST_RECEIPT = "operations/receipts/IMP-03-IMP_RECEIPT.json";
 export const TEMPORAL_MANIFEST_PATH = "operations/audit/IMP-03/temporal-manifest.json";
@@ -41,14 +42,17 @@ function temporalManifestRef(repoRoot) {
   return { path: entry.path, sha256: entry.sha256 };
 }
 
-export const EXPLORATORY_MANIFEST_PATH = "operations/exploratory/MANIFEST.json";
-export const BT02_MANIFEST_PATH = "operations/exploratory/reconciled-results-BT-02.MANIFEST.json";
-const BT02_EXPECTED_OUTPUT = "operations/exploratory/reconciled-results-BT-02.json";
+// La UI muestra sólo la versión vigente del backend (BT02_CURRENT_RELEASE); las
+// anteriores se conservan en disco pero no se consumen (BT-04, 2026-09-25).
+const BT02_RELEASE = BT02_RELEASES[BT02_CURRENT_RELEASE];
+export const EXPLORATORY_MANIFEST_PATH = BT02_RELEASE.exploratoryManifest;
+export const BT02_MANIFEST_PATH = BT02_RELEASE.manifest;
+const BT02_EXPECTED_OUTPUT = BT02_RELEASE.artifact;
 const BT02_EXPECTED_INPUTS = Object.freeze({
-  exploratoryResults: "operations/exploratory/backtest-results.json",
-  exploratoryManifest: "operations/exploratory/MANIFEST.json",
-  bt01Benchmark: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
-  bt01Manifest: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+  exploratoryResults: BT02_RELEASE.exploratoryResults,
+  exploratoryManifest: BT02_RELEASE.exploratoryManifest,
+  bt01Benchmark: BT02_RELEASE.bt01Benchmark,
+  bt01Manifest: BT02_RELEASE.bt01Manifest,
 });
 
 const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");

@@ -1,0 +1,31 @@
+{
+ "artifactKind": "EXPLORATORY_BACKTEST_MANIFEST",
+ "status": "EXPLORATORY",
+ "ownerPatch": "EM-SPEC-OWNER-PATCH-2026-09-24-02",
+ "results": {
+  "path": "operations/exploratory/v2/backtest-results.json",
+  "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8"
+ },
+ "slots": {
+  "path": "operations/exploratory/v2/tob-slots-the-gas.json",
+  "sha256": "55a6dd6ca9445ae87382380f81b8e442ca1550793020777b5a99d17774f4f012"
+ },
+ "generators": [
+  {
+   "path": "operations/exploratory/v2/build_tob_slots.py",
+   "sha256": "d7a7b99f193fbc8fccbccc8420387d23f310f05298f8a77062450362912b9116"
+  },
+  {
+   "path": "operations/exploratory/v2/run-exploratory-backtest.mjs",
+   "sha256": "f2be9d496546ad0733cd32a322813e7993b37ac8ff37650370118e247ee7410c"
+  },
+  {
+   "path": "src/exploratory/backtest.mjs",
+   "sha256": "7ba8860d53cc879f8719c32eb91777cce20d04c952cfd50a3531cb966b26e1d0"
+  },
+  {
+   "path": "src/exploratory/comparison.mjs",
+   "sha256": "ab09f7cefba71b6d9a5f94b7e0c81f141bf4083ea7e78513a4ceb3eafd0715fc"
+  }
+ ]
+}

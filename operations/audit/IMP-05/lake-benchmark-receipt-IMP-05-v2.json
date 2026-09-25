@@ -1,0 +1,274 @@
+{
+  "artifactKind": "IMP-05_LAKE_PROXY_BENCHMARK_RECEIPT",
+  "schemaVersion": "1.0",
+  "benchmarkKind": "proxy-side provisional sobre fechas auditadas del lago",
+  "declaracion": {
+    "unexplainedInputs": "ningún dato inventado: filas reales del lago auditado (IMP-03 ST-03.2) con reglas declaradas en el artefacto de extracción",
+    "contratoCampana": "NO resuelto: DEP-01/03 DOCUMENTED_ABSENCE; la regla de contrato por fecha es provisional y declarada",
+    "estadoOficial": "reference.read.official BLOQUEADA (BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE); P-007: no hay feed Fundamental adicional"
+  },
+  "supersedes": {
+    "path": "operations/audit/IMP-05/lake-benchmark-receipt-IMP-05.json",
+    "sha256": "d977288890d2589d93521b5576969fd7e693e13c3e56639794071019c7f63283",
+    "reason": "v1 truncaba Tm a segundos enteros (17:15:00.xxx entraba en la ventana estricta 17:00–17:15) y deduplicaba por tupla (Tm, precio, bid, ask), fundiendo trades distintos (BT04-C1-PROXY-WINDOW-DEDUP, BT04-C1-IMP05-DEDUP-NOT-APPLIED)"
+  },
+  "rowsArtifact": {
+    "path": "operations/audit/IMP-05/lake-proxy-rows-IMP-05-v2.json",
+    "sha256": "484c51859f235fd22a658bc5cec91eef1131cc13b70a70e7c0498265a66fe440",
+    "auditedDates": [
+      "2026-07-28",
+      "2026-07-27",
+      "2026-07-24",
+      "2026-07-23",
+      "2026-07-22"
+    ]
+  },
+  "perDate": [
+    {
+      "trdDate": "2026-07-28",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 14,
+        "trade": 0
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 1
+      },
+      "fallbackCounts": {
+        "trades": 0,
+        "midpoints": 10
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 58.5925,
+      "defined": true,
+      "dedupRule": "observationKey",
+      "exclusionCount": 3
+    },
+    {
+      "trdDate": "2026-07-27",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 19187,
+        "trade": 0
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 3205
+      },
+      "fallbackCounts": {
+        "trades": 0,
+        "midpoints": 11100
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 59.061114664586846,
+      "defined": true,
+      "dedupRule": "observationKey",
+      "exclusionCount": 4479
+    },
+    {
+      "trdDate": "2026-07-24",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 23006,
+        "trade": 0
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 3618
+      },
+      "fallbackCounts": {
+        "trades": 0,
+        "midpoints": 14366
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 64.33471807628534,
+      "defined": true,
+      "dedupRule": "observationKey",
+      "exclusionCount": 4894
+    },
+    {
+      "trdDate": "2026-07-23",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 24266,
+        "trade": 3
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 2266
+      },
+      "fallbackCounts": {
+        "trades": 3,
+        "midpoints": 16819
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 62.69907656663728,
+      "defined": true,
+      "dedupRule": "observationKey",
+      "exclusionCount": 6438
+    },
+    {
+      "trdDate": "2026-07-22",
+      "contract": {
+        "instrument": "DE000C28QDW6",
+        "expiryDate": "2026-09-28",
+        "displayName": "G0BQ Q4-26"
+      },
+      "rowCounts": {
+        "top_of_book": 21990,
+        "trade": 3
+      },
+      "strictCounts": {
+        "trades": 0,
+        "midpoints": 2871
+      },
+      "fallbackCounts": {
+        "trades": 3,
+        "midpoints": 13107
+      },
+      "windowUsed": "strict",
+      "fallbackUsed": false,
+      "sourceLabel": "midpoints-only",
+      "dailyReference": 63.156832985022504,
+      "defined": true,
+      "dedupRule": "observationKey",
+      "exclusionCount": 5540
+    }
+  ],
+  "benchmark": {
+    "B": 61.56884845850639,
+    "count": 5,
+    "sum": 307.84424229253193,
+    "coverage": "5/5",
+    "expectedDatesCount": 5,
+    "dailyWeight": "igual peso por fecha (§5.3)"
+  },
+  "calendarMissingDates": [],
+  "provisionalStatus": {
+    "status": "BENCHMARK_PROVISIONAL",
+    "BENCHMARK_PROVISIONAL": true,
+    "officialDates": 0,
+    "nonOfficialDates": 5
+  },
+  "benchmarkVersion": {
+    "versionId": "bac0fd34476caec624af540ca77a79ae6f812dbe125b07b1c4a6bb9756dd558f",
+    "versionTag": "IMP-05-lake-proxy-eval-2",
+    "algorithm": "sha256(canonicalJson(computation))"
+  },
+  "reconciliation": {
+    "dates": [
+      {
+        "date": "2026-07-22",
+        "official": null,
+        "proxy": 63.156832985022504,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-23",
+        "official": null,
+        "proxy": 62.69907656663728,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-24",
+        "official": null,
+        "proxy": 64.33471807628534,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-27",
+        "official": null,
+        "proxy": 59.061114664586846,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      },
+      {
+        "date": "2026-07-28",
+        "official": null,
+        "proxy": 58.5925,
+        "delta": null,
+        "status": "proxy-only-pending-official",
+        "officialProvenance": null,
+        "proxyProvenance": {
+          "source": "proxy:midpoints-only",
+          "providerTimestamp": null,
+          "rowHash": null
+        }
+      }
+    ],
+    "N": 0,
+    "sumDelta": null,
+    "meanDelta": null,
+    "officialMinusProxy": null,
+    "setEqual": false,
+    "equalityComparable": false,
+    "officialOnlyDates": [],
+    "proxyOnlyDates": [
+      "2026-07-22",
+      "2026-07-23",
+      "2026-07-24",
+      "2026-07-27",
+      "2026-07-28"
+    ],
+    "missingBothDates": [],
+    "proxyPreserved": true,
+    "equivalent": false,
+    "equivalentReason": "Los conjuntos de fechas difieren: la fórmula §5.4 exige N fechas sin cambios."
+  },
+  "engineReceipt": {
+    "receiptId": "3fa3122838de2eb72c6033773e8b9c7cdefe50e84cfddc390146e1800e29a0c3",
+    "algorithm": "sha256(canonicalJson(core))"
+  }
+}

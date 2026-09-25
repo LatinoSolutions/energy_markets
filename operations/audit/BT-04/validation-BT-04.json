@@ -1,0 +1,301 @@
+{
+  "target": "v1",
+  "artifactKind": "BT-04_VALIDATION",
+  "schemaVersion": "1.0",
+  "status": "BENCHMARK_PROVISIONAL",
+  "inputs": {
+    "independent": {
+      "path": "operations/audit/BT-04/independent-check-BT-04.json",
+      "sha256": "2eede663450892e68928581114f3c5497a612526d3df6a21a3127ccf8b4f317d",
+      "lakeFilesBoundToBt01Manifest": 669
+    },
+    "bt01": {
+      "path": "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
+      "sha256": "0439394e39ece36d1e9308e1dbe077097c1099c4e92273b48f543699167936ea"
+    },
+    "bt01Manifest": {
+      "path": "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+      "sha256": "254d9743efe83d6b36478e20afcacdda5f54f1b21b407399a9ac59b3c91ed1f6"
+    },
+    "bt02": {
+      "path": "operations/exploratory/reconciled-results-BT-02.json",
+      "sha256": "1fabd09b4e268dc1890dda8ab13bb4c12dfcdbe676b5d532d5f07a53019cb8bb"
+    },
+    "bt02Manifest": {
+      "path": "operations/exploratory/reconciled-results-BT-02.MANIFEST.json",
+      "sha256": "97e9d112e53fc56a9e6b9783d88d067683130d56ca598c05c1e05e44727d3042"
+    },
+    "exploratoryResults": {
+      "path": "operations/exploratory/backtest-results.json",
+      "sha256": "ce51969129b44464324276f66ec76f969710628ea32143f522e6ff94d7df44a9"
+    },
+    "calendar": {
+      "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
+      "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5"
+    }
+  },
+  "tolerances": {
+    "floatNoise": 1e-9,
+    "attributedBenchmarkBound": 0.0001
+  },
+  "causes": {
+    "BT01_PROXY_IMPLEMENTATION_CHOICES": "BT-01 proxy truncates Berlin time to whole seconds (17:15:00.xxx counts as inside the strict window) and deduplicates on (Tm, price, bid, ask) only, collapsing distinct market rows. Reproduced: rerunning the independent formula with those two choices matches BT-01 per date within 1e-9.",
+    "TOB_SAME_TM_TIE_BY_ROW_ORDER": "Several TOB rows (EXPLICIT / IMPLIED) share the latest Tm before 11:00; build_tob_slots.py keeps the last row in file order instead of the best (lowest) ask required by client execution_and_costs.md §1 step 2."
+  },
+  "campaigns": [
+    {
+      "campaignKey": "G0BQ-202601",
+      "benchmark": {
+        "bt01B": 33.399354559943454,
+        "independentB": 33.399339727117464,
+        "difference": -0.000014832825989685716,
+        "coverage": {
+          "bt01": "65/65",
+          "independent": "65/65"
+        },
+        "missingDates": {
+          "bt01": [],
+          "independent": []
+        },
+        "definitionMismatches": [],
+        "aggregateHolds": {
+          "independent": true,
+          "bt01": true
+        },
+        "bt02BenchmarkMismatches": [],
+        "bt01EmulationMaxPerDateDiff": 1.1723955140041653e-12,
+        "verdict": "ATTRIBUTED_DIFFERENCE",
+        "cause": "BT01_PROXY_IMPLEMENTATION_CHOICES",
+        "status": "BENCHMARK_PROVISIONAL"
+      },
+      "ledgerArms": [
+        {
+          "armId": "BASELINE",
+          "fillModel": "CLIENT",
+          "fills": 60,
+          "fillsMatched": 59,
+          "mismatchedFills": [
+            {
+              "day": "2025-11-25",
+              "filledMw": 1,
+              "quoteTm": "2025-11-25T09:59:50.50498Z",
+              "ledgerAsk": 31.475,
+              "bestAskAtTm": 31.33,
+              "distinctAsksAtTm": [
+                31.33,
+                31.475
+              ],
+              "cause": "TOB_SAME_TM_TIE_BY_ROW_ORDER"
+            }
+          ],
+          "bt02H": 33.539,
+          "independentH": 33.53658333333333,
+          "hDifference": 0.002416666666668732,
+          "ledgerH": 33.539,
+          "bt02HFromLedgerFills": true,
+          "bt02V": -0.13964544005654744,
+          "independentV": -0.1372436062158684,
+          "vDifference": -0.0024018338406790463,
+          "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "ATTRIBUTED_DIFFERENCE"
+        },
+        {
+          "armId": "ARM_A",
+          "fillModel": "CLIENT",
+          "fills": 5,
+          "fillsMatched": 5,
+          "mismatchedFills": [],
+          "bt02H": 34.635999999999996,
+          "independentH": 34.635999999999996,
+          "hDifference": 0,
+          "ledgerH": 34.635999999999996,
+          "bt02HFromLedgerFills": true,
+          "bt02V": -1.2366454400565416,
+          "independentV": -1.2366602728825313,
+          "vDifference": 0.000014832825989685716,
+          "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        }
+      ],
+      "deltaV_ARM_A_vs_BASELINE": {
+        "bt02": -1.0969999999999942,
+        "independent": -1.099416666666663,
+        "difference": 0.002416666666668732,
+        "differenceCarriedByH": 0.002416666666668732,
+        "bt02Coherent": true,
+        "independentCoherent": true,
+        "verdict": "ATTRIBUTED_DIFFERENCE"
+      },
+      "arithmeticArms": [
+        {
+          "armId": "ARM_B",
+          "fillModel": "CLIENT",
+          "check": "ARITHMETIC_ONLY_NO_LEDGER",
+          "vStatus": "PROVISIONAL",
+          "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        },
+        {
+          "armId": "BASELINE@DEPTH",
+          "fillModel": "DEPTH",
+          "check": "ARITHMETIC_ONLY_NO_LEDGER",
+          "vStatus": "PROVISIONAL",
+          "deltaVStatus": "NOT_APPLICABLE",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        },
+        {
+          "armId": "ARM_A@DEPTH",
+          "fillModel": "DEPTH",
+          "check": "ARITHMETIC_ONLY_NO_LEDGER",
+          "vStatus": "PROVISIONAL",
+          "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        }
+      ],
+      "failClosed": {
+        "benchmarkStatus": "BENCHMARK_PROVISIONAL",
+        "officialEquivalent": false,
+        "fees": {
+          "status": "UNKNOWN",
+          "included": false
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202510",
+      "benchmark": {
+        "bt01B": 33.12251193519653,
+        "independentB": 33.12252513086576,
+        "difference": 0.000013195669232857199,
+        "coverage": {
+          "bt01": "21/22",
+          "independent": "21/22"
+        },
+        "missingDates": {
+          "bt01": [
+            "2025-09-30"
+          ],
+          "independent": [
+            "2025-09-30"
+          ]
+        },
+        "definitionMismatches": [],
+        "aggregateHolds": {
+          "independent": true,
+          "bt01": true
+        },
+        "bt02BenchmarkMismatches": [],
+        "bt01EmulationMaxPerDateDiff": 1.7053025658242404e-13,
+        "verdict": "ATTRIBUTED_DIFFERENCE",
+        "cause": "BT01_PROXY_IMPLEMENTATION_CHOICES",
+        "status": "BENCHMARK_PROVISIONAL"
+      },
+      "ledgerArms": [
+        {
+          "armId": "BASELINE",
+          "fillModel": "CLIENT",
+          "fills": 10,
+          "fillsMatched": 10,
+          "mismatchedFills": [],
+          "bt02H": 33.1625,
+          "independentH": 33.1625,
+          "hDifference": 0,
+          "ledgerH": 33.1625,
+          "bt02HFromLedgerFills": true,
+          "bt02V": -0.03998806480347383,
+          "independentV": -0.039974869134240976,
+          "vDifference": -0.000013195669232857199,
+          "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        },
+        {
+          "armId": "ARM_A",
+          "fillModel": "CLIENT",
+          "fills": 1,
+          "fillsMatched": 1,
+          "mismatchedFills": [],
+          "bt02H": 33.199999999999996,
+          "independentH": 33.199999999999996,
+          "hDifference": 0,
+          "ledgerH": 33.199999999999996,
+          "bt02HFromLedgerFills": true,
+          "bt02V": -0.07748806480346815,
+          "independentV": -0.07747486913423529,
+          "vDifference": -0.000013195669232857199,
+          "vStatus": "PROVISIONAL",
+          "bt02VCoherent": true,
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        }
+      ],
+      "deltaV_ARM_A_vs_BASELINE": {
+        "bt02": -0.037499999999994316,
+        "independent": -0.037499999999994316,
+        "difference": 0,
+        "differenceCarriedByH": 0,
+        "bt02Coherent": true,
+        "independentCoherent": true,
+        "verdict": "MATCH"
+      },
+      "arithmeticArms": [
+        {
+          "armId": "ARM_B",
+          "fillModel": "CLIENT",
+          "check": "ARITHMETIC_ONLY_NO_LEDGER",
+          "vStatus": "PROVISIONAL",
+          "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        },
+        {
+          "armId": "BASELINE@DEPTH",
+          "fillModel": "DEPTH",
+          "check": "ARITHMETIC_ONLY_NO_LEDGER",
+          "vStatus": "PROVISIONAL",
+          "deltaVStatus": "NOT_APPLICABLE",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        },
+        {
+          "armId": "ARM_A@DEPTH",
+          "fillModel": "DEPTH",
+          "check": "ARITHMETIC_ONLY_NO_LEDGER",
+          "vStatus": "PROVISIONAL",
+          "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
+          "verdict": "MATCH"
+        }
+      ],
+      "failClosed": {
+        "benchmarkStatus": "BENCHMARK_PROVISIONAL",
+        "officialEquivalent": false,
+        "fees": {
+          "status": "UNKNOWN",
+          "included": false
+        }
+      }
+    }
+  ],
+  "failClosedHolds": true,
+  "unexplained": 0,
+  "verdict": "PASS_WITH_ATTRIBUTED_DIFFERENCES"
+}

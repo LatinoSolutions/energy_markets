@@ -20,12 +20,25 @@ Solo lectura del lago. El unico archivo escrito es el artefacto JSON del
 workspace. Cada fila conserva fuente (tabla), tmUtc, precio/bid/ask y
 _row_sha256; el dedup es exacto y determinista (orden de lectura fijo).
 
-Uso:  python3 extract-lake-proxy-rows.py [--check]
+Releases (BT04-C1-IMP05-DEDUP-NOT-APPLIED, 2026-09-25):
+- v1 -> lake-proxy-rows-IMP-05.json: dedup por tupla (tmUtc, source, price,
+  bid, ask); funde trades distintos con igual Tm y precio. Se conserva y sigue
+  regenerable con --release v1.
+- v2 -> lake-proxy-rows-IMP-05-v2.json: mismas fechas auditadas que v1 (la
+  muestra no se mueve con el lago); cada fila lleva `observationKey` = sha256 de
+  todas las columnas de mercado (no `_`), la misma regla que BT-01 v2
+  (operations/audit/BT-01/extract-campaign-proxy-rows.py), y el dedup es por
+  (source, observationKey): SPEC v1.1.1 §5.2 «filas deduplicadas» = misma
+  observacion, no misma tupla. `_row_sha256` no sirve: la misma observacion en
+  otro pull trae otro hash.
+
+Uso:  python3 extract-lake-proxy-rows.py [--release v1|v2] [--check]
 """
 
 import argparse
 import datetime as dt
 import glob
+import hashlib
 import json
 import os
 from zoneinfo import ZoneInfo
@@ -42,7 +55,11 @@ AUDITED_DATES_COUNT = 5
 LOCAL_START_SECONDS = 15 * 3600 + 45 * 60
 LOCAL_END_SECONDS = 18 * 3600 + 45 * 60
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_PATH = os.path.join(HERE, "lake-proxy-rows-IMP-05.json")
+RELEASES = {
+    "v1": {"output": os.path.join(HERE, "lake-proxy-rows-IMP-05.json"), "dedupRule": "content-tuple"},
+    "v2": {"output": os.path.join(HERE, "lake-proxy-rows-IMP-05-v2.json"), "dedupRule": "observation-key"},
+}
+V1_ROWS_PATH = RELEASES["v1"]["output"]
 
 
 def available_dates(table):
@@ -52,6 +69,11 @@ def available_dates(table):
         for entry in os.listdir(base)
         if entry.startswith("trd_date=")
     )
+
+
+def pinned_v1_dates():
+    with open(V1_ROWS_PATH, encoding="utf-8") as handle:
+        return [record["trdDate"] for record in json.load(handle)["perDate"]]
 
 
 def select_dates():
@@ -136,7 +158,19 @@ def choose_contract(trd_date, files_by_table):
     return contract, identity_columns_complete
 
 
-def lake_row(table, row):
+def observation_key(row):
+    market = sorted((name, value) for name, value in row.items() if not name.startswith("_"))
+    return hashlib.sha256(json.dumps(market, default=str, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+
+def lake_row(table, row, release):
+    entry = lake_row_v1(table, row)
+    if release == "v2":
+        entry["observationKey"] = observation_key(row)
+    return entry
+
+
+def lake_row_v1(table, row):
     if table == TOB_TABLE:
         return {
             "source": TOB_TABLE,
@@ -156,7 +190,13 @@ def lake_row(table, row):
     }
 
 
-def extract_date(trd_date):
+def dedup_key(entry, release):
+    if release == "v2":
+        return (entry["source"], entry["observationKey"])
+    return (entry["tmUtc"], entry["source"], entry["price"], entry["bid"], entry["ask"])
+
+
+def extract_date(trd_date, release):
     files_by_table = {table: list_files(table, trd_date) for table in TABLES}
     contract, identity_complete = choose_contract(trd_date, files_by_table)
     record = {
@@ -193,7 +233,7 @@ def extract_date(trd_date):
                 if seconds is None or seconds < LOCAL_START_SECONDS or seconds > LOCAL_END_SECONDS:
                     outside_window_rows += 1
                     continue
-                candidates.append(lake_row(table, row))
+                candidates.append(lake_row(table, row, release))
                 extracted += 1
         record["sourceCounts"][table] = {
             "files": len(files_by_table[table]),
@@ -207,11 +247,12 @@ def extract_date(trd_date):
         str(entry["bid"]),
         str(entry["ask"]),
         str(entry["rowHash"]),
+        entry.get("observationKey", ""),
     ))
     deduplicated = []
     seen = set()
     for entry in candidates:
-        key = (entry["tmUtc"], entry["source"], entry["price"], entry["bid"], entry["ask"])
+        key = dedup_key(entry, release)
         if key in seen:
             continue
         seen.add(key)
@@ -232,10 +273,10 @@ def lake_state():
     return state
 
 
-def build_artifact():
-    audited_dates = select_dates()
-    per_date = [extract_date(date) for date in audited_dates]
-    return {
+def build_artifact(release):
+    audited_dates = select_dates() if release == "v1" else pinned_v1_dates()
+    per_date = [extract_date(date, release) for date in audited_dates]
+    artifact = {
         "artifactKind": "IMP-05_LAKE_PROXY_ROWS",
         "schemaVersion": "1.0",
         "generatedAtUtc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -250,31 +291,39 @@ def build_artifact():
         "lakeState": lake_state(),
         "perDate": per_date,
     }
+    if release == "v2":
+        artifact["methodologyVersion"] = 2
+        artifact["dedupRule"] = RELEASES["v2"]["dedupRule"]
+        artifact["declaration"]["dateRule"] = "las mismas fechas auditadas que lake-proxy-rows-IMP-05.json (v1); la muestra no se mueve con el lago"
+        artifact["declaration"]["dedupRule"] = "(source, observationKey); observationKey = sha256 de todas las columnas de mercado (no `_`), misma regla que BT-01 v2 (SPEC v1.1.1 §5.2 «filas deduplicadas»)"
+    return artifact
 
 
 def serialize(artifact):
     return json.dumps(artifact, indent=2, ensure_ascii=False) + "\n"
 
 
-def load_existing():
-    if not os.path.exists(OUTPUT_PATH):
+def load_existing(output_path):
+    if not os.path.exists(output_path):
         return None
-    with open(OUTPUT_PATH, encoding="utf-8") as handle:
+    with open(output_path, encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Extraccion read-only G0BQ para IMP-05")
+    parser.add_argument("--release", choices=sorted(RELEASES), default="v2")
     parser.add_argument("--check", action="store_true", help="regenera y compara con el artefacto existente, sin escribir")
     arguments = parser.parse_args()
 
-    artifact = build_artifact()
+    output_path = RELEASES[arguments.release]["output"]
+    artifact = build_artifact(arguments.release)
     # El timestamp de extraccion es del momento de la corrida: para --check se
     # excluye; el contenido factual se compara completo.
     if arguments.check:
-        existing = load_existing()
+        existing = load_existing(output_path)
         if existing is None:
-            print(f"--check: no existe artefacto en {OUTPUT_PATH}")
+            print(f"--check: no existe artefacto en {output_path}")
             return 1
         comparison_now = dict(artifact)
         stored = dict(existing)
@@ -286,10 +335,10 @@ def main():
         print("--check: el artefacto guardado reproduce el estado actual del lago")
         return 0
 
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as handle:
+    with open(output_path, "w", encoding="utf-8") as handle:
         handle.write(serialize(artifact))
     rows_total = sum(len(record["rows"]) for record in artifact["perDate"] if record.get("contract"))
-    print(f"Artefacto escrito: {OUTPUT_PATH} (fechas={len(artifact['perDate'])}, filas={rows_total})")
+    print(f"Artefacto escrito: {output_path} (fechas={len(artifact['perDate'])}, filas={rows_total})")
     return 0
 
 

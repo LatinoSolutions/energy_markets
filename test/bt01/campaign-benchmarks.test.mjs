@@ -10,6 +10,7 @@ import {
   rowsArtifactPath,
   artifactPath,
   manifestPath,
+  VERSIONS,
 } from "../../operations/audit/BT-01/build-campaign-benchmarks.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -265,4 +266,63 @@ test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inp
       }
     }
   }
+});
+
+test("BT-01 v2 worker: dedup por observationKey y ventana con fracción de segundo (BT04-C1-PROXY-WINDOW-DEDUP)", () => {
+  const row = (over) => ({ instrument: "ISIN-1", instrumentType: "Simple Instrument", trdDate: "2025-09-01", bid: null, ask: null, ...over });
+  const input = {
+    campaignKey: "G0BQ-202601",
+    trdDate: "2025-09-01",
+    sourceCounts: {},
+    sourceFiles: [],
+    rows: [
+      // Dos trades distintos (TrdID distinto) con igual Tm y precio: los dos cuentan.
+      row({ tmUtc: "2025-09-01T15:05:00.1Z", price: 40, rowHash: "r1", observationKey: "trade-A" }),
+      row({ tmUtc: "2025-09-01T15:05:00.1Z", price: 40, rowHash: "r2", observationKey: "trade-B" }),
+      // Re-pull de trade-A con otro _row_sha256: es la misma observación.
+      row({ tmUtc: "2025-09-01T15:05:00.1Z", price: 40, rowHash: "r3", observationKey: "trade-A" }),
+      row({ tmUtc: "2025-09-01T15:10:00Z", price: 70, rowHash: "r4", observationKey: "trade-C" }),
+      // 17:15:00.0004 CEST queda fuera de 17:00–17:15.
+      row({ tmUtc: "2025-09-01T15:15:00.000400Z", price: 1000, rowHash: "r5", observationKey: "trade-D" }),
+    ],
+  };
+  const workerPath = new URL("../../operations/audit/BT-01/calculate-campaign-daily-proxies.mjs", import.meta.url);
+  const result = spawnSync("node", [workerPath.pathname], { input: `${JSON.stringify(input)}\n`, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  const daily = JSON.parse(result.stdout);
+  assert.deepEqual(daily.strictCounts, { trades: 3, midpoints: 0 });
+  assert.equal(daily.dailyReference, 50);
+});
+
+test("BT-01 v1 se conserva reproducible y v2 lo referencia por hash", () => {
+  const v1Bytes = readFileSync(new URL(`../../${VERSIONS.v1.artifact}`, import.meta.url));
+  const v2 = JSON.parse(readFileSync(new URL(`../../${VERSIONS.v2.artifact}`, import.meta.url)));
+  assert.deepEqual(v2.supersedes.path, VERSIONS.v1.artifact);
+  assert.equal(v2.supersedes.sha256, sha256(v1Bytes));
+  assert.equal(v2.methodologyVersion, 2);
+  for (const campaign of v2.campaigns) assert.equal(campaign.benchmarkVersion.versionTag, "BT-01-IMP-05-campaign-proxy-2");
+  const v2Manifest = JSON.parse(readFileSync(new URL(`../../${VERSIONS.v2.manifest}`, import.meta.url)));
+  assert.equal(v2Manifest.artifact.path, VERSIONS.v2.artifact);
+  assert.deepEqual(v2Manifest.supersedes, v2.supersedes);
+});
+
+test("BT-01 v2 artifact y manifest reales son reproducibles desde su extracción v2", () => {
+  const release = VERSIONS.v2;
+  const rowsBytes = readFileSync(new URL(`../../${release.rowsArtifact}`, import.meta.url));
+  const rowsArtifact = JSON.parse(rowsBytes);
+  assert.equal(rowsArtifact.methodologyVersion, 2);
+  assert.equal(rowsArtifact.campaignPopulation.path, "operations/exploratory/v2/backtest-results.json");
+  const calendarBytes = readFileSync(new URL("../../operations/audit/IMP-09/eex-exchange-calendar.json", import.meta.url));
+  const artifact = buildCampaignBenchmarkArtifact({
+    rowsArtifact,
+    rowsArtifactSha256: sha256(rowsBytes),
+    exchangeDays: JSON.parse(calendarBytes).exchangeDays,
+    calendarSha256: sha256(calendarBytes),
+    release,
+    supersededSha256: sha256(readFileSync(new URL(`../../${release.supersedes}`, import.meta.url))),
+  });
+  const artifactBytes = Buffer.from(`${JSON.stringify(artifact, null, 2)}\n`);
+  assert.deepEqual(artifactBytes, readFileSync(new URL(`../../${release.artifact}`, import.meta.url)));
+  const manifest = buildCampaignBenchmarkManifest({ artifact, artifactSha256: sha256(artifactBytes), rowsArtifact, rowsArtifactSha256: sha256(rowsBytes), release });
+  assert.deepEqual(Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`), readFileSync(new URL(`../../${release.manifest}`, import.meta.url)));
 });
