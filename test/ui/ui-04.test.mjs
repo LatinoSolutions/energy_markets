@@ -76,7 +76,8 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
   assert.match(html, /data-exploratory="true"/);
   assert.match(html, /EXPLORATORY/);
   // Los paneles del mockup se llenan con la comparación: brazos, efecto emparejado, distribuciones.
-  assert.equal((html.match(/data-arm="(BASELINE|ARM_A|ARM_B)"/g) ?? []).length, 3 * Object.keys(canonical.inputs.exploratoryBacktest.results.comparison).length);
+  const exploratoryHtml = html.slice(0, html.indexOf('data-kind="backend-measurements"'));
+  assert.equal((exploratoryHtml.match(/data-arm="(BASELINE|ARM_A|ARM_B)"/g) ?? []).length, 3 * Object.keys(canonical.inputs.exploratoryBacktest.results.comparison).length);
   assert.doesNotMatch(html, /not produced by a canonical producer · not zero/);
   assert.equal((html.match(/data-status="EXPLORATORY" data-product=/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.results.length);
 });

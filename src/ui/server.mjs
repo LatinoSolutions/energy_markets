@@ -85,6 +85,7 @@ function pickInputs(inputs) {
     backendIndex: inputs?.backendIndex ?? null,
     backtestsRows: Array.isArray(inputs?.backtestsRows) ? inputs.backtestsRows : [],
     exploratoryBacktest: inputs?.exploratoryBacktest ?? null,
+    backtestReadiness: inputs?.backtestReadiness ?? null,
     researchRecords: Array.isArray(inputs?.researchRecords) ? inputs.researchRecords : [],
     campaigns: campaignInput("campaigns"),
     runs: campaignInput("runs"),
@@ -98,7 +99,7 @@ export function buildUiViewModels(inputs = {}) {
   const pouring = pickInputs(inputs);
   return {
     [SURFACES.REPLAY]: { ...buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
-    [SURFACES.BACKTESTS]: buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest }),
+    [SURFACES.BACKTESTS]: buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest, backtestReadiness: pouring.backtestReadiness }),
     [SURFACES.RESEARCH]: { ...buildResearchViewModel({ backendIndex: pouring.backendIndex, records: pouring.researchRecords }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
     [SURFACES.CAMPAIGNS]: { ...buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
   };
