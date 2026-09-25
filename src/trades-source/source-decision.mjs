@@ -18,6 +18,20 @@ export const SOURCE_IDS = Object.freeze({
   CLIENT_SEALED_ARCHIVE: "CLIENT_SEALED_ARCHIVE",
 });
 
+// Patch 03 §3.1: la política de inclusión de broken spread se mide sobre la
+// historia completa y se congela en TR-04. El escaneo de TR-01 puede reportarla
+// en `measurements.brokenSpreadPolicy.value`; mientras no exista, el artefacto
+// declara explícitamente que sigue pending (nunca la inventa). El freeze de TR-04
+// toma la política de la medición del puente (TR-03) y contrasta esta decisión
+// con ella: si difieren, queda HOLD por inconsistencia.
+const DECLARED_BROKEN_SPREAD_POLICIES = Object.freeze(["INCLUDE", "EXCLUDE"]);
+const PENDING_BROKEN_SPREAD_POLICY = "PENDING_MEASUREMENT; se congela en TR-04";
+
+function resolvedBrokenSpreadPolicy(measurements) {
+  const measured = measurements?.brokenSpreadPolicy?.value ?? null;
+  return DECLARED_BROKEN_SPREAD_POLICIES.includes(measured) ? measured : PENDING_BROKEN_SPREAD_POLICY;
+}
+
 export const SOURCE_DECISION_STATUS = Object.freeze({
   PENDING_ARCHIVE_VERIFICATION: "PENDING_ARCHIVE_VERIFICATION",
   DECIDED: "DECIDED",
@@ -116,7 +130,7 @@ export function buildDataSourceDecision({
     decidedBy,
     decidedAtUtc,
     eligibilityRule: "OWNER_PATCH_TRADES_MODE_2026-09-25.md §3.1",
-    brokenSpreadPolicy: "PENDING_MEASUREMENT; se congela en TR-04",
+    brokenSpreadPolicy: resolvedBrokenSpreadPolicy(measurements),
     dedupRule: "sha256 de todas las columnas de mercado (no `_`); misma convención que IMP-05 v2 / BT-01 v2",
     deleteTmSemantics: "deletion-time (medido en TR-01)",
     measurements: measurements ?? null,
