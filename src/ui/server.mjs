@@ -39,6 +39,7 @@ import {
   SURFACES_LIST,
 } from "./view-models.mjs";
 import { renderNavigationPage, renderSurfacePage } from "./render.mjs";
+import { observationFor, TRADES_MISSION_IDS } from "./trades-panels.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
 import { backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath } from "../backtest-jobs/http.mjs";
 import { withBacktestJobControl } from "./backtest-job-panel.mjs";
@@ -90,6 +91,7 @@ function pickInputs(inputs) {
     researchRecords: Array.isArray(inputs?.researchRecords) ? inputs.researchRecords : [],
     campaigns: campaignInput("campaigns"),
     runs: campaignInput("runs"),
+    tradesPanels: inputs?.tradesPanels ?? null,
   };
 }
 
@@ -98,12 +100,38 @@ function pickInputs(inputs) {
 // otra verdad por request, §26.5).
 export function buildUiViewModels(inputs = {}) {
   const pouring = pickInputs(inputs);
+  const backtests = buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest, backtestReadiness: pouring.backtestReadiness });
+  // TR-07: los paneles TRADES viajan dentro del view model de Backtests; el render los
+  // dibuja fail-closed y sin cálculo (trades-panels.mjs).
+  backtests.tradesPanels = pouring.tradesPanels;
   return {
     [SURFACES.REPLAY]: { ...buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
-    [SURFACES.BACKTESTS]: buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest, backtestReadiness: pouring.backtestReadiness }),
+    [SURFACES.BACKTESTS]: backtests,
     [SURFACES.RESEARCH]: { ...buildResearchViewModel({ backendIndex: pouring.backendIndex, records: pouring.researchRecords }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
     [SURFACES.CAMPAIGNS]: { ...buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
   };
+}
+
+// TR-07: el selector (mercado/misión, modo TOB·TRADES, periodo) llega por query
+// string. Sólo se aceptan valores conocidos; todo lo demás cae al default fail-closed.
+const KNOWN_MISSION_IDS = Object.freeze(new Set(TRADES_MISSION_IDS));
+const KNOWN_PERIOD_IDS = Object.freeze(new Set(observationFor("TRADES").zones));
+
+export function selectionFromSearchParams(searchParams) {
+  const selection = {};
+  const mode = searchParams?.get?.("mode");
+  if (mode === "TOB" || mode === "TRADES") {
+    selection.mode = mode;
+  }
+  const mission = searchParams?.get?.("mission");
+  if (KNOWN_MISSION_IDS.has(mission)) {
+    selection.missionId = mission;
+  }
+  const period = searchParams?.get?.("period");
+  if (KNOWN_PERIOD_IDS.has(period)) {
+    selection.period = period;
+  }
+  return selection;
 }
 
 const NO_BACKEND = Object.freeze({ manifestLoaded: false, recordCount: 0, bindableIdentities: 0, sources: [], gaps: [], errors: [] });
@@ -172,8 +200,11 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
   const server = createServer((req, res) => {
     const method = req.method ?? "GET";
     let pathname = null;
+    let searchParams = null;
     try {
-      pathname = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`).pathname;
+      const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+      pathname = url.pathname;
+      searchParams = url.searchParams;
     } catch {
       pathname = null;
     }
@@ -208,7 +239,7 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
     const vm = viewModels[route.surface];
     let html;
     try {
-      html = renderSurfacePage(route.surface, vm);
+      html = renderSurfacePage(route.surface, vm, selectionFromSearchParams(searchParams));
     } catch (error) {
       sendResponse(res, { status: 500, contentType: "text/html; charset=utf-8", body: failClosedPage("Energy Markets — error de render", "RENDER_FAILED", `La superficie no pudo renderizarse fail-closed: ${String(error?.message ?? error)}`) });
       return;

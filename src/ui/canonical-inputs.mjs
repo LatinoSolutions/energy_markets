@@ -15,6 +15,7 @@ import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 import { buildPitManifestFromAudit } from "../pit-views/views.mjs";
 import { backendIndexFromManifest } from "../operator-interface/index.mjs";
 import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../exploratory/reconciliation.mjs";
+import { loadTradesPanels } from "./trades-panels.mjs";
 
 export const TEMPORAL_MANIFEST_RECEIPT = "operations/receipts/IMP-03-IMP_RECEIPT.json";
 export const TEMPORAL_MANIFEST_PATH = "operations/audit/IMP-03/temporal-manifest.json";
@@ -173,11 +174,15 @@ export function loadBacktestReadinessAt(repoRoot) {
 function withExploratory(result) {
   const exploratory = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
   const backtestReadiness = loadBacktestReadinessAt(DEFAULT_REPO_ROOT);
+  // TR-07: paneles TRADES de Backtests, atados por SHA-256 a los manifests de
+  // TR-01/TR-02/TR-03 (trades-panels.mjs). Su ausencia/desajuste queda fail-closed.
+  const tradesPanels = loadTradesPanels(DEFAULT_REPO_ROOT);
   return {
     inputs: {
       ...result.inputs,
       exploratoryBacktest: exploratory.ok ? exploratory : null,
       backtestReadiness: backtestReadiness.ok ? backtestReadiness : null,
+      tradesPanels,
     },
     backend: {
       ...result.backend,
