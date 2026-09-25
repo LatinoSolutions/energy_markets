@@ -194,6 +194,26 @@ table.t tr.click:hover td { background: var(--surface-2); }
 .clist .it:hover { background: var(--surface-2); }
 .clist .it.on { background: #ece9e1; box-shadow: inset 3px 0 0 var(--ink); }
 .clist .it .ttl { font-weight: 600; margin: 2px 0 4px; }
+/* Rail por misión: Bru 2026-09-25 (P-008), prototipo UI-05-prototipo-2026-09-25 pestaña Campaigns */
+.crail { padding: 8px 0; }
+.crail-title { font: 600 11px var(--mono); color: var(--ink-3); padding: 4px 14px 8px; letter-spacing: .06em; }
+.cgrp > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--rule); padding: 10px 14px; cursor: pointer; }
+.cgrp > summary::-webkit-details-marker { display: none; }
+.cgrp .cname { font: 700 14px var(--serif); }
+.cgrp .csum { display: block; font: 11px var(--mono); color: var(--ink-3); margin-top: 2px; }
+.cgrp .caret { font: 12px var(--mono); color: var(--ink-3); width: 12px; }
+.cgrp .caret::before { content: "▸"; }
+.cgrp[open] .caret::before { content: "▾"; }
+.cgrp .cbody { padding: 2px 0 8px; }
+.crail .crow { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; padding: 5px 14px 5px 22px; font-size: 13px; text-decoration: none; color: inherit; }
+.crail .crow:hover { background: var(--surface-2); }
+.crail .cwin { font: 11px var(--mono); color: var(--ink-3); }
+.crail .cempty { font: 12px var(--mono); color: var(--ink-3); padding: 6px 22px; }
+.cdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.cdot.ok { background: var(--pass); }
+.cdot.insuf { background: var(--unk); }
+.clegend { font: 11px var(--mono); color: var(--ink-3); padding: 10px 14px 4px; border-top: 1px solid var(--rule); display: flex; gap: 14px; }
+.clegend > span { display: inline-flex; align-items: center; gap: 6px; }
 .bar { display: flex; height: 8px; border-radius: 2px; overflow: hidden; gap: 2px; background: transparent; min-width: 140px; }
 .bar > span { display: block; height: 100%; }
 .bar .closed { background: var(--ink-2); }
@@ -474,7 +494,7 @@ export const PROVENANCE_INTERACTION_SCRIPT = `<script>
     if (event.target.closest("[data-key-close]")) { toggleKey(false); return; }
     var hind = event.target.closest("[data-hind-toggle]");
     if (hind) {
-      var wrap = document.querySelector(".chartwrap"); if (!wrap) { return; }
+      var wrap = (hind.closest(".zones") || document).querySelector(".chartwrap"); if (!wrap) { return; }
       var on = !wrap.classList.contains("hind-on");
       wrap.classList.toggle("hind-on", on); hind.classList.toggle("on", on);
       hind.textContent = "Hindsight overlay: " + (on ? "ON" : "off");
