@@ -102,6 +102,7 @@ export function measureDeleteTmSemantics(rows) {
     deleteAfterNew: 0,
     deleteEqualNew: 0,
     deleteBeforeNew: 0,
+    deleteUnparsableTm: 0,
     newWithoutDelete: 0,
     pairs: [],
   };
@@ -112,6 +113,12 @@ export function measureDeleteTmSemantics(rows) {
     const siblings = (newsByIdentity.get(tradeLegIdentity(row)) ?? []).filter((epoch) => epoch !== null);
     if (siblings.length === 0) continue;
     measurement.deletesWithNewSibling += 1;
+    // Un Tm de Delete no parseable no es evidencia de "borrado antes del alta":
+    // se cuenta aparte para no negar deletionTimeObserved por un dato corrupto.
+    if (deleteEpoch === null) {
+      measurement.deleteUnparsableTm += 1;
+      continue;
+    }
     const earliestNew = Math.min(...siblings);
     if (deleteEpoch > earliestNew) measurement.deleteAfterNew += 1;
     else if (deleteEpoch === earliestNew) measurement.deleteEqualNew += 1;

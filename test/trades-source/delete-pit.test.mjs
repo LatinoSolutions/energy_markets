@@ -60,3 +60,29 @@ test("measureDeleteTmSemantics detecta la hora del borrado y la reporta como evi
   assert.equal(measurement.deleteBeforeNew, 0);
   assert.equal(measurement.deletionTimeObserved, true);
 });
+
+test("un Tm de Delete no parseable se cuenta aparte y no niega deletionTimeObserved", () => {
+  const rows = [
+    tradeRow({ TrdID: "1", Tm: "2025-11-20T09:28:37Z" }),
+    deleteRow({ TrdID: "1", Tm: "no-es-fecha" }),
+    deleteRow({ TrdID: "2", Tm: "2025-11-20T10:04:53Z" }),
+    tradeRow({ TrdID: "2", Tm: "2025-11-20T09:30:00Z" }),
+  ];
+  const measurement = measureDeleteTmSemantics(rows);
+  assert.equal(measurement.deletesWithNewSibling, 2);
+  assert.equal(measurement.deleteUnparsableTm, 1);
+  assert.equal(measurement.deleteBeforeNew, 0);
+  assert.equal(measurement.deleteAfterNew, 1);
+  assert.equal(measurement.deletionTimeObserved, true);
+});
+
+test("un Delete anterior al alta sí niega deletionTimeObserved", () => {
+  const rows = [
+    tradeRow({ TrdID: "1", Tm: "2025-11-20T10:00:00Z" }),
+    deleteRow({ TrdID: "1", Tm: "2025-11-20T09:00:00Z" }),
+  ];
+  const measurement = measureDeleteTmSemantics(rows);
+  assert.equal(measurement.deleteBeforeNew, 1);
+  assert.equal(measurement.deleteUnparsableTm, 0);
+  assert.equal(measurement.deletionTimeObserved, false);
+});
