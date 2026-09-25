@@ -148,6 +148,7 @@ h2.sec { font: 600 16px/1.2 var(--serif); margin: 22px 0 10px; }
 table.t { width: 100%; border-collapse: collapse; }
 table.t th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
 table.t td { padding: 8px 10px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+table.t th.right, table.t td.right { text-align: right; }
 table.t tr:last-child td { border-bottom: 0; }
 table.t tr.sel td { background: #efece4; }
 table.t tr.click { cursor: pointer; }
