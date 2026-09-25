@@ -9,7 +9,7 @@ import path from "node:path";
 // último Tm antes de las 11:00. La regla del cliente es el best ask de esa
 // observación (client input 2026-09-23 execution_and_costs.md §1 paso 2), no la
 // última fila del archivo. Caso real: G0BQ-202601 el 2025-11-25, 31.475 vs 31.33.
-const builder = new URL("../../operations/exploratory/build_tob_slots.py", import.meta.url).pathname;
+const builder = new URL("../../operations/exploratory/v2/build_tob_slots.py", import.meta.url).pathname;
 
 const FIXTURE = `
 import sys, pyarrow as pa, pyarrow.parquet as pq, os

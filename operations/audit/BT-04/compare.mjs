@@ -58,7 +58,19 @@ function aggregateHolds({ B, coverage, missingDates, perDate, referenceOf }) {
     && JSON.stringify(missingDates) === JSON.stringify(perDate.filter((record) => !record.defined).map((record) => record.trdDate));
 }
 
-function compareBenchmark(independentCampaign, bt01Campaign, bt02B) {
+// SPEC §5.3: BT-02 must carry exactly the BT-01 benchmark record it prices V
+// against, not just the same B number (BT04-BT02-BENCHMARK-BINDING, 2026-09-25).
+function bt02BenchmarkBindsBt01(bt02Benchmark, bt01Campaign) {
+  const mismatches = [];
+  if (bt02Benchmark.B !== bt01Campaign.benchmark.B) mismatches.push("B");
+  if (bt02Benchmark.coverage !== bt01Campaign.benchmark.coverage) mismatches.push("coverage");
+  if (bt02Benchmark.status !== bt01Campaign.status.status) mismatches.push("status");
+  if (bt02Benchmark.versionId !== bt01Campaign.benchmarkVersion?.versionId) mismatches.push("versionId");
+  if (JSON.stringify(bt02Benchmark.window) !== JSON.stringify(bt01Campaign.benchmarkWindow)) mismatches.push("window");
+  return mismatches;
+}
+
+function compareBenchmark(independentCampaign, bt01Campaign, bt02Benchmark) {
   const bt01ByDate = new Map(bt01Campaign.perDate.map((record) => [record.trdDate, record]));
   let emulationMaxDiff = 0;
   const definitionMismatches = [];
@@ -90,9 +102,9 @@ function compareBenchmark(independentCampaign, bt01Campaign, bt02B) {
     perDate: bt01Campaign.perDate,
     referenceOf: (record) => record.dailyReference,
   });
-  // BT-02 must price V against exactly the BT-01 B being validated here.
-  const bt02UsesBt01B = bt02B === bt01B;
-  const comparable = definitionMismatches.length === 0 && sameCoverage && independentAggregateHolds && bt01AggregateHolds && bt02UsesBt01B;
+  const bt02BenchmarkMismatches = bt02BenchmarkBindsBt01(bt02Benchmark, bt01Campaign);
+  const comparable = definitionMismatches.length === 0 && sameCoverage && independentAggregateHolds && bt01AggregateHolds
+    && bt02BenchmarkMismatches.length === 0;
 
   let verdict = "UNEXPLAINED";
   if (comparable && close(difference, 0)) verdict = "MATCH";
@@ -106,7 +118,7 @@ function compareBenchmark(independentCampaign, bt01Campaign, bt02B) {
     missingDates: { bt01: bt01Campaign.benchmark.missingDates, independent: independentCampaign.missingDates },
     definitionMismatches,
     aggregateHolds: { independent: independentAggregateHolds, bt01: bt01AggregateHolds },
-    bt02UsesBt01B,
+    bt02BenchmarkMismatches,
     bt01EmulationMaxPerDateDiff: emulationMaxDiff,
     verdict,
     cause: verdict === "ATTRIBUTED_DIFFERENCE" ? "BT01_PROXY_IMPLEMENTATION_CHOICES" : null,
@@ -133,9 +145,17 @@ function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
       };
     });
   const hDifference = bt02Arm.hEurMwh - independentArm.H;
+  // H the stored ledger fills themselves produce. An attributed H difference must
+  // be carried entirely by the attributed fills: BT-02's H has to be this value
+  // (BT04-H-ATTRIBUTION, 2026-09-25; SPEC §5.5 H over the executed fills).
+  const ledgerEnergy = independentArm.fills.reduce((sum, fill) => sum + fill.filledMw * fill.ledgerPriceEurMwh, 0);
+  const ledgerMw = independentArm.fills.reduce((sum, fill) => sum + fill.filledMw, 0);
+  const ledgerH = ledgerMw > 0 ? ledgerEnergy / ledgerMw : null;
+  const bt02HFromLedgerFills = close(bt02Arm.hEurMwh, ledgerH);
   const independentV = independentArm.V;
   const vDifference = bt02Arm.vEurMwh === null || independentV === null ? null : bt02Arm.vEurMwh - independentV;
-  const allAttributed = mismatchedFills.every((fill) => fill.cause !== null);
+  // Never by vacuous truth: with no mismatched fill there is nothing to attribute.
+  const allAttributed = mismatchedFills.length > 0 && mismatchedFills.every((fill) => fill.cause !== null);
   // SPEC §5.5 V = B − H inside BT-02 itself, before comparing against the independent side.
   const bt02VCoherent = bt02Arm.vStatus === "PROVISIONAL"
     ? close(bt02Arm.vEurMwh, bt02B - bt02Arm.hEurMwh)
@@ -143,7 +163,7 @@ function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
 
   let verdict = "UNEXPLAINED";
   if (mismatchedFills.length === 0 && close(hDifference, 0)) verdict = "MATCH";
-  else if (allAttributed) verdict = "ATTRIBUTED_DIFFERENCE";
+  else if (allAttributed && bt02HFromLedgerFills) verdict = "ATTRIBUTED_DIFFERENCE";
   if (independentArm.complete !== bt02Arm.complete || !close(independentArm.filledMw, bt02Arm.boughtMw) || !bt02VCoherent) verdict = "UNEXPLAINED";
 
   return {
@@ -155,6 +175,8 @@ function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
     bt02H: bt02Arm.hEurMwh,
     independentH: independentArm.H,
     hDifference,
+    ledgerH,
+    bt02HFromLedgerFills,
     bt02V: bt02Arm.vEurMwh,
     independentV,
     vDifference,
@@ -227,7 +249,7 @@ export function buildBt04Validation({ independent, bt01, bt02, hashes }) {
     const bt02Campaign = bt02.campaigns.find((item) => item.campaignKey === key);
     if (!bt01Campaign || !bt02Campaign) throw new Error(`${key} missing from BT-01 or BT-02`);
 
-    const benchmark = compareBenchmark(independentCampaign, bt01Campaign, bt02Campaign.benchmark.B);
+    const benchmark = compareBenchmark(independentCampaign, bt01Campaign, bt02Campaign.benchmark);
     const ledgerArms = ["BASELINE", "ARM_A"].map((armId) =>
       compareLedgerArm(armId, independentCampaign.arms[armId], bt02Campaign.arms[armId], bt02Campaign.benchmark.B));
     const deltaV = compareDeltaV({

@@ -207,3 +207,58 @@ test("BT-04 v1 stays the historical contrast of the accepted artifacts; v2 binds
     assert.notEqual(v2.inputs[name].path, committed.inputs[name].path);
   }
 });
+
+// BT04-H-ATTRIBUTION (2026-09-25): an H difference is attributed only when it is
+// carried by attributed mismatched fills, never by vacuous truth over zero fills.
+test("BT04-H-ATTRIBUTION: an H that no mismatched fill explains is UNEXPLAINED, even with V and ΔV kept coherent", () => {
+  const data = { ...inputs(), bt02: readJson(TARGETS.v2.bt02), bt01: readJson(TARGETS.v2.bt01), independent: readJson(TARGETS.v2.independent) };
+  const bt02Campaign = data.bt02.campaigns.find((item) => item.campaignKey === "G0BM-202510");
+  const armA = bt02Campaign.arms.ARM_A;
+  armA.hEurMwh += 0.5;
+  armA.vEurMwh = bt02Campaign.benchmark.B - armA.hEurMwh;
+  armA.deltaVEurMwh = bt02Campaign.arms.BASELINE.hEurMwh - armA.hEurMwh;
+  const validation = buildBt04Validation(data);
+  const arm = campaign(validation, "G0BM-202510").ledgerArms.find((item) => item.armId === "ARM_A");
+  assert.deepEqual(arm.mismatchedFills, []);
+  assert.equal(arm.bt02HFromLedgerFills, false);
+  assert.equal(arm.verdict, "UNEXPLAINED");
+  assert.equal(validation.verdict, "FAIL");
+});
+
+test("BT04-H-ATTRIBUTION: an attributed tie fill does not cover an extra H shift on the same arm", () => {
+  const data = inputs();
+  const bt02Campaign = data.bt02.campaigns.find((item) => item.campaignKey === "G0BQ-202601");
+  const baseline = bt02Campaign.arms.BASELINE;
+  baseline.hEurMwh += 0.5;
+  baseline.vEurMwh = bt02Campaign.benchmark.B - baseline.hEurMwh;
+  bt02Campaign.arms.ARM_A.deltaVEurMwh = baseline.hEurMwh - bt02Campaign.arms.ARM_A.hEurMwh;
+  const validation = buildBt04Validation(data);
+  const arm = campaign(validation, "G0BQ-202601").ledgerArms.find((item) => item.armId === "BASELINE");
+  assert.equal(arm.mismatchedFills.length, 1);
+  assert.equal(arm.verdict, "UNEXPLAINED");
+  assert.equal(validation.verdict, "FAIL");
+});
+
+test("BT04-H-ATTRIBUTION: the committed attributed tie is carried by the ledger fills", () => {
+  const baseline = campaign(committed, "G0BQ-202601").ledgerArms.find((arm) => arm.armId === "BASELINE");
+  assert.equal(baseline.bt02HFromLedgerFills, true);
+});
+
+// BT04-BT02-BENCHMARK-BINDING (2026-09-25): SPEC §5.3, BT-02 carries the full
+// BT-01 benchmark record, not only the same B.
+for (const [field, mutate] of [
+  ["coverage", (benchmark) => { benchmark.coverage = "20/22"; }],
+  ["versionId", (benchmark) => { benchmark.versionId = "0".repeat(64); }],
+  ["window", (benchmark) => { benchmark.window = { ...benchmark.window, endExclusive: "2025-10-02" }; }],
+  ["status", (benchmark) => { benchmark.status = "BENCHMARK_OFFICIAL"; }],
+]) {
+  test(`BT04-BT02-BENCHMARK-BINDING: a BT-02 benchmark ${field} different from BT-01 fails`, () => {
+    const data = inputs();
+    mutate(data.bt02.campaigns.find((item) => item.campaignKey === "G0BM-202510").benchmark);
+    const validation = buildBt04Validation(data);
+    const benchmark = campaign(validation, "G0BM-202510").benchmark;
+    assert.deepEqual(benchmark.bt02BenchmarkMismatches, [field]);
+    assert.equal(benchmark.verdict, "UNEXPLAINED");
+    assert.equal(validation.verdict, "FAIL");
+  });
+}

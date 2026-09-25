@@ -23,7 +23,7 @@
     },
     "exploratoryManifest": {
       "path": "operations/exploratory/v2/MANIFEST.json",
-      "sha256": "76b74a5d84de1f7286ba58e7ef0b392e49170f58aa09a1525beb67768c9a48e5"
+      "sha256": "429073f02579e0a18df54a0810f62665ab5dccb00552c82e737d304de7afaca1"
     },
     "bt01Benchmark": {
       "path": "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.json",

@@ -5,10 +5,13 @@ conservadores). Criterios anti-ilusión (docs/product/UI-04_DATA_REQUIREMENTS_AN
   - solo `InstrumentType == Simple Instrument` y la maturity exacta (fuera spreads);
   - ask > 0; si hay bid, bid < ask (libro no cruzado);
   - el valor de un slot es el último quote con Tm <= slot y Tm > slot - MAX_AGE (nada viejo, nada de otro día);
+  - si varias filas (EXPLICIT / IMPLIED) comparten ese último Tm, gana el menor ask: la regla del cliente es el
+    best ask de esa observación (client input 2026-09-23 02_execution_costs/execution_and_costs.md §1 paso 2;
+    hallazgo BT04-H1-TOB-TIE, 2026-09-25). v1 tomaba la última fila en orden de archivo.
   - se guarda AskSz para poder limitar el fill a la profundidad visible.
 Salida: JSON determinista con recuentos de excluidos.
 """
-import glob, hashlib, json, sys
+import glob, hashlib, json, os, sys
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -18,11 +21,12 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-LAKE = "/srv/hot-data/EEX/table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE"
+LAKE = os.environ.get("EEX_TOB_LAKE", "/srv/hot-data/EEX/table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE")
 PRODUCTS = ("G0BM", "G0BQ")
 BERLIN = ZoneInfo("Europe/Berlin")
 SLOTS = [time(h, m) for h in range(8, 18) for m in (0, 30)]
 MAX_AGE_S = 15 * 60
+TIE_RULE = "min ask among rows sharing the latest Tm; equal asks keep the smaller known AskSz"
 COLS = ["ShortCode", "Maturity", "Tm", "AskPx", "AskSz", "BidPx", "InstrumentType"]
 
 
@@ -96,7 +100,11 @@ def main(out_path):
                     slots.append(None)
                     counts["slots_stale_or_empty"] += 1
                     continue
-                _, a, az, b, raw_tm = rows[idx]
+                first = idx
+                while first > 0 and ts_arr[first - 1] == ts_arr[idx]:
+                    first -= 1
+                # Tamaño desconocido cuenta como 0: DEPTH no llena lo que no ve.
+                _, a, az, b, raw_tm = min(rows[first:idx + 1], key=lambda r: (r[1], r[2] if r[2] is not None else 0.0))
                 slots.append({"ask": a, "askSz": az, "bid": b, "quoteTm": raw_tm})
                 counts["slots_filled"] += 1
             series[f"{p}|{m}"][day.isoformat()] = slots
@@ -108,6 +116,7 @@ def main(out_path):
         "source": LAKE,
         "slotsBerlin": [s.strftime("%H:%M") for s in SLOTS],
         "maxQuoteAgeSeconds": MAX_AGE_S,
+        "slotTieRule": TIE_RULE,
         "filters": ["InstrumentType == Simple Instrument", "exact Maturity", "ask > 0", "bid < ask when bid present"],
         "counts": dict(sorted(counts.items())),
         "series": {k: dict(sorted(v.items())) for k, v in sorted(series.items())},

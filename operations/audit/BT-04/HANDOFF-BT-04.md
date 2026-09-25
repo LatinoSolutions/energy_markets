@@ -13,11 +13,15 @@ Los archivos parquet que leyó tienen el mismo sha256 que el manifest de BT-01 (
 
 `compare.mjs` exige, además de comparar valores: B = media de sus referencias diarias y cobertura/missing
 coherentes con `perDate` (§5.3), V = B − H y ΔV = H_BASELINE − H_ARM_A en cada lado (§5.5), que la diferencia
-de ΔV sea exactamente la que traen los H, que BT-02 use el mismo B que BT-01 y que los hashes declarados
+de ΔV sea exactamente la que traen los H, que una diferencia de H sólo se atribuya si hay fills con causa
+reproducida y el H de BT-02 es el que dan sus propios fills (nunca por ausencia de fills), que BT-02 lleve el
+mismo registro de benchmark que BT-01 (B, coverage, status, versionId y ventana) y que los hashes declarados
 (calendario, ledger exploratorio, BT-01) coincidan con los archivos leídos.
 
 El contraste encontró dos defectos de los productores aceptados. Ambos se corrigieron **en una versión nueva**
-(v2); la v1 aceptada se conserva byte a byte y sigue reproducible:
+(v2); la v1 aceptada se conserva byte a byte con sus propios generadores (`operations/exploratory/build_tob_slots.py`
+y `run-exploratory-backtest.mjs`, mismos sha256 que su `MANIFEST.json`); los generadores v2 viven en
+`operations/exploratory/v2/`. Test: `test/exploratory/manifest-provenance.test.mjs`.
 
 | Versión | Artefactos | Veredicto BT-04 |
 |---|---|---|
@@ -69,8 +73,12 @@ iguales. El mismo arreglo cambia el receipt de muestra de IMP-05: nuevo `lake-be
 ## 4. Abierto (ingeniería, no es para Bru)
 
 - **Aceptación de la v2**: BT-01 v2, backtest exploratorio v2 y BT-02 v2 son versiones nuevas producidas aquí;
-  su aceptación la decide la Oficina. La UI ya las consume porque el manifest v1 fija el hash del generador
-  `build_tob_slots.py` y, con el generador corregido, la v1 dejaría la UI en ERROR.
+  su aceptación la decide la Oficina. La UI ya las consume (`BT02_RELEASES.v2`); la v1 sigue válida contra su
+  manifest pero no se muestra.
+- **Texto stale dentro de `v2/backtest-results.json`**: el check "Code pinned" dice
+  `generator sha256 in operations/exploratory/MANIFEST.json`; para v2 el manifest es `operations/exploratory/v2/MANIFEST.json`.
+  Corregirlo cambia el hash de los resultados y obliga a regenerar BT-01 v2, BT-02 v2 y el cálculo independiente
+  v2 (lago); se dejó sin tocar para no mover artefactos ya contrastados.
 - **Sólo 2 campañas contrastadas de forma independiente**; las otras 11 salen del mismo código corregido.
 - **`UpdtAct` en la tabla de trades** (acciones de actualización/borrado de EEX): ni BT-01 ni el cálculo
   independiente las interpretan; cada fila cuenta como observación. Falta auditar si hay trades corregidos o
@@ -80,8 +88,8 @@ iguales. El mismo arreglo cambia el receipt de muestra de IMP-05: nuevo `lake-be
 
 ```
 # Lago (con techo de memoria; tiempos medidos el 25-sep, sin corte por el techo):
-systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 python3 operations/exploratory/build_tob_slots.py operations/exploratory/v2/tob-slots-the-gas.json   # ~3 min
-node operations/exploratory/run-exploratory-backtest.mjs operations/exploratory/v2/tob-slots-the-gas.json operations/exploratory/v2/backtest-results.json
+systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 python3 operations/exploratory/v2/build_tob_slots.py operations/exploratory/v2/tob-slots-the-gas.json   # ~3 min
+node operations/exploratory/v2/run-exploratory-backtest.mjs operations/exploratory/v2/tob-slots-the-gas.json operations/exploratory/v2/backtest-results.json
 systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 python3 operations/audit/BT-01/extract-campaign-proxy-rows.py   # ~12 min
 systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 python3 operations/audit/BT-04/independent-check.py --release v2   # ~5 min
 # Sin lago, comprobación de reproducibilidad de cada versión:

@@ -1,10 +1,12 @@
 // Corre el backtest exploratorio sobre el artifact de slots y escribe los
-// resultados. Uso:
-//   node operations/exploratory/run-exploratory-backtest.mjs <slots.json> <salida.json>
+// resultados. v2 (BT04-H1-TOB-TIE, 2026-09-25); la v1 aceptada vive intacta en
+// operations/exploratory/. Uso:
+//   node operations/exploratory/v2/run-exploratory-backtest.mjs <slots.json> <salida.json>
 // Owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4: resultados EXPLORATORY.
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import {
   CLIENT_SLOT,
@@ -13,8 +15,8 @@ import {
   TARGET_MW,
   episodeTradingDays,
   runEpisode,
-} from "../../src/exploratory/backtest.mjs";
-import { buildComparison } from "../../src/exploratory/comparison.mjs";
+} from "../../../src/exploratory/backtest.mjs";
+import { buildComparison } from "../../../src/exploratory/comparison.mjs";
 
 const [slotsPath, outPath] = process.argv.slice(2);
 const slotsBytes = readFileSync(slotsPath);
@@ -350,11 +352,12 @@ const manifest = {
   results: { path: outPath, sha256: sha(outputBytes) },
   slots: output.inputs.slots,
   generators: [
-    "operations/exploratory/build_tob_slots.py",
-    "operations/exploratory/run-exploratory-backtest.mjs",
+    "operations/exploratory/v2/build_tob_slots.py",
+    "operations/exploratory/v2/run-exploratory-backtest.mjs",
     "src/exploratory/backtest.mjs",
     "src/exploratory/comparison.mjs",
   ].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
 };
-writeFileSync("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
+// El manifest vive junto a sus resultados: cada versión (v1 en la raíz, v2/ …) conserva el suyo.
+writeFileSync(join(dirname(outPath), "MANIFEST.json"), JSON.stringify(manifest, null, 1));
 console.log(`episodios completos: ${complete.length}; incompletos: ${output.episodesSkippedIncomplete.length}`);
