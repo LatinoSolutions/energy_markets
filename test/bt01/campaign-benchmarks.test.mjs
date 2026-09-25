@@ -57,9 +57,18 @@ function fixture({ instruments = ["ISIN-1", "ISIN-1"], includeUnknownInstrument 
   return value;
 }
 
+function buildFixture(rowsArtifact) {
+  return buildCampaignBenchmarkArtifact({
+    rowsArtifact,
+    rowsArtifactSha256: "x".repeat(64),
+    exchangeDays: ["2025-09-01", "2025-09-02", "2025-09-03"],
+    calendarSha256: rowsArtifact.calendar.sha256,
+  });
+}
+
 test("BT-01 produce B con ventana 3-1-3, peso diario igual y missing sin rellenar", () => {
   const rowsArtifact = fixture();
-  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256: "x".repeat(64) });
+  const artifact = buildFixture(rowsArtifact);
   const [campaign] = artifact.campaigns;
 
   assert.deepEqual(campaign.benchmarkWindow, { rule: "3-1-3", startInclusive: "2025-09-01", endExclusive: "2025-12-01" });
@@ -70,7 +79,7 @@ test("BT-01 produce B con ventana 3-1-3, peso diario igual y missing sin rellena
 });
 
 test("BT-01 mantiene proxy provisional separado de official y rechaza identidad ambigua", () => {
-  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact: fixture({ instruments: ["ISIN-1", "ISIN-2"] }), rowsArtifactSha256: "x".repeat(64) });
+  const artifact = buildFixture(fixture({ instruments: ["ISIN-1", "ISIN-2"] }));
   const [campaign] = artifact.campaigns;
 
   assert.equal(campaign.status.status, "B_NOT_DEFINED");
@@ -84,11 +93,30 @@ test("BT-01 mantiene proxy provisional separado de official y rechaza identidad 
 });
 
 test("BT-01 excluye filas cuyo tipo de instrumento está vacío o no es Simple Instrument", () => {
-  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact: fixture({ includeUnknownInstrument: true }), rowsArtifactSha256: "x".repeat(64) });
+  const artifact = buildFixture(fixture({ includeUnknownInstrument: true }));
   const [campaign] = artifact.campaigns;
 
   assert.equal(campaign.perDate[0].dailyReference, 50);
   assert.equal(campaign.perDate[0].excludedRowsUnsupportedInstrument, 1);
+});
+
+test("BT-01 rechaza fechas esperadas que no coinciden con el calendario o perDate incompleto", () => {
+  const rowsArtifact = fixture();
+  const incompleteExpected = structuredClone(rowsArtifact);
+  incompleteExpected.campaigns[0].expectedDates.pop();
+  assert.throws(() => buildFixture(incompleteExpected), /Fechas esperadas no coinciden con el calendario IMP-09/);
+
+  const missingTradingDate = structuredClone(rowsArtifact);
+  assert.throws(() => buildCampaignBenchmarkArtifact({
+    rowsArtifact: missingTradingDate,
+    rowsArtifactSha256: "x".repeat(64),
+    exchangeDays: [...missingTradingDate.campaigns[0].expectedDates, "2025-09-04"],
+    calendarSha256: missingTradingDate.calendar.sha256,
+  }), /Fechas esperadas no coinciden con el calendario IMP-09/);
+
+  const incompletePerDate = structuredClone(rowsArtifact);
+  incompletePerDate.campaigns[0].perDate.pop();
+  assert.throws(() => buildFixture(incompletePerDate), /Fechas diarias no coinciden con las fechas esperadas/);
 });
 
 test("BT-01 worker aplica la identidad y accesibilidad declaradas por el wrapper IMP-05", () => {
@@ -179,7 +207,9 @@ test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inp
   const rowsBytes = readFileSync(rowsArtifactPath);
   const rowsArtifact = JSON.parse(rowsBytes);
   const rowsArtifactSha256 = sha256(rowsBytes);
-  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256 });
+  const calendarBytes = readFileSync(new URL("../../operations/audit/IMP-09/eex-exchange-calendar.json", import.meta.url));
+  const calendar = JSON.parse(calendarBytes);
+  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256, exchangeDays: calendar.exchangeDays, calendarSha256: sha256(calendarBytes) });
   const artifactBytes = Buffer.from(`${JSON.stringify(artifact, null, 2)}\n`);
   const artifactSha256 = sha256(artifactBytes);
   const manifest = buildCampaignBenchmarkManifest({ artifact, artifactSha256, rowsArtifact, rowsArtifactSha256 });
@@ -193,9 +223,9 @@ test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inp
   assert.ok(artifact.campaigns.some((campaign) => campaign.product === "G0BM"));
   assert.ok(artifact.campaigns.some((campaign) => Number.isFinite(campaign.benchmark.B)));
 
-  const calendar = JSON.parse(readFileSync(new URL("../../operations/audit/IMP-09/eex-exchange-calendar.json", import.meta.url)));
   const expectedCalendarDays = new Set(calendar.exchangeDays);
   for (const campaign of artifact.campaigns) {
+    assert.deepEqual(campaign.expectedDates, calendar.exchangeDays.filter((date) => date >= campaign.benchmarkWindow.startInclusive && date < campaign.benchmarkWindow.endExclusive));
     assert.ok(campaign.expectedDates.every((date) => expectedCalendarDays.has(date)));
     assert.equal(campaign.benchmark.expectedDatesCount, campaign.expectedDates.length);
     assert.deepEqual(campaign.benchmark.missingDates, campaign.expectedDates.filter((date) => !campaign.perDate.some((record) => record.trdDate === date && record.defined)));

@@ -105,6 +105,11 @@ def extract(campaigns, exchange_days):
         campaign_by_product_maturity = {(campaign["product"], campaign["maturity"]): campaign for campaign in active_campaigns}
         per_campaign_rows = {campaign["campaignKey"]: [] for campaign in active_campaigns}
         per_campaign_source_files = {campaign["campaignKey"]: [] for campaign in active_campaigns}
+        per_campaign_exclusions = {campaign["campaignKey"]: {
+            "unsupportedInstrument": 0, "withoutInstrument": 0,
+            "invalidMarketMetadata": 0, "invalidTimestamp": 0,
+            "outsideLocalDate": 0, "outsideWindow": 0,
+        } for campaign in active_campaigns}
         per_campaign_counts = {campaign["campaignKey"]: {table: {"filesAvailable": 0, "filesWithMaturityRows": 0} for table in TABLES} for campaign in active_campaigns}
         for table, (price_col, bid_col, ask_col) in TABLES.items():
             folder = LAKE / f"table={table}/cmdty=NATGAS/area=THE/trd_date={day}"
@@ -139,24 +144,31 @@ def extract(campaigns, exchange_days):
                         if campaign is None:
                             continue
                         matched_pairs.add(campaign["campaignKey"])
+                        exclusions = per_campaign_exclusions[campaign["campaignKey"]]
                         # Unknown instrument metadata cannot be promoted to a
                         # Simple Instrument proxy input.
                         if row.get("InstrumentType") != "Simple Instrument":
+                            exclusions["unsupportedInstrument"] += 1
                             continue
                         if not row.get("InstrumentISIN"):
+                            exclusions["withoutInstrument"] += 1
                             continue
                         if row.get("Currency") != "EUR" or row.get("UOM") != "MWh":
+                            exclusions["invalidMarketMetadata"] += 1
                             continue
                         tm = row.get("Tm") or ""
                         try:
                             local = __import__("datetime").datetime.fromisoformat(tm.replace("Z", "+00:00")).astimezone(tz)
                         except ValueError:
+                            exclusions["invalidTimestamp"] += 1
                             continue
                         if local.date().isoformat() != day:
+                            exclusions["outsideLocalDate"] += 1
                             continue
                         seconds = local.hour * 3600 + local.minute * 60 + local.second
                         # IMP-05 applies strict-versus-fallback precedence.
                         if not (16 * 3600 + 15 * 60 <= seconds <= 18 * 3600 + 15 * 60):
+                            exclusions["outsideWindow"] += 1
                             continue
                         per_campaign_rows[campaign["campaignKey"]].append({
                             "source": table,
@@ -199,7 +211,9 @@ def extract(campaigns, exchange_days):
             result = worker.stdout.readline()
             if not result:
                 raise RuntimeError(f"El cálculo proxy terminó sin respuesta para {key} {day}.")
-            proxies_by_campaign_date[(key, day)] = json.loads(result)
+            daily = json.loads(result)
+            daily["exclusions"] = per_campaign_exclusions[key]
+            proxies_by_campaign_date[(key, day)] = daily
             del rows, per_campaign_rows[key]
             gc.collect()
     finally:
@@ -213,6 +227,7 @@ def extract(campaigns, exchange_days):
         dates = expected_by_campaign[campaign["campaignKey"]]
         per_date = [proxies_by_campaign_date.get((campaign["campaignKey"], day), {
             "trdDate": day,
+            "exclusions": {"unsupportedInstrument": 0, "withoutInstrument": 0, "invalidMarketMetadata": 0, "invalidTimestamp": 0, "outsideLocalDate": 0, "outsideWindow": 0},
             "instrumentIdentities": [],
             "sourceRows": 0,
             "sourceRowHashCount": 0,
