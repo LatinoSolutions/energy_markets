@@ -119,9 +119,17 @@ function contextHtml(parts) {
   return `<div class="ctx" data-context-strip><span class="caps muted">Context</span> ${parts.join(' <span class="sep">›</span> ')}<span class="grow"></span><span class="muted small">Operator Interface Boundary · IMP-29 · §26.5</span></div>`;
 }
 
+// Patrones y flecha compartidos del mockup (DEFS de design-proposal/index.html).
+const SVG_DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <pattern id="emHatchH" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><rect width="7" height="7" fill="#f6ecdc"/><rect width="1" height="7" fill="#e3c9a0"/></pattern>
+  <pattern id="emHatchU" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f3ecf5"/><rect width="1" height="6" fill="#d4c0dc"/></pattern>
+  <marker id="emArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="var(--ink-3)"/></marker>
+</defs></svg>`;
+
 function renderDocument({ active = null, title, body, clock = null, context = [] }) {
   const contextParts = context.length > 0 ? context : ['<span class="muted">no canonical context exposed</span>'];
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style data-ui-visual-language="${esc(VISUAL_LANGUAGE_ID)}">${UI_STYLESHEET}</style></head><body class="em-app" data-visual-language="${esc(VISUAL_LANGUAGE_ID)}">
+${SVG_DEFS}
 ${renderShellTop(active, clock)}
 ${contextHtml(contextParts)}
 <main id="main" class="em-main">${body}<div class="foot">Energy Markets · Operator Interface · read-only view of the backend boundary. Every dotted value opens its provenance. Keys: 1–4 workspaces · ? semantics key · Esc close.</div></main>
@@ -694,7 +702,7 @@ function backtestMeasurementHtml(readiness) {
   </section>`;
 }
 
-function pairedEffectSvg(block) {
+function pairedEffectSvg(block, pointDetails = null) {
   const width = 800;
   const height = 330;
   const pad = { left: 50, right: 20, top: 20, bottom: 40 };
@@ -704,49 +712,168 @@ function pairedEffectSvg(block) {
   const count = Math.max(...series.map(([, value]) => value.points.length), 1);
   const x = (index) => pad.left + (index / Math.max(1, count - 1)) * (width - pad.left - pad.right);
   const y = (value) => pad.top + ((maxAbs - value) / (2 * maxAbs)) * (height - pad.top - pad.bottom);
-  const grid = [-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" stroke="var(--rule-2)" stroke-dasharray="${value === 0 ? "" : "2 3"}"/><text x="${pad.left - 6}" y="${y(value) + 3}" font-size="10" text-anchor="end" fill="var(--ink-3)">${kEur(value)}</text>`).join("");
+  const grid = `<g class="axis">${[-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" ${value === 0 ? 'stroke="var(--ink-3)"' : 'stroke-dasharray="2 3"'}/><text x="${pad.left - 6}" y="${y(value) + 3.5}" text-anchor="end">${value === 0 ? "0" : kEur(value)}</text>`).join("")}</g>`;
   const boundaries = (series[0]?.[1].boundaries ?? []).map((boundary) => `<line x1="${x(boundary.index)}" x2="${x(boundary.index)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--rule)" stroke-dasharray="3 3"/><text x="${x(boundary.index) + 3}" y="${height - pad.bottom + 14}" font-size="9" fill="var(--ink-3)">${esc(boundary.maturity)}</text>`).join("");
   const lines = series.map(([armId, value]) => {
     const path = value.points.map((point, index) => `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point).toFixed(1)}`).join(" ");
     const last = value.points.length - 1;
-    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="1.6"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="3" fill="${EXP_ARM_SWATCH[armId]}"/><text x="${x(last) - 4}" y="${y(value.points[last]) - 8}" font-size="11" text-anchor="end" fill="var(--ink)">${esc(EXP_ARM_SHORT[armId])} ${kEur(value.finalKeur)}</text>`;
+    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="4" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2"/><text x="${x(last) - 8}" y="${y(value.points[last]) - 8}" font-size="11" text-anchor="end" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${esc(EXP_ARM_SHORT[armId])} ${kEur(value.finalKeur)}</text>`;
   }).join("");
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ΔV vs baseline by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text></svg>`;
+  const hover = pairedHoverLayerSvg({ series, pointDetails, count, x, y, top: pad.top, bottom: height - pad.bottom, step: (width - pad.left - pad.right) / Math.max(1, count - 1) });
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ΔV vs baseline by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text>${hover}</svg>`;
+}
+
+// UI-06 (owner request 25-sep-2026, PLAN_STATUS UI-06; prototipo aprobado
+// UI-05-prototipo-2026-09-25/prototipo-ui05.html sha256 a79c8652…, pestaña Backtests):
+// una franja transparente por decisión. Las posiciones del cursor y de los marcadores
+// se fijan aquí; el script del navegador solo las copia, no calcula.
+function pairedHoverLayerSvg({ series, pointDetails, count, x, y, top, bottom, step }) {
+  if (!Array.isArray(pointDetails) || pointDetails.length !== count) return "";
+  const hits = pointDetails.map((detail, index) => {
+    const markers = series.map(([armId, value]) => (typeof value.points[index] === "number" ? `${armId}:${y(value.points[index]).toFixed(1)}` : "")).filter(Boolean).join(" ");
+    return `<rect class="pphit" data-pp="${index}" data-cx="${x(index).toFixed(1)}" data-marks="${esc(markers)}" x="${(x(index) - step / 2).toFixed(1)}" y="${top}" width="${step.toFixed(2)}" height="${bottom - top}" fill="transparent"/>`;
+  }).join("");
+  const markers = series.map(([armId]) => `<circle class="ppmark" data-mark-arm="${esc(armId)}" r="4" cx="-10" cy="-10" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2" pointer-events="none"/>`).join("");
+  return `<line class="ppcursor" x1="-10" x2="-10" y1="${top}" y2="${bottom}" stroke="var(--ink-3)" stroke-dasharray="2 2" pointer-events="none"/>${markers}<g class="pphits">${hits}</g>`;
+}
+
+const UNAVAILABLE_TEXT = "UNAVAILABLE";
+
+function mwText(value) {
+  return typeof value === "number" && Number.isFinite(value) ? `${value} MW` : UNAVAILABLE_TEXT;
+}
+
+// Tres decimales: los asks del artifact tienen milésimas (28.125) y dos decimales las redondearían.
+function eur3(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(3) : UNAVAILABLE_TEXT;
+}
+
+function kEurDecision(valueEur) {
+  if (typeof valueEur !== "number" || !Number.isFinite(valueEur)) return null;
+  const keur = valueEur / 1000;
+  return `${keur > 0 ? "+" : ""}${keur.toFixed(2)} k€`;
+}
+
+function pairedTipArmRow(armId, arm, detail) {
+  const label = EXP_ARM_SHORT[armId];
+  if (armId === "ARM_B") {
+    return { arm: armId, label, unavailable: `per-day ledger ${UNAVAILABLE_TEXT} (slot ${detail.armBSlot ?? UNAVAILABLE_TEXT}; not emitted by the backtest)` };
+  }
+  if (!arm) {
+    return { arm: armId, label, unavailable: `daily ledger ${UNAVAILABLE_TEXT} for this campaign in the artifact` };
+  }
+  const soFar = typeof arm.boughtSoFarMw === "number" && typeof detail.targetMw === "number" ? `${arm.boughtSoFarMw} of ${detail.targetMw} MW` : UNAVAILABLE_TEXT;
+  return {
+    arm: armId,
+    label,
+    cells: [arm.status ?? UNAVAILABLE_TEXT, mwText(arm.filledMw), arm.fillPriceEurMwh === null ? "— (no fill)" : `${eur3(arm.fillPriceEurMwh)} €/MWh`, soFar],
+  };
+}
+
+// Textos del tooltip formateados en el servidor desde la proyección del view-model
+// (projectPairedPoints). Campo ausente = UNAVAILABLE, nunca un valor supuesto.
+function pairedTipModel(detail, product, provenance) {
+  const deltaA = kEurDecision(detail.decisionDeltaVEur.ARM_A);
+  const cumulative = (armId) => (typeof detail.cumulativeKeur[armId] === "number" ? `${kEur(detail.cumulativeKeur[armId])} k€` : UNAVAILABLE_TEXT);
+  const slot = detail.bestAsk?.slot ?? "11:00";
+  return {
+    head: `${detail.day ?? UNAVAILABLE_TEXT} · decision ${detail.decisionNumber} of ${detail.decisionsInCampaign}`,
+    sub: `${detail.campaignId ?? UNAVAILABLE_TEXT} · ${PRODUCT_TITLE[product] ?? product} · delivery ${detail.deliveryLabel} · target ${mwText(detail.targetMw)}`,
+    rows: detail.ledgerAvailable
+      ? ["BASELINE", "ARM_A", "ARM_B"].map((armId) => pairedTipArmRow(armId, detail.arms[armId], detail))
+      : [{ arm: "ALL", label: "All arms", unavailable: `daily ledger ${UNAVAILABLE_TEXT}: the artifact does not align this campaign's decisions with the chart` }],
+    facts: [
+      [`best ask ${slot} Berlin`, detail.bestAsk ? `${eur3(detail.bestAsk.eurMwh)} €/MWh${detail.bestAsk.quoteTm ? ` · quote ${detail.bestAsk.quoteTm}` : ""}` : UNAVAILABLE_TEXT],
+      ["ΔV this decision", `A ${deltaA ?? `${UNAVAILABLE_TEXT} (emitted only on Arm A buy days)`} · B ${UNAVAILABLE_TEXT}`],
+      ["ΔV cumulative", `A ${cumulative("ARM_A")} · B ${cumulative("ARM_B")}`],
+    ],
+    foot: `EXPLORATORY · B* proxy · fees UNKNOWN (excluded, not zero) · ${provenance?.resultsPath ?? "artifact"} sha256 ${(provenance?.resultsSha256 ?? UNAVAILABLE_TEXT).slice(0, 12)}…`,
+  };
+}
+
+function pairedTipDataScript(pointDetails, product, provenance) {
+  if (!Array.isArray(pointDetails) || pointDetails.length === 0) return "";
+  const models = pointDetails.map((detail) => pairedTipModel(detail, product, provenance));
+  // "<" escapado: el JSON no puede cerrar el <script> que lo contiene.
+  const json = JSON.stringify(models).replaceAll("<", "\\u003c");
+  return `<script type="application/json" class="ppdata">${json}</script>`;
 }
 
 function distributionSvg(dist, armId) {
   const width = 380;
   const height = 150;
-  const pad = { left: 24, right: 8, top: 12, bottom: 22 };
+  const pad = { left: 30, right: 18, top: 18, bottom: 24 };
   const peak = Math.max(1, ...dist.counts);
+  const yOf = (count) => pad.top + (1 - count / peak) * (height - pad.top - pad.bottom);
+  const yAxis = `<g class="axis">${[0, Math.round(peak / 2), peak].map((count) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${yOf(count)}" y2="${yOf(count)}" ${count ? 'stroke-dasharray="2 3"' : ""}/><text x="${pad.left - 5}" y="${yOf(count) + 3.5}" text-anchor="end">${count}</text>`).join("")}</g>`;
   const barWidth = (width - pad.left - pad.right) / dist.bins;
   const bars = dist.counts.map((count, index) => {
     const h = (count / peak) * (height - pad.top - pad.bottom);
-    return `<rect x="${pad.left + index * barWidth + 1}" y="${height - pad.bottom - h}" width="${barWidth - 2}" height="${h}" fill="${EXP_ARM_SWATCH[armId]}"><title>${(dist.min + index * ((dist.max - dist.min) / dist.bins)).toFixed(1)}: ${count}</title></rect>`;
+    return `<rect x="${pad.left + index * barWidth + 1}" y="${height - pad.bottom - h}" width="${barWidth - 2}" height="${h}" rx="2" fill="${EXP_ARM_SWATCH[armId]}"><title>${(dist.min + index * ((dist.max - dist.min) / dist.bins)).toFixed(1)}: ${count}</title></rect>`;
   }).join("");
   const xOf = (value) => pad.left + ((value - dist.min) / (dist.max - dist.min)) * (width - pad.left - pad.right);
   const zero = `<line x1="${xOf(0)}" x2="${xOf(0)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--ink-3)" stroke-dasharray="2 2"/>`;
-  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)"/><text x="${xOf(dist.mean) + 3}" y="${pad.top + 2}" font-size="10" fill="var(--ink)">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
+  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)" stroke-width="1.5"/><text x="${xOf(dist.mean) + 4}" y="${pad.top + 4}" font-size="10.5" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
   const ticks = [dist.min, dist.min / 2, 0, dist.max / 2, dist.max].map((value) => `<text x="${xOf(value)}" y="${height - 6}" font-size="9" text-anchor="middle" fill="var(--ink-3)">${value > 0 ? "+" : ""}${value}</text>`).join("");
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="H minus B* per decision">${bars}${zero}${mean}${ticks}</svg><div class="tiny muted">n = ${dist.n} decisions with a fill${dist.outside > 0 ? ` · ${dist.outside} outside ±${dist.max}` : ""} · P95 ${eur(dist.p95)}</div>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="H minus B* per decision">${yAxis}${bars}${zero}${mean}${ticks}</svg><div class="tiny muted">n = ${dist.n} decisions with a fill${dist.outside > 0 ? ` · ${dist.outside} outside ±${dist.max}` : ""} · P95 ${eur(dist.p95)}</div>`;
 }
 
+// Forest plot del mockup (forestSvg): una fila por episodio, un rombo por brazo.
+// Todos los episodios exploratorios están cerrados, así que los rombos van llenos;
+// no hay intervalo por episodio en el artifact y no se dibuja ninguno.
 function acrossCampaignsHtml(block) {
   const values = block.acrossCampaigns.flatMap((entry) => Object.values(entry.arms)).filter((value) => typeof value === "number");
   const maxAbs = Math.max(1, ...values.map((value) => Math.abs(value)));
-  const width = 220;
-  const xOf = (value) => width / 2 + (value / maxAbs) * (width / 2 - 8);
-  const rows = block.acrossCampaigns.map((entry) => {
-    const marks = Object.entries(entry.arms).map(([armId, value]) => (typeof value === "number"
-      ? `<svg x="0" y="0" width="${width}" height="14" style="position:absolute;left:0;top:0"><rect x="${xOf(value) - 4}" y="3" width="8" height="8" transform="rotate(45 ${xOf(value)} 7)" fill="${EXP_ARM_SWATCH[armId]}"><title>${esc(EXP_ARM_SHORT[armId])} ${kEur(value)} k€</title></rect></svg>`
-      : "")).join("");
-    const empty = Object.values(entry.arms).every((value) => value === null) ? '<span class="withheld small">NO ESTIMATE</span>' : "";
-    return `<div class="row" style="align-items:center;margin:3px 0"><span class="mono small" style="width:70px">${esc(entry.maturity)}</span><span style="position:relative;display:inline-block;width:${width}px;height:14px;border-left:1px solid var(--rule)" data-zero="center"><span style="position:absolute;left:${width / 2}px;top:0;bottom:0;border-left:1px dashed var(--ink-3)"></span>${marks}${empty}</span></div>`;
+  const width = 380;
+  const rowH = 20;
+  const top = 8;
+  const left = 70;
+  const right = 16;
+  const height = top + block.acrossCampaigns.length * rowH + 24;
+  const x = (value) => left + ((value + maxAbs) / (2 * maxAbs)) * (width - left - right);
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="ΔV per episode vs Baseline, k€">`;
+  svg += `<g class="axis"><line x1="${x(0)}" x2="${x(0)}" y1="${top}" y2="${height - 20}" stroke="var(--ink-3)"/>`;
+  for (const value of [-maxAbs, 0, maxAbs]) {
+    svg += `<text x="${x(value)}" y="${height - 6}" text-anchor="${value < 0 ? "start" : value > 0 ? "end" : "middle"}">${value === 0 ? "0" : kEur(Math.round(value))}</text>`;
+  }
+  svg += "</g>";
+  block.acrossCampaigns.forEach((entry, index) => {
+    const cy = top + index * rowH + rowH / 2;
+    svg += `<text x="0" y="${cy + 4}" font-size="11" fill="var(--ink)" font-family="var(--mono)">${esc(entry.maturity)}</text>`;
+    const armValues = Object.entries(entry.arms);
+    if (armValues.every(([, value]) => value === null)) {
+      svg += `<rect x="${left}" y="${cy - 8}" width="${width - left - right}" height="16" fill="url(#emHatchU)" rx="2"/><text x="${(left + width - right) / 2}" y="${cy + 4}" text-anchor="middle" font-size="10.5" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
+      return;
+    }
+    for (const [armId, value] of armValues) {
+      if (typeof value !== "number") continue;
+      svg += `<rect x="${x(value) - 5}" y="${cy - 5}" width="10" height="10" fill="${EXP_ARM_SWATCH[armId]}" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2" transform="rotate(45 ${x(value)} ${cy})" data-tip="${esc(`${entry.maturity} · ${EXP_ARM_SHORT[armId]} ΔV ${kEur(value)} k€`)}"/>`;
+    }
   });
-  return `${rows.join("")}<div class="tiny muted" style="margin-top:4px">ΔV per episode, k€ · centre = 0 · ± ${maxAbs.toFixed(0)} k€ · ${Object.keys(block.paired).map((armId) => `${expArmTag(armId)}`).join(" ")}</div>`;
+  svg += "</svg>";
+  return `${svg}<div class="tiny muted">◆ closed episode · ${Object.keys(block.paired).map((armId) => expArmTag(armId)).join(" ")} · hatched = no estimate (not zero)</div>`;
 }
 
-function comparisonBlockHtml(block, product) {
+// Tabla desplegable del mockup bajo el efecto emparejado ("Show data table"), por
+// episodio: B*, H y V tal como los publica el artifact (comparison.perEpisode).
+function pairedDataTableHtml(block) {
+  const armIds = ["BASELINE", "ARM_A", "ARM_B"].filter((armId) => block.perEpisode.some((episode) => episode.arms?.[armId]));
+  const vKeur = (arm) => (typeof arm?.vEur === "number" ? kEur(arm.vEur / 1000) : "—");
+  const rows = block.perEpisode.map((episode) => `<tr><td class="mono">${esc(episode.maturity)}</td><td class="mono right">${eur(episode.benchmark)}</td>${armIds.map((armId) => `<td class="mono right">${eur(episode.arms[armId]?.h)}</td>`).join("")}${armIds.map((armId) => `<td class="mono right">${vKeur(episode.arms[armId])}</td>`).join("")}</tr>`).join("");
+  const head = `<th>Delivery</th><th class="right">B*</th>${armIds.map((armId) => `<th class="right">H ${esc(EXP_ARM_SHORT[armId])}</th>`).join("")}${armIds.map((armId) => `<th class="right">V ${esc(EXP_ARM_SHORT[armId])} k€</th>`).join("")}`;
+  return `<details class="tbl"><summary>Show data table (${block.perEpisode.length} episodes, every arm)</summary><table class="t small"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></details>`;
+}
+
+function pairedChartHtml(block, product, pointDetails, provenance) {
+  const svg = pairedEffectSvg(block, pointDetails);
+  const interactive = Array.isArray(pointDetails) && pointDetails.length > 0;
+  if (!interactive) {
+    return `${svg}<div class="tiny muted" data-paired-detail="UNAVAILABLE">Per-decision detail ${UNAVAILABLE_TEXT}: the verified artifact does not carry it.</div>`;
+  }
+  return `<div class="ppwrap" data-paired-product="${esc(product)}">${svg}<div class="pptip" role="status" aria-live="polite"></div>${pairedTipDataScript(pointDetails, product, provenance)}</div><div class="tiny muted">Hover a point to read the decision. Click or tap to pin the tooltip; click again to release.</div>`;
+}
+
+function comparisonBlockHtml(block, product, pointDetails = null, provenance = null) {
   const checks = block.checks.map((check) => {
     const [kind, glyph, label] = CHECK_CHIP[check.status] ?? ["unk", "?", check.status];
     return `<div class="chk"><span><b>${esc(check.label)}</b></span>${chip(kind, glyph, label)}<span class="d">${esc(check.detail)}</span></div>`;
@@ -754,13 +881,13 @@ function comparisonBlockHtml(block, product) {
   return `
   <div class="exp-product" data-product="${esc(product)}" style="margin-top:22px">
     <div class="mono muted small">${esc(product)} · exploratory paired comparison · real EEX best ask</div>
-    <h2 class="page" style="font-size:22px">${esc(PRODUCT_TITLE[product] ?? product)}: does another hour or a dip rule buy cheaper than the client's 11:00?</h2>
+    <h2 class="sec">${esc(PRODUCT_TITLE[product] ?? product)}</h2>
     <div class="card" style="margin-top:10px">
       <div class="hd"><h3>Economic measures</h3><span class="small muted">B* proxy benchmark · H achieved price · V = (B* − H) × MWh · ΔV = V<sub>arm</sub> − V<sub>baseline</sub></span><span class="grow"></span>${chip("warn", "!", "EXPLORATORY · B* is a proxy")}</div>
       ${comparisonTableHtml(block)}
     </div>
     <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
-      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div><div class="bd" data-kind="paired">${pairedEffectSvg(block)}</div></div>
+      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div><div class="bd" data-kind="paired">${pairedChartHtml(block, product, pointDetails, provenance)}${pairedDataTableHtml(block)}</div></div>
       <div class="card"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend</span></div><div class="bd">${checks}<div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
     </div>
     <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); margin-top:14px">
@@ -775,12 +902,90 @@ function exploratoryComparisonHtml(exploratory) {
   if (!exploratory?.comparison) {
     return "";
   }
-  return Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product)).join("");
+  const blocks = Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance)).join("");
+  return `${PAIRED_TIP_CSS}${blocks}${PAIRED_TIP_SCRIPT}`;
 }
 
-// ---------- Campaigns & Runs y Replay exploratorios (owner patch 02 §4) ----------
-// Mismo layout que el mockup DES-01; cada campaign/decisión es una sección y la
-// navegación es por ancla (#id), sin JavaScript. Los datos llegan calculados del backend.
+const PAIRED_TIP_CSS = `<style>
+.ppwrap { position: relative; }
+.ppwrap .pphit { cursor: crosshair; }
+.pptip { position: absolute; top: 8px; display: none; z-index: 5; min-width: 320px; max-width: 460px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 9px 11px; font-size: 12px; line-height: 1.5; pointer-events: none; }
+.pptip.on { display: block; }
+.pptip.pinned { pointer-events: auto; border-color: var(--ink); }
+.pptip .t-head { font: 700 13px var(--serif); }
+.pptip .t-sub { font: 11px var(--mono); color: var(--ink-3); margin-bottom: 6px; }
+.pptip table { border-collapse: collapse; width: 100%; font: 11px var(--mono); }
+.pptip th { text-align: left; color: var(--ink-3); font-weight: 400; padding: 2px 6px 2px 0; }
+.pptip td { padding: 2px 6px 2px 0; }
+.pptip td:first-child, .pptip th { white-space: nowrap; }
+.pptip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.pptip .unav { color: var(--unk); }
+.pptip .foot { margin-top: 6px; font: 10px var(--mono); color: var(--ink-3); }
+</style>`;
+
+// Solo presentación: lee los textos ya formateados del JSON y las posiciones de data-*.
+const PAIRED_TIP_SCRIPT = `<script>
+(function () {
+  "use strict";
+  var SWATCH = { BASELINE: "var(--arm-base)", ARM_A: "var(--arm-a)", ARM_B: "var(--arm-b)" };
+  function el(tag, cls, text) { var node = document.createElement(tag); if (cls) { node.className = cls; } if (text !== undefined) { node.textContent = text; } return node; }
+  function fill(tip, model) {
+    tip.textContent = "";
+    tip.appendChild(el("div", "t-head", model.head));
+    tip.appendChild(el("div", "t-sub", model.sub));
+    var table = el("table");
+    var head = el("tr");
+    ["", "action", "bought today", "fill price", "bought so far"].forEach(function (label) { head.appendChild(el("th", "", label)); });
+    table.appendChild(head);
+    model.rows.forEach(function (row) {
+      var tr = el("tr"); tr.setAttribute("data-tip-arm", row.arm);
+      var name = el("td"); var sw = el("span", "sw"); sw.style.background = SWATCH[row.arm] || "var(--ink-3)"; name.appendChild(sw); name.appendChild(document.createTextNode(row.label)); tr.appendChild(name);
+      if (row.unavailable) { var cell = el("td", "unav", row.unavailable); cell.colSpan = 4; tr.appendChild(cell); }
+      else { row.cells.forEach(function (text) { tr.appendChild(el("td", "", text)); }); }
+      table.appendChild(tr);
+    });
+    tip.appendChild(table);
+    var facts = el("table"); facts.style.marginTop = "6px";
+    model.facts.forEach(function (fact) { var tr = el("tr"); tr.appendChild(el("th", "", fact[0])); tr.appendChild(el("td", "", fact[1])); facts.appendChild(tr); });
+    tip.appendChild(facts);
+    tip.appendChild(el("div", "foot", model.foot));
+  }
+  document.querySelectorAll(".ppwrap").forEach(function (wrap) {
+    var data = wrap.querySelector("script.ppdata"); var tip = wrap.querySelector(".pptip"); var svg = wrap.querySelector("svg");
+    if (!data || !tip || !svg) { return; }
+    var models = JSON.parse(data.textContent);
+    var cursor = svg.querySelector(".ppcursor");
+    var marks = svg.querySelectorAll(".ppmark");
+    var pinned = null;
+    function show(hit) {
+      var index = Number(hit.getAttribute("data-pp")); var model = models[index]; if (!model) { return; }
+      var cx = hit.getAttribute("data-cx");
+      cursor.setAttribute("x1", cx); cursor.setAttribute("x2", cx);
+      var ys = {}; (hit.getAttribute("data-marks") || "").split(" ").forEach(function (pair) { var parts = pair.split(":"); if (parts.length === 2) { ys[parts[0]] = parts[1]; } });
+      marks.forEach(function (mark) { var arm = mark.getAttribute("data-mark-arm"); mark.setAttribute("cx", ys[arm] ? cx : "-10"); mark.setAttribute("cy", ys[arm] || "-10"); });
+      fill(tip, model); tip.setAttribute("data-pp", String(index)); tip.classList.add("on");
+      var box = wrap.getBoundingClientRect(); var hitBox = hit.getBoundingClientRect(); var px = hitBox.left + hitBox.width / 2 - box.left;
+      tip.style.left = (px > box.width * 0.6 ? px - tip.offsetWidth - 14 : px + 14) + "px";
+    }
+    function hide() { tip.classList.remove("on"); cursor.setAttribute("x1", "-10"); cursor.setAttribute("x2", "-10"); marks.forEach(function (mark) { mark.setAttribute("cx", "-10"); }); }
+    svg.addEventListener("mouseover", function (event) { var hit = event.target.closest(".pphit"); if (hit && pinned === null) { show(hit); } });
+    svg.addEventListener("mouseleave", function () { if (pinned === null) { hide(); } });
+    svg.addEventListener("click", function (event) {
+      var hit = event.target.closest(".pphit"); if (!hit) { return; }
+      var index = hit.getAttribute("data-pp");
+      if (pinned === index) { pinned = null; tip.classList.remove("pinned"); return; }
+      pinned = index; tip.classList.add("pinned"); show(hit);
+    });
+  });
+})();
+</script>`;
+
+// ---------- Campaigns & Runs, Replay y Research exploratorios (owner patch 02 §4) ----------
+// UI-05 (owner request 25-sep-2026, PLAN_STATUS UI-05): misma anatomía que el mockup
+// DES-01 (design-proposal/index.html, rama des-01-blind: viewCampaigns, viewReplay,
+// viewResearch). Cada campaign/decisión/candidato es una sección y la navegación es
+// por ancla (#id) sin JavaScript. Los datos llegan calculados del artifact exploratorio
+// verificado por hash; donde el artifact no trae el dato, la ranura dice UNKNOWN.
 
 const GATE_CHIP = {
   PASS: ["pass", "✓", "Pass"],
@@ -793,165 +998,421 @@ const RUN_CHIP = {
   NOT_RUN: ["unk", "?", "Not run"],
 };
 const MISSION_TITLE = { G0BQ: "Gas Quarterly", G0BM: "Gas Monthly" };
+const OWNER_PATCH_02 = "EM-SPEC-OWNER-PATCH-2026-09-24-02";
+const RAIL_ON = "background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink)";
 
 const TARGET_SWITCH_CSS = `<style>
 .xsel { display: none; }
 .xsel:target { display: block; }
 .xwrap:not(:has(.xsel:target)) .xsel.xdefault { display: block; }
-.xlist a { display: block; text-decoration: none; color: inherit; }
+.xlist a { text-decoration: none; color: inherit; }
 </style>`;
+
+// El rail del mockup marca el ítem abierto (.it.on); sin JavaScript eso sale de :target.
+function railSelectionCss(ids, defaultId) {
+  const rules = ids.map((id) => `.xwrap:has(#${id}:target) .it[href="#${id}"] { ${RAIL_ON}; }`);
+  rules.push(`.xwrap:not(:has(.xsel:target)) .it[href="#${defaultId}"] { ${RAIL_ON}; }`);
+  return `<style>${rules.join("\n")}</style>`;
+}
 
 function deliveryLabel(maturity) {
   return `${maturity.slice(0, 4)}-${maturity.slice(4, 6)}`;
 }
 
-function campaignListHtml(campaigns) {
-  return campaigns.map((campaign) => {
-    const readiness = campaign.readiness === "EXPLORATORY_COMPLETE" ? chip("warn", "◇", "Exploratory · complete") : chip("unk", "?", "Insufficient data");
-    return `<a href="#cmp-${esc(campaign.id)}" class="card" style="margin-bottom:8px"><div class="bd"><div class="mono tiny muted">${esc(campaign.id)}</div><div><b>${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</b></div>${readiness}<div class="small muted">${campaign.firstDay ? `${esc(campaign.firstDay)} → ${esc(campaign.lastDay)}` : "no quoted day in the window"}</div></div></a>`;
+function decisionNumber(index) {
+  return `#${String(index + 1).padStart(3, "0")}`;
+}
+
+// Los mismos artifacts respaldan cada run y cada candidato con runs: se listan una vez
+// y el recuento de receipts sale de esta lista. Los manifests no traen fecha de
+// registro, así que "Recorded" queda explícito como no registrado.
+function exploratoryReceipts(provenance) {
+  return [
+    { id: provenance.resultsSha256.slice(0, 12), kind: "BACKTEST RESULT", what: `${provenance.resultsPath} · sha256 ${provenance.resultsSha256.slice(0, 16)}…`, href: "/backtests" },
+    { id: provenance.slotsSha256.slice(0, 12), kind: "DATA SNAPSHOT", what: `EEX THE best-ask slots · sha256 ${provenance.slotsSha256.slice(0, 16)}…`, href: "/campaigns" },
+    { id: "MANIFEST", kind: "MANIFEST", what: provenance.manifestPath, href: "/campaigns" },
+    { id: OWNER_PATCH_02, kind: "OWNER DECISION", what: "exploratory phase authorised (owner patch 02)", href: null },
+  ];
+}
+
+const NOT_RECORDED = '<span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span>';
+
+// ---------- Campaigns & Runs ----------
+
+function campaignReadinessChip(campaign, { detail = false } = {}) {
+  if (campaign.readiness === "EXPLORATORY_COMPLETE") {
+    return detail ? chip("warn", "◇", "Exploratory · not final evidence") : chip("warn", "◇", "Exploratory · complete");
+  }
+  return chip("unk", "?", "Insufficient data");
+}
+
+// Rail por misión (Bru 2026-09-25, P-008; prototipo UI-05-prototipo-2026-09-25 pestaña
+// Campaigns). Grupos, recuentos, entrega y ventana llegan del view model; aquí solo se pintan.
+function campaignGroupSummary(group) {
+  if (group.total === 0) {
+    return "no data yet";
+  }
+  return `${group.total} campaigns · ${group.complete} complete · ${group.insufficient} insufficient`;
+}
+
+function campaignRailRowHtml(row) {
+  const dot = row.readiness === "EXPLORATORY_COMPLETE" ? "ok" : "insuf";
+  const window = row.window
+    ? `${esc(row.window.firstDay)} → ${esc(row.window.lastDay)}`
+    : '<span class="unkv">UNAVAILABLE</span>';
+  return `<a class="it crow" href="#cmp-${esc(row.id)}" data-campaign-row="${esc(row.id)}" title="${esc(row.id)} · ${esc(row.readinessLabel)}">
+        <span class="cdot ${dot}" aria-label="${esc(row.readinessLabel)}"></span>
+        <span class="cdel">${esc(row.deliveryLabel)}</span>
+        <span class="cwin">${window}</span>
+      </a>`;
+}
+
+function campaignGroupsHtml(groups, selectedId) {
+  return groups.map((group) => {
+    const isOpen = group.campaigns.some((row) => row.id === selectedId);
+    const body = group.total === 0
+      ? '<div class="cempty">no campaign in the verified artifact</div>'
+      : group.campaigns.map(campaignRailRowHtml).join("");
+    return `<details class="cgrp" data-mission="${esc(group.mission)}"${isOpen ? " open" : ""}>
+      <summary><span><span class="cname">${esc(group.mission)}</span><span class="csum">${esc(campaignGroupSummary(group))}</span></span><span class="caret"></span></summary>
+      <div class="cbody">${body}</div>
+    </details>`;
   }).join("");
 }
 
-function campaignDetailHtml(campaign, unknowns, provenance, isDefault) {
+// Al navegar a una campaign (#cmp-…) solo queda abierto el grupo que la contiene.
+const CAMPAIGN_GROUP_SCRIPT = `<script>
+(function () {
+  function syncGroups() {
+    var row = document.querySelector('.crail a[href="' + location.hash + '"]');
+    if (!row) { return; }
+    document.querySelectorAll(".crail details.cgrp").forEach(function (group) { group.open = group.contains(row); });
+  }
+  window.addEventListener("hashchange", syncGroups);
+  syncGroups();
+})();
+</script>`;
+
+// Barra del mockup: cerradas / abiertas / no corridas. Una decisión cuenta como cerrada
+// sólo si el backend declara PASS en "Evaluation window closed"; el total de decisiones
+// no corridas no viene en el artifact, así que sólo se afirma 0 cuando decisiones = días.
+function decisionsBarHtml(run, campaign) {
+  const closedGate = campaign.gates.find((gate) => gate.label === "Evaluation window closed");
+  const closed = closedGate?.status === "PASS";
+  const allRun = run.decisions === campaign.tradingDays;
+  const segment = closed ? '<span class="closed" style="width:100%"></span>' : '<span class="open" style="width:100%"></span>';
+  const counts = closed ? `${run.decisions} closed · 0 open` : `0 closed · ${run.decisions} open`;
+  const notRun = allRun ? "0 not run" : '<span class="unkv" style="font-size:10.5px;line-height:15px">NOT RUN count UNKNOWN</span>';
+  return `<div class="bar" title="closed / open / not run">${segment}</div>
+        <div class="small num" style="margin-top:4px">${counts} · ${notRun}</div>
+        <div class="tiny muted mono">${run.boughtMw}/${campaign.targetMw} MW · H ${eur(run.hEurMwh)} €/MWh</div>`;
+}
+
+function candidateByArm(research, armId) {
+  return research?.candidates?.find((candidate) => candidate.armId === armId) ?? null;
+}
+
+function campaignDetailHtml(campaign, pages, isDefault) {
+  const { campaignUnknowns: unknowns, provenance, research } = pages;
+  const receipts = exploratoryReceipts(provenance);
   const gates = campaign.gates.map((gate) => {
     const [kind, glyph, label] = GATE_CHIP[gate.status] ?? ["unk", "?", gate.status];
     return `<div class="chk"><span>${esc(gate.label)}</span>${chip(kind, glyph, label)}<span class="d">${esc(gate.detail)}</span></div>`;
   }).join("");
-  const unknownCards = unknowns.map((unknown) => `<div class="card" style="margin:6px 0;border-left:3px solid var(--unk)"><div class="bd"><span class="mono small">${esc(unknown.id)}</span> ${unknown.blocking ? chip("fail", "✕", "Blocks final economics") : chip("warn", "!", "Non-blocking")}<div><b>${esc(unknown.title)}</b></div><div class="small muted">${esc(unknown.detail)}</div><div class="small">Blocks: ${esc(unknown.blocks)}</div></div></div>`).join("");
+  const unknownItems = unknowns.map((unknown) => `
+      <div class="unk-item">
+        <div class="row"><span class="mono small">${esc(unknown.id)}</span>${unknown.blocking ? chip("fail", "✕", "Blocks final economics") : chip("warn", "!", "Non-blocking")}</div>
+        <div class="q">${esc(unknown.title)}</div>
+        <div class="small ink2">${esc(unknown.detail)}</div>
+        <div class="small"><span class="muted">Blocks:</span> ${esc(unknown.blocks)}</div>
+      </div>`).join("");
+  const replayEpisode = pages.replay.find((episode) => episode.product === campaign.product && episode.maturity === campaign.maturity);
   const runs = campaign.runs.map((run) => {
     const [kind, glyph, label] = RUN_CHIP[run.status] ?? ["unk", "?", run.status];
-    const replayLink = run.armId === "ARM_A" ? `<a class="btn" href="/replay#rep-${esc(campaign.product)}-${esc(campaign.maturity)}">Replay</a>` : "";
-    return `<tr data-status="EXPLORATORY" data-run="${esc(campaign.id)}-${esc(run.armId)}"><td class="mono">EXP-${esc(campaign.id)}-${esc(run.armId)}</td><td>${expArmTag(run.armId)}<div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td><td>${chip(kind, glyph, label)}</td><td class="mono small">${run.decisions} decisions · ${run.boughtMw}/${campaign.targetMw} MW</td><td class="mono num right">${eur(run.hEurMwh)}</td><td>${chip("pass", "✓", "Deterministic")}</td><td>${replayLink} <a class="btn" href="/backtests">Backtest</a></td></tr>`;
+    const candidate = candidateByArm(research, run.armId);
+    const drills = [
+      run.armId === "ARM_A" && replayEpisode?.inspector?.length > 0 ? `<a href="/replay#rep-${esc(campaign.product)}-${esc(campaign.maturity)}">Replay</a>` : "",
+      '<a href="/backtests">Backtest</a>',
+      candidate ? `<a href="/research#res-${esc(candidate.id)}">Research</a>` : "",
+    ].join("");
+    return `<tr data-status="EXPLORATORY" data-run="${esc(campaign.id)}-${esc(run.armId)}">
+        <td><div class="mono">EXP-${esc(campaign.id)}-${esc(run.armId)}</div><div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td>
+        <td>${expArmTag(run.armId)}<div class="small muted">${esc(candidate?.name ?? "")}</div></td>
+        <td>${chip(kind, glyph, label)}</td>
+        <td style="min-width:190px">${decisionsBarHtml(run, campaign)}</td>
+        <td title="the artifact carries no per-run determinism; the only check is global (Research · Replay determinism)">${chip("unk", "?", "UNKNOWN")}</td>
+        <td class="num" title="shared receipts that bind this run">${receipts.length}</td>
+        <td><span class="drill">${drills}</span></td>
+      </tr>`;
   }).join("");
   const runsTable = campaign.runs.length === 0
     ? `<div class="bd"><span class="withheld">NO RUNS</span> <span class="small muted">the procurement window is not fully inside the data period; nothing is imputed</span></div>`
-    : `<table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · volume</th><th class="right">H · €/MWh</th><th>Determinism</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table>`;
-  const readinessChip = campaign.readiness === "EXPLORATORY_COMPLETE" ? chip("warn", "◇", "Exploratory · not final evidence") : chip("unk", "?", "Insufficient data");
+    : `<table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table>`;
+  const legend = (cls, text) => `<span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="${cls}" style="width:100%"></span></span> ${text}</span>`;
+  // Receipts bind runs; a campaign without runs has nothing they could back (review UI05-RCP-01, same rule as Research NO RECEIPTS).
+  const ledger = campaign.runs.length === 0
+    ? '<span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this campaign</span>'
+    : receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="cmp-${esc(campaign.id)}" data-campaign="${esc(campaign.id)}">
-    <div class="mono muted small">${esc(campaign.id)} · THE ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
-    <div class="row" style="align-items:flex-end"><div class="grow"><h1 class="page">${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
-    <p class="lede">Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, client calendar rule), paying the real best ask. Which arm buys cheaper than the client's 11:00 practice?</p></div>
-    <div><div class="mono tiny muted">CAMPAIGN READINESS</div>${readinessChip}</div></div>
-    <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr); margin-top:12px">
-      <div class="card"><div class="hd"><h3>Readiness gates</h3><span class="small muted">from backend</span></div><div class="bd">${gates}</div></div>
-      <div class="card"><div class="hd"><h3>What we don't know</h3><span class="small muted">${unknowns.length} explicit unknowns · fail-closed</span></div><div class="bd">${unknownCards}</div></div>
+    <div class="row" style="align-items:flex-end">
+      <div class="grow">
+        <div class="mono muted small">${esc(campaign.id)} · THE ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
+        <h1 class="page">${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
+        <p class="lede">${campaign.firstDay
+          ? `Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, client calendar rule), paying the real best ask. Which arm buys cheaper than the client's 11:00 practice?`
+          : `Procure ${campaign.targetMw} MW on the client calendar. No quoted day of this window is inside the data period.`}</p>
+      </div>
+      <div style="text-align:right"><div class="caps muted">Campaign readiness</div><div style="margin-top:4px">${campaignReadinessChip(campaign, { detail: true })}</div></div>
     </div>
-    <h3 style="margin-top:16px">Runs</h3>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><div class="hd"><h3>Readiness gates</h3><span class="muted small">from backend · exploratory manifest</span></div><div class="bd">${gates}</div></div>
+      <div class="card"><div class="hd"><h3>What we don't know</h3><span class="muted small">${unknowns.length} explicit unknowns · fail-closed</span></div><div class="bd">${unknownItems}</div></div>
+    </div>
+    <h2 class="sec">Runs</h2>
     <div class="card">${runsTable}</div>
-    <h3 style="margin-top:16px">Receipts</h3>
-    <div class="card"><div class="bd">
-      <div class="chk"><span>Exploratory manifest</span><span class="d mono">${esc(provenance.manifestPath)}</span></div>
-      <div class="chk"><span>Results artifact</span><span class="d mono">${esc(provenance.resultsPath)} · sha256 ${esc(provenance.resultsSha256.slice(0, 16))}…</span></div>
-      <div class="chk"><span>Best-ask slots (EEX lake)</span><span class="d mono">sha256 ${esc(provenance.slotsSha256.slice(0, 16))}…</span></div>
-      <div class="chk"><span>Owner decision</span><span class="d mono">EM-SPEC-OWNER-PATCH-2026-09-24-02</span></div>
-    </div></div>
+    <div class="row small muted" style="margin-top:6px;gap:16px">${legend("closed", "evaluation closed")}${legend("open", "evaluation not closed")}${legend("notrun", "decision not run (unknown, not zero)")}</div>
+    <h2 class="sec">Receipts</h2>
+    <div class="card"><div class="bd">${ledger}</div></div>
   </section>`;
 }
 
 export function exploratoryCampaignsBody(exploratory) {
   const campaigns = exploratory.campaigns;
-  const firstComplete = campaigns.find((campaign) => campaign.readiness === "EXPLORATORY_COMPLETE") ?? campaigns[0];
-  const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory.campaignUnknowns, exploratory.provenance, campaign === firstComplete)).join("");
-  return `${TARGET_SWITCH_CSS}
+  const complete = campaigns.filter((campaign) => campaign.readiness === "EXPLORATORY_COMPLETE");
+  const firstComplete = complete.find((campaign) => campaign.product === "G0BQ") ?? complete[0] ?? campaigns[0];
+  const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory, campaign === firstComplete)).join("");
+  return `${TARGET_SWITCH_CSS}${railSelectionCss(campaigns.map((campaign) => `cmp-${campaign.id}`), `cmp-${firstComplete.id}`)}
 <section class="surface campaigns" data-surface="campaigns" data-exploratory="true">
-  <div class="grid xwrap" style="grid-template-columns: 300px minmax(0,1fr); gap:18px">
-    <div class="xlist"><div class="mono tiny muted" style="margin-bottom:8px">CAMPAIGNS · ${campaigns.length}</div>${campaignListHtml(campaigns)}<div class="tiny muted">Readiness is reported by the backend. The UI does not compute or upgrade it.</div></div>
+  <div class="split xwrap">
+    <div class="xlist">
+      <div class="card crail">
+        <div class="crail-title">CAMPAIGNS · ${campaigns.length}</div>
+        ${campaignGroupsHtml(exploratory.campaignGroups, firstComplete.id)}
+        <div class="clegend"><span><span class="cdot ok"></span>complete</span><span><span class="cdot insuf"></span>insufficient data</span></div>
+      </div>
+      <div class="small muted" style="margin-top:8px">Readiness shown here is reported by the backend. The UI does not compute or upgrade it.</div>
+    </div>
     <div>${details}</div>
   </div>
-</section>`;
+</section>
+${CAMPAIGN_GROUP_SCRIPT}`;
 }
 
-function timelineStripSvg(episode, selectedIndex) {
-  const width = 1200;
-  const height = 60;
-  const count = episode.ask11.length;
-  const step = (width - 40) / Math.max(1, count - 1);
-  const bought = new Set(episode.inspector.map((item) => item.index));
-  const marks = episode.ask11.map((point, index) => {
-    const x = 20 + index * step;
-    const selected = index === selectedIndex;
-    const size = selected ? 12 : 8;
-    const filled = bought.has(index);
-    return `<rect x="${x - size / 2}" y="${24 - size / 2}" width="${size}" height="${size}" fill="${filled ? "var(--asof)" : "var(--surface)"}" stroke="var(--asof)"><title>${esc(point.day)} ${filled ? "BUY" : "WAIT"}</title></rect>`;
-  }).join("");
-  const labels = episode.ask11.filter((_, index) => index % Math.max(1, Math.floor(count / 6)) === 0).map((point) => {
-    const index = episode.ask11.indexOf(point);
-    return `<text x="${20 + index * step}" y="52" font-size="10" text-anchor="middle" fill="var(--ink-3)">${esc(point.day.slice(5))}</text>`;
-  }).join("");
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Arm A decisions over the campaign">${marks}${labels}</svg>`;
-}
+// ---------- Replay / Decision Inspector ----------
 
-function knownAtT0Svg(episode, selectedIndex) {
-  const width = 760;
-  const height = 240;
-  const pad = { left: 44, right: 16, top: 16, bottom: 26 };
-  const values = episode.ask11.map((point) => point.ask).filter((value) => typeof value === "number");
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = Math.max(0.5, max - min);
-  const count = episode.ask11.length;
-  const x = (index) => pad.left + (index / Math.max(1, count - 1)) * (width - pad.left - pad.right);
-  const y = (value) => pad.top + ((max - value) / span) * (height - pad.top - pad.bottom);
-  const known = episode.ask11.slice(0, selectedIndex + 1).map((point, index) => (typeof point.ask === "number" ? `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point.ask).toFixed(1)}` : "")).join(" ");
-  const cut = x(selectedIndex);
-  const grid = [min, (min + max) / 2, max].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" stroke="var(--rule-2)" stroke-dasharray="2 3"/><text x="${pad.left - 6}" y="${y(value) + 3}" font-size="10" text-anchor="end" fill="var(--ink-3)">${value.toFixed(2)}</text>`).join("");
-  const selected = episode.ask11[selectedIndex];
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="11:00 best ask known at decision time">${grid}
-    <rect x="${cut}" y="${pad.top}" width="${width - pad.right - cut}" height="${height - pad.top - pad.bottom}" fill="var(--hind-bg)" opacity="0.7"/>
-    <text x="${(cut + width - pad.right) / 2}" y="${height / 2}" font-size="12" text-anchor="middle" fill="var(--hind)">Sealed: after T₀</text>
-    <text x="${(cut + width - pad.right) / 2}" y="${height / 2 + 16}" font-size="10" text-anchor="middle" fill="var(--ink-3)">not known at decision time</text>
-    <line x1="${cut}" x2="${cut}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--hind)" stroke-dasharray="3 3"/>
-    <path d="${known}" fill="none" stroke="var(--asof)" stroke-width="1.6"/>
-    ${typeof selected?.ask === "number" ? `<circle cx="${cut}" cy="${y(selected.ask)}" r="3.5" fill="var(--asof)"/>` : ""}
-    <text x="${cut - 4}" y="${pad.top + 10}" font-size="10" text-anchor="end" fill="var(--asof)">KNOWN AT T₀</text>
-    <text x="${pad.left}" y="${height - 6}" font-size="10" fill="var(--ink-3)">${esc(episode.ask11[0].day)}</text>
-    <text x="${width - pad.right}" y="${height - 6}" font-size="10" text-anchor="end" fill="var(--ink-3)">${esc(episode.ask11.at(-1).day)}</text>
-  </svg>`;
-}
-
-function decisionSectionHtml(episode, item, position, isDefault) {
+function replaySectionId(episode, item) {
   const idBase = `rep-${episode.product}-${episode.maturity}`;
-  const sectionId = position === 0 ? idBase : `${idBase}-${item.index}`;
-  const others = episode.inspector.map((other, position) => {
-    const href = position === 0 ? `#${idBase}` : `#${idBase}-${other.index}`;
+  return episode.inspector[0]?.index === item.index ? idBase : `${idBase}-${item.index}`;
+}
+
+// B* es la media de los asks de 11:00 de toda la ventana (benchmarkNote del artifact),
+// así que la evaluación de cada decisión cierra el último día de la ventana.
+function evaluationCloses(episode) {
+  return episode.ask11.at(-1)?.day ?? null;
+}
+
+// Tira de decisiones del mockup (timelineSvg): una marca por día hábil del brazo A,
+// llena si compró; la seleccionada más alta; el punto negro marca las que tienen detalle.
+function runTimelineSvg(episode, item) {
+  const width = 1200;
+  const height = 74;
+  const left = 20;
+  const right = 20;
+  const days = episode.decisions?.ARM_A ?? [];
+  const count = days.length;
+  const x = (index) => left + (index / Math.max(1, count - 1)) * (width - left - right);
+  const inspected = new Map(episode.inspector.map((entry) => [entry.index, entry]));
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Arm A decisions over the campaign window">`;
+  svg += `<line x1="${left}" x2="${width - right}" y1="34" y2="34" stroke="var(--rule)"/>`;
+  const closes = evaluationCloses(episode);
+  if (count > 0) {
+    const cx = x(item.index);
+    svg += `<rect x="${cx}" y="42" width="${Math.max(2, x(count - 1) - cx)}" height="8" fill="var(--hind)" stroke="var(--hind)" stroke-width="1" opacity=".75"/>`;
+    const labelRight = cx > width / 2;
+    svg += `<text x="${labelRight ? cx - 6 : cx + 6}" y="61" text-anchor="${labelRight ? "end" : "start"}" font-size="10" fill="var(--hind)" font-weight="600">evaluation closed ${esc(closes)}</text>`;
+  }
+  days.forEach((day, index) => {
+    const cx = x(index);
+    const selected = index === item.index;
+    const bought = day.status === "FILLED";
+    const tip = `${decisionNumber(index)} · ${day.day} · ${bought ? `BUY ${day.filledMw} MW` : "WAIT"}`;
+    let mark = `<rect x="${cx - 6}" y="20" width="12" height="28" fill="transparent"/>`;
+    mark += `<rect x="${cx - 3.5}" y="${selected ? 23 : 27}" width="7" height="${selected ? 14 : 7}" rx="1" fill="${bought ? "var(--asof)" : "var(--surface)"}" stroke="var(--asof)" stroke-width="${selected ? 2 : 1.2}"/>`;
+    if (inspected.has(index)) {
+      mark += `<circle cx="${cx}" cy="17" r="2.2" fill="var(--ink)"/>`;
+      svg += `<a href="#${esc(replaySectionId(episode, inspected.get(index)))}" data-tip="${esc(tip)}">${mark}</a>`;
+      return;
+    }
+    svg += `<g data-tip="${esc(tip)}">${mark}</g>`;
+  });
+  days.forEach((day, index) => {
+    if (index > 0 && days[index - 1].day.slice(0, 7) === day.day.slice(0, 7)) return;
+    svg += `<text x="${x(index)}" y="72" font-size="10" fill="var(--ink-3)" text-anchor="${index === 0 ? "start" : "middle"}">${esc(day.day.slice(0, 7))}</text>`;
+  });
+  return `${svg}</svg>`;
+}
+
+// Gráfico "known at T₀" del mockup (priceSvg). Serie: ask de 11:00 de cada día de la
+// ventana (artifact replay[].ask11). A la derecha de T₀ queda sellado; el overlay de
+// hindsight dibuja allí, y sólo allí, lo que se conoció después.
+function knownAtT0Svg(episode, item) {
+  const width = 760;
+  const height = 250;
+  const L = 44;
+  const R = 26;
+  const T = 16;
+  const B = 26;
+  const points = episode.ask11;
+  const values = points.map((point) => point.ask).filter((value) => typeof value === "number");
+  const lo = Math.floor(Math.min(...values) - 0.5);
+  const hi = Math.ceil(Math.max(...values) + 0.5);
+  const count = points.length;
+  const x = (index) => L + (index / Math.max(1, count - 1)) * (width - L - R);
+  const y = (value) => T + ((hi - value) / (hi - lo)) * (height - T - B);
+  const pathOf = (from, to) => {
+    let d = "";
+    let pen = "M";
+    for (let index = from; index <= to; index += 1) {
+      const ask = points[index]?.ask;
+      if (typeof ask !== "number") {
+        pen = "M";
+        continue;
+      }
+      d += `${pen}${x(index).toFixed(1)} ${y(ask).toFixed(1)} `;
+      pen = "L";
+    }
+    return d.trim();
+  };
+  const cut = x(item.index);
+  const midLater = (cut + x(count - 1)) / 2;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="11:00 best ask as known at decision time">`;
+  svg += `<g class="sealed-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="var(--surface-2)"/>`;
+  svg += `<text x="${midLater}" y="${height / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
+  svg += `<text x="${midLater}" y="${height / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
+  svg += `<text x="${midLater}" y="${height / 2 + 25}" text-anchor="middle" font-size="11" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
+  svg += `<g class="hind-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="url(#emHatchH)"/></g>`;
+  svg += '<g class="axis">';
+  const step = Math.max(1, Math.round((hi - lo) / 5));
+  for (let value = lo; value <= hi; value += step) {
+    svg += `<line x1="${L}" x2="${width - R}" y1="${y(value)}" y2="${y(value)}" stroke-dasharray="2 3"/><text x="${L - 6}" y="${y(value) + 3.5}" text-anchor="end">${value}</text>`;
+  }
+  svg += `<text x="${L}" y="${height - 8}" text-anchor="start">${esc(points[0].day)}</text>`;
+  svg += `<text x="${cut}" y="${height - 8}" text-anchor="middle">T₀</text>`;
+  svg += `<text x="${width - R}" y="${height - 8}" text-anchor="end">${esc(points.at(-1).day)}</text></g>`;
+  svg += `<path d="${pathOf(0, item.index)}" fill="none" stroke="var(--asof)" stroke-width="2"/>`;
+  svg += `<g class="hind-layer"><path d="${pathOf(item.index, count - 1)}" fill="none" stroke="var(--hind)" stroke-width="2" stroke-dasharray="5 3"/>`;
+  svg += `<text x="${x(count - 1) - 4}" y="${height - B - 8}" text-anchor="end" font-size="10.5" fill="var(--hind)" font-weight="600">realised later</text></g>`;
+  svg += `<line x1="${cut}" x2="${cut}" y1="${T - 6}" y2="${height - B}" stroke="var(--hind)" stroke-width="2" stroke-dasharray="4 3"/>`;
+  svg += `<text x="${cut - 5}" y="${T + 4}" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
+  svg += `<text x="${cut + 5}" y="${T + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
+  const selectedAsk = points[item.index]?.ask;
+  if (typeof selectedAsk === "number") {
+    svg += `<circle cx="${cut}" cy="${y(selectedAsk)}" r="4.5" fill="var(--asof)" stroke="var(--surface)" stroke-width="2" data-tip="${esc(`11:00 best ask ${eur(selectedAsk)} €/MWh · known at T₀`)}"/>`;
+  }
+  return `${svg}</svg>`;
+}
+
+function decisionSectionHtml(episode, item, isDefault) {
+  const product = episode.product;
+  const campaignId = `GAS-${product === "G0BQ" ? "Q" : "M"}-${episode.maturity}`;
+  const others = episode.inspector.map((other) => {
     const active = other.index === item.index;
-    return `<a class="btn${active ? " on" : ""}" href="${href}" style="${active ? "background:var(--ink);color:var(--paper)" : ""}">#${String(other.index + 1).padStart(3, "0")} · BUY ${other.filledMw} MW</a>`;
-  }).join(" ");
-  const depthWarning = typeof item.askSz === "number" && item.filledMw > item.askSz
-    ? `<div class="note-ev" style="background:var(--warn-bg)"><b>Depth:</b> ${item.filledMw} MW filled against ${item.askSz} MW visible at the ask. Client rule assumes full fill; the depth-capped variant is in Backtests.</div>`
+    return `<a class="btn${active ? " on" : ""}" href="#${esc(replaySectionId(episode, other))}">${decisionNumber(other.index)} · BUY ${other.filledMw} MW</a>`;
+  }).join("");
+  const closes = evaluationCloses(episode);
+  const contract = `THE ${esc(product)} ${esc(deliveryLabel(episode.maturity))}`;
+  const quoteClock = `${esc(item.quoteTm.slice(11, 19))}Z`;
+
+  const rec = objCard("asof", "◆", "Recommendation", "T₀ 11:00", `
+    <div class="big">BUY ${item.requestedMw} MW <span class="muted" style="font-size:13px">${contract}</span></div>
+    <dl class="kv"><dt>Produced by</dt><dd class="mono">DIP10 v1-exp</dd>
+      <dt>11:00 best ask</dt><dd class="mono">${eur(item.ask)} €/MWh</dd>
+      <dt>Trigger mean</dt><dd>${unknownValue()} <span class="tiny muted">mean of previous ${item.pastAsksUsed} asks not emitted</span></dd></dl>
+    <div class="tiny muted" style="margin-top:6px">Rule: buy the day's cap when the ask is below the mean of the previous 11:00 asks, otherwise the feasibility floor Lₜ. Rule-based output. Not an instruction, not an order.</div>`);
+  const ord = objCard("exec", "▲", "Requested action", "T₀", `
+    <div class="big">BUY ${item.requestedMw} MW</div>
+    <dl class="kv"><dt>Time in force</dt><dd>${unknownValue()}</dd><dt>Requested by</dt><dd>simulated desk (validator)</dd><dt>Remaining after</dt><dd class="mono">${item.remainingMwAfter} MW</dd></dl>
+    <div class="tiny muted" style="margin-top:6px">The validator requests what is recommended: one quantity field, same side.</div>`);
+  const depthNote = typeof item.askSz === "number" && item.filledMw > item.askSz
+    ? `<div class="gapnote"><b>Depth:</b> ${item.filledMw} MW filled against ${item.askSz} MW visible at the ask. Client rule assumes full fill; the depth-capped variant is in Backtests.</div>`
     : "";
-  const spread = typeof item.bid === "number" ? (item.ask - item.bid).toFixed(3) : "—";
-  return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(sectionId)}" data-decision="${esc(episode.product)}-${esc(episode.maturity)}-${item.index}">
-  <div class="mono muted small">EXP-GAS-${episode.product === "G0BQ" ? "Q" : "M"}-${esc(episode.maturity)} · ${expArmTag("ARM_A")} DIP10 · 11:00 Europe/Berlin</div>
-  <div class="row" style="align-items:flex-end"><div class="grow"><h1 class="page">Decision #${String(item.index + 1).padStart(3, "0")} — BUY at ${esc(item.day)} 11:00 Berlin</h1>
-  <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p></div></div>
-  <div style="margin:6px 0">${others}</div>
-  <div class="card"><div class="hd"><h3>Run timeline · ${episode.ask11.length} decisions</h3><span class="small muted">■ BUY · □ WAIT (Arm A)</span></div><div class="bd">${timelineStripSvg(episode, item.index)}</div></div>
-  <div class="grid" style="grid-template-columns: repeat(4, minmax(0,1fr)); margin-top:12px">
-    <div class="card" style="border-top:3px solid var(--asof)"><div class="hd"><h3>◆ Recommendation</h3><span class="small muted">T₀ 11:00</span></div><div class="bd"><div style="font-size:20px">BUY ${item.requestedMw} MW</div><div class="small">Produced by DIP10 (ask below the mean of the previous ${item.pastAsksUsed} 11:00 asks) or the feasibility floor L<sub>t</sub>.</div><div class="small muted">Rule-based output. Not an instruction, not an order.</div></div></div>
-    <div class="card" style="border-top:3px solid var(--ink)"><div class="hd"><h3>▲ Requested action</h3></div><div class="bd"><div style="font-size:20px">BUY ${item.requestedMw} MW</div><div class="small">Same as recommendation (simulated desk).</div><div class="small muted">Remaining after this decision: ${item.remainingMwAfter} MW</div></div></div>
-    <div class="card" style="border-top:3px solid var(--exec)"><div class="hd"><h3>■ Execution · fill</h3></div><div class="bd">${chip("warn", "!", "SIMULATED · ask + 0.15")}<div style="font-size:20px">${item.filledMw} of ${item.requestedMw} MW · avg ${eur(item.priceEurMwh)}</div><div class="small mono">quote ${esc(item.quoteTm)} · ask ${eur(item.ask)}</div>${depthWarning}</div></div>
-    <div class="card" style="border-top:3px solid var(--hind)"><div class="hd"><h3>● Outcome · evaluation</h3><span class="small muted">after window closed</span></div><div class="bd"><div style="font-size:20px">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="small muted">vs Baseline</span></div><div class="small">B* ${eur(episode.benchmark)} · H this fill ${eur(item.priceEurMwh)} · Baseline same day ${item.baseline.filledMw} MW${item.baseline.priceEurMwh === null ? "" : ` at ${eur(item.baseline.priceEurMwh)}`}</div><div class="small muted">Computed after the window closed. B* is a proxy.</div></div></div>
+  const fill = objCard("exec", "■", "Execution · fill", `quote ${quoteClock}`, `
+    <div class="row" style="margin-bottom:4px"><span class="st warn"><span class="g">⚙</span>SIMULATED · ask + 0.15</span></div>
+    <div class="big">${item.filledMw} of ${item.requestedMw} MW <span class="muted" style="font-size:13px">avg ${eur(item.priceEurMwh)}</span></div>
+    <table class="t small"><tbody><tr><td class="mono">${quoteClock}</td><td class="num">${item.filledMw} MW</td><td class="num right mono">${eur(item.priceEurMwh)}</td></tr></tbody></table>
+    ${depthNote}`);
+  const out = objCard("hind", "●", "Outcome · evaluation", "window end", `
+    <div class="row" style="margin-bottom:4px">${chip("pass", "✓", `Evaluation closed ${esc(closes)}`)}</div>
+    <div class="big">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="muted" style="font-size:13px">vs Baseline</span></div>
+    <dl class="kv"><dt>B* benchmark</dt><dd class="mono">${eur(episode.benchmark)}</dd><dt>H this fill</dt><dd class="mono">${eur(item.priceEurMwh)}</dd><dt>Baseline same day</dt><dd class="mono">${item.baseline.filledMw} MW${item.baseline.priceEurMwh === null ? "" : ` at ${eur(item.baseline.priceEurMwh)}`}</dd></dl>
+    <div class="tiny muted" style="margin-top:6px">Computed after the window closed. B* is a proxy (U-EM-2).</div>`);
+
+  const inputRow = (label, value, observed, age, state) => `<tr><td>${label}</td><td class="mono num">${value}</td><td class="mono small">${observed}</td><td class="small">${age}</td><td>${state}</td></tr>`;
+  // Frescura: el loader descarta quotes con más de 15 min (build_tob_slots.py:25 MAX_AGE_S).
+  const fresh = chip("pass", "✓", "Fresh");
+  const inputs = [
+    inputRow("Best ask", `${eur(item.ask)} €/MWh`, esc(item.quoteTm), "≤ 15 min", fresh),
+    inputRow("Ask size (visible)", `${esc(item.askSz ?? "—")} MW`, esc(item.quoteTm), "≤ 15 min", fresh),
+    inputRow("Best bid", typeof item.bid === "number" ? `${eur(item.bid)} €/MWh` : unknownValue(), esc(item.quoteTm), "≤ 15 min", typeof item.bid === "number" ? fresh : chip("unk", "?", "One-sided book")),
+    inputRow("Previous 11:00 asks used", String(item.pastAsksUsed), "prior days only", "past", chip("pass", "✓", "Past only")),
+    inputRow("Trigger mean (previous asks)", unknownValue(), "—", "—", chip("unk", "?", "Not emitted")),
+    inputRow("Execution fees", unknownValue(), "—", "—", chip("unk", "?", "Unknown")),
+  ].join("");
+
+  return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(replaySectionId(episode, item))}" data-decision="${esc(product)}-${esc(episode.maturity)}-${item.index}">
+  <div class="dechead">
+    <div class="grow">
+      <div class="mono muted small">${esc(campaignId)} · run EXP-${esc(campaignId)}-ARM_A · ${expArmTag("ARM_A")} DIP10 · 11:00 Europe/Berlin</div>
+      <h1 class="page">Decision ${decisionNumber(item.index)} — BUY at ${esc(item.day)} 11:00 Berlin</h1>
+      <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p>
+    </div>
+    <div class="row">${others}</div>
   </div>
-  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:12px">
-    <div class="card"><div class="hd" style="background:var(--asof-bg)"><span class="st run">KNOWN AT T₀</span> <b>${esc(item.day)} 11:00 Berlin</b></div><div class="bd">
-      <div class="small"><b>THE ${esc(episode.product)} ${esc(deliveryLabel(episode.maturity))} · 11:00 best ask</b> <span class="muted">€/MWh · campaign window</span></div>
-      ${knownAtT0Svg(episode, item.index)}
-      <table class="t"><thead><tr><th>Input in decision snapshot</th><th>Value at T₀</th><th>Observed at</th><th>State</th></tr></thead><tbody>
-        <tr><td>Best ask</td><td class="mono">${eur(item.ask)} €/MWh</td><td class="mono small">${esc(item.quoteTm)}</td><td>${chip("pass", "✓", "Fresh ≤ 15 min")}</td></tr>
-        <tr><td>Ask size (visible)</td><td class="mono">${item.askSz ?? "—"} MW</td><td class="mono small">${esc(item.quoteTm)}</td><td>${chip("pass", "✓", "Fresh")}</td></tr>
-        <tr><td>Best bid · spread</td><td class="mono">${eur(item.bid)} · ${spread}</td><td class="mono small">${esc(item.quoteTm)}</td><td>${typeof item.bid === "number" ? chip("pass", "✓", "Fresh") : chip("unk", "?", "One-sided book")}</td></tr>
-        <tr><td>Previous 11:00 asks used</td><td class="mono">${item.pastAsksUsed}</td><td class="mono small">prior days only</td><td>${chip("pass", "✓", "Past only")}</td></tr>
-        <tr><td>Execution fees</td><td>${unknownValue()}</td><td>—</td><td>${chip("unk", "?", "Unknown")}</td></tr>
-      </tbody></table></div></div>
-    <div class="card"><div class="hd"><span class="st warn">LATER · EVALUATION</span> <b>not visible to the decision</b></div><div class="bd">
-      <div class="chk"><span>Evaluation window</span><span class="d mono">${esc(episode.ask11[0].day)} → ${esc(episode.ask11.at(-1).day)}</span></div>
-      <div class="chk"><span>Benchmark B* (window mean 11:00 ask)</span><span class="d mono">${eur(episode.benchmark)}</span></div>
-      <div class="chk"><span>Hedge price H · Arm A (campaign)</span><span class="d mono">${eur(episode.hArmA)}</span></div>
-      <div class="chk"><span>Hedge price H · Baseline (campaign)</span><span class="d mono">${eur(episode.hBaseline)}</span></div>
-      <div class="chk"><span><b>ΔV this decision</b></span><span class="d mono"><b>${kEur(item.deltaVEur / 1000)} k€</b></span></div>
-      <div class="note-ev"><span class="ev">EVIDENCE</span> One decision is one observation. It does not validate the strategy — see <a href="/backtests">Backtests</a> for the paired campaign effect.</div>
-    </div></div>
+
+  <div class="card" style="margin-top:14px;padding:4px 14px 0">
+    <div class="row small" style="padding-top:6px"><span class="caps muted">Run timeline · ${(episode.decisions?.ARM_A ?? []).length} decisions</span><span class="grow"></span>
+      <span class="muted">■ BUY (Arm A) &nbsp; □ WAIT &nbsp; • opens in this inspector &nbsp; <span style="color:var(--hind)">▬ evaluation window</span></span></div>
+    <div class="tl">${runTimelineSvg(episode, item)}</div>
+  </div>
+
+  <div class="chain">
+    ${rec}<div class="link">→</div>${ord}<div class="link">→</div>${fill}
+    <div class="horizon"><span>EVALUATION · LATER</span></div>
+    ${out}
+  </div>
+  <div class="row tiny muted" style="margin-top:6px">
+    <span class="zt asof">T₀ · decision-time</span><span class="zt exec">Execution</span><span class="zt hind">Later · evaluation</span>
+    <span>Four separate objects with their own times. The arrow is sequence, not identity.</span>
+  </div>
+
+  <div class="zones">
+    <section class="zone asof" data-view-scope="decision">
+      <div class="zhd"><span class="zt asof">Known at T₀</span><b>${esc(item.day)} 11:00 Berlin</b><span class="grow"></span>
+        <button type="button" class="btn" data-hind-toggle title="Draws post-T₀ asks on the right of the horizon only">Hindsight overlay: off</button></div>
+      <div class="zbd">
+        <div class="row small"><b>${contract} · 11:00 best ask</b><span class="muted">€/MWh · every exchange day of the campaign window</span></div>
+        <div class="chartwrap">${knownAtT0Svg(episode, item)}</div>
+        <table class="t" style="margin-top:6px">
+          <thead><tr><th>Inputs in decision snapshot</th><th>Value at T₀</th><th>Observed at</th><th>Age at T₀</th><th>State</th></tr></thead>
+          <tbody>${inputs}</tbody>
+        </table>
+      </div>
+    </section>
+    <div class="horizon"><span>KNOWLEDGE HORIZON</span></div>
+    <section class="zone hind" data-view-scope="evaluation">
+      <div class="zhd"><span class="zt hind">Later · evaluation</span><b>not visible to the decision</b></div>
+      <div class="zbd">
+        <div class="metric">
+          <span class="lbl">Evaluation window</span><span class="mono">${esc(episode.ask11[0].day)} → ${esc(closes)}</span>
+          <span class="lbl">Benchmark B* (window mean 11:00 ask)</span><span class="val">${eur(episode.benchmark)}</span>
+          <span class="lbl">Hedge price H · ${expArmTag("ARM_A")}</span><span class="val">${eur(episode.hArmA)}</span>
+          <span class="lbl">Hedge price H · ${expArmTag("BASELINE")}</span><span class="val">${eur(episode.hBaseline)}</span>
+          <span class="lbl"><b>ΔV this decision</b></span><span class="val">${kEur(item.deltaVEur / 1000)} k€</span>
+        </div>
+        <div class="sp"></div>
+        <div class="note-ev"><span class="ev">EVIDENCE</span> One decision is one observation. It does not validate the strategy — see <a href="/backtests">Backtests</a> for the paired campaign effect.</div>
+      </div>
+    </section>
   </div>
 </section>`;
 }
@@ -960,15 +1421,15 @@ export function exploratoryReplayBody(exploratory) {
   const episodes = exploratory.replay.filter((episode) => episode.inspector.length > 0);
   const firstQuarterly = episodes.find((episode) => episode.product === "G0BQ") ?? episodes[0];
   const picker = episodes.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(MISSION_TITLE[episode.product])} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ");
-  const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position, position === 0 && episode === firstQuarterly))).join("");
+  const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly))).join("");
   return `${TARGET_SWITCH_CSS}
 <section class="surface replay" data-surface="replay" data-exploratory="true">
-  <div class="card" style="margin-bottom:12px"><div class="bd"><span class="mono tiny muted">CAMPAIGNS WITH ARM A PURCHASES</span><div style="margin-top:6px">${picker}</div></div></div>
+  <div class="row small" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="caps muted">Campaigns with Arm A purchases</span>${picker}</div>
   <div class="xwrap">${sections}</div>
 </section>`;
 }
 
-// ---------- Research / Strategy Lab exploratorio (owner patch 02 §4) ----------
+// ---------- Research / Strategy Lab ----------
 const READINESS_CHIP = {
   READY: ["pass", "✓", "Ready (reference)"],
   NOT_READY: ["fail", "✕", "Not ready"],
@@ -990,35 +1451,83 @@ function chipFrom(map, key) {
   return chip(kind, glyph, label);
 }
 
-function candidateListHtml(candidates) {
-  return candidates.map((candidate) => `<a href="#res-${esc(candidate.id)}" class="card" style="margin-bottom:8px"><div class="bd"><div class="row"><span class="mono tiny muted grow">${esc(candidate.stage)}</span><span class="mono tiny muted">${esc(candidate.version)}</span></div><div><b>${esc(candidate.name)}</b></div><div class="small">Readiness ${chipFrom(READINESS_CHIP, candidate.readiness)}</div><div class="small">${candidate.armId ? expArmTag(candidate.armId) : ""} Authority <span class="st na">— ${esc(candidate.authority)}</span></div></div></a>`).join("");
+// Sólo un candidato con brazo corrido tiene receipts; los "hypothesis only" no tienen ninguno.
+function candidateReceipts(candidate, provenance) {
+  return candidate.armId ? exploratoryReceipts(provenance) : [];
+}
+
+function authorityChip(candidate) {
+  return candidate.armId === "BASELINE" ? chip("pass", "✓", esc(candidate.authority)) : chip("na", "—", esc(candidate.authority));
+}
+
+function candidateListHtml(candidates, provenance) {
+  return candidates.map((candidate) => `<a class="it" href="#res-${esc(candidate.id)}">
+      <div class="row"><span class="stage">${esc(candidate.stage)}</span><span class="grow"></span><span class="mono tiny muted">${esc(candidate.version)}</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">${esc(candidate.name)}</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span>${chipFrom(READINESS_CHIP, candidate.readiness)}</div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE ${candidateReceipts(candidate, provenance).length}</span><span class="muted">Authority</span>${authorityChip(candidate)}</div>
+    </a>`).join("");
+}
+
+// Linaje del mockup (lineageSvg) con lo que el artifact declara: una sola versión por
+// candidato y, para los brazos exploratorios, la referencia A0 contra la que se emparejan.
+// No hay versiones previas registradas, así que no se dibuja ninguna.
+function candidateLineageSvg(candidate) {
+  const node = (cx, cy, label, current) => `<rect x="${cx - 80}" y="${cy - 17}" width="160" height="34" rx="4" fill="${current ? "var(--ink)" : "var(--surface)"}" stroke="var(--ink-2)"/><text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${current ? "#fff" : "var(--ink)"}" font-family="var(--mono)">${esc(label)}</text>`;
+  const caption = (cx, cy, text) => `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${esc(text)}</text>`;
+  let svg = '<svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage">';
+  if (!candidate.armId) {
+    svg += '<rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/>';
+    svg += '<text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text>';
+    svg += '<text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text>';
+    return `${svg}</svg>`;
+  }
+  if (candidate.armId === "BASELINE") {
+    svg += node(450, 70, `${candidate.id} ${candidate.version}`, true) + caption(450, 102, "current client practice · reference");
+    return `${svg}</svg>`;
+  }
+  const products = candidate.criteria.map((group) => group.product).join(" · ");
+  svg += `<text x="600" y="30" text-anchor="middle" font-size="10" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · ${esc(products)}</text>`;
+  svg += node(600, 70, `${candidate.id} ${candidate.version}`, true) + caption(600, 102, "exploratory · owner patch 02");
+  svg += node(220, 70, "A0 v1", false) + caption(220, 102, "client 11:00 · reference");
+  svg += '<path d="M518 70 L302 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
+  svg += '<text x="410" y="62" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">paired against</text>';
+  return `${svg}</svg>`;
 }
 
 function candidateDetailHtml(candidate, research, provenance, isDefault) {
   const criteria = candidate.criteria.length === 0
     ? '<div class="small muted">No success criteria measured: no run for this candidate.</div>'
-    : candidate.criteria.map((group) => `<div class="mono tiny muted" style="margin-top:8px">${esc(group.product)}</div>${group.items.map((item) => `<div class="chk"><span><b>${esc(item.label)}</b></span>${chipFrom(CRITERION_CHIP, item.status)}<span class="d">${esc(item.detail)}</span></div>`).join("")}`).join("");
+    : candidate.criteria.map((group) => `<div class="mono tiny muted" style="margin-top:8px">${esc(group.product)}</div>${group.items.map((item) => {
+      const [, glyph] = CRITERION_CHIP[item.status] ?? ["unk", "?"];
+      return `<div class="crit"><span class="mono">${glyph}</span><div><div style="font-weight:600">${esc(item.label)}</div><div class="small ink2">${esc(item.detail)}</div></div>${chipFrom(CRITERION_CHIP, item.status)}</div>`;
+    }).join("")}`).join("");
   const integrity = research.integrity.map((item) => `<div class="chk"><span>${esc(item.label)}</span>${chipFrom(INTEGRITY_CHIP, item.status)}<span class="d">${esc(item.detail)}</span></div>`).join("");
-  const lineage = candidate.armId && candidate.armId !== "BASELINE"
-    ? `<svg viewBox="0 0 700 90" width="100%" role="img" aria-label="Version lineage"><rect x="20" y="25" width="150" height="34" fill="var(--surface)" stroke="var(--ink)"/><text x="95" y="47" font-size="13" text-anchor="middle">A0 v1 · client 11:00</text><line x1="170" y1="42" x2="300" y2="42" stroke="var(--ink-3)" stroke-dasharray="4 3"/><rect x="300" y="25" width="200" height="34" fill="var(--ink)" stroke="var(--ink)"/><text x="400" y="47" font-size="13" text-anchor="middle" fill="var(--paper)">${esc(candidate.id)} ${esc(candidate.version)}</text><text x="400" y="78" font-size="10" text-anchor="middle" fill="var(--ink-3)">exploratory · owner patch 02</text></svg>`
-    : '<div class="small muted">No versions beyond the reference.</div>';
-  const receipts = [
-    ["BACKTEST RESULT", `${provenance.resultsPath} · sha256 ${provenance.resultsSha256.slice(0, 12)}…`],
-    ["DATA SNAPSHOT", `EEX best-ask slots · sha256 ${provenance.slotsSha256.slice(0, 12)}…`],
-    ["MANIFEST", provenance.manifestPath],
-    ["OWNER DECISION", "EM-SPEC-OWNER-PATCH-2026-09-24-02"],
-  ].map(([kind, what]) => `<tr><td><span class="st na">${esc(kind)}</span></td><td class="mono small">${esc(what)}</td></tr>`).join("");
+  const receipts = candidateReceipts(candidate, provenance);
+  const receiptRows = receipts.length === 0
+    ? '<tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr>'
+    : receipts.map((receipt) => `<tr><td class="mono small">${esc(receipt.id)}</td><td><span class="ev">${esc(receipt.kind)}</span></td><td>${esc(receipt.what)}</td><td>${NOT_RECORDED}</td><td>${receipt.href ? `<span class="drill"><a href="${esc(receipt.href)}">open</a></span>` : '<span class="muted small">record</span>'}</td></tr>`).join("");
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="res-${esc(candidate.id)}" data-candidate="${esc(candidate.id)}">
-  <div class="row" style="align-items:flex-end"><div class="grow"><div class="mono muted small">${esc(candidate.id)} ${esc(candidate.version)} · owner Bru</div><h1 class="page">${esc(candidate.name)}</h1></div><div><div class="mono tiny muted">READINESS (BACKEND)</div>${chipFrom(READINESS_CHIP, candidate.readiness)}</div></div>
-  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:10px">
-    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered 2026-09-24 · exploratory phase</span></div><div class="bd"><p style="font-size:17px">${esc(candidate.hypothesis)}</p><div class="mono tiny muted">SUCCESS CRITERIA</div>${criteria}</div></div>
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">${esc(candidate.id)} ${esc(candidate.version)} · owner Bru</div>
+      <h1 class="page">${esc(candidate.name)} <span class="muted">${esc(candidate.version)}</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px">${chipFrom(READINESS_CHIP, candidate.readiness)}</div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered ${NOT_RECORDED} · exploratory phase (${OWNER_PATCH_02})</span></div>
+      <div class="bd"><p class="hyp">${esc(candidate.hypothesis)}</p><div class="caps muted">Success criteria</div>${criteria}</div></div>
     <div>
-      <div class="card" style="border:2px solid var(--auth)"><div class="bd"><div class="row"><span class="mono tiny grow">AUTHORITY</span><span class="st na">— ${esc(candidate.authority)}</span></div><div style="font-size:18px"><b>No adoption decision exists</b></div><div class="small">Authority to adopt: Bru. Evidence does not change this state; only a recorded owner decision can.</div></div></div>
-      <div class="card" style="margin-top:12px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd">${integrity}</div></div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span>${authorityChip(candidate)}</div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd">${integrity}</div></div>
     </div>
   </div>
-  <div class="card" style="margin-top:12px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments</span></div><div class="bd">${lineage}</div></div>
-  <div class="card" style="margin-top:12px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">evidence informs, it does not authorise</span></div><table class="t"><thead><tr><th>Kind</th><th>What</th></tr></thead><tbody>${receipts}</tbody></table></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd">${candidateLineageSvg(candidate)}</div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">${receipts.length} items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody>${receiptRows}</tbody></table></div>
 </section>`;
 }
 
@@ -1026,10 +1535,14 @@ export function exploratoryResearchBody(exploratory) {
   const research = exploratory.research;
   const firstEvidence = research.candidates.find((candidate) => candidate.stage === "EVIDENCE GATHERING") ?? research.candidates[0];
   const details = research.candidates.map((candidate) => candidateDetailHtml(candidate, research, exploratory.provenance, candidate === firstEvidence)).join("");
-  return `${TARGET_SWITCH_CSS}
+  return `${TARGET_SWITCH_CSS}${railSelectionCss(research.candidates.map((candidate) => `res-${candidate.id}`), `res-${firstEvidence.id}`)}
 <section class="surface research" data-surface="research" data-exploratory="true">
-  <div class="grid xwrap" style="grid-template-columns: 300px minmax(0,1fr); gap:18px">
-    <div class="xlist"><div class="mono tiny muted" style="margin-bottom:8px">CANDIDATE STACK</div>${candidateListHtml(research.candidates)}<div class="tiny muted">Evidence and authority are separate on purpose: more evidence never turns into approval by itself.</div></div>
+  <div class="split xwrap">
+    <div class="xlist">
+      <div class="caps muted" style="margin:4px 0 8px">Candidate stack</div>
+      <div class="card stack">${candidateListHtml(research.candidates, exploratory.provenance)}</div>
+      <div class="small muted" style="margin-top:8px">Evidence count and authority are separate columns on purpose: more evidence never turns into approval by itself.</div>
+    </div>
     <div>${details}</div>
   </div>
 </section>`;
@@ -1059,6 +1572,18 @@ function exploratoryBacktestHtml(exploratory) {
     </div>
   </div>
   <div class="grid" style="grid-template-columns: repeat(${profiles.length}, minmax(0,1fr)); margin-top:14px">${profiles.join("")}</div>`;
+}
+
+// Leyenda de brazos del mockup: los canónicos atados, o los brazos de la comparación exploratoria.
+function armHeadHtml(canonicalArms, comparison) {
+  if (canonicalArms.length > 0) {
+    return canonicalArms.map(armTag).join("");
+  }
+  const exploratoryArms = comparison ? [...new Set(Object.values(comparison).flatMap((block) => block.table.map((row) => row.armId)))] : [];
+  if (exploratoryArms.length > 0) {
+    return exploratoryArms.map(expArmTag).join("");
+  }
+  return `<span class="small muted">arms</span> ${unknownValue()}`;
 }
 
 function backtestsBody(vm, { errors = null } = {}) {
@@ -1104,12 +1629,15 @@ function backtestsBody(vm, { errors = null } = {}) {
 <section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${validated ? "" : ' data-state="ERROR"'}>
   ${validated ? "" : errorBarHtml(errors)}
   <div class="row" style="align-items:flex-end">
-    <div class="grow">
+    <div class="grow">${hasExploratory ? `
+      <div class="mono muted small">economic comparison · exploratory · real EEX best ask</div>
+      <h1 class="page">Does another hour or a dip rule buy cheaper than the client's 11:00?</h1>
+      <p class="lede">Paired comparison of two exploratory arms against the Baseline, on the same days and the same best-ask data. Figures are <b>exploratory</b>: B* is a proxy and fees are UNKNOWN (excluded, never zero).</p>` : `
       <div class="mono muted small">economic comparison · canonical producers only</div>
       <h1 class="page">Economic comparison of experimental arms</h1>
-      <p class="lede">Measures are shown only as published by canonical producers and bound to the verified backend manifest. Without a producer, the slot stays explicit: no comparison is fabricated.</p>
+      <p class="lede">Measures are shown only as published by canonical producers and bound to the verified backend manifest. Without a producer, the slot stays explicit: no comparison is fabricated.</p>`}
     </div>
-    <div class="armhead">${arms.length > 0 ? arms.map(armTag).join("") : `<span class="small muted">arms</span> ${unknownValue()}`}</div>
+    <div class="armhead">${armHeadHtml(arms, hasExploratory ? vm.exploratory.comparison : null)}</div>
   </div>
 
   ${validated ? exploratoryComparisonHtml(vm.exploratory) : ""}
@@ -1370,7 +1898,7 @@ function renderValidated(surface, vm) {
   const body = SURFACE_BODIES[surface](vm);
   const clock = surface === SURFACES.REPLAY
     ? { asOfLabel: "evaluation as-of", asOf: vm.evaluation.asOf ?? null, sub: `T₀ ${vm.decision.boundary}` }
-    : null;
+    : exploratoryClock(vm.exploratory);
   const context = surface === SURFACES.REPLAY ? replayContext(vm) : [`<span>${esc(SURFACE_TITLES[surface])}</span>`];
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock, context });
 }
@@ -1383,9 +1911,19 @@ const EXPLORATORY_BODIES = {
   [SURFACES.RESEARCH]: exploratoryResearchBody,
 };
 
+// Reloj del mockup: último día de datos del snapshot EEX que usó el backtest
+// (artifact inputs.dataPeriod.lastDataDay), no un reloj del boundary canónico.
+function exploratoryClock(exploratory) {
+  const lastDataDay = exploratory?.dataPeriod?.lastDataDay;
+  if (typeof lastDataDay !== "string") {
+    return null;
+  }
+  return { asOfLabel: "data as-of", asOf: lastDataDay, sub: `EEX best-ask snapshot · sha ${exploratory.provenance.slotsSha256.slice(0, 12)}` };
+}
+
 function renderExploratory(surface, vm) {
   const body = EXPLORATORY_BODIES[surface](vm.exploratory);
-  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
+  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 
 function renderPageFor(surface) {
