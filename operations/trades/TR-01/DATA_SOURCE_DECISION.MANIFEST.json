@@ -1,0 +1,27 @@
+{
+  "artifactKind": "TR-01_DATA_SOURCE_MANIFEST",
+  "schemaVersion": "1.0",
+  "producer": {
+    "version": "TR-01-trades-source-producer-1",
+    "spec": "OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+    "plan": "TRADES_MODE_PLAN.md TR-01"
+  },
+  "generatedAtUtc": null,
+  "artifact": {
+    "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
+    "sha256": "b0709d827b2b963aea166522d64eec5598e81fbc09a547eae615106b9abe1b61"
+  },
+  "inputs": {
+    "candidates": {
+      "path": "operations/trades/TR-01/source-candidates.json",
+      "sha256": "1c4642030bd2976dc58fbc9757e3a9f66f2ed6f173ba5638487897b36bd43408"
+    }
+  },
+  "decision": {
+    "status": "PENDING_ARCHIVE_VERIFICATION",
+    "selectedSource": "EEX_LAKE",
+    "selectedSourceRole": "PROVISIONAL_ONLY",
+    "failClosed": true,
+    "staleArtifacts": []
+  }
+}

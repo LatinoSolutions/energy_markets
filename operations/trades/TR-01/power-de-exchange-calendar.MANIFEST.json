@@ -1,0 +1,35 @@
+{
+  "artifactKind": "TR-01_POWER_DE_EXCHANGE_CALENDAR_MANIFEST",
+  "schemaVersion": "1.0",
+  "artifact": {
+    "path": "operations/trades/TR-01/power-de-exchange-calendar.json",
+    "sha256": "3a5ec37db9c0640e422df817fdc512e48fbf57905a603f7741af5c74a87007c7"
+  },
+  "source": {
+    "path": "operations/audit/IMP-09/sources/EEX_Trading_Calendar_Emissions_Spot__Derivatives.pdf",
+    "title": "EEX Holiday Calendar (Derivatives + Emissions Spot)",
+    "column": "Power",
+    "rule": "Exchange days = business days Mon-Fri minus Power holidays; continuous until further notice",
+    "powerHolidays": [
+      "01-01",
+      "Good Friday",
+      "Easter Monday",
+      "05-01",
+      "12-24",
+      "12-25",
+      "12-26",
+      "12-31"
+    ],
+    "gasDifference": "Natural Gas trades shortened orderbook on 12-24 and 12-31; Power is closed full day (X)"
+  },
+  "years": [
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "exchangeDayCount": 1784
+}

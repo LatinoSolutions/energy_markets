@@ -1,0 +1,141 @@
+{
+  "artifactKind": "TR-01_DATA_SOURCE_DECISION",
+  "schemaVersion": "1.0",
+  "decidedBy": "TR-01 producer",
+  "decidedAtUtc": null,
+  "eligibilityRule": "OWNER_PATCH_TRADES_MODE_2026-09-25.md §3.1",
+  "brokenSpreadPolicy": "PENDING_MEASUREMENT; se congela en TR-04",
+  "dedupRule": "sha256 de todas las columnas de mercado (no `_`); misma convención que IMP-05 v2 / BT-01 v2",
+  "deleteTmSemantics": "deletion-time (medido en TR-01)",
+  "measurements": {
+    "tobFirstUsableAskDatePowerDe": {
+      "value": "2025-08-12",
+      "market": "POWER/DE",
+      "method": "bounded read of /srv/hot-data/EEX/table=eex_derivative_top_of_book/cmdty=POWER/area=DE for trd_date 2025-07-25..2025-08-15; count of Simple Instrument rows with non-empty AskPx per day. 2025-07-25..2025-08-11: 0-2 per day; 2025-08-12: 41,127.",
+      "note": "Confirma patch 02 §4 / patch 03 §0: TOB intradía usable sólo desde 2025-08-12."
+    },
+    "deleteTmSemantics": {
+      "value": "deletion-time",
+      "method": "bounded sample of eex_derivative_trade partitions containing UpdtAct=Delete; for each Delete row with a New sibling of the same leg identity (TrdDate,Cmdty,Area,TrdID,ShortCode,Maturity,InstrumentType), compare Tm.",
+      "evidence": [
+        "POWER/DE trd_date=2025-10-29 TrdID 3727: New 13:43:09.77007Z -> Delete 13:55:28.99848Z",
+        "POWER/DE trd_date=2025-10-29 TrdID 2527: New 11:24:14.373529Z -> Delete 11:28:54.163519Z",
+        "POWER/DE trd_date=2023-05-31 TrdID 3606: New 14:57:57.628961Z -> Delete 15:05:56.018946Z",
+        "POWER/DE trd_date=2023-05-31 TrdID 2587: New 13:10:56.067777Z -> Delete 14:46:09.741011Z",
+        "POWER/DE trd_date=2023-05-31 TrdID 1147: New 09:28:37.23253Z -> Delete 10:04:53.322587Z"
+      ],
+      "note": "Delete.Tm > New.Tm en todos los casos medidos; New.Tm == Delete.Tm también es compatible con el borrado en el mismo instante."
+    },
+    "eligibilitySample20251120NatgasThe": {
+      "value": {
+        "baseEligible": 249,
+        "brokenSpreadTrue": 160,
+        "brokenSpreadFalse": 89,
+        "unknownAggressor": 109,
+        "unknownAggressorAllBrokenSpread": true
+      },
+      "method": "single file eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20, rule Simple Instrument + TrdType=Exchange + Px non-empty + VolumeOnly!=true (UpdtAct=New).",
+      "patchPreliminary": 244,
+      "note": "El patch 03 §3.1 reporta 244 elegibles en la medición preliminar; la reproducción de TR-01 mide 249 sobre el pull actual del lago. Diferencia a reconciliar por el job de escaneo."
+    },
+    "dedupSample20251120NatgasThe": {
+      "value": {
+        "rowsPerPull": 353,
+        "uniqueKeysPerPull": 353,
+        "intersection": 353,
+        "uniqueTrdIdsPerPull": 341
+      },
+      "method": "two pulls of eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20; observationKey = sha256 of all non-underscore market columns.",
+      "note": "Los dos pulls son la misma observación duplicada; TrdID no es único (un spread comparte TrdID entre patas)."
+    },
+    "powerDeCalendar": {
+      "value": "business days Mon-Fri minus Power holidays {01-01, Good Friday, Easter Monday, 05-01, 12-24, 12-25, 12-26, 12-31}",
+      "source": "operations/audit/IMP-09/sources/EEX_Trading_Calendar_Emissions_Spot__Derivatives.pdf, columna Power",
+      "note": "Diferencia con Natural Gas: 12-24 y 12-31 son festivos Power (X) y Exchange Days acortados para gas."
+    }
+  },
+  "candidates": [
+    {
+      "id": "EEX_LAKE",
+      "path": "/srv/hot-data/EEX",
+      "kind": "lake",
+      "present": true,
+      "sha256": null,
+      "sha256Verified": false,
+      "inventory": {
+        "sourceLabel": "EEX_LAKE",
+        "tables": [
+          "eex_derivative_trade",
+          "eex_derivative_top_of_book"
+        ],
+        "commodities": [
+          "NATGAS",
+          "POWER"
+        ],
+        "areas": {
+          "NATGAS": [
+            "THE",
+            "PEG___THE",
+            "CEGHVTP___THE",
+            "CZVTP___THE",
+            "ETF___THE",
+            "GPL___THE",
+            "THE___TTF",
+            "ZTP___THE"
+          ],
+          "POWER": [
+            "DE",
+            "DE___AT",
+            "DE___CZ",
+            "DE___DK1",
+            "DE___DK2",
+            "DE___ES",
+            "DE___FR",
+            "DE___HU",
+            "DE___Nordic",
+            "DE___SK",
+            "DE___TTF",
+            "GR___DE",
+            "IT___DE",
+            "NL___DE",
+            "CH___DE"
+          ]
+        },
+        "dateMin": "2020-11-02",
+        "dateMax": "2026-07-28",
+        "partitionDates": {
+          "eex_derivative_trade/NATGAS/THE": 1464,
+          "eex_derivative_trade/POWER/DE": 1461,
+          "eex_derivative_top_of_book/NATGAS/THE": 257,
+          "eex_derivative_top_of_book/POWER/DE": 257
+        },
+        "parquetFiles": {
+          "eex_derivative_trade": 17257,
+          "eex_derivative_top_of_book": 42704
+        },
+        "measuredBy": "directory listing of /srv/hot-data/EEX on Brunode, 2026-09-25 (no full scan; partition names only)",
+        "eex_derivative_reference": "ABSENT from the lake (only in the client sealed archive per TRADES_MODE_PLAN.md TR-01)"
+      }
+    },
+    {
+      "id": "CLIENT_SEALED_ARCHIVE",
+      "path": "/srv/data/eex-client-archive/eex-sealed-production-outright-2020-11-02--2026-09-11.tar.zst",
+      "kind": "archive",
+      "present": true,
+      "sha256": "c0b8389dd2eae768e0144ebffa2eb8c557c1407ec8bbccb014c0ecdee075cdd3",
+      "sha256Verified": false,
+      "inventory": null
+    }
+  ],
+  "status": "PENDING_ARCHIVE_VERIFICATION",
+  "selectedSource": "EEX_LAKE",
+  "selectedSourceRole": "PROVISIONAL_ONLY",
+  "failClosed": true,
+  "comparison": null,
+  "staleArtifacts": [],
+  "blocking": {
+    "reason": "El archivo del cliente está presente pero su SHA-256 no está verificado.",
+    "requiredAction": "Completar la descarga del archivo sellado, verificar su SHA-256 contra el hash declarado y correr el job de escaneo de TR-01 (inventario + comparación lago/archivo).",
+    "scanJob": "operations/trades/TR-01/extract-trades-rows.py"
+  }
+}

@@ -28,6 +28,7 @@ export {
   berlinLocalTimeSecondsFromUtc,
   deriveBenchmarkWindow,
   intradayProxyReference,
+  observationIdentity,
   officialRowValidity,
   reconcileOfficialProxy,
   selectOfficialReferencesByDate,
