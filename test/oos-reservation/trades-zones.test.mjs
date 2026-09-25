@@ -325,9 +325,20 @@ test("las fronteras declaradas son las del patch 03 §4", () => {
 });
 
 test("el artefacto TR-02 commiteado es coherente con su manifest y con §4", () => {
-  const planBytes = readFileSync("operations/trades/TR-02/trades-zone-plan.json");
   const manifest = JSON.parse(readFileSync("operations/trades/TR-02/trades-zone-plan.MANIFEST.json", "utf8"));
-  assert.equal(createHash("sha256").update(planBytes).digest("hex"), manifest.plan.sha256);
+  const sha256OfFile = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+  // Todo binding de procedencia del manifest (plan, generador, módulos y fuentes)
+  // debe apuntar al archivo que está en HEAD; una entrada stale rompe la trazabilidad.
+  const boundEntries = [
+    manifest.plan,
+    manifest.generator,
+    ...manifest.modules,
+    ...Object.values(manifest.sources),
+  ];
+  for (const entry of boundEntries) {
+    assert.equal(sha256OfFile(entry.path), entry.sha256, `${entry.path} no coincide con el sha256 del manifest`);
+  }
+  const planBytes = readFileSync(manifest.plan.path);
   const plan = JSON.parse(planBytes);
   assert.equal(plan.decision, "RESERVED");
   assert.equal(plan.schemaVersion, "TRADES_ZONES_V1");

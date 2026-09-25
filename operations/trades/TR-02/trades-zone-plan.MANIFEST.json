@@ -12,7 +12,7 @@
  "modules": [
   {
    "path": "src/oos-reservation/trades-zones.mjs",
-   "sha256": "65c9f7b6828b46d1c50fb56868b341d260af16eeb06c5b43262ff01f03bd7dc4"
+   "sha256": "8ce3215ba47c8efeb47d8943fc8c417d85828ec2b212615f2333388401124136"
   },
   {
    "path": "src/oos-reservation/trades-windows.mjs",
@@ -20,7 +20,7 @@
   },
   {
    "path": "src/oos-reservation/reservation.mjs",
-   "sha256": "95ada19000e968ee7181679fc14b1692182d58fc0084d3baf2299246d102e651"
+   "sha256": "8a6af9758ed357e0c4c3c0fe951011f309dba4e2fc753832fdce64dff70f346e"
   },
   {
    "path": "src/procurement-contract/campaign-contract.mjs",
