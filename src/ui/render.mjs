@@ -23,6 +23,7 @@
 //   - procedencia (recordKey, revisionId, valueSha256) y relojes visibles.
 
 import { SURFACES } from "./view-models.mjs";
+import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
 import {
   PROVENANCE_INTERACTION_SCRIPT,
@@ -873,14 +874,21 @@ function pairedChartHtml(block, product, pointDetails, provenance) {
   return `<div class="ppwrap" data-paired-product="${esc(product)}">${svg}<div class="pptip" role="status" aria-live="polite"></div>${pairedTipDataScript(pointDetails, product, provenance)}</div><div class="tiny muted">Hover a point to read the decision. Click or tap to pin the tooltip; click again to release.</div>`;
 }
 
-function comparisonBlockHtml(block, product, pointDetails = null, provenance = null) {
+// TR-07 (TRADES_MODE_PLAN.md TR-07): el texto fijo "real EEX best ask" se
+// parametriza por modo. En TOB la observación es el best ask; en TRADES es el último
+// trade / slot VWAP (patch 03 §3.3). Un modo desconocido cae a TOB, nunca inventa.
+function observationSourceLabel(mode) {
+  return observationFor(mode).source;
+}
+
+function comparisonBlockHtml(block, product, pointDetails = null, provenance = null, mode = "TOB") {
   const checks = block.checks.map((check) => {
     const [kind, glyph, label] = CHECK_CHIP[check.status] ?? ["unk", "?", check.status];
     return `<div class="chk"><span><b>${esc(check.label)}</b></span>${chip(kind, glyph, label)}<span class="d">${esc(check.detail)}</span></div>`;
   }).join("");
   return `
   <div class="exp-product" data-product="${esc(product)}" style="margin-top:22px">
-    <div class="mono muted small">${esc(product)} · exploratory paired comparison · real EEX best ask</div>
+    <div class="mono muted small">${esc(product)} · exploratory paired comparison · ${esc(observationSourceLabel(mode))}</div>
     <h2 class="sec">${esc(PRODUCT_TITLE[product] ?? product)}</h2>
     <div class="card" style="margin-top:10px">
       <div class="hd"><h3>Economic measures</h3><span class="small muted">B* proxy benchmark · H achieved price · V = (B* − H) × MWh · ΔV = V<sub>arm</sub> − V<sub>baseline</sub></span><span class="grow"></span>${chip("warn", "!", "EXPLORATORY · B* is a proxy")}</div>
@@ -898,11 +906,16 @@ function comparisonBlockHtml(block, product, pointDetails = null, provenance = n
   </div>`;
 }
 
-function exploratoryComparisonHtml(exploratory) {
+function exploratoryComparisonHtml(exploratory, mode = "TOB", productFilter = null) {
   if (!exploratory?.comparison) {
     return "";
   }
-  const blocks = Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance)).join("");
+  // Sólo se dibuja el producto de la misión elegida; el selector por defecto marca
+  // Gas Quarterly y la vista muestra ese producto, nunca otro
+  // (TRADES_MODE_PLAN.md TR-07:72-73).
+  const blocks = Object.entries(exploratory.comparison)
+    .filter(([product]) => productFilter === null || product === productFilter)
+    .map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance, mode)).join("");
   return `${PAIRED_TIP_CSS}${blocks}${PAIRED_TIP_SCRIPT}`;
 }
 
@@ -1548,21 +1561,22 @@ export function exploratoryResearchBody(exploratory) {
 </section>`;
 }
 
-function exploratoryBacktestHtml(exploratory) {
+function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null) {
   if (!exploratory) {
     return "";
   }
-  const rows = exploratory.episodes.map((episode) => {
+  const inFilter = (product) => productFilter === null || product === productFilter;
+  const rows = exploratory.episodes.filter((episode) => inFilter(episode.product)).map((episode) => {
     const dipDiff = episode.a0?.complete && episode.dip?.complete ? episode.dip.avgPriceEurMwh - episode.a0.avgPriceEurMwh : null;
     const loo = episode.leaveOneOut;
     return `<tr data-status="EXPLORATORY" data-product="${esc(episode.product)}" data-maturity="${esc(episode.maturity)}"><td class="mono">${esc(episode.product)}</td><td class="mono">${esc(episode.maturity)}</td><td class="mono small">${esc(episode.firstDay)} → ${esc(episode.lastDay)} · ${episode.tradingDays} d</td><td class="mono num right">${armResultHtml(episode.a0)}</td><td class="mono num right">${armResultHtml(episode.dip)}</td><td class="mono num right">${signedEur(dipDiff)}</td><td class="mono num right">${armResultHtml(episode.dipDepth)}</td><td class="mono">${esc(loo?.slotChosenOnOtherEpisodes ?? "—")}</td><td class="mono num right">${signedEur(loo?.diffOnThisEpisodeEurMwh)}</td></tr>`;
   });
-  const summaries = Object.entries(exploratory.summary).map(([product, summary]) => `<div class="chk"><span><b>${esc(product)}</b> · ${summary.episodes} episodes</span><span class="d">DIP10 vs A0: ${signedEur(summary.dipVsA0.meanDiffEurMwh)} EUR/MWh mean, cheaper in ${summary.dipVsA0.episodesCheaper}/${summary.dipVsA0.pairedEpisodes} · hour chosen out-of-episode vs 11:00: ${signedEur(summary.leaveOneOutHour.meanDiffEurMwh)} EUR/MWh over ${summary.leaveOneOutHour.evaluatedEpisodes}</span></div>`);
-  const profiles = exploratory.hourProfiles.map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile)}</div></div>`);
+  const summaries = Object.entries(exploratory.summary).filter(([product]) => inFilter(product)).map(([product, summary]) => `<div class="chk"><span><b>${esc(product)}</b> · ${summary.episodes} episodes</span><span class="d">DIP10 vs A0: ${signedEur(summary.dipVsA0.meanDiffEurMwh)} EUR/MWh mean, cheaper in ${summary.dipVsA0.episodesCheaper}/${summary.dipVsA0.pairedEpisodes} · hour chosen out-of-episode vs 11:00: ${signedEur(summary.leaveOneOutHour.meanDiffEurMwh)} EUR/MWh over ${summary.leaveOneOutHour.evaluatedEpisodes}</span></div>`);
+  const profiles = exploratory.hourProfiles.filter((profile) => inFilter(profile.product)).map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile)}</div></div>`);
   const rules = exploratory.rules;
   return `
   <div class="card" style="margin-top:14px" data-exploratory="true">
-    <div class="hd"><h3>Exploratory backtest · real EEX best ask</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span><span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
+    <div class="hd"><h3>Exploratory backtest · ${esc(observationSourceLabel(mode))}</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span><span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
     <table class="t">
       <thead><tr><th>Product</th><th>Delivery</th><th>Window</th><th class="right">A0 · 11:00 (client)</th><th class="right">DIP10 · 11:00</th><th class="right">DIP − A0</th><th class="right">DIP10 · depth-capped</th><th>Hour (out-of-episode)</th><th class="right">Δ vs 11:00</th></tr></thead>
       <tbody>${rows.join("")}</tbody>
@@ -1586,8 +1600,335 @@ function armHeadHtml(canonicalArms, comparison) {
   return `<span class="small muted">arms</span> ${unknownValue()}`;
 }
 
-function backtestsBody(vm, { errors = null } = {}) {
+// ---------- TR-07: paneles TRADES de la pantalla de Backtests ----------
+// (TRADES_MODE_PLAN.md TR-07; diseño aprobado por Bru 2026-09-25, P-010 opción B:
+// selector mercado/misión + modo TOB·TRADES + panel de contraste). La UI sólo dibuja
+// el view model de trades-panels.mjs: cero cálculo, estados reales del backend
+// (PENDING*, HOLD, UNAVAILABLE) y nunca un cero como medición.
+
+const TR07_CSS = `<style>
+.tr07bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.tr07btn { display:inline-block; border:1px solid var(--rule); border-radius:4px; padding:4px 10px; font:600 12px var(--sans); color:var(--ink-2); text-decoration:none; }
+.tr07btn.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+.tr07zones { display:flex; gap:3px; margin:8px 0 2px; }
+.tr07zone { flex:1; border:1px solid var(--rule); border-radius:3px; padding:3px 6px; background:var(--surface-2); opacity:.5; }
+.tr07zone.hl { opacity:1; border-color:var(--warn); box-shadow:inset 0 0 0 2px var(--ink); }
+.tr07zone span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tr07grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:16px; align-items:start; }
+.tr07grid.single { grid-template-columns:minmax(0,1fr); }
+.tr07side { border-left:3px solid var(--arm-b); }
+.tr07empty { min-height:170px; border:2px dashed var(--rule); border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--ink-3); padding:12px; margin-top:8px; background:repeating-linear-gradient(135deg, transparent 0 10px, var(--surface-2) 10px 20px); }
+.tr07empty b { display:block; color:var(--ink); font-family:var(--serif); }
+.tr07arm { width:100%; border-collapse:collapse; font-size:12px; }
+.tr07arm th { text-align:left; font:10px var(--mono); color:var(--ink-3); padding:6px 8px; border-bottom:1px solid var(--rule); }
+.tr07arm td { padding:7px 8px; border-bottom:1px solid var(--rule); font-family:var(--mono); }
+.tr07sw { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; }
+.tr07unav { display:inline-block; font:10px var(--mono); color:var(--unk); background:var(--surface-2); border:1px solid var(--rule); border-radius:3px; padding:0 5px; }
+.tr07expand { display:inline-block; margin-top:14px; }
+</style>`;
+
+// Etiqueta presentacional de la misión. El prototipo aprobado usa "Gas Quarterly",
+// no "GAS_THE · GAS_QUARTERLY"; se deriva de campos del backend (producto + cadencia
+// del id), sin inventar mercado.
+function tr07MissionLabel(mission) {
+  const cadence = mission.missionId.endsWith("QUARTERLY") ? "Quarterly" : "Monthly";
+  return `${mission.product} ${cadence}`;
+}
+
+// Misión que marca el selector. Sin misión en la URL vale la primera del plan de
+// zonas (Gas Quarterly), la misma que resalta el botón: lo que se ve es siempre la
+// misión elegida, nunca los datos de otra (TRADES_MODE_PLAN.md TR-07:72-73;
+// hallazgo TR07-DEFAULT-MISSION-MISMATCH).
+function tr07SelectedMission(panels, selection) {
+  const missions = panels?.selector?.marketMissions ?? [];
+  const missionId = selection?.missionId ?? missions[0]?.missionId ?? null;
+  if (missionId === null) {
+    return null;
+  }
+  return missions.find((entry) => entry.missionId === missionId) ?? null;
+}
+
+// Zonas que cubre la vista (patch 03 §4). En TOB, sólo el puente. En TRADES, el
+// periodo elegido; con "All" (sin periodo), las tres zonas TRADES. El borde de la
+// barra marca lo que cubre la vista, no todas las zonas del modo
+// (TRADES_MODE_PLAN.md TR-07:75).
+function tr07CoveredZones(mode, period) {
+  if (mode === "TOB") {
+    return ["PUENTE"];
+  }
+  if (period === null || period === undefined) {
+    return [...observationFor("TRADES").zones];
+  }
+  return [period];
+}
+
+// El contraste TOB vs TRADES sólo existe donde ambas fuentes coinciden: el puente
+// (TRADES_MODE_PLAN.md TR-07:76).
+function tr07CoversBridge(mode, period) {
+  return tr07CoveredZones(mode, period).includes("PUENTE");
+}
+
+function tr07Query(selection, overrides = {}) {
+  const params = new URLSearchParams();
+  params.set("mode", overrides.mode ?? selection.mode ?? "TOB");
+  const mission = overrides.mission ?? selection.missionId;
+  if (mission) params.set("mission", mission);
+  const period = overrides.period ?? selection.period;
+  if (period) params.set("period", period);
+  return `?${params.toString()}`;
+}
+
+function tr07StatusChip(status) {
+  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION") return chip("warn", "!", status);
+  if (status === "NO_COVERAGE") return chip("unk", "?", status);
+  if (status === "SEALED" || status === "RESERVED") return chip("run", "◆", status);
+  return chip("unk", "?", status);
+}
+
+function tr07SelectorHtml(panels, selection) {
+  const missions = panels.selector?.marketMissions ?? [];
+  const missionId = selection.missionId ?? missions[0]?.missionId ?? null;
+  const mode = selection.mode ?? "TOB";
+  const period = selection.period ?? null;
+  const missionLinks = missions.map((mission) => {
+    const active = mission.missionId === missionId;
+    return `<a class="tr07btn${active ? " on" : ""}" data-tr07-mission="${esc(mission.missionId)}" href="${esc(tr07Query(selection, { mission: mission.missionId }))}"${active ? ' aria-current="true"' : ""}>${esc(tr07MissionLabel(mission))}</a>`;
+  }).join("");
+  const modeLinks = TRADES_MODES.map((value) => {
+    const active = value === mode;
+    return `<a class="tr07btn${active ? " on" : ""}" data-tr07-mode="${esc(value)}" href="${esc(tr07Query(selection, { mode: value }))}"${active ? ' aria-current="true"' : ""}>${esc(value)}</a>`;
+  }).join("");
+  const periodLinks = mode === "TRADES"
+    ? [`<a class="tr07btn${period === null ? " on" : ""}" data-tr07-period="ALL" href="${esc(tr07Query(selection, { period: null }))}">All</a>`]
+      .concat(TRADES_ZONE_PLAN.filter((zone) => observationFor("TRADES").zones.includes(zone.id)).map((zone) => {
+        const active = period === zone.id;
+        return `<a class="tr07btn${active ? " on" : ""}" data-tr07-period="${esc(zone.id)}" href="${esc(tr07Query(selection, { period: zone.id }))}">${esc(zone.label)}</a>`;
+      })).join("")
+    : "";
+  const covered = tr07CoveredZones(mode, period);
+  const zoneBar = TRADES_ZONE_PLAN.map((zone) => {
+    const classes = ["tr07zone", covered.includes(zone.id) ? "hl" : ""].filter(Boolean).join(" ");
+    return `<div class="${classes}" data-tr07-zone="${esc(zone.id)}" title="${esc(`${zone.label}: ${zone.from} → ${zone.to}`)}"><span class="tiny">${esc(zone.label)}</span><span class="tiny muted">${esc(zone.from)} → ${esc(zone.to)}</span></div>`;
+  }).join("");
+  return `<div class="card" style="margin-top:14px" data-tr07="selector">
+    <div class="hd"><h3>Backtest scope</h3><span class="small muted">market · mission · observation mode · zone visible per result</span><span class="grow"></span>${chip("warn", "!", mode)}</div>
+    <div class="bd">
+      <div class="tr07bar"><span class="caps muted">Market · mission</span>${missionLinks}</div>
+      <div class="tr07bar" style="margin-top:8px"><span class="caps muted">Mode</span>${modeLinks}${periodLinks ? `<span class="caps muted" style="margin-left:12px">Period</span>${periodLinks}` : ""}</div>
+      <div class="tr07zones">${zoneBar}</div>
+      <div class="tiny muted">outlined = what ${esc(observationFor(mode).source)} covers · ${esc(observationFor(mode).caption)}</div>
+    </div>
+  </div>`;
+}
+
+function tr07CoverageHtml(panels, missionId) {
+  const coverage = panels.coverage;
+  if (coverage?.status === "ERROR") {
+    return `<div class="card" style="margin-top:14px" data-tr07="coverage" data-state="ERROR"><div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01</span><span class="grow"></span>${tr07StatusChip("ERROR")}</div><div class="bd"><div class="small muted">${esc(coverage.reason ?? coverage.code)}</div></div></div>`;
+  }
+  const mission = (coverage?.missions ?? []).find((entry) => entry.missionId === missionId) ?? (coverage?.missions ?? [])[0];
+  if (!mission) {
+    return "";
+  }
+  const rows = mission.zones.flatMap((zone) => zone.campaigns.map((campaign) => {
+    const cell = campaign.coverage;
+    const days = cell.daysWithTrades === null || cell.daysWithTrades === undefined ? "—" : String(cell.daysWithTrades);
+    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td></tr>`;
+  })).join("");
+  return `<div class="card" style="margin-top:14px" data-tr07="coverage" data-mission="${esc(mission.missionId)}">
+    <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(mission.market)} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
+    <div class="bd">
+      <div class="small muted">${esc(coverage.reason)}</div>
+      <div class="small muted" style="margin-top:6px">TR-01 source decision: ${tr07StatusChip(coverage.sourceDecisionStatus)}</div>
+      <table class="t" style="margin-top:8px"><thead><tr><th>Campaign</th><th>Zone</th><th>Window</th><th>Coverage</th><th class="right">Days w/ trades</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  </div>`;
+}
+
+function tr07ZonesHtml(panels, missionId) {
+  const zones = panels.zones;
+  if (zones?.status === "ERROR") {
+    return `<div class="card" style="margin-top:14px" data-tr07="zones" data-state="ERROR"><div class="hd"><h3>Evidence zones &amp; OOS access</h3><span class="small muted">TR-02</span><span class="grow"></span>${tr07StatusChip("ERROR")}</div><div class="bd"><div class="small muted">${esc(zones.reason ?? zones.code)}</div></div></div>`;
+  }
+  const registry = zones.accessRegistry ?? {};
+  const rows = (zones.missions ?? []).map((mission) => {
+    const byZone = Object.fromEntries((mission.zones ?? []).map((zone) => [zone.zone, zone.count]));
+    const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
+    return `<tr data-tr07-zone-mission="${esc(mission.missionId)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td>${esc(mission.market)}</td>${TRADES_ZONE_PLAN.map((zone) => `<td class="right mono">${esc(byZone[zone.id] ?? 0)}</td>`).join("")}</tr>`;
+  }).join("");
+  const openings = Object.entries(registry.oosOpeningsByMission ?? {}).map(([mission, count]) => `${mission} ${count}`).join(" · ");
+  return `<div class="card" style="margin-top:14px" data-tr07="zones">
+    <div class="hd"><h3>Evidence zones &amp; OOS access</h3><span class="small muted">TR-02 · reservation ${esc(zones.reservationId)}</span><span class="grow"></span>${tr07StatusChip(registry.oosStatus)}</div>
+    <div class="bd">
+      <table class="t"><thead><tr><th>Mission</th><th>Market</th>${TRADES_ZONE_PLAN.map((zone) => `<th class="right">${esc(zone.label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>OOS ${esc(registry.oosStatus)}</span><span>openings ${esc(openings)}</span><span>purge ${esc(zones.purge?.length ?? 0)} campaign(s)</span><span>forward ${esc(zones.forward?.status)} · from ${esc(zones.forward?.fromIso ?? "UNAVAILABLE")}</span></div>
+    </div>
+  </div>`;
+}
+
+function tr07CalibrationHtml(panels) {
+  const calibration = panels.calibration;
+  if (calibration?.status === "ERROR") {
+    return `<div class="card" style="margin-top:14px" data-tr07="calibration" data-state="ERROR"><div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03</span><span class="grow"></span>${tr07StatusChip("ERROR")}</div><div class="bd"><div class="small muted">${esc(calibration.reason ?? calibration.code)}</div></div></div>`;
+  }
+  const window = calibration.window ?? {};
+  return `<div class="card" style="margin-top:14px" data-tr07="calibration">
+    <div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03 · bridge ${esc(window.startIso ?? "—")} → ${esc(window.endIso ?? "—")}</span><span class="grow"></span>${tr07StatusChip(calibration.status)}</div>
+    <div class="bd"><div class="small muted">${esc(calibration.reason)}</div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}</span></div>
+    </div>
+  </div>`;
+}
+
+function tr07UnavailableCard(kind, title, subtitle, panels) {
+  const panel = panels[kind];
+  return `<div class="card" style="margin-top:14px" data-tr07="${esc(kind)}">
+    <div class="hd"><h3>${esc(title)}</h3><span class="small muted">${esc(subtitle)}</span><span class="grow"></span>${tr07StatusChip(panel.status)}</div>
+    <div class="bd"><div class="small muted">${esc(panel.reason)}</div></div>
+  </div>`;
+}
+
+// Panel de contraste (diseño aprobado P-010, opción B): TOB vs TRADES sobre el puente.
+// El gate del puente se declara en TR-04; hasta su freeze, toda medida está pendiente.
+const TR07_CONTRAST_METRICS = [
+  "Same BUY/WAIT decision (% of days)",
+  "MW bought, difference",
+  "Fill price, difference (€/MWh)",
+  "H, difference (€/MWh)",
+  "ΔV, difference (k€)",
+  "Same sign and same arm order",
+];
+
+function tr07ContrastHtml(panels) {
+  const rows = TR07_CONTRAST_METRICS.map((metric) => `<tr><td>${esc(metric)}</td><td>${chip("unk", "?", "UNAVAILABLE")}</td><td>${chip("unk", "?", "set in TR-04")}</td></tr>`).join("");
+  return `<div class="card tr07side" style="margin-top:14px" data-tr07="contrast">
+    <div class="hd"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only (the one year with both sources) · does TRADES tell the same story as TOB?</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</div>
+    <div class="bd"><div class="small muted">${esc(panels.frozenContract.reason)}</div>
+      <table class="t" style="margin-top:8px"><thead><tr><th>Measure</th><th>Result</th><th>Gate (declared before)</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  </div>`;
+}
+
+// Fuera del puente no hay contraste: una línea con su fecha, como el prototipo
+// (TRADES_MODE_PLAN.md TR-07:76).
+function tr07ContrastNoteHtml() {
+  return `<div class="card" style="margin-top:14px;padding:8px 14px" data-tr07="contrast-note"><div class="small muted">Contrast only exists for the bridge, 2025-08-12 to 2026-07-28. Select "Bridge" or "All" to see it.</div></div>`;
+}
+
+// Vista a ancho completo al expandir (prototipo contrastCharts): superposición TOB/
+// TRADES día por día y distribución (último trade − ask) de TR-03. Sin runs ni
+// medición corrida, los recuadros quedan vacíos y explícitos: nunca un número
+// inventado (TRADES_MODE_PLAN.md TR-07:77,81).
+function tr07ExpandedChartsHtml() {
+  return `<div class="card" style="margin-top:14px" data-tr07="expanded-paths"><div class="hd"><h3>Both paths on the same days</h3><span class="small muted">full width · TOB solid, TRADES dashed, per arm, over the bridge</span></div><div class="tr07empty"><b>Not run yet</b>Filled by TR-06 after the TRADES-v1 freeze (TR-04)</div></div>
+    <div class="card" style="margin-top:14px" data-tr07="expanded-calibration"><div class="hd"><h3>Calibration: last trade vs best ask at decision time</h3><span class="small muted">full width · market data only, no strategy · per slot, distance to delivery and aggressor side · TR-03</span></div><div class="tr07empty"><b>Not measured yet</b>Distribution of (last trade − ask); this is what freezes the fill penalty in TR-04</div></div>`;
+}
+
+function tr07ExpandHtml() {
+  return `<details class="tr07expand" data-tr07="expanded-charts"><summary class="tr07btn" data-tr07="expand">Expand calibration charts ▾</summary>${tr07ExpandedChartsHtml()}</details>`;
+}
+
+// En TOB, una misión sin datos en el release exploratorio (Power) se declara
+// fail-closed, en vez de mostrar bajo su nombre los datos de Gas (prototipo tobView;
+// defecto TR07-MISSION-NOT-APPLIED).
+function tr07TobUnavailableHtml(mission) {
+  return `<div class="card" style="margin-top:14px" data-tr07="tob-unavailable" data-mission="${esc(mission.missionId)}">
+    <div class="hd"><h3>TOB · ${esc(tr07MissionLabel(mission))}</h3><span class="small muted">bridge period 2025-08-12 → 2026-07-28 · release v2</span><span class="grow"></span>${tr07StatusChip("UNAVAILABLE")}</div>
+    <div class="bd"><div class="tr07empty"><b>No TOB data for ${esc(mission.product)} yet</b>${esc(mission.product)} top of book gets audited in TR-01</div></div>
+  </div>`;
+}
+
+const TR07_ARMS = [
+  Object.freeze({ label: "Baseline · A0 11:00", color: "var(--arm-base)" }),
+  Object.freeze({ label: "Arm A · DIP10", color: "var(--arm-a)" }),
+  Object.freeze({ label: "Arm B · hour", color: "var(--arm-b)" }),
+];
+
+// Tabla de brazos del prototipo tradesView: sin runs TRADES, todo queda NOT RUN YET.
+function tr07ArmsHtml() {
+  const notRun = '<span class="tr07unav">NOT RUN YET</span>';
+  const rows = TR07_ARMS.map((arm) => `<tr><td><span class="tr07sw" style="background:${arm.color}"></span>${esc(arm.label)}</td><td>${notRun}</td><td>${notRun}</td></tr>`).join("");
+  return `<table class="tr07arm" data-tr07="arms"><thead><tr><th>Arm</th><th>Campaigns</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// Cuerpo de observación TRADES (prototipo tradesView): tabla de brazos NOT RUN YET y
+// recuadro del efecto pareado. El motor (TR-05) y los runs (TR-06) no existen, así que
+// la observación se declara fail-closed con su fuente real (último trade / VWAP).
+function tr07TradesObservationHtml(panels, mission) {
+  const observation = observationFor("TRADES");
+  const missionSuffix = mission ? ` · ${esc(tr07MissionLabel(mission))}` : "";
+  return `<div class="card" style="margin-top:14px" data-tr07="trades-observation" data-mode="TRADES">
+    <div class="hd"><h3>TRADES observation · ${esc(observation.source)}${missionSuffix}</h3><span class="small muted">${esc(observation.caption)}</span><span class="grow"></span>${tr07StatusChip("UNAVAILABLE")}</div>
+    <div class="bd"><div class="small muted">The TRADES engine (TR-05) and the four mission runs (TR-06) are not produced. No observation is fabricated and no absent measurement is shown as zero.</div>
+      <div class="small muted" style="margin-top:6px">${esc(panels.results.reason)}</div>
+      <div style="margin-top:8px">${tr07ArmsHtml()}</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px" data-tr07="trades-paired">
+    <div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">same chart as TOB, much longer: ~5 years instead of 1</span></div>
+    <div class="tr07empty"><b>Not run yet</b>Filled by TR-06 after the TRADES-v1 freeze (TR-04)<br>Each point carries its zone: Development · OOS · bridge</div>
+  </div>`;
+}
+
+// Paneles secundarios del mismo diseño (TRADES_MODE_PLAN.md TR-07:79): cobertura,
+// zonas/OOS, calibración, contrato congelado y resultados. Van debajo de la grilla
+// modo/contraste; el contraste sólo acompaña a la vista del modo, nunca a estos.
+function tr07PanelsHtml(panels, selection) {
+  if (panels?.ok !== true) {
+    return "";
+  }
+  const missions = panels.selector?.marketMissions ?? [];
+  const missionId = selection.missionId ?? missions[0]?.missionId ?? null;
+  return `${tr07CoverageHtml(panels, missionId)}
+  ${tr07ZonesHtml(panels, missionId)}
+  ${tr07CalibrationHtml(panels)}
+  ${tr07UnavailableCard("frozenContract", "Frozen contract", "TR-04 · TRADES-v1 execution contract · gate: Bru approves the freeze", panels)}
+  ${tr07UnavailableCard("results", "Results", "TR-06 · runs of the 4 missions", panels)}`;
+}
+
+// Vista del modo que ocupa la columna izquierda del prototipo aprobado (opción B):
+// la comparación/backtest exploratorio en TOB (o su estado no disponible para Power)
+// y la observación TRADES en TRADES.
+function tr07ModeViewHtml(vm, mode, hasTobData, selectedMission) {
+  if (mode === "TOB") {
+    if (!hasTobData) {
+      return tr07TobUnavailableHtml(selectedMission);
+    }
+    const productFilter = selectedMission?.shortCode ?? null;
+    return `${exploratoryComparisonHtml(vm.exploratory, mode, productFilter)}${exploratoryBacktestHtml(vm.exploratory, mode, productFilter)}`;
+  }
+  return vm.tradesPanels?.ok === true ? tr07TradesObservationHtml(vm.tradesPanels, selectedMission) : "";
+}
+
+// Grilla del prototipo (opción B): a la izquierda la vista del modo, a la derecha el
+// contraste y, debajo de él, el botón Expand. Fuera del puente la grilla queda de una
+// columna, no hay contraste y la línea con la fecha abre la vista
+// (TRADES_MODE_PLAN.md TR-07:76-77; hallazgo TR07-CONTRAST-LAYOUT).
+function tr07GridHtml(panels, selection, modeViewHtml, measurementHtml = "") {
+  if (panels?.ok !== true) {
+    return `${modeViewHtml}${measurementHtml}`;
+  }
+  const mode = selection.mode ?? "TOB";
+  const period = selection.period ?? null;
+  const coversBridge = tr07CoversBridge(mode, period);
+  const left = `${coversBridge ? "" : tr07ContrastNoteHtml()}${modeViewHtml}${measurementHtml}`;
+  const right = coversBridge ? `${tr07ContrastHtml(panels)}${tr07ExpandHtml()}` : "";
+  return `<div class="tr07grid${coversBridge ? "" : " single"}">
+    <div data-tr07="mode-view">${left}</div>
+    <div data-tr07="contrast-column">${right}</div>
+  </div>`;
+}
+
+function tr07ScopeHtml(panels, selection) {
+  if (panels?.ok !== true) {
+    return "";
+  }
+  return `${TR07_CSS}${tr07SelectorHtml(panels, selection)}`;
+}
+
+function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   const validated = errors === null;
+  const mode = selection.mode ?? "TOB";
   // Con comparación exploratoria, sus paneles ocupan los espacios del mockup; los paneles
   // canónicos vacíos no se duplican debajo (una sola verdad por panel).
   const hasExploratory = validated && vm.exploratory?.comparison != null;
@@ -1602,6 +1943,15 @@ function backtestsBody(vm, { errors = null } = {}) {
   const boundRows = rows.filter((row) => row.status === "BOUND");
   const arms = [...new Set(boundRows.map((row) => row.arm).filter((arm) => typeof arm === "string"))];
   const measureColumns = ["B", "H", "V", "ΔV"];
+
+  // TR-07: la vista TOB filtra por el producto de la misión que marca el selector
+  // (por defecto Gas Quarterly, missions[0]); si el release exploratorio no trae ese
+  // producto (Power), se declara no disponible en vez de mostrar datos de Gas bajo
+  // otro nombre (TRADES_MODE_PLAN.md TR-07:72-73).
+  const selectedMission = tr07SelectedMission(vm?.tradesPanels, selection);
+  const tobProduct = mode === "TOB" && selectedMission ? selectedMission.shortCode : null;
+  const comparison = vm?.exploratory?.comparison ?? null;
+  const hasTobData = comparison === null || tobProduct === null || comparison[tobProduct] !== undefined;
 
   // Filas de la tabla: una por fila canónica atada (su medida en su columna);
   // las no atadas quedan UNAVAILABLE con razón; sin nada, la fila pendiente.
@@ -1630,9 +1980,9 @@ function backtestsBody(vm, { errors = null } = {}) {
   ${validated ? "" : errorBarHtml(errors)}
   <div class="row" style="align-items:flex-end">
     <div class="grow">${hasExploratory ? `
-      <div class="mono muted small">economic comparison · exploratory · real EEX best ask</div>
+      <div class="mono muted small">economic comparison · exploratory · ${esc(observationSourceLabel(mode))}</div>
       <h1 class="page">Does another hour or a dip rule buy cheaper than the client's 11:00?</h1>
-      <p class="lede">Paired comparison of two exploratory arms against the Baseline, on the same days and the same best-ask data. Figures are <b>exploratory</b>: B* is a proxy and fees are UNKNOWN (excluded, never zero).</p>` : `
+      <p class="lede">Paired comparison of two exploratory arms against the Baseline, on the same days and the same ${esc(observationSourceLabel(mode))} data. Figures are <b>exploratory</b>: B* is a proxy and fees are UNKNOWN (excluded, never zero).</p>` : `
       <div class="mono muted small">economic comparison · canonical producers only</div>
       <h1 class="page">Economic comparison of experimental arms</h1>
       <p class="lede">Measures are shown only as published by canonical producers and bound to the verified backend manifest. Without a producer, the slot stays explicit: no comparison is fabricated.</p>`}
@@ -1640,9 +1990,9 @@ function backtestsBody(vm, { errors = null } = {}) {
     <div class="armhead">${armHeadHtml(arms, hasExploratory ? vm.exploratory.comparison : null)}</div>
   </div>
 
-  ${validated ? exploratoryComparisonHtml(vm.exploratory) : ""}
-  ${validated ? exploratoryBacktestHtml(vm.exploratory) : ""}
-  ${validated ? backtestMeasurementHtml(vm.measurementReadiness) : ""}
+  ${validated ? tr07ScopeHtml(vm.tradesPanels, selection) : ""}
+  ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness)) : ""}
+  ${validated ? tr07PanelsHtml(vm.tradesPanels, selection) : ""}
 
   ${hasExploratory ? "" : `
   <div class="card" style="margin-top:14px">
@@ -1894,8 +2244,8 @@ function renderErrorState(surface, vm) {
   return renderDocument({ active: surface, title: "Energy Markets — error", body, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st fail"><span class="g">✕</span>ERROR · fail-closed</span>'] });
 }
 
-function renderValidated(surface, vm) {
-  const body = SURFACE_BODIES[surface](vm);
+function renderValidated(surface, vm, selection = {}) {
+  const body = SURFACE_BODIES[surface](vm, { selection });
   const clock = surface === SURFACES.REPLAY
     ? { asOfLabel: "evaluation as-of", asOf: vm.evaluation.asOf ?? null, sub: `T₀ ${vm.decision.boundary}` }
     : exploratoryClock(vm.exploratory);
@@ -1927,11 +2277,11 @@ function renderExploratory(surface, vm) {
 }
 
 function renderPageFor(surface) {
-  return (vm) => {
+  return (vm, selection = {}) => {
     if (EXPLORATORY_BODIES[surface] !== undefined && vm?.exploratory != null) {
-      return renderExploratory(surface, vm);
+      return renderExploratory(surface, vm, selection);
     }
-    return vm?.ok !== true ? renderErrorState(surface, vm) : renderValidated(surface, vm);
+    return vm?.ok !== true ? renderErrorState(surface, vm) : renderValidated(surface, vm, selection);
   };
 }
 
@@ -1940,11 +2290,11 @@ export const renderBacktestsPage = renderPageFor(SURFACES.BACKTESTS);
 export const renderResearchPage = renderPageFor(SURFACES.RESEARCH);
 export const renderCampaignsPage = renderPageFor(SURFACES.CAMPAIGNS);
 
-export const renderSurfacePage = (surface, vm) => {
+export const renderSurfacePage = (surface, vm, selection = {}) => {
   if (SURFACE_BODIES[surface] === undefined) {
     throw new TypeError(`"${surface}" no es una superficie de UI-01.`);
   }
-  return renderPageFor(surface)(vm);
+  return renderPageFor(surface)(vm, selection);
 };
 
 const WORKSPACE_BLURB = {

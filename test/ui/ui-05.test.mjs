@@ -166,7 +166,9 @@ test("UI-05 Research: pila en una tarjeta con recuento de evidencia, criterios, 
 });
 
 test("UI-05 Backtests: leyenda de brazos, tabla de datos, histogramas con eje y forest plot por producto", () => {
-  const html = renderSurfacePage("backtests", vms.backtests);
+  // TR-07: el selector de misión muestra una misión a la vez; se renderizan las dos
+  // misiones Gas y se concatenan para cubrir ambos productos canónicos.
+  const html = ["GAS_QUARTERLY", "GAS_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vms.backtests, { missionId })).join("");
   const products = Object.keys(results.comparison);
   assert.match(html, /<div class="armhead"><span class="arm"><span class="sw" style="background:var\(--arm-base\)"><\/span>Baseline<\/span><span class="arm">[^]*?Arm A<\/span><span class="arm">[^]*?Arm B<\/span><\/div>/);
   assert.match(html, /Does another hour or a dip rule buy cheaper than the client's 11:00\?/);
