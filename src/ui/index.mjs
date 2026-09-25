@@ -45,3 +45,13 @@ export {
   buildUiViewModels,
   createUiServer,
 } from "./server.mjs";
+
+// TR-07 — soporte backend de los paneles TRADES de Backtests (sin render: la
+// composición visual espera el gate de aprobación de Bru).
+export {
+  TRADES_MODES,
+  TRADES_PANEL_ARTIFACTS,
+  loadTradesPanels,
+  loadTradesPanelsAt,
+  projectTradesPanels,
+} from "./trades-panels.mjs";
