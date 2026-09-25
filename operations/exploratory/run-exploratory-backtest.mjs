@@ -5,6 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import {
   CLIENT_SLOT,
@@ -356,5 +357,6 @@ const manifest = {
     "src/exploratory/comparison.mjs",
   ].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
 };
-writeFileSync("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
+// El manifest vive junto a sus resultados: cada versión (v1 en la raíz, v2/ …) conserva el suyo.
+writeFileSync(join(dirname(outPath), "MANIFEST.json"), JSON.stringify(manifest, null, 1));
 console.log(`episodios completos: ${complete.length}; incompletos: ${output.episodesSkippedIncomplete.length}`);

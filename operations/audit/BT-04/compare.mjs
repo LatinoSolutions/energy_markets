@@ -12,16 +12,31 @@ const FLOAT_NOISE = 1e-9;
 // emulation reproduces BT-01 per date within FLOAT_NOISE (cause is proven).
 const ATTRIBUTED_B_BOUND = 1e-4;
 
-export const PATHS = {
-  independent: "operations/audit/BT-04/independent-check-BT-04.json",
-  bt01: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
-  bt01Manifest: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
-  bt02: "operations/exploratory/reconciled-results-BT-02.json",
-  bt02Manifest: "operations/exploratory/reconciled-results-BT-02.MANIFEST.json",
-  exploratoryResults: "operations/exploratory/backtest-results.json",
-  calendar: "operations/audit/IMP-09/eex-exchange-calendar.json",
-  output: "operations/audit/BT-04/validation-BT-04.json",
-};
+// v1 = accepted BT-01 / BT-02 artifacts (kept byte-for-byte); v2 = the versions
+// that fix BT04-H1-TOB-TIE and BT04-C1-PROXY-WINDOW-DEDUP (2026-09-25).
+export const TARGETS = Object.freeze({
+  v1: Object.freeze({
+    independent: "operations/audit/BT-04/independent-check-BT-04.json",
+    bt01: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
+    bt01Manifest: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+    bt02: "operations/exploratory/reconciled-results-BT-02.json",
+    bt02Manifest: "operations/exploratory/reconciled-results-BT-02.MANIFEST.json",
+    exploratoryResults: "operations/exploratory/backtest-results.json",
+    calendar: "operations/audit/IMP-09/eex-exchange-calendar.json",
+    output: "operations/audit/BT-04/validation-BT-04.json",
+  }),
+  v2: Object.freeze({
+    independent: "operations/audit/BT-04/independent-check-BT-04-v2.json",
+    bt01: "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.json",
+    bt01Manifest: "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+    bt02: "operations/exploratory/v2/reconciled-results-BT-02.json",
+    bt02Manifest: "operations/exploratory/v2/reconciled-results-BT-02.MANIFEST.json",
+    exploratoryResults: "operations/exploratory/v2/backtest-results.json",
+    calendar: "operations/audit/IMP-09/eex-exchange-calendar.json",
+    output: "operations/audit/BT-04/validation-BT-04-v2.json",
+  }),
+});
+export const PATHS = TARGETS.v1;
 
 export const CAUSES = {
   BT01_PROXY_IMPLEMENTATION_CHOICES: "BT-01 proxy truncates Berlin time to whole seconds (17:15:00.xxx counts as inside the strict window) and deduplicates on (Tm, price, bid, ask) only, collapsing distinct market rows. Reproduced: rerunning the independent formula with those two choices matches BT-01 per date within 1e-9.",
@@ -269,50 +284,56 @@ export function buildBt04Validation({ independent, bt01, bt02, hashes }) {
 
 // Every input the independent check and BT-02 declare must be the exact bytes
 // read here; a declared hash that does not match its file breaks provenance.
-export function verifyInputBinding({ independent, bt01Manifest, bt02Manifest, fileHashes }) {
+export function verifyInputBinding({ independent, bt01Manifest, bt02Manifest, fileHashes, paths = PATHS }) {
   const failures = [];
   const expect = (label, declared, path) => {
     if (declared?.path !== path || declared?.sha256 !== fileHashes[path]) failures.push(label);
   };
-  expect("independent.inputs.calendar", independent.inputs?.calendar, PATHS.calendar);
-  expect("independent.inputs.exploratoryResults", independent.inputs?.exploratoryResults, PATHS.exploratoryResults);
-  expect("bt01Manifest.inputs.calendar", bt01Manifest.inputs?.calendar, PATHS.calendar);
-  expect("bt02Manifest.inputs.exploratoryResults", bt02Manifest.inputs?.exploratoryResults, PATHS.exploratoryResults);
-  expect("bt02Manifest.inputs.bt01Benchmark", bt02Manifest.inputs?.bt01Benchmark, PATHS.bt01);
-  expect("bt02Manifest.inputs.bt01Manifest", bt02Manifest.inputs?.bt01Manifest, PATHS.bt01Manifest);
+  expect("independent.inputs.calendar", independent.inputs?.calendar, paths.calendar);
+  expect("independent.inputs.exploratoryResults", independent.inputs?.exploratoryResults, paths.exploratoryResults);
+  expect("bt01Manifest.inputs.calendar", bt01Manifest.inputs?.calendar, paths.calendar);
+  expect("bt02Manifest.inputs.exploratoryResults", bt02Manifest.inputs?.exploratoryResults, paths.exploratoryResults);
+  expect("bt02Manifest.inputs.bt01Benchmark", bt02Manifest.inputs?.bt01Benchmark, paths.bt01);
+  expect("bt02Manifest.inputs.bt01Manifest", bt02Manifest.inputs?.bt01Manifest, paths.bt01Manifest);
   if (failures.length > 0) throw new Error(`input hash binding failed: ${failures.join(", ")}`);
 }
 
-export function loadAndBuild(root) {
+export function loadAndBuild(root, target = "v1") {
+  const paths = TARGETS[target];
+  if (!paths) throw new Error(`unknown BT-04 target: ${target}`);
   const bytes = (path) => readFileSync(resolve(root, path));
-  const raw = Object.fromEntries(Object.entries(PATHS).filter(([name]) => name !== "output").map(([name, path]) => [name, bytes(path)]));
+  const raw = Object.fromEntries(Object.entries(paths).filter(([name]) => name !== "output").map(([name, path]) => [name, bytes(path)]));
   const bt01Manifest = JSON.parse(raw.bt01Manifest);
   const bt02Manifest = JSON.parse(raw.bt02Manifest);
   if (bt01Manifest.artifact.sha256 !== sha256(raw.bt01)) throw new Error("BT-01 artifact does not match its manifest");
   if (bt02Manifest.artifact.sha256 !== sha256(raw.bt02)) throw new Error("BT-02 artifact does not match its manifest");
   const independent = JSON.parse(raw.independent);
-  const fileHashes = Object.fromEntries(Object.entries(raw).map(([name, content]) => [PATHS[name], sha256(content)]));
-  verifyInputBinding({ independent, bt01Manifest, bt02Manifest, fileHashes });
+  const fileHashes = Object.fromEntries(Object.entries(raw).map(([name, content]) => [paths[name], sha256(content)]));
+  verifyInputBinding({ independent, bt01Manifest, bt02Manifest, fileHashes, paths });
   // Same lake bytes: every file the independent check read must carry the BT-01 manifest hash.
   for (const [path, hash] of Object.entries(independent.inputs.sourceFileHashes)) {
     if (bt01Manifest.inputs.sourceFileHashes[path] !== hash) throw new Error(`lake file not bound to BT-01 manifest: ${path}`);
   }
-  const hashes = Object.fromEntries(Object.entries(raw).map(([name, content]) => [name, { path: PATHS[name], sha256: sha256(content) }]));
+  const hashes = Object.fromEntries(Object.entries(raw).map(([name, content]) => [name, { path: paths[name], sha256: sha256(content) }]));
   hashes.independent.lakeFilesBoundToBt01Manifest = Object.keys(independent.inputs.sourceFileHashes).length;
-  return buildBt04Validation({ independent, bt01: JSON.parse(raw.bt01), bt02: JSON.parse(raw.bt02), hashes });
+  return { target, ...buildBt04Validation({ independent, bt01: JSON.parse(raw.bt01), bt02: JSON.parse(raw.bt02), hashes }) };
 }
 
+// Uso: node compare.mjs [--target v1|v2] [--check]
 function main() {
   const root = resolve(import.meta.dirname, "../../..");
-  const validation = loadAndBuild(root);
+  const targetIndex = process.argv.indexOf("--target");
+  const target = targetIndex === -1 ? "v2" : process.argv[targetIndex + 1];
+  const validation = loadAndBuild(root, target);
   const serialized = `${JSON.stringify(validation, null, 2)}\n`;
+  const output = resolve(root, TARGETS[target].output);
   if (process.argv.includes("--check")) {
-    if (readFileSync(resolve(root, PATHS.output), "utf8") !== serialized) throw new Error("validation-BT-04.json is stale");
-    console.log(`BT-04 validation reproducible: ${validation.verdict}`);
+    if (readFileSync(output, "utf8") !== serialized) throw new Error(`${TARGETS[target].output} is stale`);
+    console.log(`BT-04 ${target} validation reproducible: ${validation.verdict}`);
     return;
   }
-  writeFileSync(resolve(root, PATHS.output), serialized);
-  console.log(`BT-04 validation: ${validation.verdict} (unexplained=${validation.unexplained})`);
+  writeFileSync(output, serialized);
+  console.log(`BT-04 ${target} validation: ${validation.verdict} (unexplained=${validation.unexplained})`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

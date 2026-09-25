@@ -2,8 +2,11 @@
 // auditadas del lago EEX + reconciliation receipt con equivalencia oficial
 // fail-closed (P-007). Consume el artefacto de extracción read-only
 // (lake-proxy-rows-IMP-05.json) y produce el receipt versionado
-// (lake-benchmark-receipt-IMP-05.json). Sin resultado económico: B aquí es el
+// (lake-benchmark-receipt-IMP-05-v2.json). Sin resultado económico: B aquí es el
 // benchmark proxy-side provisional sobre la muestra auditada.
+// v2 (2026-09-25, hallazgo BT04-C1-PROXY-WINDOW-DEDUP): la ventana §5.2 conserva
+// la fracción de segundo. El receipt v1 se conserva intacto como versión anterior
+// (SPEC §5.3 «conservando cobertura y versiones anteriores»).
 //
 // Uso: node operations/audit/IMP-05/build-lake-benchmark.mjs
 
@@ -22,7 +25,12 @@ import {
 
 const here = new URL(".", import.meta.url).pathname;
 export const rowsArtifactPath = `${here}lake-proxy-rows-IMP-05.json`;
-export const receiptPath = `${here}lake-benchmark-receipt-IMP-05.json`;
+export const receiptPath = `${here}lake-benchmark-receipt-IMP-05-v2.json`;
+export const SUPERSEDED_RECEIPT = Object.freeze({
+  path: "operations/audit/IMP-05/lake-benchmark-receipt-IMP-05.json",
+  sha256: "d977288890d2589d93521b5576969fd7e693e13c3e56639794071019c7f63283",
+  reason: "v1 truncaba Tm a segundos enteros: 17:15:00.xxx entraba en la ventana estricta 17:00–17:15 (BT04-C1-PROXY-WINDOW-DEDUP)",
+});
 
 // P-005 (aceptada, OWNER-DECISION-P-005-EEX-RIGHTS.md): los datos EEX están
 // autorizados para este uso dentro del proyecto. Esa decisión es la base de
@@ -82,6 +90,7 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
       sourceLabel: proxy.sourceLabel,
       dailyReference: proxy.defined ? proxy.value : null,
       defined: proxy.defined,
+      dedupRule: proxy.dedupRule,
       exclusionCount: proxy.exclusions.length,
     });
     if (proxy.defined) {
@@ -95,7 +104,7 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
   const benchmark = benchmarkB({ references, expectedDates: expectedDatesCount });
   const calendarMissing = benchmarkCalendarMissingDates({ expectedDates: auditedDates, references });
   const status = benchmarkProvisionalStatus({ references });
-  const version = benchmarkVersion({ computation: { B: benchmark.B, count: benchmark.count }, versionTag: "IMP-05-lake-proxy-eval-1" });
+  const version = benchmarkVersion({ computation: { B: benchmark.B, count: benchmark.count }, versionTag: "IMP-05-lake-proxy-eval-2" });
 
   // La lectura de settlement oficial está BLOQUEADA (assessment DEP-10 y
   // P-007: no hay feed Fundamental adicional; el lago no contiene filas
@@ -116,6 +125,7 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
       contratoCampana: "NO resuelto: DEP-01/03 DOCUMENTED_ABSENCE; la regla de contrato por fecha es provisional y declarada",
       estadoOficial: "reference.read.official BLOQUEADA (BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE); P-007: no hay feed Fundamental adicional",
     },
+    supersedes: SUPERSEDED_RECEIPT,
     rowsArtifact: {
       path: "operations/audit/IMP-05/lake-proxy-rows-IMP-05.json",
       sha256: rowsArtifactSha256,

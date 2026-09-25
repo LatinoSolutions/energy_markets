@@ -22,6 +22,7 @@ decision ledger. Re-deciding would be a strategy rerun, excluded by BT-02.
 
 import hashlib
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -30,9 +31,13 @@ import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[3]
 LAKE = Path("/srv/hot-data/EEX")
-OUTPUT = ROOT / "operations/audit/BT-04/independent-check-BT-04.json"
 CALENDAR = ROOT / "operations/audit/IMP-09/eex-exchange-calendar.json"
-RESULTS = ROOT / "operations/exploratory/backtest-results.json"
+# Only the stored decision ledger (which days, how many MW) differs per release;
+# prices, B and H are always recomputed from the lake here.
+RELEASES = {
+    "v1": {"results": "operations/exploratory/backtest-results.json", "output": "operations/audit/BT-04/independent-check-BT-04.json"},
+    "v2": {"results": "operations/exploratory/v2/backtest-results.json", "output": "operations/audit/BT-04/independent-check-BT-04-v2.json"},
+}
 BERLIN = ZoneInfo("Europe/Berlin")
 
 # Chosen by BT-04: the first G0BQ and first G0BM maturity that BT-02 marks PROVISIONAL.
@@ -252,8 +257,10 @@ def ledger_check(campaign, decisions):
 
 
 def main():
+    release = RELEASES[sys.argv[sys.argv.index("--release") + 1] if "--release" in sys.argv else "v2"]
+    results_path = release["results"]
     calendar_bytes = CALENDAR.read_bytes()
-    results_bytes = RESULTS.read_bytes()
+    results_bytes = (ROOT / results_path).read_bytes()
     exchange_days = json.loads(calendar_bytes)["exchangeDays"]
     results = json.loads(results_bytes)
     file_hashes = {}
@@ -298,7 +305,7 @@ def main():
         "scopeLimit": "Fill days/volumes come from the stored decision ledger (no strategy rerun). Fees UNKNOWN/excluded; official settlement UNKNOWN.",
         "inputs": {
             "calendar": {"path": "operations/audit/IMP-09/eex-exchange-calendar.json", "sha256": hashlib.sha256(calendar_bytes).hexdigest()},
-            "exploratoryResults": {"path": "operations/exploratory/backtest-results.json", "sha256": hashlib.sha256(results_bytes).hexdigest()},
+            "exploratoryResults": {"path": results_path, "sha256": hashlib.sha256(results_bytes).hexdigest()},
             "lakeRoot": str(LAKE),
             "sourceFileHashes": dict(sorted(file_hashes.items())),
         },
@@ -310,7 +317,7 @@ def main():
         },
         "campaigns": campaigns_out,
     }
-    OUTPUT.write_text(json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (ROOT / release["output"]).write_text(json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     for item in campaigns_out:
         print(item["campaignKey"], "B", item["B"], item["coverage"],
               "H_base", item["arms"]["BASELINE"]["H"], "H_armA", item["arms"]["ARM_A"]["H"], "dV", item["deltaV_ARM_A_vs_BASELINE"])

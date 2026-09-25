@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildBt04Validation, loadAndBuild, PATHS, verifyInputBinding } from "../../operations/audit/BT-04/compare.mjs";
+import { buildBt04Validation, loadAndBuild, PATHS, TARGETS, verifyInputBinding } from "../../operations/audit/BT-04/compare.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
@@ -175,4 +175,35 @@ test("BT04-INPUT-BINDING: declared calendar / ledger / BT-01 hashes must match t
   const bt02Ledger = base();
   bt02Ledger.bt02Manifest.inputs.exploratoryResults.sha256 = "0".repeat(64);
   assert.throws(() => verifyInputBinding(bt02Ledger), /bt02Manifest.inputs.exploratoryResults/);
+});
+
+// v2 = BT-01 / backtest / BT-02 regenerated with BT04-H1-TOB-TIE and
+// BT04-C1-PROXY-WINDOW-DEDUP fixed: the independent check must now match exactly.
+test("BT-04 v2: validation is reproducible and every value matches the independent recomputation", () => {
+  const v2 = readJson(TARGETS.v2.output);
+  assert.deepEqual(loadAndBuild(root, "v2"), v2);
+  assert.equal(v2.target, "v2");
+  assert.equal(v2.verdict, "PASS");
+  assert.equal(v2.unexplained, 0);
+  assert.equal(v2.failClosedHolds, true);
+  for (const item of v2.campaigns) {
+    assert.equal(item.benchmark.verdict, "MATCH", item.campaignKey);
+    assert.ok(Math.abs(item.benchmark.difference) <= 1e-9, item.campaignKey);
+    for (const arm of item.ledgerArms) {
+      assert.equal(arm.verdict, "MATCH", `${item.campaignKey} ${arm.armId}`);
+      assert.deepEqual(arm.mismatchedFills, []);
+    }
+    assert.equal(item.deltaV_ARM_A_vs_BASELINE.verdict, "MATCH", item.campaignKey);
+  }
+  const g0bq = campaign(v2, "G0BQ-202601");
+  assert.ok(Math.abs(g0bq.ledgerArms.find((arm) => arm.armId === "BASELINE").bt02H - 33.536583333333) <= 1e-9);
+});
+
+test("BT-04 v1 stays the historical contrast of the accepted artifacts; v2 binds only v2 inputs", () => {
+  assert.equal(committed.target, "v1");
+  const v2 = readJson(TARGETS.v2.output);
+  for (const name of ["independent", "bt01", "bt01Manifest", "bt02", "bt02Manifest", "exploratoryResults"]) {
+    assert.equal(v2.inputs[name].path, TARGETS.v2[name]);
+    assert.notEqual(v2.inputs[name].path, committed.inputs[name].path);
+  }
 });

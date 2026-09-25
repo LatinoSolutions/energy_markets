@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import { buildLakeBenchmarkReceipt, rowsArtifactPath, receiptPath } from "../../operations/audit/IMP-05/build-lake-benchmark.mjs";
+import { buildLakeBenchmarkReceipt, rowsArtifactPath, receiptPath, SUPERSEDED_RECEIPT } from "../../operations/audit/IMP-05/build-lake-benchmark.mjs";
 
 // IMP05-SCOPE-01 review 2026-09-23 (§25.2.2 IMP-05: DEP-08/09 son
 // RESOLVES_AUDIT de este IMP): el benchmark se reprodujo proxy-side sobre
@@ -62,4 +62,26 @@ test("IMP-05 lago: reconciliación official fail-closed (P-007): proxy conservad
   assert.equal(committed.reconciliation.proxyPreserved, true, "la vista proxy no se borra por reconciliar");
   assert.deepEqual(Object.keys(committed.engineReceipt).sort(), ["algorithm", "receiptId"], "el motor emite un receipt reproducible de §25.1");
   assert.match(committed.engineReceipt.receiptId, /^[0-9a-f]{64}$/);
+});
+
+test("IMP-05 lago v2: la versión anterior se conserva byte a byte y la v2 la referencia (SPEC §5.3 versiones anteriores)", () => {
+  const previousBytes = readFileSync(new URL(`../../${SUPERSEDED_RECEIPT.path}`, import.meta.url));
+  assert.equal(createHash("sha256").update(previousBytes).digest("hex"), SUPERSEDED_RECEIPT.sha256);
+  assert.deepEqual(committed.supersedes, SUPERSEDED_RECEIPT);
+  const previous = JSON.parse(previousBytes);
+  assert.equal(previous.benchmarkVersion.versionTag, "IMP-05-lake-proxy-eval-1");
+  assert.equal(committed.benchmarkVersion.versionTag, "IMP-05-lake-proxy-eval-2");
+  assert.notEqual(committed.benchmarkVersion.versionId, previous.benchmarkVersion.versionId);
+});
+
+test("IMP-05 lago v2: filas en 17:15:00.xxx ya no entran en la ventana estricta (BT04-C1-PROXY-WINDOW-DEDUP)", () => {
+  const previous = JSON.parse(readFileSync(new URL(`../../${SUPERSEDED_RECEIPT.path}`, import.meta.url)));
+  const byDate = new Map(previous.perDate.map((record) => [record.trdDate, record]));
+  let strictlyFewer = 0;
+  for (const record of committed.perDate) {
+    const before = byDate.get(record.trdDate);
+    assert.ok(record.strictCounts.midpoints <= before.strictCounts.midpoints);
+    if (record.strictCounts.midpoints < before.strictCounts.midpoints) strictlyFewer += 1;
+  }
+  assert.ok(strictlyFewer > 0, "el lago auditado sí tiene observaciones en 17:15:00.xxx");
 });
