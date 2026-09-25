@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,9 +18,11 @@ import {
   RECEIPT_KIND,
   REGISTRY_EVENT,
   RESULT_STATE,
+  claimJobLock,
   computeRunIdentity,
   createBacktestJobRunner,
   handleMcpMessage,
+  readJobLock,
   verifyExploratoryInputs,
 } from "../../src/backtest-jobs/index.mjs";
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
@@ -46,6 +48,11 @@ const readRegistry = (runner) => {
   if (!existsSync(runner.registryPath)) return [];
   return readFileSync(runner.registryPath, "utf8").split("\n").filter((line) => line.length > 0).map((line) => JSON.parse(line));
 };
+
+// Ningún lock vivo en disco (el lock liberado se conserva marcado, no se borra).
+const lockIsFree = (runner) => readJobLock(runner.runsRoot)?.live !== true;
+// pid que no existe: simula un proceso muerto a mitad de job (reinicio, OOM).
+const DEAD_PID = 2 ** 22 + 12345;
 
 const postJob = (base, body, headers = { "Content-Type": "application/json" }) =>
   fetch(`${base}${BACKTEST_JOBS_PATH}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
@@ -95,7 +102,7 @@ test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound s
   assert.ok(receipt.memory.childMaxRssKb > 0);
   assert.ok("cgroupMemoryPeakBytesAfter" in receipt.memory);
   // lock liberado
-  assert.equal(existsSync(path.join(runner.runsRoot, ".job.lock")), false);
+  assert.equal(lockIsFree(runner), true);
   assert.equal(runner.status().running, false);
   assert.equal(runner.status().latest.runId, receipt.runId);
   // el run exitoso queda vigente y su manifest asentado en el registro
@@ -150,7 +157,7 @@ test("BT-05: inputs que no coinciden con el manifest commiteado no arrancan el j
   assert.equal(started.ok, false);
   assert.equal(started.code, "INPUT_HASH_MISMATCH");
   assert.equal(runner.status().latest, null, "no se crea run");
-  assert.equal(existsSync(path.join(runner.runsRoot, ".job.lock")), false);
+  assert.equal(lockIsFree(runner), true);
 });
 
 test("BT-05: un generador que falla deja receipt FAILED con su log y libera el lock", async () => {
@@ -164,7 +171,7 @@ test("BT-05: un generador que falla deja receipt FAILED con su log y libera el l
   assert.match(readFileSync(path.join(runner.runsRoot, receipt.runId, "attempt-1", "job.log"), "utf8"), /fallo forzado/);
   assert.equal(runner.status().currentResult, null, "un run fallido nunca queda vigente");
   assert.equal(runner.get(receipt.runId).job.retention.state, RESULT_STATE.NONE);
-  assert.equal(existsSync(path.join(runner.runsRoot, ".job.lock")), false);
+  assert.equal(lockIsFree(runner), true);
 });
 
 test("BT-05: timeout mata el job y lo cierra FAILED/TIMEOUT", async () => {
@@ -183,13 +190,13 @@ test("BT-05: un RUNNING huérfano (servicio reiniciado) se cierra como INTERRUPT
   const receiptPath = path.join(repo.root, receipt.receiptPath);
   const { finishedAt, result, exit, memory, ...running } = receipt;
   writeFileSync(receiptPath, JSON.stringify({ ...running, status: JOB_STATUS.RUNNING }));
-  writeFileSync(path.join(runner.runsRoot, ".job.lock"), JSON.stringify({ runId: receipt.runId, attempt: 1, pid: 2 ** 22 + 12345 }));
+  claimJobLock(runner.runsRoot, readJobLock(runner.runsRoot).generation, { runId: receipt.runId, attempt: 1, pid: DEAD_PID });
 
   const restarted = createBacktestJobRunner({ repoRoot: repo.root });
   const recovered = restarted.get(receipt.runId).receipt;
   assert.equal(recovered.status, JOB_STATUS.INTERRUPTED);
   assert.equal(recovered.failure.code, "INTERRUPTED");
-  assert.equal(existsSync(path.join(restarted.runsRoot, ".job.lock")), false);
+  assert.equal(lockIsFree(restarted), true);
   // sin resultado vigente para ese run_id, el mismo run se reintenta como attempt nuevo
   const next = restarted.start({ requestedBy: "ui" });
   assert.equal(next.ok, true);
@@ -541,4 +548,121 @@ process.stdout.write(JSON.stringify({ running: s.running, current: s.current?.ru
   assert.equal(receipt.status, JOB_STATUS.SUCCEEDED);
   assert.equal(sameProcessOther.status().running, false);
   assert.equal(sameProcessOther.status().currentResult.runId, receipt.runId);
+});
+
+// ---------- lock obsoleto con arranques concurrentes (hallazgo BT05-LOCK-05) ----------
+
+test("BT-05 lock: dos procesos que vieron el mismo lock obsoleto no pueden tomarlo ambos", () => {
+  const runsRoot = mkdtempSync(path.join(tmpdir(), "bt05-lock-"));
+  assert.equal(claimJobLock(runsRoot, 0, { runId: "muerto", attempt: 1, pid: DEAD_PID }), 1);
+  // ambos leen el lock obsoleto antes de que ninguno actúe
+  const seenByA = readJobLock(runsRoot);
+  const seenByB = readJobLock(runsRoot);
+  assert.equal(seenByA.live, false);
+  assert.equal(seenByB.live, false);
+  assert.equal(claimJobLock(runsRoot, seenByA.generation, { runId: "A", attempt: 1, pid: process.pid }), 2);
+  assert.equal(claimJobLock(runsRoot, seenByB.generation, { runId: "B", attempt: 1, pid: process.pid }), null, "B no retira ni pisa el lock nuevo de A");
+  const holder = readJobLock(runsRoot);
+  assert.equal(holder.runId, "A");
+  assert.equal(holder.live, true);
+});
+
+test("BT-05 lock: arranques concurrentes en procesos distintos ante un lock obsoleto dejan exactamente un job", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  const runsDir = path.join(repo.root, "operations/backtest-runs");
+  createBacktestJobRunner({ repoRoot: repo.root });
+  claimJobLock(runsDir, readJobLock(runsDir).generation, { runId: "muerto", attempt: 1, pid: DEAD_PID });
+  assert.equal(readJobLock(runsDir).live, false);
+
+  // Cada proceso crea su runner y espera la señal: todos llaman start() a la vez.
+  const runnerUrl = new URL("../../src/backtest-jobs/runner.mjs", import.meta.url).href;
+  const script = `import { createBacktestJobRunner } from ${JSON.stringify(runnerUrl)};
+const r = createBacktestJobRunner({ repoRoot: ${JSON.stringify(repo.root)} });
+process.stdout.write("ready\\n");
+process.stdin.once("data", async () => {
+  const t = r.start({ requestedBy: "mcp" });
+  const outcome = t.ok ? (t.reused ? "REUSED" : "STARTED") : t.code;
+  if (t.ok) await t.done;
+  process.stdout.write(JSON.stringify({ outcome }));
+  process.exit(0);
+});`;
+  const children = Array.from({ length: 4 }, () => spawn(process.execPath, ["--input-type=module", "-e", script], { stdio: ["pipe", "pipe", "inherit"] }));
+  const outputs = children.map((child) => new Promise((resolve, reject) => {
+    let text = "";
+    child.stdout.on("data", (chunk) => { text += chunk; });
+    child.on("error", reject);
+    child.on("exit", () => resolve(JSON.parse(text.slice(text.indexOf("\n") + 1)).outcome));
+  }));
+  await Promise.all(children.map((child) => new Promise((resolve) => {
+    child.stdout.once("data", resolve);
+  })));
+  for (const child of children) child.stdin.write("go\n");
+  const outcomes = (await Promise.all(outputs)).sort();
+  assert.deepEqual(outcomes, ["JOB_ALREADY_RUNNING", "JOB_ALREADY_RUNNING", "JOB_ALREADY_RUNNING", "STARTED"]);
+  const latest = createBacktestJobRunner({ repoRoot: repo.root }).status().latest;
+  assert.equal(latest.attempt, 1, "un solo intento creado");
+});
+
+// ---------- promoción que no llega al registro (hallazgo BT05-REGISTRY-06) ----------
+
+test("BT-05 registro: si falla RESULT_PROMOTED tras el receipt SUCCEEDED, no se reutiliza y el run se recalcula y promueve", async () => {
+  const repo = makeFixtureRepo();
+  const failPromotion = (file, line) => {
+    if (line.includes(`"event":"${REGISTRY_EVENT.RESULT_PROMOTED}"`)) throw new Error("disco lleno (inyectado)");
+    appendFileSync(file, line);
+  };
+  const broken = createBacktestJobRunner({ repoRoot: repo.root, appendRegistryLine: failPromotion });
+  const first = await broken.start({ requestedBy: "ui" }).done;
+  // el fallo no tumba el proceso: vuelve en settlement y el lock queda libre
+  assert.equal(first.status, JOB_STATUS.SUCCEEDED);
+  assert.equal(first.settlement.code, "REGISTRY_WRITE_FAILED");
+  assert.equal(lockIsFree(broken), true);
+  assert.equal(broken.status().currentResult, null, "sin promoción asentada no hay resultado vigente");
+  assert.equal(broken.get(first.runId).job.retention.state, RESULT_STATE.NONE);
+  const registryBefore = readFileSync(broken.registryPath, "utf8");
+
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const next = runner.start({ requestedBy: "ui" });
+  assert.equal(next.ok, true);
+  assert.equal(next.reused, false, "un SUCCEEDED sin promoción nunca se devuelve como resultado reutilizado");
+  const retried = await next.done;
+  assert.equal(retried.runId, first.runId);
+  assert.equal(retried.attempt, 2);
+  assert.equal(retried.status, JOB_STATUS.SUCCEEDED);
+  assert.equal(retried.settlement, undefined);
+
+  // append-only: lo anterior intacto; queda constancia del intento sin promoción y la promoción nueva
+  const registryText = readFileSync(runner.registryPath, "utf8");
+  assert.ok(registryText.startsWith(registryBefore));
+  const events = readRegistry(runner);
+  const missing = events.filter((event) => event.event === REGISTRY_EVENT.PROMOTION_MISSING);
+  assert.deepEqual(missing.map((event) => [event.runId, event.attempt, event.retriedAs]), [[first.runId, 1, 2]]);
+  assert.equal(missing[0].manifest.resultSha256, first.result.results.sha256);
+  const promotions = events.filter((event) => event.event === REGISTRY_EVENT.RESULT_PROMOTED);
+  assert.deepEqual(promotions.map((event) => [event.runId, event.attempt, event.supersedes]), [[first.runId, 2, null]]);
+  assert.deepEqual(runner.status().currentResult.retention, { state: RESULT_STATE.CURRENT, supersededBy: null });
+  assert.equal(runner.status().currentResult.attempt, 2);
+
+  // ahora sí hay resultado registrado: se reutiliza sin recalcular
+  const again = runner.start({ requestedBy: "mcp" });
+  assert.equal(again.reused, true);
+  assert.equal(again.job.attempt, 2);
+});
+
+test("BT-05 registro: si falla el asiento de PROMOTION_MISSING, start no arranca y libera el lock", async () => {
+  const repo = makeFixtureRepo();
+  const failPromotion = (file, line) => {
+    if (line.includes(`"event":"${REGISTRY_EVENT.RESULT_PROMOTED}"`)) throw new Error("inyectado");
+    appendFileSync(file, line);
+  };
+  await createBacktestJobRunner({ repoRoot: repo.root, appendRegistryLine: failPromotion }).start({ requestedBy: "ui" }).done;
+  const failAll = () => {
+    throw new Error("registro no escribible (inyectado)");
+  };
+  const runner = createBacktestJobRunner({ repoRoot: repo.root, appendRegistryLine: failAll });
+  const refused = runner.start({ requestedBy: "ui" });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "REGISTRY_WRITE_FAILED");
+  assert.equal(lockIsFree(runner), true);
+  assert.equal(runner.status().currentResult, null);
 });

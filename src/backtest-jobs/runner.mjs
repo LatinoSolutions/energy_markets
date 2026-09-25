@@ -3,7 +3,7 @@
 // endpoint HTTP de ./http.mjs y la tool MCP de ./mcp-server.mjs llegan aquí.
 //
 // Por qué así:
-//   - Uno a la vez (lock en disco con 'wx'): el 25-sep un backtest lanzado fuera
+//   - Uno a la vez (lock en disco por generaciones con link()): el 25-sep un backtest lanzado fuera
 //     de este camino agotó la RAM de BruNode (nota BT-05 en PLAN_STATUS).
 //   - El backtest corre en un proceso hijo del servicio, así cuenta dentro del
 //     cgroup de energy-markets-ui.service (MemoryMax provisional 2G, nota BT-05).
@@ -19,8 +19,8 @@
 //     receipt (SPEC v1.1.1 §26.5).
 
 import { spawn, execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { appendFileSync, closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { appendFileSync, closeSync, copyFileSync, linkSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,10 +63,14 @@ export const RESULT_STATE = Object.freeze({
 export const REGISTRY_EVENT = Object.freeze({
   RUN_CLOSED: "RUN_CLOSED",
   RESULT_PROMOTED: "RESULT_PROMOTED",
+  // Un intento SUCCEEDED cuyo RESULT_PROMOTED no llegó al registro (hallazgo
+  // BT05-REGISTRY-06): no se reutiliza y el run se recalcula como intento nuevo.
+  PROMOTION_MISSING: "PROMOTION_MISSING",
 });
 
 const CHILD_ENTRY = fileURLToPath(new URL("./child-entry.mjs", import.meta.url));
-const LOCK_FILE = ".job.lock";
+const LOCK_PREFIX = ".job.lock.";
+const LOCK_FILE_PATTERN = /^\.job\.lock\.(\d+)$/;
 const RUN_ID_PATTERN = /^BT-RUN-[0-9a-f]{64}$/;
 const ATTEMPT_DIR_PATTERN = /^attempt-(\d+)$/;
 
@@ -90,6 +94,65 @@ function isProcessAlive(pid) {
   } catch (error) {
     return error.code === "EPERM";
   }
+}
+
+// Lock de backtests entre procesos (ver acquireLock en el runner).
+
+function lockGenerations(runsRoot) {
+  return readdirSync(runsRoot)
+    .map((name) => LOCK_FILE_PATTERN.exec(name))
+    .filter((match) => match !== null)
+    .map((match) => Number.parseInt(match[1], 10))
+    .sort((a, b) => a - b);
+}
+
+// Lock de generación más alta, o null si nunca hubo uno. `live` = no liberado y
+// su proceso existe. Si el archivo desaparece entre listar y leer (lo limpió quien
+// tomó una generación nueva) se vuelve a listar.
+export function readJobLock(runsRoot) {
+  for (let tries = 0; tries < 3; tries += 1) {
+    const generation = lockGenerations(runsRoot).at(-1);
+    if (generation === undefined) return null;
+    let holder;
+    try {
+      holder = readJson(path.join(runsRoot, `${LOCK_PREFIX}${generation}`));
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+    const live = holder.releasedAt == null && isProcessAlive(holder.pid);
+    return { ...holder, generation, live };
+  }
+  return null;
+}
+
+// Toma la generación siguiente a la observada. Devuelve la generación tomada o
+// null si otro proceso la tomó antes. El contenido se escribe completo antes del
+// link(), así nadie lee un lock a medio escribir.
+export function claimJobLock(runsRoot, observedGeneration, holder) {
+  const generation = observedGeneration + 1;
+  const target = path.join(runsRoot, `${LOCK_PREFIX}${generation}`);
+  const temporary = path.join(runsRoot, `.job.lock-claim-${process.pid}-${randomUUID()}`);
+  writeFileSync(temporary, JSON.stringify({ ...holder, generation }));
+  try {
+    linkSync(temporary, target);
+  } catch (error) {
+    if (error.code === "EEXIST") return null;
+    throw error;
+  } finally {
+    rmSync(temporary, { force: true });
+  }
+  // Las generaciones anteriores ya estaban liberadas u obsoletas cuando se tomó ésta.
+  for (const older of lockGenerations(runsRoot)) {
+    if (older < generation) rmSync(path.join(runsRoot, `${LOCK_PREFIX}${older}`), { force: true });
+  }
+  return generation;
+}
+
+// Sólo quien tomó la generación la libera; se reescribe atómicamente, no se borra.
+export function releaseJobLock(runsRoot, generation, releasedAt) {
+  const file = path.join(runsRoot, `${LOCK_PREFIX}${generation}`);
+  writeJsonAtomic(file, { ...readJson(file), releasedAt });
 }
 
 // cgroup v2: el pico de memoria del servicio completo (memory.peak es monotónico
@@ -278,15 +341,16 @@ export function publicJobView(receipt, retention = null) {
   };
 }
 
-export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = DEFAULT_TIMEOUT_MS, nodeBinary = process.execPath, now = () => new Date() } = {}) {
+// `appendRegistryLine` existe para inyectar fallos de escritura en tests (BT05-REGISTRY-06).
+export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = DEFAULT_TIMEOUT_MS, nodeBinary = process.execPath, now = () => new Date(), appendRegistryLine = appendFileSync } = {}) {
   if (typeof repoRoot !== "string" || repoRoot.length === 0) {
     throw new TypeError("createBacktestJobRunner requiere repoRoot.");
   }
   const runsRoot = runsDir ?? path.join(repoRoot, DEFAULT_RUNS_DIR);
   mkdirSync(runsRoot, { recursive: true });
-  const lockPath = path.join(runsRoot, LOCK_FILE);
   const registryPath = path.join(runsRoot, REGISTRY_FILE);
   let active = null; // { receipt, child, done } del job que corre en ESTE proceso
+  let heldLockGeneration = null; // generación del lock que tiene ESTE runner
 
   const attemptDir = (runId, attempt) => path.join(runsRoot, runId, `attempt-${attempt}`);
   const receiptFile = (runId, attempt) => path.join(attemptDir(runId, attempt), RECEIPT_FILE);
@@ -349,24 +413,28 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
   }
 
   function appendRegistry(event) {
-    appendFileSync(registryPath, `${JSON.stringify({ at: now().toISOString(), ...event })}\n`);
+    appendRegistryLine(registryPath, `${JSON.stringify({ at: now().toISOString(), ...event })}\n`);
   }
 
   // Vigencia por run según el registro: el último RESULT_PROMOTED define el vigente
   // y cada promoción marca al que reemplaza como superado por el nuevo.
   function foldRetention(events) {
     const states = new Map();
+    const promotedAttempts = new Set();
     let currentRunId = null;
     for (const event of events) {
       if (event.event !== REGISTRY_EVENT.RESULT_PROMOTED) continue;
+      promotedAttempts.add(attemptKey(event.runId, event.attempt));
       if (currentRunId !== null && currentRunId !== event.runId) {
         states.set(currentRunId, { state: RESULT_STATE.SUPERSEDED, supersededBy: event.runId });
       }
       states.set(event.runId, { state: RESULT_STATE.CURRENT, supersededBy: null });
       currentRunId = event.runId;
     }
-    return { currentRunId, states };
+    return { currentRunId, states, promotedAttempts };
   }
+
+  const attemptKey = (runId, attempt) => `${runId}#${attempt}`;
 
   function retentionOf(runId, folded) {
     return folded.states.get(runId) ?? { state: RESULT_STATE.NONE, supersededBy: null };
@@ -377,36 +445,35 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
   }
 
   // ---------- lock: uno a la vez entre procesos ----------
+  // Cada toma del lock crea `.job.lock.<n+1>` con link() (atómico, falla si existe),
+  // donde n es la generación más alta vista. Dos procesos que vieron el mismo lock
+  // obsoleto compiten por el mismo archivo y sólo uno lo crea; nunca se borra el
+  // lock de otro (hallazgo BT05-LOCK-05). Al liberar, el archivo se marca liberado
+  // y se conserva, así la generación nunca retrocede.
 
   function readLock() {
-    try {
-      return readJson(lockPath);
-    } catch {
-      return null;
-    }
+    return readJobLock(runsRoot);
   }
 
   function liveLock() {
     const lock = readLock();
-    return lock !== null && isProcessAlive(lock.pid) ? lock : null;
+    return lock !== null && lock.live ? lock : null;
   }
 
-  // Un lock cuyo proceso ya no existe (reinicio del servicio, OOM) se retira una vez.
   function acquireLock(runId, attempt) {
-    for (let tries = 0; tries < 2; tries += 1) {
-      try {
-        const fd = openSync(lockPath, "wx");
-        writeFileSync(fd, JSON.stringify({ runId, attempt, pid: process.pid }));
-        closeSync(fd);
-        return true;
-      } catch (error) {
-        if (error.code !== "EEXIST") throw error;
-      }
-      const lock = readLock();
-      if (lock === null || isProcessAlive(lock.pid)) return false;
-      rmSync(lockPath, { force: true });
-    }
-    return false;
+    const observed = readLock();
+    if (observed !== null && observed.live) return false;
+    const generation = claimJobLock(runsRoot, observed?.generation ?? 0, { runId, attempt, pid: process.pid });
+    if (generation === null) return false;
+    heldLockGeneration = generation;
+    return true;
+  }
+
+  function releaseLock() {
+    if (heldLockGeneration === null) return;
+    const generation = heldLockGeneration;
+    heldLockGeneration = null;
+    releaseJobLock(runsRoot, generation, now().toISOString());
   }
 
   // Con el lock en la mano ningún otro job corre: un RUNNING ajeno quedó huérfano
@@ -465,6 +532,9 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
 
   // Cierra el intento, lo asienta en el registro y, si tuvo éxito, lo promueve a
   // vigente en una sola línea (una promoción parcial nunca deja dos vigentes).
+  // Si falla una escritura no lanza (se llama desde el 'exit' del hijo y tumbaría
+  // el servicio): lo devuelve en `settlement`. Un SUCCEEDED sin promoción asentada
+  // no se reutiliza en start(), así que el fallo queda fail-closed.
   function finish(receipt, patch) {
     const closed = { ...receipt, ...patch, finishedAt: now().toISOString() };
     try {
@@ -472,14 +542,15 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
       appendRegistry({ event: REGISTRY_EVENT.RUN_CLOSED, runId: closed.runId, attempt: closed.attempt, manifest: runManifest(closed) });
       if (closed.status === JOB_STATUS.SUCCEEDED) {
         const registry = readRegistry();
-        const previous = registry.ok ? foldRetention(registry.events).currentRunId : null;
-        if (previous !== closed.runId) {
-          appendRegistry({ event: REGISTRY_EVENT.RESULT_PROMOTED, runId: closed.runId, supersedes: previous });
-        }
+        if (!registry.ok) throw new Error(`${registry.code}: ${registry.message}`);
+        const previous = foldRetention(registry.events).currentRunId;
+        appendRegistry({ event: REGISTRY_EVENT.RESULT_PROMOTED, runId: closed.runId, attempt: closed.attempt, supersedes: previous === closed.runId ? null : previous });
       }
+    } catch (error) {
+      return { ...closed, settlement: { ok: false, code: "REGISTRY_WRITE_FAILED", message: String(error?.message ?? error) } };
     } finally {
       active = null;
-      rmSync(lockPath, { force: true });
+      releaseLock();
     }
     return closed;
   }
@@ -536,6 +607,19 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     return { ok: false, code: "JOB_ALREADY_RUNNING", message: "hay un backtest en curso (lock de backtests tomado)", job: viewOf(receipt, folded) };
   }
 
+  // BT-05 punto 2: mismo run_id con resultado = se devuelve, no se recalcula.
+  // Resultado = intento SUCCEEDED con su RESULT_PROMOTED en el registro. Un intento
+  // FAILED/INTERRUPTED, o SUCCEEDED sin promoción asentada, se reintenta como attempt nuevo.
+  function planRun(runId, registry) {
+    if (!registry.ok) return { error: { ok: false, code: registry.code, message: registry.message } };
+    const folded = foldRetention(registry.events);
+    const previous = readLatestReceipt(runId);
+    if (previous?.status === JOB_STATUS.SUCCEEDED && folded.promotedAttempts.has(attemptKey(previous.runId, previous.attempt))) {
+      return { reused: { ok: true, reused: true, job: viewOf(previous, folded), done: Promise.resolve(previous) } };
+    }
+    return { attempt: (listAttempts(runId).at(-1) ?? 0) + 1, previous };
+  }
+
   function start({ requestedBy } = {}) {
     if (requestedBy !== "ui" && requestedBy !== "mcp") {
       return { ok: false, code: "INVALID_REQUESTER", message: 'requestedBy debe ser "ui" o "mcp"' };
@@ -557,18 +641,28 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     }
     const { runId, identity } = computeRunIdentity({ codeCommit: code.commit, verified });
 
-    // BT-05 punto 2: mismo run_id con resultado = se devuelve, no se recalcula.
-    // Un intento previo FAILED/INTERRUPTED no dejó resultado: se reintenta como attempt nuevo.
-    const previous = readLatestReceipt(runId);
-    if (previous?.status === JOB_STATUS.SUCCEEDED) {
-      const job = viewOf(previous, foldRetention(registry.events));
-      return { ok: true, reused: true, job, done: Promise.resolve(previous) };
-    }
-    const attempt = (listAttempts(runId).at(-1) ?? 0) + 1;
-    if (!acquireLock(runId, attempt)) {
+    const beforeLock = planRun(runId, registry);
+    if (beforeLock.reused) return beforeLock.reused;
+    if (!acquireLock(runId, beforeLock.attempt)) {
       return alreadyRunning();
     }
-    closeOrphans(runId, attempt);
+    // Entre la primera lectura y el lock otro proceso pudo cerrar o promover un
+    // intento de este run: la decisión que vale es la tomada con el lock en la mano.
+    const underLock = planRun(runId, readRegistry());
+    if (underLock.error || underLock.reused || underLock.attempt !== beforeLock.attempt) {
+      releaseLock();
+      return underLock.error ?? underLock.reused ?? start({ requestedBy });
+    }
+    const { attempt, previous } = underLock;
+    try {
+      if (previous?.status === JOB_STATUS.SUCCEEDED) {
+        appendRegistry({ event: REGISTRY_EVENT.PROMOTION_MISSING, runId, attempt: previous.attempt, retriedAs: attempt, manifest: runManifest(previous) });
+      }
+      closeOrphans(runId, attempt);
+    } catch (error) {
+      releaseLock();
+      return { ok: false, code: "REGISTRY_WRITE_FAILED", message: String(error?.message ?? error) };
+    }
 
     const startedAt = now();
     const runDir = attemptDir(runId, attempt);
@@ -675,7 +769,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     try {
       closeOrphans(null, null);
     } finally {
-      rmSync(lockPath, { force: true });
+      releaseLock();
     }
   }
 

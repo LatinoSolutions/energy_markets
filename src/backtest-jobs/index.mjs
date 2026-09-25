@@ -10,11 +10,13 @@ export {
   REGISTRY_EVENT,
   REGISTRY_FILE,
   RESULT_STATE,
+  claimJobLock,
   computeRunIdentity,
   createBacktestJobRunner,
   publicJobView,
   readCgroupMemoryPeak,
   readCodeCommit,
+  readJobLock,
   verifyExploratoryInputs,
 } from "./runner.mjs";
 
