@@ -111,6 +111,10 @@ function emptyGapState() {
     byDistance: new Map(),
     byAggressor: new Map(),
     byDip10: new Map(),
+    // TR-04 §3.3: la penalización trade->ask se congela condicionada al estado de
+    // señal (DIP10 compraría) Y al lado agresor a la vez. Los cortes por separado
+    // no permiten cruzar ambos; este cross-tab es el que TR-04 consume.
+    byDip10StateByAggressor: new Map(),
     byHalf: new Map(),
     byAgeBucket: new Map(),
   };
@@ -160,6 +164,10 @@ function registerGap({ gaps, gap, distanceMonths, aggressor, dip10, half, ageSec
   pushToMap(gaps.byDistance, distanceMonths, gap);
   pushToMap(gaps.byAggressor, aggressor, gap);
   pushToMap(gaps.byDip10, dip10, gap);
+  // TR-04 §3.3: cruce señal × agresor. `dip10` siempre está definido cuando hay
+  // observación (si no, no se registra gap); el agresor conserva su propio grupo
+  // (UNKNOWN / MIXED nunca se reasignan a un lado por suposición).
+  pushToMap(gaps.byDip10StateByAggressor, `${dip10}|${aggressor}`, gap);
   pushToMap(gaps.byHalf, half, gap);
   pushToMap(gaps.byAgeBucket, ageBucketOf(ageSeconds), gap);
 }
@@ -495,6 +503,7 @@ function finalizeGaps(gaps) {
     byDistanceMonths: finalizeGapMap(gaps.byDistance, "distanceMonths"),
     byAggressor: finalizeGapMap(gaps.byAggressor, "aggressor"),
     byDip10State: finalizeGapMap(gaps.byDip10, "dip10State"),
+    byDip10StateByAggressor: finalizeGapMap(gaps.byDip10StateByAggressor, "combination"),
     byHalf: finalizeGapMap(gaps.byHalf, "half"),
     byAgeBucket: finalizeGapMap(gaps.byAgeBucket, "ageBucket"),
   };
@@ -669,7 +678,7 @@ function mergeCoverageState(target, source) {
 
 function mergeGapState(target, source) {
   target.overall.push(...source.overall);
-  for (const dimension of ["byDistance", "byAggressor", "byDip10", "byHalf", "byAgeBucket"]) {
+  for (const dimension of ["byDistance", "byAggressor", "byDip10", "byDip10StateByAggressor", "byHalf", "byAgeBucket"]) {
     for (const [key, values] of source[dimension]) {
       if (!target[dimension].has(key)) target[dimension].set(key, []);
       target[dimension].get(key).push(...values);

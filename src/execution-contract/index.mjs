@@ -35,3 +35,27 @@ export {
   toEpochMs,
   validateCausalFill,
 } from "./causal-fill.mjs";
+
+export {
+  FRESHNESS_COVERAGE_TARGET,
+  MIN_PENALTY_OBSERVATIONS,
+  TRADES_BRIDGE_GATE,
+  TRADES_CONTRACT_ACCEPTANCE_TEST,
+  TRADES_CONTRACT_ID,
+  TRADES_CONTRACT_VERSION,
+  TRADES_CONTROL_SOURCE_MODE,
+  TRADES_FREEZE_SCOPE,
+  TRADES_FROZEN_RULES,
+  TRADES_MISSING_DATA_RULES,
+  TRADES_SENSITIVITY_GRID,
+  TRADES_SOURCE_MODE,
+  TRADES_VERSION_LABEL,
+  buildTradesFreezeCandidate,
+  deriveFreshnessForMission,
+  derivePenaltyForMission,
+  deriveTradesFillPrice,
+  evaluateTradesFreeze,
+  freezeApprovalProblem,
+  tradesConfigHash,
+  validateTradesContract,
+} from "./trades-contract.mjs";

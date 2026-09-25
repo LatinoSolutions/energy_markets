@@ -1,0 +1,42 @@
+{
+ "artifactKind": "TR-04_TRADES_CONTRACT_V1_FREEZE_MANIFEST",
+ "schemaVersion": "1.0",
+ "artifact": {
+  "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
+  "sha256": "a978c3dea123811b140c86a952ab1973679dae8b4171136a3593bcdc886c67c6"
+ },
+ "generator": {
+  "path": "operations/trades/TR-04/build-trades-freeze.mjs",
+  "sha256": "144e5ca96c1c67bd78e248910d7fdeaab4217841e15b37d3fefbe6455bf346d5"
+ },
+ "modules": [
+  {
+   "path": "src/execution-contract/trades-contract.mjs",
+   "sha256": "1ff9012006125ec54a7cafdbaafff7469a98901c5c8a30e84919ff8f86d574ef"
+  },
+  {
+   "path": "src/execution-contract/execution-contract.mjs",
+   "sha256": "4bd84d5337d22f9c74d833805c98aa4b6073a6656ea85fd2c5ef5bc42bf36fc9"
+  },
+  {
+   "path": "src/trades-bridge/constants.mjs",
+   "sha256": "20433fa83fd77639244b94a131953321d864e3cd214eac7d1d18a74ece071ebd"
+  },
+  {
+   "path": "src/oos-reservation/trades-windows.mjs",
+   "sha256": "2174f2817e9ef930dea799105fc41edbfe2ba77579b726fcdc238d5907e0dab7"
+  }
+ ],
+ "sources": {
+  "spec": {
+   "path": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+   "sha256": "3e68171cec3f2eb86e48341b3046ba81f3ef925d12fb1cfa835863c9c8b9a494"
+  },
+  "sourceDecision": {
+   "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
+   "sha256": "b0709d827b2b963aea166522d64eec5598e81fbc09a547eae615106b9abe1b61"
+  },
+  "measurement": null,
+  "ownerApproval": null
+ }
+}

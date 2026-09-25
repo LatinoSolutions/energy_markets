@@ -200,3 +200,28 @@ test("un día de la ventana sin filas se mide igual y cuenta sus slots", () => {
   assert.equal(measured.coverage.LAST_TRADE.slotsWithObservation, 54);
   assert.equal(measured.coverage.LAST_TRADE.bySlot[0].slotsWithObservation, 2);
 });
+
+test("TR-04: el cross-tab señal × agresor cruza el estado DIP10 con el lado", () => {
+  const rows = [
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T09:00:00Z", Px: "90", TrdID: "1", AgrsrAct: "BUY" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T10:00:00Z", Px: "88", TrdID: "2", AgrsrAct: "SELL" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T11:00:00Z", Px: "86", TrdID: "3", AgrsrAct: "" }),
+  ];
+  const { artifact } = run({
+    campaigns: [gasQuarterlyCampaign({ windowDays: ["2025-09-01"] })],
+    rows,
+    series: ASKS,
+  });
+  const campaign = artifact.markets.GAS_THE.missions.GAS_QUARTERLY.campaigns[0];
+  const combinations = campaign.gaps.LAST_TRADE.byDip10StateByAggressor;
+  // Todos los slots usan el último trade arrastrado (el de 11:00Z), así que el
+  // cruce agrupa las 14 observaciones del slot 11:00-17:30 por estado × lado.
+  assert.ok(combinations.length >= 1);
+  assert.ok(combinations.every((entry) => entry.combination.includes("|")));
+  // El grupo sin agresor conserva su propia etiqueta, nunca se reasigna a BUY/SELL.
+  assert.ok(combinations.some((entry) => entry.combination.endsWith("|UNKNOWN")));
+  // El cruce es coherente con los cortes por separado (mismo conteo total).
+  const crossedCount = combinations.reduce((sum, entry) => sum + entry.count, 0);
+  const dipCount = campaign.gaps.LAST_TRADE.byDip10State.reduce((sum, entry) => sum + entry.count, 0);
+  assert.equal(crossedCount, dipCount);
+});
