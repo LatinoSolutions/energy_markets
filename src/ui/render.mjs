@@ -703,7 +703,7 @@ function backtestMeasurementHtml(readiness) {
   </section>`;
 }
 
-function pairedEffectSvg(block) {
+function pairedEffectSvg(block, pointDetails = null) {
   const width = 800;
   const height = 330;
   const pad = { left: 50, right: 20, top: 20, bottom: 40 };
@@ -720,7 +720,84 @@ function pairedEffectSvg(block) {
     const last = value.points.length - 1;
     return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="4" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2"/><text x="${x(last) - 8}" y="${y(value.points[last]) - 8}" font-size="11" text-anchor="end" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${esc(EXP_ARM_SHORT[armId])} ${kEur(value.finalKeur)}</text>`;
   }).join("");
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ΔV vs baseline by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text></svg>`;
+  const hover = pairedHoverLayerSvg({ series, pointDetails, count, x, y, top: pad.top, bottom: height - pad.bottom, step: (width - pad.left - pad.right) / Math.max(1, count - 1) });
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ΔV vs baseline by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text>${hover}</svg>`;
+}
+
+// UI-06 (owner request 25-sep-2026, PLAN_STATUS UI-06; prototipo aprobado
+// UI-05-prototipo-2026-09-25/prototipo-ui05.html sha256 a79c8652…, pestaña Backtests):
+// una franja transparente por decisión. Las posiciones del cursor y de los marcadores
+// se fijan aquí; el script del navegador solo las copia, no calcula.
+function pairedHoverLayerSvg({ series, pointDetails, count, x, y, top, bottom, step }) {
+  if (!Array.isArray(pointDetails) || pointDetails.length !== count) return "";
+  const hits = pointDetails.map((detail, index) => {
+    const markers = series.map(([armId, value]) => (typeof value.points[index] === "number" ? `${armId}:${y(value.points[index]).toFixed(1)}` : "")).filter(Boolean).join(" ");
+    return `<rect class="pphit" data-pp="${index}" data-cx="${x(index).toFixed(1)}" data-marks="${esc(markers)}" x="${(x(index) - step / 2).toFixed(1)}" y="${top}" width="${step.toFixed(2)}" height="${bottom - top}" fill="transparent"/>`;
+  }).join("");
+  const markers = series.map(([armId]) => `<circle class="ppmark" data-mark-arm="${esc(armId)}" r="4" cx="-10" cy="-10" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2" pointer-events="none"/>`).join("");
+  return `<line class="ppcursor" x1="-10" x2="-10" y1="${top}" y2="${bottom}" stroke="var(--ink-3)" stroke-dasharray="2 2" pointer-events="none"/>${markers}<g class="pphits">${hits}</g>`;
+}
+
+const UNAVAILABLE_TEXT = "UNAVAILABLE";
+
+function mwText(value) {
+  return typeof value === "number" && Number.isFinite(value) ? `${value} MW` : UNAVAILABLE_TEXT;
+}
+
+// Tres decimales: los asks del artifact tienen milésimas (28.125) y dos decimales las redondearían.
+function eur3(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(3) : UNAVAILABLE_TEXT;
+}
+
+function kEurDecision(valueEur) {
+  if (typeof valueEur !== "number" || !Number.isFinite(valueEur)) return null;
+  const keur = valueEur / 1000;
+  return `${keur > 0 ? "+" : ""}${keur.toFixed(2)} k€`;
+}
+
+function pairedTipArmRow(armId, arm, detail) {
+  const label = EXP_ARM_SHORT[armId];
+  if (armId === "ARM_B") {
+    return { arm: armId, label, unavailable: `per-day ledger ${UNAVAILABLE_TEXT} (slot ${detail.armBSlot ?? UNAVAILABLE_TEXT}; not emitted by the backtest)` };
+  }
+  if (!arm) {
+    return { arm: armId, label, unavailable: `daily ledger ${UNAVAILABLE_TEXT} for this campaign in the artifact` };
+  }
+  const soFar = typeof arm.boughtSoFarMw === "number" && typeof detail.targetMw === "number" ? `${arm.boughtSoFarMw} of ${detail.targetMw} MW` : UNAVAILABLE_TEXT;
+  return {
+    arm: armId,
+    label,
+    cells: [arm.status ?? UNAVAILABLE_TEXT, mwText(arm.filledMw), arm.fillPriceEurMwh === null ? "— (no fill)" : `${eur3(arm.fillPriceEurMwh)} €/MWh`, soFar],
+  };
+}
+
+// Textos del tooltip formateados en el servidor desde la proyección del view-model
+// (projectPairedPoints). Campo ausente = UNAVAILABLE, nunca un valor supuesto.
+function pairedTipModel(detail, product, provenance) {
+  const deltaA = kEurDecision(detail.decisionDeltaVEur.ARM_A);
+  const cumulative = (armId) => (typeof detail.cumulativeKeur[armId] === "number" ? `${kEur(detail.cumulativeKeur[armId])} k€` : UNAVAILABLE_TEXT);
+  const slot = detail.bestAsk?.slot ?? "11:00";
+  return {
+    head: `${detail.day ?? UNAVAILABLE_TEXT} · decision ${detail.decisionNumber} of ${detail.decisionsInCampaign}`,
+    sub: `${detail.campaignId ?? UNAVAILABLE_TEXT} · ${PRODUCT_TITLE[product] ?? product} · delivery ${detail.deliveryLabel} · target ${mwText(detail.targetMw)}`,
+    rows: detail.ledgerAvailable
+      ? ["BASELINE", "ARM_A", "ARM_B"].map((armId) => pairedTipArmRow(armId, detail.arms[armId], detail))
+      : [{ arm: "ALL", label: "All arms", unavailable: `daily ledger ${UNAVAILABLE_TEXT}: the artifact does not align this campaign's decisions with the chart` }],
+    facts: [
+      [`best ask ${slot} Berlin`, detail.bestAsk ? `${eur3(detail.bestAsk.eurMwh)} €/MWh${detail.bestAsk.quoteTm ? ` · quote ${detail.bestAsk.quoteTm}` : ""}` : UNAVAILABLE_TEXT],
+      ["ΔV this decision", `A ${deltaA ?? `${UNAVAILABLE_TEXT} (emitted only on Arm A buy days)`} · B ${UNAVAILABLE_TEXT}`],
+      ["ΔV cumulative", `A ${cumulative("ARM_A")} · B ${cumulative("ARM_B")}`],
+    ],
+    foot: `EXPLORATORY · B* proxy · fees UNKNOWN (excluded, not zero) · ${provenance?.resultsPath ?? "artifact"} sha256 ${(provenance?.resultsSha256 ?? UNAVAILABLE_TEXT).slice(0, 12)}…`,
+  };
+}
+
+function pairedTipDataScript(pointDetails, product, provenance) {
+  if (!Array.isArray(pointDetails) || pointDetails.length === 0) return "";
+  const models = pointDetails.map((detail) => pairedTipModel(detail, product, provenance));
+  // "<" escapado: el JSON no puede cerrar el <script> que lo contiene.
+  const json = JSON.stringify(models).replaceAll("<", "\\u003c");
+  return `<script type="application/json" class="ppdata">${json}</script>`;
 }
 
 function distributionSvg(dist, armId) {
@@ -788,7 +865,16 @@ function pairedDataTableHtml(block) {
   return `<details class="tbl"><summary>Show data table (${block.perEpisode.length} episodes, every arm)</summary><table class="t small"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
-function comparisonBlockHtml(block, product) {
+function pairedChartHtml(block, product, pointDetails, provenance) {
+  const svg = pairedEffectSvg(block, pointDetails);
+  const interactive = Array.isArray(pointDetails) && pointDetails.length > 0;
+  if (!interactive) {
+    return `${svg}<div class="tiny muted" data-paired-detail="UNAVAILABLE">Per-decision detail ${UNAVAILABLE_TEXT}: the verified artifact does not carry it.</div>`;
+  }
+  return `<div class="ppwrap" data-paired-product="${esc(product)}">${svg}<div class="pptip" role="status" aria-live="polite"></div>${pairedTipDataScript(pointDetails, product, provenance)}</div><div class="tiny muted">Hover a point to read the decision. Click or tap to pin the tooltip; click again to release.</div>`;
+}
+
+function comparisonBlockHtml(block, product, pointDetails = null, provenance = null) {
   const checks = block.checks.map((check) => {
     const [kind, glyph, label] = CHECK_CHIP[check.status] ?? ["unk", "?", check.status];
     return `<div class="chk"><span><b>${esc(check.label)}</b></span>${chip(kind, glyph, label)}<span class="d">${esc(check.detail)}</span></div>`;
@@ -802,7 +888,7 @@ function comparisonBlockHtml(block, product) {
       ${comparisonTableHtml(block)}
     </div>
     <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
-      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div><div class="bd" data-kind="paired">${pairedEffectSvg(block)}${pairedDataTableHtml(block)}</div></div>
+      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div><div class="bd" data-kind="paired">${pairedChartHtml(block, product, pointDetails, provenance)}${pairedDataTableHtml(block)}</div></div>
       <div class="card"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend</span></div><div class="bd">${checks}<div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
     </div>
     <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); margin-top:14px">
@@ -817,8 +903,83 @@ function exploratoryComparisonHtml(exploratory) {
   if (!exploratory?.comparison) {
     return "";
   }
-  return Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product)).join("");
+  const blocks = Object.entries(exploratory.comparison).map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance)).join("");
+  return `${PAIRED_TIP_CSS}${blocks}${PAIRED_TIP_SCRIPT}`;
 }
+
+const PAIRED_TIP_CSS = `<style>
+.ppwrap { position: relative; }
+.ppwrap .pphit { cursor: crosshair; }
+.pptip { position: absolute; top: 8px; display: none; z-index: 5; min-width: 320px; max-width: 460px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 9px 11px; font-size: 12px; line-height: 1.5; pointer-events: none; }
+.pptip.on { display: block; }
+.pptip.pinned { pointer-events: auto; border-color: var(--ink); }
+.pptip .t-head { font: 700 13px var(--serif); }
+.pptip .t-sub { font: 11px var(--mono); color: var(--ink-3); margin-bottom: 6px; }
+.pptip table { border-collapse: collapse; width: 100%; font: 11px var(--mono); }
+.pptip th { text-align: left; color: var(--ink-3); font-weight: 400; padding: 2px 6px 2px 0; }
+.pptip td { padding: 2px 6px 2px 0; }
+.pptip td:first-child, .pptip th { white-space: nowrap; }
+.pptip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.pptip .unav { color: var(--unk); }
+.pptip .foot { margin-top: 6px; font: 10px var(--mono); color: var(--ink-3); }
+</style>`;
+
+// Solo presentación: lee los textos ya formateados del JSON y las posiciones de data-*.
+const PAIRED_TIP_SCRIPT = `<script>
+(function () {
+  "use strict";
+  var SWATCH = { BASELINE: "var(--arm-base)", ARM_A: "var(--arm-a)", ARM_B: "var(--arm-b)" };
+  function el(tag, cls, text) { var node = document.createElement(tag); if (cls) { node.className = cls; } if (text !== undefined) { node.textContent = text; } return node; }
+  function fill(tip, model) {
+    tip.textContent = "";
+    tip.appendChild(el("div", "t-head", model.head));
+    tip.appendChild(el("div", "t-sub", model.sub));
+    var table = el("table");
+    var head = el("tr");
+    ["", "action", "bought today", "fill price", "bought so far"].forEach(function (label) { head.appendChild(el("th", "", label)); });
+    table.appendChild(head);
+    model.rows.forEach(function (row) {
+      var tr = el("tr"); tr.setAttribute("data-tip-arm", row.arm);
+      var name = el("td"); var sw = el("span", "sw"); sw.style.background = SWATCH[row.arm] || "var(--ink-3)"; name.appendChild(sw); name.appendChild(document.createTextNode(row.label)); tr.appendChild(name);
+      if (row.unavailable) { var cell = el("td", "unav", row.unavailable); cell.colSpan = 4; tr.appendChild(cell); }
+      else { row.cells.forEach(function (text) { tr.appendChild(el("td", "", text)); }); }
+      table.appendChild(tr);
+    });
+    tip.appendChild(table);
+    var facts = el("table"); facts.style.marginTop = "6px";
+    model.facts.forEach(function (fact) { var tr = el("tr"); tr.appendChild(el("th", "", fact[0])); tr.appendChild(el("td", "", fact[1])); facts.appendChild(tr); });
+    tip.appendChild(facts);
+    tip.appendChild(el("div", "foot", model.foot));
+  }
+  document.querySelectorAll(".ppwrap").forEach(function (wrap) {
+    var data = wrap.querySelector("script.ppdata"); var tip = wrap.querySelector(".pptip"); var svg = wrap.querySelector("svg");
+    if (!data || !tip || !svg) { return; }
+    var models = JSON.parse(data.textContent);
+    var cursor = svg.querySelector(".ppcursor");
+    var marks = svg.querySelectorAll(".ppmark");
+    var pinned = null;
+    function show(hit) {
+      var index = Number(hit.getAttribute("data-pp")); var model = models[index]; if (!model) { return; }
+      var cx = hit.getAttribute("data-cx");
+      cursor.setAttribute("x1", cx); cursor.setAttribute("x2", cx);
+      var ys = {}; (hit.getAttribute("data-marks") || "").split(" ").forEach(function (pair) { var parts = pair.split(":"); if (parts.length === 2) { ys[parts[0]] = parts[1]; } });
+      marks.forEach(function (mark) { var arm = mark.getAttribute("data-mark-arm"); mark.setAttribute("cx", ys[arm] ? cx : "-10"); mark.setAttribute("cy", ys[arm] || "-10"); });
+      fill(tip, model); tip.setAttribute("data-pp", String(index)); tip.classList.add("on");
+      var box = wrap.getBoundingClientRect(); var hitBox = hit.getBoundingClientRect(); var px = hitBox.left + hitBox.width / 2 - box.left;
+      tip.style.left = (px > box.width * 0.6 ? px - tip.offsetWidth - 14 : px + 14) + "px";
+    }
+    function hide() { tip.classList.remove("on"); cursor.setAttribute("x1", "-10"); cursor.setAttribute("x2", "-10"); marks.forEach(function (mark) { mark.setAttribute("cx", "-10"); }); }
+    svg.addEventListener("mouseover", function (event) { var hit = event.target.closest(".pphit"); if (hit && pinned === null) { show(hit); } });
+    svg.addEventListener("mouseleave", function () { if (pinned === null) { hide(); } });
+    svg.addEventListener("click", function (event) {
+      var hit = event.target.closest(".pphit"); if (!hit) { return; }
+      var index = hit.getAttribute("data-pp");
+      if (pinned === index) { pinned = null; tip.classList.remove("pinned"); return; }
+      pinned = index; tip.classList.add("pinned"); show(hit);
+    });
+  });
+})();
+</script>`;
 
 // ---------- Campaigns & Runs, Replay y Research exploratorios (owner patch 02 §4) ----------
 // UI-05 (owner request 25-sep-2026, PLAN_STATUS UI-05): misma anatomía que el mockup
