@@ -119,12 +119,13 @@ function contextHtml(parts) {
   return `<div class="ctx" data-context-strip><span class="caps muted">Context</span> ${parts.join(' <span class="sep">›</span> ')}<span class="grow"></span><span class="muted small">Operator Interface Boundary · IMP-29 · §26.5</span></div>`;
 }
 
+// Pie sin "read-only": con el botón Run backtest sería falso, igual que la franja (P-009 punto 3, Bru 2026-09-25, PLAN_STATUS.md:60).
 function renderDocument({ active = null, title, body, clock = null, context = [] }) {
   const contextParts = context.length > 0 ? context : ['<span class="muted">no canonical context exposed</span>'];
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style data-ui-visual-language="${esc(VISUAL_LANGUAGE_ID)}">${UI_STYLESHEET}</style></head><body class="em-app" data-visual-language="${esc(VISUAL_LANGUAGE_ID)}">
 ${renderShellTop(active, clock)}
 ${contextHtml(contextParts)}
-<main id="main" class="em-main">${body}<div class="foot">Energy Markets · Operator Interface · read-only view of the backend boundary. Every dotted value opens its provenance. Keys: 1–4 workspaces · ? semantics key · Esc close.</div></main>
+<main id="main" class="em-main">${body}<div class="foot">Energy Markets · Operator Interface · shows what the backend publishes; commands go only through the backend. Every dotted value opens its provenance. Keys: 1–4 workspaces · ? semantics key · Esc close.</div></main>
 ${renderSemanticsKeyHtml()}
 ${renderProvenanceDrawerHtml()}
 ${PROVENANCE_INTERACTION_SCRIPT}

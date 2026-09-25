@@ -403,6 +403,21 @@ test("BT-05 P-009 punto 3: la franja superior ya no dice read-only ni no real ex
   });
 });
 
+test("BT-05 P-009 punto 3 (pie): ninguna página servida con el botón dice read-only", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  await withServer({ jobRunner: runner }, async (base) => {
+    const backtests = await (await fetch(`${base}/backtests`)).text();
+    assert.ok(backtests.includes("data-backtest-job"), "el control está servido");
+    for (const route of ["/", "/backtests", "/replay", "/research", "/campaigns"]) {
+      const html = await (await fetch(`${base}${route}`)).text();
+      const foot = html.match(/<div class="foot">(.*?)<\/div>/)[1];
+      assert.ok(!foot.includes("read-only"), route);
+      assert.ok(!html.includes("read-only"), route);
+    }
+  });
+});
+
 test("BT-05 UI: un solo control (1 botón + 1 línea de estado) que sólo habla con el endpoint y copia la línea del backend", () => {
   const html = renderBacktestJobControl({ running: false, current: null, latest: null, display: { line: "Last run: failed · <b>x</b>" } });
   assert.equal((html.match(/<button/g) ?? []).length, 1, "un solo botón");
