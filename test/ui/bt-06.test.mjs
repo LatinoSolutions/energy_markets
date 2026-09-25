@@ -121,6 +121,10 @@ test("BT-06 UI: la unión gas+Power conserva ambas comparaciones y una regla en 
   }
   assert.deepEqual(merged.results.rules.targetsMw, { G0BQ: 60, G0BM: 10, DEBQ: 10, DEBM: 10 });
   assert.ok(merged.results.campaigns.some((campaign) => campaign.id.startsWith("POW-Q-")));
+  // La integridad conserva la procedencia de cada release, no sólo la del gas.
+  const codePinned = merged.results.research.integrity.filter((check) => check.label === "Code pinned").map((check) => check.detail);
+  assert.ok(codePinned.some((detail) => detail.includes("v2")), "falta el pin del release gas");
+  assert.ok(codePinned.some((detail) => detail.includes("v3")), "falta el pin del release Power");
 
   const conflicting = mergeExploratoryResults(gas.results, { ...gas.results, rules: { ...gas.results.rules, slippageEurMwh: 0.2 } });
   assert.equal(conflicting.ok, false);

@@ -20,6 +20,18 @@ function dedupeById(items) {
   return result;
 }
 
+function dedupeByLabelAndDetail(items) {
+  const seen = new Set();
+  const result = [];
+  for (const item of items ?? []) {
+    const key = `${item?.label}|${item?.detail}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
 function mergeResearch(base, extra) {
   if (base === undefined) return extra;
   if (extra === undefined) return base;
@@ -35,7 +47,9 @@ function mergeResearch(base, extra) {
   return {
     ...base,
     candidates: [...byId.values()],
-    integrity: dedupeById([...(base.integrity ?? []), ...(extra.integrity ?? [])]),
+    // Se conservan los checks de cada release (p. ej. "Code pinned" apunta a v2 y a
+    // v3): deduplicar por etiqueta escondería la procedencia de uno de los mercados.
+    integrity: dedupeByLabelAndDetail([...(base.integrity ?? []), ...(extra.integrity ?? [])]),
   };
 }
 
