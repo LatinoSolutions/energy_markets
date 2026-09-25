@@ -8,11 +8,12 @@ TOB observation at or before 11:00, its best ask + 0.15 EUR/MWh, full fill. It d
 src/, operations/audit/BT-01 or operations/exploratory code, so an error in
 those producers cannot hide itself here.
 
-Choices that differ on purpose from BT-01, so the check is not a copy:
+Choices made from the SPEC, not from BT-01 code, so the check is not a copy:
 - Dedup key is every market column of the row (all columns except the `_*`
   provenance columns). `_row_sha256` is NOT usable: the same observation
   re-pulled on another date gets a different hash (seen 2025-09-09 G0BQ-202601).
-  BT-01 uses a narrower (Tm, price, bid, ask) key.
+  BT-01 v2 uses the same rule (observationKey); only BT-01 v1 used the
+  narrower (Tm, price, bid, ask) tuple. The check derives it on its own here.
 - Filters are pushed into pyarrow per file; nothing larger than one file's
   matching rows is ever held in memory.
 
@@ -106,7 +107,8 @@ def exact_market(row):
 
 
 def narrow_key(row):
-    """BT-01 dedup key (calculate-campaign-daily-proxies.mjs contentKey): Tm, price, bid, ask only."""
+    """BT-01 v1 dedup key (v1 calculate-campaign-daily-proxies.mjs contentKey): Tm, price, bid, ask only.
+    Used only by bt01Emulation; BT-01 v2 dedups by observationKey."""
     return (row["Tm"], to_float(row.get("Px")), to_float(row.get("BidPx")), to_float(row.get("AskPx")))
 
 
@@ -155,7 +157,7 @@ def daily_reference(product, maturity, day, file_hashes):
     """SPEC §5.2 proxy R̂_d for one exact product+maturity+date.
 
     `R` is the independent value. `bt01Emulation` reruns the same formula with
-    BT-01's two implementation choices (whole-second time, narrow dedup key) so
+    BT-01 v1's two implementation choices (whole-second time, narrow dedup key) so
     that any difference against BT-01 is attributed, not just tolerated.
     """
     trades, tobs = {}, {}

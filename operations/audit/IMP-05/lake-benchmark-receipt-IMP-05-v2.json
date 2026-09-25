@@ -10,11 +10,11 @@
   "supersedes": {
     "path": "operations/audit/IMP-05/lake-benchmark-receipt-IMP-05.json",
     "sha256": "d977288890d2589d93521b5576969fd7e693e13c3e56639794071019c7f63283",
-    "reason": "v1 truncaba Tm a segundos enteros: 17:15:00.xxx entraba en la ventana estricta 17:00–17:15 (BT04-C1-PROXY-WINDOW-DEDUP)"
+    "reason": "v1 truncaba Tm a segundos enteros (17:15:00.xxx entraba en la ventana estricta 17:00–17:15) y deduplicaba por tupla (Tm, precio, bid, ask), fundiendo trades distintos (BT04-C1-PROXY-WINDOW-DEDUP, BT04-C1-IMP05-DEDUP-NOT-APPLIED)"
   },
   "rowsArtifact": {
-    "path": "operations/audit/IMP-05/lake-proxy-rows-IMP-05.json",
-    "sha256": "d3d0d67232402315a36fc6ba4d08a6c0a9f8e52d293d0fb300f2078b25f67c7f",
+    "path": "operations/audit/IMP-05/lake-proxy-rows-IMP-05-v2.json",
+    "sha256": "484c51859f235fd22a658bc5cec91eef1131cc13b70a70e7c0498265a66fe440",
     "auditedDates": [
       "2026-07-28",
       "2026-07-27",
@@ -48,7 +48,7 @@
       "sourceLabel": "midpoints-only",
       "dailyReference": 58.5925,
       "defined": true,
-      "dedupRule": "content-tuple",
+      "dedupRule": "observationKey",
       "exclusionCount": 3
     },
     {
@@ -59,7 +59,7 @@
         "displayName": "G0BQ Q4-26"
       },
       "rowCounts": {
-        "top_of_book": 19186,
+        "top_of_book": 19187,
         "trade": 0
       },
       "strictCounts": {
@@ -75,8 +75,8 @@
       "sourceLabel": "midpoints-only",
       "dailyReference": 59.061114664586846,
       "defined": true,
-      "dedupRule": "content-tuple",
-      "exclusionCount": 4478
+      "dedupRule": "observationKey",
+      "exclusionCount": 4479
     },
     {
       "trdDate": "2026-07-24",
@@ -86,7 +86,7 @@
         "displayName": "G0BQ Q4-26"
       },
       "rowCounts": {
-        "top_of_book": 23005,
+        "top_of_book": 23006,
         "trade": 0
       },
       "strictCounts": {
@@ -102,8 +102,8 @@
       "sourceLabel": "midpoints-only",
       "dailyReference": 64.33471807628534,
       "defined": true,
-      "dedupRule": "content-tuple",
-      "exclusionCount": 4893
+      "dedupRule": "observationKey",
+      "exclusionCount": 4894
     },
     {
       "trdDate": "2026-07-23",
@@ -129,7 +129,7 @@
       "sourceLabel": "midpoints-only",
       "dailyReference": 62.69907656663728,
       "defined": true,
-      "dedupRule": "content-tuple",
+      "dedupRule": "observationKey",
       "exclusionCount": 6438
     },
     {
@@ -156,7 +156,7 @@
       "sourceLabel": "midpoints-only",
       "dailyReference": 63.156832985022504,
       "defined": true,
-      "dedupRule": "content-tuple",
+      "dedupRule": "observationKey",
       "exclusionCount": 5540
     }
   ],

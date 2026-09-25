@@ -1,11 +1,12 @@
 // IMP-05 / SCOPE-01: benchmark proxy-side + cobertura por fecha sobre fechas
 // auditadas del lago EEX + reconciliation receipt con equivalencia oficial
 // fail-closed (P-007). Consume el artefacto de extracción read-only
-// (lake-proxy-rows-IMP-05.json) y produce el receipt versionado
+// (lake-proxy-rows-IMP-05-v2.json) y produce el receipt versionado
 // (lake-benchmark-receipt-IMP-05-v2.json). Sin resultado económico: B aquí es el
 // benchmark proxy-side provisional sobre la muestra auditada.
 // v2 (2026-09-25, hallazgo BT04-C1-PROXY-WINDOW-DEDUP): la ventana §5.2 conserva
-// la fracción de segundo. El receipt v1 se conserva intacto como versión anterior
+// la fracción de segundo y el dedup es por `observationKey` (hallazgo
+// BT04-C1-IMP05-DEDUP-NOT-APPLIED: el extractor v2 la emite). El receipt v1 se conserva intacto como versión anterior
 // (SPEC §5.3 «conservando cobertura y versiones anteriores»).
 //
 // Uso: node operations/audit/IMP-05/build-lake-benchmark.mjs
@@ -24,12 +25,13 @@ import {
 } from "../../../src/economic-calculation/index.mjs";
 
 const here = new URL(".", import.meta.url).pathname;
-export const rowsArtifactPath = `${here}lake-proxy-rows-IMP-05.json`;
+export const ROWS_ARTIFACT_RELATIVE_PATH = "operations/audit/IMP-05/lake-proxy-rows-IMP-05-v2.json";
+export const rowsArtifactPath = `${here}lake-proxy-rows-IMP-05-v2.json`;
 export const receiptPath = `${here}lake-benchmark-receipt-IMP-05-v2.json`;
 export const SUPERSEDED_RECEIPT = Object.freeze({
   path: "operations/audit/IMP-05/lake-benchmark-receipt-IMP-05.json",
   sha256: "d977288890d2589d93521b5576969fd7e693e13c3e56639794071019c7f63283",
-  reason: "v1 truncaba Tm a segundos enteros: 17:15:00.xxx entraba en la ventana estricta 17:00–17:15 (BT04-C1-PROXY-WINDOW-DEDUP)",
+  reason: "v1 truncaba Tm a segundos enteros (17:15:00.xxx entraba en la ventana estricta 17:00–17:15) y deduplicaba por tupla (Tm, precio, bid, ask), fundiendo trades distintos (BT04-C1-PROXY-WINDOW-DEDUP, BT04-C1-IMP05-DEDUP-NOT-APPLIED)",
 });
 
 // P-005 (aceptada, OWNER-DECISION-P-005-EEX-RIGHTS.md): los datos EEX están
@@ -45,6 +47,7 @@ function rowAccessiblePerP005(lakeRow, instrument, trdDate) {
     price: lakeRow.price,
     bid: lakeRow.bid,
     ask: lakeRow.ask,
+    observationKey: lakeRow.observationKey,
     accessible: true,
   };
 }
@@ -127,7 +130,7 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
     },
     supersedes: SUPERSEDED_RECEIPT,
     rowsArtifact: {
-      path: "operations/audit/IMP-05/lake-proxy-rows-IMP-05.json",
+      path: ROWS_ARTIFACT_RELATIVE_PATH,
       sha256: rowsArtifactSha256,
       auditedDates,
     },

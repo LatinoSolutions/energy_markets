@@ -85,3 +85,33 @@ test("IMP-05 lago v2: filas en 17:15:00.xxx ya no entran en la ventana estricta 
   }
   assert.ok(strictlyFewer > 0, "el lago auditado sí tiene observaciones en 17:15:00.xxx");
 });
+
+// BT04-C1-IMP05-DEDUP-NOT-APPLIED (revisión 2026-09-25): el receipt v2 no puede
+// presentarse como corregido si el dedup sigue siendo por tupla. SPEC v1.1.1
+// §5.2 «filas deduplicadas» = misma observación de mercado.
+test("IMP-05 lago v2: el dedup aplicado es por observationKey y coincide con lo declarado", () => {
+  assert.equal(rowsArtifact.dedupRule, "observation-key");
+  for (const dateRecord of rowsArtifact.perDate) {
+    for (const row of dateRecord.rows) {
+      assert.match(row.observationKey, /^[0-9a-f]{64}$/, `${dateRecord.trdDate}: fila sin observationKey cae al dedup por tupla`);
+    }
+  }
+  for (const record of committed.perDate.filter((dateRecord) => dateRecord.defined)) {
+    assert.equal(record.dedupRule, "observationKey", `${record.trdDate}: el motor aplicó ${record.dedupRule}`);
+  }
+});
+
+test("IMP-05 lago v2: misma muestra que v1 y observaciones distintas con igual tupla ya no se funden", () => {
+  const previousRows = JSON.parse(readFileSync(new URL("../../operations/audit/IMP-05/lake-proxy-rows-IMP-05.json", import.meta.url), "utf8"));
+  assert.deepEqual(rowsArtifact.perDate.map((record) => record.trdDate), previousRows.perDate.map((record) => record.trdDate));
+  const tupleOf = (row) => JSON.stringify([row.tmUtc, row.source, row.price, row.bid, row.ask]);
+  let keptDistinct = 0;
+  for (const [index, record] of rowsArtifact.perDate.entries()) {
+    const previousTuples = new Set(previousRows.perDate[index].rows.map(tupleOf));
+    const currentTuples = new Set(record.rows.map(tupleOf));
+    assert.deepEqual([...currentTuples].sort(), [...previousTuples].sort(), "v2 no agrega ni pierde tuplas: sólo deja de fundir");
+    keptDistinct += record.rows.length - currentTuples.size;
+    assert.equal(new Set(record.rows.map((row) => `${row.source}|${row.observationKey}`)).size, record.rows.length);
+  }
+  assert.ok(keptDistinct > 0, "el lago auditado tiene observaciones distintas con la misma tupla");
+});

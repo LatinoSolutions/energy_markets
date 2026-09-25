@@ -50,8 +50,12 @@ enteros (17:15:00.xxx entraba en la ventana 17:00–17:15) y BT-01 deduplicaba p
 fundiendo trades distintos. v2 conserva la fracción de segundo (incluidos microsegundos) y deduplica por
 `observationKey` = sha256 de todas las columnas de mercado (`_row_sha256` no sirve: la misma observación en
 otro pull trae otro hash). Impacto en B de las 13 campañas: hasta 1.3e-3 EUR/MWh (G0BM-202606); coberturas
-iguales. El mismo arreglo cambia el receipt de muestra de IMP-05: nuevo `lake-benchmark-receipt-IMP-05-v2.json`
-(B 61.568654 → 61.568848), la v1 se conserva.
+iguales. El mismo arreglo, las dos mitades, se aplica a la muestra de IMP-05: `extract-lake-proxy-rows.py --release v2`
+emite `observationKey` con la misma regla que BT-01 v2 y sobre las mismas 5 fechas que v1
+(`lake-proxy-rows-IMP-05-v2.json`, `dedupRule: observation-key`); el nuevo `lake-benchmark-receipt-IMP-05-v2.json`
+declara `dedupRule: observationKey` en cada fecha. Efecto medido: el dedup recupera 3 filas (2 TOB, 1 trade sin Px),
+todas fuera de la ventana estricta, así que B sólo cambia por la ventana: 61.568654 → 61.568848.
+Los artefactos v1 (filas y receipt) se conservan; las filas v1 siguen regenerables con `--release v1 --check`.
 
 ## 2. Qué queda poblado (BT-02 v2, visible en la UI de Backtests vía BT-03)
 
