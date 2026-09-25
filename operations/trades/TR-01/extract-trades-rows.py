@@ -207,6 +207,7 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
     rows_emitted = 0
     members_seen = 0
     skipped_other_area = 0
+    trade_dates = []
 
     def bump(table, member_count=0, row_count=0):
         entry = table_inventory.setdefault(table, {"members": 0, "rows": 0})
@@ -230,6 +231,9 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             for row in table_data.to_pylist():
                 emit_row(row, TRADE_TABLE, out)
                 rows_emitted += 1
+                trade_date = row.get("TrdDate")
+                if trade_date:
+                    trade_dates.append(str(trade_date))
             bump(table, member_count=1, row_count=len(table_data))
         elif kind == "reference":
             table = REFERENCE_TABLE
@@ -247,6 +251,9 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
 
     # El inventario por tabla recien se conoce al terminar el escaneo: el _meta
     # del archivo cierra el NDJSON (el agregador lo localiza en cualquier linea).
+    # El rango de fechas sale de los trades emitidos: la comparacion de fuentes
+    # (source-decision.mjs) trata un dateMax ausente como diferencia, asi que el
+    # inventario debe declararlo cuando hay trades.
     out.write(json.dumps({
         "_meta": {
             "artifactKind": "TR-01_TRADES_ROWS",
@@ -256,6 +263,8 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             "requestedArea": {"cmdty": wanted_cmdty, "area": wanted_area},
             "table": TRADE_TABLE,
             "tableInventory": table_inventory,
+            "dateMin": min(trade_dates) if trade_dates else None,
+            "dateMax": max(trade_dates) if trade_dates else None,
             "skippedOtherArea": skipped_other_area,
             "membersSeen": members_seen,
         },
