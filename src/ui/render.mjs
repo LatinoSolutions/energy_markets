@@ -610,8 +610,66 @@ function comparisonTableHtml(block) {
     const range = row.deltaRangeKeur ? `episodes [${kEur(row.deltaRangeKeur[0])}, ${kEur(row.deltaRangeKeur[1])}]` : "—";
     return `<tr data-status="EXPLORATORY" data-arm="${esc(row.armId)}"><td>${expArmTag(row.armId)}<div class="small muted">${esc(row.label)}</div></td><td class="mono">${row.closed} / ${row.total}${row.notRun > 0 ? ` <span class="st unk">${row.notRun} NOT RUN</span>` : ""}</td><td class="mono num right">${eur(row.bEurMwh)}</td><td class="mono num right">${eur(row.hEurMwh)}</td><td class="mono num right">${kEur(row.vKeur)}</td><td class="mono num right">${delta}</td><td class="mono small">${range}</td><td>${statusChip}</td></tr>`;
   });
-  const canonicalRow = '<tr data-status="UNAVAILABLE"><td><span class="item-label">Canonical B / H / V (IMP-05)</span><div class="small muted">official benchmark not reconciled; not replaced by the proxy</div></td><td>' + unknownValue() + '</td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td class="right"><span class="withheld">NO ESTIMATE</span></td><td>' + unknownValue() + '</td><td>' + chip("unk", "?", "Not produced") + '</td></tr>';
-  return `<table class="t"><thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B* · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">ΔV vs baseline · k€</th><th>Range (paired)</th><th>Status</th></tr></thead><tbody>${rows.join("")}${canonicalRow}</tbody></table>`;
+  return `<table class="t"><thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B* · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">ΔV vs baseline · k€</th><th>Range (paired)</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function measurementStatusChip(status) {
+  if (status === "OFFICIAL") return chip("pass", "✓", "Official");
+  if (status === "PROVISIONAL" || status === "BENCHMARK_PROVISIONAL" || status === "EXPLORATORY_PROVISIONAL") return chip("warn", "~", "Provisional");
+  if (status === "PARTIAL") return chip("open", "○", "Partial");
+  if (status === "UNAVAILABLE" || status === null || status === undefined) return chip("unk", "?", "Unavailable");
+  if (status === "NOT_APPLICABLE") return chip("na", "—", "N/A");
+  return chip("unk", "?", status);
+}
+
+function measurementCell(value, status, unit, readiness) {
+  if (typeof value !== "number" || !Number.isFinite(value)
+    || !["OFFICIAL", "PROVISIONAL", "BENCHMARK_PROVISIONAL", "PARTIAL"].includes(status)) {
+    if (status === "NOT_APPLICABLE") return measurementStatusChip(status);
+    return `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> ${measurementStatusChip("UNAVAILABLE")}`;
+  }
+  const formatted = `${value > 0 ? "+" : ""}${value.toFixed(3)}${unit}`;
+  const provenance = readiness.provenance;
+  return `<span class="value mono" data-value="${esc(value)}" data-artifact-sha="${esc(provenance.artifactSha256)}">${esc(formatted)}</span> ${measurementStatusChip(status)}<div class="tiny muted">artifact ${esc(provenance.artifactPath)} · sha256 ${esc(provenance.artifactSha256.slice(0, 12))}…</div>`;
+}
+
+function backtestMeasurementHtml(readiness) {
+  if (readiness == null) {
+    return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="UNAVAILABLE"><div class="hd"><h3>Backend measurement readiness</h3>${chip("unk", "?", "Unavailable")}</div><div class="bd">${unknownValue()} <span class="small muted">Verified BT-02 measurement artifact is unavailable; no values are inferred.</span></div></section>`;
+  }
+  const provenance = readiness.provenance;
+  const rows = readiness.campaigns.flatMap((campaign) => {
+    const arms = campaign.arms.length > 0 ? campaign.arms : [null];
+    return arms.map((arm) => {
+      const benchmark = campaign.benchmark;
+      const blockers = [
+        campaign.fees?.status === "UNKNOWN" ? "Fees UNKNOWN; excluded." : null,
+        arm?.hCostReason,
+        arm?.vReason,
+        arm?.deltaVReason,
+        benchmark?.status === "BENCHMARK_PROVISIONAL" ? `B coverage ${benchmark.coverage ?? "UNAVAILABLE"}.` : null,
+      ].filter(Boolean);
+      const bValue = benchmark?.B;
+      const bStatus = benchmark?.status ?? "UNAVAILABLE";
+      return `<tr data-campaign="${esc(campaign.campaignKey)}" data-status="${esc(campaign.status)}" data-arm="${esc(arm?.armId ?? "UNAVAILABLE")}" data-artifact-sha="${esc(provenance.artifactSha256)}">
+        <td><span class="mono">${esc(campaign.campaignKey)}</span><div class="tiny muted">${esc(campaign.product ?? "product unavailable")} · ${esc(campaign.maturity ?? "maturity unavailable")}</div></td>
+        <td>${esc(arm?.armId ?? "UNAVAILABLE")}<div class="tiny muted">${esc(campaign.campaignReadiness ?? campaign.status)}</div></td>
+        <td class="right">${measurementCell(bValue, bStatus, " €/MWh", readiness)}<div class="tiny muted" data-artifact-sha="${esc(provenance.artifactSha256)}">coverage ${esc(benchmark?.coverage ?? "UNAVAILABLE")}</div></td>
+        <td class="right">${measurementCell(arm?.hEurMwh, arm?.hCostCompleteness, " €/MWh", readiness)}${arm?.hCostReason ? `<div class="tiny muted">${esc(arm.hCostReason)}</div>` : ""}</td>
+        <td class="right">${measurementCell(arm?.vEurMwh, arm?.vStatus, " €/MWh", readiness)}${arm?.vReason ? `<div class="tiny muted">${esc(arm.vReason)}</div>` : ""}</td>
+        <td class="right">${measurementCell(arm?.deltaVEurMwh, arm?.deltaVStatus, " €/MWh", readiness)}${arm?.deltaVReason ? `<div class="tiny muted">${esc(arm.deltaVReason)}</div>` : ""}</td>
+        <td>${blockers.length > 0 ? blockers.map((reason) => `<div class="tiny muted">${esc(reason)}</div>`).join("") : measurementStatusChip(campaign.status)}</td>
+      </tr>`;
+    });
+  });
+  const official = readiness.official;
+  return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="${esc(readiness.status)}">
+    <div class="hd"><h3>Campaign measurements · backend readiness</h3>${measurementStatusChip(readiness.status)}<span class="grow"></span><span class="tiny muted">BT-02 · verified artifact</span></div>
+    <div class="bd"><p class="tiny muted">Values and statuses are projected from ${esc(provenance.artifactPath)}; no economic calculation is performed in the UI. Provisional and partial measurements retain their backend blockers.</p>
+      <div style="overflow:auto"><table class="t"><thead><tr><th>Campaign</th><th>Arm</th><th class="right">B · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · €/MWh</th><th class="right">ΔV · €/MWh</th><th>Readiness / blockers</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+      <div class="chk" data-status="${esc(official.status)}"><span><b>Official / canonical</b></span>${measurementStatusChip(official.status)}<span class="d">${esc(official.reason)}</span><span class="tiny muted">manifest sha256 ${esc(provenance.manifestSha256)}</span></div>
+    </div>
+  </section>`;
 }
 
 function pairedEffectSvg(block) {
@@ -1034,6 +1092,7 @@ function backtestsBody(vm, { errors = null } = {}) {
 
   ${validated ? exploratoryComparisonHtml(vm.exploratory) : ""}
   ${validated ? exploratoryBacktestHtml(vm.exploratory) : ""}
+  ${validated ? backtestMeasurementHtml(vm.measurementReadiness) : ""}
 
   ${hasExploratory ? "" : `
   <div class="card" style="margin-top:14px">
@@ -1340,4 +1399,3 @@ export function renderNavigationPage() {
   const body = `<div class="mono muted small">operator interface · four workspaces</div><h1 class="page">Energy Markets — Operator Interface</h1><p class="lede">Four workspaces over the Operator Interface Boundary (IMP-29). Only what the backend exposes is drawn; unknown stays UNAVAILABLE / ERROR, fail-closed.</p><div class="surface-index">${cards.join("")}</div>`;
   return renderDocument({ active: null, title: "Energy Markets — Operator Interface", body });
 }
-

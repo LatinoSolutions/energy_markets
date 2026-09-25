@@ -42,6 +42,14 @@ function temporalManifestRef(repoRoot) {
 }
 
 export const EXPLORATORY_MANIFEST_PATH = "operations/exploratory/MANIFEST.json";
+export const BT02_MANIFEST_PATH = "operations/exploratory/reconciled-results-BT-02.MANIFEST.json";
+const BT02_EXPECTED_OUTPUT = "operations/exploratory/reconciled-results-BT-02.json";
+const BT02_EXPECTED_INPUTS = Object.freeze({
+  exploratoryResults: "operations/exploratory/backtest-results.json",
+  exploratoryManifest: "operations/exploratory/MANIFEST.json",
+  bt01Benchmark: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
+  bt01Manifest: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+});
 
 const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
@@ -74,11 +82,92 @@ export function loadExploratoryBacktestAt(repoRoot) {
   return { ok: true, results, provenance: { manifestPath: EXPLORATORY_MANIFEST_PATH, resultsPath: manifest.results.path, resultsSha256: manifest.results.sha256, slotsSha256: manifest.slots.sha256 } };
 }
 
+// BT-03: sólo entrega el registro de medición después de comprobar el artifact
+// BT-02, cada una de sus entradas declaradas y la identidad del producer.
+// Las mediciones conservan así el binding al manifiesto y al resultado backend.
+export function loadBacktestReadinessAt(repoRoot) {
+  let manifest;
+  let manifestBytes;
+  try {
+    manifestBytes = readFileSync(path.join(repoRoot, BT02_MANIFEST_PATH));
+    manifest = JSON.parse(manifestBytes.toString("utf8"));
+  } catch {
+    return { ok: false, code: "BT02_MANIFEST_MISSING" };
+  }
+  if (manifest.artifactKind !== "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION_MANIFEST"
+    || manifest.schemaVersion !== "1.0"
+    || manifest.status !== "EXPLORATORY_PROVISIONAL"
+    || manifest.producer !== "src/exploratory/reconciliation.mjs"
+    || manifest.artifact?.path !== BT02_EXPECTED_OUTPUT
+    || typeof manifest.artifact?.sha256 !== "string"
+    || manifest.inputs === null
+    || typeof manifest.inputs !== "object"
+    || Object.keys(manifest.inputs).length !== Object.keys(BT02_EXPECTED_INPUTS).length
+    || Object.entries(BT02_EXPECTED_INPUTS).some(([name, expectedPath]) => manifest.inputs[name]?.path !== expectedPath)) {
+    return { ok: false, code: "BT02_MANIFEST_INVALID" };
+  }
+  const artifacts = { output: manifest.artifact, ...manifest.inputs };
+  let results;
+  for (const [name, entry] of Object.entries(artifacts)) {
+    if (typeof entry?.path !== "string" || typeof entry.sha256 !== "string") {
+      return { ok: false, code: "BT02_ARTIFACT_REFERENCE_INVALID", name };
+    }
+    let bytes;
+    try {
+      bytes = readFileSync(path.join(repoRoot, entry.path));
+    } catch {
+      return { ok: false, code: "BT02_ARTIFACT_MISSING", path: entry.path };
+    }
+    if (sha256Of(bytes) !== entry.sha256) {
+      return { ok: false, code: "BT02_HASH_MISMATCH", path: entry.path };
+    }
+    if (name === "output") {
+      try {
+        results = JSON.parse(bytes.toString("utf8"));
+      } catch {
+        return { ok: false, code: "BT02_ARTIFACT_INVALID", path: entry.path };
+      }
+    }
+  }
+  if (results?.artifactKind !== "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION"
+    || results.schemaVersion !== "1.0"
+    || results.status !== manifest.status
+    || !Array.isArray(results.campaigns)) {
+    return { ok: false, code: "BT02_ARTIFACT_INVALID", path: manifest.artifact.path };
+  }
+  for (const [name, entry] of Object.entries(manifest.inputs)) {
+    const declared = results.inputs?.[name];
+    if (declared?.path !== entry.path || declared?.sha256 !== entry.sha256) {
+      return { ok: false, code: "BT02_INPUT_BINDING_MISMATCH", path: entry.path };
+    }
+  }
+  return {
+    ok: true,
+    results,
+    provenance: {
+      manifestPath: BT02_MANIFEST_PATH,
+      manifestSha256: sha256Of(manifestBytes),
+      artifactPath: manifest.artifact.path,
+      artifactSha256: manifest.artifact.sha256,
+      inputHashes: Object.fromEntries(Object.entries(manifest.inputs).map(([name, entry]) => [name, entry.sha256])),
+    },
+  };
+}
+
 function withExploratory(result) {
   const exploratory = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
+  const backtestReadiness = loadBacktestReadinessAt(DEFAULT_REPO_ROOT);
   return {
-    inputs: { ...result.inputs, exploratoryBacktest: exploratory.ok ? exploratory : null },
-    backend: { ...result.backend, exploratory: exploratory.ok ? { loaded: true, ...exploratory.provenance } : { loaded: false, code: exploratory.code } },
+    inputs: {
+      ...result.inputs,
+      exploratoryBacktest: exploratory.ok ? exploratory : null,
+      backtestReadiness: backtestReadiness.ok ? backtestReadiness : null,
+    },
+    backend: {
+      ...result.backend,
+      exploratory: exploratory.ok ? { loaded: true, ...exploratory.provenance } : { loaded: false, code: exploratory.code },
+      backtestReadiness: backtestReadiness.ok ? { loaded: true, ...backtestReadiness.provenance } : { loaded: false, code: backtestReadiness.code },
+    },
   };
 }
 
