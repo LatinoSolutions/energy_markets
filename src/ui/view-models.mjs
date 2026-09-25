@@ -84,6 +84,106 @@ function hourProfileFor(results, product) {
   });
 }
 
+// UI-06 (owner request 25-sep-2026, PLAN_STATUS UI-06; prototipo aprobado
+// UI-05-prototipo-2026-09-25/prototipo-ui05.html sha256 a79c8652…, pestaña Backtests):
+// detalle por punto del efecto emparejado. Solo une por índice lo que el artifact ya
+// emite: el punto acumulado (`comparison[p].paired`) con el ledger diario del mismo
+// episodio (`replay[].decisions`), que run-exploratory-backtest.mjs produce con los
+// mismos `run(...)` que la comparación. ΔV por decisión solo existe en
+// `replay[].inspector[].deltaVEur` (días con compra de Arm A); el resto queda null.
+// Arm B no tiene ledger diario en el artifact: null hasta que el backtest lo emita.
+const PAIRED_LEDGER_ARMS = ["BASELINE", "ARM_A"];
+
+function ledgerRow(decision, targetMw) {
+  const filled = decision.filledMw > 0;
+  // "36 of 60 MW" del prototipo aprobado: target − remainingMw del ledger (Bru 2026-09-25).
+  const boughtSoFarMw = Number.isFinite(targetMw) && Number.isFinite(decision.remainingMw) ? targetMw - decision.remainingMw : null;
+  return {
+    status: decision.status,
+    filledMw: decision.filledMw,
+    fillPriceEurMwh: filled ? decision.priceEurMwh : null,
+    boughtSoFarMw,
+  };
+}
+
+// Devuelve los días del episodio alineados con el tramo del punto, o null si el
+// artifact no permite unirlos sin suponer nada (fail-closed).
+function episodeLedgers(replayEntry, span) {
+  if (!replayEntry?.decisions) return null;
+  const ledgers = PAIRED_LEDGER_ARMS.map((armId) => replayEntry.decisions[armId]);
+  if (ledgers.some((ledger) => !Array.isArray(ledger) || ledger.length !== span)) return null;
+  const [baseline, armA] = ledgers;
+  if (baseline.some((decision, index) => decision.day !== armA[index].day)) return null;
+  return { BASELINE: baseline, ARM_A: armA };
+}
+
+function pairedSeriesAgree(reference, other) {
+  if (!other || other.points.length !== reference.points.length) return false;
+  return JSON.stringify(other.boundaries) === JSON.stringify(reference.boundaries);
+}
+
+function projectPairedPointsFor(product, block, results) {
+  const series = Object.entries(block.paired ?? {}).filter(([, value]) => value.points.length > 0);
+  if (series.length === 0) return [];
+  const [, reference] = series[0];
+  const agreeing = series.filter(([, value]) => pairedSeriesAgree(reference, value)).map(([armId]) => armId);
+  const campaigns = results.campaigns ?? [];
+  const armBSlotOf = (maturity) => block.perEpisode?.find((episode) => episode.maturity === maturity)?.arms?.ARM_B?.slot ?? null;
+  const details = [];
+  reference.boundaries.forEach((boundary, position) => {
+    const end = reference.boundaries[position + 1]?.index ?? reference.points.length;
+    const span = end - boundary.index;
+    const replayEntry = results.replay?.find((entry) => entry.product === product && entry.maturity === boundary.maturity);
+    const campaign = campaigns.find((entry) => entry.product === product && entry.maturity === boundary.maturity);
+    const targetMw = campaign?.targetMw ?? null;
+    const ledgers = episodeLedgers(replayEntry, span);
+    const inspectorByIndex = new Map((replayEntry?.inspector ?? []).map((item) => [item.index, item]));
+    for (let offset = 0; offset < span; offset += 1) {
+      const pointIndex = boundary.index + offset;
+      const cumulativeKeur = Object.fromEntries(agreeing.map((armId) => [armId, block.paired[armId].points[pointIndex]]));
+      const base = {
+        index: pointIndex,
+        product,
+        maturity: boundary.maturity,
+        campaignId: campaign?.id ?? null,
+        deliveryLabel: deliveryLabelFor(boundary.maturity, CAMPAIGN_MISSIONS.find((entry) => entry.product === product)?.cadence ?? null),
+        targetMw,
+        decisionNumber: offset + 1,
+        decisionsInCampaign: span,
+        armBSlot: armBSlotOf(boundary.maturity),
+        cumulativeKeur,
+      };
+      if (ledgers === null) {
+        details.push({ ...base, day: null, ledgerAvailable: false, arms: null, bestAsk: null, decisionDeltaVEur: { ARM_A: null, ARM_B: null } });
+        continue;
+      }
+      const armA = ledgers.ARM_A[offset];
+      const inspected = inspectorByIndex.get(offset);
+      details.push({
+        ...base,
+        day: armA.day,
+        ledgerAvailable: true,
+        arms: {
+          BASELINE: ledgerRow(ledgers.BASELINE[offset], targetMw),
+          ARM_A: ledgerRow(armA, targetMw),
+          ARM_B: null,
+        },
+        bestAsk: typeof armA.ask === "number" ? { eurMwh: armA.ask, quoteTm: armA.quoteTm ?? null, slot: results.rules?.clientSlotBerlin ?? null } : null,
+        decisionDeltaVEur: {
+          ARM_A: inspected?.day === armA.day && typeof inspected.deltaVEur === "number" ? inspected.deltaVEur : null,
+          ARM_B: null,
+        },
+      });
+    }
+  });
+  return details;
+}
+
+export function projectPairedPoints(results) {
+  if (!results?.comparison) return null;
+  return Object.fromEntries(Object.entries(results.comparison).map(([product, block]) => [product, projectPairedPointsFor(product, block, results)]));
+}
+
 export function projectExploratoryBacktest(exploratory) {
   const results = exploratory?.results;
   if (results?.status !== "EXPLORATORY" || !Array.isArray(results.results)) {
@@ -108,6 +208,7 @@ export function projectExploratoryBacktest(exploratory) {
     skipped: results.episodesSkippedIncomplete,
     summary: results.summary,
     comparison: results.comparison ?? null,
+    pairedPoints: projectPairedPoints(results),
     episodes,
     hourProfiles: Object.keys(results.summary).map((product) => ({ product, slots: hourProfileFor(results.results, product) })),
   };
