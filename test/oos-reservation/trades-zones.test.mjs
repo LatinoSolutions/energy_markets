@@ -235,6 +235,7 @@ test("una apertura del OOS exige run_id y misión, y el OOS se consume por misi�
 });
 
 test("una reserva IMP-09 sellada no acepta propósitos de acceso TRADES", () => {
+  const plan = reserveTradesZones(validInput());
   const imp09 = reserveSealedOos(validReservationInput());
   assert.equal(imp09.decision, "RESERVED");
   // La tabla IMP-09 no declara TRADES_OOS_OPENING: se rechaza sin consumir.
@@ -242,6 +243,34 @@ test("una reserva IMP-09 sellada no acepta propósitos de acceso TRADES", () => 
   assert.equal(outcome.ok, false);
   assert.equal(outcome.code, "UNKNOWN_ACCESS_PURPOSE");
   assert.equal(imp09.accessRegistry.oosStatus, "SEALED");
+
+  // La otra mitad: un plan TRADES no puede consumirse con la tabla IMP-09. Si se
+  // aceptara, el estado global quedaría CONSUMED sin misión y el sello por
+  // misión seguiría diciendo SEALED (fallo abierto del sello por misión).
+  const misused = recordOosAccess(plan, { atUtc: "2026-09-25T10:00:00Z", purpose: "CALIBRATION", runId: "r1" });
+  assert.equal(misused.ok, false);
+  assert.equal(misused.code, "ACCESS_PURPOSE_ARTIFACT_MISMATCH");
+  assert.equal(plan.accessRegistry.oosStatus, "SEALED");
+  assert.equal(plan.accessRegistry.oosStatusByMission.GAS_QUARTERLY, "SEALED");
+});
+
+test("un consumo sin misión cuenta como consumo de las 4 misiones (fail-closed)", () => {
+  const plan = reserveTradesZones(validInput());
+  // Entrada no atribuible a misión (p. ej. de un registro legado): el sello por
+  // misión no puede quedarse en SEALED con el OOS consumido.
+  const contaminated = {
+    ...plan,
+    accessRegistry: {
+      ...plan.accessRegistry,
+      entries: [{ consumesOos: true, purpose: "PARAMETER_SELECTION", runId: "legacy-run" }],
+    },
+  };
+  const outcome = recordTradesOosAccess(contaminated, { atUtc: "2026-09-25T11:00:00Z", purpose: "TRADES_OOS_INSPECTION", mission: "GAS_QUARTERLY" });
+  assert.equal(outcome.ok, true);
+  assert.deepEqual(outcome.oosStatusByMission, {
+    GAS_QUARTERLY: "CONSUMED", GAS_MONTHLY: "CONSUMED", POWER_QUARTERLY: "CONSUMED", POWER_MONTHLY: "CONSUMED",
+  });
+  assert.equal(outcome.oosOpeningsByMission.POWER_MONTHLY, 1);
 });
 
 test("falla cerrado sin binding, con spec ajena o sin calendario", () => {

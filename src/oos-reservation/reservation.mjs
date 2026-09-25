@@ -72,6 +72,10 @@ export const TRADES_ACCESS_PURPOSES = Object.freeze({
   TRADES_OOS_INSPECTION: { consumesOos: false, section: "patch 03 §4 (examen sellado)" },
 });
 
+// Artefacto al que pertenecen los propósitos TRADES: un plan de zonas TR-02
+// (trades-zones.mjs). `recordOosAccess` lo usa para no mezclar tablas.
+const TRADES_PLAN_ARTIFACT_KIND = "TR-02_TRADES_ZONE_PLAN";
+
 // TRADES_ACCESS_PURPOSES se declara arriba, junto a los propósitos IMP-09, pero
 // las tablas NO se mezclan: `recordOosAccess` (IMP-09, §25.1) acepta sólo los
 // propósitos IMP-09 por defecto, y el registro TRADES pasa su propia tabla
@@ -495,6 +499,13 @@ export function reserveGasQuarterlySealedOos(overrides = {}) {
 export function recordOosAccess(reservation, entry = {}, purposes = IMP09_ACCESS_PURPOSES) {
   if (!reservation || reservation.decision !== "RESERVED") {
     return { ok: false, code: "RESERVATION_NOT_SEALED", message: "No se registra acceso al OOS sin una reserva sellada.", reservation: reservation ?? null };
+  }
+  // patch 03 §4: las tablas de propósitos están ligadas a su artefacto. Un plan
+  // TRADES registrado con la tabla IMP-09 perdería el estado por misión y
+  // dejaría el sello por misión en "SEALED" con el OOS consumido (fallo
+  // abierto); se rechaza y sólo la tabla TRADES puede consumir un plan TRADES.
+  if (reservation.artifactKind === TRADES_PLAN_ARTIFACT_KIND && purposes !== TRADES_ACCESS_PURPOSES) {
+    return { ok: false, code: "ACCESS_PURPOSE_ARTIFACT_MISMATCH", message: "Un plan TRADES sólo registra accesos con los propósitos TRADES; la tabla IMP-09 no aplica (patch 03 §4).", reservation };
   }
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return { ok: false, code: "INVALID_ACCESS_ENTRY", message: "El acceso no es un registro válido.", reservation };

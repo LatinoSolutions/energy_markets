@@ -88,14 +88,21 @@ function isNonEmptyString(value) {
 function missionAccessState(entries) {
   const oosStatusByMission = {};
   const oosOpeningsByMission = {};
+  // Fail-closed: una entrada que consume el OOS y no declara misión no es
+  // atribuible a ninguna; se trata como consumo de las 4 misiones para que el
+  // sello por misión nunca diga "intacto" con el OOS consumido (patch 03 §4).
+  const unattributedConsuming = entries.filter((item) => item.consumesOos && !isNonEmptyString(item.mission));
   for (const missionKey of Object.keys(TRADES_MISSIONS)) {
     const missionEntries = entries.filter((item) => item.mission === missionKey);
-    oosStatusByMission[missionKey] = missionEntries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED";
-    oosOpeningsByMission[missionKey] = new Set(
-      missionEntries
-        .filter((item) => item.consumesOos && isNonEmptyString(item.runId))
-        .map((item) => item.runId),
-    ).size;
+    const consumed = unattributedConsuming.length > 0 || missionEntries.some((item) => item.consumesOos);
+    oosStatusByMission[missionKey] = consumed ? "CONSUMED" : "SEALED";
+    const runIds = new Set();
+    for (const item of [...missionEntries, ...unattributedConsuming]) {
+      if (item.consumesOos && isNonEmptyString(item.runId)) {
+        runIds.add(item.runId);
+      }
+    }
+    oosOpeningsByMission[missionKey] = runIds.size;
   }
   return { oosStatusByMission, oosOpeningsByMission };
 }
