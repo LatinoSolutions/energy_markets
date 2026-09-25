@@ -14,7 +14,7 @@
   "inputs": {
     "candidates": {
       "path": "operations/trades/TR-01/source-candidates.json",
-      "sha256": "48a7323d3e7ca1c1508c8a6f6e6212543a94fc43bd8f69d4f830851ca1d98a96"
+      "sha256": "1c4642030bd2976dc58fbc9757e3a9f66f2ed6f173ba5638487897b36bd43408"
     }
   },
   "decision": {

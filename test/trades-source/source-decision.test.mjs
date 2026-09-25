@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import {
@@ -75,8 +76,10 @@ test("el manifest ata el artefacto a sus inputs sin acreditar acceptance", () =>
 });
 
 test("el DATA_SOURCE_DECISION committeado es reproducible desde source-candidates.json", () => {
-  const candidatesDocument = JSON.parse(readFileSync(`${HERE}source-candidates.json`, "utf8"));
-  const { artifactBytes, manifestBytes, decision } = buildArtifacts(candidatesDocument);
+  const candidatesBytes = readFileSync(`${HERE}source-candidates.json`);
+  const candidatesDocument = JSON.parse(candidatesBytes.toString("utf8"));
+  const candidatesSha256 = createHash("sha256").update(candidatesBytes).digest("hex");
+  const { artifactBytes, manifestBytes, decision } = buildArtifacts(candidatesDocument, { candidatesSha256 });
   assert.equal(artifactBytes.equals(readFileSync(`${HERE}DATA_SOURCE_DECISION.json`)), true);
   assert.equal(manifestBytes.equals(readFileSync(`${HERE}DATA_SOURCE_DECISION.MANIFEST.json`)), true);
   assert.equal(decision.status, SOURCE_DECISION_STATUS.PENDING_ARCHIVE_VERIFICATION);

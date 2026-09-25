@@ -29,7 +29,7 @@ const MANIFEST = `${HERE}DATA_SOURCE_DECISION.MANIFEST.json`;
 
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-export function buildArtifacts(candidatesDocument) {
+export function buildArtifacts(candidatesDocument, { candidatesSha256 = null } = {}) {
   const decision = buildDataSourceDecision({
     candidates: candidatesDocument.candidates,
     comparison: candidatesDocument.comparison ?? null,
@@ -45,15 +45,21 @@ export function buildArtifacts(candidatesDocument) {
     artifactSha256,
     generatedAtUtc: candidatesDocument.decidedAtUtc ?? null,
     inputs: {
-      candidates: { path: "operations/trades/TR-01/source-candidates.json", sha256: digest(Buffer.from(`${JSON.stringify(candidatesDocument, null, 2)}\n`)) },
+      candidates: {
+        path: "operations/trades/TR-01/source-candidates.json",
+        sha256: candidatesSha256 ?? digest(Buffer.from(`${JSON.stringify(candidatesDocument, null, 2)}\n`)),
+      },
     },
   });
   return { decision, artifactBytes, manifest, manifestBytes: Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`) };
 }
 
 function main() {
-  const candidatesDocument = JSON.parse(readFileSync(CANDIDATES, "utf8"));
-  const { artifactBytes, manifestBytes, decision } = buildArtifacts(candidatesDocument);
+  const candidatesBytes = readFileSync(CANDIDATES);
+  const candidatesDocument = JSON.parse(candidatesBytes.toString("utf8"));
+  const { artifactBytes, manifestBytes, decision } = buildArtifacts(candidatesDocument, {
+    candidatesSha256: digest(candidatesBytes),
+  });
   if (process.argv.includes("--check")) {
     const committedArtifact = readFileSync(ARTIFACT);
     const committedManifest = readFileSync(MANIFEST);
