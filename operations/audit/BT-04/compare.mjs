@@ -126,7 +126,17 @@ function compareBenchmark(independentCampaign, bt01Campaign, bt02Benchmark) {
   };
 }
 
-function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
+// SPEC §5.5 «Tampoco se sustituye coste desconocido por cero» + BACKTEST_TABLE_UNLOCK_PLAN.md
+// BT-02 «H carries cost-completeness status»: while fees are UNKNOWN and excluded, H is
+// only the execution-price average, so its cost completeness can only be PARTIAL.
+// No known-fee case is validated yet, so anything else fails closed
+// (BT04-HCOST-COMPLETENESS-GATE, 2026-09-25).
+function hCostCompletenessHolds(bt02Arm, fees) {
+  const feesExcluded = fees?.status === "UNKNOWN" && fees?.included === false;
+  return feesExcluded && bt02Arm.hCostCompleteness === "PARTIAL";
+}
+
+function compareLedgerArm(armId, independentArm, bt02Arm, bt02B, fees) {
   const mismatchedFills = independentArm.fills
     .filter((fill) => fill.independentPriceEurMwh === null || !close(fill.independentPriceEurMwh, fill.ledgerPriceEurMwh))
     .map((fill) => {
@@ -164,7 +174,8 @@ function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
   let verdict = "UNEXPLAINED";
   if (mismatchedFills.length === 0 && close(hDifference, 0)) verdict = "MATCH";
   else if (allAttributed && bt02HFromLedgerFills) verdict = "ATTRIBUTED_DIFFERENCE";
-  if (independentArm.complete !== bt02Arm.complete || !close(independentArm.filledMw, bt02Arm.boughtMw) || !bt02VCoherent) verdict = "UNEXPLAINED";
+  const hCostHolds = hCostCompletenessHolds(bt02Arm, fees);
+  if (independentArm.complete !== bt02Arm.complete || !close(independentArm.filledMw, bt02Arm.boughtMw) || !bt02VCoherent || !hCostHolds) verdict = "UNEXPLAINED";
 
   return {
     armId,
@@ -183,6 +194,7 @@ function compareLedgerArm(armId, independentArm, bt02Arm, bt02B) {
     vStatus: bt02Arm.vStatus,
     bt02VCoherent,
     hCostCompleteness: bt02Arm.hCostCompleteness,
+    hCostCompletenessHolds: hCostHolds,
     verdict,
   };
 }
@@ -228,13 +240,16 @@ function checkArithmeticOnly(armId, bt02Arm, bt02Campaign, bt02Arms) {
   const baseline = bt02Arm.fillModel === "DEPTH" ? bt02Arms["BASELINE@DEPTH"] : bt02Arms.BASELINE;
   const expectedDeltaV = bt02Arm.deltaVStatus === "PROVISIONAL" ? baseline.hEurMwh - bt02Arm.hEurMwh : null;
   const deltaOk = expectedDeltaV === null ? bt02Arm.deltaVEurMwh === null : close(bt02Arm.deltaVEurMwh, expectedDeltaV);
+  const hCostHolds = hCostCompletenessHolds(bt02Arm, bt02Campaign.fees);
   return {
     armId,
     fillModel: bt02Arm.fillModel,
     check: "ARITHMETIC_ONLY_NO_LEDGER",
     vStatus: bt02Arm.vStatus,
     deltaVStatus: bt02Arm.deltaVStatus,
-    verdict: vOk && deltaOk ? "MATCH" : "UNEXPLAINED",
+    hCostCompleteness: bt02Arm.hCostCompleteness,
+    hCostCompletenessHolds: hCostHolds,
+    verdict: vOk && deltaOk && hCostHolds ? "MATCH" : "UNEXPLAINED",
   };
 }
 
@@ -251,7 +266,7 @@ export function buildBt04Validation({ independent, bt01, bt02, hashes }) {
 
     const benchmark = compareBenchmark(independentCampaign, bt01Campaign, bt02Campaign.benchmark);
     const ledgerArms = ["BASELINE", "ARM_A"].map((armId) =>
-      compareLedgerArm(armId, independentCampaign.arms[armId], bt02Campaign.arms[armId], bt02Campaign.benchmark.B));
+      compareLedgerArm(armId, independentCampaign.arms[armId], bt02Campaign.arms[armId], bt02Campaign.benchmark.B, bt02Campaign.fees));
     const deltaV = compareDeltaV({
       bt02DeltaV: bt02Campaign.arms.ARM_A.deltaVEurMwh,
       independentDeltaV: independentCampaign.deltaV_ARM_A_vs_BASELINE,

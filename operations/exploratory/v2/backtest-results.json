@@ -14711,7 +14711,7 @@
    {
     "label": "Code pinned",
     "status": "PASS",
-    "detail": "generator sha256 in operations/exploratory/MANIFEST.json"
+    "detail": "generator sha256 in operations/exploratory/v2/MANIFEST.json"
    },
    {
     "label": "Data snapshot pinned",

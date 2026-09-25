@@ -99,6 +99,7 @@
           "vStatus": "PROVISIONAL",
           "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "ATTRIBUTED_DIFFERENCE"
         },
         {
@@ -118,6 +119,7 @@
           "vStatus": "PROVISIONAL",
           "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         }
       ],
@@ -137,6 +139,8 @@
           "check": "ARITHMETIC_ONLY_NO_LEDGER",
           "vStatus": "PROVISIONAL",
           "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         },
         {
@@ -145,6 +149,8 @@
           "check": "ARITHMETIC_ONLY_NO_LEDGER",
           "vStatus": "PROVISIONAL",
           "deltaVStatus": "NOT_APPLICABLE",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         },
         {
@@ -153,6 +159,8 @@
           "check": "ARITHMETIC_ONLY_NO_LEDGER",
           "vStatus": "PROVISIONAL",
           "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         }
       ],
@@ -212,6 +220,7 @@
           "vStatus": "PROVISIONAL",
           "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         },
         {
@@ -231,6 +240,7 @@
           "vStatus": "PROVISIONAL",
           "bt02VCoherent": true,
           "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         }
       ],
@@ -250,6 +260,8 @@
           "check": "ARITHMETIC_ONLY_NO_LEDGER",
           "vStatus": "PROVISIONAL",
           "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         },
         {
@@ -258,6 +270,8 @@
           "check": "ARITHMETIC_ONLY_NO_LEDGER",
           "vStatus": "PROVISIONAL",
           "deltaVStatus": "NOT_APPLICABLE",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         },
         {
@@ -266,6 +280,8 @@
           "check": "ARITHMETIC_ONLY_NO_LEDGER",
           "vStatus": "PROVISIONAL",
           "deltaVStatus": "PROVISIONAL",
+          "hCostCompleteness": "PARTIAL",
+          "hCostCompletenessHolds": true,
           "verdict": "MATCH"
         }
       ],

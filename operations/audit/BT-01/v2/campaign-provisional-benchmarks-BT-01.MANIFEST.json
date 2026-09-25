@@ -4,7 +4,7 @@
   "status": "BENCHMARK_PROVISIONAL",
   "artifact": {
     "path": "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.json",
-    "sha256": "c2b5d6f344974eeedf348d161fb0c3fcd48e22ba16d8d2d4681126c2046849ca"
+    "sha256": "5ff2e0f58a02f41d993d5ead8a1425bbcf08dcf9bb8da540bebc409c1e140da7"
   },
   "supersedes": {
     "path": "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
@@ -14,11 +14,11 @@
   "inputs": {
     "rowsArtifact": {
       "path": "operations/audit/BT-01/v2/campaign-proxy-rows-BT-01.json",
-      "sha256": "70a0c9e2668a5947f8df7204cc0876842dae8aa0edfd7fd94b199c8c986ffae2"
+      "sha256": "127f1e710d8219616bad54ed5d5d4798fdf51dd1e584f3096d6a29c7dc8cd176"
     },
     "campaignPopulation": {
       "path": "operations/exploratory/v2/backtest-results.json",
-      "sha256": "b72f9b99f9c075d067519281767f1e1128fee64d61cf44eb2551974fa8d60553"
+      "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8"
     },
     "calendar": {
       "path": "operations/audit/IMP-09/eex-exchange-calendar.json",

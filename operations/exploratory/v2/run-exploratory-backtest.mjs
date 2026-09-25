@@ -258,7 +258,7 @@ const research = {
     })),
   ],
   integrity: [
-    { label: "Code pinned", status: "PASS", detail: "generator sha256 in operations/exploratory/MANIFEST.json" },
+    { label: "Code pinned", status: "PASS", detail: "generator sha256 in operations/exploratory/v2/MANIFEST.json" },
     { label: "Data snapshot pinned", status: "PASS", detail: `tob-slots sha ${output_slots_sha().slice(0, 12)}` },
     { label: "Replay determinism", status: "PASS", detail: "same inputs → same results sha (manifest check in the UI loader)" },
     { label: "Evidence in ≥ 2 campaigns", status: "PASS", detail: "3 Gas Quarterly + 10 Gas Monthly" },

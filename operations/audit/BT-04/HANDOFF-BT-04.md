@@ -59,7 +59,8 @@ iguales. El mismo arreglo cambia el receipt de muestra de IMP-05: nuevo `lake-be
 - 13 de 21 campañas exploratorias con B provisional por campaña (3 G0BQ, 10 G0BM).
 - En esas 13: H, V y ΔV por brazo. 63 valores V `PROVISIONAL`, 2 `PARTIAL` (ARM_A@DEPTH de G0BM-202602 y
   G0BM-202606: la profundidad visible no alcanzó el objetivo; la cobertura se informa aparte, no se mete en V).
-- H lleva `hCostCompleteness: PARTIAL` en todos los brazos: fees excluidos, nunca cero.
+- H lleva `hCostCompleteness: PARTIAL` en todos los brazos: fees excluidos, nunca cero. `compare.mjs` lo exige
+  (BT04-HCOST-COMPLETENESS-GATE): un H `COMPLETE` o sin estado con fees UNKNOWN es `UNEXPLAINED` → `FAIL`.
 - La fila oficial/canónica sigue `UNAVAILABLE` (fail-closed).
 
 ## 3. Qué no está poblado y por qué
@@ -75,10 +76,6 @@ iguales. El mismo arreglo cambia el receipt de muestra de IMP-05: nuevo `lake-be
 - **Aceptación de la v2**: BT-01 v2, backtest exploratorio v2 y BT-02 v2 son versiones nuevas producidas aquí;
   su aceptación la decide la Oficina. La UI ya las consume (`BT02_RELEASES.v2`); la v1 sigue válida contra su
   manifest pero no se muestra.
-- **Texto stale dentro de `v2/backtest-results.json`**: el check "Code pinned" dice
-  `generator sha256 in operations/exploratory/MANIFEST.json`; para v2 el manifest es `operations/exploratory/v2/MANIFEST.json`.
-  Corregirlo cambia el hash de los resultados y obliga a regenerar BT-01 v2, BT-02 v2 y el cálculo independiente
-  v2 (lago); se dejó sin tocar para no mover artefactos ya contrastados.
 - **Sólo 2 campañas contrastadas de forma independiente**; las otras 11 salen del mismo código corregido.
 - **`UpdtAct` en la tabla de trades** (acciones de actualización/borrado de EEX): ni BT-01 ni el cálculo
   independiente las interpretan; cada fila cuenta como observación. Falta auditar si hay trades corregidos o

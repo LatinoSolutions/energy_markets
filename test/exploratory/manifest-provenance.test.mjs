@@ -27,3 +27,16 @@ test("v1 and v2 name different TOB slot / backtest generators", () => {
   assert.ok(v2.includes("operations/exploratory/v2/build_tob_slots.py"));
   assert.ok(v2.includes("operations/exploratory/v2/run-exploratory-backtest.mjs"));
 });
+
+// BT04-V2-RESULTS-STALE-MANIFEST-TEXT (2026-09-25): the "Code pinned" check shown
+// in the UI must name the manifest that actually pins that version's generators.
+for (const [version, resultsPath, manifestPath] of [
+  ["v1", "operations/exploratory/backtest-results.json", "operations/exploratory/MANIFEST.json"],
+  ["v2", "operations/exploratory/v2/backtest-results.json", "operations/exploratory/v2/MANIFEST.json"],
+]) {
+  test(`exploratory ${version}: the "Code pinned" integrity check names its own manifest`, () => {
+    const results = JSON.parse(readFileSync(resolve(root, resultsPath), "utf8"));
+    const codePinned = results.research.integrity.find((check) => check.label === "Code pinned");
+    assert.equal(codePinned.detail, `generator sha256 in ${manifestPath}`);
+  });
+}

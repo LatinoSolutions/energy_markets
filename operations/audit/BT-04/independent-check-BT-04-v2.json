@@ -11,7 +11,7 @@
     },
     "exploratoryResults": {
       "path": "operations/exploratory/v2/backtest-results.json",
-      "sha256": "b72f9b99f9c075d067519281767f1e1128fee64d61cf44eb2551974fa8d60553"
+      "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8"
     },
     "lakeRoot": "/srv/hot-data/EEX",
     "sourceFileHashes": {

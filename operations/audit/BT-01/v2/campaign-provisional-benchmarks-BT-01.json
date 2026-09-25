@@ -11,7 +11,7 @@
   },
   "sourceArtifact": {
     "path": "operations/audit/BT-01/v2/campaign-proxy-rows-BT-01.json",
-    "sha256": "70a0c9e2668a5947f8df7204cc0876842dae8aa0edfd7fd94b199c8c986ffae2"
+    "sha256": "127f1e710d8219616bad54ed5d5d4798fdf51dd1e584f3096d6a29c7dc8cd176"
   },
   "declaration": {
     "campaignScope": "Existing exploratory G0BQ/G0BM maturities only; not a client campaign mandate",

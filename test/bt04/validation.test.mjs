@@ -262,3 +262,29 @@ for (const [field, mutate] of [
     assert.equal(validation.verdict, "FAIL");
   });
 }
+
+// BT04-HCOST-COMPLETENESS-GATE (2026-09-25): with fees UNKNOWN / excluded, H is
+// the execution-price average only; a COMPLETE (or missing) cost status is a false claim.
+test("BT04-HCOST-COMPLETENESS-GATE: an H marked COMPLETE while fees are UNKNOWN fails, on ledger and arithmetic arms", () => {
+  for (const armId of ["BASELINE", "ARM_A", "ARM_B", "BASELINE@DEPTH"]) {
+    const data = inputs();
+    data.bt02.campaigns.find((item) => item.campaignKey === "G0BM-202510").arms[armId].hCostCompleteness = "COMPLETE";
+    const validation = buildBt04Validation(data);
+    assert.equal(validation.verdict, "FAIL", armId);
+    assert.ok(validation.unexplained > 0, armId);
+  }
+  const missing = inputs();
+  delete missing.bt02.campaigns.find((item) => item.campaignKey === "G0BQ-202601").arms.ARM_A.hCostCompleteness;
+  assert.equal(buildBt04Validation(missing).verdict, "FAIL");
+});
+
+test("BT04-HCOST-COMPLETENESS-GATE: every committed arm (v1 and v2) keeps H cost completeness PARTIAL", () => {
+  for (const validation of [committed, readJson(TARGETS.v2.output)]) {
+    for (const item of validation.campaigns) {
+      for (const arm of [...item.ledgerArms, ...item.arithmeticArms]) {
+        assert.equal(arm.hCostCompleteness, "PARTIAL", `${item.campaignKey} ${arm.armId}`);
+        assert.equal(arm.hCostCompletenessHolds, true, `${item.campaignKey} ${arm.armId}`);
+      }
+    }
+  }
+});
