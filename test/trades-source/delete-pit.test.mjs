@@ -60,3 +60,50 @@ test("measureDeleteTmSemantics detecta la hora del borrado y la reporta como evi
   assert.equal(measurement.deleteBeforeNew, 0);
   assert.equal(measurement.deletionTimeObserved, true);
 });
+
+test("un Tm de Delete no parseable se cuenta aparte y no niega deletionTimeObserved", () => {
+  const rows = [
+    tradeRow({ TrdID: "1", Tm: "2025-11-20T09:28:37Z" }),
+    deleteRow({ TrdID: "1", Tm: "no-es-fecha" }),
+    deleteRow({ TrdID: "2", Tm: "2025-11-20T10:04:53Z" }),
+    tradeRow({ TrdID: "2", Tm: "2025-11-20T09:30:00Z" }),
+  ];
+  const measurement = measureDeleteTmSemantics(rows);
+  assert.equal(measurement.deletesWithNewSibling, 2);
+  assert.equal(measurement.deleteUnparsableTm, 1);
+  assert.equal(measurement.deleteBeforeNew, 0);
+  assert.equal(measurement.deleteAfterNew, 1);
+  assert.equal(measurement.deletionTimeObserved, true);
+});
+
+test("un Delete anterior al alta sí niega deletionTimeObserved", () => {
+  const rows = [
+    tradeRow({ TrdID: "1", Tm: "2025-11-20T10:00:00Z" }),
+    deleteRow({ TrdID: "1", Tm: "2025-11-20T09:00:00Z" }),
+  ];
+  const measurement = measureDeleteTmSemantics(rows);
+  assert.equal(measurement.deleteBeforeNew, 1);
+  assert.equal(measurement.deleteUnparsableTm, 0);
+  assert.equal(measurement.deletionTimeObserved, false);
+});
+
+test("buildDeleteIndex cuenta los Delete con Tm ilegible en vez de descartarlos en silencio", () => {
+  const rows = [
+    tradeRow({ TrdID: "1" }),
+    deleteRow({ TrdID: "1", Tm: "no-es-fecha" }),
+    deleteRow({ TrdID: "9", Tm: "tampoco-es-fecha" }),
+  ];
+  const stats = {};
+  const index = buildDeleteIndex(rows, stats);
+  assert.equal(index.size, 0);
+  assert.equal(stats.unparsableDeleteTm, 2);
+});
+
+test("un Delete con Tm ilegible y sin hermano New igual se cuenta en la medición", () => {
+  const rows = [deleteRow({ TrdID: "9", Tm: "" })];
+  const measurement = measureDeleteTmSemantics(rows);
+  assert.equal(measurement.deleteRows, 1);
+  assert.equal(measurement.deleteUnparsableTm, 1);
+  assert.equal(measurement.deletesWithNewSibling, 0);
+  assert.equal(measurement.deletionTimeObserved, false);
+});

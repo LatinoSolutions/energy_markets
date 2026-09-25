@@ -36,6 +36,7 @@ export {
 } from "./delete-point-in-time.mjs";
 
 export {
+  contractKey,
   coverageByInstrumentDay,
   daysWithoutTrades,
   instrumentIdentity,
@@ -44,7 +45,11 @@ export {
 
 export { buildTradesInventory } from "./inventory.mjs";
 
+export { contractWindowsFromReference, measureReferenceExpiryRelation } from "./contract-windows.mjs";
+
 export { buildTradesMeasurement, detectSchemaChanges } from "./aggregate.mjs";
+
+export { createTradesMeasurementAccumulator } from "./measurement.mjs";
 
 export {
   POWER_DE_CALENDAR_SOURCE,
@@ -54,6 +59,26 @@ export {
   powerDeExchangeDaysBetween,
   powerDeHolidays,
 } from "./power-calendar.mjs";
+
+export {
+  GAS_THE_CALENDAR_SOURCE,
+  gasTheExchangeDays,
+  gasTheExchangeDaysBetween,
+  gasTheHolidays,
+  isGasTheExchangeDay,
+} from "./gas-calendar.mjs";
+
+export {
+  MISSION,
+  classifyMission,
+  densityFromIndexes,
+  frontContract,
+  marketOf,
+  measurePatch0Density,
+  measurePatch0FromCoverage,
+  monthsToDelivery,
+  referenceCatalogForMission,
+} from "./patch0-density.mjs";
 
 export {
   LAKE_DERIVED_ARTIFACTS,

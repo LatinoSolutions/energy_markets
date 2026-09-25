@@ -51,6 +51,20 @@ function requireCandidate(candidates, id) {
   return candidates.find((candidate) => candidate.id === id) ?? null;
 }
 
+// Tablas de un inventario. El escaneo del archivo reporta `tableInventory`
+// (inventario separado de eex_derivative_reference, que NO se emite como trade);
+// los inventarios de directorio del lago traen `tables`. Se aceptan ambas formas
+// para que la comparación no quede sesgada hacia el lago por una fuente que sí
+// aporta la tabla de referencia.
+function inventoryTables(inventory) {
+  if (!inventory) return [];
+  if (Array.isArray(inventory.tables)) return inventory.tables;
+  if (inventory.tableInventory && typeof inventory.tableInventory === "object") {
+    return Object.keys(inventory.tableInventory);
+  }
+  return [];
+}
+
 // Compara inventarios lago vs archivo con criterios declarados. Devuelve
 // `satisfiesArchivePreference` y las diferencias observadas. No decide por sí
 // sola: la decisión la toma buildDataSourceDecision.
@@ -61,11 +75,18 @@ export function compareSourceInventories({ lakeInventory, archiveInventory }) {
   }
   const lakeMaxDate = lakeInventory.dateMax ?? null;
   const archiveMaxDate = archiveInventory.dateMax ?? null;
+  // Fail-closed: una fecha ausente no deja pasar la comparación. El `_meta` del
+  // archivo puede no traer `dateMax`; sin fecha no se puede afirmar que el
+  // archivo no pierde cobertura, así que cuenta como diferencia.
+  if (archiveMaxDate === null) differences.push("archive.dateMax ausente");
+  if (lakeMaxDate === null) differences.push("lake.dateMax ausente");
   if (archiveMaxDate !== null && lakeMaxDate !== null && archiveMaxDate < lakeMaxDate) {
     differences.push("archive.dateMax < lake.dateMax");
   }
-  const archiveHasReference = archiveInventory.tables?.includes("eex_derivative_reference") ?? false;
-  const lakeHasReference = lakeInventory.tables?.includes("eex_derivative_reference") ?? false;
+  const archiveTables = inventoryTables(archiveInventory);
+  const lakeTables = inventoryTables(lakeInventory);
+  const archiveHasReference = archiveTables.includes("eex_derivative_reference");
+  const lakeHasReference = lakeTables.includes("eex_derivative_reference");
   if (!archiveHasReference && !lakeHasReference) {
     differences.push("ninguna fuente aporta eex_derivative_reference");
   }
