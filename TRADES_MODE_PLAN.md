@@ -68,13 +68,18 @@ Depende de BT-05 (run_id, manifest por run, resultado vigente único).
 ### TR-06: Runs de las 4 misiones (los lanza Bru)
 Development (walk-forward para la hora) -> puente (mitad de evaluación contra el gate de TR-04) -> OOS histórico (una apertura registrada). Scoring por campaign; métricas por día-decisión como diagnóstico. Pico de RAM por run.
 
-### TR-07: UI de Backtests (gate visual)
-Depende de UI-05 y UI-06 (misma pantalla).
-- Selector de mercado/misión y de modo `TOB` · `TRADES`; zona visible en cada resultado.
-- Paneles: cobertura de data (TR-01), zonas y registro de acceso OOS (TR-02), calibración TOB vs TRADES (TR-03), contrato congelado (TR-04), resultados (TR-06).
+### TR-07: UI de Backtests (diseño APROBADO por Bru 2026-09-25)
+Depende de UI-05 y UI-06 (misma pantalla). Referencia visual aprobada: /srv/hot-data/oficina-data/design-selections/energy-markets/TR-07-prototipo-2026-09-25/prototipo-tr07.html (sha256 d1fd75a72c8d7f3c0923d3132d02db4b2d6cae78fb23433f107f55d82f85cb6f), opción B. Calcar layout; los datos salen solo del backend.
+- Selector de mercado/misión (Gas Q, Gas M, Power Q, Power M) y selector de modo `TOB` | `TRADES`.
+- En `TRADES`, selector de período: All, Development, Historical OOS, Bridge.
+- Barra de zonas (Development, Historical OOS, embargo, Bridge, post, Forward) con borde en lo que cubre la vista.
+- Panel de contraste TOB vs TRADES a la derecha, visible solo cuando la vista incluye el puente; fuera del puente, 1 línea: "Contrast only exists for the bridge, 2025-08-12 to 2026-07-28".
+- Botón "Expand calibration charts": abre a ancho completo la superposición TOB/TRADES día por día y la distribución (último trade − ask) de TR-03.
+- Chart de efecto pareado con el hover de UI-06 en ambos modos.
+- Paneles de cobertura (TR-01), zonas y accesos OOS (TR-02) y contrato congelado (TR-04) dentro del mismo diseño.
 - Textos fijos "real EEX best ask" (`src/ui/render.mjs:756`, `:1052`, `:1388`) parametrizados por modo.
-- Dentro del diseño de UI-03 y compatible con el control único de BT-05.
-Gate: captura aprobada por Bru antes de implementar.
+- Lo que no exista todavía: `NOT RUN YET` / `UNAVAILABLE`, nunca un número.
+Gate: la revisión verifica fidelidad al prototipo aprobado; no se piden capturas nuevas a Bru.
 
 ### TR-08: Forward shadow
 Fecha de inicio de la ingesta viva a verificar (Bru indica 1-nov-2026). El forward corre con el contrato TOB sobre ask vivo; en paralelo registra las decisiones `LAST_TRADE` y `SLOT_VWAP` para comparar cada hipótesis contra lo que el TOB vivo habría hecho. Requiere extender `src/shadow/capture.mjs`, que hoy usa el fill canónico TOB (`src/execution-contract/causal-fill.mjs`) y consume el brazo A1 de P5, no DIP10: declarado como alcance de esta tarea.
