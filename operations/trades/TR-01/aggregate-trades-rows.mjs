@@ -24,11 +24,19 @@ import {
   createTradesMeasurementAccumulator,
   gasTheExchangeDaysBetween,
   measurePatch0FromCoverage,
+  measureReferenceExpiryRelation,
   powerDeExchangeDaysBetween,
   summarizeInstrumentCoverage,
 } from "../../../src/trades-source/index.mjs";
 
 const HERE = new URL("./", import.meta.url).pathname;
+
+// Área hive del mercado: rellena Cmdty/Area de las filas de reference cuando la
+// tabla no los repite como columna (el escaneo ya filtró por esa área exacta).
+const MARKET_AREAS = Object.freeze({
+  "gas-the": { cmdty: "NATGAS", area: "THE" },
+  "power-de": { cmdty: "POWER", area: "DE" },
+});
 
 // API de string para tests y `--check`: mismo acumulador day-local, entrando una
 // fila por vez (el acumulador cierra el día cuando cambia TrdDate).
@@ -95,11 +103,14 @@ function applyDerivedMeasurements(measurement, { market, start, end, referenceRo
   measurement.patch0Density = measurePatch0FromCoverage({
     coverageRecords: measurement.coverage,
     calendars,
+    referenceRows,
+    referenceArea: MARKET_AREAS[market] ?? null,
     maxDistanceMonths: isPower ? 3 : Infinity,
   });
   if (referenceRows) {
     const windows = contractWindowsFromReference(referenceRows, { exchangeDaysBetween });
     measurement.instrumentSummaries = summarizeInstrumentCoverage(measurement.coverage, windows);
+    measurement.referenceExpiryRelation = measureReferenceExpiryRelation(referenceRows);
   }
   return measurement;
 }

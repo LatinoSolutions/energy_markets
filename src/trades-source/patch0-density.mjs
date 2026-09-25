@@ -11,7 +11,7 @@
 // presencia de trades, y desglosado por año.
 
 import { DEFAULT_BROKEN_SPREAD_POLICY, isEligibleTrade } from "./eligibility.mjs";
-import { coverageByInstrumentDay } from "./coverage.mjs";
+import { coverageByInstrumentDay, instrumentIdentity } from "./coverage.mjs";
 
 export const MISSION = Object.freeze({
   GAS_QUARTERLY: "GAS_QUARTERLY",
@@ -79,14 +79,16 @@ export function monthsToDelivery(trdDate, maturity) {
   return (maturityYear - trdYear) * 12 + (maturityMonth - trdMonth);
 }
 
-// Contrato front de `day`: el de menor distancia a entrega no negativa, y dentro
-// de `maxDistanceMonths` si se fija (patch 03 §0: Power "<= 3 meses de
-// distancia"). Devuelve null si no hay contrato elegible ese día.
+// Contrato front de `day`: el de menor distancia a entrega ESTRICTAMENTE futura,
+// y dentro de `maxDistanceMonths` si se fija (patch 03 §0: Power "<= 3 meses de
+// distancia"). Distancia 0 = mes de entrega en curso, que ya no se negocia; el
+// front es el contrato siguiente, nunca el que está en entrega. Devuelve null si
+// no hay contrato elegible ese día.
 export function frontContract(day, catalog, { maxDistanceMonths = Infinity } = {}) {
   let best = null;
   for (const [instrument, maturity] of catalog) {
     const distance = monthsToDelivery(day, maturity);
-    if (distance === null || distance < 0 || distance > maxDistanceMonths) continue;
+    if (distance === null || distance <= 0 || distance > maxDistanceMonths) continue;
     if (best === null || distance < best.distance || (distance === best.distance && maturity < best.maturity)) {
       best = { instrument, maturity, distanceMonths: distance };
     }
@@ -94,22 +96,68 @@ export function frontContract(day, catalog, { maxDistanceMonths = Infinity } = {
   return best;
 }
 
-// Índices de una misión: catálogo instrumento->entrega y, por día, el conjunto de
-// instrumentos con trade elegible. Se construyen desde los registros de
-// cobertura (ya vienen por instrumento y día) o desde filas crudas.
-function indexesForMission(records, mission) {
+// Catálogo instrumento->entrega de una misión tomado de
+// `eex_derivative_reference` (Cmdty/Area/ShortCode/Maturity). Es la fuente del
+// front: NUNCA la presencia de trades (patch 03 §3.4). `cmdty`/`area` rellenan
+// los campos que la tabla de referencia no repita como columna (vienen del
+// filtro hive del escaneo). Un contrato sin Maturity no entra al catálogo.
+//
+// SUPUESTO DECLARADO (falta auditar contra el archivo real): que la tabla de
+// referencia trae `Maturity` y `ShortCode` como columnas. Sólo se verificó
+// `StartDate`/`EndDate`. Si no las trae, el catálogo queda vacío y la medición
+// cae al fallback de trades (declarado, no silencioso) hasta confirmar el
+// esquema real.
+export function referenceCatalogForMission(referenceRows, mission, { cmdty = null, area = null } = {}) {
   const catalog = new Map();
+  for (const row of referenceRows ?? []) {
+    const classified = classifyMission({
+      Cmdty: row?.Cmdty ?? cmdty,
+      Area: row?.Area ?? area,
+      ShortCode: row?.ShortCode,
+      Maturity: row?.Maturity,
+    });
+    if (classified?.mission !== mission) continue;
+    const instrument = instrumentIdentity(row);
+    if (!instrument || !row?.Maturity) continue;
+    catalog.set(instrument, row.Maturity);
+  }
+  return catalog;
+}
+
+// Instrumentos con trade elegible por día. El catálogo del front no sale de
+// aquí; esto sólo dice qué contratos cotizaron cada día.
+function coverageInstrumentsByDay(records, mission) {
   const instrumentsByDay = new Map();
   for (const record of records) {
     if (classifyCoverageRecord(record)?.mission !== mission) continue;
-    catalog.set(record.instrument, record.maturity);
     if (!instrumentsByDay.has(record.trdDate)) instrumentsByDay.set(record.trdDate, new Set());
     instrumentsByDay.get(record.trdDate).add(record.instrument);
   }
-  return { catalog, instrumentsByDay };
+  return instrumentsByDay;
 }
 
-export function densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths = Infinity }) {
+// Catálogo instrumento->entrega derivado de los trades. Sólo se usa como
+// fallback DECLARADO cuando no hay `eex_derivative_reference` disponible; la
+// medición lo marca como `catalogSource: "TRADES_FALLBACK"` para que no se
+// confunda con la medición canónica.
+function tradeCatalogForMission(records, mission) {
+  const catalog = new Map();
+  for (const record of records) {
+    if (classifyCoverageRecord(record)?.mission !== mission) continue;
+    catalog.set(record.instrument, record.maturity);
+  }
+  return catalog;
+}
+
+// Resuelve el catálogo de una misión: reference si aporta contratos, si no el
+// fallback declarado.
+function catalogForMission({ coverageRecords, referenceRows, referenceArea, mission }) {
+  const referenceCatalog = referenceCatalogForMission(referenceRows, mission, referenceArea ?? {});
+  if (referenceCatalog.size > 0) return { catalog: referenceCatalog, catalogSource: "REFERENCE" };
+  return { catalog: tradeCatalogForMission(coverageRecords, mission), catalogSource: "TRADES_FALLBACK" };
+}
+
+export function densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths = Infinity, catalogSource = null }) {
   const byYear = new Map();
   for (const day of calendarDays) {
     const year = day.slice(0, 4);
@@ -126,6 +174,7 @@ export function densityFromIndexes({ mission, catalog, instrumentsByDay, calenda
   return {
     mission,
     maxDistanceMonths: Number.isFinite(maxDistanceMonths) ? maxDistanceMonths : null,
+    catalogSource,
     contractCount: catalog.size,
     years: [...byYear.values()].map((entry) => ({
       ...entry,
@@ -135,13 +184,22 @@ export function densityFromIndexes({ mission, catalog, instrumentsByDay, calenda
 }
 
 // Densidad §0 a partir de los registros de cobertura del agregador (day-local,
-// sin volver a tener las filas crudas en memoria).
-export function measurePatch0FromCoverage({ coverageRecords, calendars, maxDistanceMonths = Infinity }) {
+// sin volver a tener las filas crudas en memoria). El catálogo del front sale
+// del reference cuando está disponible (`referenceRows`); sin él queda el
+// fallback declarado.
+export function measurePatch0FromCoverage({
+  coverageRecords,
+  calendars,
+  referenceRows = null,
+  referenceArea = null,
+  maxDistanceMonths = Infinity,
+}) {
   const results = [];
   for (const [mission, calendarDays] of Object.entries(calendars ?? {})) {
     if (!calendarDays || calendarDays.length === 0) continue;
-    const { catalog, instrumentsByDay } = indexesForMission(coverageRecords, mission);
-    results.push(densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths }));
+    const instrumentsByDay = coverageInstrumentsByDay(coverageRecords, mission);
+    const { catalog, catalogSource } = catalogForMission({ coverageRecords, referenceRows, referenceArea, mission });
+    results.push(densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths, catalogSource }));
   }
   return results.sort((a, b) => (a.mission < b.mission ? -1 : 1));
 }
@@ -153,11 +211,14 @@ export function measurePatch0Density({
   calendarDays,
   maxDistanceMonths = Infinity,
   brokenSpreadPolicy = DEFAULT_BROKEN_SPREAD_POLICY,
+  referenceRows = null,
+  referenceArea = null,
 }) {
   const eligible = rows.filter(
     (row) => classifyMission(row)?.mission === mission && isEligibleTrade(row, { brokenSpreadPolicy }),
   );
   const coverageRecords = coverageByInstrumentDay(eligible);
-  const { catalog, instrumentsByDay } = indexesForMission(coverageRecords, mission);
-  return densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths });
+  const instrumentsByDay = coverageInstrumentsByDay(coverageRecords, mission);
+  const { catalog, catalogSource } = catalogForMission({ coverageRecords, referenceRows, referenceArea, mission });
+  return densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths, catalogSource });
 }

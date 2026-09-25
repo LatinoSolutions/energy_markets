@@ -77,6 +77,15 @@ test("un inventario de escaneo con tableInventory tambien habilita la preferenci
   assert.equal(result.archiveAddsReference, true);
 });
 
+test("fail-closed: un dateMax ausente en el archivo cuenta como diferencia", () => {
+  const lake = { tables: ["eex_derivative_trade"], dateMax: "2026-07-28" };
+  const archive = { tables: ["eex_derivative_trade", "eex_derivative_reference"] };
+  const result = compareSourceInventories({ lakeInventory: lake, archiveInventory: archive });
+  assert.equal(result.comparable, true);
+  assert.equal(result.satisfiesArchivePreference, false);
+  assert.ok(result.differences.includes("archive.dateMax ausente"));
+});
+
 test("el manifest ata el artefacto a sus inputs sin acreditar acceptance", () => {
   const decision = buildDataSourceDecision(sourceCandidatesFixture());
   const manifest = buildTradesSourceManifest({

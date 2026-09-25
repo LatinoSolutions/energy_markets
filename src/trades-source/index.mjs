@@ -44,7 +44,7 @@ export {
 
 export { buildTradesInventory } from "./inventory.mjs";
 
-export { contractWindowsFromReference } from "./contract-windows.mjs";
+export { contractWindowsFromReference, measureReferenceExpiryRelation } from "./contract-windows.mjs";
 
 export { buildTradesMeasurement, detectSchemaChanges } from "./aggregate.mjs";
 
@@ -76,6 +76,7 @@ export {
   measurePatch0Density,
   measurePatch0FromCoverage,
   monthsToDelivery,
+  referenceCatalogForMission,
 } from "./patch0-density.mjs";
 
 export {

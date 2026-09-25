@@ -37,3 +37,38 @@ export function contractWindowsFromReference(referenceRows, { exchangeDaysBetwee
   }
   return windows;
 }
+
+// Relación `EndDate` ↔ `ExpiryDate` que pide el plan TR-01 ("contenido de
+// eex_derivative_reference ... relación con ExpiryDate"). `EndDate` es el último
+// día de negociación; `ExpiryDate` el vencimiento del contrato. Cuenta contratos
+// con EndDate anterior, igual o posterior a ExpiryDate. Sólo compara fechas
+// completas YYYY-MM-DD; una fecha ausente o inválida no se inventa y se declara.
+function normalizeCalendarDay(value) {
+  const text = String(value ?? "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+export function measureReferenceExpiryRelation(referenceRows) {
+  const summary = {
+    contractCount: 0,
+    withEndDate: 0,
+    withExpiryDate: 0,
+    comparable: 0,
+    endDateBeforeExpiry: 0,
+    endDateEqualsExpiry: 0,
+    endDateAfterExpiry: 0,
+  };
+  for (const row of referenceRows ?? []) {
+    summary.contractCount += 1;
+    const endDate = normalizeCalendarDay(row?.EndDate);
+    const expiryDate = normalizeCalendarDay(row?.ExpiryDate);
+    if (endDate !== null) summary.withEndDate += 1;
+    if (expiryDate !== null) summary.withExpiryDate += 1;
+    if (endDate === null || expiryDate === null) continue;
+    summary.comparable += 1;
+    if (endDate < expiryDate) summary.endDateBeforeExpiry += 1;
+    else if (endDate > expiryDate) summary.endDateAfterExpiry += 1;
+    else summary.endDateEqualsExpiry += 1;
+  }
+  return summary;
+}

@@ -67,9 +67,9 @@ test("monthsToDelivery mide meses hasta la entrega", () => {
 
 test("densidad de Gas Q front por año contra el calendario (no contra los trades)", () => {
   const rows = [
-    gasQuarterly("2021-01-04", "202103", "GAS-Q1-2021"),
-    gasQuarterly("2021-01-06", "202103", "GAS-Q1-2021"),
-    gasQuarterly("2022-02-01", "202203", "GAS-Q1-2022"),
+    gasQuarterly("2021-01-04", "202106", "GAS-Q1-2021"),
+    gasQuarterly("2021-01-06", "202106", "GAS-Q1-2021"),
+    gasQuarterly("2022-02-01", "202206", "GAS-Q1-2022"),
   ];
   const density = measurePatch0Density({
     rows,
@@ -112,4 +112,60 @@ test("densidad de Power M respeta la distancia maxima de 3 meses", () => {
   // 2021-06-15: ningun contrato cae dentro de los 3 meses (202105 ya entregado,
   // 202112 a 6 meses) -> dia sin trade del front.
   assert.equal(y2021.daysWithoutTrades, 1);
+});
+
+test("el front excluye el contrato en entrega (distancia 0) y usa el siguiente", () => {
+  const rows = [
+    powerMonthly("2021-03-31", "202104", "PWR-M-202104"),
+    powerMonthly("2021-04-01", "202105", "PWR-M-202105"),
+    powerMonthly("2021-04-02", "202105", "PWR-M-202105"),
+    powerMonthly("2021-04-06", "202105", "PWR-M-202105"),
+  ];
+  const density = measurePatch0Density({
+    rows,
+    mission: MISSION.POWER_MONTHLY,
+    calendarDays: ["2021-04-01", "2021-04-02", "2021-04-06"],
+    maxDistanceMonths: 3,
+  });
+  const y2021 = density.years.find((entry) => entry.year === "2021");
+  // 202104 esta en entrega en abril: no es front. El front es 202105, que cotiza
+  // los 3 dias -> 0 dias sin trades (antes daba 3).
+  assert.equal(y2021.exchangeDays, 3);
+  assert.equal(y2021.daysWithFrontTrade, 3);
+  assert.equal(y2021.daysWithoutTrades, 0);
+});
+
+test("el catalogo del front sale del reference, no de la presencia de trades", () => {
+  const referenceRows = [
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", InstrumentISIN: "PWR-M-202105", Maturity: "202105" }),
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", InstrumentISIN: "PWR-M-202106", Maturity: "202106" }),
+  ];
+  // El front real es 202105 pero no tuvo ningun trade; 202106 si cotiza. Con el
+  // catalogo del reference, los dias del front sin trades se cuentan y NO ceden
+  // el puesto al contrato siguiente.
+  const rows = [
+    powerMonthly("2021-04-01", "202106", "PWR-M-202106"),
+    powerMonthly("2021-04-02", "202106", "PWR-M-202106"),
+  ];
+  const density = measurePatch0Density({
+    rows,
+    mission: MISSION.POWER_MONTHLY,
+    calendarDays: ["2021-04-01", "2021-04-02"],
+    referenceRows,
+  });
+  const y2021 = density.years.find((entry) => entry.year === "2021");
+  assert.equal(density.catalogSource, "REFERENCE");
+  assert.equal(density.contractCount, 2);
+  assert.equal(y2021.daysWithFrontTrade, 0);
+  assert.equal(y2021.daysWithoutTrades, 2);
+});
+
+test("sin reference la densidad declara el catalogo de trades como fallback", () => {
+  const rows = [powerMonthly("2021-04-01", "202105", "PWR-M-202105")];
+  const density = measurePatch0Density({
+    rows,
+    mission: MISSION.POWER_MONTHLY,
+    calendarDays: ["2021-04-01"],
+  });
+  assert.equal(density.catalogSource, "TRADES_FALLBACK");
 });

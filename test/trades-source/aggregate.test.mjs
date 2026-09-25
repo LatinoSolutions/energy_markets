@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import {
   BROKEN_SPREAD_POLICIES,
+  MISSION,
   buildTradesMeasurement,
   createTradesMeasurementAccumulator,
   detectSchemaChanges,
@@ -88,6 +89,34 @@ test("la agregación day-local da exactamente el mismo resultado que la carga co
   delete dayLocal.sourceMeta;
   const fullLoad = buildTradesMeasurement({ rows });
   assert.deepEqual(dayLocal, fullLoad);
+});
+
+test("la densidad usa el catálogo del reference cuando se aporta", () => {
+  const rows = [
+    tradeRow({
+      TrdID: "1",
+      Cmdty: "POWER",
+      Area: "DE",
+      ShortCode: "DEBM",
+      InstrumentISIN: "PWR-M-202106",
+      Maturity: "202106",
+      TrdDate: "2021-04-01",
+      Tm: "2021-04-01T10:00:00Z",
+    }),
+  ];
+  const referenceRows = [
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", InstrumentISIN: "PWR-M-202105", Maturity: "202105" }),
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", InstrumentISIN: "PWR-M-202106", Maturity: "202106" }),
+  ];
+  const measurement = buildTradesMeasurement({
+    rows,
+    densityCalendars: { [MISSION.POWER_MONTHLY]: ["2021-04-01"] },
+    referenceRows,
+  });
+  assert.equal(measurement.patch0Density.length, 1);
+  assert.equal(measurement.patch0Density[0].catalogSource, "REFERENCE");
+  // El front 202105 no cotizó: el día cuenta como sin trades.
+  assert.equal(measurement.patch0Density[0].years[0].daysWithoutTrades, 1);
 });
 
 test("el acumulador falla si un día reaparece fuera de orden", () => {

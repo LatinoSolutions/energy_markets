@@ -54,6 +54,8 @@ export function createTradesMeasurementAccumulator({
   expected = null,
   densityCalendars = null,
   patch0MaxDistanceMonths = Infinity,
+  referenceRows = null,
+  referenceArea = null,
 } = {}) {
   const eligibility = aggregateEligibility([]);
   const brokenSpreadPolicies = {
@@ -212,6 +214,8 @@ export function createTradesMeasurementAccumulator({
       measurement.patch0Density = measurePatch0FromCoverage({
         coverageRecords: coverage,
         calendars: densityCalendars,
+        referenceRows,
+        referenceArea,
         maxDistanceMonths: patch0MaxDistanceMonths,
       });
     }
@@ -230,12 +234,16 @@ export function buildTradesMeasurement({
   expectedDays = undefined,
   densityCalendars = null,
   patch0MaxDistanceMonths = Infinity,
+  referenceRows = null,
+  referenceArea = null,
 }) {
   const accumulator = createTradesMeasurementAccumulator({
     brokenSpreadPolicy,
     expected: expectedDays !== undefined ? expectedDays : expected,
     densityCalendars,
     patch0MaxDistanceMonths,
+    referenceRows,
+    referenceArea,
   });
   const sorted = rows
     .map((row, index) => ({ row, index }))

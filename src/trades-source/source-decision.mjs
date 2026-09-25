@@ -75,6 +75,11 @@ export function compareSourceInventories({ lakeInventory, archiveInventory }) {
   }
   const lakeMaxDate = lakeInventory.dateMax ?? null;
   const archiveMaxDate = archiveInventory.dateMax ?? null;
+  // Fail-closed: una fecha ausente no deja pasar la comparación. El `_meta` del
+  // archivo puede no traer `dateMax`; sin fecha no se puede afirmar que el
+  // archivo no pierde cobertura, así que cuenta como diferencia.
+  if (archiveMaxDate === null) differences.push("archive.dateMax ausente");
+  if (lakeMaxDate === null) differences.push("lake.dateMax ausente");
   if (archiveMaxDate !== null && lakeMaxDate !== null && archiveMaxDate < lakeMaxDate) {
     differences.push("archive.dateMax < lake.dateMax");
   }

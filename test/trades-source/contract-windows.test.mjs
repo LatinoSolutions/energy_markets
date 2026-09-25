@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   contractWindowsFromReference,
   coverageByInstrumentDay,
+  measureReferenceExpiryRelation,
   summarizeInstrumentCoverage,
 } from "../../src/trades-source/index.mjs";
 import { tradeRow } from "./fixtures.mjs";
@@ -42,4 +43,21 @@ test("cobertura + ventana de contrato cuenta faltantes al inicio y al final", ()
   assert.equal(summary[0].instrument, "ISIN-A");
   assert.equal(summary[0].daysWithoutTrades, 3);
   assert.equal(summary[0].density, 2 / 5);
+});
+
+test("mide la relación EndDate (último día de negociación) vs ExpiryDate por contrato", () => {
+  const referenceRows = [
+    tradeRow({ InstrumentISIN: "ISIN-A", StartDate: "2025-11-01", EndDate: "2025-11-21", ExpiryDate: "2025-11-25" }),
+    tradeRow({ InstrumentISIN: "ISIN-B", StartDate: "2025-11-01", EndDate: "2025-11-25", ExpiryDate: "2025-11-25" }),
+    tradeRow({ InstrumentISIN: "ISIN-C", StartDate: "2025-11-01", EndDate: "2025-11-28", ExpiryDate: "2025-11-25" }),
+    tradeRow({ InstrumentISIN: "ISIN-D", StartDate: "2025-11-01", EndDate: "", ExpiryDate: "2025-11-25" }),
+  ];
+  const relation = measureReferenceExpiryRelation(referenceRows);
+  assert.equal(relation.contractCount, 4);
+  assert.equal(relation.withEndDate, 3);
+  assert.equal(relation.withExpiryDate, 4);
+  assert.equal(relation.comparable, 3);
+  assert.equal(relation.endDateBeforeExpiry, 1);
+  assert.equal(relation.endDateEqualsExpiry, 1);
+  assert.equal(relation.endDateAfterExpiry, 1);
 });
