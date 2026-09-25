@@ -22,7 +22,7 @@ Regenerate the fixture pages with `node docs/product/ui-fidelity/render-fixture-
 
 | Element | Golden | Before | After |
 |---|---|---|---|
-| Top banner | Striped dark band | Missing | Same band and geometry. The text states the data regime (read-only, canonical only, unknown stays UNAVAILABLE / NOT CLOSED, no real execution) instead of "synthetic demo". |
+| Top banner | Striped dark band | Missing | Same band and geometry. The text states the data regime instead of "synthetic demo". Since BT-05 (P-009, Bru 2026-09-25) it reads "OPERATOR INTERFACE · runs simulated backtests only · no real trading from this UI · unknown stays UNAVAILABLE / NOT CLOSED, never a value" (`src/ui/render.mjs` `renderShellTop`). |
 | Tabs | 4 tabs: `1 · navigate / Campaigns & Runs` … `4 · strategy lab / Research`, two lines each | One-line Spanish/English labels, order Replay → Campaigns | Golden order, two-line tabs, same widths and active underline |
 | Keyboard 1–4 | Campaigns, Replay, Backtests, Research | Replay, Backtests, Research, Campaigns; set only `#hash`, which does nothing on served routes | Golden order; follows the served route (`/replay` …) |
 | Right tools | Semantics key button plus a two-line as-of clock | Button plus a clipped label | Golden button and clock. As-of shows the canonical evaluation as-of on Replay, otherwise `UNAVAILABLE`. |
@@ -95,6 +95,6 @@ Regenerate the fixture pages with `node docs/product/ui-fidelity/render-fixture-
 ## Contract checks kept
 
 - `src/ui/view-models.mjs` and `src/ui/binding.mjs` are unchanged: same binding, the same fail-closed rules and the same UNAVAILABLE / ERROR states.
-- The server is still read-only (GET/HEAD only), with the same routes and health payload.
+- The UI routes are still GET/HEAD only, with the same routes and health payload. Since BT-05 (owner request 25-sep-2026) the only write is `POST /api/backtest-jobs`, which launches a simulated backtest in the backend (`src/backtest-jobs/http.mjs`); it answers 503 when no job runner is configured.
 - Every attribute contract from UI-01/UI-02/UI-03 is preserved: `data-view-scope`, `data-event-class`, `data-real`, `data-arm` / `data-measure` only when backed by the record, provenance attributes, drill-downs, `data-status`.
 - The new structural tests (`test/ui/ui-fidelity.test.mjs`) pin the golden composition. They also check that no mockup demo fact leaks (`SYN-`, `Cal-27`, `Tranche-trigger`, committee, the 84-day rule, 90 %…).
