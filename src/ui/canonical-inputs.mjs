@@ -82,6 +82,12 @@ export function loadExploratoryBacktestAt(repoRoot) {
   return { ok: true, results, provenance: { manifestPath: EXPLORATORY_MANIFEST_PATH, resultsPath: manifest.results.path, resultsSha256: manifest.results.sha256, slotsSha256: manifest.slots.sha256 } };
 }
 
+export function containsOfficialStatus(value) {
+  if (value === "OFFICIAL") return true;
+  if (value === null || typeof value !== "object") return false;
+  return Object.values(value).some(containsOfficialStatus);
+}
+
 // BT-03: sólo entrega el registro de medición después de comprobar el artifact
 // BT-02, cada una de sus entradas declaradas y la identidad del producer.
 // Las mediciones conservan así el binding al manifiesto y al resultado backend.
@@ -134,6 +140,12 @@ export function loadBacktestReadinessAt(repoRoot) {
     || results.status !== manifest.status
     || !Array.isArray(results.campaigns)) {
     return { ok: false, code: "BT02_ARTIFACT_INVALID", path: manifest.artifact.path };
+  }
+  // Plan BT-03 (BACKTEST_TABLE_UNLOCK_PLAN.md §BT-03): official/canonical sigue
+  // unavailable donde falta evidencia; un artifact EXPLORATORY_PROVISIONAL no la
+  // aporta, así que cualquier estado OFFICIAL dentro de él se rechaza entero.
+  if (containsOfficialStatus(results)) {
+    return { ok: false, code: "BT02_OFFICIAL_WITHOUT_EVIDENCE", path: manifest.artifact.path };
   }
   for (const [name, entry] of Object.entries(manifest.inputs)) {
     const declared = results.inputs?.[name];

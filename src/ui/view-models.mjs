@@ -16,6 +16,7 @@ import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
+import { containsOfficialStatus } from "./canonical-inputs.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
@@ -120,7 +121,8 @@ export function projectBacktestReadiness(readiness) {
   if (readiness?.ok !== true
     || results?.artifactKind !== "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION"
     || results.status !== "EXPLORATORY_PROVISIONAL"
-    || !Array.isArray(results.campaigns)) {
+    || !Array.isArray(results.campaigns)
+    || containsOfficialStatus(results)) {
     return null;
   }
   return {

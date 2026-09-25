@@ -613,24 +613,45 @@ function comparisonTableHtml(block) {
   return `<table class="t"><thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B* · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">ΔV vs baseline · k€</th><th>Range (paired)</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
 }
 
+// Sin chip "Official": el registro BT-02 es EXPLORATORY_PROVISIONAL y el loader
+// rechaza cualquier OFFICIAL dentro de él (plan BT-03, official sigue unavailable).
 function measurementStatusChip(status) {
-  if (status === "OFFICIAL") return chip("pass", "✓", "Official");
   if (status === "PROVISIONAL" || status === "BENCHMARK_PROVISIONAL" || status === "EXPLORATORY_PROVISIONAL") return chip("warn", "~", "Provisional");
   if (status === "PARTIAL") return chip("open", "○", "Partial");
-  if (status === "UNAVAILABLE" || status === null || status === undefined) return chip("unk", "?", "Unavailable");
   if (status === "NOT_APPLICABLE") return chip("na", "—", "N/A");
-  return chip("unk", "?", status);
+  return chip("unk", "?", "Unavailable");
 }
 
-function measurementCell(value, status, unit, readiness) {
-  if (typeof value !== "number" || !Number.isFinite(value)
-    || !["OFFICIAL", "PROVISIONAL", "BENCHMARK_PROVISIONAL", "PARTIAL"].includes(status)) {
+const SHOWN_MEASUREMENT_STATUSES = ["PROVISIONAL", "BENCHMARK_PROVISIONAL", "PARTIAL"];
+
+// El backend puede declarar PARTIAL sin valor (§5.5: la cobertura incompleta no se
+// pliega dentro de V); se muestra como Partial, no como Unavailable.
+function measurementCell(value, status, unit, readiness, { signed = false } = {}) {
+  const hasValue = typeof value === "number" && Number.isFinite(value);
+  if (!hasValue) {
     if (status === "NOT_APPLICABLE") return measurementStatusChip(status);
+    if (status === "PARTIAL") return `<span class="withheld" data-status="PARTIAL">NO VALUE</span> ${measurementStatusChip(status)}`;
     return `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> ${measurementStatusChip("UNAVAILABLE")}`;
   }
-  const formatted = `${value > 0 ? "+" : ""}${value.toFixed(3)}${unit}`;
+  if (!SHOWN_MEASUREMENT_STATUSES.includes(status)) {
+    return `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> ${measurementStatusChip("UNAVAILABLE")}`;
+  }
+  const sign = signed && value > 0 ? "+" : "";
+  const formatted = `${sign}${value.toFixed(3)}${unit}`;
   const provenance = readiness.provenance;
-  return `<span class="value mono" data-value="${esc(value)}" data-artifact-sha="${esc(provenance.artifactSha256)}">${esc(formatted)}</span> ${measurementStatusChip(status)}<div class="tiny muted">artifact ${esc(provenance.artifactPath)} · sha256 ${esc(provenance.artifactSha256.slice(0, 12))}…</div>`;
+  return `<span class="value mono" data-status="${esc(status)}" data-value="${esc(value)}" data-artifact-sha="${esc(provenance.artifactSha256)}">${esc(formatted)}</span> ${measurementStatusChip(status)}<div class="tiny muted">artifact ${esc(provenance.artifactPath)} · sha256 ${esc(provenance.artifactSha256.slice(0, 12))}…</div>`;
+}
+
+// §5.5: "Cobertura incompleta se informa por separado y no se oculta dentro de V".
+function coverageCell(arm) {
+  if (arm == null) return `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span>`;
+  const bought = Number.isFinite(arm.boughtMw) ? arm.boughtMw : "?";
+  const target = Number.isFinite(arm.targetMw) ? arm.targetMw : "?";
+  const completeness = arm.coverageCompleteness ?? "UNAVAILABLE";
+  const coverageChip = completeness === "FULL"
+    ? chip("na", "■", "Full")
+    : completeness === "PARTIAL" ? chip("open", "○", "Partial coverage") : chip("unk", "?", "Unavailable");
+  return `<span class="mono" data-coverage="${esc(completeness)}">${esc(bought)} / ${esc(target)} MW</span> ${coverageChip}`;
 }
 
 function backtestMeasurementHtml(readiness) {
@@ -653,11 +674,12 @@ function backtestMeasurementHtml(readiness) {
       const bStatus = benchmark?.status ?? "UNAVAILABLE";
       return `<tr data-campaign="${esc(campaign.campaignKey)}" data-status="${esc(campaign.status)}" data-arm="${esc(arm?.armId ?? "UNAVAILABLE")}" data-artifact-sha="${esc(provenance.artifactSha256)}">
         <td><span class="mono">${esc(campaign.campaignKey)}</span><div class="tiny muted">${esc(campaign.product ?? "product unavailable")} · ${esc(campaign.maturity ?? "maturity unavailable")}</div></td>
-        <td>${esc(arm?.armId ?? "UNAVAILABLE")}<div class="tiny muted">${esc(campaign.campaignReadiness ?? campaign.status)}</div></td>
+        <td>${esc(arm?.armId ?? "UNAVAILABLE")}<div class="tiny muted">${esc(arm ? `run ${arm.runStatus ?? "UNAVAILABLE"}` : campaign.campaignReadiness ?? campaign.status)}</div></td>
+        <td>${coverageCell(arm)}</td>
         <td class="right">${measurementCell(bValue, bStatus, " €/MWh", readiness)}<div class="tiny muted" data-artifact-sha="${esc(provenance.artifactSha256)}">coverage ${esc(benchmark?.coverage ?? "UNAVAILABLE")}</div></td>
-        <td class="right">${measurementCell(arm?.hEurMwh, arm?.hCostCompleteness, " €/MWh", readiness)}${arm?.hCostReason ? `<div class="tiny muted">${esc(arm.hCostReason)}</div>` : ""}</td>
-        <td class="right">${measurementCell(arm?.vEurMwh, arm?.vStatus, " €/MWh", readiness)}${arm?.vReason ? `<div class="tiny muted">${esc(arm.vReason)}</div>` : ""}</td>
-        <td class="right">${measurementCell(arm?.deltaVEurMwh, arm?.deltaVStatus, " €/MWh", readiness)}${arm?.deltaVReason ? `<div class="tiny muted">${esc(arm.deltaVReason)}</div>` : ""}</td>
+        <td class="right">${measurementCell(arm?.hEurMwh, arm?.hCostCompleteness, " €/MWh", readiness)}${arm?.coverageCompleteness === "PARTIAL" ? `<div class="tiny muted" data-coverage="PARTIAL">over ${esc(arm.boughtMw ?? "?")} / ${esc(arm.targetMw ?? "?")} MW only</div>` : ""}${arm?.hCostReason ? `<div class="tiny muted">${esc(arm.hCostReason)}</div>` : ""}</td>
+        <td class="right">${measurementCell(arm?.vEurMwh, arm?.vStatus, " €/MWh", readiness, { signed: true })}${arm?.vReason ? `<div class="tiny muted">${esc(arm.vReason)}</div>` : ""}</td>
+        <td class="right">${measurementCell(arm?.deltaVEurMwh, arm?.deltaVStatus, " €/MWh", readiness, { signed: true })}${arm?.deltaVReason ? `<div class="tiny muted">${esc(arm.deltaVReason)}</div>` : ""}</td>
         <td>${blockers.length > 0 ? blockers.map((reason) => `<div class="tiny muted">${esc(reason)}</div>`).join("") : measurementStatusChip(campaign.status)}</td>
       </tr>`;
     });
@@ -666,7 +688,7 @@ function backtestMeasurementHtml(readiness) {
   return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="${esc(readiness.status)}">
     <div class="hd"><h3>Campaign measurements · backend readiness</h3>${measurementStatusChip(readiness.status)}<span class="grow"></span><span class="tiny muted">BT-02 · verified artifact</span></div>
     <div class="bd"><p class="tiny muted">Values and statuses are projected from ${esc(provenance.artifactPath)}; no economic calculation is performed in the UI. Provisional and partial measurements retain their backend blockers.</p>
-      <div style="overflow:auto"><table class="t"><thead><tr><th>Campaign</th><th>Arm</th><th class="right">B · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · €/MWh</th><th class="right">ΔV · €/MWh</th><th>Readiness / blockers</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+      <div style="overflow:auto"><table class="t"><thead><tr><th>Campaign</th><th>Arm</th><th>Coverage (bought / target)</th><th class="right">B · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · €/MWh</th><th class="right">ΔV · €/MWh</th><th>Readiness / blockers</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
       <div class="chk" data-status="${esc(official.status)}"><span><b>Official / canonical</b></span>${measurementStatusChip(official.status)}<span class="d">${esc(official.reason)}</span><span class="tiny muted">manifest sha256 ${esc(provenance.manifestSha256)}</span></div>
     </div>
   </section>`;
