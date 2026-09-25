@@ -267,14 +267,45 @@ def run_lake(lake_root, market, products, start, end, out_path, source_decision,
     return document
 
 
+# Estados de TR-01 que acreditan una fuente CANONICAL. Mientras el archivo del
+# cliente no esté verificado, la decisión queda PENDING_ARCHIVE_VERIFICATION /
+# PROVISIONAL_ONLY / failClosed y NO acredita acceptance (source-decision.mjs
+# §35-40,166-172). Extraer del lago con ese estado produce una versión Power
+# apoyada en una fuente provisional: se rechaza fail-closed.
+ACCEPTED_SOURCE_DECISION_STATUSES = frozenset({"DECIDED", "DECIDED_FALLBACK_LAKE"})
+CANONICAL_SOURCE_ROLE = "CANONICAL"
+
+
 def read_source_decision(path):
     with open(path, "rb") as handle:
         body = handle.read()
     decision = json.loads(body)
+    status = decision.get("status")
     selected = decision.get("selectedSource")
+    role = decision.get("selectedSourceRole")
+    fail_closed = decision.get("failClosed")
+    if fail_closed is not False:
+        raise SystemExit(
+            f"TR-01 no cerró la decisión (failClosed={fail_closed!r}, status={status!r}): la fuente es provisional, no canónica"
+        )
+    if status not in ACCEPTED_SOURCE_DECISION_STATUSES:
+        raise SystemExit(
+            f"TR-01 no declaró una decisión definitiva (status={status!r}); aceptados: {sorted(ACCEPTED_SOURCE_DECISION_STATUSES)}"
+        )
+    if role != CANONICAL_SOURCE_ROLE:
+        raise SystemExit(
+            f"TR-01 no declaró la fuente como CANONICAL (selectedSourceRole={role!r})"
+        )
     if selected != "EEX_LAKE":
         raise SystemExit(f"TR-01 no eligió EEX_LAKE (selectedSource={selected!r}); no se extrae de otra fuente")
-    return {"path": path, "sha256": hashlib.sha256(body).hexdigest(), "status": decision.get("status"), "selectedSource": selected}
+    return {
+        "path": path,
+        "sha256": hashlib.sha256(body).hexdigest(),
+        "status": status,
+        "selectedSource": selected,
+        "selectedSourceRole": role,
+        "failClosed": fail_closed,
+    }
 
 
 def main():

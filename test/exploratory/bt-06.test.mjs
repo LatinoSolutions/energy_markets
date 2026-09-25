@@ -81,12 +81,24 @@ pq.write_table(table, os.path.join(folder, "part.parquet"))
 `;
     assert.equal(spawnSync("python3", ["-c", fixture, lake], { encoding: "utf8" }).status, 0);
     const out = path.join(workspace, "tob.json");
-    const decision = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
+    // Sólo una decisión definitiva de TR-01 (DECIDED_FALLBACK_LAKE / CANONICAL /
+    // failClosed false) habilita la extracción. La decisión real de TR-01 hoy es
+    // provisional y no acredita acceptance, así que la prueba usa el fixture.
+    const decision = path.join(workspace, "DECIDED_FALLBACK_LAKE.json");
+    writeFileSync(decision, JSON.stringify({
+      status: "DECIDED_FALLBACK_LAKE",
+      selectedSource: "EEX_LAKE",
+      selectedSourceRole: "CANONICAL",
+      failClosed: false,
+    }));
     const run = spawnSync("python3", [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ,DEBM", "--lake-root", lake, "--source-decision", decision, "--out", out], { encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const document = JSON.parse(readFileSync(out, "utf8"));
     assert.equal(document.market, "POWER_DE");
     assert.equal(document.sourceDecision.selectedSource, "EEX_LAKE");
+    assert.equal(document.sourceDecision.status, "DECIDED_FALLBACK_LAKE");
+    assert.equal(document.sourceDecision.selectedSourceRole, "CANONICAL");
+    assert.equal(document.sourceDecision.failClosed, false);
     assert.match(document.sourceDecision.sha256, /^[0-9a-f]{64}$/);
     assert.deepEqual(document.products, ["DEBM", "DEBQ"]);
     assert.deepEqual(Object.keys(document.series).sort(), ["DEBM|202602", "DEBQ|202601"]);
@@ -108,6 +120,7 @@ test("BT-06 loader: la agregación consume un iterable (no acumula las filas del
     const module = loader;
     const script = `
 import importlib.util, sys, json
+sys.dont_write_bytecode = True  # no dejar __pycache__ en el repo al importar el loader
 from datetime import date
 spec = importlib.util.spec_from_file_location("bt06", ${JSON.stringify(module)})
 mod = importlib.util.module_from_spec(spec)
@@ -135,14 +148,38 @@ print(json.dumps({"consumed": consumed["n"], "series": list(series), "counts": d
   }
 });
 
-test("BT-06 loader: una fuente que TR-01 no eligió, o sin decisión, falla cerrada", () => {
+test("BT-06 loader: una decisión provisional de TR-01 no acredita la fuente y falla cerrada", () => {
   const workspace = mkdtempSync(path.join(tmpdir(), "bt06-source-"));
   try {
-    const decision = path.join(workspace, "decision.json");
-    writeFileSync(decision, JSON.stringify({ selectedSource: "CLIENT_SEALED_ARCHIVE", status: "PENDING_ARCHIVE_VERIFICATION" }));
-    const run = spawnSync("python3", [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--source-decision", decision, "--out", path.join(workspace, "out.json")], { encoding: "utf8" });
-    assert.notEqual(run.status, 0);
-    assert.match(run.stderr, /no eligió EEX_LAKE/);
+    const args = (decision, out) => [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--source-decision", decision, "--out", path.join(workspace, out)];
+
+    // La decisión REAL de TR-01 hoy es PENDING_ARCHIVE_VERIFICATION /
+    // PROVISIONAL_ONLY / failClosed: el job no arranca sobre una fuente provisional.
+    const provisional = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
+    const provisionalRun = spawnSync("python3", args(provisional, "provisional.json"), { encoding: "utf8" });
+    assert.notEqual(provisionalRun.status, 0);
+    assert.match(provisionalRun.stderr, /no cerró la decisión|provisional/);
+
+    // failClosed true aunque el status y la fuente parezcan definitivos.
+    const failClosed = path.join(workspace, "fail-closed.json");
+    writeFileSync(failClosed, JSON.stringify({ status: "DECIDED_FALLBACK_LAKE", selectedSource: "EEX_LAKE", selectedSourceRole: "CANONICAL", failClosed: true }));
+    const failClosedRun = spawnSync("python3", args(failClosed, "fail-closed-out.json"), { encoding: "utf8" });
+    assert.notEqual(failClosedRun.status, 0);
+    assert.match(failClosedRun.stderr, /no cerró la decisión/);
+
+    // Status provisional aunque failClosed ya esté en false.
+    const pending = path.join(workspace, "pending.json");
+    writeFileSync(pending, JSON.stringify({ status: "PENDING_ARCHIVE_VERIFICATION", selectedSource: "EEX_LAKE", selectedSourceRole: "PROVISIONAL_ONLY", failClosed: false }));
+    const pendingRun = spawnSync("python3", args(pending, "pending-out.json"), { encoding: "utf8" });
+    assert.notEqual(pendingRun.status, 0);
+    assert.match(pendingRun.stderr, /decisión definitiva|PROVISIONAL_ONLY/);
+
+    // Decisión definitiva pero de otra fuente: no se extrae del archivo.
+    const archive = path.join(workspace, "archive.json");
+    writeFileSync(archive, JSON.stringify({ status: "DECIDED", selectedSource: "CLIENT_SEALED_ARCHIVE", selectedSourceRole: "CANONICAL", failClosed: false }));
+    const archiveRun = spawnSync("python3", args(archive, "archive-out.json"), { encoding: "utf8" });
+    assert.notEqual(archiveRun.status, 0);
+    assert.match(archiveRun.stderr, /no eligió EEX_LAKE/);
 
     const noDecision = spawnSync("python3", [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--out", path.join(workspace, "out.json")], { encoding: "utf8" });
     assert.notEqual(noDecision.status, 0);
