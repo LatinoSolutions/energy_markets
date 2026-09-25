@@ -113,7 +113,7 @@ print(len(rows), after - before)
 `;
 
 test("leer parquet no arranca hilos nativos de Arrow (aborto intermitente en el shutdown)", () => {
-  const [rowCount, extraThreads] = execFileSync("python3", ["-c", COUNT_THREADS_AFTER_READ, SCRIPT], {
+  const [rowCount, extraThreads] = execFileSync("python3", ["-B", "-c", COUNT_THREADS_AFTER_READ, SCRIPT], {
     encoding: "utf8",
   }).trim().split(" ").map(Number);
   assert.equal(rowCount, 1);
