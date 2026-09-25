@@ -233,6 +233,43 @@ test("BT-05: el snapshot exploratorio real del repo verifica por hash contra su 
   assert.equal(verified.committedResults.path, BT02_RELEASES[BT02_CURRENT_RELEASE].exploratoryResults);
 });
 
+// P-011 (Bru 2026-09-25): "El job corre sobre el snapshot de slots existente, sin extracción
+// del lago (la extracción pesada es de los jobs de TR-01/TR-03)". El extractor del lago de la
+// release (build_tob_slots.py, LAKE en su línea 24) sólo se coteja por hash, nunca se ejecuta.
+test("BT-05 P-011: el job lanza un solo proceso, el generador node sobre el snapshot de slots commiteado; nunca el extractor del lago", async () => {
+  const repo = makeFixtureRepo();
+  const spawnLog = path.join(mkdtempSync(path.join(tmpdir(), "bt05-spawn-")), "argv.log");
+  const recordingNode = path.join(path.dirname(spawnLog), "node");
+  writeFileSync(recordingNode, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${spawnLog}"\nexec "${process.execPath}" "$@"\n`, { mode: 0o755 });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root, nodeBinary: recordingNode });
+
+  const receipt = await runner.start({ requestedBy: "ui" }).done;
+  assert.equal(receipt.status, JOB_STATUS.SUCCEEDED, JSON.stringify(receipt.failure));
+
+  const invocations = readFileSync(spawnLog, "utf8").split("\n").filter((line) => line.length > 0);
+  assert.equal(invocations.length, 1, invocations.join("\n"));
+  const argv = invocations[0].split(" ");
+  assert.ok(argv.some((arg) => arg.endsWith(`/workspace/${EXPLORATORY_ENTRY}`)), invocations[0]);
+  assert.ok(argv.includes(SLOTS_PATH), invocations[0]);
+  assert.ok(!argv.some((arg) => arg.endsWith(".py")), invocations[0]);
+});
+
+test("BT-05 P-011: el generador real de la release vigente sólo lee el snapshot de slots y el calendario; no toca el lago ni lanza procesos", () => {
+  const extractor = path.posix.join(path.posix.dirname(EXPLORATORY_MANIFEST_PATH), "build_tob_slots.py");
+  const manifest = JSON.parse(readFileSync(path.join(DEFAULT_REPO_ROOT, EXPLORATORY_MANIFEST_PATH), "utf8"));
+  assert.ok(manifest.generators.some((generator) => generator.path === extractor), "el extractor del lago figura sólo como generador cotejado por hash");
+  assert.notEqual(manifest.slots.path, extractor);
+
+  const sources = [EXPLORATORY_ENTRY, "src/exploratory/backtest.mjs", "src/exploratory/comparison.mjs"];
+  for (const source of sources) {
+    const text = readFileSync(path.join(DEFAULT_REPO_ROOT, source), "utf8");
+    assert.ok(!/child_process|EEX_TOB_LAKE|\/srv\/hot-data\/EEX/.test(text), `${source} no debe tocar el lago ni lanzar procesos`);
+  }
+  const entryReads = [...readFileSync(path.join(DEFAULT_REPO_ROOT, EXPLORATORY_ENTRY), "utf8").matchAll(/readFileSync\(([^,)]+)/g)].map((match) => match[1].trim());
+  // slotsPath (argv), el calendario y `path` (hash de los generadores ya copiados al workspace).
+  assert.deepEqual(entryReads.sort(), ['"operations/audit/IMP-09/eex-exchange-calendar.json"', "path", "slotsPath"]);
+});
+
 // Hallazgo BT05-RELEASE-13 (review 25-sep-2026): el botón de la página que muestra v2 lanzaba la v1 superada.
 test("BT-05 release: el job corre la release vigente, la misma que carga la UI", () => {
   assert.equal(EXPLORATORY_RELEASE, BT02_CURRENT_RELEASE);

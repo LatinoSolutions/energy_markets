@@ -15,6 +15,11 @@ La release queda en el receipt (`inputs.release`). Antes de arrancar verifica po
 slots y cada generador del manifest; si algo no coincide, no arranca (`INPUT_HASH_MISMATCH`);
 si el manifest no es el de la release vigente, tampoco (`RELEASE_MISMATCH`). No lee el lago EEX.
 
+Sin extracción del lago (Bru, P-011 2026-09-25: "El job corre sobre el snapshot de slots
+existente, sin extracción del lago (la extracción pesada es de los jobs de TR-01/TR-03)").
+El extractor de la release (`build_tob_slots.py`) sólo se coteja por hash; el único proceso
+que lanza el job es el generador node sobre el snapshot commiteado (test `BT-05 P-011`).
+
 Corre como proceso hijo de `energy-markets-ui.service`, así que cuenta dentro de su
 cgroup (MemoryMax 2G, provisional).
 
@@ -80,6 +85,12 @@ backtest exploratorio in-sample sobre el snapshot fijado: no consume ni re-sella
 El receipt guarda `memory.childMaxRssKb` (pico propio del job),
 `memory.cgroupMemoryPeakBytesBefore/After` (memory.peak del servicio completo desde que
 arrancó) y `memory.cgroupOomKillsDuringRun`. Con esos datos se fija el techo de EM.
+
+Secuencia autorizada por Bru (P-011, 2026-09-25): la Oficina integra BT-05 en `main` y
+reinicia `energy-markets-ui.service`; Bru lanza el primer backtest real desde el botón y el
+techo (`MemoryMax`, hoy 2G provisional) se fija con el `memory.peak` de ese receipt. Si el
+run muere por el techo actual, el receipt cierra `OOM_KILLED` y ese pico no mide la necesidad
+real, solo el techo.
 
 ## Valores provisionales (no canónicos)
 
