@@ -16,8 +16,8 @@
 //     comando autorizado BT-05 (owner request 25-sep-2026) bajo /api/backtest-jobs,
 //     que lanza el backtest en el backend y deja su receipt (§26.5); ver
 //     ../backtest-jobs/http.mjs. Sin ejecutor configurado responde 503.
-//     El botón en /backtests NO se sirve hasta que Bru apruebe la propuesta
-//     visual (gate de la fila BT-05); ver ./backtest-job-panel.mjs.
+//     Con ejecutor, /backtests lleva el botón (Bru aprobó con cambios, P-009
+//     2026-09-25); ver ./backtest-job-panel.mjs.
 //   - Rutas estables independientes del estado de los datos: /, /health,
 //     /replay, /backtests, /research, /campaigns. Las restantes → 404
 //     fail-closed.
@@ -40,7 +40,8 @@ import {
 } from "./view-models.mjs";
 import { renderNavigationPage, renderSurfacePage } from "./render.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
-import { handleBacktestJobsRequest, isBacktestJobsPath } from "../backtest-jobs/http.mjs";
+import { backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath } from "../backtest-jobs/http.mjs";
+import { withBacktestJobControl } from "./backtest-job-panel.mjs";
 
 export const DEFAULT_UI_HOST = "127.0.0.1";
 export const DEFAULT_UI_PORT = 8787;
@@ -140,6 +141,16 @@ function sendResponse(res, { status, contentType, body }) {
   res.end(body);
 }
 
+// Si el estado del job no se puede leer, el control se sirve igual con la línea
+// "Backtest status unavailable": la página no cae y no se inventa un estado.
+function jobStatusForPage(jobRunner) {
+  try {
+    return backtestJobStatusPayload(jobRunner);
+  } catch {
+    return null;
+  }
+}
+
 // `backend` describe qué cargó el arrancador (ver ./canonical-inputs.mjs), para que
 // /health distinga "sin manifest" de "manifest cargado con 0 valores atestados".
 // `jobRunner` (BT-05) es el ejecutor de ../backtest-jobs/runner.mjs; null = sin
@@ -190,6 +201,9 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
     } catch (error) {
       sendResponse(res, { status: 500, contentType: "text/html; charset=utf-8", body: failClosedPage("Energy Markets — error de render", "RENDER_FAILED", `La superficie no pudo renderizarse fail-closed: ${String(error?.message ?? error)}`) });
       return;
+    }
+    if (route.surface === SURFACES.BACKTESTS && jobRunner !== null) {
+      html = withBacktestJobControl(html, jobStatusForPage(jobRunner));
     }
     sendResponse(res, { status: 200, contentType: "text/html; charset=utf-8", body: adaptLinksForServing(html) });
   });

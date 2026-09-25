@@ -869,6 +869,8 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     start,
     status,
     get,
+    // Reloj del runner: la línea de estado (./display.mjs) mide el tiempo transcurrido con él.
+    now,
     // Para tests y apagado ordenado: espera al job en curso de este proceso si lo hay.
     waitForIdle: () => (active?.done ?? Promise.resolve(null)),
   };

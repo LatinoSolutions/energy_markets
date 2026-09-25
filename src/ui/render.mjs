@@ -104,7 +104,7 @@ function clockHtml(clock) {
 }
 
 function renderShellTop(active, clock) {
-  return `<div class="regime">OPERATOR INTERFACE · read-only · only canonical backend data is drawn · unknown stays <b>UNAVAILABLE</b> / <b>NOT CLOSED</b>, never a value · no real execution from this UI</div>
+  return `<div class="regime">OPERATOR INTERFACE · runs simulated backtests only · no real trading from this UI · unknown stays <b>UNAVAILABLE</b> / <b>NOT CLOSED</b>, never a value</div>
 <header class="top em-top" role="banner">
   <div class="brand"><div class="name">Energy Markets</div><div class="sub">PROCUREMENT RESEARCH</div></div>
   ${navHtml(active)}

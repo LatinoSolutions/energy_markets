@@ -6,11 +6,20 @@ dentro del diseno visual ya aprobado en UI-03; sin paneles ni formularios extra.
 antes de implementar la UI, entregar a Bru una propuesta visual (captura) y esperar su
 aprobacion".
 
-Estado: **PROPUESTA, NO APROBADA.** Mientras no conste la aprobación de Bru, la app no
-sirve el control (`src/ui/server.mjs` no lo inserta; test "BT-05 gate UI"). El endpoint
-backend `/api/backtest-jobs` y la tool MCP sí funcionan.
+Estado: **APROBADA CON CAMBIOS** por Bru, P-009 (2026-09-25), sin captura nueva. Cambios
+pedidos, ya aplicados en el código (tests "BT-05 P-009" en `test/backtest-jobs/bt-05.test.mjs`):
+1. Línea de estado en frase completa, sin notación ni `NONE` (la arma el backend,
+   `src/backtest-jobs/display.mjs`).
+2. Mientras corre: `Running · started 15:00 UTC · 3 min elapsed`, con inicio y tiempo
+   transcurrido publicados por el backend.
+3. Franja superior: `OPERATOR INTERFACE · runs simulated backtests only · no real trading
+   from this UI · unknown stays UNAVAILABLE / NOT CLOSED, never a value`.
 
-## Qué se propone
+`src/ui/server.mjs` sirve el control en `/backtests` cuando hay ejecutor configurado.
+Las capturas de abajo son las de la propuesta original: muestran la línea en el formato
+anterior (`SUCCEEDED · <ISO> · CURRENT · —`) y la franja anterior; no reflejan los 3 cambios.
+
+## Qué se propuso (antes de P-009)
 
 - Zona: cabecera de la página Backtests, a la derecha del título, junto a las etiquetas de brazos.
 - Un botón `Run backtest` (clase `.btn` de UI-03) y debajo una sola línea de estado copiada
@@ -32,8 +41,6 @@ Los valores del job en las capturas son **ILUSTRATIVOS** (run_id de ceros): no s
 Regenerar: `node evidence/BT-05/ui-proposal/make-proposal.mjs` escribe `backtests-{idle,running}.html`;
 la captura se tomó con Chromium headless (Playwright) a 1440×760.
 
-## Punto para decidir junto con la aprobación
+## Franja superior
 
-La franja superior de UI-03 dice "OPERATOR INTERFACE · read-only · … · no real execution from
-this UI". Con el botón, la UI deja de ser sólo lectura (lanza un backtest; no ejecuta
-operaciones reales). No se cambió ese texto: es parte de lo que Bru aprueba.
+Decidido en P-009 punto 3 (ver arriba).

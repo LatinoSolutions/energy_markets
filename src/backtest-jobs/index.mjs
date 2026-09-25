@@ -20,6 +20,8 @@ export {
   verifyExploratoryInputs,
 } from "./runner.mjs";
 
-export { BACKTEST_JOBS_PATH, handleBacktestJobsRequest, isBacktestJobsPath } from "./http.mjs";
+export { BACKTEST_JOBS_PATH, backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath } from "./http.mjs";
+
+export { FAILURE_WORDS, describeJobStatus, describeLaunch, elapsedSeconds, failureInWords } from "./display.mjs";
 
 export { MCP_TOOLS, handleMcpMessage, runStdioServer } from "./mcp-server.mjs";

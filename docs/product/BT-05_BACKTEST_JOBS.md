@@ -19,9 +19,15 @@ cgroup (MemoryMax 2G, provisional).
 
 | Quién | Cómo |
 |---|---|
-| Botón **Run backtest** en `/backtests` (**no se sirve** hasta que Bru apruebe la propuesta visual, ver `evidence/BT-05/ui-proposal/`) | `POST /api/backtest-jobs` `{"requestedBy":"ui"}` |
+| Botón **Run backtest** en `/backtests` (aprobado con cambios por Bru, P-009 2026-09-25) | `POST /api/backtest-jobs` `{"requestedBy":"ui"}` |
 | Asistente externo por MCP | tool `start_backtest` → el mismo `POST` con `{"requestedBy":"mcp"}` |
 | Estado | `GET /api/backtest-jobs` (en curso + último + resultado vigente) · `GET /api/backtest-jobs/<runId>` (receipt + vigencia) |
+
+Línea de estado del botón (P-009): la arma el backend (`src/backtest-jobs/display.mjs`) y
+llega en `display.line` de GET y POST; la UI sólo la copia. Mientras corre, GET publica
+`current.startedAt` y `current.elapsedSeconds`. Ejemplos: `Last run: succeeded · 25 Sep 2026
+15:00 UTC · current result`, `Last run: reused existing result`, `Last run: failed · killed
+for exceeding the memory limit`, `Running · started 15:00 UTC · 3 min elapsed`.
 
 Un job a la vez: un segundo pedido recibe `409 JOB_ALREADY_RUNNING` con el job en curso.
 El estado se lee del disco (lock + receipts + registro), así que cualquier proceso ve el job en curso.

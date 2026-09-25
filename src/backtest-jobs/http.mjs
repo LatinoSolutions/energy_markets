@@ -4,11 +4,13 @@
 //
 //   POST /api/backtest-jobs            body {"requestedBy":"ui"|"mcp"} → 202 lanzado
 //                                      | 200 reused (mismo run_id ya tiene resultado) | 409 | 4xx
-//   GET  /api/backtest-jobs            → { running, current, latest, currentResult, registry }
+//   GET  /api/backtest-jobs            → { running, current, latest, currentResult, registry, display }
 //   GET  /api/backtest-jobs/<runId>    → RUN_RECEIPT del último intento + vigencia | 404
 //
 // POST exige Content-Type application/json: un formulario de otro sitio no puede
 // mandarlo sin preflight CORS, y este servidor no responde CORS.
+
+import { describeJobStatus, describeLaunch, elapsedSeconds } from "./display.mjs";
 
 export const BACKTEST_JOBS_PATH = "/api/backtest-jobs";
 const MAX_BODY_BYTES = 4096;
@@ -40,6 +42,17 @@ function readBody(req) {
   });
 }
 
+// Estado publicado del job: el del runner + `current.elapsedSeconds` y la línea de
+// estado `display.line` (decisión de Bru P-009: el backend publica inicio y tiempo
+// transcurrido; la UI sólo los muestra). Lo usan GET y el render de /backtests.
+export function backtestJobStatusPayload(runner) {
+  const now = runner.now();
+  const status = runner.status();
+  const current = status.current === null ? null : { ...status.current, elapsedSeconds: elapsedSeconds(status.current.startedAt, now) };
+  const published = { ...status, current };
+  return { ...published, display: { line: describeJobStatus(published, now) } };
+}
+
 export function isBacktestJobsPath(pathname) {
   return pathname === BACKTEST_JOBS_PATH || pathname?.startsWith(`${BACKTEST_JOBS_PATH}/`) === true;
 }
@@ -69,11 +82,12 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner) {
     }
     const started = runner.start({ requestedBy: body.requestedBy });
     if (started.ok) {
-      sendJson(res, started.reused ? 200 : 202, { ok: true, reused: started.reused, job: started.job });
+      const display = { line: describeLaunch(started, runner.now()) };
+      sendJson(res, started.reused ? 200 : 202, { ok: true, reused: started.reused, job: started.job, display });
       return;
     }
     const status = started.code === "JOB_ALREADY_RUNNING" ? 409 : started.code === "INVALID_REQUESTER" ? 400 : started.code === "STAGING_FAILED" || started.code.startsWith("REGISTRY_") ? 500 : 422;
-    sendJson(res, status, { ok: false, code: started.code, message: started.message ?? null, job: started.job ?? null });
+    sendJson(res, status, { ok: false, code: started.code, message: started.message ?? null, job: started.job ?? null, display: { line: describeLaunch(started, runner.now()) } });
     return;
   }
   if (method !== "GET" && method !== "HEAD") {
@@ -82,7 +96,7 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner) {
     return;
   }
   if (pathname === BACKTEST_JOBS_PATH) {
-    sendJson(res, 200, { ok: true, ...runner.status() });
+    sendJson(res, 200, { ok: true, ...backtestJobStatusPayload(runner) });
     return;
   }
   const runId = pathname.slice(BACKTEST_JOBS_PATH.length + 1);

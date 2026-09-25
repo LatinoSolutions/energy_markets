@@ -27,7 +27,8 @@ import {
 } from "../../src/backtest-jobs/index.mjs";
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
 import { createUiServer } from "../../src/ui/index.mjs";
-import { JOB_CONTROL_FIELDS, renderBacktestJobControl, withBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
+import { renderBacktestJobControl, withBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
+import { FAILURE_WORDS, describeJobStatus, describeLaunch } from "../../src/backtest-jobs/display.mjs";
 import { COMMITTED_HELPER_LABEL, FIXTURE_HELPER_PATH, fixtureHelperSource, makeFixtureRepo } from "./fixture-repo.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -289,27 +290,121 @@ test("BT-05: sin ejecutor configurado el endpoint responde 503 y /backtests no m
 
 // ---------- botón de la UI: sólo llama al endpoint, cero cálculo ----------
 
-test("BT-05 gate UI: sin aprobación visual de Bru, /backtests no sirve el control aunque haya ejecutor", async () => {
-  const repo = makeFixtureRepo();
-  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+// Decisión de Bru P-009 (2026-09-25, aprobar con cambios): frase completa sin
+// notación; mientras corre, inicio y tiempo transcurrido publicados por el backend;
+// franja superior sin "read-only" ni "no real execution"; panel conectado en server.mjs.
+
+const P009_BANNER = "OPERATOR INTERFACE · runs simulated backtests only · no real trading from this UI · unknown stays <b>UNAVAILABLE</b> / <b>NOT CLOSED</b>, never a value";
+const jobLineOf = (html) => html.match(/data-job-line>([^<]*)</)?.[1];
+
+test("BT-05 P-009 punto 1: la línea del último run es una frase completa, sin guiones sueltos ni NONE", () => {
+  const job = { runId: `BT-RUN-${"b".repeat(64)}`, status: "SUCCEEDED", startedAt: "2026-09-25T14:58:00.000Z", finishedAt: "2026-09-25T15:00:04.000Z", failure: null, retention: { state: "CURRENT", supersededBy: null } };
+  const now = new Date("2026-09-25T16:00:00.000Z");
+  const lines = {
+    succeeded: describeJobStatus({ running: false, latest: job }, now),
+    superseded: describeJobStatus({ running: false, latest: { ...job, retention: { state: "SUPERSEDED", supersededBy: "x" } } }, now),
+    failed: describeJobStatus({ running: false, latest: { ...job, status: "FAILED", failure: { code: "OOM_KILLED", message: "m" }, retention: { state: "NONE", supersededBy: null } } }, now),
+    interrupted: describeJobStatus({ running: false, latest: { ...job, status: "INTERRUPTED", failure: { code: "INTERRUPTED" }, retention: { state: "NONE", supersededBy: null } } }, now),
+    unknownCode: describeJobStatus({ running: false, latest: { ...job, status: "FAILED", failure: { code: "SOME_NEW_CODE" } } }, now),
+    reused: describeLaunch({ ok: true, reused: true, job }, now),
+    rejected: describeLaunch({ ok: false, code: "INPUT_HASH_MISMATCH" }, now),
+    never: describeJobStatus({ running: false, current: null, latest: null }, now),
+  };
+  assert.equal(lines.succeeded, "Last run: succeeded · 25 Sep 2026 15:00 UTC · current result");
+  assert.equal(lines.superseded, "Last run: succeeded · 25 Sep 2026 15:00 UTC · superseded by a newer result");
+  assert.equal(lines.failed, "Last run: failed · killed for exceeding the memory limit");
+  assert.equal(lines.interrupted, "Last run: interrupted · the process running it stopped before it finished");
+  assert.equal(lines.unknownCode, "Last run: failed · some new code");
+  assert.equal(lines.reused, "Last run: reused existing result");
+  assert.equal(lines.rejected, "Not started · input data does not match its manifest");
+  assert.equal(lines.never, "No backtest has been run yet");
+  for (const [name, line] of Object.entries(lines)) {
+    for (const notation of ["NONE", "—", " - ", "_", "null", "undefined", "T15:", "Z"]) {
+      assert.ok(!line.includes(notation), `${name}: sin "${notation}" en "${line}"`);
+    }
+  }
+});
+
+test("BT-05 P-009 punto 1: todo failure.code que emite el runner tiene su frase en palabras", () => {
+  const runnerSource = readFileSync(fileURLToPath(new URL("../../src/backtest-jobs/runner.mjs", import.meta.url)), "utf8");
+  const codes = new Set([...runnerSource.matchAll(/code: "([A-Z_]+)"/g)].map((match) => match[1]));
+  assert.ok(codes.size > 10);
+  for (const code of codes) assert.ok(typeof FAILURE_WORDS[code] === "string", `falta frase para ${code}`);
+});
+
+test("BT-05 P-009 punto 2: mientras corre, inicio y tiempo transcurrido salen del backend", () => {
+  const running = (startedAt) => ({ running: true, current: { runId: "r", status: "RUNNING", startedAt } });
+  const started = "2026-09-25T15:00:04.000Z";
+  assert.equal(describeJobStatus(running(started), new Date("2026-09-25T15:03:30.000Z")), "Running · started 15:00 UTC · 3 min elapsed");
+  assert.equal(describeJobStatus(running(started), new Date("2026-09-25T15:00:50.000Z")), "Running · started 15:00 UTC · less than 1 min elapsed");
+  assert.equal(describeJobStatus(running(undefined), new Date(started)), "Running · start time unavailable");
+  assert.equal(describeJobStatus({ running: true, current: null }, new Date(started)), "Running · start time unavailable");
+});
+
+test("BT-05 P-009: el endpoint publica startedAt, elapsedSeconds y la línea; /backtests sirve el botón con esa misma línea", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  let clock = Date.parse("2026-09-25T15:00:04.000Z");
+  const runner = createBacktestJobRunner({ repoRoot: repo.root, now: () => new Date(clock) });
   await withServer({ jobRunner: runner }, async (base) => {
-    for (const route of ["/backtests", "/replay", "/research", "/campaigns", "/"]) {
+    const idlePage = await (await fetch(`${base}/backtests`)).text();
+    assert.equal((idlePage.match(/data-backtest-job /g) ?? []).length, 1, "un solo control en /backtests");
+    assert.equal(jobLineOf(idlePage), "No backtest has been run yet");
+    assert.ok(!/data-job-start disabled/.test(idlePage));
+
+    const launched = await (await postJob(base, { requestedBy: "ui" })).json();
+    assert.equal(launched.display.line, "Running · started 15:00 UTC · less than 1 min elapsed");
+
+    clock += 200 * 1000;
+    const during = await (await fetch(`${base}${BACKTEST_JOBS_PATH}`)).json();
+    assert.equal(during.current.startedAt, "2026-09-25T15:00:04.000Z");
+    assert.equal(during.current.elapsedSeconds, 200);
+    assert.equal(during.display.line, "Running · started 15:00 UTC · 3 min elapsed");
+    const busy = await (await postJob(base, { requestedBy: "mcp" })).json();
+    assert.equal(busy.display.line, "Running · started 15:00 UTC · 3 min elapsed");
+    const runningPage = await (await fetch(`${base}/backtests`)).text();
+    assert.equal(jobLineOf(runningPage), "Running · started 15:00 UTC · 3 min elapsed");
+    assert.match(runningPage, /data-job-start disabled/);
+
+    await runner.waitForIdle();
+    const after = await (await fetch(`${base}${BACKTEST_JOBS_PATH}`)).json();
+    assert.equal(after.display.line, "Last run: succeeded · 25 Sep 2026 15:03 UTC · current result");
+    assert.equal(jobLineOf(await (await fetch(`${base}/backtests`)).text()), after.display.line);
+
+    const reused = await postJob(base, { requestedBy: "ui" });
+    assert.equal(reused.status, 200);
+    assert.equal((await reused.json()).display.line, "Last run: reused existing result");
+
+    // el control sólo va en Backtests
+    for (const route of ["/replay", "/research", "/campaigns", "/"]) {
       assert.ok(!(await (await fetch(`${base}${route}`)).text()).includes("data-backtest-job"), route);
     }
-    // el endpoint backend sí existe (el backend avanza en paralelo, fila BT-05)
-    assert.equal((await fetch(`${base}${BACKTEST_JOBS_PATH}`)).status, 200);
   });
 });
 
-test("BT-05 propuesta UI: un solo control (1 botón + 1 línea de estado) que sólo habla con el endpoint", () => {
-  const job = {
-    runId: `BT-RUN-${"b".repeat(64)}`,
-    status: "SUCCEEDED",
-    finishedAt: "2026-09-25T15:00:04.000Z",
-    failure: null,
-    retention: { state: "CURRENT", supersededBy: null },
-  };
-  const html = renderBacktestJobControl({ running: false, current: null, latest: job });
+test("BT-05 P-009: si el estado del job no se puede leer, /backtests sirve el control diciendo que no hay estado", async () => {
+  const brokenRunner = { now: () => new Date(), status: () => { throw new Error("disco ilegible"); } };
+  await withServer({ jobRunner: brokenRunner }, async (base) => {
+    const response = await fetch(`${base}/backtests`);
+    assert.equal(response.status, 200);
+    assert.equal(jobLineOf(await response.text()), "Backtest status unavailable");
+  });
+});
+
+test("BT-05 P-009 punto 3: la franja superior ya no dice read-only ni no real execution", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  await withServer({ jobRunner: runner }, async (base) => {
+    for (const route of ["/", "/backtests", "/replay", "/research", "/campaigns"]) {
+      const html = await (await fetch(`${base}${route}`)).text();
+      const regime = html.match(/<div class="regime">(.*?)<\/div>/)[1];
+      assert.equal(regime, P009_BANNER, route);
+      assert.ok(!regime.includes("read-only") && !regime.includes("no real execution"), route);
+    }
+  });
+});
+
+test("BT-05 UI: un solo control (1 botón + 1 línea de estado) que sólo habla con el endpoint y copia la línea del backend", () => {
+  const html = renderBacktestJobControl({ running: false, current: null, latest: null, display: { line: "Last run: failed · <b>x</b>" } });
   assert.equal((html.match(/<button/g) ?? []).length, 1, "un solo botón");
   for (const forbidden of ["<table", 'class="card"', "<form", "<input", "<select", "action=", "XMLHttpRequest", "<script src=", 'src="http']) {
     assert.ok(!html.includes(forbidden), `sin ${forbidden}`);
@@ -318,16 +413,11 @@ test("BT-05 propuesta UI: un solo control (1 botón + 1 línea de estado) que s�
   const fetchCalls = html.match(/fetch\([^,)]*/g) ?? [];
   assert.equal(fetchCalls.length, 2);
   for (const call of fetchCalls) assert.equal(call, "fetch(endpoint");
-  // campos del backend tal cual, sin derivar
-  const cell = (field) => html.match(new RegExp(`data-job-field="${field.replaceAll(".", "\\.")}">([^<]*)<`))[1];
-  assert.equal(cell("status"), "SUCCEEDED");
-  assert.equal(cell("finishedAt"), "2026-09-25T15:00:04.000Z");
-  assert.equal(cell("retention.state"), "CURRENT");
-  assert.equal(cell("failure.code"), "—");
-  assert.equal(JOB_CONTROL_FIELDS.length, (html.match(/data-job-field=/g) ?? []).length);
-  const empty = renderBacktestJobControl({ running: false, current: null, latest: null });
-  for (const field of JOB_CONTROL_FIELDS) assert.ok(empty.includes(`data-job-field="${field}">—<`), field);
-  assert.match(renderBacktestJobControl({ running: true, current: { ...job, status: "RUNNING" }, latest: null }), /data-job-start disabled/);
+  // la línea es la del backend, escapada, sin derivar nada
+  assert.equal(jobLineOf(html), "Last run: failed · &lt;b&gt;x&lt;/b&gt;");
+  assert.ok(!/new Date|Date\.now|getTime|Math\./.test(html), "la UI no calcula tiempos");
+  assert.equal(jobLineOf(renderBacktestJobControl({ running: false })), "Backtest status unavailable");
+  assert.match(renderBacktestJobControl({ running: true, display: { line: "Running · started 15:00 UTC · 3 min elapsed" } }), /data-job-start disabled/);
   // va en la cabecera de la página, no como panel aparte
   const page = '<div class="row"><div class="grow"><h1 class="page">x</h1></div><div class="armhead">arms</div></div><div class="foot">f</div>';
   const placed = withBacktestJobControl(page, { running: false, latest: null });
