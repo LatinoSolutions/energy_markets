@@ -1,0 +1,1182 @@
+{
+  "artifactKind": "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION",
+  "schemaVersion": "1.0",
+  "status": "EXPLORATORY_PROVISIONAL",
+  "method": "Reconcile persisted H and decision/fill ledgers against exact BT-01 product+maturity B; do not rerun strategies.",
+  "assumptions": {
+    "slippageEurMwh": 0.15,
+    "fillModels": {
+      "CLIENT": "cantidad completa al ask + slippage",
+      "DEPTH": "máximo AskSz visible del quote"
+    },
+    "feesEurMwh": "UNKNOWN (excluded, never treated as zero)",
+    "decisionAndFillLedgers": "Never rewritten; replay rows are checked where present and stored run summaries are consumed where per-arm rows are absent."
+  },
+  "inputs": {
+    "exploratoryResults": {
+      "path": "operations/exploratory/backtest-results.json",
+      "sha256": "ce51969129b44464324276f66ec76f969710628ea32143f522e6ff94d7df44a9"
+    },
+    "exploratoryManifest": {
+      "path": "operations/exploratory/MANIFEST.json",
+      "sha256": "583ca855af81cb8c315011f0db651e0348ffb8e6e1b9722244e49b0cc4ca444a"
+    },
+    "bt01Benchmark": {
+      "path": "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
+      "sha256": "0439394e39ece36d1e9308e1dbe077097c1099c4e92273b48f543699167936ea"
+    },
+    "bt01Manifest": {
+      "path": "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+      "sha256": "254d9743efe83d6b36478e20afcacdda5f54f1b21b407399a9ac59b3c91ed1f6"
+    }
+  },
+  "campaigns": [
+    {
+      "campaignKey": "G0BM-202509",
+      "product": "G0BM",
+      "maturity": "202509",
+      "targetMw": 10,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BM-202510",
+      "product": "G0BM",
+      "maturity": "202510",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 33.12251193519653,
+        "coverage": "21/22",
+        "versionId": "54966892946172073b36faedabb692796c56f5a8bf462e643cc2b4fe3d878c0d",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2025-09-01",
+          "endExclusive": "2025-10-01"
+        }
+      },
+      "deliveryHours": 745,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.1625,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -297.91108278588007,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 21,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.199999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -577.2860827858377,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 21,
+          "deltaVEur": -279.37499999995765,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.153000000000006,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -227.13608278591266,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 70.7749999999674,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202511",
+      "product": "G0BM",
+      "maturity": "202511",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 32.979369040355216,
+        "coverage": "22/23",
+        "versionId": "2608d5eb4153b3635904ec5ae670cf2735f69035e4a530166ede6df57c07f6c4",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2025-10-01",
+          "endExclusive": "2025-11-01"
+        }
+      },
+      "deliveryHours": 720,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.179500000000004,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -1440.9429094424752,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 22,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.05,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -508.5429094424228,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 22,
+          "deltaVEur": 932.4000000000524,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.0415,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -447.34290944243753,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 993.6000000000377,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202512",
+      "product": "G0BM",
+      "maturity": "202512",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 32.261861350797005,
+        "coverage": "19/20",
+        "versionId": "94994907e70b6efce47d56ac8a6dd2349e83c076da54b15023af0aa2477a0a3d",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2025-11-01",
+          "endExclusive": "2025-12-01"
+        }
+      },
+      "deliveryHours": 744,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 32.0265,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 1751.08844992973,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 19,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 32.75,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -3631.7515500702802,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 19,
+          "deltaVEur": -5382.84000000001,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 31.949999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": 2320.2484499297516,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 569.1600000000217,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202601",
+      "product": "G0BM",
+      "maturity": "202601",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 29.164342365164387,
+        "coverage": "19/21",
+        "versionId": "5dc51c2807b1c9607419643510a3bc2dbe08823c71bf5cde63a24dbf080af560",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2025-12-01",
+          "endExclusive": "2026-01-01"
+        }
+      },
+      "deliveryHours": 744,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 29.496999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -2474.9728031769323,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 20,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 29.479999999999997,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -2348.4928031769364,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 20,
+          "deltaVEur": 126.47999999999593,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 29.547500000000003,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -2850.6928031769817,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": -375.72000000004937,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202602",
+      "product": "G0BM",
+      "maturity": "202602",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 35.78666332609531,
+        "coverage": "20/21",
+        "versionId": "6e89314476a5939b432121ea7274b9aa410a79ac65ef16c5141559bb78d7bbd6",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2026-01-01",
+          "endExclusive": "2026-02-01"
+        }
+      },
+      "deliveryHours": 672,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 39.867000000000004,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -27419.86244863956,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 20,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 29.975,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 39054.37755136046,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 20,
+          "deltaVEur": 66474.24000000002,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 40.3775,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -30850.422448639514,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": -3430.559999999954,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202603",
+      "product": "G0BM",
+      "maturity": "202603",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 34.384874539022384,
+        "coverage": "19/20",
+        "versionId": "2faab38776c03de8caf30027e0cc09c4c062589234bac82587d274e377ed6759",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2026-02-01",
+          "endExclusive": "2026-03-01"
+        }
+      },
+      "deliveryHours": 743,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.54,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 6277.417824936319,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 19,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 35.22,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -6204.982175063678,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 19,
+          "deltaVEur": -12482.399999999998,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 33.60449999999999,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": 5798.182824936407,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": -479.23499999991236,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202604",
+      "product": "G0BM",
+      "maturity": "202604",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 53.93482223357496,
+        "coverage": "21/22",
+        "versionId": "0d58d7e5425c66475ce11be0f52e51169ffe9a694ca43129d1213edcadca2b53",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2026-03-01",
+          "endExclusive": "2026-04-01"
+        }
+      },
+      "deliveryHours": 720,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 57.247,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -23847.67991826027,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 21,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 49.915,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 28942.720081739735,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 21,
+          "deltaVEur": 52790.40000000001,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 56.539,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -18750.07991826028,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 5097.599999999991,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202605",
+      "product": "G0BM",
+      "maturity": "202605",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 45.292633894832576,
+        "coverage": "19/20",
+        "versionId": "b78055f80904c0841bb60e9f1db7ec9f3fa56483c8fb7f702c3e8562d4a46d42",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2026-04-01",
+          "endExclusive": "2026-05-01"
+        }
+      },
+      "deliveryHours": 744,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 44.016999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 9490.7161775544,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 19,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 46.269999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -7271.603822445602,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 19,
+          "deltaVEur": -16762.32,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 43.813,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": 11008.47617755435,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 1517.759999999951,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202606",
+      "product": "G0BM",
+      "maturity": "202606",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 47.81551371181767,
+        "coverage": "19/20",
+        "versionId": "22e9ed7d97b29e580cb1ec652e726b3ebda5db724c91968bb2e5586c1d8286fc",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2026-05-01",
+          "endExclusive": "2026-06-01"
+        }
+      },
+      "deliveryHours": 720,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 49.401999999999994,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -11422.701274912713,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 19,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 45.175,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 19011.698725087263,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 19,
+          "deltaVEur": 30434.399999999976,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 49.284,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -10573.10127491275,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 849.599999999964,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202607",
+      "product": "G0BM",
+      "maturity": "202607",
+      "targetMw": 10,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 45.496161449268165,
+        "coverage": "21/22",
+        "versionId": "ff560f4e1a89d168552c6c934c54920e9fe4cf2a0ba395a08ce00199b38c764f",
+        "window": {
+          "rule": "1-0-1",
+          "startInclusive": "2026-06-01",
+          "endExclusive": "2026-07-01"
+        }
+      },
+      "deliveryHours": 744,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 42.269999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 24002.641182555177,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 10,
+          "decisionLedgerRows": 21,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 49.65,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -30904.558817444842,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 1,
+          "decisionLedgerRows": 21,
+          "deltaVEur": -54907.20000000002,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 10,
+          "targetMw": 10,
+          "hEurMwh": 42.253499999999995,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": 24125.40118255518,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 122.76000000000204,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BM-202608",
+      "product": "G0BM",
+      "maturity": "202608",
+      "targetMw": 10,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BM-202609",
+      "product": "G0BM",
+      "maturity": "202609",
+      "targetMw": 10,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BM-202610",
+      "product": "G0BM",
+      "maturity": "202610",
+      "targetMw": 10,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BM-202611",
+      "product": "G0BM",
+      "maturity": "202611",
+      "targetMw": 10,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BM-202612",
+      "product": "G0BM",
+      "maturity": "202612",
+      "targetMw": 10,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BQ-202510",
+      "product": "G0BQ",
+      "maturity": "202510",
+      "targetMw": 60,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    },
+    {
+      "campaignKey": "G0BQ-202601",
+      "product": "G0BQ",
+      "maturity": "202601",
+      "targetMw": 60,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 33.399354559943454,
+        "coverage": "65/65",
+        "versionId": "a1d6d925c94d5a172eedca5e5d3797cfc74b379344b54ba45231ea73baabb24f",
+        "window": {
+          "rule": "3-1-3",
+          "startInclusive": "2025-09-01",
+          "endExclusive": "2025-12-01"
+        }
+      },
+      "deliveryHours": 2159,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 33.539,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -18089.670304925156,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 60,
+          "decisionLedgerRows": 65,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 34.635999999999996,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -160195.0503049244,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 5,
+          "decisionLedgerRows": 65,
+          "deltaVEur": -142105.37999999925,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 33.434000000000005,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -4487.97030492556,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 13601.699999999595,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BQ-202604",
+      "product": "G0BQ",
+      "maturity": "202604",
+      "targetMw": 60,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 30.313153691914355,
+        "coverage": "60/62",
+        "versionId": "d7ef8432b92d31a2cec1c4578542089f80f8286fe5a4b4022f63d4daeec43fb8",
+        "window": {
+          "rule": "3-1-3",
+          "startInclusive": "2025-12-01",
+          "endExclusive": "2026-03-01"
+        }
+      },
+      "deliveryHours": 2184,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 30.4695,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -20487.620211542933,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 60,
+          "decisionLedgerRows": 62,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 27.833416666666665,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": 324944.73978845734,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 8,
+          "decisionLedgerRows": 62,
+          "deltaVEur": 345432.3600000003,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 30.7475,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -56916.74021154276,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": -36429.11999999983,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BQ-202607",
+      "product": "G0BQ",
+      "maturity": "202607",
+      "targetMw": 60,
+      "campaignReadiness": "EXPLORATORY_COMPLETE",
+      "benchmark": {
+        "status": "BENCHMARK_PROVISIONAL",
+        "B": 48.77215778131431,
+        "coverage": "62/62",
+        "versionId": "711910a555aaec892aced7701f1df319c4f9b047df5707321c6c8033d5ce8a3d",
+        "window": {
+          "rule": "3-1-3",
+          "startInclusive": "2026-03-01",
+          "endExclusive": "2026-06-01"
+        }
+      },
+      "deliveryHours": 2208,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "PROVISIONAL",
+      "arms": {
+        "BASELINE": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 49.59641666666668,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -109197.81713148122,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 60,
+          "decisionLedgerRows": 62,
+          "deltaVEur": null,
+          "deltaVStatus": "NOT_APPLICABLE"
+        },
+        "ARM_A": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 50.89149999999999,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "MATCHED_TO_STORED_H_AND_VOLUME",
+          "vEur": -280770.457131479,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": 8,
+          "decisionLedgerRows": 62,
+          "deltaVEur": -171572.63999999777,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        },
+        "ARM_B": {
+          "runStatus": "COMPLETE",
+          "complete": true,
+          "boughtMw": 60,
+          "targetMw": 60,
+          "hEurMwh": 49.59641666666668,
+          "hCostCompleteness": "PARTIAL",
+          "hCostReason": "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+          "decisionLedgerCheck": "NOT_AVAILABLE_IN_REPLAY",
+          "vEur": -109197.81713148122,
+          "vStatus": "PROVISIONAL",
+          "vReason": "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+          "filledLedgerRows": null,
+          "decisionLedgerRows": null,
+          "deltaVEur": 0,
+          "deltaVStatus": "PROVISIONAL",
+          "deltaVReason": "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded."
+        }
+      }
+    },
+    {
+      "campaignKey": "G0BQ-202610",
+      "product": "G0BQ",
+      "maturity": "202610",
+      "targetMw": 60,
+      "campaignReadiness": "INSUFFICIENT_DATA",
+      "benchmark": null,
+      "deliveryHours": null,
+      "fees": {
+        "status": "UNKNOWN",
+        "included": false
+      },
+      "status": "UNAVAILABLE",
+      "arms": {}
+    }
+  ]
+}
