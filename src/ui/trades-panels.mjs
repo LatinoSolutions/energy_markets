@@ -1,10 +1,10 @@
 // TR-07 — soporte backend de los paneles TRADES de la pantalla de Backtests
 // (TRADES_MODE_PLAN.md TR-07; OWNER_PATCH_TRADES_MODE_2026-09-25.md §3–§4).
 //
-// Este módulo NO dibuja la UI (esa composición depende del gate visual de TR-07:
-// captura aprobada por Bru antes de implementar). Aporta la única capa que la UI
-// podrá consumir: carga los artifacts ya producidos por TR-01/TR-02/TR-03, los
-// ata por SHA-256 a su manifest y proyecta el estado de cada panel.
+// El render de estos paneles ya existe en src/ui/render.mjs (gate visual cerrado,
+// P-010 opción B). Este módulo es la única capa que la UI consume: carga los
+// artifacts ya producidos por TR-01/TR-02/TR-03, los ata por SHA-256 a su manifest y
+// proyecta el estado de cada panel. Aquí no se dibuja ni se calcula nada.
 //
 // Reglas no negociables:
 //   - cero cálculo económico: sólo se seleccionan campos que el artifact ya trae;

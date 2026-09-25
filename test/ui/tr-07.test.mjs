@@ -1,7 +1,9 @@
-// TR-07 (TRADES_MODE_PLAN.md TR-07; patch 03 §3–§4): soporte backend de los
+// TR-07 (TRADES_MODE_PLAN.md TR-07; patch 03 §3–§4): view model y render de los
 // paneles TRADES de Backtests. Estos tests fijan que cada panel sale de un
-// artifact atado por SHA-256 y que lo ausente queda UNAVAILABLE, nunca un valor.
-// La composición visual (render.mjs) queda fuera por el gate de Bru.
+// artifact atado por SHA-256, que lo ausente queda UNAVAILABLE (nunca un valor) y
+// que la composición productiva de render.mjs calca el prototipo aprobado
+// (P-010 opción B): contraste condicional, expandir calibración, filtro por
+// misión, barra de zonas por periodo y tabla de brazos en TRADES.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -265,3 +267,86 @@ test("TR-07 UI: el servidor acepta el modo por query y lo refleja, sin romper ru
     await new Promise((resolve) => started.server.close(resolve));
   }
 });
+
+test("TR-07 UI: la misión elegida filtra la vista TOB (plan :73; prototipo tobView)", () => {
+  const power = renderBacktests({ mode: "TOB", missionId: "POWER_MONTHLY" });
+  assert.equal(power.includes('data-product="G0BQ"'), false, "Power no debe mostrar la comparación de Gas Q");
+  assert.equal(power.includes('data-product="G0BM"'), false, "Power no debe mostrar la comparación de Gas M");
+  assert.ok(power.includes("No TOB data for Power yet"));
+  assert.match(power, /data-tr07="tob-unavailable" data-mission="POWER_MONTHLY"/);
+
+  const gasMonthly = renderBacktests({ mode: "TOB", missionId: "GAS_MONTHLY" });
+  assert.equal(gasMonthly.includes('data-product="G0BQ"'), false);
+  assert.ok(gasMonthly.includes('data-product="G0BM"'));
+
+  const gasQuarterly = renderBacktests({ mode: "TOB", missionId: "GAS_QUARTERLY" });
+  assert.ok(gasQuarterly.includes('data-product="G0BQ"'));
+  assert.equal(gasQuarterly.includes('data-product="G0BM"'), false);
+});
+
+test("TR-07 UI: los botones de misión usan las etiquetas del prototipo (plan :73)", () => {
+  const html = renderBacktests({ mode: "TOB" });
+  for (const label of ["Gas Quarterly", "Gas Monthly", "Power Quarterly", "Power Monthly"]) {
+    assert.ok(html.includes(`>${label}</a>`), label);
+  }
+  assert.equal(html.includes("GAS_THE · GAS_QUARTERLY"), false, "no debe mostrar el código crudo como etiqueta");
+});
+
+test("TR-07 UI: la barra de zonas sigue al periodo elegido (plan :75)", () => {
+  const highlighted = (html) => [...html.matchAll(/class="([^"]*)" data-tr07-zone="([^"]+)"/g)]
+    .filter(([, classes]) => classes.includes("hl")).map(([, , zone]) => zone);
+
+  assert.deepEqual(highlighted(renderBacktests({ mode: "TRADES", period: "DEVELOPMENT" })), ["DEVELOPMENT"]);
+  assert.deepEqual(highlighted(renderBacktests({ mode: "TRADES", period: "OOS_HISTORICO" })), ["OOS_HISTORICO"]);
+  assert.deepEqual(highlighted(renderBacktests({ mode: "TRADES" })), ["DEVELOPMENT", "OOS_HISTORICO", "PUENTE"]);
+  assert.deepEqual(highlighted(renderBacktests({ mode: "TOB" })), ["PUENTE"]);
+});
+
+test("TR-07 UI: el contraste sólo aparece con el puente en la vista, a la derecha (plan :76)", () => {
+  const bridge = renderBacktests({ mode: "TRADES", period: "PUENTE" });
+  assert.match(bridge, /data-tr07="contrast-column"[\s\S]*data-tr07="contrast"/);
+  assert.equal(bridge.includes("Contrast only exists for the bridge"), false);
+
+  const tob = renderBacktests({ mode: "TOB" });
+  assert.match(tob, /data-tr07="contrast"/);
+
+  const development = renderBacktests({ mode: "TRADES", period: "DEVELOPMENT" });
+  assert.equal(development.includes('data-tr07="contrast"'), false, "sin el puente no hay panel de contraste");
+  assert.match(development, /data-tr07="contrast-note"/);
+  assert.ok(development.includes("Contrast only exists for the bridge, 2025-08-12 to 2026-07-28"));
+});
+
+test("TR-07 UI: el botón de expandir abre los gráficos de calibración pendientes, sin números (plan :77)", () => {
+  const html = renderBacktests({ mode: "TRADES", period: "PUENTE" });
+  assert.match(html, /data-tr07="expand"/);
+  assert.ok(html.includes("Expand calibration charts"));
+  assert.match(html, /data-tr07="expanded-charts"/);
+  assert.match(html, /data-tr07="expanded-paths"/);
+  assert.match(html, /data-tr07="expanded-calibration"/);
+  assert.ok(html.includes("Not run yet"));
+  assert.ok(html.includes("Not measured yet"));
+
+  const start = html.indexOf('data-tr07="expanded-charts"');
+  const end = html.indexOf("</details>", start);
+  const expanded = html.slice(start, end === -1 ? undefined : end);
+  assert.equal(/€\/MWh|k€/.test(expanded), false, "sin medición no se inventan valores");
+
+  const development = renderBacktests({ mode: "TRADES", period: "DEVELOPMENT" });
+  assert.equal(development.includes('data-tr07="expanded-charts"'), false, "fuera del puente no hay nada que expandir");
+});
+
+test("TR-07 UI: en TRADES salen la tabla de brazos NOT RUN YET y el efecto pareado (plan :78,81)", () => {
+  const html = renderBacktests({ mode: "TRADES", period: "PUENTE" });
+  assert.match(html, /data-tr07="arms"/);
+  for (const arm of ["Baseline · A0 11:00", "Arm A · DIP10", "Arm B · hour"]) {
+    assert.ok(html.includes(arm), arm);
+  }
+  assert.match(html, /data-tr07="trades-paired"/);
+  assert.ok(html.includes("NOT RUN YET"));
+
+  const start = html.indexOf('data-tr07="trades-paired"');
+  const end = html.indexOf('data-kind="backend-measurements"', start);
+  const paired = html.slice(start, end === -1 ? undefined : end);
+  assert.equal(/€\/MWh|k€/.test(paired), false, "el recuadro pareado no lleva valores inventados");
+});
+

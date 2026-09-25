@@ -46,8 +46,9 @@ export {
   createUiServer,
 } from "./server.mjs";
 
-// TR-07 — soporte backend de los paneles TRADES de Backtests (sin render: la
-// composición visual espera el gate de aprobación de Bru).
+// TR-07 — soporte backend de los paneles TRADES de Backtests. El render productivo
+// vive en render.mjs (gate visual cerrado, P-010 opción B); aquí se exporta la capa
+// de view model que ese render consume.
 export {
   TRADES_MODES,
   TRADES_OBSERVATION_MODES,
