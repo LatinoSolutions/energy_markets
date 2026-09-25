@@ -1,0 +1,83 @@
+{
+  "artifactKind": "TR-03_BRIDGE_MEASUREMENT_STATUS",
+  "schemaVersion": "TRADES_BRIDGE_V1",
+  "status": "PENDING_SCAN_JOB",
+  "spec": {
+    "id": "OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+    "version": "EM-SPEC-OWNER-PATCH-2026-09-25-03",
+    "path": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+    "sha256": "3e68171cec3f2eb86e48341b3046ba81f3ef925d12fb1cfa835863c9c8b9a494"
+  },
+  "window": {
+    "startIso": "2025-08-12",
+    "endIso": "2026-07-28",
+    "zone": "PUENTE",
+    "role": "EXPLORATORY"
+  },
+  "freshnessLimitsSeconds": [
+    900,
+    1800,
+    3600,
+    7200,
+    86400
+  ],
+  "observationRules": [
+    "LAST_TRADE",
+    "SLOT_VWAP"
+  ],
+  "reason": "Las mediciones del puente requieren el escaneo del lago (trades y TOB), que es un job que lanza Bru. Hasta que exista, no hay bridge-measurement.json y no se inventa ninguna medición.",
+  "measurementArtifact": "operations/trades/TR-03/bridge-measurement.json",
+  "measurementManifest": "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
+  "jobCommands": [
+    "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --start 2025-08-12 --end 2026-07-28 --out /tmp/tr03-gas-the.ndjson",
+    "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start 2025-08-12 --end 2026-07-28 --out /tmp/tr03-power-de.ndjson",
+    "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=NATGAS/area=THE --products G0BQ,G0BM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr03-tob-gas.json",
+    "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=POWER/area=DE --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr03-tob-power.json",
+    "node operations/trades/TR-03/build-bridge-measurement.mjs --gas-trades /tmp/tr03-gas-the.ndjson --power-trades /tmp/tr03-power-de.ndjson --gas-tob /tmp/tr03-tob-gas.json --power-tob /tmp/tr03-tob-power.json"
+  ],
+  "bridgeCampaigns": {
+    "count": 26,
+    "byMission": {
+      "GAS_QUARTERLY": [
+        "GAS-Q-2026Q1",
+        "GAS-Q-2026Q2",
+        "GAS-Q-2026Q3"
+      ],
+      "GAS_MONTHLY": [
+        "GAS-M-2025-10",
+        "GAS-M-2025-11",
+        "GAS-M-2025-12",
+        "GAS-M-2026-01",
+        "GAS-M-2026-02",
+        "GAS-M-2026-03",
+        "GAS-M-2026-04",
+        "GAS-M-2026-05",
+        "GAS-M-2026-06",
+        "GAS-M-2026-07"
+      ],
+      "POWER_QUARTERLY": [
+        "POW-Q-2026Q1",
+        "POW-Q-2026Q2",
+        "POW-Q-2026Q3"
+      ],
+      "POWER_MONTHLY": [
+        "POW-M-2025-10",
+        "POW-M-2025-11",
+        "POW-M-2025-12",
+        "POW-M-2026-01",
+        "POW-M-2026-02",
+        "POW-M-2026-03",
+        "POW-M-2026-04",
+        "POW-M-2026-05",
+        "POW-M-2026-06",
+        "POW-M-2026-07"
+      ]
+    }
+  },
+  "provenance": {
+    "zonePlan": "operations/trades/TR-02/trades-zone-plan.json",
+    "gasCalendar": "operations/audit/IMP-09/eex-exchange-calendar.json",
+    "powerCalendar": "operations/trades/TR-01/power-de-exchange-calendar.json",
+    "spec": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md"
+  }
+}
