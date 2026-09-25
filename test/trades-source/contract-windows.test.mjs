@@ -17,7 +17,8 @@ test("la ventana de contrato sale del reference (StartDate..EndDate), no de los 
     tradeRow({ InstrumentISIN: "ISIN-A", StartDate: "2025-11-17", EndDate: "2025-11-21", TrdDate: "2025-11-19" }),
   ];
   const windows = contractWindowsFromReference(referenceRows, { exchangeDaysBetween });
-  assert.deepEqual(windows.get("ISIN-A"), ["2025-11-17", "2025-11-24"]);
+  // La ventana cruza con los trades por ShortCode|Maturity, no por ISIN.
+  assert.deepEqual(windows.get("G0BM|202512"), ["2025-11-17", "2025-11-24"]);
 });
 
 test("una referencia sin StartDate/EndDate no inventa ventana", () => {
@@ -25,7 +26,7 @@ test("una referencia sin StartDate/EndDate no inventa ventana", () => {
     [tradeRow({ InstrumentISIN: "ISIN-B", StartDate: "", EndDate: "" })],
     { exchangeDaysBetween },
   );
-  assert.equal(windows.has("ISIN-B"), false);
+  assert.equal(windows.size, 0);
 });
 
 test("cobertura + ventana de contrato cuenta faltantes al inicio y al final", () => {
@@ -70,4 +71,30 @@ test("la relación ExpiryDate cuenta contratos (colapsa filas repetidas del mism
   const relation = measureReferenceExpiryRelation(referenceRows);
   assert.equal(relation.contractCount, 1);
   assert.equal(relation.endDateBeforeExpiry, 1);
+});
+
+test("la ventana del reference cruza con la cobertura por ShortCode|Maturity sin ISIN", () => {
+  // Mismo hallazgo que en la densidad: si el reference no trae InstrumentISIN,
+  // la ventana debe cruzarse con los trades por ShortCode|Maturity, no por ISIN.
+  const referenceRows = [
+    tradeRow({
+      Cmdty: "POWER",
+      Area: "DE",
+      ShortCode: "DEBM",
+      InstrumentISIN: "",
+      Maturity: "202105",
+      StartDate: "2021-04-01",
+      EndDate: "2021-04-06",
+    }),
+  ];
+  const rows = [
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", Maturity: "202105", InstrumentISIN: "PWR-1", TrdDate: "2021-04-01" }),
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", Maturity: "202105", InstrumentISIN: "PWR-1", TrdDate: "2021-04-06" }),
+  ];
+  const windows = contractWindowsFromReference(referenceRows, {
+    exchangeDaysBetween: () => ["2021-04-01", "2021-04-02", "2021-04-06"],
+  });
+  const summary = summarizeInstrumentCoverage(coverageByInstrumentDay(rows), windows);
+  assert.equal(summary[0].windowStatus, "CONTRACT_CALENDAR");
+  assert.equal(summary[0].daysWithoutTrades, 1);
 });

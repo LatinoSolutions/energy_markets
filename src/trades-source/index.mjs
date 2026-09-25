@@ -36,6 +36,7 @@ export {
 } from "./delete-point-in-time.mjs";
 
 export {
+  contractKey,
   coverageByInstrumentDay,
   daysWithoutTrades,
   instrumentIdentity,

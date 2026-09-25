@@ -12,6 +12,20 @@ export function instrumentIdentity(row) {
   return shortCode && maturity ? `${shortCode}|${maturity}` : shortCode || maturity || "";
 }
 
+// Clave de cruce entre un contrato del reference y sus trades. Es el par
+// `ShortCode|Maturity`: los trades y la tabla `eex_derivative_reference` siempre
+// tienen esas dos columnas (el catálogo y la clasificación de misión ya las
+// exigen), mientras que el `InstrumentISIN` no está verificado del lado del
+// reference. Cruzar por ISIN cuando un lado no lo trae produce días sin trades
+// falsos (TR01-REFERENCE-IDENTITY-MISMATCH). Devuelve "" si falta alguna de las
+// dos: una fila sin contrato completo no se atribuye a un contrato ajeno.
+export function contractKey(row) {
+  const shortCode = row?.ShortCode ?? "";
+  const maturity = row?.Maturity ?? "";
+  if (!shortCode || !maturity) return "";
+  return `${shortCode}|${maturity}`;
+}
+
 function dayKey(row) {
   return row?.TrdDate ?? "";
 }
@@ -103,7 +117,11 @@ export function summarizeInstrumentCoverage(records, expected) {
   return [...byInstrument.values()]
     .sort((a, b) => (a.instrument < b.instrument ? -1 : 1))
     .map((summary) => {
-      const window = windows.get(summary.instrument) ?? shared;
+      // La ventana del reference se indexa por `ShortCode|Maturity` (contrato),
+      // no por la identidad interna de la fila (que puede ser el ISIN). Se acepta
+      // además la clave por instrumento para ventanas ya indexadas así.
+      const contract = contractKey({ ShortCode: summary.shortCode, Maturity: summary.maturity });
+      const window = (contract ? windows.get(contract) : undefined) ?? windows.get(summary.instrument) ?? shared;
       const observedSet = new Set(summary.observedDays);
       if (window == null) {
         return {

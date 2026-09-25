@@ -11,7 +11,7 @@
 // presencia de trades, y desglosado por año.
 
 import { DEFAULT_BROKEN_SPREAD_POLICY, isEligibleTrade } from "./eligibility.mjs";
-import { coverageByInstrumentDay, instrumentIdentity } from "./coverage.mjs";
+import { contractKey, coverageByInstrumentDay } from "./coverage.mjs";
 
 export const MISSION = Object.freeze({
   GAS_QUARTERLY: "GAS_QUARTERLY",
@@ -82,25 +82,28 @@ export function monthsToDelivery(trdDate, maturity) {
 // Contrato front de `day`: el de menor distancia a entrega ESTRICTAMENTE futura,
 // y dentro de `maxDistanceMonths` si se fija (patch 03 §0: Power "<= 3 meses de
 // distancia"). Distancia 0 = mes de entrega en curso, que ya no se negocia; el
-// front es el contrato siguiente, nunca el que está en entrega. Devuelve null si
-// no hay contrato elegible ese día.
+// front es el contrato siguiente, nunca el que está en entrega. `catalog` está
+// indexado por `ShortCode|Maturity` (contractKey), que es también la clave con la
+// que se cruzan los trades. Devuelve null si no hay contrato elegible ese día.
 export function frontContract(day, catalog, { maxDistanceMonths = Infinity } = {}) {
   let best = null;
-  for (const [instrument, maturity] of catalog) {
+  for (const [contract, maturity] of catalog) {
     const distance = monthsToDelivery(day, maturity);
     if (distance === null || distance <= 0 || distance > maxDistanceMonths) continue;
     if (best === null || distance < best.distance || (distance === best.distance && maturity < best.maturity)) {
-      best = { instrument, maturity, distanceMonths: distance };
+      best = { contractKey: contract, maturity, distanceMonths: distance };
     }
   }
   return best;
 }
 
-// Catálogo instrumento->entrega de una misión tomado de
-// `eex_derivative_reference` (Cmdty/Area/ShortCode/Maturity). Es la fuente del
-// front: NUNCA la presencia de trades (patch 03 §3.4). `cmdty`/`area` rellenan
-// los campos que la tabla de referencia no repita como columna (vienen del
-// filtro hive del escaneo). Un contrato sin Maturity no entra al catálogo.
+// Catálogo contrato->entrega de una misión tomado de
+// `eex_derivative_reference` (ShortCode/Maturity). Es la fuente del front: NUNCA
+// la presencia de trades (patch 03 §3.4). `cmdty`/`area` rellenan los campos que
+// la tabla de referencia no repita como columna (vienen del filtro hive del
+// escaneo). La clave es `ShortCode|Maturity` para cruzar con los trades, que
+// traen el mismo par aunque no traigan `InstrumentISIN`. Un contrato sin
+// ShortCode o sin Maturity no entra al catálogo.
 //
 // SUPUESTO DECLARADO (falta auditar contra el archivo real): que la tabla de
 // referencia trae `Maturity` y `ShortCode` como columnas. Sólo se verificó
@@ -117,26 +120,29 @@ export function referenceCatalogForMission(referenceRows, mission, { cmdty = nul
       Maturity: row?.Maturity,
     });
     if (classified?.mission !== mission) continue;
-    const instrument = instrumentIdentity(row);
-    if (!instrument || !row?.Maturity) continue;
-    catalog.set(instrument, row.Maturity);
+    const contract = contractKey(row);
+    if (!contract) continue;
+    catalog.set(contract, row.Maturity);
   }
   return catalog;
 }
 
-// Instrumentos con trade elegible por día. El catálogo del front no sale de
-// aquí; esto sólo dice qué contratos cotizaron cada día.
+// Contratos con trade elegible por día, indexados por `ShortCode|Maturity`. El
+// catálogo del front no sale de aquí; esto sólo dice qué contratos cotizaron
+// cada día.
 function coverageInstrumentsByDay(records, mission) {
   const instrumentsByDay = new Map();
   for (const record of records) {
     if (classifyCoverageRecord(record)?.mission !== mission) continue;
+    const contract = contractKey({ ShortCode: record.shortCode, Maturity: record.maturity });
+    if (!contract) continue;
     if (!instrumentsByDay.has(record.trdDate)) instrumentsByDay.set(record.trdDate, new Set());
-    instrumentsByDay.get(record.trdDate).add(record.instrument);
+    instrumentsByDay.get(record.trdDate).add(contract);
   }
   return instrumentsByDay;
 }
 
-// Catálogo instrumento->entrega derivado de los trades. Sólo se usa como
+// Catálogo contrato->entrega derivado de los trades. Sólo se usa como
 // fallback DECLARADO cuando no hay `eex_derivative_reference` disponible; la
 // medición lo marca como `catalogSource: "TRADES_FALLBACK"` para que no se
 // confunda con la medición canónica.
@@ -144,7 +150,9 @@ function tradeCatalogForMission(records, mission) {
   const catalog = new Map();
   for (const record of records) {
     if (classifyCoverageRecord(record)?.mission !== mission) continue;
-    catalog.set(record.instrument, record.maturity);
+    const contract = contractKey({ ShortCode: record.shortCode, Maturity: record.maturity });
+    if (!contract) continue;
+    catalog.set(contract, record.maturity);
   }
   return catalog;
 }
@@ -158,6 +166,23 @@ function catalogForMission({ coverageRecords, referenceRows, referenceArea, miss
 }
 
 export function densityFromIndexes({ mission, catalog, instrumentsByDay, calendarDays, maxDistanceMonths = Infinity, catalogSource = null }) {
+  const tradedContracts = new Set();
+  for (const contracts of instrumentsByDay.values()) {
+    for (const contract of contracts) tradedContracts.add(contract);
+  }
+  let catalogTradesOverlap = 0;
+  for (const contract of catalog.keys()) {
+    if (tradedContracts.has(contract)) catalogTradesOverlap += 1;
+  }
+  // Aviso fail-closed: si la misión tiene trades pero NINGÚN contrato del
+  // catálogo del reference coincide con ellos, el catálogo y los trades no están
+  // hablando del mismo contrato (esquema/clave distintos). No se etiqueta como
+  // medición canónica `REFERENCE`; se marca como no coincidente. Si no hay trades
+  // de la misión, no se puede concluir desajuste y `REFERENCE` se conserva.
+  const resolvedCatalogSource =
+    catalogSource === "REFERENCE" && catalog.size > 0 && tradedContracts.size > 0 && catalogTradesOverlap === 0
+      ? "REFERENCE_UNMATCHED_TRADES"
+      : catalogSource;
   const byYear = new Map();
   for (const day of calendarDays) {
     const year = day.slice(0, 4);
@@ -167,14 +192,15 @@ export function densityFromIndexes({ mission, catalog, instrumentsByDay, calenda
     const entry = byYear.get(year);
     entry.exchangeDays += 1;
     const front = frontContract(day, catalog, { maxDistanceMonths });
-    const hasFrontTrade = front !== null && (instrumentsByDay.get(day)?.has(front.instrument) ?? false);
+    const hasFrontTrade = front !== null && (instrumentsByDay.get(day)?.has(front.contractKey) ?? false);
     if (hasFrontTrade) entry.daysWithFrontTrade += 1;
     else entry.daysWithoutTrades += 1;
   }
   return {
     mission,
     maxDistanceMonths: Number.isFinite(maxDistanceMonths) ? maxDistanceMonths : null,
-    catalogSource,
+    catalogSource: resolvedCatalogSource,
+    catalogTradesOverlap,
     contractCount: catalog.size,
     years: [...byYear.values()].map((entry) => ({
       ...entry,

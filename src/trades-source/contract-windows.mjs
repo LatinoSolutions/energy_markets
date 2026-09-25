@@ -11,29 +11,34 @@
 // La ventana se expande con el calendario de negociación del mercado, no con los
 // trades observados.
 
-import { instrumentIdentity } from "./coverage.mjs";
+import { contractKey, instrumentIdentity } from "./coverage.mjs";
 
+// Las ventanas se indexan por `ShortCode|Maturity` (contractKey), la misma clave
+// con la que la cobertura cruza los trades. El reference no siempre trae
+// `InstrumentISIN`; cruzar por ISIN dejaría cada instrumento sin ventana
+// (TR01-REFERENCE-IDENTITY-MISMATCH). Un contrato sin ShortCode/Maturity no
+// inventa ventana.
 export function contractWindowsFromReference(referenceRows, { exchangeDaysBetween }) {
   if (typeof exchangeDaysBetween !== "function") {
     throw new TypeError("contractWindowsFromReference requiere exchangeDaysBetween(start, end).");
   }
   const ranges = new Map();
   for (const row of referenceRows) {
-    const instrument = instrumentIdentity(row);
+    const contract = contractKey(row);
     const startDate = row?.StartDate;
     const endDate = row?.EndDate;
-    if (!instrument || !startDate || !endDate) continue;
-    const current = ranges.get(instrument);
+    if (!contract || !startDate || !endDate) continue;
+    const current = ranges.get(contract);
     if (current === undefined) {
-      ranges.set(instrument, { startDate, endDate });
+      ranges.set(contract, { startDate, endDate });
       continue;
     }
     if (startDate < current.startDate) current.startDate = startDate;
     if (endDate > current.endDate) current.endDate = endDate;
   }
   const windows = new Map();
-  for (const [instrument, { startDate, endDate }] of ranges) {
-    windows.set(instrument, exchangeDaysBetween(startDate, endDate));
+  for (const [contract, { startDate, endDate }] of ranges) {
+    windows.set(contract, exchangeDaysBetween(startDate, endDate));
   }
   return windows;
 }

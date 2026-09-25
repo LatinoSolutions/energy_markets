@@ -169,3 +169,45 @@ test("sin reference la densidad declara el catalogo de trades como fallback", ()
   });
   assert.equal(density.catalogSource, "TRADES_FALLBACK");
 });
+
+test("el front cruza con los trades por ShortCode|Maturity aunque el reference no traiga ISIN", () => {
+  // Reproduccion del hallazgo TR01-REFERENCE-IDENTITY-MISMATCH: el reference no
+  // trae InstrumentISIN. Antes el catalogo quedaba como `DEBM|202105` y los
+  // trades como ISIN, sin coincidir nunca -> 3 dias sin trades marcados
+  // REFERENCE. El cruce correcto es ShortCode|Maturity.
+  const referenceRows = [
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", InstrumentISIN: "", Maturity: "202105" }),
+  ];
+  const rows = [
+    powerMonthly("2021-04-01", "202105", "PWR-M-202105"),
+    powerMonthly("2021-04-02", "202105", "PWR-M-202105"),
+    powerMonthly("2021-04-06", "202105", "PWR-M-202105"),
+  ];
+  const density = measurePatch0Density({
+    rows,
+    mission: MISSION.POWER_MONTHLY,
+    calendarDays: ["2021-04-01", "2021-04-02", "2021-04-06"],
+    maxDistanceMonths: 3,
+    referenceRows,
+  });
+  const y2021 = density.years.find((entry) => entry.year === "2021");
+  assert.equal(density.catalogSource, "REFERENCE");
+  assert.equal(density.catalogTradesOverlap, 1);
+  assert.equal(y2021.daysWithFrontTrade, 3);
+  assert.equal(y2021.daysWithoutTrades, 0);
+});
+
+test("si ningun contrato del reference coincide con los trades, la medicion no se marca canonica", () => {
+  const referenceRows = [
+    tradeRow({ Cmdty: "POWER", Area: "DE", ShortCode: "DEBM", Maturity: "202112" }),
+  ];
+  const rows = [powerMonthly("2021-04-01", "202105", "PWR-M-202105")];
+  const density = measurePatch0Density({
+    rows,
+    mission: MISSION.POWER_MONTHLY,
+    calendarDays: ["2021-04-01"],
+    referenceRows,
+  });
+  assert.equal(density.catalogTradesOverlap, 0);
+  assert.equal(density.catalogSource, "REFERENCE_UNMATCHED_TRADES");
+});
