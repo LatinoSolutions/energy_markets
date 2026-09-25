@@ -567,8 +567,7 @@ function armResultHtml(arm) {
   return `${eur(arm.avgPriceEurMwh)}${status}`;
 }
 
-function hourProfileSvg(profile) {
-  const width = 380;
+function hourProfileSvg(profile, width = 380) {
   const height = 150;
   const values = profile.slots.map((slot) => slot.meanDiffEurMwh).filter((value) => typeof value === "number");
   const span = Math.max(0.05, ...values.map((value) => Math.abs(value)));
@@ -649,7 +648,7 @@ function measurementCell(value, status, unit, readiness, { signed = false } = {}
   const sign = signed && value > 0 ? "+" : "";
   const formatted = `${sign}${value.toFixed(3)}${unit}`;
   const provenance = readiness.provenance;
-  return `<span class="value mono" data-status="${esc(status)}" data-value="${esc(value)}" data-artifact-sha="${esc(provenance.artifactSha256)}">${esc(formatted)}</span> ${measurementStatusChip(status)}<div class="tiny muted">artifact ${esc(provenance.artifactPath)} · sha256 ${esc(provenance.artifactSha256.slice(0, 12))}…</div>`;
+  return `<span class="value mono" data-status="${esc(status)}" data-value="${esc(value)}" data-artifact-sha="${esc(provenance.artifactSha256)}" title="artifact ${esc(provenance.artifactPath)} · sha256 ${esc(provenance.artifactSha256)}">${esc(formatted)}</span> ${measurementStatusChip(status)}`;
 }
 
 // §5.5: "Cobertura incompleta se informa por separado y no se oculta dentro de V".
@@ -664,12 +663,17 @@ function coverageCell(arm) {
   return `<span class="mono" data-coverage="${esc(completeness)}">${esc(bought)} / ${esc(target)} MW</span> ${coverageChip}`;
 }
 
-function backtestMeasurementHtml(readiness) {
+function withheldReason(value, reason) {
+  const hasValue = typeof value === "number" && Number.isFinite(value);
+  return !hasValue && reason ? `<div class="tiny muted">${esc(reason)}</div>` : "";
+}
+
+function backtestMeasurementHtml(readiness, productFilter = null) {
   if (readiness == null) {
     return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="UNAVAILABLE"><div class="hd"><h3>Backend measurement readiness</h3>${chip("unk", "?", "Unavailable")}</div><div class="bd">${unknownValue()} <span class="small muted">Verified BT-02 measurement artifact is unavailable; no values are inferred.</span></div></section>`;
   }
   const provenance = readiness.provenance;
-  const rows = readiness.campaigns.flatMap((campaign) => {
+  const rows = readiness.campaigns.filter((campaign) => productFilter === null || campaign.product === productFilter).flatMap((campaign) => {
     const arms = campaign.arms.length > 0 ? campaign.arms : [null];
     return arms.map((arm) => {
       const benchmark = campaign.benchmark;
@@ -683,14 +687,14 @@ function backtestMeasurementHtml(readiness) {
       const bValue = benchmark?.B;
       const bStatus = benchmark?.status ?? "UNAVAILABLE";
       return `<tr data-campaign="${esc(campaign.campaignKey)}" data-status="${esc(campaign.status)}" data-arm="${esc(arm?.armId ?? "UNAVAILABLE")}" data-artifact-sha="${esc(provenance.artifactSha256)}">
-        <td><span class="mono">${esc(campaign.campaignKey)}</span><div class="tiny muted">${esc(campaign.product ?? "product unavailable")} · ${esc(campaign.maturity ?? "maturity unavailable")}</div></td>
+        <td style="white-space:nowrap"><span class="mono">${esc(campaign.campaignKey)}</span><div class="tiny muted">${esc(campaign.product ?? "product unavailable")} · ${esc(campaign.maturity ?? "maturity unavailable")}</div></td>
         <td>${esc(arm?.armId ?? "UNAVAILABLE")}<div class="tiny muted">${esc(arm ? `run ${arm.runStatus ?? "UNAVAILABLE"}` : campaign.campaignReadiness ?? campaign.status)}</div></td>
         <td>${coverageCell(arm)}</td>
-        <td class="right">${measurementCell(bValue, bStatus, " €/MWh", readiness)}<div class="tiny muted" data-artifact-sha="${esc(provenance.artifactSha256)}">coverage ${esc(benchmark?.coverage ?? "UNAVAILABLE")}</div></td>
-        <td class="right">${measurementCell(arm?.hEurMwh, arm?.hCostCompleteness, " €/MWh", readiness)}${arm?.coverageCompleteness === "PARTIAL" ? `<div class="tiny muted" data-coverage="PARTIAL">over ${esc(arm.boughtMw ?? "?")} / ${esc(arm.targetMw ?? "?")} MW only</div>` : ""}${arm?.hCostReason ? `<div class="tiny muted">${esc(arm.hCostReason)}</div>` : ""}</td>
-        <td class="right">${measurementCell(arm?.vEurMwh, arm?.vStatus, " €/MWh", readiness, { signed: true })}${arm?.vReason ? `<div class="tiny muted">${esc(arm.vReason)}</div>` : ""}</td>
-        <td class="right">${measurementCell(arm?.deltaVEurMwh, arm?.deltaVStatus, " €/MWh", readiness, { signed: true })}${arm?.deltaVReason ? `<div class="tiny muted">${esc(arm.deltaVReason)}</div>` : ""}</td>
-        <td>${blockers.length > 0 ? blockers.map((reason) => `<div class="tiny muted">${esc(reason)}</div>`).join("") : measurementStatusChip(campaign.status)}</td>
+        <td class="right" style="white-space:nowrap">${measurementCell(bValue, bStatus, " €/MWh", readiness)}<div class="tiny muted" data-artifact-sha="${esc(provenance.artifactSha256)}">coverage ${esc(benchmark?.coverage ?? "UNAVAILABLE")}</div></td>
+        <td class="right" style="white-space:nowrap" title="${esc(arm?.hCostReason ?? "")}">${measurementCell(arm?.hEurMwh, arm?.hCostCompleteness, " €/MWh", readiness)}${arm?.coverageCompleteness === "PARTIAL" ? `<div class="tiny muted" data-coverage="PARTIAL">over ${esc(arm.boughtMw ?? "?")} / ${esc(arm.targetMw ?? "?")} MW only</div>` : ""}</td>
+        <td class="right" style="white-space:nowrap" title="${esc(arm?.vReason ?? "")}">${measurementCell(arm?.vEurMwh, arm?.vStatus, " €/MWh", readiness, { signed: true })}${withheldReason(arm?.vEurMwh, arm?.vReason)}</td>
+        <td class="right" style="white-space:nowrap" title="${esc(arm?.deltaVReason ?? "")}">${measurementCell(arm?.deltaVEurMwh, arm?.deltaVStatus, " €/MWh", readiness, { signed: true })}${withheldReason(arm?.deltaVEurMwh, arm?.deltaVReason)}</td>
+        <td>${blockers.length > 0 ? `<span class="chip" title="${esc(blockers.join(" "))}" data-blockers="${blockers.length}">${blockers.length} blocker${blockers.length === 1 ? "" : "s"} · hover</span>` : measurementStatusChip(campaign.status)}</td>
       </tr>`;
     });
   });
@@ -1570,23 +1574,25 @@ function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null
   const rows = exploratory.episodes.filter((episode) => inFilter(episode.product)).map((episode) => {
     const dipDiff = episode.a0?.complete && episode.dip?.complete ? episode.dip.avgPriceEurMwh - episode.a0.avgPriceEurMwh : null;
     const loo = episode.leaveOneOut;
-    return `<tr data-status="EXPLORATORY" data-product="${esc(episode.product)}" data-maturity="${esc(episode.maturity)}"><td class="mono">${esc(episode.product)}</td><td class="mono">${esc(episode.maturity)}</td><td class="mono small">${esc(episode.firstDay)} → ${esc(episode.lastDay)} · ${episode.tradingDays} d</td><td class="mono num right">${armResultHtml(episode.a0)}</td><td class="mono num right">${armResultHtml(episode.dip)}</td><td class="mono num right">${signedEur(dipDiff)}</td><td class="mono num right">${armResultHtml(episode.dipDepth)}</td><td class="mono">${esc(loo?.slotChosenOnOtherEpisodes ?? "—")}</td><td class="mono num right">${signedEur(loo?.diffOnThisEpisodeEurMwh)}</td></tr>`;
+    return `<tr data-status="EXPLORATORY" data-product="${esc(episode.product)}" data-maturity="${esc(episode.maturity)}"><td class="mono">${esc(episode.product)}</td><td class="mono">${esc(episode.maturity)}</td><td class="mono small" style="white-space:nowrap">${esc(episode.firstDay)} → ${esc(episode.lastDay)} · ${episode.tradingDays} d</td><td class="mono num right">${armResultHtml(episode.a0)}</td><td class="mono num right">${armResultHtml(episode.dip)}</td><td class="mono num right">${signedEur(dipDiff)}</td><td class="mono num right">${armResultHtml(episode.dipDepth)}</td><td class="mono">${esc(loo?.slotChosenOnOtherEpisodes ?? "—")}</td><td class="mono num right">${signedEur(loo?.diffOnThisEpisodeEurMwh)}</td></tr>`;
   });
   const summaries = Object.entries(exploratory.summary).filter(([product]) => inFilter(product)).map(([product, summary]) => `<div class="chk"><span><b>${esc(product)}</b> · ${summary.episodes} episodes</span><span class="d">DIP10 vs A0: ${signedEur(summary.dipVsA0.meanDiffEurMwh)} EUR/MWh mean, cheaper in ${summary.dipVsA0.episodesCheaper}/${summary.dipVsA0.pairedEpisodes} · hour chosen out-of-episode vs 11:00: ${signedEur(summary.leaveOneOutHour.meanDiffEurMwh)} EUR/MWh over ${summary.leaveOneOutHour.evaluatedEpisodes}</span></div>`);
-  const profiles = exploratory.hourProfiles.filter((profile) => inFilter(profile.product)).map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile)}</div></div>`);
+  const shownProfiles = exploratory.hourProfiles.filter((profile) => inFilter(profile.product));
+  const profileWidth = shownProfiles.length === 1 ? 1100 : 380;
+  const profiles = shownProfiles.map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile, profileWidth)}</div></div>`);
   const rules = exploratory.rules;
   return `
   <div class="card" style="margin-top:14px" data-exploratory="true">
     <div class="hd"><h3>Exploratory backtest · ${esc(observationSourceLabel(mode))}</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span><span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
-    <table class="t">
+    <div style="overflow-x:auto"><table class="t">
       <thead><tr><th>Product</th><th>Delivery</th><th>Window</th><th class="right">A0 · 11:00 (client)</th><th class="right">DIP10 · 11:00</th><th class="right">DIP − A0</th><th class="right">DIP10 · depth-capped</th><th>Hour (out-of-episode)</th><th class="right">Δ vs 11:00</th></tr></thead>
       <tbody>${rows.join("")}</tbody>
-    </table>
+    </table></div>
     <div class="bd">${summaries.join("")}
       <div class="tiny muted" style="margin-top:6px">Prices in EUR/MWh paid (ask + slippage), volume-weighted. ! = target not completed (no fresh quote or depth). Not evidence of edge: ${exploratory.episodes.length} episodes, in-sample; skipped as incomplete: ${esc(exploratory.skipped.join(", "))}. Source ${esc(exploratory.provenance.resultsPath)} sha256 ${esc(exploratory.provenance.resultsSha256.slice(0, 12))}…</div>
     </div>
   </div>
-  <div class="grid" style="grid-template-columns: repeat(${profiles.length}, minmax(0,1fr)); margin-top:14px">${profiles.join("")}</div>`;
+  <div class="grid" style="grid-template-columns: repeat(${Math.min(profiles.length, 2)}, minmax(0,1fr)); margin-top:14px">${profiles.join("")}</div>`;
 }
 
 // Leyenda de brazos del mockup: los canónicos atados, o los brazos de la comparación exploratoria.
@@ -1736,12 +1742,14 @@ function tr07CoverageHtml(panels, missionId) {
     const days = cell.daysWithTrades === null || cell.daysWithTrades === undefined ? "—" : String(cell.daysWithTrades);
     return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td></tr>`;
   })).join("");
+  const zoneSummary = mission.zones.map((zone) => `${esc(zone.zone)} ${zone.campaigns.length}`).join(" · ");
   return `<div class="card" style="margin-top:14px" data-tr07="coverage" data-mission="${esc(mission.missionId)}">
     <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(mission.market)} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
     <div class="bd">
       <div class="small muted">${esc(coverage.reason)}</div>
       <div class="small muted" style="margin-top:6px">TR-01 source decision: ${tr07StatusChip(coverage.sourceDecisionStatus)}</div>
-      <table class="t" style="margin-top:8px"><thead><tr><th>Campaign</th><th>Zone</th><th>Window</th><th>Coverage</th><th class="right">Days w/ trades</th></tr></thead><tbody>${rows}</tbody></table>
+      <details style="margin-top:8px"><summary class="small" style="cursor:pointer">${zoneSummary} · click to see every campaign</summary>
+      <table class="t" style="margin-top:8px"><thead><tr><th>Campaign</th><th>Zone</th><th>Window</th><th>Coverage</th><th class="right">Days w/ trades</th></tr></thead><tbody>${rows}</tbody></table></details>
     </div>
   </div>`;
 }
@@ -1802,12 +1810,12 @@ const TR07_CONTRAST_METRICS = [
 
 function tr07ContrastHtml(panels) {
   const rows = TR07_CONTRAST_METRICS.map((metric) => `<tr><td>${esc(metric)}</td><td>${chip("unk", "?", "UNAVAILABLE")}</td><td>${chip("unk", "?", "set in TR-04")}</td></tr>`).join("");
-  return `<div class="card tr07side" style="margin-top:14px" data-tr07="contrast">
-    <div class="hd"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only (the one year with both sources) · does TRADES tell the same story as TOB?</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</div>
-    <div class="bd"><div class="small muted">${esc(panels.frozenContract.reason)}</div>
+  return `<details class="card tr07side" style="margin-top:14px" data-tr07="contrast">
+    <summary class="hd" style="cursor:pointer;list-style:none"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only · ${TR07_CONTRAST_METRICS.length} measures · not run yet · click to open</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</summary>
+    <div class="bd"><div class="small muted">does TRADES tell the same story as TOB? ${esc(panels.frozenContract.reason)}</div>
       <table class="t" style="margin-top:8px"><thead><tr><th>Measure</th><th>Result</th><th>Gate (declared before)</th></tr></thead><tbody>${rows}</tbody></table>
     </div>
-  </div>`;
+  </details>`;
 }
 
 // Fuera del puente no hay contraste: una línea con su fecha, como el prototipo
@@ -1914,9 +1922,9 @@ function tr07GridHtml(panels, selection, modeViewHtml, measurementHtml = "") {
   const coversBridge = tr07CoversBridge(mode, period);
   const left = `${coversBridge ? "" : tr07ContrastNoteHtml()}${modeViewHtml}${measurementHtml}`;
   const right = coversBridge ? `${tr07ContrastHtml(panels)}${tr07ExpandHtml()}` : "";
-  return `<div class="tr07grid${coversBridge ? "" : " single"}">
-    <div data-tr07="mode-view">${left}</div>
+  return `<div class="tr07grid single">
     <div data-tr07="contrast-column">${right}</div>
+    <div data-tr07="mode-view">${left}</div>
   </div>`;
 }
 
@@ -1992,7 +2000,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   </div>
 
   ${validated ? tr07ScopeHtml(vm.tradesPanels, selection) : ""}
-  ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness)) : ""}
+  ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness, tobProduct)) : ""}
   ${validated ? tr07PanelsHtml(vm.tradesPanels, selection) : ""}
 
   ${hasExploratory ? "" : `

@@ -302,7 +302,7 @@ test("TR-07 UI: la barra de zonas sigue al periodo elegido (plan :75)", () => {
   assert.deepEqual(highlighted(renderBacktests({ mode: "TOB" })), ["PUENTE"]);
 });
 
-test("TR-07 UI: el contraste sólo aparece con el puente en la vista, a la derecha (plan :76)", () => {
+test("TR-07 UI: el contraste sólo aparece con el puente en la vista (plan :76)", () => {
   const bridge = renderBacktests({ mode: "TRADES", period: "PUENTE" });
   assert.match(bridge, /data-tr07="contrast-column"[\s\S]*data-tr07="contrast"/);
   assert.equal(bridge.includes("Contrast only exists for the bridge"), false);
@@ -359,24 +359,28 @@ test("TR-07 UI: sin misión en la URL la vista es la que marca el selector (plan
   assert.equal(html.includes('data-product="G0BM"'), false);
 });
 
-test("TR-07 UI: el contraste va en la columna derecha junto a la vista del modo (plan :76-77)", () => {
-  const columnsOf = (html) => {
-    const gridStart = html.indexOf('<div class="tr07grid');
-    const columnAt = html.indexOf('data-tr07="contrast-column"', gridStart);
-    return { left: html.slice(gridStart, columnAt), right: html.slice(columnAt) };
+test("TR-07 UI: el contraste va arriba, a ancho completo, antes de la vista del modo (Bru 2026-09-26)", () => {
+  const order = (html) => {
+    const contrastAt = html.indexOf('data-tr07="contrast-column"');
+    const viewAt = html.indexOf('data-tr07="mode-view"');
+    return { contrastAt, viewAt, above: html.slice(contrastAt, viewAt), below: html.slice(viewAt) };
   };
 
-  // TOB: a la izquierda la comparación (data-product), a la derecha contraste + Expand.
-  const tob = columnsOf(renderBacktests({ mode: "TOB" }));
-  assert.ok(tob.left.includes('data-product="G0BQ"'));
-  assert.ok(tob.right.includes('data-tr07="contrast"'));
-  assert.ok(tob.right.includes('data-tr07="expand"'));
+  // TOB: contraste + Expand arriba; la comparación (data-product) debajo, a ancho completo.
+  const tob = order(renderBacktests({ mode: "TOB" }));
+  assert.ok(tob.contrastAt > 0 && tob.contrastAt < tob.viewAt);
+  assert.ok(tob.above.includes('data-tr07="contrast"'));
+  assert.ok(tob.above.includes('data-tr07="expand"'));
+  assert.ok(tob.below.includes('data-product="G0BQ"'));
+  assert.ok(renderBacktests({ mode: "TOB" }).includes('<div class="tr07grid single">'));
 
-  // TRADES + puente: a la izquierda la observación, a la derecha contraste + Expand.
-  const bridge = columnsOf(renderBacktests({ mode: "TRADES", period: "PUENTE" }));
-  assert.ok(bridge.left.includes('data-tr07="trades-observation"'));
-  assert.ok(bridge.right.includes('data-tr07="contrast"'));
-  assert.ok(bridge.right.includes('data-tr07="expand"'));
+  // TRADES + puente: contraste + Expand arriba; la observación debajo.
+  const bridge = order(renderBacktests({ mode: "TRADES", period: "PUENTE" }));
+  assert.ok(bridge.above.includes('data-tr07="contrast"'));
+  assert.ok(bridge.below.includes('data-tr07="trades-observation"'));
+
+  // Mientras TRADES no se haya corrido, el contraste es 1 línea plegada.
+  assert.match(renderBacktests({ mode: "TOB" }), /<details class="card tr07side"[^>]*data-tr07="contrast">/);
 
   // Fuera del puente la línea de contraste abre la vista, antes de la observación.
   const development = renderBacktests({ mode: "TRADES", period: "DEVELOPMENT" });

@@ -73,7 +73,7 @@ Depende de UI-05 y UI-06 (misma pantalla). Referencia visual aprobada: /srv/hot-
 - Selector de mercado/misión (Gas Q, Gas M, Power Q, Power M) y selector de modo `TOB` | `TRADES`.
 - En `TRADES`, selector de período: All, Development, Historical OOS, Bridge.
 - Barra de zonas (Development, Historical OOS, embargo, Bridge, post, Forward) con borde en lo que cubre la vista.
-- Panel de contraste TOB vs TRADES a la derecha, visible solo cuando la vista incluye el puente; fuera del puente, 1 línea: "Contrast only exists for the bridge, 2025-08-12 to 2026-07-28".
+- Panel de contraste TOB vs TRADES arriba y a ancho completo, antes de la vista del modo (Bru 2026-09-26, ajuste al prototipo), plegado en 1 línea mientras TRADES no se haya corrido; visible solo cuando la vista incluye el puente; fuera del puente, 1 línea: "Contrast only exists for the bridge, 2025-08-12 to 2026-07-28".
 - Botón "Expand calibration charts": abre a ancho completo la superposición TOB/TRADES día por día y la distribución (último trade − ask) de TR-03.
 - Chart de efecto pareado con el hover de UI-06 en ambos modos.
 - Paneles de cobertura (TR-01), zonas y accesos OOS (TR-02) y contrato congelado (TR-04) dentro del mismo diseño.
