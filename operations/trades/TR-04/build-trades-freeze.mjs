@@ -29,20 +29,18 @@ export const OWNER_APPROVAL_PATH = "operations/trades/TR-04/OWNER_FREEZE_APPROVA
 export const OUT_PATH = "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json";
 export const MANIFEST_PATH = "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.MANIFEST.json";
 
-const DECLARED_BROKEN_SPREAD_POLICIES = ["INCLUDE", "EXCLUDE"];
-
-// Núcleo puro: recibe los documentos ya leídos y evalúa el freeze. Un
-// `brokenSpreadPolicy` placeholder ("PENDING_MEASUREMENT...") no cuenta como
-// valor congelado; sólo las dos políticas declaradas.
+// Núcleo puro: recibe los documentos ya leídos y evalúa el freeze. La política de
+// broken spread que se congela sale de la MEDICIÓN del puente (TR-03), que se
+// corrió bajo una política concreta (patch 03 §3.1); la decisión de fuente de
+// TR-01 sólo se usa para comprobar consistencia.
 export function buildTradesFreezeArtifact({ measurement = null, sourceDecision = null, ownerApproval = null, inputsPresent = {} } = {}) {
-  const brokenSpreadPolicy = DECLARED_BROKEN_SPREAD_POLICIES.includes(sourceDecision?.brokenSpreadPolicy)
-    ? sourceDecision.brokenSpreadPolicy
-    : null;
-  const deleteTmSemantics = sourceDecision?.measurements?.deleteTmSemantics?.value ?? null;
+  const deleteTmSemantics = sourceDecision?.measurements?.deleteTmSemantics?.value
+    ?? sourceDecision?.deleteTmSemantics
+    ?? null;
 
   const outcome = evaluateTradesFreeze({
     measurement,
-    brokenSpreadPolicy,
+    sourceDecision,
     deleteTmSemantics,
     ownerApproval,
     generatedFrom: {
@@ -72,7 +70,11 @@ export function buildTradesFreezeArtifact({ measurement = null, sourceDecision =
     candidate: outcome.candidate,
     frozenContract: outcome.contract,
     inputs: {
-      measurement: { path: MEASUREMENT_PATH, present: inputsPresent.measurement === true },
+      measurement: {
+        path: MEASUREMENT_PATH,
+        present: inputsPresent.measurement === true,
+        brokenSpreadPolicy: measurement?.brokenSpreadPolicy ?? null,
+      },
       measurementStatus: { path: MEASUREMENT_STATUS_PATH, present: inputsPresent.measurementStatus === true },
       sourceDecision: {
         path: SOURCE_DECISION_PATH,

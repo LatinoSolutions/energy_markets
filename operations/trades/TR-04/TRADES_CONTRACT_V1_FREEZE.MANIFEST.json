@@ -3,16 +3,16 @@
  "schemaVersion": "1.0",
  "artifact": {
   "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
-  "sha256": "a978c3dea123811b140c86a952ab1973679dae8b4171136a3593bcdc886c67c6"
+  "sha256": "474514ce1464ca6f79c0093e3a70b295e23af272e563edb2ce6c6ea3fe2385bb"
  },
  "generator": {
   "path": "operations/trades/TR-04/build-trades-freeze.mjs",
-  "sha256": "144e5ca96c1c67bd78e248910d7fdeaab4217841e15b37d3fefbe6455bf346d5"
+  "sha256": "fb1f78169b2b0d672343b2e2d0b07bc4237bc3d338ecdd52b3d03ce4f7ac24bc"
  },
  "modules": [
   {
    "path": "src/execution-contract/trades-contract.mjs",
-   "sha256": "1ff9012006125ec54a7cafdbaafff7469a98901c5c8a30e84919ff8f86d574ef"
+   "sha256": "f66cda1b8e815b81921fda2bd0d589a0fda9788dc772e6ac147a2cbe31c8c67c"
   },
   {
    "path": "src/execution-contract/execution-contract.mjs",

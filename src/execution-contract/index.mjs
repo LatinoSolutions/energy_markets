@@ -37,6 +37,8 @@ export {
 } from "./causal-fill.mjs";
 
 export {
+  BRIDGE_GATE_THRESHOLDS,
+  DECLARED_BROKEN_SPREAD_POLICIES,
   FRESHNESS_COVERAGE_TARGET,
   MIN_PENALTY_OBSERVATIONS,
   TRADES_BRIDGE_GATE,
@@ -47,6 +49,8 @@ export {
   TRADES_FREEZE_SCOPE,
   TRADES_FROZEN_RULES,
   TRADES_MISSING_DATA_RULES,
+  TRADES_PENALTY_AGGRESSION_RULE,
+  TRADES_PENALTY_SIGN_RULE,
   TRADES_SENSITIVITY_GRID,
   TRADES_SOURCE_MODE,
   TRADES_VERSION_LABEL,
@@ -56,6 +60,7 @@ export {
   deriveTradesFillPrice,
   evaluateTradesFreeze,
   freezeApprovalProblem,
+  isDeclaredBrokenSpreadPolicy,
   tradesConfigHash,
   validateTradesContract,
 } from "./trades-contract.mjs";

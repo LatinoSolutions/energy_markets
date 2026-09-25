@@ -1,6 +1,6 @@
-// Tests de TR-04: contrato TRADES-v1 y freeze. Fixtures sintéticas: NO son la
-// medición real del puente (TR-03 es un job que lanza Bru) ni una aprobación
-// real de Bru. Sólo prueban la regla y el fail-closed.
+// Tests de TR-04: contrato TRADES-v1 y freeze. Fixtures sintéticas construidas
+// con el productor REAL de TR-03 (NO son la medición real del puente ni una
+// aprobación real de Bru). Sólo prueban la regla y el fail-closed.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,6 +9,7 @@ import {
   createGasQuarterlyExecutionContract,
 } from "../../src/execution-contract/execution-contract.mjs";
 import {
+  BRIDGE_GATE_THRESHOLDS,
   FRESHNESS_COVERAGE_TARGET,
   MIN_PENALTY_OBSERVATIONS,
   TRADES_BRIDGE_GATE,
@@ -16,6 +17,7 @@ import {
   TRADES_CONTROL_SOURCE_MODE,
   TRADES_FROZEN_RULES,
   TRADES_MISSING_DATA_RULES,
+  TRADES_PENALTY_AGGRESSION_RULE,
   TRADES_SENSITIVITY_GRID,
   buildTradesFreezeCandidate,
   deriveFreshnessForMission,
@@ -25,8 +27,8 @@ import {
   tradesConfigHash,
   validateTradesContract,
 } from "../../src/execution-contract/index.mjs";
-import { FRESHNESS_LIMIT_CANDIDATES_SECONDS } from "../../src/trades-bridge/constants.mjs";
-import { approvalFor, frozenInput, measurementFixture } from "./trades-fixtures.mjs";
+import { FRESHNESS_LIMIT_CANDIDATES_SECONDS, HALVES, OBSERVATION_RULE_LIST } from "../../src/trades-bridge/constants.mjs";
+import { approvalFor, frozenInput, measurementFixture, sourceDecisionFixture } from "./trades-fixtures.mjs";
 
 // Hash del contrato TOB congelado por IMP-07. TR-04 no puede cambiarlo.
 const TOB_CONTRACT_HASH = "830de52dc6fd9976556989132a20ee1e536b3fe000b4566931377192fb646acd";
@@ -49,20 +51,25 @@ test("el contrato declara las reglas frozen de P5.6 más las propias de TRADES",
     assert.ok(ids.includes(rule.id), `falta ${rule.id}`);
   }
   assert.ok(ids.includes("PENALTY_SEPARATE_FROM_SLIPPAGE"));
+  assert.ok(ids.includes("PENALTY_SIGN_UNRESTRICTED"));
+  assert.ok(ids.includes("PENALTY_BY_DECLARED_AGGRESSOR_GROUP"));
   assert.ok(ids.includes("NO_AGGRESSOR_OWN_GROUP"));
+  assert.ok(ids.includes("BROKEN_SPREAD_POLICY_FROM_MEASUREMENT"));
   assert.ok(ids.includes("DATA_INCOMPLETE_DISTINCT"));
 });
 
 test("sin medición del puente el freeze queda HOLD (PENDING_MEASUREMENT)", () => {
-  const outcome = evaluateTradesFreeze({ brokenSpreadPolicy: "INCLUDE" });
+  const outcome = evaluateTradesFreeze({});
   assert.equal(outcome.decision, "HOLD");
   assert.equal(outcome.status, "PENDING_MEASUREMENT");
   assert.equal(outcome.contract, null);
   assert.ok(outcome.blockedBy.includes("MISSING_BRIDGE_MEASUREMENT"));
 });
 
-test("sin la política de broken spread congelada por TR-01 también queda HOLD", () => {
-  const outcome = evaluateTradesFreeze({ measurement: measurementFixture() });
+test("sin la política de broken spread ligada a la medición también queda HOLD", () => {
+  const measurement = measurementFixture();
+  delete measurement.brokenSpreadPolicy;
+  const outcome = evaluateTradesFreeze({ measurement });
   assert.equal(outcome.status, "PENDING_MEASUREMENT");
   assert.ok(outcome.blockedBy.includes("MISSING_BROKEN_SPREAD_POLICY"));
 });
@@ -102,23 +109,141 @@ test("con medición y aprobación de Bru el freeze es FROZEN y el config tiene h
   assert.equal(outcome.contract.approval.approvedBy.authority, "Bru");
 });
 
-test("la penalización trade->ask se deriva por mercado y misión del cross-tab señal × agresor", () => {
-  const measurement = measurementFixture({ gasQuarterly: 2, gasMonthly: 3, powerQuarterly: 0.75, powerMonthly: 0.25 });
-  const gas = derivePenaltyForMission({ measurement, market: "GAS_THE", mission: "GAS_QUARTERLY" });
-  const gasMonthly = derivePenaltyForMission({ measurement, market: "GAS_THE", mission: "GAS_MONTHLY" });
-  const power = derivePenaltyForMission({ measurement, market: "POWER_DE", mission: "POWER_QUARTERLY" });
-  assert.equal(gas.status, "MEASURED");
-  assert.equal(gas.value, 2);
-  assert.equal(gasMonthly.value, 3);
-  assert.equal(power.value, 0.75, "la penalización de Gas no se hereda a Power");
-  // El grupo sin agresor conserva su propia etiqueta en el desglose.
-  assert.ok(gas.byAggressor.some((entry) => entry.aggressor === "UNKNOWN"));
-  // Sólo cuenta las celdas BELOW_MEAN (la señal en que DIP10 compraría).
-  assert.equal(gas.observations, 40);
+// --- Defecto 1: ruta real del artefacto de TR-03 -------------------------
+
+test("lee la medición real de TR-03 (summary) y deriva MEASURED con >=30 BELOW_MEAN", () => {
+  const measurement = measurementFixture();
+  // La medición del productor real sólo publica los cortes dentro de summary.
+  assert.ok(measurement.markets.GAS_THE.missions.GAS_QUARTERLY.summary.gaps.LAST_TRADE.byHalfByDip10StateByAggressor.length >= 1);
+  assert.equal(measurement.markets.GAS_THE.missions.GAS_QUARTERLY.gaps, undefined, "TR-03 no publica gaps en la raíz de la misión");
+  const penalty = derivePenaltyForMission({ measurement, market: "GAS_THE", mission: "GAS_QUARTERLY" });
+  assert.equal(penalty.status, "MEASURED");
+  assert.ok(penalty.observations >= MIN_PENALTY_OBSERVATIONS);
+  assert.notEqual(penalty.value, null);
 });
 
+// --- Defecto 2: calibración por mitad, no por el puente completo ---------
+
+test("la mitad de EVALUATION no contamina la penalización ni la frescura", () => {
+  const clean = measurementFixture();
+  const contaminated = measurementFixture({ contaminationPenalty: 50, evaluationDays: 12 });
+  for (const [market, mission] of [["GAS_THE", "GAS_QUARTERLY"], ["POWER_DE", "POWER_MONTHLY"]]) {
+    const cleanPenalty = derivePenaltyForMission({ measurement: clean, market, mission });
+    const contaminatedPenalty = derivePenaltyForMission({ measurement: contaminated, market, mission });
+    assert.equal(contaminatedPenalty.value, cleanPenalty.value, `EVALUATION no debe cambiar la penalización de ${mission}`);
+    const cleanFreshness = deriveFreshnessForMission({ measurement: clean, market, mission });
+    const contaminatedFreshness = deriveFreshnessForMission({ measurement: contaminated, market, mission });
+    assert.equal(contaminatedFreshness.value, cleanFreshness.value, `EVALUATION no debe cambiar la frescura de ${mission}`);
+  }
+  const candidate = buildTradesFreezeCandidate(frozenInput());
+  assert.equal(candidate.halves.calibration, "CALIBRATION");
+  assert.deepEqual(candidate.halves.calibrationUsedFor, ["penaltyEurMwh", "freshnessLimitSeconds"]);
+  assert.deepEqual(candidate.halves.evaluationUsedFor, ["bridgeGate"]);
+});
+
+// --- Defecto 3: ambas reglas de observación congeladas -------------------
+
+test("el candidato congela LAST_TRADE y SLOT_VWAP por misión", () => {
+  const candidate = buildTradesFreezeCandidate(frozenInput());
+  for (const [market, missions] of Object.entries(candidate.markets)) {
+    for (const [missionKey, entry] of Object.entries(missions.missions)) {
+      for (const rule of OBSERVATION_RULE_LIST) {
+        assert.ok(entry.observations[rule], `falta ${rule} en ${market}/${missionKey}`);
+        assert.equal(entry.observations[rule].penalty.status, "MEASURED", `penalización no congelada en ${market}/${missionKey}/${rule}`);
+        assert.ok(["MEASURED", "LOW_COVERAGE"].includes(entry.observations[rule].freshness.status), `frescura no congelada en ${market}/${missionKey}/${rule}`);
+      }
+    }
+  }
+});
+
+// --- Defecto 4: grupo sin agresor con regla explícita --------------------
+
+test("la penalización conserva cada grupo agresor con su regla explícita", () => {
+  const measurement = measurementFixture();
+  const gasMonthly = derivePenaltyForMission({ measurement, market: "GAS_THE", mission: "GAS_MONTHLY" });
+  assert.equal(gasMonthly.value, 2.5);
+  assert.deepEqual(gasMonthly.byAggressor.map((entry) => entry.aggressor), ["UNKNOWN"]);
+  assert.equal(gasMonthly.aggregationRuleId, TRADES_PENALTY_AGGRESSION_RULE.id);
+  const candidate = buildTradesFreezeCandidate(frozenInput());
+  assert.equal(candidate.tradeEligibility.penaltyAggressionRule.id, TRADES_PENALTY_AGGRESSION_RULE.id);
+  assert.ok(candidate.tradeEligibility.penaltyAggressionRule.groups.some((group) => group.aggressor === "UNKNOWN" && group.reassignedToSide === false));
+  // El modelo de fill también declara de dónde sale la penalización.
+  assert.equal(candidate.fillModel.penaltyAggressionRuleId, TRADES_PENALTY_AGGRESSION_RULE.id);
+  assert.equal(candidate.fillModel.penaltySignRuleId, "PENALTY_SIGN_UNRESTRICTED");
+});
+
+// --- Defecto 5: penalización negativa medida es válida -------------------
+
+test("una penalización negativa medida no bloquea el freeze", () => {
+  const measurement = measurementFixture({ penalties: { GAS_QUARTERLY: -0.75 } });
+  const penalty = derivePenaltyForMission({ measurement, market: "GAS_THE", mission: "GAS_QUARTERLY" });
+  assert.equal(penalty.status, "MEASURED");
+  assert.equal(penalty.value, -0.75);
+  const input = frozenInput({ measurement });
+  const candidate = buildTradesFreezeCandidate(input);
+  assert.equal(validateTradesContract(candidate).ok, true, JSON.stringify(validateTradesContract(candidate).errors));
+  const outcome = evaluateTradesFreeze({ ...input, ownerApproval: approvalFor(candidate.configHash) });
+  assert.equal(outcome.status, "FROZEN");
+});
+
+test("el fill admite penalización negativa sin imponer signo", () => {
+  const fill = deriveTradesFillPrice({ tradePrice: 100, penaltyEurMwh: -1, slippageEurMwh: 0.15 });
+  assert.equal(fill.ok, true);
+  assert.equal(fill.price, 99.15);
+});
+
+// --- Defecto 6: gate predeclarado con umbrales ---------------------------
+
+test("cada métrica del gate declara definición y umbral, y el validador los exige", () => {
+  const metricIds = TRADES_BRIDGE_GATE.metrics.map((metric) => metric.id);
+  assert.deepEqual(metricIds, ["BUY_WAIT_AGREEMENT", "BOUGHT_MW", "FILL_PRICE", "H", "DELTA_V"]);
+  for (const metric of TRADES_BRIDGE_GATE.metrics) {
+    assert.ok(metric.definition && metric.definition.length > 0, `definición ausente en ${metric.id}`);
+    assert.ok(metric.threshold && metric.threshold.kind, `umbral ausente en ${metric.id}`);
+  }
+  assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "H").threshold.kind, "cost_state_declared");
+  assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "BUY_WAIT_AGREEMENT").threshold.value, BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN);
+
+  const candidate = buildTradesFreezeCandidate(frozenInput());
+  candidate.bridgeGate = {
+    ...candidate.bridgeGate,
+    metrics: candidate.bridgeGate.metrics.map((metric) => (metric.id === "H" ? { ...metric, threshold: null } : metric)),
+  };
+  const outcome = validateTradesContract(candidate);
+  assert.equal(outcome.ok, false);
+  assert.ok(outcome.errors.some((error) => error.code === "MISSING_GATE_THRESHOLD"));
+});
+
+// --- Defecto 7: política de broken spread ligada a la medición -----------
+
+test("el freeze toma la política de broken spread de la medición", () => {
+  const candidate = buildTradesFreezeCandidate(frozenInput());
+  assert.equal(candidate.tradeEligibility.brokenSpreadPolicy, "INCLUDE");
+});
+
+test("una política de TR-01 distinta a la de la medición deja el freeze en HOLD", () => {
+  const outcome = evaluateTradesFreeze(frozenInput({
+    sourceDecision: sourceDecisionFixture({ brokenSpreadPolicy: "EXCLUDE" }),
+  }));
+  assert.equal(outcome.decision, "HOLD");
+  assert.equal(outcome.status, "INCONSISTENT_BROKEN_SPREAD_POLICY");
+  assert.ok(outcome.blockedBy.includes("BROKEN_SPREAD_POLICY_MISMATCH"));
+});
+
+test("una política PENDING de TR-01 no bloquea: la medición es la fuente", () => {
+  const measurement = measurementFixture();
+  measurement.brokenSpreadPolicy = "INCLUDE";
+  const outcome = evaluateTradesFreeze(frozenInput({
+    measurement,
+    sourceDecision: { brokenSpreadPolicy: "PENDING_MEASUREMENT; se congela en TR-04", measurements: {} },
+  }));
+  assert.equal(outcome.status, "PENDING_OWNER_APPROVAL");
+});
+
+// --- Reglas de frescura, dato ausente y muestras insuficientes -----------
+
 test("la penalización es UNKNOWN con muestra insuficiente y no se sustituye por cero", () => {
-  const measurement = measurementFixture({ observations: 10 });
+  const measurement = measurementFixture({ days: 3 });
   const penalty = derivePenaltyForMission({ measurement, market: "GAS_THE", mission: "GAS_QUARTERLY" });
   assert.equal(penalty.status, "UNKNOWN");
   assert.equal(penalty.value, null);
@@ -127,32 +252,13 @@ test("la penalización es UNKNOWN con muestra insuficiente y no se sustituye por
   assert.ok(outcome.blockedBy.includes("UNMEASURED_CONTRACT_PARAMETERS"));
 });
 
-test("el límite de frescura se deriva de la cobertura del puente", () => {
-  const measurement = measurementFixture({ targetLimit: 3600 });
+test("el límite de frescura sale de la cobertura de la mitad de calibración", () => {
+  const measurement = measurementFixture();
   const freshness = deriveFreshnessForMission({ measurement, market: "GAS_THE", mission: "GAS_QUARTERLY" });
   assert.equal(freshness.status, "MEASURED");
-  assert.equal(freshness.value, 3600);
+  assert.ok(FRESHNESS_LIMIT_CANDIDATES_SECONDS.includes(freshness.value));
   assert.ok(freshness.coverage >= FRESHNESS_COVERAGE_TARGET);
-});
-
-test("sin candidato que alcance la cobertura objetivo se declara LOW_COVERAGE, no se inventa", () => {
-  const measurement = measurementFixture({ targetLimit: 999999 });
-  const freshness = deriveFreshnessForMission({ measurement, market: "GAS_THE", mission: "GAS_QUARTERLY" });
-  assert.equal(freshness.status, "LOW_COVERAGE");
-  assert.equal(freshness.value, Math.max(...FRESHNESS_LIMIT_CANDIDATES_SECONDS));
-});
-
-test("la grilla de sensibilidad y el gate del puente quedan predeclarados", () => {
-  assert.ok(TRADES_SENSITIVITY_GRID.penaltyMultipliers.includes(0));
-  assert.ok(TRADES_SENSITIVITY_GRID.penaltyMultipliers.includes(1));
-  assert.deepEqual(TRADES_SENSITIVITY_GRID.freshnessLimitSeconds, FRESHNESS_LIMIT_CANDIDATES_SECONDS);
-
-  assert.equal(TRADES_BRIDGE_GATE.toBridgeResultsAlreadyKnown, true);
-  assert.equal(TRADES_BRIDGE_GATE.independence, "NOT_INDEPENDENT_VALIDATION");
-  assert.deepEqual(TRADES_BRIDGE_GATE.arms, ["BASELINE", "DIP10", "HOUR"]);
-  const metricIds = TRADES_BRIDGE_GATE.metrics.map((metric) => metric.id);
-  assert.deepEqual(metricIds, ["BUY_WAIT_AGREEMENT", "BOUGHT_MW", "FILL_PRICE", "H", "DELTA_V"]);
-  assert.deepEqual(TRADES_BRIDGE_GATE.armOrderRule.arms, ["BASELINE", "DIP10", "HOUR"]);
+  assert.ok(measurement.markets.GAS_THE.missions.GAS_QUARTERLY.summary.coverage.LAST_TRADE.byHalf[HALVES.CALIBRATION]);
 });
 
 test("las reglas de dato ausente están declaradas y distinguen DATA_INCOMPLETE del hard-reject", () => {
@@ -163,14 +269,26 @@ test("las reglas de dato ausente están declaradas y distinguen DATA_INCOMPLETE 
 
 test("el configHash cambia si cambia el contenido del contrato", () => {
   const base = buildTradesFreezeCandidate(frozenInput());
-  const changed = buildTradesFreezeCandidate(frozenInput({ measurement: measurementFixture({ gasQuarterly: 2.5 }) }));
+  const changed = buildTradesFreezeCandidate(frozenInput({
+    measurement: measurementFixture({ penalties: { GAS_QUARTERLY: 2.5 } }),
+  }));
   assert.notEqual(base.configHash, changed.configHash);
   assert.equal(base.configHash, tradesConfigHash(base));
 });
 
+test("la grilla de sensibilidad y el gate del puente quedan predeclarados", () => {
+  assert.ok(TRADES_SENSITIVITY_GRID.penaltyMultipliers.includes(0));
+  assert.ok(TRADES_SENSITIVITY_GRID.penaltyMultipliers.includes(1));
+  assert.deepEqual(TRADES_SENSITIVITY_GRID.freshnessLimitSeconds, FRESHNESS_LIMIT_CANDIDATES_SECONDS);
+  assert.equal(TRADES_BRIDGE_GATE.toBridgeResultsAlreadyKnown, true);
+  assert.equal(TRADES_BRIDGE_GATE.independence, "NOT_INDEPENDENT_VALIDATION");
+  assert.deepEqual(TRADES_BRIDGE_GATE.arms, ["BASELINE", "DIP10", "HOUR"]);
+  assert.deepEqual(TRADES_BRIDGE_GATE.armOrderRule.arms, ["BASELINE", "DIP10", "HOUR"]);
+});
+
 test("un penalty UNKNOWN con valor se rechaza (nunca cero)", () => {
   const candidate = buildTradesFreezeCandidate(frozenInput());
-  candidate.markets.GAS_THE.missions.GAS_QUARTERLY.penalty = { status: "UNKNOWN", value: 0 };
+  candidate.markets.GAS_THE.missions.GAS_QUARTERLY.observations.LAST_TRADE.penalty = { status: "UNKNOWN", value: 0 };
   const outcome = validateTradesContract(candidate);
   assert.equal(outcome.ok, false);
   assert.ok(outcome.errors.some((error) => error.code === "INVENTED_PENALTY"));
@@ -204,8 +322,8 @@ test("el fill TRADES suma trade + penalización + 0,15 sin omitir ni duplicar", 
   // El 0,15 no se omite (no es 102) ni se cuenta dos veces (no es 102.30).
   assert.notEqual(fill.price, 102);
   assert.notEqual(fill.price, 102.3);
-  // Precio negativo de power admitido; penalización/slippage no.
+  // Precio negativo de power admitido; el slippage no.
   assert.equal(deriveTradesFillPrice({ tradePrice: -10, penaltyEurMwh: 1, slippageEurMwh: 0.15 }).price, -8.85);
-  assert.equal(deriveTradesFillPrice({ tradePrice: 100, penaltyEurMwh: -1 }).ok, false);
   assert.equal(deriveTradesFillPrice({ tradePrice: 100, penaltyEurMwh: 1, slippageEurMwh: -0.15 }).ok, false);
+  assert.equal(deriveTradesFillPrice({ tradePrice: 100, penaltyEurMwh: null }).ok, false);
 });

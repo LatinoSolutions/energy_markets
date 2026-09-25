@@ -19,17 +19,18 @@
   "rule": "Bru aprueba el freeze antes de cualquier run de estrategia en TRADES (TRADES_MODE_PLAN.md TR-04)."
  },
  "blockedBy": [
-  "MISSING_BROKEN_SPREAD_POLICY",
-  "MISSING_BRIDGE_MEASUREMENT"
+  "MISSING_BRIDGE_MEASUREMENT",
+  "MISSING_BROKEN_SPREAD_POLICY"
  ],
  "errors": [],
- "reason": "La medición del puente (TR-03) y la política de broken spread congelada por TR-01 son jobs que lanza Bru; hasta que existan no se inventa ninguna penalización ni límite de frescura.",
+ "reason": "La medición del puente (TR-03), que trae la política de broken spread bajo la que se midió, es un job que lanza Bru; hasta que exista no se inventa ninguna penalización ni límite de frescura.",
  "candidate": null,
  "frozenContract": null,
  "inputs": {
   "measurement": {
    "path": "operations/trades/TR-03/bridge-measurement.json",
-   "present": false
+   "present": false,
+   "brokenSpreadPolicy": null
   },
   "measurementStatus": {
    "path": "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json",

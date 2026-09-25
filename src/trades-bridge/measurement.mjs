@@ -115,6 +115,11 @@ function emptyGapState() {
     // señal (DIP10 compraría) Y al lado agresor a la vez. Los cortes por separado
     // no permiten cruzar ambos; este cross-tab es el que TR-04 consume.
     byDip10StateByAggressor: new Map(),
+    // TR-04 §3.3 + plan TR-03/TR-06: la calibración del fill sale de la MITAD de
+    // calibración, no del puente entero; la mitad de evaluación se reserva para
+    // el gate de TR-06. El cruce señal × agresor necesita su propio corte por
+    // mitad para no contaminar la calibración con la evaluación.
+    byHalfByDip10StateByAggressor: new Map(),
     byHalf: new Map(),
     byAgeBucket: new Map(),
   };
@@ -168,6 +173,7 @@ function registerGap({ gaps, gap, distanceMonths, aggressor, dip10, half, ageSec
   // observación (si no, no se registra gap); el agresor conserva su propio grupo
   // (UNKNOWN / MIXED nunca se reasignan a un lado por suposición).
   pushToMap(gaps.byDip10StateByAggressor, `${dip10}|${aggressor}`, gap);
+  pushToMap(gaps.byHalfByDip10StateByAggressor, `${half}|${dip10}|${aggressor}`, gap);
   pushToMap(gaps.byHalf, half, gap);
   pushToMap(gaps.byAgeBucket, ageBucketOf(ageSeconds), gap);
 }
@@ -504,6 +510,7 @@ function finalizeGaps(gaps) {
     byAggressor: finalizeGapMap(gaps.byAggressor, "aggressor"),
     byDip10State: finalizeGapMap(gaps.byDip10, "dip10State"),
     byDip10StateByAggressor: finalizeGapMap(gaps.byDip10StateByAggressor, "combination"),
+    byHalfByDip10StateByAggressor: finalizeGapMap(gaps.byHalfByDip10StateByAggressor, "combination"),
     byHalf: finalizeGapMap(gaps.byHalf, "half"),
     byAgeBucket: finalizeGapMap(gaps.byAgeBucket, "ageBucket"),
   };
@@ -678,7 +685,7 @@ function mergeCoverageState(target, source) {
 
 function mergeGapState(target, source) {
   target.overall.push(...source.overall);
-  for (const dimension of ["byDistance", "byAggressor", "byDip10", "byDip10StateByAggressor", "byHalf", "byAgeBucket"]) {
+  for (const dimension of ["byDistance", "byAggressor", "byDip10", "byDip10StateByAggressor", "byHalfByDip10StateByAggressor", "byHalf", "byAgeBucket"]) {
     for (const [key, values] of source[dimension]) {
       if (!target[dimension].has(key)) target[dimension].set(key, []);
       target[dimension].get(key).push(...values);

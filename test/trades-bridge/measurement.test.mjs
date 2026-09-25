@@ -225,3 +225,23 @@ test("TR-04: el cross-tab señal × agresor cruza el estado DIP10 con el lado", 
   const dipCount = campaign.gaps.LAST_TRADE.byDip10State.reduce((sum, entry) => sum + entry.count, 0);
   assert.equal(crossedCount, dipCount);
 });
+
+test("TR-04: el cross-tab señal × agresor se parte por mitad del puente", () => {
+  const rows = [
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T09:00:00Z", Px: "90", TrdID: "1", AgrsrAct: "BUY" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T10:00:00Z", Px: "88", TrdID: "2", AgrsrAct: "SELL" }),
+  ];
+  const { artifact } = run({
+    campaigns: [gasQuarterlyCampaign({ windowDays: ["2025-09-01"] })],
+    rows,
+    series: ASKS,
+  });
+  const campaign = artifact.markets.GAS_THE.missions.GAS_QUARTERLY.campaigns[0];
+  const byHalf = campaign.gaps.LAST_TRADE.byHalfByDip10StateByAggressor;
+  assert.ok(byHalf.length >= 1);
+  // Cada combinación lleva la mitad como primer segmento (CALIBRATION|...).
+  assert.ok(byHalf.every((entry) => entry.combination.startsWith("CALIBRATION|")));
+  const crossedCount = byHalf.reduce((sum, entry) => sum + entry.count, 0);
+  const crossedOverall = campaign.gaps.LAST_TRADE.byDip10StateByAggressor.reduce((sum, entry) => sum + entry.count, 0);
+  assert.equal(crossedCount, crossedOverall);
+});
