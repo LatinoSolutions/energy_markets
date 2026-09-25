@@ -70,8 +70,8 @@ Development (walk-forward para la hora) -> puente (mitad de evaluación contra e
 
 ### TR-07: UI de Backtests (diseño APROBADO por Bru 2026-09-25)
 Depende de UI-05 y UI-06 (misma pantalla). Referencia visual aprobada: /srv/hot-data/oficina-data/design-selections/energy-markets/TR-07-prototipo-2026-09-25/prototipo-tr07.html (sha256 d1fd75a72c8d7f3c0923d3132d02db4b2d6cae78fb23433f107f55d82f85cb6f), opción B. Calcar layout; los datos salen solo del backend.
-- Selector de mercado/misión (Gas Q, Gas M, Power Q, Power M) y selector de modo  | .
-- En , selector de período: All, Development, Historical OOS, Bridge.
+- Selector de mercado/misión (Gas Q, Gas M, Power Q, Power M) y selector de modo `TOB` | `TRADES`.
+- En `TRADES`, selector de período: All, Development, Historical OOS, Bridge.
 - Barra de zonas (Development, Historical OOS, embargo, Bridge, post, Forward) con borde en lo que cubre la vista.
 - Panel de contraste TOB vs TRADES a la derecha, visible solo cuando la vista incluye el puente; fuera del puente, 1 línea: "Contrast only exists for the bridge, 2025-08-12 to 2026-07-28".
 - Botón "Expand calibration charts": abre a ancho completo la superposición TOB/TRADES día por día y la distribución (último trade − ask) de TR-03.
