@@ -151,6 +151,7 @@ export function projectExploratoryPages(exploratory) {
   return {
     status: "EXPLORATORY",
     provenance: exploratory.provenance,
+    dataPeriod: results.inputs?.dataPeriod ?? null,
     replay: results.replay,
     campaigns: results.campaigns,
     campaignUnknowns: results.campaignUnknowns ?? [],

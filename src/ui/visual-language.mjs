@@ -474,7 +474,7 @@ export const PROVENANCE_INTERACTION_SCRIPT = `<script>
     if (event.target.closest("[data-key-close]")) { toggleKey(false); return; }
     var hind = event.target.closest("[data-hind-toggle]");
     if (hind) {
-      var wrap = document.querySelector(".chartwrap"); if (!wrap) { return; }
+      var wrap = (hind.closest(".zones") || document).querySelector(".chartwrap"); if (!wrap) { return; }
       var on = !wrap.classList.contains("hind-on");
       wrap.classList.toggle("hind-on", on); hind.classList.toggle("on", on);
       hind.textContent = "Hindsight overlay: " + (on ? "ON" : "off");
