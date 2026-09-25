@@ -21,7 +21,7 @@ El extractor de la release (`build_tob_slots.py`) sólo se coteja por hash; el �
 que lanza el job es el generador node sobre el snapshot commiteado (test `BT-05 P-011`).
 
 Corre como proceso hijo de `energy-markets-ui.service`, así que cuenta dentro de su
-cgroup (MemoryMax 2G, provisional).
+cgroup (MemoryMax 2G, validado con el primer run real: ver abajo).
 
 ## Rutas (un solo camino)
 
@@ -88,9 +88,11 @@ arrancó) y `memory.cgroupOomKillsDuringRun`. Con esos datos se fija el techo de
 
 Secuencia autorizada por Bru (P-011, 2026-09-25): la Oficina integra BT-05 en `main` y
 reinicia `energy-markets-ui.service`; Bru lanza el primer backtest real desde el botón y el
-techo (`MemoryMax`, hoy 2G provisional) se fija con el `memory.peak` de ese receipt. Si el
-run muere por el techo actual, el receipt cierra `OOM_KILLED` y ese pico no mide la necesidad
-real, solo el techo.
+techo (`MemoryMax`) se fija con el `memory.peak` de ese receipt.
+
+Resultado (Bru, 2026-09-25 23:16 UTC, `evidence/BT-05/first-real-run/`): `SUCCEEDED` en 229 ms,
+pico del cgroup ~53 MB, hijo ~67 MB de RSS, 0 OOM kills. `MemoryMax=2G` queda validado con
+ese dato y se mantiene (razones en el README de esa evidencia).
 
 ## Valores provisionales (no canónicos)
 

@@ -6,7 +6,8 @@
 //   - Uno a la vez (lock en disco por generaciones con link()): el 25-sep un backtest lanzado fuera
 //     de este camino agotó la RAM de BruNode (nota BT-05 en PLAN_STATUS).
 //   - El backtest corre en un proceso hijo del servicio, así cuenta dentro del
-//     cgroup de energy-markets-ui.service (MemoryMax provisional 2G, nota BT-05).
+//     cgroup de energy-markets-ui.service (MemoryMax 2G, validado con el primer run
+//     real de Bru, evidence/BT-05/first-real-run/, 2026-09-25).
 //   - Sólo corre sobre inputs cuyo sha256 coincide con el manifest commiteado de la
 //     release vigente (BT02_CURRENT_RELEASE, owner patch
 //     EM-SPEC-OWNER-PATCH-2026-09-24-02 §4); si algo no coincide, no arranca.
