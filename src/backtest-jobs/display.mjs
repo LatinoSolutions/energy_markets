@@ -32,6 +32,7 @@ export const FAILURE_WORDS = Object.freeze({
   MANIFEST_MISSING: "the data manifest is missing",
   MANIFEST_UNREADABLE: "the data manifest could not be read",
   MANIFEST_INVALID: "the data manifest is invalid",
+  RELEASE_MISMATCH: "the data manifest is not the current release",
   ENTRY_NOT_IN_MANIFEST: "the backtest script is not in the data manifest",
   REGISTRY_CORRUPT: "the run registry is corrupt",
   REGISTRY_UNREADABLE: "the run registry could not be read",

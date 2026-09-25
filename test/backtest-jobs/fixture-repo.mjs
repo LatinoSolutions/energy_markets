@@ -1,6 +1,6 @@
 // Repo mínimo para los tests de BT-05. El generador es un doble pequeño con la
-// misma interfaz que operations/exploratory/run-exploratory-backtest.mjs
-// (argv <slots> <salida>, escribe resultados + MANIFEST relativos al cwd): los
+// misma interfaz que el generador de la release vigente (EXPLORATORY_ENTRY: argv
+// <slots> <salida>, escribe resultados + MANIFEST junto a la salida): los
 // tests nunca corren el backtest real (nota BT-05 en PLAN_STATUS).
 // Es un repo git con commit: el commit forma parte de la identidad del run.
 
@@ -10,11 +10,17 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { EXPLORATORY_ENTRY, EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT } from "../../src/backtest-jobs/index.mjs";
+
+const RELEASE_DIR = path.posix.dirname(EXPLORATORY_MANIFEST_PATH);
+const SRC_FROM_ENTRY = path.posix.relative(path.posix.dirname(EXPLORATORY_ENTRY), "src");
+
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 const FAKE_GENERATOR = `import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { describeFixture } from "../../src/exploratory/fixture-lib.mjs";
+import { dirname, join } from "node:path";
+import { describeFixture } from "${SRC_FROM_ENTRY}/exploratory/fixture-lib.mjs";
 
 const [slotsPath, outPath] = process.argv.slice(2);
 const slotsBytes = readFileSync(slotsPath);
@@ -38,9 +44,9 @@ const manifest = {
   status: "EXPLORATORY",
   results: { path: outPath, sha256: sha(outputBytes) },
   slots: output.inputs.slots,
-  generators: ["operations/exploratory/run-exploratory-backtest.mjs", "src/exploratory/fixture-lib.mjs"].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
+  generators: [${JSON.stringify(EXPLORATORY_ENTRY)}, "src/exploratory/fixture-lib.mjs"].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
 };
-writeFileSync("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
+writeFileSync(join(dirname(outPath), "MANIFEST.json"), JSON.stringify(manifest, null, 1));
 `;
 
 // fixture-helper es una dependencia transitiva que el manifest NO fija, como
@@ -56,7 +62,7 @@ export const FIXTURE_HELPER_PATH = "src/exploratory/fixture-helper.mjs";
 export const fixtureHelperSource = (label) => `export const HELPER_LABEL = ${JSON.stringify(label)};\n`;
 export const COMMITTED_HELPER_LABEL = "committed";
 
-const SLOTS_PATH = "operations/exploratory/tob-slots-the-gas.json";
+export const SLOTS_PATH = `${RELEASE_DIR}/tob-slots-the-gas.json`;
 
 // Resultado que produce el doble para unos slots dados (mismo JSON que escribe).
 function expectedResultsBytes(slotsBytes, slots) {
@@ -64,7 +70,7 @@ function expectedResultsBytes(slotsBytes, slots) {
   return Buffer.from(JSON.stringify(output, null, 1));
 }
 
-export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null } = {}) {
+export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null, committedResultsPath = EXPLORATORY_OUTPUT } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "bt05-repo-"));
   const write = (relative, content) => {
     const target = path.join(root, relative);
@@ -74,21 +80,21 @@ export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null } =
   };
   const slots = { mode, points: [1, 2, 3] };
   const slotsBytes = write(SLOTS_PATH, JSON.stringify(slots));
-  const generatorBytes = write("operations/exploratory/run-exploratory-backtest.mjs", FAKE_GENERATOR);
+  const generatorBytes = write(EXPLORATORY_ENTRY, FAKE_GENERATOR);
   const libBytes = write("src/exploratory/fixture-lib.mjs", FIXTURE_LIB);
   write(FIXTURE_HELPER_PATH, fixtureHelperSource(COMMITTED_HELPER_LABEL));
   write("operations/audit/IMP-09/eex-exchange-calendar.json", JSON.stringify({ exchangeDays: ["2025-09-01"] }));
   const manifest = {
     artifactKind: "EXPLORATORY_BACKTEST_MANIFEST",
     status: "EXPLORATORY",
-    results: { path: "operations/exploratory/backtest-results.json", sha256: committedResultsSha256 ?? sha(expectedResultsBytes(slotsBytes, slots)) },
+    results: { path: committedResultsPath, sha256: committedResultsSha256 ?? sha(expectedResultsBytes(slotsBytes, slots)) },
     slots: { path: SLOTS_PATH, sha256: sha(slotsBytes) },
     generators: [
-      { path: "operations/exploratory/run-exploratory-backtest.mjs", sha256: sha(generatorBytes) },
+      { path: EXPLORATORY_ENTRY, sha256: sha(generatorBytes) },
       { path: "src/exploratory/fixture-lib.mjs", sha256: sha(libBytes) },
     ],
   };
-  const manifestBytes = write("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
+  const manifestBytes = write(EXPLORATORY_MANIFEST_PATH, JSON.stringify(manifest, null, 1));
   // Los runs quedan fuera del árbol que identifica el código.
   write(".gitignore", "operations/backtest-runs/\n");
   const git = (...args) => execFileSync("git", ["-c", "user.name=bt05", "-c", "user.email=bt05@test", ...args], { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();

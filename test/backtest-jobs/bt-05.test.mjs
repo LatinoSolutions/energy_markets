@@ -14,6 +14,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   BACKTEST_JOBS_PATH,
+  EXPLORATORY_ENTRY,
+  EXPLORATORY_MANIFEST_PATH,
+  EXPLORATORY_OUTPUT,
+  EXPLORATORY_RELEASE,
   JOB_STATUS,
   RECEIPT_KIND,
   REGISTRY_EVENT,
@@ -29,7 +33,9 @@ import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
 import { createUiServer } from "../../src/ui/index.mjs";
 import { renderBacktestJobControl, withBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
 import { FAILURE_WORDS, describeJobStatus, describeLaunch } from "../../src/backtest-jobs/display.mjs";
-import { COMMITTED_HELPER_LABEL, FIXTURE_HELPER_PATH, fixtureHelperSource, makeFixtureRepo } from "./fixture-repo.mjs";
+import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../../src/exploratory/reconciliation.mjs";
+import { EXPLORATORY_MANIFEST_PATH as UI_EXPLORATORY_MANIFEST_PATH } from "../../src/ui/canonical-inputs.mjs";
+import { COMMITTED_HELPER_LABEL, FIXTURE_HELPER_PATH, SLOTS_PATH, fixtureHelperSource, makeFixtureRepo } from "./fixture-repo.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const MCP_SERVER = fileURLToPath(new URL("../../src/backtest-jobs/mcp-server.mjs", import.meta.url));
@@ -62,7 +68,7 @@ const postJob = (base, body, headers = { "Content-Type": "application/json" }) =
 
 test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound sin tocar el manifest commiteado", async () => {
   const repo = makeFixtureRepo();
-  const committedManifest = readFileSync(path.join(repo.root, "operations/exploratory/MANIFEST.json"));
+  const committedManifest = readFileSync(path.join(repo.root, EXPLORATORY_MANIFEST_PATH));
   const runner = createBacktestJobRunner({ repoRoot: repo.root });
   const started = runner.start({ requestedBy: "ui" });
   assert.equal(started.ok, true);
@@ -79,10 +85,11 @@ test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound s
   assert.equal(receipt.inputs.manifest.sha256, repo.manifestSha256);
   assert.deepEqual(receipt.inputs.files.map((file) => file.path).sort(), [
     "operations/audit/IMP-09/eex-exchange-calendar.json",
-    "operations/exploratory/run-exploratory-backtest.mjs",
-    "operations/exploratory/tob-slots-the-gas.json",
+    EXPLORATORY_ENTRY,
+    SLOTS_PATH,
     "src/exploratory/fixture-lib.mjs",
-  ]);
+  ].sort());
+  assert.equal(receipt.inputs.release, BT02_CURRENT_RELEASE);
 
   // el resultado y su manifest existen y coinciden con los hashes del receipt
   const resultsBytes = readFileSync(path.join(repo.root, receipt.result.results.path));
@@ -97,7 +104,7 @@ test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound s
   // el receipt en disco es el mismo que devuelve el job
   assert.deepEqual(JSON.parse(readFileSync(path.join(repo.root, receipt.receiptPath))), receipt);
   // el manifest que la UI lee no se reescribe
-  assert.deepEqual(readFileSync(path.join(repo.root, "operations/exploratory/MANIFEST.json")), committedManifest);
+  assert.deepEqual(readFileSync(path.join(repo.root, EXPLORATORY_MANIFEST_PATH)), committedManifest);
   // pico de RSS propio del hijo medido, no inventado
   assert.equal(typeof receipt.memory.childMaxRssKb, "number");
   assert.ok(receipt.memory.childMaxRssKb > 0);
@@ -152,7 +159,7 @@ test("BT-05: sólo un job a la vez; el segundo pedido devuelve el job en curso",
 
 test("BT-05: inputs que no coinciden con el manifest commiteado no arrancan el job", () => {
   const repo = makeFixtureRepo();
-  repo.write("operations/exploratory/tob-slots-the-gas.json", JSON.stringify({ mode: "ok", points: [9] }));
+  repo.write(SLOTS_PATH, JSON.stringify({ mode: "ok", points: [9] }));
   const runner = createBacktestJobRunner({ repoRoot: repo.root });
   const started = runner.start({ requestedBy: "ui" });
   assert.equal(started.ok, false);
@@ -220,8 +227,29 @@ test("BT-05: requestedBy sólo ui o mcp", () => {
 test("BT-05: el snapshot exploratorio real del repo verifica por hash contra su MANIFEST (preflight, sin ejecutar)", () => {
   const verified = verifyExploratoryInputs(DEFAULT_REPO_ROOT);
   assert.equal(verified.ok, true, JSON.stringify(verified));
-  assert.equal(verified.slotsPath, "operations/exploratory/tob-slots-the-gas.json");
-  assert.ok(verified.files.some((file) => file.path === "operations/exploratory/run-exploratory-backtest.mjs"));
+  assert.equal(verified.release, BT02_CURRENT_RELEASE);
+  assert.equal(verified.slotsPath, "operations/exploratory/v2/tob-slots-the-gas.json");
+  assert.ok(verified.files.some((file) => file.path === "operations/exploratory/v2/run-exploratory-backtest.mjs"));
+  assert.equal(verified.committedResults.path, BT02_RELEASES[BT02_CURRENT_RELEASE].exploratoryResults);
+});
+
+// Hallazgo BT05-RELEASE-13 (review 25-sep-2026): el botón de la página que muestra v2 lanzaba la v1 superada.
+test("BT-05 release: el job corre la release vigente, la misma que carga la UI", () => {
+  assert.equal(EXPLORATORY_RELEASE, BT02_CURRENT_RELEASE);
+  assert.equal(EXPLORATORY_MANIFEST_PATH, BT02_RELEASES[BT02_CURRENT_RELEASE].exploratoryManifest);
+  assert.equal(EXPLORATORY_MANIFEST_PATH, UI_EXPLORATORY_MANIFEST_PATH);
+  assert.equal(EXPLORATORY_OUTPUT, BT02_RELEASES[BT02_CURRENT_RELEASE].exploratoryResults);
+  assert.equal(EXPLORATORY_ENTRY, "operations/exploratory/v2/run-exploratory-backtest.mjs");
+});
+
+test("BT-05 release: un manifest que no es el de la release vigente no arranca el job (RELEASE_MISMATCH)", () => {
+  const repo = makeFixtureRepo({ committedResultsPath: BT02_RELEASES.v1.exploratoryResults });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const started = runner.start({ requestedBy: "ui" });
+  assert.equal(started.ok, false);
+  assert.equal(started.code, "RELEASE_MISMATCH");
+  assert.equal(runner.status().latest, null, "no se crea run");
+  assert.equal(FAILURE_WORDS.RELEASE_MISMATCH, "the data manifest is not the current release");
 });
 
 // ---------- endpoint HTTP ----------
@@ -855,7 +883,7 @@ test("BT-05 identidad: si los slots del workspace cambian antes de que los lea e
   assert.equal(started.ok, true);
   // el hijo aún no leyó sus slots: se alteran en el workspace en esa ventana
   const workspace = path.join(runner.runsRoot, started.job.runId, "attempt-1", "workspace");
-  writeFileSync(path.join(workspace, "operations/exploratory/tob-slots-the-gas.json"), JSON.stringify({ mode: "ok", points: [9] }));
+  writeFileSync(path.join(workspace, SLOTS_PATH), JSON.stringify({ mode: "ok", points: [9] }));
   const receipt = await started.done;
 
   assert.equal(receipt.status, JOB_STATUS.FAILED);

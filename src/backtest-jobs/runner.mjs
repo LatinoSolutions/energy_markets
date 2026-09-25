@@ -7,8 +7,8 @@
 //     de este camino agotó la RAM de BruNode (nota BT-05 en PLAN_STATUS).
 //   - El backtest corre en un proceso hijo del servicio, así cuenta dentro del
 //     cgroup de energy-markets-ui.service (MemoryMax provisional 2G, nota BT-05).
-//   - Sólo corre sobre inputs cuyo sha256 coincide con el manifest commiteado
-//     (operations/exploratory/MANIFEST.json, owner patch
+//   - Sólo corre sobre inputs cuyo sha256 coincide con el manifest commiteado de la
+//     release vigente (BT02_CURRENT_RELEASE, owner patch
 //     EM-SPEC-OWNER-PATCH-2026-09-24-02 §4); si algo no coincide, no arranca.
 //   - Identidad y retención (PLAN_STATUS fila BT-05, "IDENTIDAD Y RETENCION",
 //     owner request 25-sep-2026, commit a9f5b82): run_id = sha256 de {commit,
@@ -24,6 +24,7 @@ import { appendFileSync, closeSync, copyFileSync, linkSync, mkdirSync, openSync,
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../exploratory/reconciliation.mjs";
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 
 export const JOB_KIND = "EXPLORATORY_BACKTEST";
@@ -35,12 +36,18 @@ export const RECEIPT_FILE = "RUN_RECEIPT.json";
 export const REGISTRY_FILE = "REGISTRY.jsonl";
 export const DEFAULT_RUNS_DIR = "operations/backtest-runs";
 
-// Entradas del backtest exploratorio tal como las fija su generador
-// (operations/exploratory/run-exploratory-backtest.mjs:1-24).
-export const EXPLORATORY_MANIFEST_PATH = "operations/exploratory/MANIFEST.json";
-export const EXPLORATORY_ENTRY = "operations/exploratory/run-exploratory-backtest.mjs";
+// El job corre la release vigente, la misma que muestra la UI
+// (src/ui/canonical-inputs.mjs:47-48; operations/audit/BT-04/HANDOFF-BT-04.md:28
+// "v2 (vigente)"). Hallazgo BT05-RELEASE-13 (review 25-sep-2026): fijaba la v1 superada.
+export const EXPLORATORY_RELEASE = BT02_CURRENT_RELEASE;
+const RELEASE_PATHS = BT02_RELEASES[EXPLORATORY_RELEASE];
+export const EXPLORATORY_MANIFEST_PATH = RELEASE_PATHS.exploratoryManifest;
+export const EXPLORATORY_OUTPUT = RELEASE_PATHS.exploratoryResults;
+// Cada release guarda su generador junto a su MANIFEST (operations/exploratory/v2/
+// run-exploratory-backtest.mjs:2-4); si no figura en ese manifest, no arranca (ENTRY_NOT_IN_MANIFEST).
+export const EXPLORATORY_ENTRY = path.posix.join(path.posix.dirname(EXPLORATORY_MANIFEST_PATH), "run-exploratory-backtest.mjs");
+// Leído por el generador (operations/exploratory/v2/run-exploratory-backtest.mjs:24).
 export const EXPLORATORY_CALENDAR = "operations/audit/IMP-09/eex-exchange-calendar.json";
-const EXPLORATORY_OUTPUT = "operations/exploratory/backtest-results.json";
 
 // PROVISIONAL (BT-05, no canónico): techo de tiempo para que un job colgado no
 // bloquee el lock para siempre. Recalcular con la duración medida del primer run real.
@@ -228,6 +235,10 @@ export function verifyExploratoryInputs(repoRoot) {
   if (manifest?.artifactKind !== "EXPLORATORY_BACKTEST_MANIFEST" || manifest?.slots?.path == null || !Array.isArray(manifest?.generators)) {
     return { ok: false, code: "MANIFEST_INVALID", path: EXPLORATORY_MANIFEST_PATH };
   }
+  // Un manifest que no es el de la release vigente no se ejecuta como si lo fuera.
+  if (manifest?.results?.path !== EXPLORATORY_OUTPUT) {
+    return { ok: false, code: "RELEASE_MISMATCH", path: EXPLORATORY_MANIFEST_PATH, expected: EXPLORATORY_OUTPUT, actual: manifest?.results?.path ?? null };
+  }
   if (!manifest.generators.some((entry) => entry?.path === EXPLORATORY_ENTRY)) {
     return { ok: false, code: "ENTRY_NOT_IN_MANIFEST", path: EXPLORATORY_ENTRY };
   }
@@ -256,6 +267,7 @@ export function verifyExploratoryInputs(repoRoot) {
   files.push({ path: EXPLORATORY_CALENDAR, sha256: sha256Of(calendarBytes) });
   return {
     ok: true,
+    release: EXPLORATORY_RELEASE,
     manifest: { path: EXPLORATORY_MANIFEST_PATH, sha256: sha256Of(manifestBytes) },
     committedResults: { path: manifest.results?.path ?? null, sha256: manifest.results?.sha256 ?? null },
     slotsPath: manifest.slots.path,
@@ -752,7 +764,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
       startedAt: startedAt.toISOString(),
       receiptPath: relative(repoRoot, receiptFile(runId, attempt)),
       code: { gitHead: code.commit, entry: EXPLORATORY_ENTRY },
-      inputs: { manifest: verified.manifest, files: verified.files },
+      inputs: { release: verified.release, manifest: verified.manifest, files: verified.files },
       authority: "BT-05 owner request 25-sep-2026; comando autorizado con receipt (SPEC v1.1.1 §26.5). Resultado EXPLORATORY, no canónico.",
     };
     try {

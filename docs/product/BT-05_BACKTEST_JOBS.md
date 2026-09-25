@@ -6,11 +6,14 @@ Fuente: PLAN_STATUS.md, fila BT-05 (owner request 25-sep-2026), incluida la part
 ## Qué corre
 
 El job `EXPLORATORY_BACKTEST` (versión = `JOB_VERSION` en `src/backtest-jobs/runner.mjs`,
-sellada en cada receipt como `jobVersion`) ejecuta el generador existente
-`operations/exploratory/run-exploratory-backtest.mjs` sobre el snapshot fijado en
-`operations/exploratory/MANIFEST.json` (owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4).
-Antes de arrancar verifica por sha256 los slots y cada generador del manifest; si algo
-no coincide, no arranca (`INPUT_HASH_MISMATCH`). No lee el lago EEX.
+sellada en cada receipt como `jobVersion`) ejecuta la release vigente del backtest
+exploratorio, `BT02_CURRENT_RELEASE` en `src/exploratory/reconciliation.mjs` (la misma que
+muestra la UI; hoy v2, `operations/audit/BT-04/HANDOFF-BT-04.md`): el generador
+`operations/exploratory/v2/run-exploratory-backtest.mjs` sobre el snapshot fijado en
+`operations/exploratory/v2/MANIFEST.json` (owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4).
+La release queda en el receipt (`inputs.release`). Antes de arrancar verifica por sha256 los
+slots y cada generador del manifest; si algo no coincide, no arranca (`INPUT_HASH_MISMATCH`);
+si el manifest no es el de la release vigente, tampoco (`RELEASE_MISMATCH`). No lee el lago EEX.
 
 Corre como proceso hijo de `energy-markets-ui.service`, así que cuenta dentro de su
 cgroup (MemoryMax 2G, provisional).
