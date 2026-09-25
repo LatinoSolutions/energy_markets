@@ -1,6 +1,7 @@
 # BT-05 — Backtests lanzados desde la app EM
 
-Fuente: PLAN_STATUS.md, fila BT-05 (owner request 25-sep-2026).
+Fuente: PLAN_STATUS.md, fila BT-05 (owner request 25-sep-2026), incluida la parte
+"IDENTIDAD Y RETENCION" (commit a9f5b82 en `main`).
 
 ## Qué corre
 
@@ -17,11 +18,12 @@ cgroup (MemoryMax 2G, provisional).
 
 | Quién | Cómo |
 |---|---|
-| Botón **Run backtest** en `/backtests` | `POST /api/backtest-jobs` `{"requestedBy":"ui"}` |
+| Botón **Run backtest** en `/backtests` (**no se sirve** hasta que Bru apruebe la propuesta visual, ver `evidence/BT-05/ui-proposal/`) | `POST /api/backtest-jobs` `{"requestedBy":"ui"}` |
 | Asistente externo por MCP | tool `start_backtest` → el mismo `POST` con `{"requestedBy":"mcp"}` |
-| Estado | `GET /api/backtest-jobs` (en curso + último) · `GET /api/backtest-jobs/<runId>` (receipt completo) |
+| Estado | `GET /api/backtest-jobs` (en curso + último + resultado vigente) · `GET /api/backtest-jobs/<runId>` (receipt + vigencia) |
 
 Un job a la vez: un segundo pedido recibe `409 JOB_ALREADY_RUNNING` con el job en curso.
+El estado se lee del disco (lock + receipts + registro), así que cualquier proceso ve el job en curso.
 
 Servidor MCP (stdio), para registrarlo en el cliente MCP:
 
@@ -29,15 +31,39 @@ Servidor MCP (stdio), para registrarlo en el cliente MCP:
 node /srv/hot-data/energy-markets/app/src/backtest-jobs/mcp-server.mjs --url http://<ip-tailscale>:8788/
 ```
 
+## Identidad del run
+
+`run_id = BT-RUN-` + sha256 (JSON canónico) de:
+- `codeCommit`: commit git del repo. Si `src/` o el generador tienen cambios sin commitear,
+  el job no arranca (`CODE_NOT_COMMITTED`); sin git, `CODE_COMMIT_UNKNOWN`.
+- `dataManifestSha256`: hash del manifest exploratorio commiteado + el calendario (ambos por sha256).
+- `parameters`: jobKind, generador, slots y salida.
+- `engineVersion`: `JOB_VERSION` del runner.
+
+Mismo `run_id` con resultado → `200 reused`, no se recalcula. Si el intento anterior falló o
+se interrumpió, se reintenta como `attempt-<n+1>` del mismo run.
+
 ## Qué queda de cada run
 
-`operations/backtest-runs/<runId>/`:
-- `RUN_RECEIPT.json` — estado, quién lo pidió, hashes de inputs y código (`gitHead`),
-  hashes de resultados y MANIFEST del run, `reproducesCommittedResults`, memoria.
-- `workspace/operations/exploratory/backtest-results.json` + `MANIFEST.json` — el resultado versionado.
-- `job.log` — salida del generador.
+`operations/backtest-runs/`:
+- `REGISTRY.jsonl` — registro append-only. `RUN_CLOSED` guarda el manifest de cada intento
+  (identidad, hashes de datos, inicio/fin, pico de RAM, hash del resultado, estado).
+  `RESULT_PROMOTED` marca el nuevo resultado vigente y a cuál supera (`supersedes`), en una
+  sola línea. De ahí sale la vigencia: `CURRENT`, `SUPERSEDED` (+ `supersededBy`) o `NONE`.
+  Si el registro está corrupto, no arranca ningún run (`REGISTRY_CORRUPT`).
+- `<runId>/attempt-<n>/RUN_RECEIPT.json` — receipt del intento (no se reescribe al superarse).
+- `<runId>/attempt-<n>/workspace/…` — resultado y MANIFEST del run (artefactos pesados).
+- `<runId>/attempt-<n>/job.log` — salida del generador.
 
-El resultado commiteado que muestra la UI no se reemplaza con un run.
+Solo hay un resultado vigente. Pedir otra vez un run ya superado devuelve su resultado sin
+recalcular y no cambia cuál es el vigente.
+
+**Retención:** el código no borra nada. Los artefactos pesados de un run superado solo se
+borran después de enumerarlos a Bru y recibir su GO, dejando un ledger de limpieza. Ese
+procedimiento todavía no está implementado.
+
+El resultado commiteado que muestra la UI no se reemplaza con un run. El job solo corre el
+backtest exploratorio in-sample sobre el snapshot fijado: no consume ni re-sella OOS.
 
 ## Medición de RAM del primer run real
 

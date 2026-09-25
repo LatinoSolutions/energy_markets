@@ -17,13 +17,13 @@ export const MCP_SERVER_INFO = Object.freeze({ name: "energy-markets-backtests",
 export const MCP_TOOLS = Object.freeze([
   {
     name: "start_backtest",
-    description: "Lanza el backtest exploratorio de Energy Markets en el backend EM (un job a la vez). Devuelve el run creado o JOB_ALREADY_RUNNING con el job en curso.",
+    description: "Lanza el backtest exploratorio de Energy Markets en el backend EM (un job a la vez). Si ya existe un resultado para el mismo commit, datos, parámetros y versión lo devuelve sin recalcular (reused). Si no, devuelve el run creado o JOB_ALREADY_RUNNING con el job en curso.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "backtest_status",
-    description: "Estado de los backtests de Energy Markets: job en curso y último run; con runId devuelve el RUN_RECEIPT completo.",
-    inputSchema: { type: "object", properties: { runId: { type: "string", description: "BT-RUN-... opcional" } }, additionalProperties: false },
+    description: "Estado de los backtests de Energy Markets: job en curso, último run y resultado vigente; con runId devuelve el RUN_RECEIPT completo.",
+    inputSchema: { type: "object", properties: { runId: { type: "string", description: "BT-RUN-<sha256> opcional" } }, additionalProperties: false },
   },
 ]);
 

@@ -7,9 +7,14 @@ export {
   JOB_STATUS,
   JOB_VERSION,
   RECEIPT_KIND,
+  REGISTRY_EVENT,
+  REGISTRY_FILE,
+  RESULT_STATE,
+  computeRunIdentity,
   createBacktestJobRunner,
   publicJobView,
   readCgroupMemoryPeak,
+  readCodeCommit,
   verifyExploratoryInputs,
 } from "./runner.mjs";
 

@@ -2,14 +2,13 @@
 // Backtests y el servidor MCP (./mcp-server.mjs); ninguno corre el backtest por
 // su cuenta (nota BT-05 en PLAN_STATUS: "un solo endpoint backend").
 //
-//   POST /api/backtest-jobs            body {"requestedBy":"ui"|"mcp"} → 202 | 409 | 4xx
-//   GET  /api/backtest-jobs            → { running, current, latest }
-//   GET  /api/backtest-jobs/<runId>    → RUN_RECEIPT completo | 404
+//   POST /api/backtest-jobs            body {"requestedBy":"ui"|"mcp"} → 202 lanzado
+//                                      | 200 reused (mismo run_id ya tiene resultado) | 409 | 4xx
+//   GET  /api/backtest-jobs            → { running, current, latest, currentResult, registry }
+//   GET  /api/backtest-jobs/<runId>    → RUN_RECEIPT del último intento + vigencia | 404
 //
 // POST exige Content-Type application/json: un formulario de otro sitio no puede
 // mandarlo sin preflight CORS, y este servidor no responde CORS.
-
-import { publicJobView } from "./runner.mjs";
 
 export const BACKTEST_JOBS_PATH = "/api/backtest-jobs";
 const MAX_BODY_BYTES = 4096;
@@ -70,10 +69,10 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner) {
     }
     const started = runner.start({ requestedBy: body.requestedBy });
     if (started.ok) {
-      sendJson(res, 202, { ok: true, job: started.job });
+      sendJson(res, started.reused ? 200 : 202, { ok: true, reused: started.reused, job: started.job });
       return;
     }
-    const status = started.code === "JOB_ALREADY_RUNNING" ? 409 : started.code === "INVALID_REQUESTER" ? 400 : started.code === "STAGING_FAILED" ? 500 : 422;
+    const status = started.code === "JOB_ALREADY_RUNNING" ? 409 : started.code === "INVALID_REQUESTER" ? 400 : started.code === "STAGING_FAILED" || started.code.startsWith("REGISTRY_") ? 500 : 422;
     sendJson(res, status, { ok: false, code: started.code, message: started.message ?? null, job: started.job ?? null });
     return;
   }
@@ -87,10 +86,10 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner) {
     return;
   }
   const runId = pathname.slice(BACKTEST_JOBS_PATH.length + 1);
-  const receipt = runner.get(runId);
-  if (receipt === null) {
+  const found = runner.get(runId);
+  if (found === null) {
     sendJson(res, 404, { ok: false, code: "RUN_NOT_FOUND", runId });
     return;
   }
-  sendJson(res, 200, { ok: true, job: publicJobView(receipt), receipt });
+  sendJson(res, 200, { ok: true, job: found.job, receipt: found.receipt });
 }

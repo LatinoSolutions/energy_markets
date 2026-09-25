@@ -2,7 +2,9 @@
 // misma interfaz que operations/exploratory/run-exploratory-backtest.mjs
 // (argv <slots> <salida>, escribe resultados + MANIFEST relativos al cwd): los
 // tests nunca corren el backtest real (nota BT-05 en PLAN_STATUS).
+// Es un repo git con commit: el commit forma parte de la identidad del run.
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -78,5 +80,15 @@ export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null } =
     ],
   };
   const manifestBytes = write("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
-  return { root, manifest, manifestSha256: sha(manifestBytes), write };
+  // Los runs quedan fuera del árbol que identifica el código.
+  write(".gitignore", "operations/backtest-runs/\n");
+  const git = (...args) => execFileSync("git", ["-c", "user.name=bt05", "-c", "user.email=bt05@test", ...args], { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  git("init", "-q", "-b", "main");
+  const commitAll = (message) => {
+    git("add", "-A");
+    git("commit", "-q", "-m", message);
+    return git("rev-parse", "HEAD");
+  };
+  commitAll("fixture");
+  return { root, manifest, manifestSha256: sha(manifestBytes), write, commitAll, git, head: () => git("rev-parse", "HEAD") };
 }

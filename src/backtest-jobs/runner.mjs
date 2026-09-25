@@ -10,21 +10,29 @@
 //   - Sólo corre sobre inputs cuyo sha256 coincide con el manifest commiteado
 //     (operations/exploratory/MANIFEST.json, owner patch
 //     EM-SPEC-OWNER-PATCH-2026-09-24-02 §4); si algo no coincide, no arranca.
-//   - Cada run queda versionado en su propio directorio con RUN_RECEIPT.json;
-//     el resultado commiteado que muestra la UI no se reescribe.
+//   - Identidad y retención (PLAN_STATUS fila BT-05, "IDENTIDAD Y RETENCION",
+//     owner request 25-sep-2026, commit a9f5b82): run_id = sha256 de {commit,
+//     hash del manifest de datos, parámetros en JSON canónico, versión del motor};
+//     mismo run_id no se recalcula; registro append-only REGISTRY.jsonl con el
+//     manifest de cada run; un solo resultado vigente; nada se borra sin GO de Bru.
 //   - La escritura originada en la UI es un comando autorizado que produce su
 //     receipt (SPEC v1.1.1 §26.5).
 
 import { spawn, execFileSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
-import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { appendFileSync, closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
+
 export const JOB_KIND = "EXPLORATORY_BACKTEST";
+// Versión del motor en la identidad del run (BT-05 punto 1). Subirla cuando cambie
+// el contrato de ejecución de este runner, aunque el commit ya lo distinga.
 export const JOB_VERSION = "1";
 export const RECEIPT_KIND = "BT-05_BACKTEST_RUN_RECEIPT";
 export const RECEIPT_FILE = "RUN_RECEIPT.json";
+export const REGISTRY_FILE = "REGISTRY.jsonl";
 export const DEFAULT_RUNS_DIR = "operations/backtest-runs";
 
 // Entradas del backtest exploratorio tal como las fija su generador
@@ -32,6 +40,7 @@ export const DEFAULT_RUNS_DIR = "operations/backtest-runs";
 export const EXPLORATORY_MANIFEST_PATH = "operations/exploratory/MANIFEST.json";
 export const EXPLORATORY_ENTRY = "operations/exploratory/run-exploratory-backtest.mjs";
 export const EXPLORATORY_CALENDAR = "operations/audit/IMP-09/eex-exchange-calendar.json";
+const EXPLORATORY_OUTPUT = "operations/exploratory/backtest-results.json";
 
 // PROVISIONAL (BT-05, no canónico): techo de tiempo para que un job colgado no
 // bloquee el lock para siempre. Recalcular con la duración medida del primer run real.
@@ -44,8 +53,22 @@ export const JOB_STATUS = Object.freeze({
   INTERRUPTED: "INTERRUPTED",
 });
 
+// Vigencia del resultado (BT-05 puntos 3-4). NONE = el run no produjo resultado.
+export const RESULT_STATE = Object.freeze({
+  CURRENT: "CURRENT",
+  SUPERSEDED: "SUPERSEDED",
+  NONE: "NONE",
+});
+
+export const REGISTRY_EVENT = Object.freeze({
+  RUN_CLOSED: "RUN_CLOSED",
+  RESULT_PROMOTED: "RESULT_PROMOTED",
+});
+
 const CHILD_ENTRY = fileURLToPath(new URL("./child-entry.mjs", import.meta.url));
 const LOCK_FILE = ".job.lock";
+const RUN_ID_PATTERN = /^BT-RUN-[0-9a-f]{64}$/;
+const ATTEMPT_DIR_PATTERN = /^attempt-(\d+)$/;
 
 const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
@@ -67,11 +90,6 @@ function isProcessAlive(pid) {
   } catch (error) {
     return error.code === "EPERM";
   }
-}
-
-function newRunId(now) {
-  const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
-  return `BT-RUN-${stamp}-${randomBytes(3).toString("hex")}`;
 }
 
 // cgroup v2: el pico de memoria del servicio completo (memory.peak es monotónico
@@ -102,12 +120,31 @@ export function readCgroupMemoryPeak() {
   };
 }
 
-function gitHead(repoRoot) {
+function git(repoRoot, args) {
   try {
-    return execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return execFileSync("git", args, { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   } catch {
     return null;
   }
+}
+
+// El commit sólo identifica el código si lo que se ejecuta (src/ enlazado y el
+// generador) no tiene cambios sin commitear (BT-05 punto 5: mismo commit + mismos
+// datos + mismos parámetros = mismo resultado). Si no se puede afirmar, no arranca.
+export function readCodeCommit(repoRoot) {
+  const head = git(repoRoot, ["rev-parse", "--verify", "HEAD"])?.trim() ?? "";
+  if (!/^[0-9a-f]{40}$/.test(head)) {
+    return { ok: false, code: "CODE_COMMIT_UNKNOWN", message: "no se pudo leer el commit git del código" };
+  }
+  const dirty = git(repoRoot, ["status", "--porcelain", "--untracked-files=all", "--", "src", EXPLORATORY_ENTRY]);
+  if (dirty === null) {
+    return { ok: false, code: "CODE_COMMIT_UNKNOWN", message: "no se pudo leer git status del código" };
+  }
+  if (dirty.trim().length > 0) {
+    const paths = dirty.trim().split("\n").slice(0, 5).map((line) => line.slice(3));
+    return { ok: false, code: "CODE_NOT_COMMITTED", message: `código con cambios sin commitear: ${paths.join(", ")}` };
+  }
+  return { ok: true, commit: head };
 }
 
 // Verifica contra el manifest commiteado todo lo que el job va a leer. Devuelve
@@ -163,6 +200,19 @@ export function verifyExploratoryInputs(repoRoot) {
   };
 }
 
+// Identidad del run (BT-05 punto 1). El "manifest de datos de entrada" es el
+// manifest commiteado más el calendario, que ese manifest no fija; ambos van por hash.
+export function computeRunIdentity({ codeCommit, verified }) {
+  const dataManifest = { manifest: verified.manifest, files: verified.files };
+  const identity = {
+    codeCommit,
+    dataManifestSha256: canonicalValueSha256(dataManifest).sha256,
+    parameters: { jobKind: JOB_KIND, entry: EXPLORATORY_ENTRY, slotsPath: verified.slotsPath, outputPath: EXPLORATORY_OUTPUT },
+    engineVersion: JOB_VERSION,
+  };
+  return { runId: `BT-RUN-${canonicalValueSha256(identity).sha256}`, identity };
+}
+
 // Workspace aislado: los datos y el entrypoint se copian (ya verificados); src/
 // se enlaza porque el generador importa por ruta relativa. El generador escribe
 // su MANIFEST relativo al cwd, así que nunca toca el manifest commiteado.
@@ -184,11 +234,36 @@ function relative(repoRoot, absolute) {
   return path.relative(repoRoot, absolute).split(path.sep).join("/");
 }
 
+// Manifest del run (BT-05 punto 3) tal como queda en el registro append-only.
+// Se conserva aunque un día se borren los artefactos pesados del run (punto 5).
+function runManifest(receipt) {
+  return {
+    runId: receipt.runId,
+    attempt: receipt.attempt,
+    jobKind: receipt.jobKind,
+    identity: receipt.identity,
+    inputs: receipt.inputs,
+    requestedBy: receipt.requestedBy,
+    startedAt: receipt.startedAt,
+    finishedAt: receipt.finishedAt ?? null,
+    status: receipt.status,
+    failureCode: receipt.failure?.code ?? null,
+    memoryPeak: {
+      childMaxRssKb: receipt.memory?.childMaxRssKb ?? null,
+      cgroupMemoryPeakBytesAfter: receipt.memory?.cgroupMemoryPeakBytesAfter ?? null,
+    },
+    resultSha256: receipt.result?.results?.sha256 ?? null,
+    receiptPath: receipt.receiptPath,
+  };
+}
+
 // Resumen público de un receipt: lo que el endpoint, la UI y MCP muestran tal cual.
-export function publicJobView(receipt) {
+// `retention` sale del registro append-only; el receipt no se reescribe al superarse.
+export function publicJobView(receipt, retention = null) {
   if (receipt == null) return null;
   return {
     runId: receipt.runId,
+    attempt: receipt.attempt ?? null,
     jobKind: receipt.jobKind,
     status: receipt.status,
     requestedBy: receipt.requestedBy,
@@ -197,6 +272,8 @@ export function publicJobView(receipt) {
     failure: receipt.failure ?? null,
     result: receipt.result ?? null,
     memory: receipt.memory ?? null,
+    identity: receipt.identity ?? null,
+    retention,
     receiptPath: receipt.receiptPath,
   };
 }
@@ -208,83 +285,202 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
   const runsRoot = runsDir ?? path.join(repoRoot, DEFAULT_RUNS_DIR);
   mkdirSync(runsRoot, { recursive: true });
   const lockPath = path.join(runsRoot, LOCK_FILE);
-  let active = null; // { receipt, child, done }
+  const registryPath = path.join(runsRoot, REGISTRY_FILE);
+  let active = null; // { receipt, child, done } del job que corre en ESTE proceso
 
-  const receiptFile = (runId) => path.join(runsRoot, runId, RECEIPT_FILE);
+  const attemptDir = (runId, attempt) => path.join(runsRoot, runId, `attempt-${attempt}`);
+  const receiptFile = (runId, attempt) => path.join(attemptDir(runId, attempt), RECEIPT_FILE);
 
-  function readReceipt(runId) {
-    if (!/^BT-RUN-[0-9TZ]+-[0-9a-f]{6}$/.test(runId ?? "")) return null;
+  function listAttempts(runId) {
     try {
-      return readJson(receiptFile(runId));
+      return readdirSync(path.join(runsRoot, runId), { withFileTypes: true })
+        .map((entry) => (entry.isDirectory() ? ATTEMPT_DIR_PATTERN.exec(entry.name) : null))
+        .filter((match) => match !== null)
+        .map((match) => Number.parseInt(match[1], 10))
+        .sort((a, b) => a - b);
+    } catch {
+      return [];
+    }
+  }
+
+  function readAttemptReceipt(runId, attempt) {
+    try {
+      return readJson(receiptFile(runId, attempt));
     } catch {
       return null;
     }
   }
 
+  // Receipt del último intento de un run; null si el id no es de BT-05 o no existe.
+  function readLatestReceipt(runId) {
+    if (!RUN_ID_PATTERN.test(runId ?? "")) return null;
+    const attempts = listAttempts(runId);
+    if (attempts.length === 0) return null;
+    return readAttemptReceipt(runId, attempts.at(-1));
+  }
+
   function listRunIds() {
     return readdirSync(runsRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith("BT-RUN-"))
-      .map((entry) => entry.name)
-      .sort();
+      .filter((entry) => entry.isDirectory() && RUN_ID_PATTERN.test(entry.name))
+      .map((entry) => entry.name);
   }
 
-  // Un receipt RUNNING sin proceso vivo que lo sostenga quedó huérfano (reinicio
-  // del servicio, OOM): se cierra como INTERRUPTED, nunca como éxito.
-  function recoverOrphans() {
-    let lock = null;
+  // ---------- registro append-only (BT-05 puntos 3-5) ----------
+
+  function readRegistry() {
+    let text;
     try {
-      lock = readJson(lockPath);
-    } catch {
-      lock = null;
+      text = readFileSync(registryPath, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") return { ok: true, events: [] };
+      return { ok: false, code: "REGISTRY_UNREADABLE", message: String(error?.message ?? error) };
     }
-    const lockHeld = lock !== null && isProcessAlive(lock.pid);
-    if (lock !== null && !lockHeld) {
+    const events = [];
+    const lines = text.split("\n");
+    for (let index = 0; index < lines.length; index += 1) {
+      if (lines[index].length === 0) continue;
+      try {
+        events.push(JSON.parse(lines[index]));
+      } catch {
+        return { ok: false, code: "REGISTRY_CORRUPT", message: `${REGISTRY_FILE} línea ${index + 1} no es JSON` };
+      }
+    }
+    return { ok: true, events };
+  }
+
+  function appendRegistry(event) {
+    appendFileSync(registryPath, `${JSON.stringify({ at: now().toISOString(), ...event })}\n`);
+  }
+
+  // Vigencia por run según el registro: el último RESULT_PROMOTED define el vigente
+  // y cada promoción marca al que reemplaza como superado por el nuevo.
+  function foldRetention(events) {
+    const states = new Map();
+    let currentRunId = null;
+    for (const event of events) {
+      if (event.event !== REGISTRY_EVENT.RESULT_PROMOTED) continue;
+      if (currentRunId !== null && currentRunId !== event.runId) {
+        states.set(currentRunId, { state: RESULT_STATE.SUPERSEDED, supersededBy: event.runId });
+      }
+      states.set(event.runId, { state: RESULT_STATE.CURRENT, supersededBy: null });
+      currentRunId = event.runId;
+    }
+    return { currentRunId, states };
+  }
+
+  function retentionOf(runId, folded) {
+    return folded.states.get(runId) ?? { state: RESULT_STATE.NONE, supersededBy: null };
+  }
+
+  function viewOf(receipt, folded) {
+    return receipt === null ? null : publicJobView(receipt, folded === null ? null : retentionOf(receipt.runId, folded));
+  }
+
+  // ---------- lock: uno a la vez entre procesos ----------
+
+  function readLock() {
+    try {
+      return readJson(lockPath);
+    } catch {
+      return null;
+    }
+  }
+
+  function liveLock() {
+    const lock = readLock();
+    return lock !== null && isProcessAlive(lock.pid) ? lock : null;
+  }
+
+  // Un lock cuyo proceso ya no existe (reinicio del servicio, OOM) se retira una vez.
+  function acquireLock(runId, attempt) {
+    for (let tries = 0; tries < 2; tries += 1) {
+      try {
+        const fd = openSync(lockPath, "wx");
+        writeFileSync(fd, JSON.stringify({ runId, attempt, pid: process.pid }));
+        closeSync(fd);
+        return true;
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+      }
+      const lock = readLock();
+      if (lock === null || isProcessAlive(lock.pid)) return false;
       rmSync(lockPath, { force: true });
     }
+    return false;
+  }
+
+  // Con el lock en la mano ningún otro job corre: un RUNNING ajeno quedó huérfano
+  // y se cierra como INTERRUPTED, nunca como éxito. Sólo se llama con el lock tomado.
+  function closeOrphans(ownRunId, ownAttempt) {
     for (const runId of listRunIds()) {
-      const receipt = readReceipt(runId);
-      if (receipt?.status !== JOB_STATUS.RUNNING) continue;
-      if (lockHeld && lock.runId === runId) continue;
-      writeJsonAtomic(receiptFile(runId), {
-        ...receipt,
-        status: JOB_STATUS.INTERRUPTED,
-        finishedAt: now().toISOString(),
-        failure: { code: "INTERRUPTED", message: "el proceso que corría el job ya no existe; el run no se completó" },
-      });
+      for (const attempt of listAttempts(runId)) {
+        if (runId === ownRunId && attempt === ownAttempt) continue;
+        const receipt = readAttemptReceipt(runId, attempt);
+        if (receipt?.status !== JOB_STATUS.RUNNING) continue;
+        const closed = {
+          ...receipt,
+          status: JOB_STATUS.INTERRUPTED,
+          finishedAt: now().toISOString(),
+          failure: { code: "INTERRUPTED", message: "el proceso que corría el job ya no existe; el run no se completó" },
+        };
+        writeJsonAtomic(receiptFile(runId, attempt), closed);
+        appendRegistry({ event: REGISTRY_EVENT.RUN_CLOSED, runId, attempt, manifest: runManifest(closed) });
+      }
     }
   }
 
-  function acquireLock(runId) {
-    try {
-      const fd = openSync(lockPath, "wx");
-      writeFileSync(fd, JSON.stringify({ runId, pid: process.pid }));
-      closeSync(fd);
-      return true;
-    } catch (error) {
-      if (error.code === "EEXIST") return false;
-      throw error;
+  function latestStartedReceipt() {
+    let latest = null;
+    for (const runId of listRunIds()) {
+      const receipt = readLatestReceipt(runId);
+      if (receipt === null) continue;
+      if (latest === null || String(receipt.startedAt) > String(latest.startedAt)) latest = receipt;
     }
+    return latest;
   }
 
-  function latestReceipt() {
-    const ids = listRunIds();
-    for (let index = ids.length - 1; index >= 0; index -= 1) {
-      const receipt = readReceipt(ids[index]);
-      if (receipt !== null) return receipt;
-    }
-    return null;
-  }
-
+  // Estado leído del disco (lock + receipts + registro), igual desde cualquier proceso.
   function status() {
-    const latest = active?.receipt ?? latestReceipt();
-    return { running: active !== null, current: publicJobView(active?.receipt ?? null), latest: publicJobView(latest) };
+    const lock = liveLock();
+    const registry = readRegistry();
+    const folded = registry.ok ? foldRetention(registry.events) : null;
+    const running = lock === null ? null : readAttemptReceipt(lock.runId, lock.attempt);
+    const currentResult = folded?.currentRunId == null ? null : readLatestReceipt(folded.currentRunId);
+    return {
+      running: lock !== null,
+      current: viewOf(running, folded),
+      latest: viewOf(latestStartedReceipt(), folded),
+      currentResult: viewOf(currentResult, folded),
+      registry: registry.ok ? { ok: true, path: relative(repoRoot, registryPath), events: registry.events.length } : { ok: false, code: registry.code, message: registry.message },
+    };
   }
 
+  function get(runId) {
+    const receipt = readLatestReceipt(runId);
+    if (receipt === null) return null;
+    const registry = readRegistry();
+    const folded = registry.ok ? foldRetention(registry.events) : null;
+    return { receipt, job: viewOf(receipt, folded) };
+  }
+
+  // Cierra el intento, lo asienta en el registro y, si tuvo éxito, lo promueve a
+  // vigente en una sola línea (una promoción parcial nunca deja dos vigentes).
   function finish(receipt, patch) {
     const closed = { ...receipt, ...patch, finishedAt: now().toISOString() };
-    writeJsonAtomic(receiptFile(receipt.runId), closed);
-    active = null;
-    rmSync(lockPath, { force: true });
+    try {
+      writeJsonAtomic(receiptFile(receipt.runId, receipt.attempt), closed);
+      appendRegistry({ event: REGISTRY_EVENT.RUN_CLOSED, runId: closed.runId, attempt: closed.attempt, manifest: runManifest(closed) });
+      if (closed.status === JOB_STATUS.SUCCEEDED) {
+        const registry = readRegistry();
+        const previous = registry.ok ? foldRetention(registry.events).currentRunId : null;
+        if (previous !== closed.runId) {
+          appendRegistry({ event: REGISTRY_EVENT.RESULT_PROMOTED, runId: closed.runId, supersedes: previous });
+        }
+      }
+    } finally {
+      active = null;
+      rmSync(lockPath, { force: true });
+    }
     return closed;
   }
 
@@ -332,42 +528,70 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     };
   }
 
+  function alreadyRunning() {
+    const lock = liveLock();
+    const receipt = lock === null ? null : readAttemptReceipt(lock.runId, lock.attempt);
+    const registry = readRegistry();
+    const folded = registry.ok ? foldRetention(registry.events) : null;
+    return { ok: false, code: "JOB_ALREADY_RUNNING", message: "hay un backtest en curso (lock de backtests tomado)", job: viewOf(receipt, folded) };
+  }
+
   function start({ requestedBy } = {}) {
     if (requestedBy !== "ui" && requestedBy !== "mcp") {
       return { ok: false, code: "INVALID_REQUESTER", message: 'requestedBy debe ser "ui" o "mcp"' };
     }
-    if (active !== null) {
-      return { ok: false, code: "JOB_ALREADY_RUNNING", job: publicJobView(active.receipt) };
+    if (active !== null || liveLock() !== null) {
+      return alreadyRunning();
+    }
+    const registry = readRegistry();
+    if (!registry.ok) {
+      return { ok: false, code: registry.code, message: registry.message };
+    }
+    const code = readCodeCommit(repoRoot);
+    if (!code.ok) {
+      return { ok: false, code: code.code, message: code.message };
     }
     const verified = verifyExploratoryInputs(repoRoot);
     if (!verified.ok) {
       return { ok: false, code: verified.code, message: `inputs no verificados: ${verified.path}`, detail: verified };
     }
-    const startedAt = now();
-    const runId = newRunId(startedAt);
-    if (!acquireLock(runId)) {
-      return { ok: false, code: "JOB_ALREADY_RUNNING", message: "otro proceso tiene el lock de backtests" };
-    }
+    const { runId, identity } = computeRunIdentity({ codeCommit: code.commit, verified });
 
-    const runDir = path.join(runsRoot, runId);
+    // BT-05 punto 2: mismo run_id con resultado = se devuelve, no se recalcula.
+    // Un intento previo FAILED/INTERRUPTED no dejó resultado: se reintenta como attempt nuevo.
+    const previous = readLatestReceipt(runId);
+    if (previous?.status === JOB_STATUS.SUCCEEDED) {
+      const job = viewOf(previous, foldRetention(registry.events));
+      return { ok: true, reused: true, job, done: Promise.resolve(previous) };
+    }
+    const attempt = (listAttempts(runId).at(-1) ?? 0) + 1;
+    if (!acquireLock(runId, attempt)) {
+      return alreadyRunning();
+    }
+    closeOrphans(runId, attempt);
+
+    const startedAt = now();
+    const runDir = attemptDir(runId, attempt);
     const workspace = path.join(runDir, "workspace");
     let receipt = {
       receiptKind: RECEIPT_KIND,
-      schemaVersion: "1",
+      schemaVersion: "2",
       runId,
+      attempt,
       jobKind: JOB_KIND,
       jobVersion: JOB_VERSION,
+      identity,
       status: JOB_STATUS.RUNNING,
       requestedBy,
       startedAt: startedAt.toISOString(),
-      receiptPath: relative(repoRoot, receiptFile(runId)),
-      code: { gitHead: gitHead(repoRoot), entry: EXPLORATORY_ENTRY },
+      receiptPath: relative(repoRoot, receiptFile(runId, attempt)),
+      code: { gitHead: code.commit, entry: EXPLORATORY_ENTRY },
       inputs: { manifest: verified.manifest, files: verified.files },
       authority: "BT-05 owner request 25-sep-2026; comando autorizado con receipt (SPEC v1.1.1 §26.5). Resultado EXPLORATORY, no canónico.",
     };
     try {
-      mkdirSync(runDir, { recursive: false });
-      writeJsonAtomic(receiptFile(runId), receipt);
+      mkdirSync(runDir, { recursive: true });
+      writeJsonAtomic(receiptFile(runId, attempt), receipt);
       stageWorkspace(repoRoot, workspace, verified.files);
     } catch (error) {
       const closed = finish(receipt, { status: JOB_STATUS.FAILED, failure: { code: "STAGING_FAILED", message: String(error?.message ?? error) } });
@@ -377,13 +601,13 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     const memoryBefore = readCgroupMemoryPeak();
     const rusageFile = path.join(runDir, "child-rusage.json");
     const logFd = openSync(path.join(runDir, "job.log"), "a");
-    const child = spawn(nodeBinary, [CHILD_ENTRY, rusageFile, path.join(workspace, EXPLORATORY_ENTRY), verified.slotsPath, "operations/exploratory/backtest-results.json"], {
+    const child = spawn(nodeBinary, [CHILD_ENTRY, rusageFile, path.join(workspace, EXPLORATORY_ENTRY), verified.slotsPath, EXPLORATORY_OUTPUT], {
       cwd: workspace,
       stdio: ["ignore", logFd, logFd],
     });
     closeSync(logFd);
     receipt = { ...receipt, pid: child.pid };
-    writeJsonAtomic(receiptFile(runId), receipt);
+    writeJsonAtomic(receiptFile(runId, attempt), receipt);
 
     let timedOut = false;
     const timer = setTimeout(() => {
@@ -403,7 +627,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
         if (settled) return;
         resolve(finish(receipt, { status: JOB_STATUS.FAILED, failure: { code: "SPAWN_FAILED", message: String(error?.message ?? error) } }));
       });
-      child.once("exit", (code, signal) => {
+      child.once("exit", (exitCode, signal) => {
         clearTimeout(timer);
         if (settled) return;
         let childMaxRssKb = null;
@@ -421,38 +645,47 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
           cgroupOomKillsDuringRun: memoryBefore.oomKills === null || memoryAfter.oomKills === null ? null : memoryAfter.oomKills - memoryBefore.oomKills,
           note: "memory.peak es el pico del cgroup completo desde que arrancó el servicio, no sólo de este job",
         };
+        const exit = { code: exitCode, signal };
         if (timedOut) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit: { code, signal }, memory, failure: { code: "TIMEOUT", message: `superó ${timeoutMs} ms (techo provisional)` } }));
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "TIMEOUT", message: `superó ${timeoutMs} ms (techo provisional)` } }));
           return;
         }
-        if (code !== 0 && memory.cgroupOomKillsDuringRun > 0) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit: { code, signal }, memory, failure: { code: "OOM_KILLED", message: `el cgroup ${memory.cgroup} mató el job por memoria (MemoryMax del servicio)` } }));
+        if (exitCode !== 0 && memory.cgroupOomKillsDuringRun > 0) {
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "OOM_KILLED", message: `el cgroup ${memory.cgroup} mató el job por memoria (MemoryMax del servicio)` } }));
           return;
         }
-        if (code !== 0) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit: { code, signal }, memory, failure: { code: "RUN_FAILED", message: `el generador terminó con code=${code} signal=${signal}; ver job.log` } }));
+        if (exitCode !== 0) {
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "RUN_FAILED", message: `el generador terminó con code=${exitCode} signal=${signal}; ver job.log` } }));
           return;
         }
         const collected = collectResult(workspace, verified);
         if (collected.error) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit: { code, signal }, memory, failure: collected.error }));
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: collected.error }));
           return;
         }
-        resolve(finish(receipt, { status: JOB_STATUS.SUCCEEDED, exit: { code, signal }, memory, result: collected.result }));
+        resolve(finish(receipt, { status: JOB_STATUS.SUCCEEDED, exit, memory, result: collected.result }));
       });
     });
     active = { receipt, child, done };
-    return { ok: true, job: publicJobView(receipt), done };
+    return { ok: true, reused: false, job: publicJobView(receipt, { state: RESULT_STATE.NONE, supersededBy: null }), done };
   }
 
-  recoverOrphans();
+  // Al arrancar el servicio: si nadie tiene el lock, cierra los RUNNING huérfanos.
+  if (acquireLock(null, null)) {
+    try {
+      closeOrphans(null, null);
+    } finally {
+      rmSync(lockPath, { force: true });
+    }
+  }
 
   return {
     runsRoot,
+    registryPath,
     start,
     status,
-    get: (runId) => readReceipt(runId),
-    // Para tests y apagado ordenado: espera al job en curso si lo hay.
+    get,
+    // Para tests y apagado ordenado: espera al job en curso de este proceso si lo hay.
     waitForIdle: () => (active?.done ?? Promise.resolve(null)),
   };
 }

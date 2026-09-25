@@ -7,7 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,13 +16,16 @@ import {
   BACKTEST_JOBS_PATH,
   JOB_STATUS,
   RECEIPT_KIND,
+  REGISTRY_EVENT,
+  RESULT_STATE,
+  computeRunIdentity,
   createBacktestJobRunner,
   handleMcpMessage,
   verifyExploratoryInputs,
 } from "../../src/backtest-jobs/index.mjs";
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
 import { createUiServer } from "../../src/ui/index.mjs";
-import { JOB_PANEL_FIELDS, renderBacktestJobPanel } from "../../src/ui/backtest-job-panel.mjs";
+import { JOB_CONTROL_FIELDS, renderBacktestJobControl, withBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
 import { makeFixtureRepo } from "./fixture-repo.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -37,6 +41,11 @@ async function withServer(options, run) {
     await new Promise((resolve) => server.close(resolve));
   }
 }
+
+const readRegistry = (runner) => {
+  if (!existsSync(runner.registryPath)) return [];
+  return readFileSync(runner.registryPath, "utf8").split("\n").filter((line) => line.length > 0).map((line) => JSON.parse(line));
+};
 
 const postJob = (base, body, headers = { "Content-Type": "application/json" }) =>
   fetch(`${base}${BACKTEST_JOBS_PATH}`, { method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
@@ -55,7 +64,10 @@ test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound s
   assert.equal(receipt.status, JOB_STATUS.SUCCEEDED, JSON.stringify(receipt.failure));
   assert.equal(receipt.receiptKind, RECEIPT_KIND);
   assert.equal(receipt.requestedBy, "ui");
-  assert.match(receipt.runId, /^BT-RUN-\d{8}T\d{6}Z-[0-9a-f]{6}$/);
+  assert.match(receipt.runId, /^BT-RUN-[0-9a-f]{64}$/);
+  assert.equal(receipt.attempt, 1);
+  assert.equal(receipt.identity.codeCommit, repo.head());
+  assert.equal(receipt.code.gitHead, repo.head());
   assert.equal(receipt.inputs.manifest.sha256, repo.manifestSha256);
   assert.deepEqual(receipt.inputs.files.map((file) => file.path).sort(), [
     "operations/audit/IMP-09/eex-exchange-calendar.json",
@@ -72,7 +84,7 @@ test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound s
   assert.equal(JSON.parse(runManifestBytes).results.sha256, receipt.result.results.sha256);
   assert.equal(receipt.result.status, "EXPLORATORY");
   assert.equal(receipt.result.reproducesCommittedResults, true);
-  assert.ok(receipt.result.results.path.startsWith(`operations/backtest-runs/${receipt.runId}/`));
+  assert.ok(receipt.result.results.path.startsWith(`operations/backtest-runs/${receipt.runId}/attempt-1/`));
 
   // el receipt en disco es el mismo que devuelve el job
   assert.deepEqual(JSON.parse(readFileSync(path.join(repo.root, receipt.receiptPath))), receipt);
@@ -86,6 +98,12 @@ test("BT-05: un job exitoso deja resultados, MANIFEST y RUN_RECEIPT hash-bound s
   assert.equal(existsSync(path.join(runner.runsRoot, ".job.lock")), false);
   assert.equal(runner.status().running, false);
   assert.equal(runner.status().latest.runId, receipt.runId);
+  // el run exitoso queda vigente y su manifest asentado en el registro
+  assert.equal(runner.status().currentResult.runId, receipt.runId);
+  assert.deepEqual(runner.status().currentResult.retention, { state: RESULT_STATE.CURRENT, supersededBy: null });
+  const closedEvent = readRegistry(runner).find((event) => event.event === REGISTRY_EVENT.RUN_CLOSED);
+  assert.equal(closedEvent.manifest.resultSha256, receipt.result.results.sha256);
+  assert.equal(closedEvent.manifest.identity.codeCommit, repo.head());
 });
 
 test("BT-05: resultado distinto al commiteado se registra como no reproducido, sin fallar ni reemplazar nada", async () => {
@@ -115,9 +133,11 @@ test("BT-05: sólo un job a la vez; el segundo pedido devuelve el job en curso",
   assert.equal(third.code, "JOB_ALREADY_RUNNING");
   const receipt = await first.done;
   assert.equal(receipt.status, JOB_STATUS.SUCCEEDED);
+  // mismos inputs: no hay segundo cálculo, se devuelve el run existente
   const again = runner.start({ requestedBy: "ui" });
   assert.equal(again.ok, true);
-  await again.done;
+  assert.equal(again.reused, true);
+  assert.equal(again.job.runId, first.job.runId);
 });
 
 // ---------- fail-closed ----------
@@ -141,7 +161,9 @@ test("BT-05: un generador que falla deja receipt FAILED con su log y libera el l
   assert.equal(receipt.failure.code, "RUN_FAILED");
   assert.equal(receipt.exit.code, 3);
   assert.equal(receipt.result, undefined, "sin resultado no hay sha publicado");
-  assert.match(readFileSync(path.join(runner.runsRoot, receipt.runId, "job.log"), "utf8"), /fallo forzado/);
+  assert.match(readFileSync(path.join(runner.runsRoot, receipt.runId, "attempt-1", "job.log"), "utf8"), /fallo forzado/);
+  assert.equal(runner.status().currentResult, null, "un run fallido nunca queda vigente");
+  assert.equal(runner.get(receipt.runId).job.retention.state, RESULT_STATE.NONE);
   assert.equal(existsSync(path.join(runner.runsRoot, ".job.lock")), false);
 });
 
@@ -161,16 +183,21 @@ test("BT-05: un RUNNING huérfano (servicio reiniciado) se cierra como INTERRUPT
   const receiptPath = path.join(repo.root, receipt.receiptPath);
   const { finishedAt, result, exit, memory, ...running } = receipt;
   writeFileSync(receiptPath, JSON.stringify({ ...running, status: JOB_STATUS.RUNNING }));
-  writeFileSync(path.join(runner.runsRoot, ".job.lock"), JSON.stringify({ runId: receipt.runId, pid: 2 ** 22 + 12345 }));
+  writeFileSync(path.join(runner.runsRoot, ".job.lock"), JSON.stringify({ runId: receipt.runId, attempt: 1, pid: 2 ** 22 + 12345 }));
 
   const restarted = createBacktestJobRunner({ repoRoot: repo.root });
-  const recovered = restarted.get(receipt.runId);
+  const recovered = restarted.get(receipt.runId).receipt;
   assert.equal(recovered.status, JOB_STATUS.INTERRUPTED);
   assert.equal(recovered.failure.code, "INTERRUPTED");
   assert.equal(existsSync(path.join(restarted.runsRoot, ".job.lock")), false);
+  // sin resultado vigente para ese run_id, el mismo run se reintenta como attempt nuevo
   const next = restarted.start({ requestedBy: "ui" });
   assert.equal(next.ok, true);
-  await next.done;
+  assert.equal(next.reused, false);
+  const retried = await next.done;
+  assert.equal(retried.runId, receipt.runId);
+  assert.equal(retried.attempt, 2);
+  assert.equal(retried.status, JOB_STATUS.SUCCEEDED);
 });
 
 test("BT-05: requestedBy sólo ui o mcp", () => {
@@ -225,6 +252,15 @@ test("BT-05: el endpoint lanza el job, expone estado y receipt, y rechaza lo que
     const detailBody = await detail.json();
     assert.equal(detailBody.receipt.receiptKind, RECEIPT_KIND);
     assert.equal(detailBody.receipt.result.results.sha256.length, 64);
+    assert.equal(detailBody.job.retention.state, RESULT_STATE.CURRENT);
+
+    // mismo run_id: 200 reused, sin recalcular
+    const reused = await postJob(base, { requestedBy: "mcp" });
+    assert.equal(reused.status, 200);
+    const reusedBody = await reused.json();
+    assert.equal(reusedBody.reused, true);
+    assert.equal(reusedBody.job.runId, job.runId);
+    assert.equal(reusedBody.job.requestedBy, "ui", "se devuelve el run existente tal cual");
 
     assert.equal((await fetch(`${base}${BACKTEST_JOBS_PATH}/BT-RUN-nope`)).status, 404);
     assert.equal((await fetch(`${base}${BACKTEST_JOBS_PATH}/../../etc/passwd`)).status, 404);
@@ -246,54 +282,50 @@ test("BT-05: sin ejecutor configurado el endpoint responde 503 y /backtests no m
 
 // ---------- botón de la UI: sólo llama al endpoint, cero cálculo ----------
 
-test("BT-05: /backtests muestra el botón y su script sólo habla con el endpoint del job", async () => {
+test("BT-05 gate UI: sin aprobación visual de Bru, /backtests no sirve el control aunque haya ejecutor", async () => {
   const repo = makeFixtureRepo();
   const runner = createBacktestJobRunner({ repoRoot: repo.root });
   await withServer({ jobRunner: runner }, async (base) => {
-    const html = await (await fetch(`${base}/backtests`)).text();
-    assert.ok(html.includes(`data-endpoint="${BACKTEST_JOBS_PATH}"`));
-    assert.ok(html.includes("data-job-start"));
-    // cada fetch del documento usa la variable del endpoint declarado; no hay otra red
-    const fetchCalls = html.match(/fetch\([^,)]*/g) ?? [];
-    assert.equal(fetchCalls.length, 2);
-    for (const call of fetchCalls) assert.equal(call, "fetch(endpoint");
-    for (const forbidden of ["<form", "action=", "XMLHttpRequest", "<script src=", 'src="http']) {
-      assert.ok(!html.includes(forbidden), `sin ${forbidden}`);
-    }
-    // el panel no se inyecta en otras superficies
-    for (const route of ["/replay", "/research", "/campaigns", "/"]) {
+    for (const route of ["/backtests", "/replay", "/research", "/campaigns", "/"]) {
       assert.ok(!(await (await fetch(`${base}${route}`)).text()).includes("data-backtest-job"), route);
     }
+    // el endpoint backend sí existe (el backend avanza en paralelo, fila BT-05)
+    assert.equal((await fetch(`${base}${BACKTEST_JOBS_PATH}`)).status, 200);
   });
 });
 
-test("BT-05: el panel pinta los campos del backend tal cual, sin derivar valores", () => {
+test("BT-05 propuesta UI: un solo control (1 botón + 1 línea de estado) que sólo habla con el endpoint", () => {
   const job = {
-    runId: "BT-RUN-20260925T150000Z-abcdef",
+    runId: `BT-RUN-${"b".repeat(64)}`,
     status: "SUCCEEDED",
-    requestedBy: "mcp",
-    startedAt: "2026-09-25T15:00:00.000Z",
     finishedAt: "2026-09-25T15:00:04.000Z",
     failure: null,
-    result: { status: "EXPLORATORY", results: { sha256: "a".repeat(64) }, reproducesCommittedResults: true },
-    memory: { childMaxRssKb: 123456, cgroupMemoryPeakBytesAfter: 987654321 },
-    receiptPath: "operations/backtest-runs/BT-RUN-20260925T150000Z-abcdef/RUN_RECEIPT.json",
+    retention: { state: "CURRENT", supersededBy: null },
   };
-  const html = renderBacktestJobPanel({ running: false, current: null, latest: job });
-  const cell = (field) => html.match(new RegExp(`data-job-field="${field.replaceAll(".", "\\.")}">([^<]*)<`))[1];
-  assert.equal(cell("memory.childMaxRssKb"), "123456");
-  assert.equal(cell("memory.cgroupMemoryPeakBytesAfter"), "987654321");
-  assert.equal(cell("result.results.sha256"), "a".repeat(64));
-  assert.equal(cell("result.reproducesCommittedResults"), "true");
-  assert.equal(cell("failure.code"), "—");
-  assert.equal(JOB_PANEL_FIELDS.length, (html.match(/data-job-field=/g) ?? []).length);
-  // sin job todavía: todo "—", nada inventado
-  const empty = renderBacktestJobPanel({ running: false, current: null, latest: null });
-  for (const [field] of JOB_PANEL_FIELDS) {
-    assert.ok(empty.includes(`data-job-field="${field}">—<`), field);
+  const html = renderBacktestJobControl({ running: false, current: null, latest: job });
+  assert.equal((html.match(/<button/g) ?? []).length, 1, "un solo botón");
+  for (const forbidden of ["<table", 'class="card"', "<form", "<input", "<select", "action=", "XMLHttpRequest", "<script src=", 'src="http']) {
+    assert.ok(!html.includes(forbidden), `sin ${forbidden}`);
   }
-  // mientras corre, el botón queda deshabilitado
-  assert.match(renderBacktestJobPanel({ running: true, current: { ...job, status: "RUNNING" }, latest: null }), /data-job-start disabled/);
+  assert.ok(html.includes(`data-endpoint="${BACKTEST_JOBS_PATH}"`));
+  const fetchCalls = html.match(/fetch\([^,)]*/g) ?? [];
+  assert.equal(fetchCalls.length, 2);
+  for (const call of fetchCalls) assert.equal(call, "fetch(endpoint");
+  // campos del backend tal cual, sin derivar
+  const cell = (field) => html.match(new RegExp(`data-job-field="${field.replaceAll(".", "\\.")}">([^<]*)<`))[1];
+  assert.equal(cell("status"), "SUCCEEDED");
+  assert.equal(cell("finishedAt"), "2026-09-25T15:00:04.000Z");
+  assert.equal(cell("retention.state"), "CURRENT");
+  assert.equal(cell("failure.code"), "—");
+  assert.equal(JOB_CONTROL_FIELDS.length, (html.match(/data-job-field=/g) ?? []).length);
+  const empty = renderBacktestJobControl({ running: false, current: null, latest: null });
+  for (const field of JOB_CONTROL_FIELDS) assert.ok(empty.includes(`data-job-field="${field}">—<`), field);
+  assert.match(renderBacktestJobControl({ running: true, current: { ...job, status: "RUNNING" }, latest: null }), /data-job-start disabled/);
+  // va en la cabecera de la página, no como panel aparte
+  const page = '<div class="row"><div class="grow"><h1 class="page">x</h1></div><div class="armhead">arms</div></div><div class="foot">f</div>';
+  const placed = withBacktestJobControl(page, { running: false, latest: null });
+  assert.ok(placed.indexOf("data-backtest-job") < placed.indexOf('<div class="armhead">'));
+  assert.ok(placed.indexOf("data-backtest-job") > placed.indexOf('<div class="row">'));
 });
 
 // ---------- MCP: la misma ruta ----------
@@ -361,3 +393,152 @@ test("BT-05: el servidor MCP por stdio responde tools/list y llama al endpoint",
   });
 });
 
+
+// ---------- identidad y retención (PLAN_STATUS fila BT-05, commit a9f5b82) ----------
+
+test("BT-05 identidad: run_id = sha256 de {commit, manifest de datos, parámetros, versión}; mismos inputs no recalculan", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const expected = computeRunIdentity({ codeCommit: repo.head(), verified: verifyExploratoryInputs(repo.root) });
+  const first = await runner.start({ requestedBy: "ui" }).done;
+  assert.equal(first.runId, expected.runId);
+  assert.deepEqual(first.identity, expected.identity);
+  assert.deepEqual(Object.keys(first.identity).sort(), ["codeCommit", "dataManifestSha256", "engineVersion", "parameters"]);
+
+  const eventsBefore = readRegistry(runner).length;
+  const again = runner.start({ requestedBy: "mcp" });
+  assert.equal(again.ok, true);
+  assert.equal(again.reused, true);
+  assert.equal(again.job.runId, first.runId);
+  assert.equal(again.job.attempt, 1, "no se crea otro intento");
+  assert.deepEqual(await again.done, first);
+  assert.equal(readRegistry(runner).length, eventsBefore, "reusar no escribe en el registro");
+  // otro ejecutor (otro proceso del servicio) llega al mismo run_id
+  const other = createBacktestJobRunner({ repoRoot: repo.root }).start({ requestedBy: "ui" });
+  assert.equal(other.reused, true);
+  assert.equal(other.job.runId, first.runId);
+});
+
+test("BT-05 retención: un run nuevo supera al anterior, queda un solo vigente y se conservan ambos manifests y artefactos", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const older = await runner.start({ requestedBy: "ui" }).done;
+  const registryAfterFirst = readFileSync(runner.registryPath, "utf8");
+
+  repo.write("NOTES.md", "otro commit del código\n");
+  repo.commitAll("cambio de código");
+  const newer = await runner.start({ requestedBy: "mcp" }).done;
+  assert.equal(newer.status, JOB_STATUS.SUCCEEDED);
+  assert.notEqual(newer.runId, older.runId);
+  assert.notEqual(newer.identity.codeCommit, older.identity.codeCommit);
+  assert.equal(newer.identity.dataManifestSha256, older.identity.dataManifestSha256);
+
+  const status = runner.status();
+  assert.equal(status.currentResult.runId, newer.runId);
+  assert.deepEqual(runner.get(older.runId).job.retention, { state: RESULT_STATE.SUPERSEDED, supersededBy: newer.runId });
+  assert.deepEqual(runner.get(newer.runId).job.retention, { state: RESULT_STATE.CURRENT, supersededBy: null });
+
+  // registro append-only: lo anterior queda intacto como prefijo
+  const registryText = readFileSync(runner.registryPath, "utf8");
+  assert.ok(registryText.startsWith(registryAfterFirst));
+  const events = readRegistry(runner);
+  const closed = events.filter((event) => event.event === REGISTRY_EVENT.RUN_CLOSED);
+  assert.deepEqual(closed.map((event) => event.runId), [older.runId, newer.runId]);
+  for (const event of closed) {
+    for (const key of ["identity", "inputs", "startedAt", "finishedAt", "memoryPeak", "resultSha256", "status"]) {
+      assert.ok(key in event.manifest, `${event.runId} manifest.${key}`);
+    }
+  }
+  const promotions = events.filter((event) => event.event === REGISTRY_EVENT.RESULT_PROMOTED);
+  assert.deepEqual(promotions.map((event) => [event.runId, event.supersedes]), [[older.runId, null], [newer.runId, older.runId]]);
+
+  // nada se borra sin inventario y GO de Bru: el superado conserva receipt y artefactos pesados
+  assert.ok(existsSync(path.join(repo.root, older.receiptPath)));
+  assert.ok(existsSync(path.join(repo.root, older.result.results.path)));
+  assert.ok(existsSync(path.join(repo.root, older.result.manifest.path)));
+});
+
+test("BT-05 retención: pedir de nuevo un run ya superado devuelve su resultado sin recalcular ni cambiar el vigente", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const firstCommit = repo.head();
+  const older = await runner.start({ requestedBy: "ui" }).done;
+  repo.write("NOTES.md", "x\n");
+  repo.commitAll("cambio");
+  const newer = await runner.start({ requestedBy: "ui" }).done;
+  repo.git("checkout", "-q", firstCommit);
+  const back = runner.start({ requestedBy: "ui" });
+  assert.equal(back.reused, true);
+  assert.equal(back.job.runId, older.runId);
+  assert.equal(back.job.retention.state, RESULT_STATE.SUPERSEDED);
+  assert.equal(runner.status().currentResult.runId, newer.runId);
+});
+
+test("BT-05 identidad: código sin commitear o sin git no arranca (el commit no lo identificaría)", () => {
+  const repo = makeFixtureRepo();
+  repo.write("src/exploratory/extra.mjs", "export const x = 1;\n");
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const dirty = runner.start({ requestedBy: "ui" });
+  assert.equal(dirty.ok, false);
+  assert.equal(dirty.code, "CODE_NOT_COMMITTED");
+  assert.match(dirty.message, /src\/exploratory\/extra\.mjs/);
+  assert.equal(runner.status().latest, null);
+
+  const noGit = mkdtempSync(path.join(tmpdir(), "bt05-nogit-"));
+  const bare = createBacktestJobRunner({ repoRoot: noGit, runsDir: path.join(noGit, "runs") });
+  assert.equal(bare.start({ requestedBy: "ui" }).code, "CODE_COMMIT_UNKNOWN");
+});
+
+test("BT-05 retención: un registro corrupto no se reescribe y bloquea nuevos runs (fail-closed)", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  await runner.start({ requestedBy: "ui" }).done;
+  writeFileSync(runner.registryPath, `${readFileSync(runner.registryPath, "utf8")}{roto\n`);
+  const before = readFileSync(runner.registryPath);
+  repo.write("NOTES.md", "x\n");
+  repo.commitAll("cambio");
+  const refused = runner.start({ requestedBy: "ui" });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "REGISTRY_CORRUPT");
+  assert.deepEqual(readFileSync(runner.registryPath), before);
+  assert.equal(runner.status().registry.ok, false);
+});
+
+// ---------- estado consultable entre procesos ----------
+
+test("BT-05 estado: otro runner y otro proceso sobre el mismo directorio ven el job en curso", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const started = runner.start({ requestedBy: "ui" });
+  assert.equal(started.ok, true);
+
+  const sameProcessOther = createBacktestJobRunner({ repoRoot: repo.root });
+  const seen = sameProcessOther.status();
+  assert.equal(seen.running, true);
+  assert.equal(seen.current.runId, started.job.runId);
+  assert.equal(seen.current.status, JOB_STATUS.RUNNING);
+  const refused = sameProcessOther.start({ requestedBy: "mcp" });
+  assert.equal(refused.code, "JOB_ALREADY_RUNNING");
+  assert.equal(refused.job.runId, started.job.runId);
+
+  // proceso distinto de verdad
+  const runnerUrl = new URL("../../src/backtest-jobs/runner.mjs", import.meta.url).href;
+  const script = `import { createBacktestJobRunner } from ${JSON.stringify(runnerUrl)};
+const r = createBacktestJobRunner({ repoRoot: ${JSON.stringify(repo.root)} });
+const s = r.status();
+const t = r.start({ requestedBy: "mcp" });
+process.stdout.write(JSON.stringify({ running: s.running, current: s.current?.runId ?? null, start: t.code ?? "STARTED", job: t.job?.runId ?? null }));`;
+  const output = await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["--input-type=module", "-e", script], { stdio: ["ignore", "pipe", "inherit"] });
+    let text = "";
+    child.stdout.on("data", (chunk) => { text += chunk; });
+    child.on("error", reject);
+    child.on("exit", () => resolve(JSON.parse(text)));
+  });
+  assert.deepEqual(output, { running: true, current: started.job.runId, start: "JOB_ALREADY_RUNNING", job: started.job.runId });
+
+  const receipt = await started.done;
+  assert.equal(receipt.status, JOB_STATUS.SUCCEEDED);
+  assert.equal(sameProcessOther.status().running, false);
+  assert.equal(sameProcessOther.status().currentResult.runId, receipt.runId);
+});
