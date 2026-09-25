@@ -104,7 +104,16 @@ test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barr
   const runs = withRuns.reduce((sum, campaign) => sum + campaign.runs.length, 0);
   assert.equal(count(html, /<div class="bar" title="closed \/ open \/ not run">/g), runs);
   assert.equal(count(html, /class="unk-item"/g), results.campaigns.length * results.campaignUnknowns.length);
-  assert.equal(count(html, /<div class="receipt">/g), results.campaigns.length * 4);
+  // Receipts solo respaldan runs: sin runs, NO RECEIPTS honesto (UI05-RCP-01).
+  const withoutRuns = results.campaigns.length - withRuns.length;
+  assert.ok(withoutRuns > 0);
+  assert.equal(count(html, /<div class="receipt">/g), withRuns.length * 4);
+  assert.equal(count(html, /<span class="withheld">NO RECEIPTS<\/span> <span class="small muted">no run exists for this campaign<\/span>/g), withoutRuns);
+  for (const campaign of results.campaigns.filter((item) => item.runs.length === 0)) {
+    const section = html.split(`id="cmp-${campaign.id}"`)[1].split("</section>")[0];
+    assert.equal(count(section, /<div class="receipt">/g), 0);
+    assert.match(section, /NO RUNS/);
+  }
   assert.match(html, /decision not run \(unknown, not zero\)/);
   // La campaña por defecto es el primer Quarterly completo, como en Replay.
   const firstQuarterly = withRuns.find((campaign) => campaign.product === "G0BQ");

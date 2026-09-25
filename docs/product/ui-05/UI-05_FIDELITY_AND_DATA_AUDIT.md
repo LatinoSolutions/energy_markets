@@ -81,7 +81,7 @@ Fuente de cada fila: campo del artifact `backtest-results.json` (verificado cont
 | Barra de decisiones cerradas / abiertas / no corridas | Sí | `runs[].decisions`, el gate `Evaluation window closed` (PASS) y `tradingDays` (0 no corridas solo si decisiones = días) |
 | Hora de inicio del run | **No** | Los manifests no traen timestamp → la fila muestra el slot del run |
 | Determinismo por run | **No** | El artifact solo trae un check global (`research.integrity` "Replay determinism", `run-exploratory-backtest.mjs`); ningún productor lo declara por run → UNKNOWN |
-| Recuento de receipts | Sí | Los 4 artifacts que respaldan cada run (resultado, snapshot, manifest y owner patch 02) |
+| Recuento de receipts | Sí (campañas con runs) / **No, n/a** (runs = 0) | Los 4 artifacts que respaldan cada run (resultado, snapshot, manifest y owner patch 02). Sin runs no hay nada que respaldar → "NO RECEIPTS · no run exists" (UI05-RCP-01) |
 | Hora de registro de cada receipt | **No** | Los manifests no tienen fecha de registro → "not recorded" |
 
 ### Research

@@ -950,7 +950,10 @@ function campaignDetailHtml(campaign, pages, isDefault) {
     ? `<div class="bd"><span class="withheld">NO RUNS</span> <span class="small muted">the procurement window is not fully inside the data period; nothing is imputed</span></div>`
     : `<table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table>`;
   const legend = (cls, text) => `<span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="${cls}" style="width:100%"></span></span> ${text}</span>`;
-  const ledger = receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
+  // Receipts bind runs; a campaign without runs has nothing they could back (review UI05-RCP-01, same rule as Research NO RECEIPTS).
+  const ledger = campaign.runs.length === 0
+    ? '<span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this campaign</span>'
+    : receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="cmp-${esc(campaign.id)}" data-campaign="${esc(campaign.id)}">
     <div class="row" style="align-items:flex-end">
       <div class="grow">
