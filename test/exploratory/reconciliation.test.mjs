@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildBt02Manifest, buildBt02Reconciliation, sha256Hex } from "../../src/exploratory/reconciliation.mjs";
+import { BT02_RELEASES, buildBt02Manifest, buildBt02Reconciliation, sha256Hex } from "../../src/exploratory/reconciliation.mjs";
 
 function fixture({ armFilledMw = 4, benchmarkB = 12, benchmarkStatus = "BENCHMARK_PROVISIONAL" } = {}) {
   const baseline = [
@@ -133,4 +133,28 @@ test("BT-02 real artifact and both output manifests reproduce byte-for-byte with
   assert.equal(artifact.campaigns.find((campaign) => campaign.campaignKey === "G0BM-202510").arms.ARM_B.decisionLedgerCheck, "NOT_AVAILABLE_IN_REPLAY");
   assert.equal(artifact.campaigns.length, results.campaigns.length);
   assert.ok(artifact.campaigns.every((campaign) => Object.values(campaign.arms).every((arm) => arm.hCostCompleteness === "PARTIAL")));
+});
+
+test("BT-02 v2 reproduces byte-for-byte from the v2 backtest and v2 BT-01, and keeps v1 untouched", () => {
+  const release = BT02_RELEASES.v2;
+  const read = (relativePath) => readFileSync(new URL(`../../${relativePath}`, import.meta.url));
+  const resultBytes = read(release.exploratoryResults);
+  const resultsManifestBytes = read(release.exploratoryManifest);
+  const benchmarkBytes = read(release.bt01Benchmark);
+  const benchmarkManifestBytes = read(release.bt01Manifest);
+  const artifact = buildBt02Reconciliation({
+    results: JSON.parse(resultBytes), benchmarkArtifact: JSON.parse(benchmarkBytes),
+    resultsSha256: sha256Hex(resultBytes), resultsManifestSha256: sha256Hex(resultsManifestBytes),
+    benchmarkSha256: sha256Hex(benchmarkBytes), benchmarkManifestSha256: sha256Hex(benchmarkManifestBytes),
+    release, supersededSha256: sha256Hex(read(release.supersedes)),
+  });
+  const artifactBytes = Buffer.from(`${JSON.stringify(artifact, null, 2)}\n`);
+  assert.deepEqual(artifactBytes, read(release.artifact));
+  const manifest = buildBt02Manifest({ artifact, artifactSha256: sha256Hex(artifactBytes), release });
+  assert.deepEqual(Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`), read(release.manifest));
+  assert.deepEqual(artifact.supersedes, { path: BT02_RELEASES.v1.artifact, sha256: sha256Hex(read(BT02_RELEASES.v1.artifact)) });
+  // v1 still verifies against its own manifest: nothing accepted was overwritten.
+  const v1Manifest = JSON.parse(read(BT02_RELEASES.v1.manifest));
+  assert.equal(v1Manifest.artifact.sha256, sha256Hex(read(BT02_RELEASES.v1.artifact)));
+  for (const input of Object.values(v1Manifest.inputs)) assert.equal(input.sha256, sha256Hex(read(input.path)), input.path);
 });

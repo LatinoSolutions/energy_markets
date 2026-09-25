@@ -6,13 +6,10 @@ import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
 import {
   berlinLocalTimeSecondsFromUtc,
+  observationIdentity,
   proxyReference,
   strictProxyWindowBounds,
 } from "../../../src/economic-calculation/index.mjs";
-
-function contentKey(row) {
-  return JSON.stringify([row?.tmUtc, row?.price, row?.bid, row?.ask].map((value) => String(value ?? "")));
-}
 
 function makeState(record) {
   return {
@@ -37,7 +34,8 @@ function addRows(state, rows) {
     state.sourceRows += 1;
     state.instruments.add(row.instrument);
     if (row.rowHash) state.rowHashes.add(row.rowHash);
-    const key = contentKey(row);
+    // Same dedup identity as the IMP-05 function (BT04-C1-PROXY-WINDOW-DEDUP).
+    const key = observationIdentity(row);
     if (state.seen.has(key)) continue;
     state.seen.add(key);
     const local = berlinLocalTimeSecondsFromUtc({ utcTimestamp: row.tmUtc });

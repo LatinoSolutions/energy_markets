@@ -164,7 +164,13 @@ const BERLIN_LOCAL_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
+// EEX Tm trae hasta microsegundos; Date sólo guarda milisegundos, así que la
+// fracción se lee del texto. El offset CE(S)T es de minutos enteros y no la altera.
+const FRACTIONAL_SECONDS = /T\d{2}:\d{2}:\d{2}\.(\d+)/;
+
 // §5.2/§6: conversión UTC/DST según zona Europe/Berlin; Intl resuelve CE(S)T.
+// secondsOfDay conserva la fracción: 17:15:00.4 queda fuera de una ventana que
+// termina en 17:15:00 (hallazgo BT04-C1-PROXY-WINDOW-DEDUP, 2026-09-25).
 export function berlinLocalTimeSecondsFromUtc({ utcTimestamp }) {
   const parsed = Date.parse(utcTimestamp);
   if (!Number.isFinite(parsed)) {
@@ -177,7 +183,9 @@ export function berlinLocalTimeSecondsFromUtc({ utcTimestamp }) {
   if (![hours, minutes, seconds].every(Number.isFinite)) {
     return null;
   }
-  return { hours, minutes, seconds, secondsOfDay: hours * 3600 + minutes * 60 + seconds };
+  const fractionDigits = FRACTIONAL_SECONDS.exec(String(utcTimestamp))?.[1];
+  const fraction = fractionDigits === undefined ? 0 : Number(`0.${fractionDigits}`);
+  return { hours, minutes, seconds, fraction, secondsOfDay: hours * 3600 + minutes * 60 + seconds + fraction };
 }
 
 // §5.2 «17:05–17:15 CE(S)T para German Power y 17:00–17:15 CE(S)T para Gas,
@@ -193,11 +201,17 @@ export function strictProxyWindowBounds({ productClass }) {
   return null;
 }
 
-function sameObservationContent(left, right) {
-  return String(left?.tmUtc ?? "") === String(right?.tmUtc ?? "")
-    && String(left?.price ?? "") === String(right?.price ?? "")
-    && String(left?.bid ?? "") === String(right?.bid ?? "")
-    && String(left?.ask ?? "") === String(right?.ask ?? "");
+// §5.2 «filas deduplicadas»: sólo es duplicado la misma observación de mercado.
+// Con `observationKey` (digest de todas las columnas de mercado, lo emite el
+// extractor) dos trades distintos con igual Tm y precio no se funden
+// (hallazgo BT04-C1-PROXY-WINDOW-DEDUP). Filas sin esa clave caen a la tupla
+// (Tm, price, bid, ask), que sí puede fundir filas distintas; el resultado
+// expone qué regla se aplicó en `dedupRule`.
+export function observationIdentity(row) {
+  if (typeof row?.observationKey === "string" && row.observationKey.length > 0) {
+    return `key:${row.observationKey}`;
+  }
+  return `tuple:${JSON.stringify([row?.tmUtc, row?.price, row?.bid, row?.ask].map((value) => String(value ?? "")))}`;
 }
 
 // §5.2 proxy intradiario desde filas crudas (trades y top-of-book): filtro por
@@ -253,12 +267,18 @@ export function intradayProxyReference({
   }
 
   const deduplicated = [];
+  const seenIdentities = new Set();
   for (const row of accessible) {
-    const duplicate = deduplicated.find((kept) => sameObservationContent(kept, row));
-    if (duplicate === undefined) {
+    const identity = observationIdentity(row);
+    if (!seenIdentities.has(identity)) {
+      seenIdentities.add(identity);
       deduplicated.push(row);
     }
   }
+  const keyedRows = accessible.filter((row) => observationIdentity(row).startsWith("key:")).length;
+  const dedupRule = accessible.length === 0 ? "none"
+    : keyedRows === accessible.length ? "observationKey"
+      : keyedRows === 0 ? "content-tuple" : "mixed";
 
   const FALLBACK_CENTER_SECONDS = 17 * 3600 + 15 * 60;
   const FALLBACK_RADIUS_SECONDS = 60 * 60;
@@ -302,7 +322,7 @@ export function intradayProxyReference({
     return {
       value: null, defined: false, sourceLabel: "missing",
       windowUsed: "none", label: "eex-derived-reference", exclusions,
-      strictCounts: countsByClass(inStrict), fallbackCounts: countsByClass(inFallback), fallbackUsed: false,
+      strictCounts: countsByClass(inStrict), fallbackCounts: countsByClass(inFallback), fallbackUsed: false, dedupRule,
       reason: "Sin datos utilizables en la ventana estricta ni en el fallback permitido: la referencia permanece missing.",
     };
   }
@@ -331,6 +351,7 @@ export function intradayProxyReference({
     strictCounts: countsByClass(inStrict),
     fallbackCounts: countsByClass(inFallback),
     fallbackUsed: windowUsed === "nearby-60m",
+    dedupRule,
   };
 }
 

@@ -38,7 +38,33 @@ function benchmarkIndex(benchmarkArtifact) {
 
 /** Reconcile stored exploratory run summaries against exact BT-01 campaign B values.
  * This consumes persisted ledgers only; it never calls the strategy runner. */
-export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha256, resultsManifestSha256, benchmarkSha256, benchmarkManifestSha256 }) {
+// v1 = BT-02 aceptado, se conserva byte a byte. v2 = mismo reconciliador sobre el
+// backtest v2 (best ask en empates de Tm, BT04-H1-TOB-TIE) y el B v2 de BT-01
+// (ventana §5.2 con fracción de segundo y dedup por observación,
+// BT04-C1-PROXY-WINDOW-DEDUP), 2026-09-25.
+export const BT02_RELEASES = Object.freeze({
+  v1: Object.freeze({
+    exploratoryResults: "operations/exploratory/backtest-results.json",
+    exploratoryManifest: "operations/exploratory/MANIFEST.json",
+    bt01Benchmark: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
+    bt01Manifest: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+    artifact: "operations/exploratory/reconciled-results-BT-02.json",
+    manifest: "operations/exploratory/reconciled-results-BT-02.MANIFEST.json",
+    supersedes: null,
+  }),
+  v2: Object.freeze({
+    exploratoryResults: "operations/exploratory/v2/backtest-results.json",
+    exploratoryManifest: "operations/exploratory/v2/MANIFEST.json",
+    bt01Benchmark: "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.json",
+    bt01Manifest: "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+    artifact: "operations/exploratory/v2/reconciled-results-BT-02.json",
+    manifest: "operations/exploratory/v2/reconciled-results-BT-02.MANIFEST.json",
+    supersedes: "operations/exploratory/reconciled-results-BT-02.json",
+  }),
+});
+export const BT02_CURRENT_RELEASE = "v2";
+
+export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha256, resultsManifestSha256, benchmarkSha256, benchmarkManifestSha256, release = BT02_RELEASES.v1, supersededSha256 = null }) {
   if (results?.artifactKind !== "EXPLORATORY_BACKTEST_RESULTS") throw new Error("unexpected exploratory results artifact kind");
   if (results?.rules?.slippageEurMwh !== 0.15) throw new Error("BT-02 requires the existing 0.15 EUR/MWh slippage assumption");
   if (!String(results?.rules?.feesEurMwh ?? "").startsWith("UNKNOWN")) throw new Error("BT-02 must preserve fees as UNKNOWN");
@@ -183,22 +209,23 @@ export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha
       feesEurMwh: "UNKNOWN (excluded, never treated as zero)",
       decisionAndFillLedgers: "Never rewritten; replay rows are checked where present and stored run summaries are consumed where per-arm rows are absent.",
     },
+    ...(release.supersedes === null ? {} : { supersedes: { path: release.supersedes, sha256: supersededSha256 } }),
     inputs: {
-      exploratoryResults: { path: "operations/exploratory/backtest-results.json", sha256: resultsSha256 },
-      exploratoryManifest: { path: "operations/exploratory/MANIFEST.json", sha256: resultsManifestSha256 },
-      bt01Benchmark: { path: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json", sha256: benchmarkSha256 },
-      bt01Manifest: { path: "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.MANIFEST.json", sha256: benchmarkManifestSha256 },
+      exploratoryResults: { path: release.exploratoryResults, sha256: resultsSha256 },
+      exploratoryManifest: { path: release.exploratoryManifest, sha256: resultsManifestSha256 },
+      bt01Benchmark: { path: release.bt01Benchmark, sha256: benchmarkSha256 },
+      bt01Manifest: { path: release.bt01Manifest, sha256: benchmarkManifestSha256 },
     },
     campaigns: outputCampaigns,
   };
 }
 
-export function buildBt02Manifest({ artifact, artifactSha256 }) {
+export function buildBt02Manifest({ artifact, artifactSha256, release = BT02_RELEASES.v1 }) {
   return {
     artifactKind: "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION_MANIFEST",
     schemaVersion: "1.0",
     status: artifact.status,
-    artifact: { path: "operations/exploratory/reconciled-results-BT-02.json", sha256: artifactSha256 },
+    artifact: { path: release.artifact, sha256: artifactSha256 },
     inputs: artifact.inputs,
     producer: "src/exploratory/reconciliation.mjs",
   };

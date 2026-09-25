@@ -578,3 +578,52 @@ test("IMP-05 integración: ventana derivada, peso diario igual, cobertura y stat
   assert.equal(reconciliation.proxyPreserved, true);
   assert.equal(reconciliation.setEqual, false, "el proxy pierde una fecha ante el oficial: setEqual exige el mismo conjunto");
 });
+
+// --- BT04-C1-PROXY-WINDOW-DEDUP (2026-09-25) ---
+
+test("§5.2 ventana: la fracción de segundo cuenta, incluidos microsegundos que Date descarta", () => {
+  const time = berlinLocalTimeSecondsFromUtc({ utcTimestamp: "2025-12-01T16:15:00.000400Z" });
+  assert.equal(time.seconds, 0);
+  assert.ok(Math.abs(time.fraction - 0.0004) < 1e-12);
+  assert.ok(time.secondsOfDay > 17 * 3600 + 15 * 60);
+  assert.equal(berlinLocalTimeSecondsFromUtc({ utcTimestamp: "2025-12-01T16:15:00Z" }).secondsOfDay, 17 * 3600 + 15 * 60);
+
+  const outcome = intradayProxyReference({
+    product: "NATGAS/THE Q-2026",
+    trdDate: "2025-12-01",
+    productClass: "gas",
+    rows: [
+      syntheticRow({ tmUtc: "2025-12-01T16:15:00Z", price: 100 }),
+      syntheticRow({ tmUtc: "2025-12-01T16:15:00.000400Z", price: 200 }),
+    ],
+  });
+  assert.equal(outcome.strictCounts.trades, 1, "17:15:00.0004 queda fuera de 17:00–17:15");
+  assert.equal(outcome.value, 100);
+});
+
+test("§5.2 dedup: con observationKey dos trades distintos con igual Tm y precio no se funden", () => {
+  const sameTuple = { tmUtc: "2025-12-01T16:10:00.5Z", price: 100 };
+  const keyed = intradayProxyReference({
+    product: "NATGAS/THE Q-2026",
+    trdDate: "2025-12-01",
+    productClass: "gas",
+    rows: [
+      syntheticRow({ ...sameTuple, observationKey: "trade-1" }),
+      syntheticRow({ ...sameTuple, observationKey: "trade-2" }),
+      syntheticRow({ tmUtc: "2025-12-01T16:10:01Z", price: 130, observationKey: "trade-3" }),
+      syntheticRow({ tmUtc: "2025-12-01T16:10:01Z", price: 130, observationKey: "trade-3" }),
+    ],
+  });
+  assert.equal(keyed.strictCounts.trades, 3, "el re-pull de trade-3 sí es duplicado");
+  assert.ok(Math.abs(keyed.value - 110) < 1e-12);
+  assert.equal(keyed.dedupRule, "observationKey");
+
+  const tuple = intradayProxyReference({
+    product: "NATGAS/THE Q-2026",
+    trdDate: "2025-12-01",
+    productClass: "gas",
+    rows: [syntheticRow(sameTuple), syntheticRow(sameTuple)],
+  });
+  assert.equal(tuple.strictCounts.trades, 1);
+  assert.equal(tuple.dedupRule, "content-tuple", "sin clave de observación el resultado declara la regla débil");
+});
