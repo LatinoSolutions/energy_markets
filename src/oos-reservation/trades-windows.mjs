@@ -192,39 +192,47 @@ export function canonicalCampaignIdFromLegacy({ shortCode, maturity }) {
 }
 
 // Índice de cobertura por `ShortCode|Maturity` a partir de las filas agregadas
-// de TR-01 (coverageByInstrumentDay). Sólo se leen identidad y conteos: los
+// de TR-01 (coverageByInstrumentDay). Sólo se leen identidad, día y conteos: los
 // campos de precio no se tocan (el objeto NO se copia con spread, que
-// dispararía cualquier getter).
+// dispararía cualquier getter). Se conserva el detalle por día para poder medir
+// la cobertura DENTRO de la ventana de cada campaign (patch 03 §3.4: la ventana
+// sale del calendario, no de la presencia de trades). Una fila sin `trdDate` no
+// se puede atribuir a ninguna ventana y no se cuenta (fail-closed).
 function indexCoverageRecords(coverageRecords) {
   const byContract = new Map();
   for (const record of coverageRecords) {
     const key = contractKey({ ShortCode: record?.shortCode, Maturity: record?.maturity });
     if (key === "") continue;
     if (!byContract.has(key)) {
-      byContract.set(key, { days: new Set(), eligibleCount: 0, volumeSum: 0, firstDate: null, lastDate: null });
+      byContract.set(key, { byDay: new Map() });
     }
     const aggregate = byContract.get(key);
     const day = record?.trdDate ?? null;
-    if (typeof day === "string" && day.length > 0) {
-      aggregate.days.add(day);
-      if (aggregate.firstDate === null || day < aggregate.firstDate) aggregate.firstDate = day;
-      if (aggregate.lastDate === null || day > aggregate.lastDate) aggregate.lastDate = day;
+    if (typeof day !== "string" || day.length === 0) continue;
+    if (!aggregate.byDay.has(day)) {
+      aggregate.byDay.set(day, { eligibleCount: 0, volumeSum: 0 });
     }
+    const perDay = aggregate.byDay.get(day);
     const count = Number(record?.eligibleCount);
-    if (Number.isFinite(count)) aggregate.eligibleCount += count;
+    if (Number.isFinite(count)) perDay.eligibleCount += count;
     const volume = Number(record?.volumeSum);
-    if (Number.isFinite(volume)) aggregate.volumeSum += volume;
+    if (Number.isFinite(volume)) perDay.volumeSum += volume;
   }
   return byContract;
 }
 
-// Cobertura TR-01 de una campaign. Sin filas para el contrato, la campaign
-// sigue en la lista con `status: NO_COVERAGE` (nunca se cae por falta de data).
+// Cobertura TR-01 de una campaign, medida SÓLO sobre los Exchange Days de su
+// ventana [windowStart, windowEnd] (patch 03 §3.4). Así `daysWithTrades` es un
+// subconjunto de `windowDays` y `density` queda en [0, 1]; contar días de todo
+// el contrato produce densidades falsas (>1) en el panel de TR-07. Sin filas
+// para el contrato, la campaign sigue en la lista con `status: NO_COVERAGE`
+// (nunca se cae por falta de data).
 function coverageForCampaign({ campaign, coverageIndex, exchangeDays }) {
   const legacy = legacyMaturityFor(campaign.mission, campaign.maturity);
   const aggregate = legacy === null ? undefined : coverageIndex.get(`${campaign.shortCode}|${legacy}`);
-  const windowDays = exchangeDays.filter((day) =>
-    compareIsoDates(day, campaign.windowStart) >= 0 && compareIsoDates(day, campaign.windowEnd) <= 0).length;
+  const windowExchangeDays = exchangeDays.filter((day) =>
+    compareIsoDates(day, campaign.windowStart) >= 0 && compareIsoDates(day, campaign.windowEnd) <= 0);
+  const windowDays = windowExchangeDays.length;
   const base = {
     source: "TR-01_COVERAGE",
     legacyMaturity: legacy,
@@ -234,15 +242,23 @@ function coverageForCampaign({ campaign, coverageIndex, exchangeDays }) {
   if (aggregate === undefined) {
     return { ...base, status: "NO_COVERAGE", daysWithTrades: 0, totalEligibleTrades: 0, volumeSum: 0, firstDate: null, lastDate: null, density: null };
   }
+  const observedDays = windowExchangeDays.filter((day) => aggregate.byDay.has(day));
+  let totalEligibleTrades = 0;
+  let volumeSum = 0;
+  for (const day of observedDays) {
+    const perDay = aggregate.byDay.get(day);
+    totalEligibleTrades += perDay.eligibleCount;
+    volumeSum += perDay.volumeSum;
+  }
   return {
     ...base,
     status: "OBSERVED",
-    daysWithTrades: aggregate.days.size,
-    totalEligibleTrades: aggregate.eligibleCount,
-    volumeSum: aggregate.volumeSum,
-    firstDate: aggregate.firstDate,
-    lastDate: aggregate.lastDate,
-    density: windowDays === 0 ? null : aggregate.days.size / windowDays,
+    daysWithTrades: observedDays.length,
+    totalEligibleTrades,
+    volumeSum,
+    firstDate: observedDays[0] ?? null,
+    lastDate: observedDays.at(-1) ?? null,
+    density: windowDays === 0 ? null : observedDays.length / windowDays,
   };
 }
 

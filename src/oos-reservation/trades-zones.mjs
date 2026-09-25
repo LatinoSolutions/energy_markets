@@ -78,6 +78,34 @@ function pushError(errors, code, message, context = {}) {
   errors.push({ code, message, ...context });
 }
 
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+// Estado del OOS POR MISIÓN (patch 03 §4 "cada misión se evalúa por separado"):
+// abrir el OOS de Gas Quarterly no consume Power Monthly. El estado global sigue
+// existiendo para IMP-09, pero TRADES se lee por misión.
+function missionAccessState(entries) {
+  const oosStatusByMission = {};
+  const oosOpeningsByMission = {};
+  for (const missionKey of Object.keys(TRADES_MISSIONS)) {
+    const missionEntries = entries.filter((item) => item.mission === missionKey);
+    oosStatusByMission[missionKey] = missionEntries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED";
+    oosOpeningsByMission[missionKey] = new Set(
+      missionEntries
+        .filter((item) => item.consumesOos && isNonEmptyString(item.runId))
+        .map((item) => item.runId),
+    ).size;
+  }
+  return { oosStatusByMission, oosOpeningsByMission };
+}
+
+function sealedAccessRegistry() {
+  const entries = [];
+  const { oosStatusByMission, oosOpeningsByMission } = missionAccessState(entries);
+  return { oosStatus: "SEALED", oosStatusByMission, oosOpeningsByMission, entries };
+}
+
 // Intervalo cerrado [windowStart, deadline] contra [zoneStart, zoneEnd].
 function overlapsWindow(windowStart, deadline, zoneStart, zoneEnd) {
   return compareIsoDates(windowStart, zoneEnd) <= 0 && compareIsoDates(deadline, zoneStart) >= 0;
@@ -150,9 +178,13 @@ function basePlan(overrides) {
     missions: {},
     purge: [],
     bridge: { seenCampaignIds: [], notSeenCampaignIds: [] },
+    // Episodios ya vistos por el backtest TOB, en cualquier zona donde se
+    // materialicen (puente, post-puente o purge). `unmatched` son vistos que no
+    // caen en ninguna campaign materializada.
+    tobSeen: { materializedCampaignIds: [], unmatchedCampaignIds: [] },
     forward: { ...FORWARD_STATUS },
     reservationBinding: null,
-    accessRegistry: { oosStatus: "HOLD", entries: [] },
+    accessRegistry: { oosStatus: "HOLD", oosStatusByMission: {}, oosOpeningsByMission: {}, entries: [] },
     errors: [],
     blockedBy: [],
     reason: null,
@@ -192,6 +224,8 @@ export function reserveTradesZones(input = {}) {
   const purge = [];
   const bridgeSeen = [];
   const bridgeNotSeen = [];
+  const tobSeenMaterialized = new Set();
+  const materializedIds = new Set();
   let totalCampaigns = 0;
 
   for (const missionKey of Object.keys(TRADES_MISSIONS)) {
@@ -212,6 +246,19 @@ export function reserveTradesZones(input = {}) {
       }
       campaign.zone = zone;
       totalCampaigns += 1;
+      materializedIds.add(campaign.campaignId);
+      // El episodio visto por el backtest TOB se marca en la campaign en
+      // cualquier zona donde se materialice (patch 03 §4: registrar los
+      // episodios ya vistos), no sólo en el puente. Si un visto cayera en el
+      // OOS sería evidencia ya contaminada: fail-closed.
+      const isTobSeen = seen.has(campaign.campaignId);
+      if (isTobSeen) {
+        campaign.tobSeen = true;
+        tobSeenMaterialized.add(campaign.campaignId);
+        if (zone === ZONES.OOS_HISTORICO) {
+          pushError(errors, "TOB_SEEN_IN_OOS", `La campaign "${campaign.campaignId}" fue vista por el backtest TOB y no puede presentarse como OOS (patch 03 §4).`, { campaignId: campaign.campaignId });
+        }
+      }
       if (zone === ZONES.PURGE) {
         purge.push({
           campaignId: campaign.campaignId,
@@ -220,14 +267,14 @@ export function reserveTradesZones(input = {}) {
           maturity: campaign.maturity,
           windowStart: campaign.windowStart,
           deadline: campaign.deadline,
+          tobSeen: isTobSeen,
           reason: "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)",
         });
         continue;
       }
       zones[zone].push(campaign);
       if (zone === ZONES.PUENTE) {
-        if (seen.has(campaign.campaignId)) {
-          campaign.tobSeen = true;
+        if (isTobSeen) {
           bridgeSeen.push(campaign.campaignId);
         } else {
           campaign.tobSeen = false;
@@ -248,6 +295,8 @@ export function reserveTradesZones(input = {}) {
     pushError(errors, "NO_CAMPAIGNS", "Ninguna misión materializó campaigns; la reserva no tiene población.");
   }
 
+  const tobSeenUnmatched = [...seen].filter((campaignId) => !materializedIds.has(campaignId)).sort();
+
   const manifestCore = {
     reservationId: input.reservationId ?? null,
     horizonEndIso,
@@ -261,6 +310,10 @@ export function reserveTradesZones(input = {}) {
     ])),
     purge: purge.map((entry) => entry.campaignId),
     bridgeSeen: [...bridgeSeen].sort(),
+    tobSeen: {
+      materializedCampaignIds: [...tobSeenMaterialized].sort(),
+      unmatchedCampaignIds: tobSeenUnmatched,
+    },
   };
 
   if (errors.length > 0) {
@@ -270,6 +323,7 @@ export function reserveTradesZones(input = {}) {
       missions,
       purge,
       bridge: { seenCampaignIds: [...bridgeSeen].sort(), notSeenCampaignIds: [...bridgeNotSeen].sort() },
+      tobSeen: { materializedCampaignIds: [...tobSeenMaterialized].sort(), unmatchedCampaignIds: tobSeenUnmatched },
       reservationBinding: binding,
       errors,
       blockedBy: [...new Set(errors.map((error) => error.code))],
@@ -284,29 +338,55 @@ export function reserveTradesZones(input = {}) {
     missions,
     purge,
     bridge: { seenCampaignIds: [...bridgeSeen].sort(), notSeenCampaignIds: [...bridgeNotSeen].sort() },
+    tobSeen: { materializedCampaignIds: [...tobSeenMaterialized].sort(), unmatchedCampaignIds: tobSeenUnmatched },
     reservationBinding: binding,
-    accessRegistry: { oosStatus: "SEALED", entries: [] },
+    accessRegistry: sealedAccessRegistry(),
     reason: null,
     contentHash: contentHashOf(manifestCore),
   });
 }
 
 // Registro de acceso al OOS reutilizando `recordOosAccess` con los propósitos
-// de TRADES. Un run_id nuevo sobre el OOS cuenta como una nueva apertura.
+// de TRADES. Cada apertura exige `run_id` y `mission` (patch 03 §4: "un run_id
+// nuevo sobre el OOS es una nueva apertura y se cuenta" y "cada misión se
+// evalúa por separado"); sin ellos no se consume el OOS.
 export function recordTradesOosAccess(plan, entry = {}) {
   if (!TRADES_ACCESS_PURPOSES[entry?.purpose]) {
     return { ok: false, code: "NOT_A_TRADES_ACCESS_PURPOSE", message: `El propósito "${entry?.purpose}" no es un acceso TRADES declarado.`, reservation: plan ?? null, oosOpenings: null };
   }
-  const outcome = recordOosAccess(plan, entry);
+  if (!isNonEmptyString(entry?.mission) || !TRADES_MISSIONS[entry.mission]) {
+    return { ok: false, code: "MISSING_TRADES_MISSION", message: `El acceso TRADES exige una misión válida (${Object.keys(TRADES_MISSIONS).join(", ")}); cada misión se evalúa por separado (patch 03 §4).`, reservation: plan ?? null, oosOpenings: null };
+  }
+  const purpose = TRADES_ACCESS_PURPOSES[entry.purpose];
+  const consumesOos = entry.modifiesDesign === true || purpose.consumesOos;
+  if (consumesOos && !isNonEmptyString(entry.runId)) {
+    return { ok: false, code: "MISSING_RUN_ID", message: "Un acceso que consume el OOS exige run_id; sin run_id no se cuenta como apertura (patch 03 §4).", reservation: plan ?? null, oosOpenings: null };
+  }
+  const outcome = recordOosAccess(plan, entry, TRADES_ACCESS_PURPOSES);
   if (!outcome.ok) {
     return { ...outcome, oosOpenings: null };
   }
-  const openings = new Set(
-    outcome.reservation.accessRegistry.entries
-      .filter((item) => item.consumesOos && typeof item.runId === "string" && item.runId.length > 0)
+  const entries = outcome.reservation.accessRegistry.entries;
+  const { oosStatusByMission, oosOpeningsByMission } = missionAccessState(entries);
+  const oosOpenings = new Set(
+    entries
+      .filter((item) => item.consumesOos && isNonEmptyString(item.runId))
       .map((item) => item.runId),
-  );
-  return { ...outcome, oosOpenings: openings.size };
+  ).size;
+  return {
+    ...outcome,
+    reservation: {
+      ...outcome.reservation,
+      accessRegistry: {
+        ...outcome.reservation.accessRegistry,
+        oosStatusByMission,
+        oosOpeningsByMission,
+      },
+    },
+    oosOpenings,
+    oosStatusByMission,
+    oosOpeningsByMission,
+  };
 }
 
 // Acceptance de TR-02. Sólo acredita que la reserva TRADES se materializó; no

@@ -3,7 +3,7 @@
  "schemaVersion": "1.0",
  "plan": {
   "path": "operations/trades/TR-02/trades-zone-plan.json",
-  "sha256": "fe61f82059212454bd652c4adf810ed9b945ff90dd4c9fac280dc691ff56d2c7"
+  "sha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20"
  },
  "generator": {
   "path": "operations/trades/TR-02/build-trades-zone-plan.mjs",
@@ -12,15 +12,15 @@
  "modules": [
   {
    "path": "src/oos-reservation/trades-zones.mjs",
-   "sha256": "2f7d4679f9fda23aacbdd26b174d96ef2a65acde087feea90fda6423a83cd3aa"
+   "sha256": "65c9f7b6828b46d1c50fb56868b341d260af16eeb06c5b43262ff01f03bd7dc4"
   },
   {
    "path": "src/oos-reservation/trades-windows.mjs",
-   "sha256": "0b11929a7d007808042a7e22a101fa6e64f1016ad4837838eacd33a31210f9ce"
+   "sha256": "2174f2817e9ef930dea799105fc41edbfe2ba77579b726fcdc238d5907e0dab7"
   },
   {
    "path": "src/oos-reservation/reservation.mjs",
-   "sha256": "0475ca17f04df3c1ae08cfcb7180c84125dadc76ac9b9698df67358ada5817fc"
+   "sha256": "95ada19000e968ee7181679fc14b1692182d58fc0084d3baf2299246d102e651"
   },
   {
    "path": "src/procurement-contract/campaign-contract.mjs",

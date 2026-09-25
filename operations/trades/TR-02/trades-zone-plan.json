@@ -580,7 +580,8 @@
        "lastDate": null,
        "density": null
       },
-      "zone": "POST_PUENTE"
+      "zone": "POST_PUENTE",
+      "tobSeen": true
      }
     ],
     "FORWARD": []
@@ -2258,7 +2259,8 @@
        "lastDate": null,
        "density": null
       },
-      "zone": "POST_PUENTE"
+      "zone": "POST_PUENTE",
+      "tobSeen": true
      },
      {
       "campaignId": "GAS-M-2026-09",
@@ -2283,7 +2285,8 @@
        "lastDate": null,
        "density": null
       },
-      "zone": "POST_PUENTE"
+      "zone": "POST_PUENTE",
+      "tobSeen": true
      }
     ],
     "FORWARD": []
@@ -4572,6 +4575,7 @@
    "maturity": "2025Q4",
    "windowStart": "2025-06-01",
    "deadline": "2025-08-29",
+   "tobSeen": true,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4581,6 +4585,7 @@
    "maturity": "2025-07",
    "windowStart": "2025-06-01",
    "deadline": "2025-06-27",
+   "tobSeen": false,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4590,6 +4595,7 @@
    "maturity": "2025-08",
    "windowStart": "2025-07-01",
    "deadline": "2025-07-30",
+   "tobSeen": false,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4599,6 +4605,7 @@
    "maturity": "2025-09",
    "windowStart": "2025-08-01",
    "deadline": "2025-08-29",
+   "tobSeen": true,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4608,6 +4615,7 @@
    "maturity": "2025Q4",
    "windowStart": "2025-06-01",
    "deadline": "2025-08-29",
+   "tobSeen": false,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4617,6 +4625,7 @@
    "maturity": "2025-07",
    "windowStart": "2025-06-01",
    "deadline": "2025-06-27",
+   "tobSeen": false,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4626,6 +4635,7 @@
    "maturity": "2025-08",
    "windowStart": "2025-07-01",
    "deadline": "2025-07-30",
+   "tobSeen": false,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   },
   {
@@ -4635,6 +4645,7 @@
    "maturity": "2025-09",
    "windowStart": "2025-08-01",
    "deadline": "2025-08-29",
+   "tobSeen": false,
    "reason": "cruza el embargo 2025-06-01..2025-08-11 (patch 03 §4: campaigns que cruzan fronteras → purge)"
   }
  ],
@@ -4670,6 +4681,33 @@
    "POW-Q-2026Q3"
   ]
  },
+ "tobSeen": {
+  "materializedCampaignIds": [
+   "GAS-M-2025-09",
+   "GAS-M-2025-10",
+   "GAS-M-2025-11",
+   "GAS-M-2025-12",
+   "GAS-M-2026-01",
+   "GAS-M-2026-02",
+   "GAS-M-2026-03",
+   "GAS-M-2026-04",
+   "GAS-M-2026-05",
+   "GAS-M-2026-06",
+   "GAS-M-2026-07",
+   "GAS-M-2026-08",
+   "GAS-M-2026-09",
+   "GAS-Q-2025Q4",
+   "GAS-Q-2026Q1",
+   "GAS-Q-2026Q2",
+   "GAS-Q-2026Q3",
+   "GAS-Q-2026Q4"
+  ],
+  "unmatchedCampaignIds": [
+   "GAS-M-2026-10",
+   "GAS-M-2026-11",
+   "GAS-M-2026-12"
+  ]
+ },
  "forward": {
   "zone": "FORWARD",
   "status": "OPEN_PENDING_FREEZE",
@@ -4688,12 +4726,24 @@
  },
  "accessRegistry": {
   "oosStatus": "SEALED",
+  "oosStatusByMission": {
+   "GAS_QUARTERLY": "SEALED",
+   "GAS_MONTHLY": "SEALED",
+   "POWER_QUARTERLY": "SEALED",
+   "POWER_MONTHLY": "SEALED"
+  },
+  "oosOpeningsByMission": {
+   "GAS_QUARTERLY": 0,
+   "GAS_MONTHLY": 0,
+   "POWER_QUARTERLY": 0,
+   "POWER_MONTHLY": 0
+  },
   "entries": []
  },
  "errors": [],
  "blockedBy": [],
  "reason": null,
- "contentHash": "f096ef44cf261fc4ddf15ac575e5f086106453a7a240dbbaa7985211e87775e1",
+ "contentHash": "27a3a93a8aab340390603c0cce1beee38e145473535328f36566f95a38464f15",
  "coverageStatus": {
   "source": "TR-01_COVERAGE",
   "status": "PENDING_SCAN_JOB",

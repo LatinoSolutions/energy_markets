@@ -72,7 +72,10 @@ export const TRADES_ACCESS_PURPOSES = Object.freeze({
   TRADES_OOS_INSPECTION: { consumesOos: false, section: "patch 03 §4 (examen sellado)" },
 });
 
-const ACCESS_PURPOSES = { ...IMP09_ACCESS_PURPOSES, ...TRADES_ACCESS_PURPOSES };
+// TRADES_ACCESS_PURPOSES se declara arriba, junto a los propósitos IMP-09, pero
+// las tablas NO se mezclan: `recordOosAccess` (IMP-09, §25.1) acepta sólo los
+// propósitos IMP-09 por defecto, y el registro TRADES pasa su propia tabla
+// explícitamente. Así una reserva IMP-09 no acepta un propósito TRADES.
 
 // Registro de elegibilidad real del caso Gas Quarterly. El paquete verificado
 // del cliente permite DERIVAR el registro (regla 3-1-3 delineada en
@@ -489,14 +492,14 @@ export function reserveGasQuarterlySealedOos(overrides = {}) {
 // §25.1 output: registro de acceso/consumo. Registrar un acceso sobre una
 // reserva que no está sellada no es posible; y un acceso que modifica el diseño
 // consume el OOS (§13.8/§15.2), que ya no puede reutilizarse como intacto.
-export function recordOosAccess(reservation, entry = {}) {
+export function recordOosAccess(reservation, entry = {}, purposes = IMP09_ACCESS_PURPOSES) {
   if (!reservation || reservation.decision !== "RESERVED") {
     return { ok: false, code: "RESERVATION_NOT_SEALED", message: "No se registra acceso al OOS sin una reserva sellada.", reservation: reservation ?? null };
   }
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return { ok: false, code: "INVALID_ACCESS_ENTRY", message: "El acceso no es un registro válido.", reservation };
   }
-  const purpose = ACCESS_PURPOSES[entry.purpose];
+  const purpose = purposes[entry.purpose];
   if (!purpose) {
     return { ok: false, code: "UNKNOWN_ACCESS_PURPOSE", message: `El acceso usa un propósito no declarado: ${entry.purpose}.`, reservation };
   }
@@ -513,9 +516,11 @@ export function recordOosAccess(reservation, entry = {}) {
     modifiesDesign: entry.modifiesDesign === true,
     consumesOos,
     section: purpose.section,
-    // TR-02: el modo TRADES abre el OOS por run_id; se conserva para poder
-    // contar aperturas distintas. Un acceso IMP-09 sin runId no cambia.
+    // TR-02: el modo TRADES abre el OOS por (misión, run_id); se conservan para
+    // poder contar las aperturas y el estado por misión. Un acceso IMP-09 sin
+    // estos campos no cambia.
     ...(isNonEmptyString(entry.runId) ? { runId: entry.runId } : {}),
+    ...(isNonEmptyString(entry.mission) ? { mission: entry.mission } : {}),
   };
   const entries = [...reservation.accessRegistry.entries, record];
   const oosStatus = entries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED";

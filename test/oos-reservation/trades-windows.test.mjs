@@ -148,6 +148,28 @@ test("la cobertura de TR-01 se anexa sin sustituir campaigns", () => {
   assert.equal(result.campaigns.length, 23);
 });
 
+test("la cobertura por campaign sólo cuenta días dentro de su ventana", () => {
+  // GAS-Q-2025Q4: ventana 2025-06-01..2025-08-31. El contrato negoció también
+  // fuera de esa ventana; esos días NO cuentan para la cobertura de la campaign
+  // (patch 03 §3.4/§1): antes daban density > 1 y el panel de TR-07 mentía.
+  const coverageRecords = [
+    { shortCode: "G0BQ", maturity: "202510", trdDate: "2023-01-05", eligibleCount: 100, volumeSum: 1000 },
+    { shortCode: "G0BQ", maturity: "202510", trdDate: "2025-03-10", eligibleCount: 50, volumeSum: 500 },
+    { shortCode: "G0BQ", maturity: "202510", trdDate: "2025-06-03", eligibleCount: 7, volumeSum: 21 },
+    { shortCode: "G0BQ", maturity: "202510", trdDate: "2025-09-15", eligibleCount: 80, volumeSum: 800 },
+  ];
+  const result = mission("GAS_QUARTERLY", { coverageRecords });
+  const campaign = result.campaigns.find((item) => item.maturity === "2025Q4");
+  assert.equal(campaign.coverage.status, "OBSERVED");
+  assert.equal(campaign.coverage.daysWithTrades, 1);
+  assert.equal(campaign.coverage.totalEligibleTrades, 7);
+  assert.equal(campaign.coverage.volumeSum, 21);
+  assert.equal(campaign.coverage.firstDate, "2025-06-03");
+  assert.equal(campaign.coverage.lastDate, "2025-06-03");
+  assert.ok(campaign.coverage.daysWithTrades <= campaign.coverage.windowDays);
+  assert.ok(campaign.coverage.density >= 0 && campaign.coverage.density <= 1);
+});
+
 test("sin calendario o sin horizonte falla cerrado, sin inventar ventanas", () => {
   assert.equal(materializeMissionCampaigns({ missionKey: "GAS_QUARTERLY", exchangeDays: [], horizonEndIso: HORIZON }).ok, false);
   assert.equal(materializeMissionCampaigns({ missionKey: "GAS_QUARTERLY", exchangeDays: CALENDAR, horizonEndIso: null }).ok, false);
