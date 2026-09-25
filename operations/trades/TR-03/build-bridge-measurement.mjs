@@ -64,13 +64,15 @@ export const MARKET_PRODUCTS = Object.freeze({
   POWER_DE: Object.freeze(["DEBM", "DEBQ"]),
 });
 
-const MODULES = [
+export const MODULES = [
   "src/trades-bridge/index.mjs",
   "src/trades-bridge/constants.mjs",
   "src/trades-bridge/time.mjs",
   "src/trades-bridge/tob-slots.mjs",
   "src/trades-bridge/observations.mjs",
   "src/trades-bridge/measurement.mjs",
+  "src/trades-source/index.mjs",
+  "src/trades-source/dedup.mjs",
   "src/trades-source/eligibility.mjs",
   "src/trades-source/delete-point-in-time.mjs",
   "src/trades-source/patch0-density.mjs",

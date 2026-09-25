@@ -14,14 +14,15 @@
 // (trades elegibles y best ask) y la identidad/ventana de las campaigns. El
 // consumo de filas es day-local (acumula por día, como TR-01) para acotar RAM.
 
-import { classifyMission } from "../trades-source/patch0-density.mjs";
+import { classifyMission, monthsToDelivery } from "../trades-source/patch0-density.mjs";
 import { isEligibleTrade } from "../trades-source/eligibility.mjs";
 import {
   isDeletedAt,
   tradeEpochMs,
   tradeLegIdentity,
 } from "../trades-source/delete-point-in-time.mjs";
-import { contractKey, dedupTrades, monthsToDelivery } from "../trades-source/index.mjs";
+import { contractKey } from "../trades-source/coverage.mjs";
+import { dedupTrades } from "../trades-source/dedup.mjs";
 import {
   BRIDGE_WINDOW,
   DIP10,
@@ -221,9 +222,15 @@ export function createBridgeMeasurementAccumulator({
     if (campaign?.campaignId) state.set(campaign.campaignId, emptyCampaignState());
   }
 
+  // Todos los Exchange Days de decisión del puente, en orden. La ventana sale
+  // del calendario, nunca de la presencia de trades (patch 03 §3.4): un día sin
+  // filas se mide igual y sus slots cuentan como sin observación, no se borran.
+  const allDecisionDays = [...decisionDays.keys()].sort();
+
   const deleteIndex = new Map();
   const carried = new Map();
   const dipWindows = new Map();
+  let nextDecisionIndex = 0;
   let rowsSeen = 0;
   let rowsInScope = 0;
   let duplicateRows = 0;
@@ -380,6 +387,16 @@ export function createBridgeMeasurementAccumulator({
     }
   }
 
+  // Mide los Exchange Days de decisión que quedaron antes de `dayIso` y que no
+  // trajeron filas: se miden con `carried` de los días previos y cuentan sus
+  // slots como sin observación si no hay trade elegible (patch 03 §3.4).
+  function flushDecisionDaysBefore(dayIso) {
+    while (nextDecisionIndex < allDecisionDays.length && allDecisionDays[nextDecisionIndex] < dayIso) {
+      flushDay(allDecisionDays[nextDecisionIndex], []);
+      nextDecisionIndex += 1;
+    }
+  }
+
   function addRows(rows) {
     for (const row of rows) {
       const rowDay = row?.TrdDate ?? "";
@@ -388,7 +405,11 @@ export function createBridgeMeasurementAccumulator({
           throw new Error(`NDJSON fuera de orden por TrdDate: ${rowDay} después de ${currentDay}`);
         }
         flushDay(currentDay, pending);
+        if (allDecisionDays[nextDecisionIndex] === currentDay) nextDecisionIndex += 1;
         pending = [];
+        flushDecisionDaysBefore(rowDay);
+      } else if (currentDay === null) {
+        flushDecisionDaysBefore(rowDay);
       }
       currentDay = rowDay;
       pending.push(row);
@@ -396,9 +417,14 @@ export function createBridgeMeasurementAccumulator({
   }
 
   function finish() {
-    if (pending.length > 0) {
+    if (currentDay !== null) {
       flushDay(currentDay, pending);
+      if (allDecisionDays[nextDecisionIndex] === currentDay) nextDecisionIndex += 1;
       pending = [];
+    }
+    while (nextDecisionIndex < allDecisionDays.length) {
+      flushDay(allDecisionDays[nextDecisionIndex], []);
+      nextDecisionIndex += 1;
     }
     return { errors, state, rowsSeen, rowsInScope, duplicateRows, unparsableDeleteTm, campaignsByContract, window, halves, slotLabels, freshnessLimitsSeconds, brokenSpreadPolicy };
   }

@@ -170,3 +170,33 @@ test("el artefacto declara la regla de frescura de la historia DIP10", () => {
   assert.equal(artifact.dip10HistoryRule, DIP10_HISTORY_RULE);
   assert.match(artifact.dip10HistoryRule, /NO_FRESHNESS_LIMIT/);
 });
+
+test("un día de la ventana sin filas se mide igual y cuenta sus slots", () => {
+  // La ventana sale del calendario, nunca de la presencia de trades (patch 03
+  // §3.4): el día 2 no trae filas y aun así tiene que verse como 20 slots, con
+  // el último trade del día 1 arrastrado.
+  const campaign = gasQuarterlyCampaign({ windowDays: ["2025-09-01", "2025-09-02", "2025-09-03"] });
+  const rows = [
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T09:00:00Z", Px: "90", TrdID: "1" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-03", Tm: "2025-09-03T09:00:00Z", Px: "80", TrdID: "2" }),
+  ];
+  const series = askSeries({
+    "G0BQ|202601": {
+      "2025-09-01": askDay(100),
+      "2025-09-02": askDay(100),
+      "2025-09-03": askDay(100),
+    },
+  });
+  const { artifact } = run({ campaigns: [campaign], rows, series });
+  const measured = artifact.markets.GAS_THE.missions.GAS_QUARTERLY.campaigns[0];
+
+  // El denominador coincide con el slotsTotal declarado por la campaign.
+  assert.equal(measured.slotsTotal, 60);
+  assert.equal(measured.coverage.LAST_TRADE.slotsTotal, 60);
+  assert.equal(measured.coverage.LAST_TRADE.bySlot.every((slot) => slot.slotsTotal === 3), true);
+
+  // Día 1: 14 slots con observación (el trade es a las 11:00 Berlin); día 2:
+  // los 20 con el trade arrastrado; día 3: 20 (6 arrastrados + 14 del día).
+  assert.equal(measured.coverage.LAST_TRADE.slotsWithObservation, 54);
+  assert.equal(measured.coverage.LAST_TRADE.bySlot[0].slotsWithObservation, 2);
+});

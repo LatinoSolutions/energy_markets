@@ -2,8 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import {
+  MODULES,
   bridgeCampaignsFromZonePlan,
   buildMeasurementArtifact,
 } from "../../operations/trades/TR-03/build-bridge-measurement.mjs";
@@ -105,4 +107,24 @@ test("el estado del artefacto commiteado es coherente con su manifest y el zone 
   assert.equal(status.bridgeCampaigns.count, 26);
   // El artefacto de medición todavía no existe: el job lo produce.
   assert.equal(status.measurementArtifact, "operations/trades/TR-03/bridge-measurement.json");
+});
+
+test("la lista de módulos del manifest cubre las dependencias del motor y del productor", () => {
+  const modules = new Set(MODULES);
+  const entries = [
+    "src/trades-bridge/measurement.mjs",
+    "operations/trades/TR-03/build-bridge-measurement.mjs",
+  ];
+  const importPattern = /from\s+["'](\.[^"']+)["']/g;
+  for (const entry of entries) {
+    const source = readFileSync(entry, "utf8");
+    for (const match of source.matchAll(importPattern)) {
+      const resolved = path.normalize(path.join(path.dirname(entry), match[1]));
+      assert.ok(modules.has(resolved), `${resolved} (importado por ${entry}) falta en MODULES`);
+    }
+  }
+  // El motor mide con la regla de duplicados de TR-01: si cambia, el hash del
+  // manifest tiene que cambiar.
+  assert.ok(modules.has("src/trades-source/dedup.mjs"));
+  assert.ok(modules.has("src/trades-source/index.mjs"));
 });
