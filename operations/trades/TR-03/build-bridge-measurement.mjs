@@ -37,6 +37,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   BRIDGE_WINDOW,
+  DIP10_HISTORY_RULE,
   FRESHNESS_LIMIT_CANDIDATES_SECONDS,
   OBSERVATION_RULE_LIST,
   SLOT_LABELS,
@@ -97,7 +98,9 @@ async function streamNdjsonRows(path, onRow) {
 
 // Campañas del puente desde el zone plan de TR-02 (identidad y ventana, sin
 // precios). La ventana de días sale del calendario del mercado, nunca de la
-// presencia de trades (patch 03 §3.4).
+// presencia de trades (patch 03 §3.4). El último día es el `deadline` de TR-02,
+// no `windowEnd`: la regla Monthly 1-0-1 excluye el día anterior al inicio de
+// entrega (patch 03 §4) y TR-02 ya lo resolvió en el deadline.
 export function bridgeCampaignsFromZonePlan(zonePlan, { gasExchangeDays, powerExchangeDays }) {
   const campaigns = [];
   for (const missionKey of Object.keys(TRADES_MISSIONS)) {
@@ -105,7 +108,7 @@ export function bridgeCampaignsFromZonePlan(zonePlan, { gasExchangeDays, powerEx
     const exchangeDays = definition.market === "GAS_THE" ? gasExchangeDays : powerExchangeDays;
     const bridge = zonePlan?.missions?.[missionKey]?.zones?.PUENTE ?? [];
     for (const campaign of bridge) {
-      const windowDays = exchangeDays.filter((day) => day >= campaign.windowStart && day <= campaign.windowEnd);
+      const windowDays = exchangeDays.filter((day) => day >= campaign.windowStart && day <= campaign.deadline);
       campaigns.push({
         campaignId: campaign.campaignId,
         market: definition.market,
@@ -145,6 +148,7 @@ function assembleArtifact({ markets, campaigns, brokenSpreadPolicy, zonePlanPath
     slotStepSeconds: SLOT_STEP_SECONDS,
     freshnessLimitsSeconds: FRESHNESS_LIMIT_CANDIDATES_SECONDS,
     observationRules: OBSERVATION_RULE_LIST,
+    dip10HistoryRule: DIP10_HISTORY_RULE,
     brokenSpreadPolicy,
     halves: bridgeHalves(BRIDGE_WINDOW),
     generatedFrom: { zonePlan: zonePlanPath, brokenSpreadPolicy },
@@ -178,6 +182,8 @@ async function main() {
   const markets = {};
   let rowsSeen = 0;
   let rowsInScope = 0;
+  let duplicateRows = 0;
+  let unparsableDeleteTm = 0;
   for (const market of ["GAS_THE", "POWER_DE"]) {
     const marketCampaigns = campaigns.filter((campaign) => campaign.market === market);
     const askSeries = tobSlotsDocumentToSeries(market === "GAS_THE" ? gasTobRows : powerTobRows);
@@ -188,9 +194,11 @@ async function main() {
     Object.assign(markets, built.artifact.markets);
     rowsSeen += built.artifact.counts.rowsSeen;
     rowsInScope += built.artifact.counts.rowsInScope;
+    duplicateRows += built.artifact.counts.duplicateRows;
+    unparsableDeleteTm += built.artifact.counts.unparsableDeleteTm;
   }
 
-  const artifact = assembleArtifact({ markets, campaigns, brokenSpreadPolicy, zonePlanPath, counts: { rowsSeen, rowsInScope } });
+  const artifact = assembleArtifact({ markets, campaigns, brokenSpreadPolicy, zonePlanPath, counts: { rowsSeen, rowsInScope, duplicateRows, unparsableDeleteTm } });
   const artifactBytes = Buffer.from(`${JSON.stringify(artifact, null, 2)}\n`);
 
   if (check) {

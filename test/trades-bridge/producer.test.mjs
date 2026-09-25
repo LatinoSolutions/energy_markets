@@ -45,6 +45,35 @@ test("las campañas del puente salen del zone plan con windowDays del calendario
   assert.deepEqual(campaigns[0].windowDays, ["2025-09-01", "2025-09-02"]);
 });
 
+test("la ventana Monthly termina en el deadline de TR-02, no en windowEnd", () => {
+  const zonePlan = {
+    missions: {
+      GAS_MONTHLY: {
+        zones: {
+          PUENTE: [{
+            campaignId: "GAS-M-2025-10",
+            product: "Gas",
+            shortCode: "G0BM",
+            maturity: "2025-10",
+            windowStart: "2025-09-01",
+            windowEnd: "2025-09-30",
+            deadline: "2025-09-29",
+            coverage: { legacyMaturity: "202510" },
+          }],
+        },
+      },
+    },
+  };
+  const campaigns = bridgeCampaignsFromZonePlan(zonePlan, {
+    gasExchangeDays: ["2025-09-29", "2025-09-30"],
+    powerExchangeDays: [],
+  });
+  assert.equal(campaigns.length, 1);
+  // La regla Monthly 1-0-1 excluye el día anterior al inicio de entrega; TR-02
+  // ya lo resolvió en el deadline (2025-09-29).
+  assert.deepEqual(campaigns[0].windowDays, ["2025-09-29"]);
+});
+
 test("buildMeasurementArtifact mide y acepta la superficie sin estrategia", () => {
   const campaigns = bridgeCampaignsFromZonePlan(syntheticZonePlan(), {
     gasExchangeDays: ["2025-09-01", "2025-09-02"],

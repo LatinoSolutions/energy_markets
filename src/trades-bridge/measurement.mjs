@@ -21,10 +21,11 @@ import {
   tradeEpochMs,
   tradeLegIdentity,
 } from "../trades-source/delete-point-in-time.mjs";
-import { contractKey, monthsToDelivery } from "../trades-source/index.mjs";
+import { contractKey, dedupTrades, monthsToDelivery } from "../trades-source/index.mjs";
 import {
   BRIDGE_WINDOW,
   DIP10,
+  DIP10_HISTORY_RULE,
   FRESHNESS_LIMIT_CANDIDATES_SECONDS,
   HALVES,
   OBSERVATION_RULES,
@@ -225,6 +226,8 @@ export function createBridgeMeasurementAccumulator({
   const dipWindows = new Map();
   let rowsSeen = 0;
   let rowsInScope = 0;
+  let duplicateRows = 0;
+  let unparsableDeleteTm = 0;
   let currentDay = null;
   let pending = [];
 
@@ -251,17 +254,21 @@ export function createBridgeMeasurementAccumulator({
     const slotStartEpochMs = decisionEpochMs - SLOT_STEP_SECONDS * 1000;
     const carriedRow = carried.get(contract) ?? null;
     const candidates = [];
+    const slotEligible = [];
     if (carriedRow !== null && carriedRow.epochMs <= decisionEpochMs && !isDeletedAt(carriedRow.row, decisionEpochMs, deleteIndex)) {
       candidates.push(carriedRow.row);
     }
     for (const row of dayEligible) {
       const epoch = tradeEpochMs(row.Tm);
-      if (epoch !== null && epoch <= decisionEpochMs && !isDeletedAt(row, decisionEpochMs, deleteIndex)) {
-        candidates.push(row);
-      }
+      if (epoch === null || epoch > decisionEpochMs) continue;
+      if (isDeletedAt(row, decisionEpochMs, deleteIndex)) continue;
+      candidates.push(row);
+      slotEligible.push(row);
     }
     const last = pickLastTrade(candidates);
-    const vwap = slotVwap(dayEligible, { slotStartEpochMs, decisionEpochMs });
+    // El VWAP usa la misma elegibilidad point-in-time que el LAST_TRADE: un trade
+    // con Delete visible en el instante de decisión ya no está en el slot.
+    const vwap = slotVwap(slotEligible, { slotStartEpochMs, decisionEpochMs });
     const observations = {
       [OBSERVATION_RULES.LAST_TRADE]: last === null ? null : { value: last.price, epochMs: last.epochMs, aggressor: last.aggressor },
       [OBSERVATION_RULES.SLOT_VWAP]: vwap === null ? null : { value: vwap.vwap, epochMs: vwap.lastEpochMs, aggressor: vwap.aggressor },
@@ -301,17 +308,29 @@ export function createBridgeMeasurementAccumulator({
 
   function flushDay(dayIso, rows) {
     rowsSeen += rows.length;
-    for (const row of rows) {
+    // Dedup entre pulls con la clave de TR-01 (patch 03 §3.1): las columnas de
+    // provenance `_` no identifican el trade y no deben inflar el VWAP ni los
+    // conteos. El dedup es day-local, como en TR-01.
+    const deduped = dedupTrades(rows);
+    duplicateRows += deduped.duplicates;
+    const uniqueRows = deduped.rows;
+
+    for (const row of uniqueRows) {
       if (row?.UpdtAct !== "Delete") continue;
       const epoch = tradeEpochMs(row.Tm);
-      if (epoch === null) continue;
+      if (epoch === null) {
+        // Mismo criterio que TR-01 (delete-point-in-time.mjs:52-55): un Delete con
+        // Tm ilegible no se descarta en silencio, se cuenta.
+        unparsableDeleteTm += 1;
+        continue;
+      }
       const identity = tradeLegIdentity(row);
       if (!deleteIndex.has(identity)) deleteIndex.set(identity, []);
       deleteIndex.get(identity).push(epoch);
     }
     for (const list of deleteIndex.values()) list.sort((left, right) => left - right);
 
-    const scopedRows = rows.filter((row) => campaignsByContract.has(contractKey(row)));
+    const scopedRows = uniqueRows.filter((row) => campaignsByContract.has(contractKey(row)));
     rowsInScope += scopedRows.length;
     const dayEndEpoch = Date.parse(`${dayIso}T23:59:59.999Z`);
 
@@ -381,7 +400,7 @@ export function createBridgeMeasurementAccumulator({
       flushDay(currentDay, pending);
       pending = [];
     }
-    return { errors, state, rowsSeen, rowsInScope, campaignsByContract, window, halves, slotLabels, freshnessLimitsSeconds, brokenSpreadPolicy };
+    return { errors, state, rowsSeen, rowsInScope, duplicateRows, unparsableDeleteTm, campaignsByContract, window, halves, slotLabels, freshnessLimitsSeconds, brokenSpreadPolicy };
   }
 
   return { addRows, finish };
@@ -516,7 +535,7 @@ export function measureBridgeCampaigns({
 // Construye el artefacto desde el estado acumulado. Separado para que el
 // productor pueda streamear filas y llamar a `finish()` una sola vez.
 export function buildBridgeArtifact({ finished, generatedFrom = {} }) {
-  const { errors, state, campaignsByContract, window, halves, freshnessLimitsSeconds, rowsSeen, rowsInScope, brokenSpreadPolicy } = finished;
+  const { errors, state, campaignsByContract, window, halves, freshnessLimitsSeconds, rowsSeen, rowsInScope, duplicateRows, unparsableDeleteTm, brokenSpreadPolicy } = finished;
   if (errors.length > 0) {
     return {
       ok: false,
@@ -580,12 +599,15 @@ export function buildBridgeArtifact({ finished, generatedFrom = {} }) {
     slotStepSeconds: SLOT_STEP_SECONDS,
     freshnessLimitsSeconds,
     observationRules: OBSERVATION_RULE_LIST,
+    dip10HistoryRule: DIP10_HISTORY_RULE,
     brokenSpreadPolicy,
     halves,
     generatedFrom,
     counts: {
       rowsSeen,
       rowsInScope,
+      duplicateRows,
+      unparsableDeleteTm,
       campaigns: campaignsByContract.size,
     },
     markets,

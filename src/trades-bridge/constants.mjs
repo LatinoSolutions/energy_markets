@@ -48,6 +48,12 @@ export const OBSERVATION_RULES = Object.freeze({
 
 export const OBSERVATION_RULE_LIST = Object.freeze([OBSERVATION_RULES.LAST_TRADE, OBSERVATION_RULES.SLOT_VWAP]);
 
+// Lado agresor de un slot VWAP con compradores y vendedores mezclados. Se
+// etiqueta distinto de UNKNOWN para no contaminar el grupo "sin agresor", que
+// patch 03 §3.3 pide separado (los trades sin AgrsrAct no se asignan a un lado
+// por suposición).
+export const SLOT_MIXED_AGGRESSOR = "MIXED";
+
 // DECLARADO / PROVISIONAL (REGLA 2): la SPEC y el patch 03 no fijan el límite de
 // frescura; TR-04 lo congela con esta medición. La grilla candidata es una
 // elección de ingeniería declarada, no un valor canónico ni elegido mirando
@@ -65,6 +71,12 @@ export const DIP10 = Object.freeze({
   NOT_BELOW_MEAN: "NOT_BELOW_MEAN",
   INSUFFICIENT_HISTORY: "INSUFFICIENT_HISTORY",
 });
+
+// DECLARADO (REGLA 2): DIP10 conserva su lógica exacta (patch 03 §3.2) y esa
+// lógica NO acota la antigüedad de las observaciones: con trades escasos las
+// últimas 10 pueden abarcar semanas. El artefacto publica esta regla para que el
+// desglose por DIP10 de TR-04 no lea un límite de frescura que no existe.
+export const DIP10_HISTORY_RULE = "LAST_10_OBSERVATIONS_NO_FRESHNESS_LIMIT";
 
 export const HALVES = Object.freeze({
   CALIBRATION: "CALIBRATION",

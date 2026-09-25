@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildBridgeArtifact,
+  DIP10_HISTORY_RULE,
   measureBridgeCampaigns,
 } from "../../src/trades-bridge/index.mjs";
 import { askDay, askSeries, gasQuarterlyCampaign, gasQuarterlyTrade } from "./fixtures.mjs";
@@ -120,4 +121,52 @@ test("dos campaigns de la misma misión no se cruzan y el resumen suma", () => {
     summary.coverage.LAST_TRADE.slotsTotal,
     campaigns.reduce((sum, entry) => sum + entry.coverage.LAST_TRADE.slotsTotal, 0),
   );
+});
+
+test("el SLOT_VWAP aplica el Delete point-in-time igual que el LAST_TRADE", () => {
+  const rows = [
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T06:45:00Z", Px: "90", Sz: "1", TrdID: "1" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T06:50:00Z", Px: "110", Sz: "1", TrdID: "2" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T06:55:00Z", UpdtAct: "Delete", Px: "", TrdID: "2" }),
+  ];
+  const series = askSeries({ "G0BQ|202601": { "2025-09-01": askDay(100) } });
+  const { artifact } = run({ campaigns: [gasQuarterlyCampaign({ windowDays: ["2025-09-01"] })], rows, series });
+  const campaign = artifact.markets.GAS_THE.missions.GAS_QUARTERLY.campaigns[0];
+  // 07:00Z es 09:00 Berlin: el slot (06:30Z, 07:00Z] sólo conserva el trade de 90
+  // porque el de 110 ya fue borrado a las 06:55Z. El VWAP no lo cuenta.
+  assert.equal(campaign.gaps.SLOT_VWAP.overall.count, 1);
+  assert.equal(campaign.gaps.SLOT_VWAP.overall.mean, -10);
+  assert.equal(campaign.gaps.LAST_TRADE.overall.mean, -10);
+});
+
+test("la misma fila en otro pull no cambia el VWAP ni los conteos (dedup)", () => {
+  const base = gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T06:45:00Z", Px: "90", Sz: "1", TrdID: "1" });
+  const second = gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T06:50:00Z", Px: "100", Sz: "1", TrdID: "2" });
+  const series = askSeries({ "G0BQ|202601": { "2025-09-01": askDay(100) } });
+  const campaigns = [gasQuarterlyCampaign({ windowDays: ["2025-09-01"] })];
+  const clean = run({ campaigns, rows: [base, second], series });
+  const duplicated = run({ campaigns, rows: [base, second, { ...second, _pull_id: "pull-b" }], series });
+  assert.deepEqual(duplicated.artifact.markets, clean.artifact.markets);
+  assert.equal(clean.artifact.counts.duplicateRows, 0);
+  assert.equal(duplicated.artifact.counts.duplicateRows, 1);
+});
+
+test("un Delete con Tm ilegible se cuenta y no retira el trade en silencio", () => {
+  const rows = [
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T06:45:00Z", Px: "90", TrdID: "1" }),
+    gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "no-es-fecha", UpdtAct: "Delete", Px: "", TrdID: "1" }),
+  ];
+  const series = askSeries({ "G0BQ|202601": { "2025-09-01": askDay(100) } });
+  const { artifact } = run({ campaigns: [gasQuarterlyCampaign({ windowDays: ["2025-09-01"] })], rows, series });
+  assert.equal(artifact.counts.unparsableDeleteTm, 1);
+  const campaign = artifact.markets.GAS_THE.missions.GAS_QUARTERLY.campaigns[0];
+  // Sin hora de borrado el trade no puede retirarse: sigue siendo observable.
+  assert.ok(campaign.gaps.LAST_TRADE.overall.count > 0);
+});
+
+test("el artefacto declara la regla de frescura de la historia DIP10", () => {
+  const rows = [gasQuarterlyTrade({ TrdDate: "2025-09-01", Tm: "2025-09-01T09:00:00Z", Px: "90" })];
+  const { artifact } = run({ campaigns: [gasQuarterlyCampaign()], rows, series: ASKS });
+  assert.equal(artifact.dip10HistoryRule, DIP10_HISTORY_RULE);
+  assert.match(artifact.dip10HistoryRule, /NO_FRESHNESS_LIMIT/);
 });

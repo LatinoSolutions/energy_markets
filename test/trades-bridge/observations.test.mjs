@@ -37,12 +37,21 @@ test("slotVwap pondera por volumen y respeta la ventana (slotStart, decision]", 
   assert.equal(vwap.count, 3);
 });
 
-test("slotVwap marca UNKNOWN si el lado agresor está mezclado y null sin volumen", () => {
+test("slotVwap separa agresor mixto (MIXED) del grupo sin agresor (UNKNOWN) y null sin volumen", () => {
   const mixed = slotVwap([
     gasQuarterlyTrade({ Tm: "2025-09-01T08:45:00Z", Px: "90", Sz: "1", AgrsrAct: "BUY" }),
     gasQuarterlyTrade({ Tm: "2025-09-01T08:50:00Z", Px: "90", Sz: "1", AgrsrAct: "SELL" }),
   ], { slotStartEpochMs: DECISION - 1800000, decisionEpochMs: DECISION });
-  assert.equal(mixed.aggressor, "UNKNOWN");
+  assert.equal(mixed.aggressor, "MIXED");
+  const unknown = slotVwap([
+    gasQuarterlyTrade({ Tm: "2025-09-01T08:45:00Z", Px: "90", Sz: "1", AgrsrAct: "" }),
+    gasQuarterlyTrade({ Tm: "2025-09-01T08:50:00Z", Px: "90", Sz: "1", AgrsrAct: "" }),
+  ], { slotStartEpochMs: DECISION - 1800000, decisionEpochMs: DECISION });
+  assert.equal(unknown.aggressor, "UNKNOWN");
+  const buyOnly = slotVwap([
+    gasQuarterlyTrade({ Tm: "2025-09-01T08:45:00Z", Px: "90", Sz: "1", AgrsrAct: "BUY" }),
+  ], { slotStartEpochMs: DECISION - 1800000, decisionEpochMs: DECISION });
+  assert.equal(buyOnly.aggressor, "BUY");
   const empty = slotVwap([], { slotStartEpochMs: DECISION - 1800000, decisionEpochMs: DECISION });
   assert.equal(empty, null);
   const noVolume = slotVwap([gasQuarterlyTrade({ Tm: "2025-09-01T08:45:00Z", Sz: "" })], {

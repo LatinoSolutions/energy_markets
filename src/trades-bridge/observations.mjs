@@ -7,9 +7,9 @@
 // mercado y por el point-in-time de Delete (src/trades-source). No leen el lago
 // ni resultados de estrategia, y no calculan fills.
 
-import { classifyAggressor, AGGREGATOR } from "../trades-source/eligibility.mjs";
+import { classifyAggressor } from "../trades-source/eligibility.mjs";
 import { tradeEpochMs } from "../trades-source/delete-point-in-time.mjs";
-import { DIP10, FRESHNESS_LIMIT_CANDIDATES_SECONDS } from "./constants.mjs";
+import { DIP10, FRESHNESS_LIMIT_CANDIDATES_SECONDS, SLOT_MIXED_AGGRESSOR } from "./constants.mjs";
 
 export function parsePrice(row) {
   const value = Number(row?.Px);
@@ -39,7 +39,8 @@ export function pickLastTrade(trades) {
 // VWAP de los trades elegibles del slot que termina en el instante de decisión
 // (Tm en (slotStart, decision]). Sin volumen válido no hay VWAP (no se inventa
 // una media simple disfrazada de VWAP). El lado agresor es el único de la
-// ventana, o UNKNOWN si está mezclado o falta.
+// ventana; si falta en todos es UNKNOWN, y si hay más de uno es MIXED (no se
+// contamina el grupo sin agresor, patch 03 §3.3).
 export function slotVwap(trades, { slotStartEpochMs, decisionEpochMs }) {
   let volume = 0;
   let notional = 0;
@@ -61,13 +62,13 @@ export function slotVwap(trades, { slotStartEpochMs, decisionEpochMs }) {
     }
   }
   if (count === 0 || volume <= 0) return null;
-  const known = [...aggressors].filter((value) => value !== AGGREGATOR.UNKNOWN);
+  const distinct = [...aggressors];
   return {
     vwap: notional / volume,
     volume,
     count,
     lastEpochMs: lastEpoch,
-    aggressor: known.length === 1 && aggressors.size === 1 ? known[0] : AGGREGATOR.UNKNOWN,
+    aggressor: distinct.length === 1 ? distinct[0] : SLOT_MIXED_AGGRESSOR,
   };
 }
 
