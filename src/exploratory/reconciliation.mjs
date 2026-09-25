@@ -45,12 +45,14 @@ export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha
 
   const benchmarks = benchmarkIndex(benchmarkArtifact);
   const replay = uniqueBy(results.replay ?? [], (item) => campaignKey(item.product, item.maturity), "replay campaign");
+  const detailedResults = uniqueBy(results.results ?? [], (item) => campaignKey(item.product, item.maturity), "detailed result campaign");
   const outputCampaigns = [];
 
   for (const campaign of results.campaigns ?? []) {
     const key = campaignKey(campaign.product, campaign.maturity);
     const benchmark = benchmarks.get(key) ?? null;
     const replayCampaign = replay.get(key) ?? null;
+    const detailedResult = detailedResults.get(key) ?? null;
     const b = benchmark?.benchmark?.B;
     const bDefined = Number.isFinite(b) && benchmark.status?.status === "BENCHMARK_PROVISIONAL";
     const hours = replayCampaign?.hours ?? null;
@@ -71,46 +73,82 @@ export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha
         throw new Error(`${key}/${armId}: stored H disagrees with decision ledger`);
       }
       const runComplete = run.status === "COMPLETE" && boughtMw === campaign.targetMw;
-      const vEur = bDefined && h !== null && boughtMw !== null && Number.isFinite(hours) && hours > 0
-        ? (b - h) * boughtMw * hours
+      const vEurMwh = bDefined && h !== null && runComplete
+        ? b - h
         : null;
       arms[armId] = {
         runStatus: run.status,
         complete: runComplete,
+        fillModel: "CLIENT",
         boughtMw,
         targetMw: campaign.targetMw,
         hEurMwh: h,
         hCostCompleteness: "PARTIAL",
         hCostReason: "Fees are UNKNOWN and excluded; H preserves the stored execution-price average.",
+        coverageCompleteness: runComplete ? "FULL" : "PARTIAL",
         decisionLedgerCheck: totals ? "MATCHED_TO_STORED_H_AND_VOLUME" : "NOT_AVAILABLE_IN_REPLAY",
-        vEur,
-        vStatus: vEur === null ? "UNAVAILABLE" : runComplete ? "PROVISIONAL" : "PARTIAL",
-        vReason: vEur === null
-          ? (bDefined ? "Stored H/fills or delivery hours unavailable." : "Exact campaign B is unavailable or undefined in BT-01.")
-          : "Uses provisional BT-01 B and excludes UNKNOWN fees; incomplete fills value only the recorded filled MW.",
+        vEurMwh,
+        vStatus: vEurMwh !== null ? "PROVISIONAL" : bDefined && h !== null ? "PARTIAL" : "UNAVAILABLE",
+        vReason: vEurMwh === null
+          ? bDefined && h !== null ? "Coverage is incomplete; §5.5 reports it separately and does not fold it into V." : "Exact campaign B or stored H is unavailable."
+          : "V = B − H in EUR/MWh; BT-01 B is provisional and UNKNOWN fees remain excluded.",
         filledLedgerRows: totals ? decisions.filter((decision) => (decision.filledMw ?? 0) > 0).length : null,
         decisionLedgerRows: Array.isArray(decisions) ? decisions.length : null,
       };
     }
 
+    // The summary run table is CLIENT-mode only. Preserve the stored DEPTH
+    // outcomes as separate rows; they are not replayed or synthesized.
+    for (const [armId, sourceArmId] of [["BASELINE@DEPTH", "A0@11:00/DEPTH"], ["ARM_A@DEPTH", "DIP10@11:00/DEPTH"]]) {
+      const stored = detailedResult?.arms?.[sourceArmId];
+      if (!stored) continue;
+      const h = Number.isFinite(stored.avgPriceEurMwh) ? stored.avgPriceEurMwh : null;
+      const boughtMw = Number.isFinite(stored.boughtMw) ? stored.boughtMw : null;
+      const runComplete = stored.complete === true && boughtMw === campaign.targetMw;
+      const vEurMwh = bDefined && h !== null && runComplete ? b - h : null;
+      arms[armId] = {
+        runStatus: runComplete ? "COMPLETE" : "INCOMPLETE",
+        complete: runComplete,
+        fillModel: "DEPTH",
+        sourceArmId,
+        boughtMw,
+        targetMw: campaign.targetMw,
+        hEurMwh: h,
+        hCostCompleteness: "PARTIAL",
+        hCostReason: "Fees are UNKNOWN and excluded; H preserves the stored DEPTH execution-price average.",
+        coverageCompleteness: runComplete ? "FULL" : "PARTIAL",
+        decisionLedgerCheck: "NOT_AVAILABLE_IN_REPLAY",
+        vEurMwh,
+        vStatus: vEurMwh !== null ? "PROVISIONAL" : bDefined && h !== null ? "PARTIAL" : "UNAVAILABLE",
+        vReason: vEurMwh === null
+          ? bDefined && h !== null ? "Coverage is incomplete; §5.5 reports it separately and does not fold it into V." : "Exact campaign B or stored H is unavailable."
+          : "V = B − H in EUR/MWh; BT-01 B is provisional and UNKNOWN fees remain excluded.",
+        filledLedgerRows: null,
+        decisionLedgerRows: null,
+      };
+    }
+
     const baseline = arms.BASELINE;
     for (const [armId, arm] of Object.entries(arms)) {
-      if (armId === "BASELINE") {
-        arm.deltaVEur = null;
+      const pairedBaseline = arm.fillModel === "DEPTH" ? arms["BASELINE@DEPTH"] : baseline;
+      if (armId === "BASELINE" || armId === "BASELINE@DEPTH") {
+        arm.deltaVEurMwh = null;
         arm.deltaVStatus = "NOT_APPLICABLE";
         continue;
       }
-      const equalFilledMw = baseline && arm.boughtMw !== null && baseline.boughtMw !== null && closeEnough(arm.boughtMw, baseline.boughtMw);
-      const deltaAvailable = equalFilledMw && arm.vEur !== null && baseline.vEur !== null;
-      arm.deltaVEur = deltaAvailable ? arm.vEur - baseline.vEur : null;
+      const equalFilledMw = pairedBaseline && arm.boughtMw !== null && pairedBaseline.boughtMw !== null && closeEnough(arm.boughtMw, pairedBaseline.boughtMw);
+      const deltaAvailable = equalFilledMw && arm.complete && pairedBaseline.complete && arm.hEurMwh !== null && pairedBaseline.hEurMwh !== null;
+      arm.deltaVEurMwh = deltaAvailable ? pairedBaseline.hEurMwh - arm.hEurMwh : null;
       arm.deltaVStatus = !deltaAvailable
         ? "UNAVAILABLE"
-        : arm.complete && baseline.complete ? "PROVISIONAL" : "PARTIAL";
-      arm.deltaVReason = !baseline
+        : "PROVISIONAL";
+      arm.deltaVReason = !pairedBaseline
         ? "Stored BASELINE run is unavailable."
         : !equalFilledMw
           ? "Baseline and arm do not cover equal filled MW; no unmatched-volume delta is reported."
-          : "Paired against stored BASELINE on equal filled MW; BT-01 B remains provisional and UNKNOWN fees are excluded.";
+          : !deltaAvailable
+            ? "Paired Delta V requires complete coverage in both arms under §5.5."
+            : "Delta V = H_BASELINE − H_arm in EUR/MWh; UNKNOWN fees remain excluded.";
     }
 
     const campaignStatus = !benchmark || !bDefined || !replayCampaign ? "UNAVAILABLE" : "PROVISIONAL";
@@ -141,7 +179,7 @@ export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha
     method: "Reconcile persisted H and decision/fill ledgers against exact BT-01 product+maturity B; do not rerun strategies.",
     assumptions: {
       slippageEurMwh: results.rules.slippageEurMwh,
-      fillModels: results.rules.fillModels,
+      fillModels: { storedRunSummaries: "CLIENT", detailedStoredDepthResults: "DEPTH" },
       feesEurMwh: "UNKNOWN (excluded, never treated as zero)",
       decisionAndFillLedgers: "Never rewritten; replay rows are checked where present and stored run summaries are consumed where per-arm rows are absent.",
     },

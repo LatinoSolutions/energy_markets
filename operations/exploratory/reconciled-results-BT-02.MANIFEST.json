@@ -4,7 +4,7 @@
   "status": "EXPLORATORY_PROVISIONAL",
   "artifact": {
     "path": "operations/exploratory/reconciled-results-BT-02.json",
-    "sha256": "4ccdc90afb9142009b888cf8bd960aa29fa317d1a40bea56b3a5cbf4d6db2b98"
+    "sha256": "1fabd09b4e268dc1890dda8ab13bb4c12dfcdbe676b5d532d5f07a53019cb8bb"
   },
   "inputs": {
     "exploratoryResults": {
