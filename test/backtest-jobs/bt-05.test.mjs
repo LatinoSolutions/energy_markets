@@ -740,3 +740,38 @@ test("BT-05 docs: la nota no fija un número de versión del job; remite a JOB_V
   assert.doesNotMatch(note, hardcodedJobVersion);
   assert.match(note, /JOB_VERSION/);
 });
+
+// ---------- datos leídos = datos de la identidad (hallazgo BT05-DATA-BINDING-10) ----------
+
+test("BT-05 identidad: si los slots del workspace cambian antes de que los lea el hijo, cierra FAILED y no se promueve", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const started = runner.start({ requestedBy: "ui" });
+  assert.equal(started.ok, true);
+  // el hijo aún no leyó sus slots: se alteran en el workspace en esa ventana
+  const workspace = path.join(runner.runsRoot, started.job.runId, "attempt-1", "workspace");
+  writeFileSync(path.join(workspace, "operations/exploratory/tob-slots-the-gas.json"), JSON.stringify({ mode: "ok", points: [9] }));
+  const receipt = await started.done;
+
+  assert.equal(receipt.status, JOB_STATUS.FAILED);
+  assert.equal(receipt.failure.code, "SLOTS_CHANGED_DURING_RUN");
+  assert.equal(readRegistry(runner).some((event) => event.event === REGISTRY_EVENT.RESULT_PROMOTED), false);
+  assert.equal(runner.status().currentResult, null);
+  assert.equal(lockIsFree(runner), true);
+});
+
+test("BT-05 identidad: si un dato copiado que el generador no declara (calendario) cambia durante el run, cierra FAILED y no se promueve", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const started = runner.start({ requestedBy: "ui" });
+  assert.equal(started.ok, true);
+  const workspace = path.join(runner.runsRoot, started.job.runId, "attempt-1", "workspace");
+  writeFileSync(path.join(workspace, "operations/audit/IMP-09/eex-exchange-calendar.json"), JSON.stringify({ exchangeDays: [] }));
+  const receipt = await started.done;
+
+  assert.equal(receipt.status, JOB_STATUS.FAILED);
+  assert.equal(receipt.failure.code, "INPUT_CHANGED_DURING_RUN");
+  assert.equal(readRegistry(runner).some((event) => event.event === REGISTRY_EVENT.RESULT_PROMOTED), false);
+  assert.equal(runner.status().currentResult, null);
+  assert.equal(lockIsFree(runner), true);
+});

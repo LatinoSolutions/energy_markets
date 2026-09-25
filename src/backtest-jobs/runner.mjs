@@ -315,6 +315,15 @@ export function stagedCodeSeal(workspace) {
   return { files: files.length, sha256: canonicalValueSha256(files).sha256 };
 }
 
+// sha256 de un archivo del workspace, o null si no se puede leer.
+function stagedSha256(workspace, relativePath) {
+  try {
+    return sha256Of(readFileSync(path.join(workspace, relativePath)));
+  } catch {
+    return null;
+  }
+}
+
 // Workspace aislado: el código sale del commit y los datos se copian; todo lo que
 // fija el manifest se comprueba por hash en la copia. El generador escribe su
 // MANIFEST relativo al cwd, así que nunca toca el manifest commiteado.
@@ -327,13 +336,7 @@ function stageWorkspace(repoRoot, workspace, commit, files) {
       mkdirSync(path.dirname(target), { recursive: true });
       copyFileSync(path.join(repoRoot, file.path), target);
     }
-    let staged;
-    try {
-      staged = sha256Of(readFileSync(target));
-    } catch {
-      staged = null;
-    }
-    if (staged !== file.sha256) {
+    if (stagedSha256(workspace, file.path) !== file.sha256) {
       throw new Error(`copia distinta a la verificada: ${file.path}`);
     }
   }
@@ -643,6 +646,19 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     const generatorDrift = (producedManifest.generators ?? []).filter((entry) => pinnedGenerators.get(entry.path) !== entry.sha256).map((entry) => entry.path);
     if (generatorDrift.length > 0) {
       return { error: { code: "GENERATOR_CHANGED_DURING_RUN", message: `código distinto al verificado: ${generatorDrift.join(", ")}` } };
+    }
+    // Hallazgo BT05-DATA-BINDING-10 (review 25-sep-2026): los slots que declara haber
+    // leído el generador tienen que ser los del dataManifestSha256 del run_id (BT-05 punto 1).
+    const pinnedSlots = verified.files.find((file) => file.path === verified.slotsPath);
+    const producedSlots = producedManifest.slots ?? {};
+    if (producedSlots.path !== verified.slotsPath || producedSlots.sha256 !== pinnedSlots?.sha256) {
+      return { error: { code: "SLOTS_CHANGED_DURING_RUN", message: `slots leídos (${producedSlots.sha256 ?? "sin hash"}) distintos a los de la identidad del run (${pinnedSlots?.sha256})` } };
+    }
+    // El calendario no figura en el MANIFEST que escribe el generador: se re-hashean
+    // en el workspace todos los datos copiados, como el sello del código.
+    const dataDrift = verified.files.filter((file) => !isPinnedCode(file.path) && stagedSha256(workspace, file.path) !== file.sha256).map((file) => file.path);
+    if (dataDrift.length > 0) {
+      return { error: { code: "INPUT_CHANGED_DURING_RUN", message: `datos distintos a los verificados: ${dataDrift.join(", ")}` } };
     }
     return {
       result: {
