@@ -18,6 +18,21 @@ function classify(member, areaArgument) {
 
 const TRADE = "data/lake/v1/table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet";
 
+test("el extractor no crea el thread pool global de Arrow (aborto intermitente en el shutdown)", () => {
+  // El destructor del thread pool global de pyarrow aborta de forma
+  // intermitente ("terminate called without an active exception", SIGABRT)
+  // despues de escribir la salida. use_threads=False evita crear el pool; la
+  // carrera es rara (~1/300) y no se puede forzar en un test de comportamiento,
+  // asi que se ancla en el uso del parametro.
+  const readLines = readFileSync(SCRIPT, "utf8")
+    .split("\n")
+    .filter((line) => line.includes("read_table("));
+  assert.ok(readLines.length >= 2, "se esperan lecturas de parquet en el extractor");
+  for (const line of readLines) {
+    assert.match(line, /use_threads=False/, `read_table sin use_threads=False: ${line.trim()}`);
+  }
+});
+
 test("solo la tabla de trades con area exacta se clasifica como trade", () => {
   const result = classify(TRADE, "cmdty=NATGAS/area=THE");
   assert.equal(result.kind, "trade");
