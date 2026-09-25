@@ -43,16 +43,24 @@ const manifest = {
 writeFileSync("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
 `;
 
-const FIXTURE_LIB = `export function describeFixture(slots) {
-  return { mode: slots.mode, points: Array.isArray(slots.points) ? slots.points.length : 0 };
+// fixture-helper es una dependencia transitiva que el manifest NO fija, como
+// src/sizing-controller en el generador real (hallazgo BT05-IDENTITY-08).
+const FIXTURE_LIB = `import { HELPER_LABEL } from "./fixture-helper.mjs";
+
+export function describeFixture(slots) {
+  return { mode: slots.mode, points: Array.isArray(slots.points) ? slots.points.length : 0, helper: HELPER_LABEL };
 }
 `;
+
+export const FIXTURE_HELPER_PATH = "src/exploratory/fixture-helper.mjs";
+export const fixtureHelperSource = (label) => `export const HELPER_LABEL = ${JSON.stringify(label)};\n`;
+export const COMMITTED_HELPER_LABEL = "committed";
 
 const SLOTS_PATH = "operations/exploratory/tob-slots-the-gas.json";
 
 // Resultado que produce el doble para unos slots dados (mismo JSON que escribe).
 function expectedResultsBytes(slotsBytes, slots) {
-  const output = { artifactKind: "EXPLORATORY_BACKTEST_RESULTS", status: "EXPLORATORY", inputs: { slots: { path: SLOTS_PATH, sha256: sha(slotsBytes) } }, fixture: { mode: slots.mode, points: Array.isArray(slots.points) ? slots.points.length : 0 } };
+  const output = { artifactKind: "EXPLORATORY_BACKTEST_RESULTS", status: "EXPLORATORY", inputs: { slots: { path: SLOTS_PATH, sha256: sha(slotsBytes) } }, fixture: { mode: slots.mode, points: Array.isArray(slots.points) ? slots.points.length : 0, helper: COMMITTED_HELPER_LABEL } };
   return Buffer.from(JSON.stringify(output, null, 1));
 }
 
@@ -68,6 +76,7 @@ export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null } =
   const slotsBytes = write(SLOTS_PATH, JSON.stringify(slots));
   const generatorBytes = write("operations/exploratory/run-exploratory-backtest.mjs", FAKE_GENERATOR);
   const libBytes = write("src/exploratory/fixture-lib.mjs", FIXTURE_LIB);
+  write(FIXTURE_HELPER_PATH, fixtureHelperSource(COMMITTED_HELPER_LABEL));
   write("operations/audit/IMP-09/eex-exchange-calendar.json", JSON.stringify({ exchangeDays: ["2025-09-01"] }));
   const manifest = {
     artifactKind: "EXPLORATORY_BACKTEST_MANIFEST",

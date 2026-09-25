@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,7 +28,7 @@ import {
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
 import { createUiServer } from "../../src/ui/index.mjs";
 import { JOB_CONTROL_FIELDS, renderBacktestJobControl, withBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
-import { makeFixtureRepo } from "./fixture-repo.mjs";
+import { COMMITTED_HELPER_LABEL, FIXTURE_HELPER_PATH, fixtureHelperSource, makeFixtureRepo } from "./fixture-repo.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const MCP_SERVER = fileURLToPath(new URL("../../src/backtest-jobs/mcp-server.mjs", import.meta.url));
@@ -692,4 +692,43 @@ test("BT-05 arranque: si lanzar el hijo falla en síncrono, el intento cierra FA
   assert.equal(receipt.attempt, 2);
   assert.equal(receipt.status, JOB_STATUS.SUCCEEDED);
   assert.equal(runner.status().currentResult.attempt, 2);
+});
+
+// ---------- código ejecutado = commit de la identidad (hallazgo BT05-IDENTITY-08) ----------
+
+test("BT-05 identidad: alterar un módulo transitivo de src/ tras el preflight no entra en el run; corre el código del commit", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const started = runner.start({ requestedBy: "ui" });
+  assert.equal(started.ok, true);
+  // el hijo aún no importó sus módulos: se altera el repo vivo en esa ventana
+  repo.write(FIXTURE_HELPER_PATH, fixtureHelperSource("altered-after-preflight"));
+  const receipt = await started.done;
+
+  assert.equal(receipt.status, JOB_STATUS.SUCCEEDED, JSON.stringify(receipt.failure));
+  assert.equal(receipt.identity.codeCommit, repo.head());
+  const results = JSON.parse(readFileSync(path.join(repo.root, receipt.result.results.path)));
+  assert.equal(results.fixture.helper, COMMITTED_HELPER_LABEL);
+  assert.equal(receipt.result.reproducesCommittedResults, true);
+  const workspace = path.join(runner.runsRoot, receipt.runId, "attempt-1", "workspace");
+  assert.equal(lstatSync(path.join(workspace, "src")).isSymbolicLink(), false);
+  assert.equal(readFileSync(path.join(workspace, FIXTURE_HELPER_PATH), "utf8"), fixtureHelperSource(COMMITTED_HELPER_LABEL));
+  assert.equal(receipt.code.source, "git archive del commit");
+  assert.match(receipt.code.staged.sha256, /^[0-9a-f]{64}$/);
+});
+
+test("BT-05 identidad: si el código del workspace cambia durante el run, cierra FAILED y no se promueve", async () => {
+  const repo = makeFixtureRepo({ mode: "slow" });
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const started = runner.start({ requestedBy: "ui" });
+  assert.equal(started.ok, true);
+  const workspace = path.join(runner.runsRoot, started.job.runId, "attempt-1", "workspace");
+  writeFileSync(path.join(workspace, FIXTURE_HELPER_PATH), fixtureHelperSource("altered-in-workspace"));
+  const receipt = await started.done;
+
+  assert.equal(receipt.status, JOB_STATUS.FAILED);
+  assert.equal(receipt.failure.code, "CODE_CHANGED_DURING_RUN");
+  assert.equal(readRegistry(runner).some((event) => event.event === REGISTRY_EVENT.RESULT_PROMOTED), false);
+  assert.equal(runner.status().currentResult, null);
+  assert.equal(lockIsFree(runner), true);
 });

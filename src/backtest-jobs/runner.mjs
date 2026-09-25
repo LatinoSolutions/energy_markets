@@ -20,7 +20,7 @@
 
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { appendFileSync, closeSync, copyFileSync, linkSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, copyFileSync, linkSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,7 +29,7 @@ import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 export const JOB_KIND = "EXPLORATORY_BACKTEST";
 // Versión del motor en la identidad del run (BT-05 punto 1). Subirla cuando cambie
 // el contrato de ejecución de este runner, aunque el commit ya lo distinga.
-export const JOB_VERSION = "1";
+export const JOB_VERSION = "2"; // 2: código extraído del commit (hallazgo BT05-IDENTITY-08)
 export const RECEIPT_KIND = "BT-05_BACKTEST_RUN_RECEIPT";
 export const RECEIPT_FILE = "RUN_RECEIPT.json";
 export const REGISTRY_FILE = "REGISTRY.jsonl";
@@ -191,7 +191,7 @@ function git(repoRoot, args) {
   }
 }
 
-// El commit sólo identifica el código si lo que se ejecuta (src/ enlazado y el
+// El commit sólo identifica el código si lo que se ejecuta (src/ y el
 // generador) no tiene cambios sin commitear (BT-05 punto 5: mismo commit + mismos
 // datos + mismos parámetros = mismo resultado). Si no se puede afirmar, no arranca.
 export function readCodeCommit(repoRoot) {
@@ -276,21 +276,68 @@ export function computeRunIdentity({ codeCommit, verified }) {
   return { runId: `BT-RUN-${canonicalValueSha256(identity).sha256}`, identity };
 }
 
-// Workspace aislado: los datos y el entrypoint se copian (ya verificados); src/
-// se enlaza porque el generador importa por ruta relativa. El generador escribe
-// su MANIFEST relativo al cwd, así que nunca toca el manifest commiteado.
-function stageWorkspace(repoRoot, workspace, files) {
+// Código del run = árbol del commit de la identidad, no el src/ vivo del repo
+// (hallazgo BT05-IDENTITY-08, review 25-sep-2026): un cambio en el repo entre el
+// preflight y la importación del hijo no puede colarse en un resultado atribuido a
+// ese commit (BT-05 punto 5; procedencia SPEC v1.1.1 §26.5).
+const PINNED_CODE_PATHS = ["src", EXPLORATORY_ENTRY];
+
+function isPinnedCode(relativePath) {
+  return relativePath === EXPLORATORY_ENTRY || relativePath.startsWith("src/");
+}
+
+function extractCommittedCode(repoRoot, commit, workspace) {
+  const archive = `${workspace}.code.tar`;
+  try {
+    execFileSync("git", ["archive", "--format=tar", "-o", archive, commit, "--", ...PINNED_CODE_PATHS], { cwd: repoRoot, stdio: ["ignore", "ignore", "pipe"] });
+    execFileSync("tar", ["-xf", archive, "-C", workspace], { stdio: ["ignore", "ignore", "pipe"] });
+  } finally {
+    rmSync(archive, { force: true });
+  }
+}
+
+function listFilesUnder(root, relativeDir) {
+  const files = [];
+  for (const entry of readdirSync(path.join(root, relativeDir), { withFileTypes: true })) {
+    const child = `${relativeDir}/${entry.name}`;
+    if (entry.isDirectory()) files.push(...listFilesUnder(root, child));
+    else files.push(child);
+  }
+  return files;
+}
+
+// Sello del código que ejecuta el hijo: se toma al preparar el workspace y se
+// vuelve a calcular al cerrar; si difiere, el resultado no se promueve.
+export function stagedCodeSeal(workspace) {
+  const files = [...listFilesUnder(workspace, "src"), EXPLORATORY_ENTRY]
+    .sort()
+    .map((relativePath) => ({ path: relativePath, sha256: sha256Of(readFileSync(path.join(workspace, relativePath))) }));
+  return { files: files.length, sha256: canonicalValueSha256(files).sha256 };
+}
+
+// Workspace aislado: el código sale del commit y los datos se copian; todo lo que
+// fija el manifest se comprueba por hash en la copia. El generador escribe su
+// MANIFEST relativo al cwd, así que nunca toca el manifest commiteado.
+function stageWorkspace(repoRoot, workspace, commit, files) {
   mkdirSync(workspace, { recursive: true });
-  symlinkSync(path.join(repoRoot, "src"), path.join(workspace, "src"), "dir");
+  extractCommittedCode(repoRoot, commit, workspace);
   for (const file of files) {
-    if (file.path.startsWith("src/")) continue;
     const target = path.join(workspace, file.path);
-    mkdirSync(path.dirname(target), { recursive: true });
-    copyFileSync(path.join(repoRoot, file.path), target);
-    if (sha256Of(readFileSync(target)) !== file.sha256) {
-      throw new Error(`copia alterada: ${file.path}`);
+    if (!isPinnedCode(file.path)) {
+      mkdirSync(path.dirname(target), { recursive: true });
+      copyFileSync(path.join(repoRoot, file.path), target);
+    }
+    let staged;
+    try {
+      staged = sha256Of(readFileSync(target));
+    } catch {
+      staged = null;
+    }
+    if (staged !== file.sha256) {
+      throw new Error(`copia distinta a la verificada: ${file.path}`);
     }
   }
+  return stagedCodeSeal(workspace);
 }
 
 function relative(repoRoot, absolute) {
@@ -555,7 +602,16 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     return closed;
   }
 
-  function collectResult(workspace, verified) {
+  function collectResult(workspace, verified, seal) {
+    let sealAfter;
+    try {
+      sealAfter = stagedCodeSeal(workspace);
+    } catch {
+      sealAfter = null;
+    }
+    if (sealAfter?.sha256 !== seal.sha256) {
+      return { error: { code: "CODE_CHANGED_DURING_RUN", message: "el código del workspace no coincide con el extraído del commit" } };
+    }
     const producedManifestPath = path.join(workspace, EXPLORATORY_MANIFEST_PATH);
     let producedManifest;
     let producedManifestBytes;
@@ -669,7 +725,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     const workspace = path.join(runDir, "workspace");
     let receipt = {
       receiptKind: RECEIPT_KIND,
-      schemaVersion: "2",
+      schemaVersion: "3",
       runId,
       attempt,
       jobKind: JOB_KIND,
@@ -686,7 +742,9 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     try {
       mkdirSync(runDir, { recursive: true });
       writeJsonAtomic(receiptFile(runId, attempt), receipt);
-      stageWorkspace(repoRoot, workspace, verified.files);
+      const seal = stageWorkspace(repoRoot, workspace, code.commit, verified.files);
+      receipt = { ...receipt, code: { ...receipt.code, source: "git archive del commit", staged: seal } };
+      writeJsonAtomic(receiptFile(runId, attempt), receipt);
     } catch (error) {
       const closed = finish(receipt, { status: JOB_STATUS.FAILED, failure: { code: "STAGING_FAILED", message: String(error?.message ?? error) } });
       return { ok: false, code: "STAGING_FAILED", job: publicJobView(closed) };
@@ -761,7 +819,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
           resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "RUN_FAILED", message: `el generador terminó con code=${exitCode} signal=${signal}; ver job.log` } }));
           return;
         }
-        const collected = collectResult(workspace, verified);
+        const collected = collectResult(workspace, verified, receipt.code.staged);
         if (collected.error) {
           resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: collected.error }));
           return;
