@@ -941,7 +941,7 @@ function campaignDetailHtml(campaign, pages, isDefault) {
         <td>${expArmTag(run.armId)}<div class="small muted">${esc(candidate?.name ?? "")}</div></td>
         <td>${chip(kind, glyph, label)}</td>
         <td style="min-width:190px">${decisionsBarHtml(run, campaign)}</td>
-        <td>${chip("pass", "✓", "Deterministic")}</td>
+        <td title="the artifact carries no per-run determinism; the only check is global (Research · Replay determinism)">${chip("unk", "?", "UNKNOWN")}</td>
         <td class="num" title="shared receipts that bind this run">${receipts.length}</td>
         <td><span class="drill">${drills}</span></td>
       </tr>`;
@@ -1308,7 +1308,7 @@ function candidateDetailHtml(candidate, research, provenance, isDefault) {
     <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px">${chipFrom(READINESS_CHIP, candidate.readiness)}</div></div>
   </div>
   <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
-    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered 2026-09-24 (${OWNER_PATCH_02}) · exploratory phase</span></div>
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered ${NOT_RECORDED} · exploratory phase (${OWNER_PATCH_02})</span></div>
       <div class="bd"><p class="hyp">${esc(candidate.hypothesis)}</p><div class="caps muted">Success criteria</div>${criteria}</div></div>
     <div>
       <div class="auth-box">

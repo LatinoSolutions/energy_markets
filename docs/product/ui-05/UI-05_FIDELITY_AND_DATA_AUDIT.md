@@ -80,6 +80,7 @@ Fuente de cada fila: campo del artifact `backtest-results.json` (verificado cont
 | What we don't know | Sí | `campaignUnknowns[]`. El artifact no trae fecha "since", así que no se muestra. |
 | Barra de decisiones cerradas / abiertas / no corridas | Sí | `runs[].decisions`, el gate `Evaluation window closed` (PASS) y `tradingDays` (0 no corridas solo si decisiones = días) |
 | Hora de inicio del run | **No** | Los manifests no traen timestamp → la fila muestra el slot del run |
+| Determinismo por run | **No** | El artifact solo trae un check global (`research.integrity` "Replay determinism", `run-exploratory-backtest.mjs`); ningún productor lo declara por run → UNKNOWN |
 | Recuento de receipts | Sí | Los 4 artifacts que respaldan cada run (resultado, snapshot, manifest y owner patch 02) |
 | Hora de registro de cada receipt | **No** | Los manifests no tienen fecha de registro → "not recorded" |
 
@@ -92,7 +93,7 @@ Fuente de cada fila: campo del artifact `backtest-results.json` (verificado cont
 | Hipótesis y criterios de éxito | Sí | `hypothesis`, `criteria[]` |
 | Readiness & integrity | Sí | `research.integrity[]` |
 | Linaje de versiones | Parcial | Hay una sola versión por candidato y la referencia A0 con la que se empareja. No hay versiones previas registradas, así que no se dibuja ninguna. |
-| Fecha de registro de la hipótesis | Sí | Owner patch 02 del 24-sep-2026 (`EM-SPEC-OWNER-PATCH-2026-09-24-02`) |
+| Fecha de registro de la hipótesis | **No** | `research.candidates[]` no trae fecha de registro y el owner patch 02 autoriza la fase exploratoria pero no registra hipótesis → "not recorded". La fase exploratoria sí se cita al patch 02. |
 
 ### Backtests
 

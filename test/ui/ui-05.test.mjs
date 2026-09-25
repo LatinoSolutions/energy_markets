@@ -115,6 +115,26 @@ test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barr
   }
 });
 
+test("UI-05 Campaigns: el determinismo por run queda UNKNOWN (el artifact solo trae un check global)", () => {
+  const html = renderSurfacePage("campaigns", vms.campaigns);
+  const runs = results.campaigns.reduce((sum, campaign) => sum + campaign.runs.length, 0);
+  assert.ok(runs > 0);
+  assert.equal(count(html, /Deterministic/g), 0);
+  assert.equal(count(html, /<td title="the artifact carries no per-run determinism[^"]*"><span class="st unk">/g), runs);
+  for (const campaign of results.campaigns) {
+    for (const run of campaign.runs) assert.equal(Object.keys(run).some((key) => /determin/i.test(key)), false, "si un productor por-run aparece, este test debe cambiar");
+  }
+});
+
+test("UI-05 Research: la fecha de registro de la hipótesis no se inventa (el artifact no la trae)", () => {
+  const html = renderSurfacePage("research", vms.research);
+  for (const candidate of results.research.candidates) assert.equal(Object.keys(candidate).some((key) => /regist|date/i.test(key)), false);
+  const hypothesisCards = count(html, /<h3>Hypothesis<\/h3>/g);
+  assert.ok(hypothesisCards > 0);
+  assert.equal(count(html, /registered 20\d\d-/g), 0);
+  assert.equal(count(html, /registered <span[^>]*>not recorded<\/span> · exploratory phase \(EM-SPEC-OWNER-PATCH-2026-09-24-02\)/g), hypothesisCards);
+});
+
 test("UI-05 Research: pila en una tarjeta con recuento de evidencia, criterios, linaje con flecha y receipts de 5 columnas", () => {
   const html = renderSurfacePage("research", vms.research);
   const candidates = results.research.candidates;
