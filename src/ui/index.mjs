@@ -50,8 +50,11 @@ export {
 // composición visual espera el gate de aprobación de Bru).
 export {
   TRADES_MODES,
+  TRADES_OBSERVATION_MODES,
   TRADES_PANEL_ARTIFACTS,
+  TRADES_ZONE_PLAN,
   loadTradesPanels,
   loadTradesPanelsAt,
+  observationFor,
   projectTradesPanels,
 } from "./trades-panels.mjs";

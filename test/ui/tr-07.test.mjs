@@ -16,6 +16,10 @@ import {
   loadTradesPanelsAt,
   projectTradesPanels,
 } from "../../src/ui/trades-panels.mjs";
+import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
+import { buildUiViewModels, createUiServer } from "../../src/ui/server.mjs";
+import { renderSurfacePage } from "../../src/ui/render.mjs";
+import { buildBacktestsViewModel } from "../../src/ui/view-models.mjs";
 
 const loaded = loadTradesPanelsAt(DEFAULT_REPO_ROOT);
 const panels = projectTradesPanels(loaded);
@@ -174,4 +178,90 @@ test("TR-07 gate: el prototipo no pinta ceros no medidos y muestra el estado de 
   const html = readFileSync(path.join(DEFAULT_REPO_ROOT, "operations/trades/TR-07/prototipo-tr07.html"), "utf8");
   assert.equal(/0 \/ \d+ d/.test(html), false, "no debe mostrar '0 / N d' como si la cobertura se hubiera medido");
   assert.ok(html.includes("PENDING_ARCHIVE_VERIFICATION"), "el prototipo debe mostrar el estado real del artifact TR-01");
+});
+
+// ---------- UI productiva (gate cerrado P-010, opción B) ----------
+
+const canonicalVms = buildUiViewModels(loadCanonicalUiInputs().inputs);
+
+function renderBacktests(selection) {
+  return renderSurfacePage("backtests", canonicalVms.backtests, selection);
+}
+
+test("TR-07 UI: la pantalla de Backtests dibuja selector y paneles con los estados reales", () => {
+  const html = renderBacktests({ mode: "TRADES", missionId: "GAS_QUARTERLY", period: "PUENTE" });
+  // Selector de mercado/misión y modo TOB · TRADES (TRADES_MODE_PLAN.md TR-07:73).
+  assert.match(html, /data-tr07="selector"/);
+  assert.match(html, /data-tr07-mode="TOB"/);
+  assert.match(html, /data-tr07-mode="TRADES"/);
+  for (const missionId of ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"]) {
+    assert.ok(html.includes(`data-tr07-mission="${missionId}"`), missionId);
+  }
+  // Los cinco paneles del plan (cobertura, zonas, calibración, contrato, resultados).
+  for (const panel of ["coverage", "zones", "calibration", "frozenContract", "results"]) {
+    assert.ok(html.includes(`data-tr07="${panel}"`), panel);
+  }
+  // Estados reales mostrados como tales, nunca como ceros.
+  assert.ok(html.includes("PENDING_ARCHIVE_VERIFICATION"));
+  assert.ok(html.includes("PENDING_SCAN_JOB"));
+  assert.equal(/0 \/ \d+ d/.test(html), false);
+  assert.ok(html.includes("— / 62 d"), "la ventana estructural se conserva y la medición pendiente sale —");
+});
+
+test("TR-07 UI: el modo parametriza el texto de observación (best ask vs last trade/VWAP)", () => {
+  const tob = renderBacktests({ mode: "TOB" });
+  assert.ok(tob.includes("real EEX best ask"));
+  assert.equal(tob.includes("last trade · slot VWAP"), false);
+  assert.equal(tob.includes('data-tr07="trades-observation"'), false);
+  const trades = renderBacktests({ mode: "TRADES" });
+  assert.ok(trades.includes("last trade · slot VWAP"));
+  assert.equal(trades.includes("real EEX best ask"), false);
+  assert.ok(trades.includes('data-tr07="trades-observation"'));
+  // La fuente TRADES no se inventa: motor/runs pendientes, fail-closed.
+  assert.ok(trades.includes("TR-05"));
+  assert.ok(trades.includes("TR-06"));
+});
+
+test("TR-07 UI: cada resultado de cobertura lleva su zona y su estado de artifact", () => {
+  const html = renderBacktests({ mode: "TRADES", missionId: "POWER_MONTHLY" });
+  assert.match(html, /data-tr07="coverage" data-mission="POWER_MONTHLY"/);
+  assert.ok(html.includes('data-tr07-campaign="POW-M-2020-12"'));
+  assert.ok(html.includes(">DEVELOPMENT<"));
+  // El estado NO_COVERAGE del artifact aceptado no se presenta como medición.
+  assert.ok(html.includes("PENDING_SCAN_JOB"));
+});
+
+test("TR-07 UI: sin view model de paneles la sección TR-07 queda fuera (fail-closed)", () => {
+  const bare = buildBacktestsViewModel({ backendIndex: null, rows: [] });
+  const html = renderSurfacePage("backtests", bare, { mode: "TRADES" });
+  assert.equal(html.includes('data-tr07="selector"'), false);
+  assert.equal(html.includes('data-tr07="coverage"'), false);
+  assert.equal(html.includes('data-tr07="trades-observation"'), false);
+});
+
+test("TR-07 UI: el servidor acepta el modo por query y lo refleja, sin romper rutas", async () => {
+  const canonical = loadCanonicalUiInputs();
+  const started = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, port: 0 });
+  const served = await started.ready;
+  try {
+    const base = served.url.slice(0, -1);
+    const ok = await fetch(`${base}/backtests?mode=TRADES&mission=GAS_MONTHLY&period=DEVELOPMENT`);
+    assert.equal(ok.status, 200);
+    const html = await ok.text();
+    assert.match(html, /data-tr07-mode="TRADES"/);
+    assert.match(html, /data-tr07="selector"/);
+    assert.match(html, /data-tr07="coverage" data-mission="GAS_MONTHLY"/);
+    assert.ok(html.includes("last trade · slot VWAP"));
+    // Un modo desconocido cae al default TOB, nunca se inventa un modo.
+    const fallback = await fetch(`${base}/backtests?mode=NOPE`);
+    assert.equal(fallback.status, 200);
+    const fallbackHtml = await fallback.text();
+    assert.ok(fallbackHtml.includes("real EEX best ask"));
+    assert.equal(fallbackHtml.includes("last trade · slot VWAP"), false);
+    // La ruta no canónica sigue siendo 404.
+    const missing = await fetch(`${base}/backtests-extra`);
+    assert.equal(missing.status, 404);
+  } finally {
+    await new Promise((resolve) => started.server.close(resolve));
+  }
 });

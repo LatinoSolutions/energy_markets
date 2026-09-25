@@ -27,6 +27,43 @@ import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 // Modos del mismo backtest (patch 03 §2). El control TOB no se reescribe.
 export const TRADES_MODES = Object.freeze(["TOB", "TRADES"]);
 
+// Modo de observación elegido en la UI (TRADES_MODE_PLAN.md TR-07: "selector de
+// mercado/misión y de modo TOB · TRADES"). La etiqueta `source` es el texto con el
+// que se describe la observación de cada modo; en TRADES la observación es el último
+// trade y el slot VWAP, nunca el best ask (patch 03 §3.3).
+export const TRADES_OBSERVATION_MODES = Object.freeze({
+  TOB: Object.freeze({
+    id: "TOB",
+    label: "TOB",
+    source: "real EEX best ask",
+    caption: "bridge · 2025-08-12 → 2026-07-28 · release v2",
+    zones: Object.freeze(["PUENTE"]),
+  }),
+  TRADES: Object.freeze({
+    id: "TRADES",
+    label: "TRADES",
+    source: "last trade · slot VWAP",
+    caption: "Development · historical OOS · bridge",
+    zones: Object.freeze(["DEVELOPMENT", "OOS_HISTORICO", "PUENTE"]),
+  }),
+});
+
+// Las seis zonas de evidencia del patch 03 §4, en orden. La barra de zonas de la UI
+// marca cuáles cubre el modo elegido; las etiquetas son las canónicas del artifact de
+// TR-02 (DEVELOPMENT … FORWARD).
+export const TRADES_ZONE_PLAN = Object.freeze([
+  Object.freeze({ id: "DEVELOPMENT", label: "Development", from: "2021", to: "2024-05" }),
+  Object.freeze({ id: "OOS_HISTORICO", label: "Historical OOS", from: "2024-06", to: "2025-05" }),
+  Object.freeze({ id: "EMBARGO", label: "embargo", from: "2025-06", to: "2025-08-11" }),
+  Object.freeze({ id: "PUENTE", label: "Bridge", from: "2025-08-12", to: "2026-07-28" }),
+  Object.freeze({ id: "POST_PUENTE", label: "post", from: "2026-07-29", to: "freeze" }),
+  Object.freeze({ id: "FORWARD", label: "Forward", from: "freeze", to: "→" }),
+]);
+
+export function observationFor(mode) {
+  return TRADES_OBSERVATION_MODES[mode] ?? TRADES_OBSERVATION_MODES.TOB;
+}
+
 // Cada artifact se declara con el nombre exacto de su referencia dentro del
 // manifest (los manifests de TR-01/TR-03 usan "artifact"; el de TR-02 usa "plan").
 export const TRADES_PANEL_ARTIFACTS = Object.freeze({
@@ -254,12 +291,15 @@ function selectorFrom(zonePlan) {
 }
 
 // Proyección completa de los paneles TRADES. La UI sólo podrá dibujar esto.
-export function projectTradesPanels(loaded) {
+export function projectTradesPanels(loaded, selection = {}) {
   const hasArtifacts = loaded?.zonePlan?.ok === true || loaded?.bridgeStatus?.ok === true || loaded?.sourceDecision?.ok === true;
+  const mode = TRADES_OBSERVATION_MODES[selection.mode] ? selection.mode : "TOB";
   return {
     ok: hasArtifacts,
     surface: "backtests",
     selector: selectorFrom(loaded?.zonePlan),
+    observation: observationFor(mode),
+    modes: TRADES_MODES,
     coverage: projectCoverage(loaded?.zonePlan, loaded?.sourceDecision),
     zones: projectZones(loaded?.zonePlan),
     calibration: projectCalibration(loaded?.bridgeStatus, loaded?.bridgeMeasurement),
