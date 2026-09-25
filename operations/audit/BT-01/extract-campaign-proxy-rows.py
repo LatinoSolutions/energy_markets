@@ -102,106 +102,119 @@ def extract(campaigns, exchange_days):
     )
     try:
       for day, active_campaigns in sorted(active_by_date.items()):
-        campaign_by_product_maturity = {(campaign["product"], campaign["maturity"]): campaign for campaign in active_campaigns}
-        per_campaign_rows = {campaign["campaignKey"]: [] for campaign in active_campaigns}
-        per_campaign_source_files = {campaign["campaignKey"]: [] for campaign in active_campaigns}
-        per_campaign_counts = {campaign["campaignKey"]: {table: {"filesAvailable": 0, "filesWithMaturityRows": 0} for table in TABLES} for campaign in active_campaigns}
+        # Read each partition once per date. Raw observations are sent in small
+        # chunks per exact product/maturity; the previous version retained all
+        # campaign rows for a whole date and could exhaust BruNode RAM.
+        campaign_by_product_maturity = {(item["product"], item["maturity"]): item for item in active_campaigns}
+        state = {}
+        for campaign in active_campaigns:
+            key = campaign["campaignKey"]
+            state[key] = {
+                "rows": [],
+                "sourceFiles": [],
+                "exclusions": {"unsupportedInstrument": 0, "withoutInstrument": 0, "invalidMarketMetadata": 0, "invalidTimestamp": 0, "outsideLocalDate": 0, "outsideWindow": 0},
+                "sourceCounts": {table: {"filesAvailable": 0, "filesWithMaturityRows": 0} for table in TABLES},
+            }
+            worker.stdin.write(json.dumps({"type": "begin", "campaignKey": key, "trdDate": day}) + "\n")
+        worker.stdin.flush()
         for table, (price_col, bid_col, ask_col) in TABLES.items():
             folder = LAKE / f"table={table}/cmdty=NATGAS/area=THE/trd_date={day}"
             files = sorted(folder.glob("*/part.parquet")) if folder.is_dir() else []
-            products = sorted({campaign["product"] for campaign in active_campaigns})
-            maturities = sorted({campaign["maturity"] for campaign in active_campaigns})
-            for campaign in active_campaigns:
-                per_campaign_counts[campaign["campaignKey"]][table]["filesAvailable"] = len(files)
+            for campaign_state in state.values():
+                campaign_state["sourceCounts"][table]["filesAvailable"] = len(files)
             for path in files:
-                parquet = pq.ParquetFile(path)
-                names = set(parquet.schema.names)
                 needed = {"ShortCode", "Maturity", "InstrumentISIN", "InstrumentType", "Currency", "UOM", "Tm", "TrdDate", "_row_sha256"}
                 if price_col:
                     needed.add(price_col)
                 if bid_col:
                     needed.update((bid_col, ask_col))
-                if not needed.issubset(names):
-                    continue
-                matched_pairs = set()
-                matched_file = False
                 parquet = pq.ParquetFile(path)
-                for batch in parquet.iter_batches(batch_size=8192, columns=sorted(needed), use_threads=False):
-                    code_mask = pc.is_in(batch.column(batch.schema.get_field_index("ShortCode")), value_set=pa.array(products))
-                    maturity_mask = pc.is_in(batch.column(batch.schema.get_field_index("Maturity")), value_set=pa.array(maturities))
-                    selected = batch.filter(pc.and_(code_mask, maturity_mask))
+                if not needed.issubset(set(parquet.schema.names)):
+                    continue
+                relative_path = path.relative_to(LAKE).as_posix()
+                matched_campaigns = set()
+                for batch in parquet.iter_batches(batch_size=4096, columns=sorted(needed), use_threads=False):
+                    code_index = batch.schema.get_field_index("ShortCode")
+                    maturity_index = batch.schema.get_field_index("Maturity")
+                    products = sorted({campaign["product"] for campaign in active_campaigns})
+                    maturities = sorted({campaign["maturity"] for campaign in active_campaigns})
+                    selected = batch.filter(pc.and_(
+                        pc.is_in(batch.column(code_index), value_set=pa.array(products)),
+                        pc.is_in(batch.column(maturity_index), value_set=pa.array(maturities)),
+                    ))
                     if selected.num_rows == 0:
+                        del selected, batch
                         continue
-                    matched_file = True
-                    relative_path = path.relative_to(LAKE).as_posix()
                     for row in selected.to_pylist():
                         campaign = campaign_by_product_maturity.get((row.get("ShortCode"), row.get("Maturity")))
                         if campaign is None:
                             continue
-                        matched_pairs.add(campaign["campaignKey"])
-                        # Unknown instrument metadata cannot be promoted to a
-                        # Simple Instrument proxy input.
+                        key = campaign["campaignKey"]
+                        target = state[key]
+                        matched_campaigns.add(key)
                         if row.get("InstrumentType") != "Simple Instrument":
+                            target["exclusions"]["unsupportedInstrument"] += 1
                             continue
                         if not row.get("InstrumentISIN"):
+                            target["exclusions"]["withoutInstrument"] += 1
                             continue
                         if row.get("Currency") != "EUR" or row.get("UOM") != "MWh":
+                            target["exclusions"]["invalidMarketMetadata"] += 1
                             continue
                         tm = row.get("Tm") or ""
                         try:
                             local = __import__("datetime").datetime.fromisoformat(tm.replace("Z", "+00:00")).astimezone(tz)
                         except ValueError:
+                            target["exclusions"]["invalidTimestamp"] += 1
                             continue
                         if local.date().isoformat() != day:
+                            target["exclusions"]["outsideLocalDate"] += 1
                             continue
                         seconds = local.hour * 3600 + local.minute * 60 + local.second
-                        # IMP-05 applies strict-versus-fallback precedence.
                         if not (16 * 3600 + 15 * 60 <= seconds <= 18 * 3600 + 15 * 60):
+                            target["exclusions"]["outsideWindow"] += 1
                             continue
-                        per_campaign_rows[campaign["campaignKey"]].append({
-                            "source": table,
-                            "sourcePath": relative_path,
-                            "instrument": row.get("InstrumentISIN"),
-                            "instrumentType": row.get("InstrumentType"),
-                            "tmUtc": tm,
-                            "trdDate": row.get("TrdDate") or day,
+                        target["rows"].append({
+                            "source": table, "sourcePath": relative_path,
+                            "instrument": row.get("InstrumentISIN"), "instrumentType": row.get("InstrumentType"),
+                            "tmUtc": tm, "trdDate": row.get("TrdDate") or day,
                             "price": as_float(row.get(price_col)) if price_col else None,
                             "bid": as_float(row.get(bid_col)) if bid_col else None,
                             "ask": as_float(row.get(ask_col)) if ask_col else None,
                             "rowHash": row.get("_row_sha256"),
                         })
-                    # Arrow arrays and the Python dictionaries made from them
-                    # can otherwise keep decoded row-group buffers resident
-                    # across thousands of lake files. Release each small batch
-                    # before advancing; extraction output remains campaign
-                    # rows only.
-                    del selected, batch, row
+                        if len(target["rows"]) == 512:
+                            worker.stdin.write(json.dumps({"type": "rows", "campaignKey": key, "rows": target["rows"]}, ensure_ascii=False) + "\n")
+                            target["rows"] = []
+                    del selected, batch
                     gc.collect()
                     pa.default_memory_pool().release_unused()
-                if matched_file:
-                    relative_path = path.relative_to(LAKE).as_posix()
+                if matched_campaigns:
                     source_hashes[relative_path] = sha256_file(path)
-                    for campaign_key in matched_pairs:
-                        per_campaign_counts[campaign_key][table]["filesWithMaturityRows"] += 1
-                        per_campaign_source_files[campaign_key].append({
-                            "path": relative_path,
-                            "sha256": source_hashes[relative_path],
-                        })
+                    for key in matched_campaigns:
+                        target = state[key]
+                        target["sourceCounts"][table]["filesWithMaturityRows"] += 1
+                        target["sourceFiles"].append({"path": relative_path, "sha256": source_hashes[relative_path]})
         for campaign in active_campaigns:
             key = campaign["campaignKey"]
-            rows = per_campaign_rows[key]
-            rows.sort(key=lambda row: (row["tmUtc"], row["source"], row["rowHash"] or ""))
+            target = state[key]
+            if target["rows"]:
+                worker.stdin.write(json.dumps({"type": "rows", "campaignKey": key, "rows": target["rows"]}, ensure_ascii=False) + "\n")
             worker.stdin.write(json.dumps({
-                "campaignKey": key, "trdDate": day, "sourceCounts": per_campaign_counts[key],
-                "sourceFiles": sorted(per_campaign_source_files[key], key=lambda source: source["path"]), "rows": rows,
+                "type": "end", "campaignKey": key, "sourceCounts": target["sourceCounts"],
+                "sourceFiles": sorted(target["sourceFiles"], key=lambda source: source["path"]),
+                "exclusions": target["exclusions"],
             }, ensure_ascii=False) + "\n")
-            worker.stdin.flush()
+            del target["rows"]
+        worker.stdin.flush()
+        for campaign in active_campaigns:
+            key = campaign["campaignKey"]
             result = worker.stdout.readline()
             if not result:
                 raise RuntimeError(f"El cálculo proxy terminó sin respuesta para {key} {day}.")
             proxies_by_campaign_date[(key, day)] = json.loads(result)
-            del rows, per_campaign_rows[key]
-            gc.collect()
+        del state
+        gc.collect()
     finally:
         worker.stdin.close()
         return_code = worker.wait()
@@ -213,6 +226,7 @@ def extract(campaigns, exchange_days):
         dates = expected_by_campaign[campaign["campaignKey"]]
         per_date = [proxies_by_campaign_date.get((campaign["campaignKey"], day), {
             "trdDate": day,
+            "exclusions": {"unsupportedInstrument": 0, "withoutInstrument": 0, "invalidMarketMetadata": 0, "invalidTimestamp": 0, "outsideLocalDate": 0, "outsideWindow": 0},
             "instrumentIdentities": [],
             "sourceRows": 0,
             "sourceRowHashCount": 0,

@@ -25,9 +25,16 @@ function campaignStart(maturity) {
   return `${maturity.slice(0, 4)}-${maturity.slice(4)}-01`;
 }
 
-export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256 }) {
+export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256, exchangeDays, calendarSha256 }) {
   if (rowsArtifact?.artifactKind !== "BT-01_CAMPAIGN_PROXY_ROWS" || !Array.isArray(rowsArtifact.campaigns)) {
     throw new TypeError("Se requiere el artefacto de extracción de campañas BT-01.");
+  }
+  if (!Array.isArray(exchangeDays) || calendarSha256 !== rowsArtifact.calendar?.sha256) {
+    throw new Error("Se requiere el calendario IMP-09 que coincide con el hash del artefacto de filas.");
+  }
+  const sortedExchangeDays = [...exchangeDays].sort();
+  if (new Set(sortedExchangeDays).size !== sortedExchangeDays.length) {
+    throw new Error("El calendario IMP-09 contiene fechas duplicadas.");
   }
 
   const campaigns = rowsArtifact.campaigns.map((campaign) => {
@@ -39,6 +46,13 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
       throw new Error(`Ventana de benchmark no coincide con el plan para ${campaign.campaignKey}.`);
     }
     const expectedDates = campaign.expectedDates;
+    const calendarExpectedDates = sortedExchangeDays.filter((date) => date >= window.windowStart && date < window.windowEnd);
+    if (JSON.stringify(expectedDates) !== JSON.stringify(calendarExpectedDates)) {
+      throw new Error(`Fechas esperadas no coinciden con el calendario IMP-09 para ${campaign.campaignKey}.`);
+    }
+    if (!Array.isArray(campaign.perDate) || JSON.stringify(campaign.perDate.map(({ trdDate }) => trdDate)) !== JSON.stringify(expectedDates)) {
+      throw new Error(`Fechas diarias no coinciden con las fechas esperadas para ${campaign.campaignKey}.`);
+    }
     const perDate = [];
     const references = [];
     const eligibleRows = (dateRecord) => (dateRecord.rows ?? []).filter((row) => row.instrumentType === "Simple Instrument" && row.instrument);
@@ -82,8 +96,12 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
         instrumentISIN: instruments.length === 1 && !campaignIdentityAmbiguous ? instruments[0] : null,
         instrumentIdentityAmbiguous: instrumentAmbiguous,
         sourceRows: dateRecord.sourceRows ?? dateRecord.rows.length,
-        excludedRowsUnsupportedInstrument: dateRecord.rows ? dateRecord.rows.length - eligibleDateRows.length : 0,
-        excludedRowsWithoutInstrument: dateRecord.rows ? dateRecord.rows.length - identifiedRows.length : 0,
+        excludedRowsUnsupportedInstrument: dateRecord.exclusions?.unsupportedInstrument ?? (dateRecord.rows ? dateRecord.rows.length - eligibleDateRows.length : 0),
+        excludedRowsWithoutInstrument: dateRecord.exclusions?.withoutInstrument ?? (dateRecord.rows ? eligibleDateRows.filter((row) => !row.instrument).length : 0),
+        excludedRowsInvalidMarketMetadata: dateRecord.exclusions?.invalidMarketMetadata ?? 0,
+        excludedRowsInvalidTimestamp: dateRecord.exclusions?.invalidTimestamp ?? 0,
+        excludedRowsOutsideLocalDate: dateRecord.exclusions?.outsideLocalDate ?? 0,
+        excludedRowsOutsideWindow: dateRecord.exclusions?.outsideWindow ?? 0,
         sourceFiles: dateRecord.sourceFiles ?? [],
         sourceRowHashes: dateRecord.sourceRowHashesDigest !== undefined
           ? { count: dateRecord.sourceRowHashCount, digest: dateRecord.sourceRowHashesDigest }
@@ -186,7 +204,10 @@ function main() {
   const rowsBytes = readFileSync(rowsArtifactPath);
   const rowsArtifact = JSON.parse(rowsBytes);
   const rowsArtifactSha256 = digest(rowsBytes);
-  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256 });
+  const calendarBytes = readFileSync(new URL("../IMP-09/eex-exchange-calendar.json", import.meta.url));
+  const calendar = JSON.parse(calendarBytes);
+  const calendarSha256 = digest(calendarBytes);
+  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha256, exchangeDays: calendar.exchangeDays, calendarSha256 });
   const artifactBytes = Buffer.from(`${JSON.stringify(artifact, null, 2)}\n`);
   const artifactSha256 = digest(artifactBytes);
   const manifest = buildCampaignBenchmarkManifest({ artifact, artifactSha256, rowsArtifact, rowsArtifactSha256 });
