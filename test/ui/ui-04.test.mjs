@@ -72,12 +72,19 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
   const { renderSurfacePage } = await import("../../src/ui/render.mjs");
   const canonical = loadCanonicalUiInputs();
   assert.equal(canonical.backend.exploratory.loaded, true, JSON.stringify(canonical.backend.exploratory));
-  const html = renderSurfacePage("backtests", buildUiViewModels(canonical.inputs).backtests);
+  // TR-07: el selector de misión muestra una misión a la vez. Para cubrir los dos
+  // productos Gas canónicos se renderiza cada misión y se concatenan sus páginas.
+  const backtestsVm = buildUiViewModels(canonical.inputs).backtests;
+  const pages = ["GAS_QUARTERLY", "GAS_MONTHLY"].map((missionId) => renderSurfacePage("backtests", backtestsVm, { missionId }));
+  const html = pages.join("");
   assert.match(html, /data-exploratory="true"/);
   assert.match(html, /EXPLORATORY/);
   // Los paneles del mockup se llenan con la comparación: brazos, efecto emparejado, distribuciones.
-  const exploratoryHtml = html.slice(0, html.indexOf('data-kind="backend-measurements"'));
-  assert.equal((exploratoryHtml.match(/data-arm="(BASELINE|ARM_A|ARM_B)"/g) ?? []).length, 3 * Object.keys(canonical.inputs.exploratoryBacktest.results.comparison).length);
+  const arms = pages.reduce((sum, page) => {
+    const region = page.slice(0, page.indexOf('data-kind="backend-measurements"'));
+    return sum + (region.match(/data-arm="(BASELINE|ARM_A|ARM_B)"/g) ?? []).length;
+  }, 0);
+  assert.equal(arms, 3 * Object.keys(canonical.inputs.exploratoryBacktest.results.comparison).length);
   assert.doesNotMatch(html, /not produced by a canonical producer · not zero/);
   assert.equal((html.match(/data-status="EXPLORATORY" data-product=/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.results.length);
 });

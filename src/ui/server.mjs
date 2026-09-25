@@ -35,6 +35,7 @@ import {
   SURFACES_LIST,
 } from "./view-models.mjs";
 import { renderNavigationPage, renderSurfacePage } from "./render.mjs";
+import { observationFor, TRADES_MISSION_IDS } from "./trades-panels.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
 
 export const DEFAULT_UI_HOST = "127.0.0.1";
@@ -107,6 +108,9 @@ export function buildUiViewModels(inputs = {}) {
 
 // TR-07: el selector (mercado/misión, modo TOB·TRADES, periodo) llega por query
 // string. Sólo se aceptan valores conocidos; todo lo demás cae al default fail-closed.
+const KNOWN_MISSION_IDS = Object.freeze(new Set(TRADES_MISSION_IDS));
+const KNOWN_PERIOD_IDS = Object.freeze(new Set(observationFor("TRADES").zones));
+
 export function selectionFromSearchParams(searchParams) {
   const selection = {};
   const mode = searchParams?.get?.("mode");
@@ -114,11 +118,11 @@ export function selectionFromSearchParams(searchParams) {
     selection.mode = mode;
   }
   const mission = searchParams?.get?.("mission");
-  if (typeof mission === "string" && mission.length > 0) {
+  if (KNOWN_MISSION_IDS.has(mission)) {
     selection.missionId = mission;
   }
   const period = searchParams?.get?.("period");
-  if (typeof period === "string" && period.length > 0) {
+  if (KNOWN_PERIOD_IDS.has(period)) {
     selection.period = period;
   }
   return selection;

@@ -23,9 +23,16 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
+import { TRADES_MISSIONS } from "../oos-reservation/trades-windows.mjs";
 
 // Modos del mismo backtest (patch 03 §2). El control TOB no se reescribe.
 export const TRADES_MODES = Object.freeze(["TOB", "TRADES"]);
+
+// Las 4 misiones canónicas del patch 03 §6. `TRADES_MISSIONS` (trades-windows.mjs)
+// es la única fuente; esta lista es la que la UI acepta como misión conocida al
+// leer la URL. Un valor fuera de ella cae al default fail-closed (server.mjs),
+// nunca deja la pantalla sin misión marcada ni muestra otro producto.
+export const TRADES_MISSION_IDS = Object.freeze(Object.keys(TRADES_MISSIONS));
 
 // Modo de observación elegido en la UI (TRADES_MODE_PLAN.md TR-07: "selector de
 // mercado/misión y de modo TOB · TRADES"). La etiqueta `source` es el texto con el

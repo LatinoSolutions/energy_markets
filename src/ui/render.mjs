@@ -910,8 +910,9 @@ function exploratoryComparisonHtml(exploratory, mode = "TOB", productFilter = nu
   if (!exploratory?.comparison) {
     return "";
   }
-  // Con una misión elegida sólo se dibuja el producto de esa misión; sin elección se
-  // mantienen los dos productos Gas de siempre (TRADES_MODE_PLAN.md TR-07:73).
+  // Sólo se dibuja el producto de la misión elegida; el selector por defecto marca
+  // Gas Quarterly y la vista muestra ese producto, nunca otro
+  // (TRADES_MODE_PLAN.md TR-07:72-73).
   const blocks = Object.entries(exploratory.comparison)
     .filter(([product]) => productFilter === null || product === productFilter)
     .map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance, mode)).join("");
@@ -1634,13 +1635,17 @@ function tr07MissionLabel(mission) {
   return `${mission.product} ${cadence}`;
 }
 
-// Misión elegida explícitamente por query (null = sin elección, la vista canónica
-// mantiene las dos misiones Gas de siempre; ver defecto TR07-MISSION-NOT-APPLIED).
+// Misión que marca el selector. Sin misión en la URL vale la primera del plan de
+// zonas (Gas Quarterly), la misma que resalta el botón: lo que se ve es siempre la
+// misión elegida, nunca los datos de otra (TRADES_MODE_PLAN.md TR-07:72-73;
+// hallazgo TR07-DEFAULT-MISSION-MISMATCH).
 function tr07SelectedMission(panels, selection) {
-  if (selection?.missionId === undefined || selection?.missionId === null) {
+  const missions = panels?.selector?.marketMissions ?? [];
+  const missionId = selection?.missionId ?? missions[0]?.missionId ?? null;
+  if (missionId === null) {
     return null;
   }
-  return (panels?.selector?.marketMissions ?? []).find((entry) => entry.missionId === selection.missionId) ?? null;
+  return missions.find((entry) => entry.missionId === missionId) ?? null;
 }
 
 // Zonas que cubre la vista (patch 03 §4). En TOB, sólo el puente. En TRADES, el
@@ -1865,26 +1870,53 @@ function tr07TradesObservationHtml(panels, mission) {
   </div>`;
 }
 
+// Paneles secundarios del mismo diseño (TRADES_MODE_PLAN.md TR-07:79): cobertura,
+// zonas/OOS, calibración, contrato congelado y resultados. Van debajo de la grilla
+// modo/contraste; el contraste sólo acompaña a la vista del modo, nunca a estos.
 function tr07PanelsHtml(panels, selection) {
   if (panels?.ok !== true) {
     return "";
   }
   const missions = panels.selector?.marketMissions ?? [];
   const missionId = selection.missionId ?? missions[0]?.missionId ?? null;
-  const mode = selection.mode ?? "TOB";
-  const period = selection.period ?? null;
-  const coversBridge = tr07CoversBridge(mode, period);
-  const panelsLeft = `${tr07CoverageHtml(panels, missionId)}
+  return `${tr07CoverageHtml(panels, missionId)}
   ${tr07ZonesHtml(panels, missionId)}
   ${tr07CalibrationHtml(panels)}
   ${tr07UnavailableCard("frozenContract", "Frozen contract", "TR-04 · TRADES-v1 execution contract · gate: Bru approves the freeze", panels)}
   ${tr07UnavailableCard("results", "Results", "TR-06 · runs of the 4 missions", panels)}`;
-  const right = coversBridge ? tr07ContrastHtml(panels) : tr07ContrastNoteHtml();
+}
+
+// Vista del modo que ocupa la columna izquierda del prototipo aprobado (opción B):
+// la comparación/backtest exploratorio en TOB (o su estado no disponible para Power)
+// y la observación TRADES en TRADES.
+function tr07ModeViewHtml(vm, mode, hasTobData, selectedMission) {
+  if (mode === "TOB") {
+    if (!hasTobData) {
+      return tr07TobUnavailableHtml(selectedMission);
+    }
+    const productFilter = selectedMission?.shortCode ?? null;
+    return `${exploratoryComparisonHtml(vm.exploratory, mode, productFilter)}${exploratoryBacktestHtml(vm.exploratory, mode, productFilter)}`;
+  }
+  return vm.tradesPanels?.ok === true ? tr07TradesObservationHtml(vm.tradesPanels, selectedMission) : "";
+}
+
+// Grilla del prototipo (opción B): a la izquierda la vista del modo, a la derecha el
+// contraste y, debajo de él, el botón Expand. Fuera del puente la grilla queda de una
+// columna, no hay contraste y la línea con la fecha abre la vista
+// (TRADES_MODE_PLAN.md TR-07:76-77; hallazgo TR07-CONTRAST-LAYOUT).
+function tr07GridHtml(panels, selection, modeViewHtml, measurementHtml = "") {
+  if (panels?.ok !== true) {
+    return `${modeViewHtml}${measurementHtml}`;
+  }
+  const mode = selection.mode ?? "TOB";
+  const period = selection.period ?? null;
+  const coversBridge = tr07CoversBridge(mode, period);
+  const left = `${coversBridge ? "" : tr07ContrastNoteHtml()}${modeViewHtml}${measurementHtml}`;
+  const right = coversBridge ? `${tr07ContrastHtml(panels)}${tr07ExpandHtml()}` : "";
   return `<div class="tr07grid${coversBridge ? "" : " single"}">
-    <div>${panelsLeft}</div>
+    <div data-tr07="mode-view">${left}</div>
     <div data-tr07="contrast-column">${right}</div>
-  </div>
-  ${coversBridge ? tr07ExpandHtml() : ""}`;
+  </div>`;
 }
 
 function tr07ScopeHtml(panels, selection) {
@@ -1912,9 +1944,10 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   const arms = [...new Set(boundRows.map((row) => row.arm).filter((arm) => typeof arm === "string"))];
   const measureColumns = ["B", "H", "V", "ΔV"];
 
-  // TR-07: con una misión elegida, la vista TOB filtra por el producto de esa misión;
-  // si el release exploratorio no trae ese producto (Power), se declara no disponible
-  // en vez de mostrar datos de Gas bajo otro nombre (TRADES_MODE_PLAN.md TR-07:73).
+  // TR-07: la vista TOB filtra por el producto de la misión que marca el selector
+  // (por defecto Gas Quarterly, missions[0]); si el release exploratorio no trae ese
+  // producto (Power), se declara no disponible en vez de mostrar datos de Gas bajo
+  // otro nombre (TRADES_MODE_PLAN.md TR-07:72-73).
   const selectedMission = tr07SelectedMission(vm?.tradesPanels, selection);
   const tobProduct = mode === "TOB" && selectedMission ? selectedMission.shortCode : null;
   const comparison = vm?.exploratory?.comparison ?? null;
@@ -1958,11 +1991,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   </div>
 
   ${validated ? tr07ScopeHtml(vm.tradesPanels, selection) : ""}
-  ${validated && mode === "TOB" && hasTobData ? exploratoryComparisonHtml(vm.exploratory, mode, tobProduct) : ""}
-  ${validated && mode === "TOB" && hasTobData ? exploratoryBacktestHtml(vm.exploratory, mode, tobProduct) : ""}
-  ${validated && mode === "TOB" && !hasTobData ? tr07TobUnavailableHtml(selectedMission) : ""}
-  ${validated && mode === "TRADES" && vm.tradesPanels?.ok === true ? tr07TradesObservationHtml(vm.tradesPanels, selectedMission) : ""}
-  ${validated ? backtestMeasurementHtml(vm.measurementReadiness) : ""}
+  ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness)) : ""}
   ${validated ? tr07PanelsHtml(vm.tradesPanels, selection) : ""}
 
   ${hasExploratory ? "" : `

@@ -19,7 +19,7 @@ import {
   projectTradesPanels,
 } from "../../src/ui/trades-panels.mjs";
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
-import { buildUiViewModels, createUiServer } from "../../src/ui/server.mjs";
+import { buildUiViewModels, createUiServer, selectionFromSearchParams } from "../../src/ui/server.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { buildBacktestsViewModel } from "../../src/ui/view-models.mjs";
 
@@ -350,3 +350,54 @@ test("TR-07 UI: en TRADES salen la tabla de brazos NOT RUN YET y el efecto parea
   assert.equal(/€\/MWh|k€/.test(paired), false, "el recuadro pareado no lleva valores inventados");
 });
 
+test("TR-07 UI: sin misión en la URL la vista es la que marca el selector (plan :72-73)", () => {
+  const html = renderBacktests({ mode: "TOB" });
+  // El botón por defecto marca Gas Quarterly…
+  assert.match(html, /data-tr07-mission="GAS_QUARTERLY"[^>]*aria-current="true"/);
+  // …y la vista TOB muestra sólo el producto de esa misión, no los dos Gas.
+  assert.ok(html.includes('data-product="G0BQ"'));
+  assert.equal(html.includes('data-product="G0BM"'), false);
+});
+
+test("TR-07 UI: el contraste va en la columna derecha junto a la vista del modo (plan :76-77)", () => {
+  const columnsOf = (html) => {
+    const gridStart = html.indexOf('<div class="tr07grid');
+    const columnAt = html.indexOf('data-tr07="contrast-column"', gridStart);
+    return { left: html.slice(gridStart, columnAt), right: html.slice(columnAt) };
+  };
+
+  // TOB: a la izquierda la comparación (data-product), a la derecha contraste + Expand.
+  const tob = columnsOf(renderBacktests({ mode: "TOB" }));
+  assert.ok(tob.left.includes('data-product="G0BQ"'));
+  assert.ok(tob.right.includes('data-tr07="contrast"'));
+  assert.ok(tob.right.includes('data-tr07="expand"'));
+
+  // TRADES + puente: a la izquierda la observación, a la derecha contraste + Expand.
+  const bridge = columnsOf(renderBacktests({ mode: "TRADES", period: "PUENTE" }));
+  assert.ok(bridge.left.includes('data-tr07="trades-observation"'));
+  assert.ok(bridge.right.includes('data-tr07="contrast"'));
+  assert.ok(bridge.right.includes('data-tr07="expand"'));
+
+  // Fuera del puente la línea de contraste abre la vista, antes de la observación.
+  const development = renderBacktests({ mode: "TRADES", period: "DEVELOPMENT" });
+  const noteAt = development.indexOf('data-tr07="contrast-note"');
+  const observationAt = development.indexOf('data-tr07="trades-observation"');
+  assert.ok(noteAt > 0 && noteAt < observationAt);
+  assert.equal(development.includes('data-tr07="contrast"'), false);
+});
+
+test("TR-07 UI: valores desconocidos en la URL caen al default fail-closed (plan :73)", () => {
+  const unknown = selectionFromSearchParams(new URLSearchParams("mode=TRADES&period=FOO&mission=XYZ"));
+  assert.equal(unknown.mode, "TRADES");
+  assert.equal("period" in unknown, false);
+  assert.equal("missionId" in unknown, false);
+
+  const known = selectionFromSearchParams(new URLSearchParams("mode=TRADES&period=DEVELOPMENT&mission=GAS_MONTHLY"));
+  assert.equal(known.mode, "TRADES");
+  assert.equal(known.period, "DEVELOPMENT");
+  assert.equal(known.missionId, "GAS_MONTHLY");
+
+  // Un modo desconocido tampoco pasa.
+  const badMode = selectionFromSearchParams(new URLSearchParams("mode=NOPE"));
+  assert.equal("mode" in badMode, false);
+});
