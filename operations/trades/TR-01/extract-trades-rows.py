@@ -7,10 +7,13 @@ productores y los prueban con fixtures chicos. Los escaneos (TR-01, TR-03) ...
 se lanzan como jobs por la ruta de BT-05, disparados por Bru"). Este script no
 se corre completo desde la Oficina.
 
-Salida: NDJSON (una linea por fila) precedida por una linea `_meta`. El
-agregador Node (aggregate-trades-rows.mjs) aplica la regla de elegibilidad, el
-dedup, el Delete point-in-time y la cobertura. Este script NO decide reglas: solo
-lee, clasifica y normaliza (una sola fuente de verdad para las reglas, en JS).
+Salida: NDJSON (una linea por fila) con una linea `_meta`. En el lago el `_meta`
+va primero; en el archivo va al final porque `tableInventory` (inventario por
+tabla, con `eex_derivative_reference` aparte) recien se conoce al terminar el
+escaneo. El agregador Node (aggregate-trades-rows.mjs) localiza el `_meta` en
+cualquier posicion, aplica la regla de elegibilidad, el dedup, el Delete
+point-in-time y la cobertura. Este script NO decide reglas: solo lee, clasifica y
+normaliza (una sola fuente de verdad para las reglas, en JS).
 
 Fuente de la verdad de las columnas: lago /srv/hot-data/EEX, esquema por archivo
 (visto en eex_derivative_trade): AgrsrAct, Area, Cmdty, Currency, ExpiryDate,

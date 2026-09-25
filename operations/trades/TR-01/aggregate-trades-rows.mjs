@@ -137,7 +137,7 @@ function sha256FileStream(path) {
   });
 }
 
-async function streamMeasurement(inputPath) {
+export async function streamMeasurement(inputPath) {
   const accumulator = createTradesMeasurementAccumulator();
   let meta = null;
   const lines = readline.createInterface({ input: createReadStream(inputPath), crlfDelay: Infinity });

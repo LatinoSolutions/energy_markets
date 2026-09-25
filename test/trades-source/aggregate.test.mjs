@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   BROKEN_SPREAD_POLICIES,
@@ -7,7 +10,7 @@ import {
   createTradesMeasurementAccumulator,
   detectSchemaChanges,
 } from "../../src/trades-source/index.mjs";
-import { aggregateNdjson } from "../../operations/trades/TR-01/aggregate-trades-rows.mjs";
+import { aggregateNdjson, streamMeasurement } from "../../operations/trades/TR-01/aggregate-trades-rows.mjs";
 import { deleteRow, tradeRow } from "./fixtures.mjs";
 
 function fixtureRows() {
@@ -94,4 +97,27 @@ test("el acumulador falla si un día reaparece fuera de orden", () => {
     () => accumulator.addRows([tradeRow({ TrdDate: "2025-11-20" })]),
     /fuera de orden/,
   );
+});
+
+test("la lectura por streaming del archivo da el mismo resultado que la carga completa", async () => {
+  const rows = [
+    tradeRow({ TrdID: "1", TrdDate: "2025-11-20", Tm: "2025-11-20T10:00:00Z" }),
+    tradeRow({ TrdID: "1", TrdDate: "2025-11-20", Tm: "2025-11-20T10:00:00Z", _pull_id: "pull-b" }),
+    tradeRow({ TrdID: "2", TrdDate: "2025-11-21", Tm: "2025-11-21T10:00:00Z", FromBrokenSpread: "true", AgrsrAct: "" }),
+    deleteRow({ TrdID: "2", TrdDate: "2025-11-21", Tm: "2025-11-21T12:00:00Z" }),
+    tradeRow({ TrdID: "4", TrdDate: "2025-11-24", Tm: "2025-11-24T09:00:00Z" }),
+  ];
+  const directory = mkdtempSync(join(tmpdir(), "tr01-"));
+  const path = join(directory, "rows.ndjson");
+  try {
+    const body = [JSON.stringify({ _meta: { dateMin: "2025-11-20", dateMax: "2025-11-24" } }), ...rows.map((row) => JSON.stringify(row))];
+    writeFileSync(path, `${body.join("\n")}\n`);
+    const streamed = await streamMeasurement(path);
+    const sourceMeta = streamed.sourceMeta;
+    delete streamed.sourceMeta;
+    assert.deepEqual(streamed, buildTradesMeasurement({ rows }));
+    assert.equal(sourceMeta.dateMax, "2025-11-24");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
