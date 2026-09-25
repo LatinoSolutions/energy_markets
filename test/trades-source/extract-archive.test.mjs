@@ -18,21 +18,6 @@ function classify(member, areaArgument) {
 
 const TRADE = "data/lake/v1/table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet";
 
-test("el extractor no crea el thread pool global de Arrow (aborto intermitente en el shutdown)", () => {
-  // El destructor del thread pool global de pyarrow aborta de forma
-  // intermitente ("terminate called without an active exception", SIGABRT)
-  // despues de escribir la salida. use_threads=False evita crear el pool; la
-  // carrera es rara (~1/300) y no se puede forzar en un test de comportamiento,
-  // asi que se ancla en el uso del parametro.
-  const readLines = readFileSync(SCRIPT, "utf8")
-    .split("\n")
-    .filter((line) => line.includes("read_table("));
-  assert.ok(readLines.length >= 2, "se esperan lecturas de parquet en el extractor");
-  for (const line of readLines) {
-    assert.match(line, /use_threads=False/, `read_table sin use_threads=False: ${line.trim()}`);
-  }
-});
-
 test("solo la tabla de trades con area exacta se clasifica como trade", () => {
   const result = classify(TRADE, "cmdty=NATGAS/area=THE");
   assert.equal(result.kind, "trade");
@@ -104,6 +89,44 @@ zst_path = os.path.join(outdir, "fixture.tar.zst")
 subprocess.run(["zstd", "-q", "-f", "-o", zst_path, tar_path], check=True)
 print(zst_path)
 `;
+
+// El destructor de los thread pools de Arrow aborta de forma intermitente en el
+// shutdown ("terminate called without an active exception") DESPUES de escribir
+// la salida: 1/35 corridas de la suite con read_table + use_threads=False
+// (2026-09-25). La carrera no se puede forzar; se prueba su causa: leer parquet
+// no deja hilos nativos vivos, y ninguna lectura esquiva read_parquet_bytes.
+const COUNT_THREADS_AFTER_READ = String.raw`
+import importlib.util, io, os, sys
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+spec = importlib.util.spec_from_file_location("extractor", sys.argv[1])
+extractor = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(extractor)
+
+buf = io.BytesIO()
+pq.write_table(pa.Table.from_pylist([{"TrdDate": "2025-11-20", "Px": "32.5"}]), buf)
+before = len(os.listdir("/proc/self/task"))
+rows = extractor.read_parquet_bytes(buf.getvalue()).to_pylist()
+after = len(os.listdir("/proc/self/task"))
+print(len(rows), after - before)
+`;
+
+test("leer parquet no arranca hilos nativos de Arrow (aborto intermitente en el shutdown)", () => {
+  const [rowCount, extraThreads] = execFileSync("python3", ["-c", COUNT_THREADS_AFTER_READ, SCRIPT], {
+    encoding: "utf8",
+  }).trim().split(" ").map(Number);
+  assert.equal(rowCount, 1);
+  assert.equal(extraThreads, 0, "la lectura de parquet dejo hilos nativos vivos");
+});
+
+test("toda lectura de parquet del extractor pasa por read_parquet_bytes", () => {
+  const source = readFileSync(SCRIPT, "utf8");
+  assert.doesNotMatch(source, /\bread_table\(/, "pq.read_table usa la API de Dataset y arranca el pool IO");
+  const parquetFileCalls = source.split("\n").filter((line) => line.includes("pq.ParquetFile("));
+  assert.equal(parquetFileCalls.length, 1);
+  assert.match(parquetFileCalls[0], /ParquetFile\(pa\.BufferReader\(raw\)\)\.read\(use_threads=False\)/);
+});
 
 test("el inventario del archivo declara dateMin/dateMax y separa la tabla de referencia", () => {
   const directory = mkdtempSync(join(tmpdir(), "tr01-archive-"));

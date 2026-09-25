@@ -117,6 +117,26 @@ def emit_row(row, source, out, reference=False):
     out.write("\n")
 
 
+def read_parquet_bytes(raw):
+    """Lee un parquet ya cargado en memoria sin arrancar hilos nativos de Arrow.
+
+    El destructor de los thread pools de Arrow (CPU e IO) aborta de forma
+    intermitente en el shutdown del interprete ("terminate called without an
+    active exception", SIGABRT) DESPUES de escribir la salida correcta, y rompe
+    el contrato de exit 0 del job. `use_threads=False` solo evita el pool CPU:
+    `pq.read_table` pasa por la API de Dataset y `ParquetFile(<ruta>)` abre el
+    archivo por el filesystem de Arrow; ambos arrancan el pool IO igual.
+    `ParquetFile(BufferReader(bytes)).read(use_threads=False)` no crea ningun
+    hilo (medido con /proc/self/task, pyarrow 25.0.1, 2026-09-25). El aborto se
+    reprodujo 1/35 corridas de la suite y 1/400 extracciones en paralelo con la
+    version anterior (read_table + use_threads=False).
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    return pq.ParquetFile(pa.BufferReader(raw)).read(use_threads=False)
+
+
 def lake_partitions(area, start, end):
     base = os.path.join(LAKE_ROOT, f"table={TRADE_TABLE}", area)
     days = sorted(
@@ -128,8 +148,6 @@ def lake_partitions(area, start, end):
 
 
 def extract_lake(area, start, end, out, max_days):
-    import pyarrow.parquet as pq
-
     days = lake_partitions(area, start, end)
     if max_days is not None:
         days = days[:max_days]
@@ -150,11 +168,8 @@ def extract_lake(area, start, end, out, max_days):
     for day in days:
         pattern = os.path.join(LAKE_ROOT, f"table={TRADE_TABLE}", area, f"trd_date={day}", "*", "part.parquet")
         for path in sorted(glob.glob(pattern)):
-            # use_threads=False evita crear el thread pool global de Arrow, cuyo
-            # destructor en el shutdown del interprete aborta de forma
-            # intermitente ("terminate called without an active exception",
-            # SIGABRT) DESPUES de escribir la salida. Ver extract_archive.
-            table = pq.read_table(path, use_threads=False)
+            with open(path, "rb") as handle:
+                table = read_parquet_bytes(handle.read())
             for row in table.to_pylist():
                 emit_row(row, TRADE_TABLE, out)
                 rows_emitted += 1
@@ -191,14 +206,6 @@ def iter_tar_members(archive_path):
 
 def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha256, expected_bytes,
                     max_members, reference_out=None):
-    import io
-    import pyarrow.parquet as pq_local
-
-    # use_threads=False evita crear el thread pool global de Arrow. Su destructor
-    # en el shutdown del interprete aborta de forma intermitente
-    # ("terminate called without an active exception", SIGABRT) DESPUES de
-    # escribir la salida correcta, lo que rompe el contrato de exit 0 del job.
-    # Reproducido ~1/300 con el fixture de test/trades-source/extract-archive.
     verification = verify_archive(archive_path, expected_sha256, expected_bytes)
 
     if reference_out is not None:
@@ -236,7 +243,7 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             continue
         if kind == "trade":
             table = TRADE_TABLE
-            table_data = pq_local.read_table(io.BytesIO(raw), use_threads=False)
+            table_data = read_parquet_bytes(raw)
             for row in table_data.to_pylist():
                 emit_row(row, TRADE_TABLE, out)
                 rows_emitted += 1
@@ -246,14 +253,14 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             bump(table, member_count=1, row_count=len(table_data))
         elif kind == "reference":
             table = REFERENCE_TABLE
-            reference_data = pq_local.read_table(io.BytesIO(raw), use_threads=False)
+            reference_data = read_parquet_bytes(raw)
             reference_rows = reference_data.to_pylist()
             bump(table, member_count=1, row_count=len(reference_rows))
             if reference_out is not None:
                 for row in reference_rows:
                     emit_row(row, REFERENCE_TABLE, reference_out, reference=True)
         else:  # other_table con area pedida: se inventaria pero NO se emite como trade
-            table_data = pq_local.read_table(io.BytesIO(raw), use_threads=False)
+            table_data = read_parquet_bytes(raw)
             bump(table, member_count=1, row_count=len(table_data))
         if max_members is not None and members_seen >= max_members:
             break
