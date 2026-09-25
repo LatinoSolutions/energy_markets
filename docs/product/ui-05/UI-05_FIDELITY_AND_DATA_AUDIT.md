@@ -27,7 +27,7 @@ Para regenerarlas: `node src/ui/serve.mjs --port 8799` y Playwright a 1440x900, 
 | Replay | Gráfico 760x250: ejes, horizonte, etiquetas KNOWN AT T₀ / LATER, parte sellada, **overlay de hindsight** | Sin overlay, sin ejes del mockup | Igual. Con el overlay activado, la serie posterior a T₀ se dibuja solo a la derecha del horizonte. |
 | Replay | Tabla de inputs de 5 columnas (Input · Value at T₀ · Observed at · **Age at T₀** · State) | 4 columnas | 5 columnas |
 | Replay | Zona de evaluación con el bloque `.metric` | Filas `chk` | `.metric` |
-| Campaigns | Rail de campañas en una sola tarjeta (`.clist .it`), ítem abierto marcado | Una tarjeta por campaña, sin marca | Igual que el mockup. La marca sale de `:target`, sin JavaScript. |
+| Campaigns | Rail de campañas en una sola tarjeta (`.clist .it`), ítem abierto marcado | Una tarjeta por campaña, sin marca | Igual que el mockup. La marca sale de `:target`, sin JavaScript. **Reemplazado por el rail por misión de P-008 (ver al final).** |
 | Campaigns | Lista `What we don't know` con `.unk-item` | Tarjetas genéricas | `.unk-item` |
 | Campaigns | Runs: 7 columnas `Run · Arm · Status · Decisions · evaluation · Determinism · Receipts · Drill down`, barra segmentada y `.drill` | Columnas distintas (volumen y H), sin barra ni Receipts ni Research | Las 7 del mockup. Volumen y H (dato de UI-04) se conservan dentro de la celda de decisiones. |
 | Campaigns | Leyenda de la barra (closed / not closed / not run) | No estaba | Está |
@@ -127,3 +127,13 @@ No se vuelve a pedir el top of book anterior a julio de 2025: el cliente confirm
 - La UI no calcula economía. Se quitó la única resta que quedaba en Replay (el spread).
 - Sin backtest exploratorio verificado, Replay sigue ERROR fail-closed y el reloj dice `UNAVAILABLE`.
 - `src/exploratory/*` y los artifacts no se tocaron (el manifest los fija por hash).
+
+## P-008 — rail de Campaigns por misión (decisión de Bru 2026-09-25)
+
+- Replay y Research: aprobados por Bru. Backtests: el hover del chart queda en UI-06.
+- Campaigns: el rail de 21 tarjetas se reemplaza por grupos plegables (`<details>`) Gas Quarterly · Gas Monthly · Power Quarterly · Power Monthly. Referencia: `/srv/hot-data/oficina-data/design-selections/energy-markets/UI-05-prototipo-2026-09-25/prototipo-ui05.html` (sha256 `a79c8652e8ce274cc27c46a3d5439103159d7de9fd9941ccc07afa83f1b9a1c3`), pestaña Campaigns.
+- Datos: `projectExploratoryPages` (`src/ui/view-models.mjs`, servidor) proyecta `campaignGroups` desde el artifact verificado: recuentos por `readiness`, entrega desde `maturity` ("Q1-2026", "Oct 2025"), ventana desde `firstDay`/`lastDay`. El render solo pinta. Ventana ausente = `UNAVAILABLE` (GAS-M-202609..202612). Power no tiene campaigns en el artifact: "no data yet".
+- Solo abierto el grupo de la campaign seleccionada: `open` en el grupo por defecto; al navegar a `#cmp-…` un script inline abre su grupo y cierra el resto.
+- Diferencia consciente con el prototipo: la ventana se muestra con fecha completa (`2025-09-01 → 2025-11-28`) en vez de `09-01 → 11-28`, para no truncar el año (la ventana puede caer en otro año que la entrega). El texto del prototipo "enters with TR-01..TR-07" no se copió: no hay fuente en PLAN_STATUS para esa afirmación.
+- Panel derecho: sin cambios respecto de UI-05.
+- Capturas para la aprobación final de Bru: `p008-campaigns/compare-campaigns.png` (PROTOTIPO · ANTES · DESPUÉS, 1440x900), `before-campaigns.png`, `after-campaigns.png` (página completa) y `after-campaigns-gas-monthly-selected.png` (navegación a GAS-M-202610: solo Gas Monthly abierto, ventana UNAVAILABLE).

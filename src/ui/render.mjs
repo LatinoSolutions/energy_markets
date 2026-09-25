@@ -885,14 +885,52 @@ function campaignReadinessChip(campaign, { detail = false } = {}) {
   return chip("unk", "?", "Insufficient data");
 }
 
-function campaignListHtml(campaigns) {
-  return campaigns.map((campaign) => `<a class="it" href="#cmp-${esc(campaign.id)}">
-      <div class="mono muted small">${esc(campaign.id)}</div>
-      <div class="ttl">${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</div>
-      <div style="margin-bottom:4px">${campaignReadinessChip(campaign)}</div>
-      <div class="small muted">${campaign.firstDay ? `${esc(campaign.firstDay)} → ${esc(campaign.lastDay)}` : "no quoted day in the window"}</div>
-    </a>`).join("");
+// Rail por misión (Bru 2026-09-25, P-008; prototipo UI-05-prototipo-2026-09-25 pestaña
+// Campaigns). Grupos, recuentos, entrega y ventana llegan del view model; aquí solo se pintan.
+function campaignGroupSummary(group) {
+  if (group.total === 0) {
+    return "no data yet";
+  }
+  return `${group.total} campaigns · ${group.complete} complete · ${group.insufficient} insufficient`;
 }
+
+function campaignRailRowHtml(row) {
+  const dot = row.readiness === "EXPLORATORY_COMPLETE" ? "ok" : "insuf";
+  const window = row.window
+    ? `${esc(row.window.firstDay)} → ${esc(row.window.lastDay)}`
+    : '<span class="unkv">UNAVAILABLE</span>';
+  return `<a class="it crow" href="#cmp-${esc(row.id)}" data-campaign-row="${esc(row.id)}" title="${esc(row.id)} · ${esc(row.readinessLabel)}">
+        <span class="cdot ${dot}" aria-label="${esc(row.readinessLabel)}"></span>
+        <span class="cdel">${esc(row.deliveryLabel)}</span>
+        <span class="cwin">${window}</span>
+      </a>`;
+}
+
+function campaignGroupsHtml(groups, selectedId) {
+  return groups.map((group) => {
+    const isOpen = group.campaigns.some((row) => row.id === selectedId);
+    const body = group.total === 0
+      ? '<div class="cempty">no campaign in the verified artifact</div>'
+      : group.campaigns.map(campaignRailRowHtml).join("");
+    return `<details class="cgrp" data-mission="${esc(group.mission)}"${isOpen ? " open" : ""}>
+      <summary><span><span class="cname">${esc(group.mission)}</span><span class="csum">${esc(campaignGroupSummary(group))}</span></span><span class="caret"></span></summary>
+      <div class="cbody">${body}</div>
+    </details>`;
+  }).join("");
+}
+
+// Al navegar a una campaign (#cmp-…) solo queda abierto el grupo que la contiene.
+const CAMPAIGN_GROUP_SCRIPT = `<script>
+(function () {
+  function syncGroups() {
+    var row = document.querySelector('.crail a[href="' + location.hash + '"]');
+    if (!row) { return; }
+    document.querySelectorAll(".crail details.cgrp").forEach(function (group) { group.open = group.contains(row); });
+  }
+  window.addEventListener("hashchange", syncGroups);
+  syncGroups();
+})();
+</script>`;
 
 // Barra del mockup: cerradas / abiertas / no corridas. Una decisión cuenta como cerrada
 // sólo si el backend declara PASS en "Evaluation window closed"; el total de decisiones
@@ -986,13 +1024,17 @@ export function exploratoryCampaignsBody(exploratory) {
 <section class="surface campaigns" data-surface="campaigns" data-exploratory="true">
   <div class="split xwrap">
     <div class="xlist">
-      <div class="caps muted" style="margin:4px 0 8px">Campaigns · ${campaigns.length}</div>
-      <div class="card clist">${campaignListHtml(campaigns)}</div>
+      <div class="card crail">
+        <div class="crail-title">CAMPAIGNS · ${campaigns.length}</div>
+        ${campaignGroupsHtml(exploratory.campaignGroups, firstComplete.id)}
+        <div class="clegend"><span><span class="cdot ok"></span>complete</span><span><span class="cdot insuf"></span>insufficient data</span></div>
+      </div>
       <div class="small muted" style="margin-top:8px">Readiness shown here is reported by the backend. The UI does not compute or upgrade it.</div>
     </div>
     <div>${details}</div>
   </div>
-</section>`;
+</section>
+${CAMPAIGN_GROUP_SCRIPT}`;
 }
 
 // ---------- Replay / Decision Inspector ----------

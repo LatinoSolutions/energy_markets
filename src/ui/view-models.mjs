@@ -142,6 +142,73 @@ export function projectBacktestReadiness(readiness) {
   };
 }
 
+// Rail de Campaigns por misión: decisión de Bru 2026-09-25 (P-008, prototipo
+// UI-05-prototipo-2026-09-25/prototipo-ui05.html sha256 a79c8652…, pestaña Campaigns).
+// Power no tiene código de producto en el artifact: grupo vacío, "no data yet".
+const CAMPAIGN_MISSIONS = [
+  { mission: "Gas Quarterly", product: "G0BQ", cadence: "QUARTERLY" },
+  { mission: "Gas Monthly", product: "G0BM", cadence: "MONTHLY" },
+  { mission: "Power Quarterly", product: null, cadence: "QUARTERLY" },
+  { mission: "Power Monthly", product: null, cadence: "MONTHLY" },
+];
+const READINESS_LABEL = { EXPLORATORY_COMPLETE: "complete", INSUFFICIENT_DATA: "insufficient data" };
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// maturity = YYYYMM del mes de entrega (GAS-Q-202601 compra sep–nov 2025 para Q1-2026).
+// Formato pedido por Bru 2026-09-25 (P-008): "Q1-2026" y "Oct 2025".
+function deliveryLabelFor(maturity, cadence) {
+  if (typeof maturity !== "string" || !/^\d{6}$/.test(maturity)) {
+    return "UNAVAILABLE";
+  }
+  const year = maturity.slice(0, 4);
+  const month = Number(maturity.slice(4, 6));
+  if (month < 1 || month > 12) {
+    return "UNAVAILABLE";
+  }
+  if (cadence === "QUARTERLY") {
+    const quarter = Math.ceil(month / 3);
+    return `Q${quarter}-${year}`;
+  }
+  return `${MONTH_ABBR[month - 1]} ${year}`;
+}
+
+function campaignRailRow(campaign, cadence) {
+  const hasWindow = typeof campaign.firstDay === "string" && typeof campaign.lastDay === "string";
+  return {
+    id: campaign.id,
+    readiness: campaign.readiness,
+    readinessLabel: READINESS_LABEL[campaign.readiness] ?? campaign.readiness,
+    deliveryLabel: deliveryLabelFor(campaign.maturity, cadence),
+    window: hasWindow ? { firstDay: campaign.firstDay, lastDay: campaign.lastDay } : null,
+  };
+}
+
+function campaignGroup(mission, product, cadence, members) {
+  return {
+    mission,
+    product,
+    total: members.length,
+    complete: members.filter((campaign) => campaign.readiness === "EXPLORATORY_COMPLETE").length,
+    insufficient: members.filter((campaign) => campaign.readiness === "INSUFFICIENT_DATA").length,
+    campaigns: members.map((campaign) => campaignRailRow(campaign, cadence)),
+  };
+}
+
+function projectCampaignGroups(campaigns) {
+  const groups = CAMPAIGN_MISSIONS.map(({ mission, product, cadence }) => {
+    const members = campaigns.filter((campaign) => product !== null && campaign.product === product);
+    return campaignGroup(mission, product, cadence, members);
+  });
+  // Un producto sin misión conocida no desaparece del rail: queda en su propio grupo.
+  const knownProducts = new Set(CAMPAIGN_MISSIONS.map((entry) => entry.product));
+  const unmapped = campaigns.filter((campaign) => !knownProducts.has(campaign.product));
+  for (const product of new Set(unmapped.map((campaign) => campaign.product))) {
+    const members = unmapped.filter((campaign) => campaign.product === product);
+    groups.push(campaignGroup(`Unmapped product ${product}`, product, null, members));
+  }
+  return groups;
+}
+
 // Replay y Campaigns exploratorios: proyección directa del artifact verificado.
 export function projectExploratoryPages(exploratory) {
   const results = exploratory?.results;
@@ -154,6 +221,7 @@ export function projectExploratoryPages(exploratory) {
     dataPeriod: results.inputs?.dataPeriod ?? null,
     replay: results.replay,
     campaigns: results.campaigns,
+    campaignGroups: projectCampaignGroups(results.campaigns),
     campaignUnknowns: results.campaignUnknowns ?? [],
     research: results.research ?? null,
   };

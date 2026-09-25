@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { buildUiViewModels } from "../../src/ui/server.mjs";
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
+import { projectExploratoryPages } from "../../src/ui/view-models.mjs";
 
 const canonical = loadCanonicalUiInputs();
 const results = canonical.inputs.exploratoryBacktest?.results;
@@ -97,8 +98,8 @@ test("UI-05 Replay: después de T₀ sólo se dibuja en la capa de hindsight, oc
 
 test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barra y ledger de receipts", () => {
   const html = renderSurfacePage("campaigns", vms.campaigns);
-  assert.equal(count(html, /<a class="it" href="#cmp-/g), results.campaigns.length);
-  assert.equal(count(html, /<div class="card clist">/g), 1);
+  assert.equal(count(html, /<a class="it crow" href="#cmp-/g), results.campaigns.length);
+  assert.equal(count(html, /<div class="card crail">/g), 1);
   const withRuns = results.campaigns.filter((campaign) => campaign.runs.length > 0);
   assert.equal(count(html, /<th>Run<\/th><th>Arm<\/th><th>Status<\/th><th>Decisions · evaluation<\/th><th>Determinism<\/th><th>Receipts<\/th><th>Drill down<\/th>/g), withRuns.length);
   const runs = withRuns.reduce((sum, campaign) => sum + campaign.runs.length, 0);
@@ -193,4 +194,116 @@ test("UI-05: ningún dato demo del mockup entra en las páginas exploratorias", 
     const html = renderSurfacePage(surface, vms[surface]);
     assert.doesNotMatch(html, /SYN-|Cal-27|Tranche-trigger|Procurement committee|T₀\s*\+\s*84|Budget 92|Trigger 89/, surface);
   }
+});
+
+// Rail por misión: decisión de Bru 2026-09-25 (P-008), prototipo
+// UI-05-prototipo-2026-09-25/prototipo-ui05.html (sha256 a79c8652…), pestaña Campaigns.
+
+function railHtml(html) {
+  const start = html.indexOf('<div class="card crail">');
+  assert.ok(start > 0, "hay rail de campaigns");
+  return html.slice(start, html.indexOf('<div class="clegend">', start));
+}
+
+function groupHtml(rail, mission) {
+  const start = rail.indexOf(`data-mission="${mission}"`);
+  assert.ok(start > 0, mission);
+  return rail.slice(start, rail.indexOf("</details>", start));
+}
+
+test("UI-05 Campaigns rail: el view model agrupa por misión con recuentos, entrega y ventana del artifact", () => {
+  const groups = vms.campaigns.exploratory.campaignGroups;
+  assert.deepEqual(groups.map((group) => group.mission), ["Gas Quarterly", "Gas Monthly", "Power Quarterly", "Power Monthly"]);
+  for (const group of groups) {
+    const members = results.campaigns.filter((campaign) => group.product !== null && campaign.product === group.product);
+    assert.equal(group.total, members.length, group.mission);
+    assert.equal(group.complete, members.filter((campaign) => campaign.readiness === "EXPLORATORY_COMPLETE").length);
+    assert.equal(group.insufficient, members.filter((campaign) => campaign.readiness === "INSUFFICIENT_DATA").length);
+    assert.deepEqual(group.campaigns.map((row) => row.id), members.map((campaign) => campaign.id));
+    for (const [index, row] of group.campaigns.entries()) {
+      const campaign = members[index];
+      assert.deepEqual(row.window, campaign.firstDay ? { firstDay: campaign.firstDay, lastDay: campaign.lastDay } : null, row.id);
+    }
+  }
+  // Cada campaign del artifact aparece exactamente una vez.
+  assert.equal(groups.reduce((sum, group) => sum + group.total, 0), results.campaigns.length);
+  assert.equal(groups[2].total + groups[3].total, 0, "Power no tiene campaigns en el artifact");
+  // Formato de entrega pedido por Bru: "Q1-2026" y "Oct 2025".
+  const label = (id) => groups.flatMap((group) => group.campaigns).find((row) => row.id === id).deliveryLabel;
+  assert.equal(label("GAS-Q-202601"), "Q1-2026");
+  assert.equal(label("GAS-Q-202510"), "Q4-2025");
+  assert.equal(label("GAS-M-202510"), "Oct 2025");
+  assert.equal(label("GAS-M-202601"), "Jan 2026");
+});
+
+test("UI-05 Campaigns rail: grupos plegables, solo abierto el de la campaign por defecto, Power 'no data yet'", () => {
+  const html = renderSurfacePage("campaigns", vms.campaigns);
+  const rail = railHtml(html);
+  assert.equal(count(rail, /<details class="cgrp"/g), 4);
+  assert.equal(count(rail, /<details class="cgrp"[^>]* open>/g), 1);
+  assert.match(groupHtml(rail, "Gas Quarterly"), /^data-mission="Gas Quarterly" open>/);
+  assert.match(rail, new RegExp(`CAMPAIGNS · ${results.campaigns.length}`));
+  for (const group of vms.campaigns.exploratory.campaignGroups) {
+    const section = groupHtml(rail, group.mission);
+    if (group.total === 0) {
+      assert.match(section, /<span class="csum">no data yet<\/span>/, group.mission);
+      assert.equal(count(section, /class="it crow"/g), 0);
+      continue;
+    }
+    assert.ok(section.includes(`<span class="csum">${group.total} campaigns · ${group.complete} complete · ${group.insufficient} insufficient</span>`), group.mission);
+    assert.equal(count(section, /class="it crow"/g), group.total);
+  }
+  // La campaign seleccionada por defecto vive en el grupo abierto.
+  const selected = html.match(/class="xsel xdefault" id="cmp-([^"]+)"/)[1];
+  assert.ok(groupHtml(rail, "Gas Quarterly").includes(`href="#cmp-${selected}"`));
+  // Navegar a otra campaign abre su grupo y cierra el resto (script inline, sin red).
+  assert.match(html, /group\.open = group\.contains\(row\)/);
+});
+
+test("UI-05 Campaigns rail: 1 línea por campaign con punto de estado, entrega y ventana; ventana ausente = UNAVAILABLE", () => {
+  const rail = railHtml(renderSurfacePage("campaigns", vms.campaigns));
+  const rows = vms.campaigns.exploratory.campaignGroups.flatMap((group) => group.campaigns);
+  for (const row of rows) {
+    const start = rail.indexOf(`data-campaign-row="${row.id}"`);
+    const line = rail.slice(start, rail.indexOf("</a>", start));
+    const dot = row.readiness === "EXPLORATORY_COMPLETE" ? "ok" : "insuf";
+    assert.ok(line.includes(`<span class="cdot ${dot}" aria-label="${row.readinessLabel}"></span>`), row.id);
+    assert.ok(line.includes(`<span class="cdel">${row.deliveryLabel}</span>`), row.id);
+    const window = row.window ? `${row.window.firstDay} → ${row.window.lastDay}` : '<span class="unkv">UNAVAILABLE</span>';
+    assert.ok(line.includes(`<span class="cwin">${window}</span>`), row.id);
+  }
+  const withoutWindow = results.campaigns.filter((campaign) => !campaign.firstDay);
+  assert.ok(withoutWindow.length > 0);
+  assert.equal(count(rail, /<span class="cwin"><span class="unkv">UNAVAILABLE<\/span><\/span>/g), withoutWindow.length);
+  assert.doesNotMatch(rail, /undefined|NaN|null/);
+});
+
+test("UI-05 Campaigns rail: el render pinta lo que dice el view model, no recalcula recuentos ni etiquetas", () => {
+  const exploratory = structuredClone(vms.campaigns.exploratory);
+  exploratory.campaignGroups[0].complete = 99;
+  exploratory.campaignGroups[0].campaigns[0].deliveryLabel = "VM-LABEL";
+  const rail = railHtml(renderSurfacePage("campaigns", { ...vms.campaigns, exploratory }));
+  assert.ok(rail.includes("· 99 complete ·"));
+  assert.ok(rail.includes('<span class="cdel">VM-LABEL</span>'));
+});
+
+test("UI-05 Campaigns rail: maturity ilegible = UNAVAILABLE y un producto sin misión no desaparece", () => {
+  const pages = projectExploratoryPages({
+    provenance: {},
+    results: {
+      status: "EXPLORATORY",
+      replay: [],
+      campaigns: [
+        { id: "GAS-Q-BAD", product: "G0BQ", maturity: "2026", readiness: "EXPLORATORY_COMPLETE", firstDay: "2025-09-01", lastDay: "2025-11-28" },
+        { id: "X-1", product: "XPRD", maturity: "202603", readiness: "INSUFFICIENT_DATA", firstDay: null, lastDay: null },
+      ],
+    },
+  });
+  const quarterly = pages.campaignGroups.find((group) => group.mission === "Gas Quarterly");
+  assert.equal(quarterly.campaigns[0].deliveryLabel, "UNAVAILABLE");
+  const unmapped = pages.campaignGroups.find((group) => group.product === "XPRD");
+  assert.equal(unmapped.mission, "Unmapped product XPRD");
+  assert.equal(unmapped.total, 1);
+  assert.equal(unmapped.insufficient, 1);
+  assert.equal(unmapped.campaigns[0].window, null);
 });
