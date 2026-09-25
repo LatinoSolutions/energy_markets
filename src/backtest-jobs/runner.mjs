@@ -694,14 +694,23 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
 
     const memoryBefore = readCgroupMemoryPeak();
     const rusageFile = path.join(runDir, "child-rusage.json");
-    const logFd = openSync(path.join(runDir, "job.log"), "a");
-    const child = spawn(nodeBinary, [CHILD_ENTRY, rusageFile, path.join(workspace, EXPLORATORY_ENTRY), verified.slotsPath, EXPLORATORY_OUTPUT], {
-      cwd: workspace,
-      stdio: ["ignore", logFd, logFd],
-    });
-    closeSync(logFd);
+    // Hallazgo BT05-START-07 (review 25-sep-2026): un fallo síncrono aquí ocurre con el lock
+    // tomado y el receipt RUNNING, y no hay hijo cuyo 'exit' los cierre: se cierra ahora.
+    let logFd = null;
+    let child;
+    try {
+      logFd = openSync(path.join(runDir, "job.log"), "a");
+      child = spawn(nodeBinary, [CHILD_ENTRY, rusageFile, path.join(workspace, EXPLORATORY_ENTRY), verified.slotsPath, EXPLORATORY_OUTPUT], {
+        cwd: workspace,
+        stdio: ["ignore", logFd, logFd],
+      });
+    } catch (error) {
+      const closed = finish(receipt, { status: JOB_STATUS.FAILED, failure: { code: "SPAWN_FAILED", message: String(error?.message ?? error) } });
+      return { ok: false, code: "SPAWN_FAILED", job: publicJobView(closed) };
+    } finally {
+      if (logFd !== null) closeSync(logFd);
+    }
     receipt = { ...receipt, pid: child.pid };
-    writeJsonAtomic(receiptFile(runId, attempt), receipt);
 
     let timedOut = false;
     const timer = setTimeout(() => {
@@ -761,6 +770,13 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
       });
     });
     active = { receipt, child, done };
+    // Con los handlers ya puestos, el 'exit' del hijo cierra el receipt aunque este
+    // asiento del pid falle; por eso su fallo no aborta el job ya lanzado.
+    try {
+      writeJsonAtomic(receiptFile(runId, attempt), receipt);
+    } catch {
+      // el receipt en disco queda RUNNING sin pid hasta que finish() lo cierre
+    }
     return { ok: true, reused: false, job: publicJobView(receipt, { state: RESULT_STATE.NONE, supersededBy: null }), done };
   }
 

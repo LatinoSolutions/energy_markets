@@ -666,3 +666,30 @@ test("BT-05 registro: si falla el asiento de PROMOTION_MISSING, start no arranca
   assert.equal(lockIsFree(runner), true);
   assert.equal(runner.status().currentResult, null);
 });
+
+// ---------- fallo síncrono al lanzar el hijo (hallazgo BT05-START-07) ----------
+
+test("BT-05 arranque: si lanzar el hijo falla en síncrono, el intento cierra FAILED, libera el lock y se puede reintentar", async () => {
+  const repo = makeFixtureRepo();
+  const noBinary = createBacktestJobRunner({ repoRoot: repo.root, nodeBinary: "" });
+  const refused = noBinary.start({ requestedBy: "ui" });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "SPAWN_FAILED");
+  assert.equal(refused.job.status, JOB_STATUS.FAILED);
+  assert.equal(lockIsFree(noBinary), true);
+  const firstReceipt = noBinary.get(refused.job.runId).receipt;
+  assert.equal(firstReceipt.status, JOB_STATUS.FAILED);
+  assert.equal(firstReceipt.failure.code, "SPAWN_FAILED");
+  assert.match(firstReceipt.failure.message, /cannot be empty/);
+  const closedEvents = readRegistry(noBinary).filter((event) => event.event === REGISTRY_EVENT.RUN_CLOSED);
+  assert.deepEqual(closedEvents.map((event) => [event.runId, event.attempt]), [[refused.job.runId, 1]]);
+
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const retried = runner.start({ requestedBy: "ui" });
+  assert.equal(retried.ok, true);
+  const receipt = await retried.done;
+  assert.equal(receipt.runId, refused.job.runId);
+  assert.equal(receipt.attempt, 2);
+  assert.equal(receipt.status, JOB_STATUS.SUCCEEDED);
+  assert.equal(runner.status().currentResult.attempt, 2);
+});
