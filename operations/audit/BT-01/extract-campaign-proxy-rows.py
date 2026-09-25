@@ -7,8 +7,10 @@ the exact ShortCode + Maturity and retain row and source-file hashes.
 """
 
 import hashlib
+import gc
 import json
 import os
+import subprocess
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -19,6 +21,7 @@ import pyarrow.parquet as pq
 ROOT = Path(__file__).resolve().parents[3]
 LAKE = Path(os.environ.get("EEX_LAKE_ROOT", "/srv/hot-data/EEX"))
 OUTPUT = ROOT / "operations/audit/BT-01/campaign-proxy-rows-BT-01.json"
+PROXY_WORKER = ROOT / "operations/audit/BT-01/calculate-campaign-daily-proxies.mjs"
 RESULTS = ROOT / "operations/exploratory/backtest-results.json"
 CALENDAR = ROOT / "operations/audit/IMP-09/eex-exchange-calendar.json"
 TABLES = {
@@ -84,9 +87,7 @@ def campaigns_from_results(results):
 def extract(campaigns, exchange_days):
     source_hashes = {}
     expected_by_campaign = {}
-    campaigns_by_key = {campaign["campaignKey"]: campaign for campaign in campaigns}
-    rows_by_campaign_date = {}
-    counts_by_campaign_date = {}
+    proxies_by_campaign_date = {}
     active_by_date = {}
     for campaign in campaigns:
         dates = [day for day in exchange_days if campaign["windowStart"] <= day < campaign["windowEnd"]]
@@ -95,9 +96,15 @@ def extract(campaigns, exchange_days):
             active_by_date.setdefault(day, []).append(campaign)
 
     tz = ZoneInfo("Europe/Berlin")
-    for day, active_campaigns in sorted(active_by_date.items()):
+    worker = subprocess.Popen(
+        ["node", str(PROXY_WORKER)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        text=True, encoding="utf-8", bufsize=1,
+    )
+    try:
+      for day, active_campaigns in sorted(active_by_date.items()):
         campaign_by_product_maturity = {(campaign["product"], campaign["maturity"]): campaign for campaign in active_campaigns}
         per_campaign_rows = {campaign["campaignKey"]: [] for campaign in active_campaigns}
+        per_campaign_source_files = {campaign["campaignKey"]: [] for campaign in active_campaigns}
         per_campaign_counts = {campaign["campaignKey"]: {table: {"filesAvailable": 0, "filesWithMaturityRows": 0} for table in TABLES} for campaign in active_campaigns}
         for table, (price_col, bid_col, ask_col) in TABLES.items():
             folder = LAKE / f"table={table}/cmdty=NATGAS/area=THE/trd_date={day}"
@@ -119,7 +126,7 @@ def extract(campaigns, exchange_days):
                 matched_pairs = set()
                 matched_file = False
                 parquet = pq.ParquetFile(path)
-                for batch in parquet.iter_batches(batch_size=65536, columns=sorted(needed)):
+                for batch in parquet.iter_batches(batch_size=8192, columns=sorted(needed), use_threads=False):
                     code_mask = pc.is_in(batch.column(batch.schema.get_field_index("ShortCode")), value_set=pa.array(products))
                     maturity_mask = pc.is_in(batch.column(batch.schema.get_field_index("Maturity")), value_set=pa.array(maturities))
                     selected = batch.filter(pc.and_(code_mask, maturity_mask))
@@ -131,6 +138,7 @@ def extract(campaigns, exchange_days):
                         campaign = campaign_by_product_maturity.get((row.get("ShortCode"), row.get("Maturity")))
                         if campaign is None:
                             continue
+                        matched_pairs.add(campaign["campaignKey"])
                         # Unknown instrument metadata cannot be promoted to a
                         # Simple Instrument proxy input.
                         if row.get("InstrumentType") != "Simple Instrument":
@@ -162,26 +170,64 @@ def extract(campaigns, exchange_days):
                             "ask": as_float(row.get(ask_col)) if ask_col else None,
                             "rowHash": row.get("_row_sha256"),
                         })
-                        matched_pairs.add(campaign["campaignKey"])
+                    # Arrow arrays and the Python dictionaries made from them
+                    # can otherwise keep decoded row-group buffers resident
+                    # across thousands of lake files. Release each small batch
+                    # before advancing; extraction output remains campaign
+                    # rows only.
+                    del selected, batch, row
+                    gc.collect()
+                    pa.default_memory_pool().release_unused()
                 if matched_file:
                     relative_path = path.relative_to(LAKE).as_posix()
                     source_hashes[relative_path] = sha256_file(path)
                     for campaign_key in matched_pairs:
                         per_campaign_counts[campaign_key][table]["filesWithMaturityRows"] += 1
+                        per_campaign_source_files[campaign_key].append({
+                            "path": relative_path,
+                            "sha256": source_hashes[relative_path],
+                        })
         for campaign in active_campaigns:
             key = campaign["campaignKey"]
-            per_campaign_rows[key].sort(key=lambda row: (row["tmUtc"], row["source"], row["rowHash"] or ""))
-            rows_by_campaign_date[(key, day)] = per_campaign_rows[key]
-            counts_by_campaign_date[(key, day)] = per_campaign_counts[key]
+            rows = per_campaign_rows[key]
+            rows.sort(key=lambda row: (row["tmUtc"], row["source"], row["rowHash"] or ""))
+            worker.stdin.write(json.dumps({
+                "campaignKey": key, "trdDate": day, "sourceCounts": per_campaign_counts[key],
+                "sourceFiles": sorted(per_campaign_source_files[key], key=lambda source: source["path"]), "rows": rows,
+            }, ensure_ascii=False) + "\n")
+            worker.stdin.flush()
+            result = worker.stdout.readline()
+            if not result:
+                raise RuntimeError(f"El cálculo proxy terminó sin respuesta para {key} {day}.")
+            proxies_by_campaign_date[(key, day)] = json.loads(result)
+            del rows, per_campaign_rows[key]
+            gc.collect()
+    finally:
+        worker.stdin.close()
+        return_code = worker.wait()
+        if return_code != 0:
+            raise RuntimeError(f"El cálculo proxy terminó con código {return_code}.")
 
     per_campaign = []
     for campaign in campaigns:
         dates = expected_by_campaign[campaign["campaignKey"]]
-        per_date = [{
+        per_date = [proxies_by_campaign_date.get((campaign["campaignKey"], day), {
             "trdDate": day,
-            "rows": rows_by_campaign_date.get((campaign["campaignKey"], day), []),
-            "sourceCounts": counts_by_campaign_date.get((campaign["campaignKey"], day), {table: {"filesAvailable": 0, "filesWithMaturityRows": 0} for table in TABLES}),
-        } for day in dates]
+            "instrumentIdentities": [],
+            "sourceRows": 0,
+            "sourceRowHashCount": 0,
+            "sourceRowHashesDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "sourceFiles": [],
+            "sourceCounts": {table: {"filesAvailable": 0, "filesWithMaturityRows": 0} for table in TABLES},
+            "strictCounts": {"trades": 0, "midpoints": 0},
+            "fallbackCounts": {"trades": 0, "midpoints": 0},
+            "windowUsed": "none",
+            "fallbackUsed": False,
+            "sourceLabel": "missing",
+            "dailyReference": None,
+            "defined": False,
+            "reason": "No hay filas elegibles en las fuentes EEX para esta fecha.",
+        }) for day in dates]
         per_campaign.append({**campaign, "expectedDates": dates, "perDate": per_date})
     return per_campaign, source_hashes
 
@@ -209,7 +255,7 @@ def main():
     print(f"artifact={OUTPUT}")
     print(f"campaigns={len(per_campaign)} sourceFiles={len(source_hashes)} sha256={sha256_bytes(serialized.encode())}")
     for campaign in per_campaign:
-        rows = sum(len(date["rows"]) for date in campaign["perDate"])
+        rows = sum(date["sourceRows"] for date in campaign["perDate"])
         print(f"{campaign['campaignKey']} {campaign['windowStart']}..{campaign['windowEnd']} expected={len(campaign['expectedDates'])} rows={rows}")
 
 

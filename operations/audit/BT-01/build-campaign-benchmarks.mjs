@@ -41,13 +41,15 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
     const expectedDates = campaign.expectedDates;
     const perDate = [];
     const references = [];
-    const eligibleRows = (dateRecord) => dateRecord.rows.filter((row) => row.instrumentType === "Simple Instrument" && row.instrument);
-    const campaignInstruments = [...new Set(campaign.perDate.flatMap((dateRecord) => eligibleRows(dateRecord).map((row) => row.instrument)))].sort();
+    const eligibleRows = (dateRecord) => (dateRecord.rows ?? []).filter((row) => row.instrumentType === "Simple Instrument" && row.instrument);
+    const campaignInstruments = [...new Set(campaign.perDate.flatMap((dateRecord) =>
+      dateRecord.instrumentIdentities ?? eligibleRows(dateRecord).map((row) => row.instrument),
+    ))].sort();
     const campaignIdentityAmbiguous = campaignInstruments.length > 1;
 
     for (const dateRecord of campaign.perDate) {
       const eligibleDateRows = eligibleRows(dateRecord);
-      const instruments = [...new Set(eligibleDateRows.map((row) => row.instrument))].sort();
+      const instruments = [...new Set(dateRecord.instrumentIdentities ?? eligibleDateRows.map((row) => row.instrument))].sort();
       // A maturity with conflicting instrument identities cannot be silently
       // pooled: preserve the date as missing and expose the ambiguity.
       const instrumentAmbiguous = instruments.length > 1 || campaignIdentityAmbiguous;
@@ -64,7 +66,10 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
         accessible: true, // Existing P-005 rights decision; not inferred from readability.
         rowHash: row.rowHash,
       }));
-      const proxy = intradayProxyReference({
+      const proxy = dateRecord.proxyResult ?? (dateRecord.dailyReference !== undefined ? {
+        ...dateRecord,
+        value: dateRecord.dailyReference,
+      } : null) ?? intradayProxyReference({
         rows,
         product: campaign.campaignKey,
         trdDate: dateRecord.trdDate,
@@ -76,10 +81,13 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
         maturity: campaign.maturity,
         instrumentISIN: instruments.length === 1 && !campaignIdentityAmbiguous ? instruments[0] : null,
         instrumentIdentityAmbiguous: instrumentAmbiguous,
-        sourceRows: dateRecord.rows.length,
-        excludedRowsUnsupportedInstrument: dateRecord.rows.length - eligibleDateRows.length,
-        excludedRowsWithoutInstrument: dateRecord.rows.length - identifiedRows.length,
-        sourceHashes: [...new Set(dateRecord.rows.map((row) => row.rowHash).filter(Boolean))].sort(),
+        sourceRows: dateRecord.sourceRows ?? dateRecord.rows.length,
+        excludedRowsUnsupportedInstrument: dateRecord.rows ? dateRecord.rows.length - eligibleDateRows.length : 0,
+        excludedRowsWithoutInstrument: dateRecord.rows ? dateRecord.rows.length - identifiedRows.length : 0,
+        sourceFiles: dateRecord.sourceFiles ?? [],
+        sourceRowHashes: dateRecord.sourceRowHashesDigest !== undefined
+          ? { count: dateRecord.sourceRowHashCount, digest: dateRecord.sourceRowHashesDigest }
+          : [...new Set((dateRecord.rows ?? []).map((row) => row.rowHash).filter(Boolean))].sort(),
         sourceCounts: dateRecord.sourceCounts,
         strictCounts: proxy.strictCounts,
         fallbackCounts: proxy.fallbackCounts,

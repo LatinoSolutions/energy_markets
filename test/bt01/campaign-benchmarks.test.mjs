@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 
 import {
   buildCampaignBenchmarkArtifact,
@@ -90,6 +91,90 @@ test("BT-01 excluye filas cuyo tipo de instrumento está vacío o no es Simple I
   assert.equal(campaign.perDate[0].excludedRowsUnsupportedInstrument, 1);
 });
 
+test("BT-01 worker aplica la identidad y accesibilidad declaradas por el wrapper IMP-05", () => {
+  const input = {
+    campaignKey: "G0BM-202509",
+    trdDate: "2025-09-01",
+    sourceCounts: {},
+    sourceFiles: [],
+    rows: [{
+      instrument: "ISIN-1",
+      instrumentType: "Simple Instrument",
+      trdDate: "2025-09-01",
+      tmUtc: "2025-09-01T15:00:00Z",
+      price: 50,
+      bid: null,
+      ask: null,
+      rowHash: "row-1",
+    }],
+  };
+  const workerPath = new URL("../../operations/audit/BT-01/calculate-campaign-daily-proxies.mjs", import.meta.url);
+  const result = spawnSync("node", [workerPath.pathname], { input: `${JSON.stringify(input)}\n`, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const daily = JSON.parse(result.stdout);
+  assert.equal(daily.dailyReference, 50);
+  assert.equal(daily.defined, true);
+  assert.deepEqual(daily.instrumentIdentities, ["ISIN-1"]);
+  assert.equal(daily.sourceRowHashCount, 1);
+  assert.equal(daily.sourceFiles.length, 0);
+});
+
+test("BT-01 worker agrega miles de filas únicas sin cambiar la fórmula IMP-05", () => {
+  const input = {
+    campaignKey: "G0BM-202509",
+    trdDate: "2025-09-01",
+    sourceCounts: {},
+    sourceFiles: [],
+    rows: Array.from({ length: 5000 }, (_, index) => ({
+      instrument: "ISIN-1",
+      instrumentType: "Simple Instrument",
+      trdDate: "2025-09-01",
+      tmUtc: "2025-09-01T15:00:00Z",
+      price: index + 1,
+      bid: null,
+      ask: null,
+      rowHash: `row-${index}`,
+    })),
+  };
+  const workerPath = new URL("../../operations/audit/BT-01/calculate-campaign-daily-proxies.mjs", import.meta.url);
+  const result = spawnSync("node", [workerPath.pathname], { input: `${JSON.stringify(input)}\n`, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const daily = JSON.parse(result.stdout);
+  assert.equal(daily.dailyReference, 2500.5);
+  assert.deepEqual(daily.strictCounts, { trades: 5000, midpoints: 0 });
+  assert.equal(daily.sourceRowHashCount, 5000);
+});
+
+test("BT-01 worker activa el fallback IMP-05 cuando la ventana estricta no tiene datos utilizables", () => {
+  const input = {
+    campaignKey: "G0BM-202509",
+    trdDate: "2025-09-01",
+    sourceCounts: {},
+    sourceFiles: [],
+    rows: [{
+      instrument: "ISIN-1",
+      instrumentType: "Simple Instrument",
+      trdDate: "2025-09-01",
+      tmUtc: "2025-09-01T14:30:00Z", // 16:30 CEST: fallback, fuera del intervalo estricto.
+      price: 42,
+      bid: null,
+      ask: null,
+      rowHash: "row-fallback",
+    }],
+  };
+  const workerPath = new URL("../../operations/audit/BT-01/calculate-campaign-daily-proxies.mjs", import.meta.url);
+  const result = spawnSync("node", [workerPath.pathname], { input: `${JSON.stringify(input)}\n`, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const daily = JSON.parse(result.stdout);
+  assert.equal(daily.dailyReference, 42);
+  assert.equal(daily.windowUsed, "nearby-60m");
+  assert.equal(daily.fallbackUsed, true);
+  assert.deepEqual(daily.fallbackCounts, { trades: 1, midpoints: 0 });
+});
+
 test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inputs", () => {
   const rowsBytes = readFileSync(rowsArtifactPath);
   const rowsArtifact = JSON.parse(rowsBytes);
@@ -106,6 +191,7 @@ test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inp
   assert.ok(Object.keys(manifest.inputs.sourceFileHashes).length > 0);
   assert.ok(artifact.campaigns.some((campaign) => campaign.product === "G0BQ"));
   assert.ok(artifact.campaigns.some((campaign) => campaign.product === "G0BM"));
+  assert.ok(artifact.campaigns.some((campaign) => Number.isFinite(campaign.benchmark.B)));
 
   const calendar = JSON.parse(readFileSync(new URL("../../operations/audit/IMP-09/eex-exchange-calendar.json", import.meta.url)));
   const expectedCalendarDays = new Set(calendar.exchangeDays);
@@ -113,8 +199,15 @@ test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inp
     assert.ok(campaign.expectedDates.every((date) => expectedCalendarDays.has(date)));
     assert.equal(campaign.benchmark.expectedDatesCount, campaign.expectedDates.length);
     assert.deepEqual(campaign.benchmark.missingDates, campaign.expectedDates.filter((date) => !campaign.perDate.some((record) => record.trdDate === date && record.defined)));
-    assert.equal(campaign.status.status, "BENCHMARK_PROVISIONAL");
+    assert.equal(campaign.status.status, campaign.benchmark.B === null ? "B_NOT_DEFINED" : "BENCHMARK_PROVISIONAL");
     assert.equal(campaign.status.officialDates, 0);
     assert.equal(campaign.reconciliation.equivalent, false);
+    for (const dateRecord of campaign.perDate) {
+      assert.match(dateRecord.sourceRowHashes.digest, /^[a-f0-9]{64}$/);
+      assert.ok(dateRecord.sourceFiles.length > 0 || dateRecord.sourceRows === 0);
+      for (const source of dateRecord.sourceFiles) {
+        assert.equal(manifest.inputs.sourceFileHashes[source.path], source.sha256);
+      }
+    }
   }
 });
