@@ -50,7 +50,7 @@ const CALIBRATION_ARTIFACT_KEYS = [
   "executionSettings",
 ];
 
-const ACCESS_PURPOSES = {
+const IMP09_ACCESS_PURPOSES = {
   OOS_EVALUATION_INSPECTION: { consumesOos: false, section: "§15.2 (evaluación de versión frozen)" },
   CALIBRATION: { consumesOos: true, section: "§15.2" },
   FEATURE_SELECTION: { consumesOos: true, section: "§13.8" },
@@ -59,6 +59,27 @@ const ACCESS_PURPOSES = {
   BASELINE_VARIANT_SELECTION: { consumesOos: true, section: "§13.8" },
   EXECUTION_SETTING_SELECTION: { consumesOos: true, section: "§13.8" },
 };
+
+// TR-02 (patch 03 §4): propósitos de acceso propios del modo TRADES. Extienden
+// el registro reutilizable `recordOosAccess` a las lecturas del OOS histórico de
+// las 4 misiones; NO cambian la reserva IMP-09 ni su HOLD. Abrir el OOS con un
+// run_id nuevo consume el OOS y se cuenta como una nueva apertura (patch 03 §4
+// "un run_id nuevo sobre el OOS es una nueva apertura y se cuenta").
+export const TRADES_ACCESS_PURPOSES = Object.freeze({
+  TRADES_DEVELOPMENT_READ: { consumesOos: false, section: "patch 03 §4 (Development)" },
+  TRADES_BRIDGE_READ: { consumesOos: false, section: "patch 03 §4 (Puente EXPLORATORY)" },
+  TRADES_OOS_OPENING: { consumesOos: true, section: "patch 03 §4 (OOS histórico: una sola apertura con la versión congelada)" },
+  TRADES_OOS_INSPECTION: { consumesOos: false, section: "patch 03 §4 (examen sellado)" },
+});
+
+// Artefacto al que pertenecen los propósitos TRADES: un plan de zonas TR-02
+// (trades-zones.mjs). `recordOosAccess` lo usa para no mezclar tablas.
+const TRADES_PLAN_ARTIFACT_KIND = "TR-02_TRADES_ZONE_PLAN";
+
+// TRADES_ACCESS_PURPOSES se declara arriba, junto a los propósitos IMP-09, pero
+// las tablas NO se mezclan: `recordOosAccess` (IMP-09, §25.1) acepta sólo los
+// propósitos IMP-09 por defecto, y el registro TRADES pasa su propia tabla
+// explícitamente. Así una reserva IMP-09 no acepta un propósito TRADES.
 
 // Registro de elegibilidad real del caso Gas Quarterly. El paquete verificado
 // del cliente permite DERIVAR el registro (regla 3-1-3 delineada en
@@ -475,14 +496,21 @@ export function reserveGasQuarterlySealedOos(overrides = {}) {
 // §25.1 output: registro de acceso/consumo. Registrar un acceso sobre una
 // reserva que no está sellada no es posible; y un acceso que modifica el diseño
 // consume el OOS (§13.8/§15.2), que ya no puede reutilizarse como intacto.
-export function recordOosAccess(reservation, entry = {}) {
+export function recordOosAccess(reservation, entry = {}, purposes = IMP09_ACCESS_PURPOSES) {
   if (!reservation || reservation.decision !== "RESERVED") {
     return { ok: false, code: "RESERVATION_NOT_SEALED", message: "No se registra acceso al OOS sin una reserva sellada.", reservation: reservation ?? null };
+  }
+  // patch 03 §4: las tablas de propósitos están ligadas a su artefacto. Un plan
+  // TRADES registrado con la tabla IMP-09 perdería el estado por misión y
+  // dejaría el sello por misión en "SEALED" con el OOS consumido (fallo
+  // abierto); se rechaza y sólo la tabla TRADES puede consumir un plan TRADES.
+  if (reservation.artifactKind === TRADES_PLAN_ARTIFACT_KIND && purposes !== TRADES_ACCESS_PURPOSES) {
+    return { ok: false, code: "ACCESS_PURPOSE_ARTIFACT_MISMATCH", message: "Un plan TRADES sólo registra accesos con los propósitos TRADES; la tabla IMP-09 no aplica (patch 03 §4).", reservation };
   }
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return { ok: false, code: "INVALID_ACCESS_ENTRY", message: "El acceso no es un registro válido.", reservation };
   }
-  const purpose = ACCESS_PURPOSES[entry.purpose];
+  const purpose = purposes[entry.purpose];
   if (!purpose) {
     return { ok: false, code: "UNKNOWN_ACCESS_PURPOSE", message: `El acceso usa un propósito no declarado: ${entry.purpose}.`, reservation };
   }
@@ -499,6 +527,11 @@ export function recordOosAccess(reservation, entry = {}) {
     modifiesDesign: entry.modifiesDesign === true,
     consumesOos,
     section: purpose.section,
+    // TR-02: el modo TRADES abre el OOS por (misión, run_id); se conservan para
+    // poder contar las aperturas y el estado por misión. Un acceso IMP-09 sin
+    // estos campos no cambia.
+    ...(isNonEmptyString(entry.runId) ? { runId: entry.runId } : {}),
+    ...(isNonEmptyString(entry.mission) ? { mission: entry.mission } : {}),
   };
   const entries = [...reservation.accessRegistry.entries, record];
   const oosStatus = entries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED";

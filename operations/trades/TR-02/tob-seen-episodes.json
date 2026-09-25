@@ -1,0 +1,158 @@
+{
+ "artifactKind": "TR-02_TOB_SEEN_EPISODES",
+ "schemaVersion": "1.0",
+ "source": {
+  "path": "operations/exploratory/v2/backtest-results.json",
+  "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8",
+  "note": "Extraccion de SOLO identidad de campaign (producto/maturity/readiness/firstDay/lastDay). El artefacto de origen contiene precios; no se leyeron ni se copiaron."
+ },
+ "episodes": [
+  {
+   "product": "G0BM",
+   "maturity": "202509",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": "2025-08-01",
+   "lastDay": "2025-08-28"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202510",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2025-09-01",
+   "lastDay": "2025-09-29"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202511",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2025-10-01",
+   "lastDay": "2025-10-30"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202512",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2025-11-03",
+   "lastDay": "2025-11-27"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202601",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2025-12-01",
+   "lastDay": "2025-12-30"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202602",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-01-02",
+   "lastDay": "2026-01-29"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202603",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-02-02",
+   "lastDay": "2026-02-26"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202604",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-03-02",
+   "lastDay": "2026-03-30"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202605",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-04-01",
+   "lastDay": "2026-04-29"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202606",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-05-04",
+   "lastDay": "2026-05-28"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202607",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-06-01",
+   "lastDay": "2026-06-29"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202608",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": "2026-07-01",
+   "lastDay": "2026-07-28"
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202609",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": null,
+   "lastDay": null
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202610",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": null,
+   "lastDay": null
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202611",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": null,
+   "lastDay": null
+  },
+  {
+   "product": "G0BM",
+   "maturity": "202612",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": null,
+   "lastDay": null
+  },
+  {
+   "product": "G0BQ",
+   "maturity": "202510",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": "2025-06-02",
+   "lastDay": "2025-08-29"
+  },
+  {
+   "product": "G0BQ",
+   "maturity": "202601",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2025-09-01",
+   "lastDay": "2025-11-28"
+  },
+  {
+   "product": "G0BQ",
+   "maturity": "202604",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2025-12-01",
+   "lastDay": "2026-02-27"
+  },
+  {
+   "product": "G0BQ",
+   "maturity": "202607",
+   "readiness": "EXPLORATORY_COMPLETE",
+   "firstDay": "2026-03-02",
+   "lastDay": "2026-05-29"
+  },
+  {
+   "product": "G0BQ",
+   "maturity": "202610",
+   "readiness": "INSUFFICIENT_DATA",
+   "firstDay": "2026-06-01",
+   "lastDay": "2026-07-28"
+  }
+ ]
+}
