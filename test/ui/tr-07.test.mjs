@@ -56,6 +56,8 @@ test("TR-07 cobertura: cada fila sale del artifact y conserva su zona", () => {
   assert.equal(panels.coverage.status, zonePlan.coverageStatus.status);
   assert.equal(panels.coverage.reason, zonePlan.coverageStatus.reason);
   assert.equal(panels.coverage.status, "PENDING_SCAN_JOB");
+  assert.equal(panels.coverage.sourceDecisionStatus, sourceDecision.status);
+  assert.equal(panels.coverage.sourceDecisionStatus, "PENDING_ARCHIVE_VERIFICATION");
   assert.equal(panels.coverage.missions.length, Object.keys(zonePlan.missions).length);
   for (const mission of panels.coverage.missions) {
     assert.equal(mission.market, zonePlan.missions[mission.missionId].market);
@@ -66,22 +68,26 @@ test("TR-07 cobertura: cada fila sale del artifact y conserva su zona", () => {
         const source = zonePlan.missions[mission.missionId].zones[zone.zone].find((entry) => entry.campaignId === campaign.campaignId);
         assert.equal(campaign.maturity, source.maturity);
         assert.equal(campaign.windowStart, source.windowStart);
-        assert.equal(campaign.coverage.status, source.coverage.status);
-        assert.equal(campaign.coverage.daysWithTrades, source.coverage.daysWithTrades);
-        assert.equal(campaign.coverage.totalEligibleTrades, source.coverage.totalEligibleTrades);
+        // El artifact declara NO_COVERAGE con ceros mientras el escaneo no corre;
+        // TR-07 conserva ese estado en artifactStatus pero no lo presenta como medido.
+        assert.equal(campaign.coverage.artifactStatus, source.coverage.status);
       }
     }
   }
 });
 
-test("TR-07 cobertura: sin escaneo el estado es NO_COVERAGE con días y trades en cero declarados", () => {
+test("TR-07 cobertura: con PENDING_SCAN_JOB las cifras salen pendientes, no en cero", () => {
   const quarterly = panels.coverage.missions.find((mission) => mission.missionId === "GAS_QUARTERLY");
   const development = quarterly.zones.find((zone) => zone.zone === "DEVELOPMENT");
   assert.ok(development.campaigns.length > 0);
   for (const campaign of development.campaigns) {
-    assert.equal(campaign.coverage.status, "NO_COVERAGE");
-    assert.equal(campaign.coverage.daysWithTrades, 0);
-    assert.equal(campaign.coverage.totalEligibleTrades, 0);
+    assert.equal(campaign.coverage.status, "PENDING_SCAN_JOB");
+    assert.equal(campaign.coverage.measurementPending, true);
+    assert.equal(campaign.coverage.daysWithTrades, null);
+    assert.equal(campaign.coverage.totalEligibleTrades, null);
+    assert.equal(campaign.coverage.volumeSum, null);
+    // La ventana es estructural (calendario/regla), no una medición: se conserva.
+    assert.equal(typeof campaign.coverage.windowDays, "number");
   }
 });
 
@@ -162,4 +168,10 @@ test("TR-07: la procedencia identifica el artifact y su manifest", () => {
   assert.equal(panels.provenance.zonePlan.manifestPath, TRADES_PANEL_ARTIFACTS.zonePlan.manifest);
   assert.equal(panels.provenance.bridgeStatus.path, TRADES_PANEL_ARTIFACTS.bridgeStatus.artifact);
   assert.equal(panels.provenance.bridgeMeasurement, null);
+});
+
+test("TR-07 gate: el prototipo no pinta ceros no medidos y muestra el estado de la fuente TR-01", () => {
+  const html = readFileSync(path.join(DEFAULT_REPO_ROOT, "operations/trades/TR-07/prototipo-tr07.html"), "utf8");
+  assert.equal(/0 \/ \d+ d/.test(html), false, "no debe mostrar '0 / N d' como si la cobertura se hubiera medido");
+  assert.ok(html.includes("PENDING_ARCHIVE_VERIFICATION"), "el prototipo debe mostrar el estado real del artifact TR-01");
 });

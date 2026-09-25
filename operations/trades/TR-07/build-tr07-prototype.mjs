@@ -44,14 +44,20 @@ function coverageHtml(panels) {
   const coverage = panels.coverage;
   const missionBlocks = (coverage.missions ?? []).map((mission) => {
     const zones = mission.zones.map((zone) => {
-      const rows = zone.campaigns.slice(0, 3).map((campaign) => `<tr><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd)}</td><td>${chip("unk", "?", campaign.coverage.status)}</td><td class="right mono">${esc(campaign.coverage.daysWithTrades)} / ${esc(campaign.coverage.windowDays)} d</td></tr>`).join("");
+      const rows = zone.campaigns.slice(0, 3).map((campaign) => {
+        // Cifra medida vs pendiente: un cero no medido no se muestra como dato.
+        const days = campaign.coverage.daysWithTrades;
+        const daysText = days === null || days === undefined ? "—" : String(days);
+        return `<tr><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd)}</td><td>${chip("unk", "?", campaign.coverage.status)}</td><td class="right mono">${esc(daysText)} / ${esc(campaign.coverage.windowDays)} d</td></tr>`;
+      }).join("");
       return `<div class="small muted" style="margin-top:6px">${esc(zone.zone)} · ${zone.campaigns.length} campaign(s)</div><table class="t"><thead><tr><th>Campaign</th><th>Zone</th><th>Window</th><th>Coverage</th><th class="right">Days w/ trades</th></tr></thead><tbody>${rows}</tbody></table>`;
     }).join("");
     return `<div style="margin-top:10px"><div class="mono small">${esc(mission.missionId)} · ${esc(mission.market)} · ${esc(mission.shortCode)}</div>${zones}</div>`;
   }).join("");
   return `<div class="card" style="margin-top:14px" data-tr07="coverage">
     <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · per instrument, per day</span><span class="grow"></span>${chip("unk", "?", coverage.status)}</div>
-    <div class="bd"><div class="small muted">${esc(coverage.reason)}</div>${missionBlocks}</div>
+    <div class="bd"><div class="small muted">${esc(coverage.reason)}</div>
+      <div class="small muted" style="margin-top:6px">TR-01 source decision: ${chip("warn", "!", coverage.sourceDecisionStatus)}</div>${missionBlocks}</div>
   </div>`;
 }
 

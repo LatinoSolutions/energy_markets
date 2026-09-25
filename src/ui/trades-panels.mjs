@@ -97,28 +97,38 @@ export function loadTradesPanelsAt(repoRoot = DEFAULT_REPO_ROOT) {
   return { sourceDecision, zonePlan, bridgeStatus, bridgeMeasurement };
 }
 
+// El artifact de TR-02 (aceptado) declara cada campaign en NO_COVERAGE con ceros
+// mientras el escaneo de TR-01 no ha corrido. Un cero no medido no es un dato: si el
+// nivel general sigue PENDING_SCAN_JOB, TR-07 presenta las cifras como pendientes en
+// vez de propagar los ceros (TRADES_MODE_PLAN.md TR-07; hallazgo TR07-PENDING-ZEROS).
+const COVERAGE_PENDING_STATUSES = Object.freeze(new Set(["PENDING_SCAN_JOB"]));
+
 // Una fila de cobertura: sólo se copian campos del artifact de TR-02 (que a su vez
-// los toma de TR-01_COVERAGE). Ningún campo de precio.
-function coverageCell(coverage) {
+// los toma de TR-01_COVERAGE). Ningún campo de precio. `overallStatus` decide si la
+// medición existe; cuando no, los campos medidos salen null (ausentes, no cero).
+function coverageCell(coverage, overallStatus) {
   if (coverage === null || typeof coverage !== "object") {
     return { status: "UNAVAILABLE", reason: "cobertura no declarada en el plan de zonas" };
   }
+  const measurementPending = COVERAGE_PENDING_STATUSES.has(overallStatus);
   return {
-    status: coverage.status,
+    status: measurementPending ? overallStatus : coverage.status,
+    artifactStatus: coverage.status,
+    measurementPending,
     source: coverage.source,
     legacyMaturity: coverage.legacyMaturity,
     contract: coverage.contract,
     windowDays: coverage.windowDays,
-    daysWithTrades: coverage.daysWithTrades,
-    totalEligibleTrades: coverage.totalEligibleTrades,
-    volumeSum: coverage.volumeSum,
-    firstDate: coverage.firstDate,
-    lastDate: coverage.lastDate,
-    density: coverage.density,
+    daysWithTrades: measurementPending ? null : coverage.daysWithTrades,
+    totalEligibleTrades: measurementPending ? null : coverage.totalEligibleTrades,
+    volumeSum: measurementPending ? null : coverage.volumeSum,
+    firstDate: measurementPending ? null : coverage.firstDate,
+    lastDate: measurementPending ? null : coverage.lastDate,
+    density: measurementPending ? null : coverage.density,
   };
 }
 
-function campaignEntry(campaign, zone) {
+function campaignEntry(campaign, zone, overallStatus) {
   return {
     campaignId: campaign.campaignId,
     product: campaign.product,
@@ -131,7 +141,7 @@ function campaignEntry(campaign, zone) {
     windowEnd: campaign.windowEnd ?? null,
     deadline: campaign.deadline ?? null,
     windowRule: campaign.windowRule ?? null,
-    coverage: coverageCell(campaign.coverage),
+    coverage: coverageCell(campaign.coverage, overallStatus),
   };
 }
 
@@ -150,14 +160,14 @@ function projectCoverage(zonePlan, sourceDecision) {
     shortCode: mission.shortCode,
     zones: Object.entries(mission.zones ?? {}).map(([zone, campaigns]) => ({
       zone,
-      campaigns: campaigns.map((campaign) => campaignEntry(campaign, zone)),
+      campaigns: campaigns.map((campaign) => campaignEntry(campaign, zone, coverageStatus.status)),
     })),
   }));
   return {
     status: coverageStatus.status,
     reason: coverageStatus.reason ?? null,
     source: coverageStatus.source ?? null,
-    sourceDecisionStatus: sourceDecision?.ok === true ? sourceDecision.json?.decision?.status ?? null : "UNAVAILABLE",
+    sourceDecisionStatus: sourceDecision?.ok === true ? sourceDecision.json?.status ?? null : "UNAVAILABLE",
     sourceDecisionPolicy: sourceDecision?.ok === true ? sourceDecision.json?.brokenSpreadPolicy ?? null : null,
     missions,
   };
