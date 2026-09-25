@@ -1,0 +1,96 @@
+{
+ "receiptKind": "BT-05_BACKTEST_RUN_RECEIPT",
+ "schemaVersion": "3",
+ "runId": "BT-RUN-94a2d47edf2ef869310285c19864fd2a73668ee20b263d826086c85c8689f7fd",
+ "attempt": 1,
+ "jobKind": "EXPLORATORY_BACKTEST",
+ "jobVersion": "2",
+ "identity": {
+  "codeCommit": "214ba050f061d923b0566b62372aa3a66113f34c",
+  "dataManifestSha256": "8aa23b618c9127abc61252214a9ff65166eb86c35e44ad73b1c241ca1d8bf3fa",
+  "parameters": {
+   "jobKind": "EXPLORATORY_BACKTEST",
+   "entry": "operations/exploratory/v2/run-exploratory-backtest.mjs",
+   "slotsPath": "operations/exploratory/v2/tob-slots-the-gas.json",
+   "outputPath": "operations/exploratory/v2/backtest-results.json"
+  },
+  "engineVersion": "2"
+ },
+ "status": "SUCCEEDED",
+ "requestedBy": "ui",
+ "startedAt": "2026-09-25T23:16:12.695Z",
+ "receiptPath": "operations/backtest-runs/BT-RUN-94a2d47edf2ef869310285c19864fd2a73668ee20b263d826086c85c8689f7fd/attempt-1/RUN_RECEIPT.json",
+ "code": {
+  "gitHead": "214ba050f061d923b0566b62372aa3a66113f34c",
+  "entry": "operations/exploratory/v2/run-exploratory-backtest.mjs",
+  "source": "git archive del commit",
+  "staged": {
+   "files": 182,
+   "sha256": "bf88a761e2fac7ee7308007ef6823c2bd1dd19102414a0568850ccc2cd4cea79"
+  }
+ },
+ "inputs": {
+  "release": "v2",
+  "manifest": {
+   "path": "operations/exploratory/v2/MANIFEST.json",
+   "sha256": "3114f2ffb939db6100da7c313453c91a51be4e7bf717ef5c8f5e724f9197625c"
+  },
+  "files": [
+   {
+    "path": "operations/exploratory/v2/tob-slots-the-gas.json",
+    "sha256": "55a6dd6ca9445ae87382380f81b8e442ca1550793020777b5a99d17774f4f012"
+   },
+   {
+    "path": "operations/exploratory/v2/build_tob_slots.py",
+    "sha256": "d7a7b99f193fbc8fccbccc8420387d23f310f05298f8a77062450362912b9116"
+   },
+   {
+    "path": "operations/exploratory/v2/run-exploratory-backtest.mjs",
+    "sha256": "f2be9d496546ad0733cd32a322813e7993b37ac8ff37650370118e247ee7410c"
+   },
+   {
+    "path": "src/exploratory/backtest.mjs",
+    "sha256": "7ba8860d53cc879f8719c32eb91777cce20d04c952cfd50a3531cb966b26e1d0"
+   },
+   {
+    "path": "src/exploratory/comparison.mjs",
+    "sha256": "ab09f7cefba71b6d9a5f94b7e0c81f141bf4083ea7e78513a4ceb3eafd0715fc"
+   },
+   {
+    "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
+    "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5"
+   }
+  ]
+ },
+ "authority": "BT-05 owner request 25-sep-2026; comando autorizado con receipt (SPEC v1.1.1 §26.5). Resultado EXPLORATORY, no canónico.",
+ "pid": 2513522,
+ "exit": {
+  "code": 0,
+  "signal": null
+ },
+ "memory": {
+  "childMaxRssKb": 68432,
+  "cgroup": "/user.slice/user-1001.slice/user@1001.service/app.slice/energy-markets-ui.service",
+  "cgroupMemoryPeakBytesBefore": 36638720,
+  "cgroupMemoryPeakBytesAfter": 55717888,
+  "cgroupOomKillsDuringRun": 0,
+  "note": "memory.peak es el pico del cgroup completo desde que arrancó el servicio, no sólo de este job"
+ },
+ "result": {
+  "status": "EXPLORATORY",
+  "results": {
+   "path": "operations/backtest-runs/BT-RUN-94a2d47edf2ef869310285c19864fd2a73668ee20b263d826086c85c8689f7fd/attempt-1/workspace/operations/exploratory/v2/backtest-results.json",
+   "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8"
+  },
+  "manifest": {
+   "path": "operations/backtest-runs/BT-RUN-94a2d47edf2ef869310285c19864fd2a73668ee20b263d826086c85c8689f7fd/attempt-1/workspace/operations/exploratory/v2/MANIFEST.json",
+   "sha256": "3114f2ffb939db6100da7c313453c91a51be4e7bf717ef5c8f5e724f9197625c"
+  },
+  "committedResults": {
+   "path": "operations/exploratory/v2/backtest-results.json",
+   "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8"
+  },
+  "reproducesCommittedResults": true
+ },
+ "finishedAt": "2026-09-25T23:16:12.924Z"
+}

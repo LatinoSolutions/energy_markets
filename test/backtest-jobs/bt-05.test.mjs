@@ -957,3 +957,22 @@ test("BT-05 identidad: si un dato copiado que el generador no declara (calendari
   assert.equal(runner.status().currentResult, null);
   assert.equal(lockIsFree(runner), true);
 });
+
+test("BT-05 P-011: la evidencia del primer run real es copia íntegra del receipt y mide memory.peak", () => {
+  const evidenceDir = path.join(DEFAULT_REPO_ROOT, "evidence", "BT-05", "first-real-run");
+  const readme = readFileSync(path.join(evidenceDir, "README.md"), "utf8");
+  for (const file of ["RUN_RECEIPT.json", "REGISTRY-RUN_CLOSED.jsonl"]) {
+    const sha = createHash("sha256").update(readFileSync(path.join(evidenceDir, file))).digest("hex");
+    assert.ok(readme.includes(sha), `${file}: el README debe citar su sha256 ${sha}`);
+  }
+  const receipt = JSON.parse(readFileSync(path.join(evidenceDir, "RUN_RECEIPT.json"), "utf8"));
+  assert.equal(receipt.receiptKind, RECEIPT_KIND);
+  assert.equal(receipt.requestedBy, "ui", "el primer run lo lanza Bru desde el botón");
+  assert.equal(receipt.status, JOB_STATUS.SUCCEEDED);
+  assert.equal(receipt.memory.cgroupOomKillsDuringRun, 0);
+  assert.ok(Number.isInteger(receipt.memory.cgroupMemoryPeakBytesAfter), "memory.peak medido, no null");
+  const closed = JSON.parse(readFileSync(path.join(evidenceDir, "REGISTRY-RUN_CLOSED.jsonl"), "utf8"));
+  assert.equal(closed.event, REGISTRY_EVENT.RUN_CLOSED);
+  assert.equal(closed.runId, receipt.runId);
+  assert.equal(closed.manifest.memoryPeak.cgroupMemoryPeakBytesAfter, receipt.memory.cgroupMemoryPeakBytesAfter);
+});
