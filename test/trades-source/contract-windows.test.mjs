@@ -61,3 +61,13 @@ test("mide la relación EndDate (último día de negociación) vs ExpiryDate por
   assert.equal(relation.endDateEqualsExpiry, 1);
   assert.equal(relation.endDateAfterExpiry, 1);
 });
+
+test("la relación ExpiryDate cuenta contratos (colapsa filas repetidas del mismo instrumento)", () => {
+  const referenceRows = [
+    tradeRow({ InstrumentISIN: "ISIN-A", EndDate: "2025-11-20", ExpiryDate: "2025-11-25" }),
+    tradeRow({ InstrumentISIN: "ISIN-A", EndDate: "2025-11-21", ExpiryDate: "2025-11-25" }),
+  ];
+  const relation = measureReferenceExpiryRelation(referenceRows);
+  assert.equal(relation.contractCount, 1);
+  assert.equal(relation.endDateBeforeExpiry, 1);
+});

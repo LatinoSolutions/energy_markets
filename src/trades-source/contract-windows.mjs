@@ -40,15 +40,33 @@ export function contractWindowsFromReference(referenceRows, { exchangeDaysBetwee
 
 // Relación `EndDate` ↔ `ExpiryDate` que pide el plan TR-01 ("contenido de
 // eex_derivative_reference ... relación con ExpiryDate"). `EndDate` es el último
-// día de negociación; `ExpiryDate` el vencimiento del contrato. Cuenta contratos
-// con EndDate anterior, igual o posterior a ExpiryDate. Sólo compara fechas
-// completas YYYY-MM-DD; una fecha ausente o inválida no se inventa y se declara.
+// día de negociación; `ExpiryDate` el vencimiento del contrato. Cuenta CONTRATOS
+// (una entrada por instrumento), no filas: si la referencia trae más de una fila
+// por contrato se colapsan. Sólo compara fechas completas YYYY-MM-DD; una fecha
+// ausente o inválida no se inventa y se declara.
 function normalizeCalendarDay(value) {
   const text = String(value ?? "").slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 
+function laterDay(current, candidate) {
+  if (candidate === null) return current;
+  if (current === null || candidate > current) return candidate;
+  return current;
+}
+
 export function measureReferenceExpiryRelation(referenceRows) {
+  const byContract = new Map();
+  let anonymous = 0;
+  for (const row of referenceRows ?? []) {
+    const instrument = instrumentIdentity(row);
+    // Una fila sin identidad no se atribuye a un contrato ajeno: cuenta sola.
+    const key = instrument || `__anonymous__${anonymous++}`;
+    const current = byContract.get(key) ?? { endDate: null, expiryDate: null };
+    current.endDate = laterDay(current.endDate, normalizeCalendarDay(row?.EndDate));
+    current.expiryDate = laterDay(current.expiryDate, normalizeCalendarDay(row?.ExpiryDate));
+    byContract.set(key, current);
+  }
   const summary = {
     contractCount: 0,
     withEndDate: 0,
@@ -58,10 +76,8 @@ export function measureReferenceExpiryRelation(referenceRows) {
     endDateEqualsExpiry: 0,
     endDateAfterExpiry: 0,
   };
-  for (const row of referenceRows ?? []) {
+  for (const { endDate, expiryDate } of byContract.values()) {
     summary.contractCount += 1;
-    const endDate = normalizeCalendarDay(row?.EndDate);
-    const expiryDate = normalizeCalendarDay(row?.ExpiryDate);
     if (endDate !== null) summary.withEndDate += 1;
     if (expiryDate !== null) summary.withExpiryDate += 1;
     if (endDate === null || expiryDate === null) continue;
