@@ -5,9 +5,11 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { buildUiViewModels } from "../../src/ui/server.mjs";
-import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
+import { EXPLORATORY_MANIFEST_PATH, loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
+import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../../src/exploratory/reconciliation.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { projectExploratoryPages } from "../../src/ui/view-models.mjs";
 
@@ -187,6 +189,20 @@ test("UI-05: el reloj del shell muestra el último día del snapshot EEX en las 
   }
   const failClosed = renderSurfacePage("replay", buildUiViewModels({}).replay);
   assert.match(failClosed, /data as-of <span class="unkv">UNAVAILABLE<\/span>/);
+});
+
+// UI05-CAP-01 (review 2026-09-25): las capturas del gate P-008 salieron del artifact v1
+// superseded. Se fija que las páginas pintan el snapshot de la release vigente (BT-04).
+test("UI-05: las páginas exploratorias pintan el snapshot del manifest de la release vigente", () => {
+  assert.equal(EXPLORATORY_MANIFEST_PATH, BT02_RELEASES[BT02_CURRENT_RELEASE].exploratoryManifest);
+  assert.equal(canonical.backend.exploratory.manifestPath, EXPLORATORY_MANIFEST_PATH);
+  const manifest = JSON.parse(readFileSync(new URL(`../../${EXPLORATORY_MANIFEST_PATH}`, import.meta.url), "utf8"));
+  assert.equal(canonical.backend.exploratory.slotsSha256, manifest.slots.sha256);
+  assert.equal(canonical.backend.exploratory.resultsSha256, manifest.results.sha256);
+  for (const surface of ["replay", "backtests", "research", "campaigns"]) {
+    const html = renderSurfacePage(surface, vms[surface]);
+    assert.ok(html.includes(`sha ${manifest.slots.sha256.slice(0, 12)}`), surface);
+  }
 });
 
 test("UI-05: ningún dato demo del mockup entra en las páginas exploratorias", () => {

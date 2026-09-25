@@ -3,7 +3,7 @@
 - Pedido: Bru, 25-sep-2026 (PLAN_STATUS UI-05).
 - Mockup: rama `des-01-blind`, `design-proposal/index.html` (servido en :8765).
 - Capturas de referencia: `/srv/hot-data/metrics/ui-compare-20260925/*_mockup.png`, 1440x900.
-- Data: solo el artifact exploratorio verificado por hash (`operations/exploratory/MANIFEST.json` → `backtest-results.json`, sha256 `ce51969129b4…`) y el registro BT-02 (`reconciled-results-BT-02.json`). No se regeneró ningún artifact.
+- Data: solo la release vigente del backend exploratorio, la que resuelve el loader (`BT02_CURRENT_RELEASE = "v2"`, `src/exploratory/reconciliation.mjs`; BT-04, 25-sep): `operations/exploratory/v2/MANIFEST.json` (sha256 `3114f2ffb939…`) → `v2/backtest-results.json` (sha256 `660d14a0f7c5…`) y `v2/tob-slots-the-gas.json` (sha256 `55a6dd6ca944…`), más el registro BT-02 `v2/reconciled-results-BT-02.json` (sha256 `ad0cab12565f…`). La release v1 (`operations/exploratory/MANIFEST.json`, `backtest-results.json` sha256 `ce51969129b4…`) queda en disco superseded y la UI no la consume. Ningún artifact se regeneró en UI-05.
 
 ## Capturas para el gate de Bru
 
@@ -14,6 +14,11 @@
 | `after/` | Página completa después, 1440 px, más `replay-hindsight-on.png` (overlay de hindsight activado) |
 
 Para regenerarlas: `node src/ui/serve.mjs --port 8799` y Playwright a 1440x900, full page, en `/campaigns`, `/replay`, `/backtests` y `/research`.
+
+Todas las capturas de `before/`, `after/`, `compare/` y `p008-campaigns/` (salvo `prototype-campaigns.png` y los mockups) se regeneraron el 25-sep contra la release v2 (UI05-CAP-01): las anteriores eran del artifact v1 superseded. Comprobado en el HTML servido: ninguna página de los tres servidores contiene el sha v1 `85d0c4ad5c87` y todas contienen el v2 `55a6dd6ca944`, salvo `/replay` de `main`, que no pinta el sha del snapshot.
+- ANTES de `before/` y `compare/`: `main` en `09f06d2`, servido desde una copia `git archive` (release v2, UI sin UI-05).
+- DESPUÉS: esta rama, servida desde el worktree.
+- ANTES de `p008-campaigns/`: **reconstrucción**, no un commit servido tal cual. Es el código de UI de `b25096b` (`render`, `view-models`, `visual-language`) sobre el resto del árbol de esta rama, para que los dos lados pinten la misma release v2. `b25096b` servido tal cual pintaría v1.
 
 ## Qué diseño se recuperó
 
@@ -43,7 +48,7 @@ Para regenerarlas: `node src/ui/serve.mjs --port 8799` y Playwright a 1440x900, 
 | Backtests | Forest plot "Across campaigns" en SVG con eje | Filas HTML | SVG con eje, un rombo por brazo |
 | Todas | Reloj `data as-of` del shell | `UNAVAILABLE` | Último día del snapshot EEX usado (`inputs.dataPeriod.lastDataDay` = 2026-07-28) y sha del snapshot. Sin backtest exploratorio sigue `UNAVAILABLE`. |
 
-Secciones nuevas de UI-04/BT-03 que se conservan: dos bloques por producto (G0BQ, G0BM) en Backtests, tabla "Exploratory backtest · real EEX best ask", perfiles horarios, "Campaign measurements · backend readiness" (BT-02), las 21 campañas, las 31 decisiones con compra y los 9 candidatos.
+Secciones nuevas de UI-04/BT-03 que se conservan: dos bloques por producto (G0BQ, G0BM) en Backtests, tabla "Exploratory backtest · real EEX best ask", perfiles horarios, "Campaign measurements · backend readiness" (BT-02), las 21 campañas, las 31 decisiones con compra y los 8 candidatos (`A0, DIP10, HOUR, S2, S3, S4, S5, Z`).
 
 ## Auditoría pieza por pieza: ¿la data de hoy lo sostiene?
 
