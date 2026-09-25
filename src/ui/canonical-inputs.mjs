@@ -15,6 +15,8 @@ import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 import { buildPitManifestFromAudit } from "../pit-views/views.mjs";
 import { backendIndexFromManifest } from "../operator-interface/index.mjs";
 import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../exploratory/reconciliation.mjs";
+import { POWER_EXPLORATORY_RELEASE } from "../exploratory/missions.mjs";
+import { mergeExploratoryResults, productsOfResults } from "../exploratory/exploratory-merge.mjs";
 import { loadTradesPanels } from "./trades-panels.mjs";
 
 export const TEMPORAL_MANIFEST_RECEIPT = "operations/receipts/IMP-03-IMP_RECEIPT.json";
@@ -61,15 +63,26 @@ const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");
 // Backtest exploratorio (owner patch EM-SPEC-OWNER-PATCH-2026-09-24-02 §4). No es
 // un record canónico del boundary: se muestra aparte y etiquetado EXPLORATORY.
 // Solo se acepta si resultados e input coinciden byte a byte con el manifest.
-export function loadExploratoryBacktestAt(repoRoot) {
+const GAS_EXPLORATORY_RELEASE = Object.freeze({
+  release: "v2",
+  market: "GAS_THE",
+  manifest: EXPLORATORY_MANIFEST_PATH,
+  results: BT02_RELEASE.exploratoryResults,
+});
+
+// BT-06: un release exploratorio se acepta sólo si cada pieza (resultados, slots y
+// generadores) coincide con el sha256 que declara su manifest.
+function verifiedExploratoryRelease(repoRoot, spec) {
   let manifest;
   try {
-    manifest = JSON.parse(readFileSync(path.join(repoRoot, EXPLORATORY_MANIFEST_PATH), "utf8"));
+    manifest = JSON.parse(readFileSync(path.join(repoRoot, spec.manifest), "utf8"));
   } catch {
-    return { ok: false, code: "EXPLORATORY_MANIFEST_MISSING" };
+    return { ok: false, code: "EXPLORATORY_MANIFEST_MISSING", path: spec.manifest };
   }
-  const checks = [manifest.results, manifest.slots, ...(manifest.generators ?? [])];
-  for (const entry of checks) {
+  if (manifest?.artifactKind !== "EXPLORATORY_BACKTEST_MANIFEST" || manifest?.results?.path !== spec.results) {
+    return { ok: false, code: "EXPLORATORY_MANIFEST_INVALID", path: spec.manifest };
+  }
+  for (const entry of [manifest.results, manifest.slots, ...(manifest.generators ?? [])]) {
     let bytes;
     try {
       bytes = readFileSync(path.join(repoRoot, entry?.path ?? ""));
@@ -84,7 +97,59 @@ export function loadExploratoryBacktestAt(repoRoot) {
   if (results.status !== "EXPLORATORY" || results.inputs?.slots?.sha256 !== manifest.slots.sha256) {
     return { ok: false, code: "EXPLORATORY_INPUT_MISMATCH" };
   }
-  return { ok: true, results, provenance: { manifestPath: EXPLORATORY_MANIFEST_PATH, resultsPath: manifest.results.path, resultsSha256: manifest.results.sha256, slotsSha256: manifest.slots.sha256 } };
+  return {
+    ok: true,
+    results,
+    provenance: {
+      release: spec.release,
+      market: manifest.market ?? spec.market ?? null,
+      manifestPath: spec.manifest,
+      resultsPath: manifest.results.path,
+      resultsSha256: manifest.results.sha256,
+      slotsPath: manifest.slots.path,
+      slotsSha256: manifest.slots.sha256,
+    },
+  };
+}
+
+function byProductProvenance(provenance, products) {
+  return Object.fromEntries(products.map((product) => [product, provenance]));
+}
+
+// BT-06: el release v3 de Power vive en una ruta versionada nueva; hasta que el job
+// de DATA-01 lo produzca, su ausencia es un estado (fail-closed), no un error.
+export function loadPowerExploratoryBacktestAt(repoRoot) {
+  return verifiedExploratoryRelease(repoRoot, POWER_EXPLORATORY_RELEASE);
+}
+
+export function loadExploratoryBacktestAt(repoRoot) {
+  const gas = verifiedExploratoryRelease(repoRoot, GAS_EXPLORATORY_RELEASE);
+  if (!gas.ok) {
+    return gas;
+  }
+  const gasProvenance = {
+    ...gas.provenance,
+    releases: [gas.provenance],
+    byProduct: byProductProvenance(gas.provenance, productsOfResults(gas.results)),
+  };
+  const power = loadPowerExploratoryBacktestAt(repoRoot);
+  if (!power.ok) {
+    return { ok: true, results: gas.results, provenance: gasProvenance, power: { loaded: false, code: power.code } };
+  }
+  const merged = mergeExploratoryResults(gas.results, power.results);
+  if (!merged.ok) {
+    return { ok: false, code: merged.code };
+  }
+  const byProduct = {
+    ...byProductProvenance(gas.provenance, productsOfResults(gas.results)),
+    ...byProductProvenance(power.provenance, productsOfResults(power.results)),
+  };
+  return {
+    ok: true,
+    results: merged.results,
+    provenance: { ...gas.provenance, releases: [gas.provenance, power.provenance], byProduct },
+    power: { loaded: true, ...power.provenance },
+  };
 }
 
 export function containsOfficialStatus(value) {
@@ -187,6 +252,7 @@ function withExploratory(result) {
     backend: {
       ...result.backend,
       exploratory: exploratory.ok ? { loaded: true, ...exploratory.provenance } : { loaded: false, code: exploratory.code },
+      powerExploratory: exploratory.ok ? exploratory.power ?? { loaded: false, code: "POWER_RELEASE_NOT_LOADED" } : { loaded: false, code: exploratory.code },
       backtestReadiness: backtestReadiness.ok ? { loaded: true, ...backtestReadiness.provenance } : { loaded: false, code: backtestReadiness.code },
     },
   };

@@ -1044,13 +1044,21 @@ function decisionNumber(index) {
 // Los mismos artifacts respaldan cada run y cada candidato con runs: se listan una vez
 // y el recuento de receipts sale de esta lista. Los manifests no traen fecha de
 // registro, así que "Recorded" queda explícito como no registrado.
+// BT-06: un release exploratorio verificado por producto (gas v2, Power v3) lista sus
+// propios receipts; nunca se atribuye el artifact de un mercado a otro.
+function releaseMarketLabel(release) {
+  return release?.market === "POWER_DE" ? "EEX POWER/DE best-ask slots" : "EEX THE best-ask slots";
+}
+
 function exploratoryReceipts(provenance) {
-  return [
-    { id: provenance.resultsSha256.slice(0, 12), kind: "BACKTEST RESULT", what: `${provenance.resultsPath} · sha256 ${provenance.resultsSha256.slice(0, 16)}…`, href: "/backtests" },
-    { id: provenance.slotsSha256.slice(0, 12), kind: "DATA SNAPSHOT", what: `EEX THE best-ask slots · sha256 ${provenance.slotsSha256.slice(0, 16)}…`, href: "/campaigns" },
-    { id: "MANIFEST", kind: "MANIFEST", what: provenance.manifestPath, href: "/campaigns" },
-    { id: OWNER_PATCH_02, kind: "OWNER DECISION", what: "exploratory phase authorised (owner patch 02)", href: null },
-  ];
+  const releases = provenance?.releases ?? [provenance];
+  const receipts = releases.flatMap((release) => [
+    { id: release.resultsSha256.slice(0, 12), kind: "BACKTEST RESULT", what: `${release.resultsPath} · sha256 ${release.resultsSha256.slice(0, 16)}…`, href: "/backtests" },
+    { id: release.slotsSha256.slice(0, 12), kind: "DATA SNAPSHOT", what: `${releaseMarketLabel(release)} · sha256 ${release.slotsSha256.slice(0, 16)}…`, href: "/campaigns" },
+    { id: "MANIFEST", kind: "MANIFEST", what: release.manifestPath, href: "/campaigns" },
+  ]);
+  receipts.push({ id: OWNER_PATCH_02, kind: "OWNER DECISION", what: "exploratory phase authorised (owner patch 02)", href: null });
+  return receipts;
 }
 
 const NOT_RECORDED = '<span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span>';
@@ -1581,6 +1589,9 @@ function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null
   const profileWidth = shownProfiles.length === 1 ? 1100 : 380;
   const profiles = shownProfiles.map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile, profileWidth)}</div></div>`);
   const rules = exploratory.rules;
+  // BT-06: la fuente que se muestra es la del release que respalda el producto
+  // filtrado (gas v2 o Power v3), no siempre la del release primario.
+  const provenance = (productFilter !== null && exploratory.provenance?.byProduct?.[productFilter]) || exploratory.provenance;
   return `
   <div class="card" style="margin-top:14px" data-exploratory="true">
     <div class="hd"><h3>Exploratory backtest · ${esc(observationSourceLabel(mode))}</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span><span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
@@ -1589,7 +1600,7 @@ function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null
       <tbody>${rows.join("")}</tbody>
     </table></div>
     <div class="bd">${summaries.join("")}
-      <div class="tiny muted" style="margin-top:6px">Prices in EUR/MWh paid (ask + slippage), volume-weighted. ! = target not completed (no fresh quote or depth). Not evidence of edge: ${exploratory.episodes.length} episodes, in-sample; skipped as incomplete: ${esc(exploratory.skipped.join(", "))}. Source ${esc(exploratory.provenance.resultsPath)} sha256 ${esc(exploratory.provenance.resultsSha256.slice(0, 12))}…</div>
+      <div class="tiny muted" style="margin-top:6px">Prices in EUR/MWh paid (ask + slippage), volume-weighted. ! = target not completed (no fresh quote or depth). Not evidence of edge: ${exploratory.episodes.length} episodes, in-sample; skipped as incomplete: ${esc(exploratory.skipped.join(", "))}. Source ${esc(provenance.resultsPath)} sha256 ${esc(provenance.resultsSha256.slice(0, 12))}…</div>
     </div>
   </div>
   <div class="grid" style="grid-template-columns: repeat(${Math.min(profiles.length, 2)}, minmax(0,1fr)); margin-top:14px">${profiles.join("")}</div>`;
@@ -1839,11 +1850,13 @@ function tr07ExpandHtml() {
 
 // En TOB, una misión sin datos en el release exploratorio (Power) se declara
 // fail-closed, en vez de mostrar bajo su nombre los datos de Gas (prototipo tobView;
-// defecto TR07-MISSION-NOT-APPLIED).
+// defecto TR07-MISSION-NOT-APPLIED). BT-06 dejó el motor y el loader de Power listos
+// en la ruta v3; el artifact lo produce el job de DATA-01, así que hasta entonces la
+// ausencia es un estado, nunca un valor.
 function tr07TobUnavailableHtml(mission) {
   return `<div class="card" style="margin-top:14px" data-tr07="tob-unavailable" data-mission="${esc(mission.missionId)}">
-    <div class="hd"><h3>TOB · ${esc(tr07MissionLabel(mission))}</h3><span class="small muted">bridge period 2025-08-12 → 2026-07-28 · release v2</span><span class="grow"></span>${tr07StatusChip("UNAVAILABLE")}</div>
-    <div class="bd"><div class="tr07empty"><b>No TOB data for ${esc(mission.product)} yet</b>${esc(mission.product)} top of book gets audited in TR-01</div></div>
+    <div class="hd"><h3>TOB · ${esc(tr07MissionLabel(mission))}</h3><span class="small muted">bridge period 2025-08-12 → 2026-07-28 · release v3</span><span class="grow"></span>${tr07StatusChip("UNAVAILABLE")}</div>
+    <div class="bd"><div class="tr07empty"><b>No TOB data for ${esc(mission.product)} yet</b>${esc(mission.product)} top of book is extracted by the BT-06 v3 loader; the artifact appears here once the DATA-01 job runs</div></div>
   </div>`;
 }
 
