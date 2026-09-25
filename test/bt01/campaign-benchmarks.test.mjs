@@ -13,8 +13,8 @@ import {
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
-function fixture({ instruments = ["ISIN-1", "ISIN-1"] } = {}) {
-  return {
+function fixture({ instruments = ["ISIN-1", "ISIN-1"], includeUnknownInstrument = false } = {}) {
+  const value = {
     artifactKind: "BT-01_CAMPAIGN_PROXY_ROWS",
     schemaVersion: "1.0",
     calendar: { path: "calendar.json", sha256: "c".repeat(64) },
@@ -34,22 +34,26 @@ function fixture({ instruments = ["ISIN-1", "ISIN-1"] } = {}) {
           trdDate: "2025-09-01",
           sourceCounts: {},
           rows: [
-            { instrument: instruments[0], trdDate: "2025-09-01", tmUtc: "2025-09-01T15:00:00Z", price: 50, bid: null, ask: null, rowHash: "a" },
-            { instrument: instruments[0], trdDate: "2025-09-01", tmUtc: "2025-09-01T15:01:00Z", price: null, bid: 48, ask: 52, rowHash: "b" },
+            { instrument: instruments[0], instrumentType: "Simple Instrument", trdDate: "2025-09-01", tmUtc: "2025-09-01T15:00:00Z", price: 50, bid: null, ask: null, rowHash: "a" },
+            { instrument: instruments[0], instrumentType: "Simple Instrument", trdDate: "2025-09-01", tmUtc: "2025-09-01T15:01:00Z", price: null, bid: 48, ask: 52, rowHash: "b" },
           ],
         },
         {
           trdDate: "2025-09-02",
           sourceCounts: {},
           rows: [
-            { instrument: instruments[1], trdDate: "2025-09-02", tmUtc: "2025-09-02T15:00:00Z", price: 60, bid: null, ask: null, rowHash: "c" },
-            { instrument: instruments[1], trdDate: "2025-09-02", tmUtc: "2025-09-02T15:01:00Z", price: null, bid: 58, ask: 62, rowHash: "d" },
+            { instrument: instruments[1], instrumentType: "Simple Instrument", trdDate: "2025-09-02", tmUtc: "2025-09-02T15:00:00Z", price: 60, bid: null, ask: null, rowHash: "c" },
+            { instrument: instruments[1], instrumentType: "Simple Instrument", trdDate: "2025-09-02", tmUtc: "2025-09-02T15:01:00Z", price: null, bid: 58, ask: 62, rowHash: "d" },
           ],
         },
         { trdDate: "2025-09-03", sourceCounts: {}, rows: [] },
       ],
     }],
   };
+  if (includeUnknownInstrument) {
+    value.campaigns[0].perDate[0].rows.push({ instrument: "ISIN-1", instrumentType: "", trdDate: "2025-09-01", tmUtc: "2025-09-01T15:02:00Z", price: 999, bid: null, ask: null, rowHash: "unknown-type" });
+  }
+  return value;
 }
 
 test("BT-01 produce B con ventana 3-1-3, peso diario igual y missing sin rellenar", () => {
@@ -76,6 +80,14 @@ test("BT-01 mantiene proxy provisional separado de official y rechaza identidad 
   assert.equal(campaign.perDate[0].defined, false);
   assert.equal(campaign.perDate[0].instrumentIdentityAmbiguous, true);
   assert.equal(campaign.perDate[0].dailyReference, null);
+});
+
+test("BT-01 excluye filas cuyo tipo de instrumento está vacío o no es Simple Instrument", () => {
+  const artifact = buildCampaignBenchmarkArtifact({ rowsArtifact: fixture({ includeUnknownInstrument: true }), rowsArtifactSha256: "x".repeat(64) });
+  const [campaign] = artifact.campaigns;
+
+  assert.equal(campaign.perDate[0].dailyReference, 50);
+  assert.equal(campaign.perDate[0].excludedRowsUnsupportedInstrument, 1);
 });
 
 test("BT-01 artifact y manifest reales son reproducibles y bound a hashes de inputs", () => {

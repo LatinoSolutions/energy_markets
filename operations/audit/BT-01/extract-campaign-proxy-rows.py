@@ -13,6 +13,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pyarrow.compute as pc
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -115,51 +116,58 @@ def extract(campaigns, exchange_days):
                     needed.update((bid_col, ask_col))
                 if not needed.issubset(names):
                     continue
-                data = pq.read_table(path, columns=sorted(needed))
-                code_mask = pc.is_in(data["ShortCode"], value_set=__import__("pyarrow").array(products))
-                maturity_mask = pc.is_in(data["Maturity"], value_set=__import__("pyarrow").array(maturities))
-                selected = data.filter(pc.and_(code_mask, maturity_mask))
-                if selected.num_rows == 0:
-                    continue
-                relative_path = path.relative_to(LAKE).as_posix()
-                source_hashes[relative_path] = sha256_file(path)
                 matched_pairs = set()
-                for row in selected.to_pylist():
-                    campaign = campaign_by_product_maturity.get((row.get("ShortCode"), row.get("Maturity")))
-                    if campaign is None:
+                matched_file = False
+                parquet = pq.ParquetFile(path)
+                for batch in parquet.iter_batches(batch_size=65536, columns=sorted(needed)):
+                    code_mask = pc.is_in(batch.column(batch.schema.get_field_index("ShortCode")), value_set=pa.array(products))
+                    maturity_mask = pc.is_in(batch.column(batch.schema.get_field_index("Maturity")), value_set=pa.array(maturities))
+                    selected = batch.filter(pc.and_(code_mask, maturity_mask))
+                    if selected.num_rows == 0:
                         continue
-                    if row.get("InstrumentType") not in ("Simple Instrument", ""):
-                        continue
-                    if not row.get("InstrumentISIN"):
-                        continue
-                    if row.get("Currency") != "EUR" or row.get("UOM") != "MWh":
-                        continue
-                    tm = row.get("Tm") or ""
-                    try:
-                        local = __import__("datetime").datetime.fromisoformat(tm.replace("Z", "+00:00")).astimezone(tz)
-                    except ValueError:
-                        continue
-                    if local.date().isoformat() != day:
-                        continue
-                    seconds = local.hour * 3600 + local.minute * 60 + local.second
-                    # Keep the strict window and permitted ±60 minute fallback;
-                    # IMP-05 applies strict-versus-fallback precedence.
-                    if not (16 * 3600 + 15 * 60 <= seconds <= 18 * 3600 + 15 * 60):
-                        continue
-                    per_campaign_rows[campaign["campaignKey"]].append({
-                        "source": table,
-                        "sourcePath": relative_path,
-                        "instrument": row.get("InstrumentISIN") or None,
-                        "tmUtc": tm,
-                        "trdDate": row.get("TrdDate") or day,
-                        "price": as_float(row.get(price_col)) if price_col else None,
-                        "bid": as_float(row.get(bid_col)) if bid_col else None,
-                        "ask": as_float(row.get(ask_col)) if ask_col else None,
-                        "rowHash": row.get("_row_sha256"),
-                    })
-                    matched_pairs.add(campaign["campaignKey"])
-                for campaign_key in matched_pairs:
-                    per_campaign_counts[campaign_key][table]["filesWithMaturityRows"] += 1
+                    matched_file = True
+                    relative_path = path.relative_to(LAKE).as_posix()
+                    for row in selected.to_pylist():
+                        campaign = campaign_by_product_maturity.get((row.get("ShortCode"), row.get("Maturity")))
+                        if campaign is None:
+                            continue
+                        # Unknown instrument metadata cannot be promoted to a
+                        # Simple Instrument proxy input.
+                        if row.get("InstrumentType") != "Simple Instrument":
+                            continue
+                        if not row.get("InstrumentISIN"):
+                            continue
+                        if row.get("Currency") != "EUR" or row.get("UOM") != "MWh":
+                            continue
+                        tm = row.get("Tm") or ""
+                        try:
+                            local = __import__("datetime").datetime.fromisoformat(tm.replace("Z", "+00:00")).astimezone(tz)
+                        except ValueError:
+                            continue
+                        if local.date().isoformat() != day:
+                            continue
+                        seconds = local.hour * 3600 + local.minute * 60 + local.second
+                        # IMP-05 applies strict-versus-fallback precedence.
+                        if not (16 * 3600 + 15 * 60 <= seconds <= 18 * 3600 + 15 * 60):
+                            continue
+                        per_campaign_rows[campaign["campaignKey"]].append({
+                            "source": table,
+                            "sourcePath": relative_path,
+                            "instrument": row.get("InstrumentISIN"),
+                            "instrumentType": row.get("InstrumentType"),
+                            "tmUtc": tm,
+                            "trdDate": row.get("TrdDate") or day,
+                            "price": as_float(row.get(price_col)) if price_col else None,
+                            "bid": as_float(row.get(bid_col)) if bid_col else None,
+                            "ask": as_float(row.get(ask_col)) if ask_col else None,
+                            "rowHash": row.get("_row_sha256"),
+                        })
+                        matched_pairs.add(campaign["campaignKey"])
+                if matched_file:
+                    relative_path = path.relative_to(LAKE).as_posix()
+                    source_hashes[relative_path] = sha256_file(path)
+                    for campaign_key in matched_pairs:
+                        per_campaign_counts[campaign_key][table]["filesWithMaturityRows"] += 1
         for campaign in active_campaigns:
             key = campaign["campaignKey"]
             per_campaign_rows[key].sort(key=lambda row: (row["tmUtc"], row["source"], row["rowHash"] or ""))

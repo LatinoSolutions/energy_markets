@@ -41,15 +41,17 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
     const expectedDates = campaign.expectedDates;
     const perDate = [];
     const references = [];
-    const campaignInstruments = [...new Set(campaign.perDate.flatMap((dateRecord) => dateRecord.rows.map((row) => row.instrument).filter(Boolean)))].sort();
+    const eligibleRows = (dateRecord) => dateRecord.rows.filter((row) => row.instrumentType === "Simple Instrument" && row.instrument);
+    const campaignInstruments = [...new Set(campaign.perDate.flatMap((dateRecord) => eligibleRows(dateRecord).map((row) => row.instrument)))].sort();
     const campaignIdentityAmbiguous = campaignInstruments.length > 1;
 
     for (const dateRecord of campaign.perDate) {
-      const instruments = [...new Set(dateRecord.rows.map((row) => row.instrument).filter(Boolean))].sort();
+      const eligibleDateRows = eligibleRows(dateRecord);
+      const instruments = [...new Set(eligibleDateRows.map((row) => row.instrument))].sort();
       // A maturity with conflicting instrument identities cannot be silently
       // pooled: preserve the date as missing and expose the ambiguity.
       const instrumentAmbiguous = instruments.length > 1 || campaignIdentityAmbiguous;
-      const identifiedRows = dateRecord.rows.filter((row) => row.instrument);
+      const identifiedRows = eligibleDateRows;
       const rows = instrumentAmbiguous ? [] : identifiedRows.map((row) => ({
         product: campaign.campaignKey,
         instrument: row.instrument,
@@ -75,6 +77,7 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
         instrumentISIN: instruments.length === 1 && !campaignIdentityAmbiguous ? instruments[0] : null,
         instrumentIdentityAmbiguous: instrumentAmbiguous,
         sourceRows: dateRecord.rows.length,
+        excludedRowsUnsupportedInstrument: dateRecord.rows.length - eligibleDateRows.length,
         excludedRowsWithoutInstrument: dateRecord.rows.length - identifiedRows.length,
         sourceHashes: [...new Set(dateRecord.rows.map((row) => row.rowHash).filter(Boolean))].sort(),
         sourceCounts: dateRecord.sourceCounts,
