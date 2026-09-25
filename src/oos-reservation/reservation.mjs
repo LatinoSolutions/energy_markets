@@ -50,7 +50,7 @@ const CALIBRATION_ARTIFACT_KEYS = [
   "executionSettings",
 ];
 
-const ACCESS_PURPOSES = {
+const IMP09_ACCESS_PURPOSES = {
   OOS_EVALUATION_INSPECTION: { consumesOos: false, section: "§15.2 (evaluación de versión frozen)" },
   CALIBRATION: { consumesOos: true, section: "§15.2" },
   FEATURE_SELECTION: { consumesOos: true, section: "§13.8" },
@@ -59,6 +59,20 @@ const ACCESS_PURPOSES = {
   BASELINE_VARIANT_SELECTION: { consumesOos: true, section: "§13.8" },
   EXECUTION_SETTING_SELECTION: { consumesOos: true, section: "§13.8" },
 };
+
+// TR-02 (patch 03 §4): propósitos de acceso propios del modo TRADES. Extienden
+// el registro reutilizable `recordOosAccess` a las lecturas del OOS histórico de
+// las 4 misiones; NO cambian la reserva IMP-09 ni su HOLD. Abrir el OOS con un
+// run_id nuevo consume el OOS y se cuenta como una nueva apertura (patch 03 §4
+// "un run_id nuevo sobre el OOS es una nueva apertura y se cuenta").
+export const TRADES_ACCESS_PURPOSES = Object.freeze({
+  TRADES_DEVELOPMENT_READ: { consumesOos: false, section: "patch 03 §4 (Development)" },
+  TRADES_BRIDGE_READ: { consumesOos: false, section: "patch 03 §4 (Puente EXPLORATORY)" },
+  TRADES_OOS_OPENING: { consumesOos: true, section: "patch 03 §4 (OOS histórico: una sola apertura con la versión congelada)" },
+  TRADES_OOS_INSPECTION: { consumesOos: false, section: "patch 03 §4 (examen sellado)" },
+});
+
+const ACCESS_PURPOSES = { ...IMP09_ACCESS_PURPOSES, ...TRADES_ACCESS_PURPOSES };
 
 // Registro de elegibilidad real del caso Gas Quarterly. El paquete verificado
 // del cliente permite DERIVAR el registro (regla 3-1-3 delineada en
@@ -499,6 +513,9 @@ export function recordOosAccess(reservation, entry = {}) {
     modifiesDesign: entry.modifiesDesign === true,
     consumesOos,
     section: purpose.section,
+    // TR-02: el modo TRADES abre el OOS por run_id; se conserva para poder
+    // contar aperturas distintas. Un acceso IMP-09 sin runId no cambia.
+    ...(isNonEmptyString(entry.runId) ? { runId: entry.runId } : {}),
   };
   const entries = [...reservation.accessRegistry.entries, record];
   const oosStatus = entries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED";

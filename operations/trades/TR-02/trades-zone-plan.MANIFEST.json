@@ -1,0 +1,52 @@
+{
+ "artifactKind": "TR-02_TRADES_ZONE_PLAN_MANIFEST",
+ "schemaVersion": "1.0",
+ "plan": {
+  "path": "operations/trades/TR-02/trades-zone-plan.json",
+  "sha256": "fe61f82059212454bd652c4adf810ed9b945ff90dd4c9fac280dc691ff56d2c7"
+ },
+ "generator": {
+  "path": "operations/trades/TR-02/build-trades-zone-plan.mjs",
+  "sha256": "4bcbd9859d32f3a392023dc24051cf906a676c3be6819ea480675a272f7d27e5"
+ },
+ "modules": [
+  {
+   "path": "src/oos-reservation/trades-zones.mjs",
+   "sha256": "2f7d4679f9fda23aacbdd26b174d96ef2a65acde087feea90fda6423a83cd3aa"
+  },
+  {
+   "path": "src/oos-reservation/trades-windows.mjs",
+   "sha256": "0b11929a7d007808042a7e22a101fa6e64f1016ad4837838eacd33a31210f9ce"
+  },
+  {
+   "path": "src/oos-reservation/reservation.mjs",
+   "sha256": "0475ca17f04df3c1ae08cfcb7180c84125dadc76ac9b9698df67358ada5817fc"
+  },
+  {
+   "path": "src/procurement-contract/campaign-contract.mjs",
+   "sha256": "aeba3ed2fb31dc17a6a22262ab6c80063109a0c827fc371a94f842632fd894e8"
+  }
+ ],
+ "sources": {
+  "gasExchangeCalendar": {
+   "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
+   "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5"
+  },
+  "powerExchangeCalendar": {
+   "path": "operations/trades/TR-01/power-de-exchange-calendar.json",
+   "sha256": "3a5ec37db9c0640e422df817fdc512e48fbf57905a603f7741af5c74a87007c7"
+  },
+  "tobSeenEpisodes": {
+   "path": "operations/trades/TR-02/tob-seen-episodes.json",
+   "sha256": "614d021f03c04feb0c3097dabc3d8a69c547a71ad651b976ef2fbb66fee6817b"
+  },
+  "clientCampaignRules": {
+   "path": "/srv/hot-data/oficina-data/client-inputs/energy-markets/ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23/full-package/01_campaigns/01_shared_campaign_rules.md",
+   "sha256": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4"
+  },
+  "tradesSourceDecision": {
+   "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
+   "sha256": "b0709d827b2b963aea166522d64eec5598e81fbc09a547eae615106b9abe1b61"
+  }
+ }
+}
