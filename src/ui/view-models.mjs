@@ -16,6 +16,7 @@ import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
+import { containsOfficialStatus } from "./canonical-inputs.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
@@ -112,6 +113,35 @@ export function projectExploratoryBacktest(exploratory) {
   };
 }
 
+// El loader BT-03 verifica el manifest y los SHA-256 de todas las entradas y
+// salida antes de permitir esta proyección. Aquí sólo se seleccionan campos;
+// no se reconstruyen B, H, V, DeltaV ni cobertura.
+export function projectBacktestReadiness(readiness) {
+  const results = readiness?.results;
+  if (readiness?.ok !== true
+    || results?.artifactKind !== "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION"
+    || results.status !== "EXPLORATORY_PROVISIONAL"
+    || !Array.isArray(results.campaigns)
+    || containsOfficialStatus(results)) {
+    return null;
+  }
+  return {
+    status: results.status,
+    provenance: readiness.provenance,
+    official: { status: "UNAVAILABLE", reason: "No official settlement reconciliation is present in the BT-02 artifact." },
+    campaigns: results.campaigns.map((campaign) => ({
+      campaignKey: campaign.campaignKey,
+      product: campaign.product,
+      maturity: campaign.maturity,
+      status: campaign.status,
+      campaignReadiness: campaign.campaignReadiness,
+      benchmark: campaign.benchmark,
+      fees: campaign.fees,
+      arms: Object.entries(campaign.arms ?? {}).map(([armId, arm]) => ({ armId, ...arm })),
+    })),
+  };
+}
+
 // Replay y Campaigns exploratorios: proyección directa del artifact verificado.
 export function projectExploratoryPages(exploratory) {
   const results = exploratory?.results;
@@ -128,7 +158,7 @@ export function projectExploratoryPages(exploratory) {
   };
 }
 
-export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null } = {}) {
+export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null, backtestReadiness = null } = {}) {
   if (!Array.isArray(rows)) {
     return unexpectedTimeline([{ field: "rows", code: "INVALID_ROWS", message: "rows debe ser una lista." }]);
   }
@@ -166,10 +196,11 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     rows: items,
     hasAnyBoundData: items.some((item) => item.status === "BOUND"),
     exploratory: projectExploratoryBacktest(exploratory),
+    measurementReadiness: projectBacktestReadiness(backtestReadiness),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
     pendingComparisons: [
-      { label: "B / H / V / ΔV", status: "UNAVAILABLE", reason: "sin run P5/P6 persistido sobre un episodio real: IMP-05/07/12/16 aceptados en PLAN_STATUS pero sin IMP_RECEIPT en disco, OOS en HOLD (IMP-09) y sin price series atestada (UI-04 TODO)" },
+      { label: "B / H / V / ΔV · official/canonical", status: "UNAVAILABLE", reason: "sin reconciliación de settlement oficial ni mediciones canónicas de run real P5/P6; las mediciones provisionales/partial de BT-02 se exponen por campaña en la tabla backend cuando su artifact verificado está disponible" },
       { label: "Efectos emparejados por campaña", status: "UNAVAILABLE", reason: "sin pares A0/A1 registrados en el backend" },
       { label: "Distribuciones", status: "UNAVAILABLE", reason: "sin distribución de resultados canónica; no se fabrica (§26.5)" },
       { label: "Contexto de integridad/método", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14 ni reserva OOS sellada en disco (IMP-09: HOLD, 0 sellados)" },
