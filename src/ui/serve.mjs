@@ -16,6 +16,8 @@ import {
   DEFAULT_UI_PORT,
 } from "./server.mjs";
 import { loadCanonicalUiInputs } from "./canonical-inputs.mjs";
+import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
+import { createBacktestJobRunner } from "../backtest-jobs/runner.mjs";
 
 function parseArgs(argv) {
   const options = { host: DEFAULT_UI_HOST, port: DEFAULT_UI_PORT };
@@ -50,10 +52,13 @@ function parseArgs(argv) {
 
 const options = parseArgs(process.argv.slice(2));
 const canonical = loadCanonicalUiInputs();
-const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port });
+// BT-05: el backtest corre como hijo de este proceso, dentro del cgroup del servicio.
+const jobRunner = createBacktestJobRunner({ repoRoot: DEFAULT_REPO_ROOT });
+const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner });
 const served = await ready;
 console.log(`Energy Markets Operator UI: ${served.url}`);
-console.log("rutas: / (navegación) · /replay · /backtests · /research · /campaigns · /health");
+console.log("rutas: / (navegación) · /replay · /backtests · /research · /campaigns · /health · /api/backtest-jobs");
+console.log(`backtest runs: ${jobRunner.runsRoot}`);
 console.log(`backend canónico: manifest=${canonical.backend.manifestLoaded} records=${canonical.backend.recordCount} valores atestados=${canonical.backend.bindableIdentities} errores=${canonical.backend.errors.length}`);
 const stop = () => new Promise((resolve) => server.close(resolve));
 for (const signal of ["SIGINT", "SIGTERM"]) {

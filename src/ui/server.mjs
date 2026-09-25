@@ -12,8 +12,10 @@
 //   - Enlace por defecto 127.0.0.1: no se abre exposición pública nueva
 //     (acceptance UI-02); un host diferente es una decisión explícita del
 //     arrancador, nunca el default.
-//   - Sólo GET/HEAD de lectura: la UI no expone comandos (§26.5; ningún
-//     formulario ni endpoint de escritura, como ya fija UI-03).
+//   - Sólo GET/HEAD de lectura en las rutas de la UI. La única escritura es el
+//     comando autorizado BT-05 (owner request 25-sep-2026) bajo /api/backtest-jobs,
+//     que lanza el backtest en el backend y deja su receipt (§26.5); ver
+//     ../backtest-jobs/http.mjs. Sin ejecutor configurado responde 503.
 //   - Rutas estables independientes del estado de los datos: /, /health,
 //     /replay, /backtests, /research, /campaigns. Las restantes → 404
 //     fail-closed.
@@ -36,6 +38,8 @@ import {
 } from "./view-models.mjs";
 import { renderNavigationPage, renderSurfacePage } from "./render.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
+import { handleBacktestJobsRequest, isBacktestJobsPath } from "../backtest-jobs/http.mjs";
+import { withBacktestJobPanel } from "./backtest-job-panel.mjs";
 
 export const DEFAULT_UI_HOST = "127.0.0.1";
 export const DEFAULT_UI_PORT = 8787;
@@ -101,7 +105,7 @@ export function buildUiViewModels(inputs = {}) {
 
 const NO_BACKEND = Object.freeze({ manifestLoaded: false, recordCount: 0, bindableIdentities: 0, sources: [], gaps: [], errors: [] });
 
-function healthPayload(viewModels, backend) {
+function healthPayload(viewModels, backend, jobRunner) {
   const surfaces = {};
   for (const surface of SURFACES_LIST) {
     const vm = viewModels[surface];
@@ -117,6 +121,7 @@ function healthPayload(viewModels, backend) {
     visualLanguage: VISUAL_LANGUAGE_ID,
     surfaces,
     backend,
+    backtestJobs: jobRunner == null ? { configured: false } : { configured: true, running: jobRunner.status().running },
   };
 }
 
@@ -135,9 +140,10 @@ function sendResponse(res, { status, contentType, body }) {
 
 // `backend` describe qué cargó el arrancador (ver ./canonical-inputs.mjs), para que
 // /health distinga "sin manifest" de "manifest cargado con 0 valores atestados".
-export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT } = {}) {
+// `jobRunner` (BT-05) es el ejecutor de ../backtest-jobs/runner.mjs; null = sin
+// comando de backtest (el panel no se muestra y el endpoint responde 503).
+export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null } = {}) {
   const viewModels = buildUiViewModels(inputs);
-  const healthJson = JSON.stringify(healthPayload(viewModels, backend));
 
   const server = createServer((req, res) => {
     const method = req.method ?? "GET";
@@ -146,6 +152,15 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
       pathname = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`).pathname;
     } catch {
       pathname = null;
+    }
+    if (isBacktestJobsPath(pathname)) {
+      handleBacktestJobsRequest(req, res, pathname, jobRunner).catch((error) => {
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+        }
+        res.end(JSON.stringify({ ok: false, code: "JOB_ENDPOINT_ERROR", message: String(error?.message ?? error) }));
+      });
+      return;
     }
     const route = pathname === null ? undefined : UI_ROUTES[pathname];
     // Sólo lectura: la UI no registra comandos ni escrituras (§26.5).
@@ -159,7 +174,7 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
       return;
     }
     if (route.kind === "health") {
-      sendResponse(res, { status: 200, contentType: "application/json; charset=utf-8", body: healthJson });
+      sendResponse(res, { status: 200, contentType: "application/json; charset=utf-8", body: JSON.stringify(healthPayload(viewModels, backend, jobRunner)) });
       return;
     }
     if (route.kind === "navigation") {
@@ -173,6 +188,9 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
     } catch (error) {
       sendResponse(res, { status: 500, contentType: "text/html; charset=utf-8", body: failClosedPage("Energy Markets — error de render", "RENDER_FAILED", `La superficie no pudo renderizarse fail-closed: ${String(error?.message ?? error)}`) });
       return;
+    }
+    if (route.surface === SURFACES.BACKTESTS && jobRunner != null) {
+      html = withBacktestJobPanel(html, jobRunner.status());
     }
     sendResponse(res, { status: 200, contentType: "text/html; charset=utf-8", body: adaptLinksForServing(html) });
   });

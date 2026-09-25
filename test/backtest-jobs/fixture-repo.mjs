@@ -1,0 +1,82 @@
+// Repo mínimo para los tests de BT-05. El generador es un doble pequeño con la
+// misma interfaz que operations/exploratory/run-exploratory-backtest.mjs
+// (argv <slots> <salida>, escribe resultados + MANIFEST relativos al cwd): los
+// tests nunca corren el backtest real (nota BT-05 en PLAN_STATUS).
+
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+const FAKE_GENERATOR = `import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { describeFixture } from "../../src/exploratory/fixture-lib.mjs";
+
+const [slotsPath, outPath] = process.argv.slice(2);
+const slotsBytes = readFileSync(slotsPath);
+const slots = JSON.parse(slotsBytes);
+const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+if (slots.mode === "fail") {
+  console.error("fixture: fallo forzado");
+  process.exit(3);
+}
+if (slots.mode === "slow") {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+}
+if (slots.mode === "hang") {
+  await new Promise((resolve) => setTimeout(resolve, 60000));
+}
+const output = { artifactKind: "EXPLORATORY_BACKTEST_RESULTS", status: "EXPLORATORY", inputs: { slots: { path: slotsPath, sha256: sha(slotsBytes) } }, fixture: describeFixture(slots) };
+const outputBytes = Buffer.from(JSON.stringify(output, null, 1));
+writeFileSync(outPath, outputBytes);
+const manifest = {
+  artifactKind: "EXPLORATORY_BACKTEST_MANIFEST",
+  status: "EXPLORATORY",
+  results: { path: outPath, sha256: sha(outputBytes) },
+  slots: output.inputs.slots,
+  generators: ["operations/exploratory/run-exploratory-backtest.mjs", "src/exploratory/fixture-lib.mjs"].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
+};
+writeFileSync("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
+`;
+
+const FIXTURE_LIB = `export function describeFixture(slots) {
+  return { mode: slots.mode, points: Array.isArray(slots.points) ? slots.points.length : 0 };
+}
+`;
+
+const SLOTS_PATH = "operations/exploratory/tob-slots-the-gas.json";
+
+// Resultado que produce el doble para unos slots dados (mismo JSON que escribe).
+function expectedResultsBytes(slotsBytes, slots) {
+  const output = { artifactKind: "EXPLORATORY_BACKTEST_RESULTS", status: "EXPLORATORY", inputs: { slots: { path: SLOTS_PATH, sha256: sha(slotsBytes) } }, fixture: { mode: slots.mode, points: Array.isArray(slots.points) ? slots.points.length : 0 } };
+  return Buffer.from(JSON.stringify(output, null, 1));
+}
+
+export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null } = {}) {
+  const root = mkdtempSync(path.join(tmpdir(), "bt05-repo-"));
+  const write = (relative, content) => {
+    const target = path.join(root, relative);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, content);
+    return readFileSync(target);
+  };
+  const slots = { mode, points: [1, 2, 3] };
+  const slotsBytes = write(SLOTS_PATH, JSON.stringify(slots));
+  const generatorBytes = write("operations/exploratory/run-exploratory-backtest.mjs", FAKE_GENERATOR);
+  const libBytes = write("src/exploratory/fixture-lib.mjs", FIXTURE_LIB);
+  write("operations/audit/IMP-09/eex-exchange-calendar.json", JSON.stringify({ exchangeDays: ["2025-09-01"] }));
+  const manifest = {
+    artifactKind: "EXPLORATORY_BACKTEST_MANIFEST",
+    status: "EXPLORATORY",
+    results: { path: "operations/exploratory/backtest-results.json", sha256: committedResultsSha256 ?? sha(expectedResultsBytes(slotsBytes, slots)) },
+    slots: { path: SLOTS_PATH, sha256: sha(slotsBytes) },
+    generators: [
+      { path: "operations/exploratory/run-exploratory-backtest.mjs", sha256: sha(generatorBytes) },
+      { path: "src/exploratory/fixture-lib.mjs", sha256: sha(libBytes) },
+    ],
+  };
+  const manifestBytes = write("operations/exploratory/MANIFEST.json", JSON.stringify(manifest, null, 1));
+  return { root, manifest, manifestSha256: sha(manifestBytes), write };
+}
