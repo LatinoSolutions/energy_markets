@@ -435,3 +435,23 @@ test("el configHash liga la identidad (sha256) de la medición de TR-03", () => 
   assert.notEqual(changed.generatedFrom.bridgeMeasurementSha256, base.generatedFrom.bridgeMeasurementSha256);
   assert.notEqual(changed.configHash, base.configHash);
 });
+
+// --- Corrección TR04-MEASUREMENT-BINDING-NOT-VALIDATED --------------------
+
+test("un candidato sin un sha256 válido de la medición se rechaza (TR04-MEASUREMENT-BINDING-NOT-VALIDATED)", () => {
+  const invalidValues = ["", "x", "0".repeat(63), "0".repeat(65), "Z".repeat(64)];
+  for (const invalid of invalidValues) {
+    const candidate = buildTradesFreezeCandidate({ ...frozenInput(), generatedFrom: { bridgeMeasurementSha256: invalid } });
+    assert.equal(candidate.generatedFrom.bridgeMeasurementSha256, invalid, "el valor explícito no se sobrescribe");
+    const validation = validateTradesContract(candidate);
+    assert.equal(validation.ok, false, `el sha inválido "${invalid}" debe rechazarse`);
+    assert.ok(
+      validation.errors.some((error) => error.code === "MISSING_MEASUREMENT_BINDING"),
+      `"${invalid}" debe dar MISSING_MEASUREMENT_BINDING`,
+    );
+  }
+
+  const outcome = evaluateTradesFreeze({ ...frozenInput(), generatedFrom: { bridgeMeasurementSha256: "" } });
+  assert.equal(outcome.status, "REJECTED");
+  assert.ok(outcome.blockedBy.includes("MISSING_MEASUREMENT_BINDING"));
+});

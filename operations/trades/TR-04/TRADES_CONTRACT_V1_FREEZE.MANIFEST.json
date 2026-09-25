@@ -12,7 +12,7 @@
  "modules": [
   {
    "path": "src/execution-contract/trades-contract.mjs",
-   "sha256": "e9d9d03616ac6618722e764bd64e85dac760c492098d12979aed9fb9eff145d0"
+   "sha256": "6134aeec43a4ccc8ba720d8f2d60c77e28ec3ae600cbbc2d91d6503a23341847"
   },
   {
    "path": "src/execution-contract/execution-contract.mjs",

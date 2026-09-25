@@ -313,6 +313,10 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isSha256(value) {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
 function isFiniteNonNegativeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
@@ -554,10 +558,15 @@ export function buildTradesFreezeCandidate({
   const brokenSpreadPolicy = isDeclaredBrokenSpreadPolicy(measurement?.brokenSpreadPolicy)
     ? measurement.brokenSpreadPolicy
     : null;
-  // TR04-MEASUREMENT-HASH-UNBOUND: el config congelado queda ligado a la identidad
-  // (sha256 canónico) de la medición de TR-03, no sólo a su ruta. Si el builder
-  // pasa el sha de los bytes del archivo, ese manda; si no, se deriva del objeto.
-  const boundGeneratedFrom = (measurement && typeof measurement === "object" && generatedFrom.bridgeMeasurementSha256 == null)
+  // TR04-MEASUREMENT-HASH-UNBOUND / TR04-MEASUREMENT-BINDING-NOT-VALIDATED: el
+  // config congelado queda ligado a la identidad (sha256 canónico) de la medición
+  // de TR-03. Si el builder no recibió el sha (undefined/null), lo deriva del
+  // objeto. Un valor explícito NO se sobrescribe: si no tiene forma de sha256, el
+  // validador lo rechaza (MISSING_MEASUREMENT_BINDING) en vez de taparlo.
+  const receivedMeasurementSha256 = generatedFrom?.bridgeMeasurementSha256;
+  const needsDerivedMeasurementSha256 = measurement && typeof measurement === "object"
+    && (receivedMeasurementSha256 === undefined || receivedMeasurementSha256 === null);
+  const boundGeneratedFrom = needsDerivedMeasurementSha256
     ? { ...generatedFrom, bridgeMeasurementSha256: contentHashOf(measurement) }
     : generatedFrom;
   const contract = {
@@ -656,6 +665,13 @@ export function validateTradesContract(contract) {
   // la regla de Delete point-in-time (o su supuesto); no se congela vacía.
   if (!isNonEmptyString(contract.tradeEligibility?.deleteTmSemantics)) {
     pushError(errors, "tradeEligibility.deleteTmSemantics", "MISSING_DELETE_TM_SEMANTICS", "El contrato TRADES no declara la regla de Delete point-in-time del trade elegible; el patch 03 §3.1 exige declararla (o su supuesto) y no se congela vacía.");
+  }
+  // TR04-MEASUREMENT-BINDING-NOT-VALIDATED: la corrección TR04-MEASUREMENT-HASH-UNBOUND
+  // liga el config a la identidad sha256 de la medición del puente. El freeze
+  // promete cerrar por defecto en cada paso: un sha ausente o con forma inválida
+  // se rechaza, no se deja pasar un contrato sin rastrear hasta sus datos.
+  if (!isSha256(contract.generatedFrom?.bridgeMeasurementSha256)) {
+    pushError(errors, "generatedFrom.bridgeMeasurementSha256", "MISSING_MEASUREMENT_BINDING", "El contrato TRADES no liga la identidad sha256 de la medición del puente (TR-03); sin ella el freeze no se puede rastrear hasta los datos que lo produjeron (TR04-MEASUREMENT-HASH-UNBOUND).");
   }
 
   for (const [missionKey, definition] of Object.entries(TRADES_MISSIONS)) {
