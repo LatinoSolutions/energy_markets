@@ -51,3 +51,38 @@ test("instrumentIdentity prefiere el ISIN y cae al par ShortCode|Maturity", () =
   assert.equal(instrumentIdentity(tradeRow({ InstrumentISIN: "ISIN-X" })), "ISIN-X");
   assert.equal(instrumentIdentity(tradeRow({ InstrumentISIN: "", ShortCode: "DEBQ", Maturity: "202601" })), "DEBQ|202601");
 });
+
+test("la ventana de calendario del contrato cuenta los faltantes al inicio y al final", () => {
+  const rows = [
+    tradeRow({ InstrumentISIN: "ISIN-A", TrdID: "1", TrdDate: "2025-11-20" }),
+    tradeRow({ InstrumentISIN: "ISIN-A", TrdID: "2", TrdDate: "2025-11-24" }),
+  ];
+  const summary = summarizeInstrumentCoverage(coverageByInstrumentDay(rows), [
+    "2025-11-18",
+    "2025-11-19",
+    "2025-11-20",
+    "2025-11-21",
+    "2025-11-24",
+  ]);
+  assert.equal(summary[0].windowDays, 5);
+  assert.equal(summary[0].daysWithoutTrades, 3);
+  assert.equal(summary[0].density, 2 / 5);
+});
+
+test("acepta ventanas por instrumento y deja fail-closed al instrumento sin ventana", () => {
+  const rows = [
+    tradeRow({ InstrumentISIN: "ISIN-A", TrdID: "1", TrdDate: "2025-11-20" }),
+    tradeRow({ InstrumentISIN: "ISIN-B", TrdID: "2", TrdDate: "2025-11-20" }),
+  ];
+  const summary = summarizeInstrumentCoverage(
+    coverageByInstrumentDay(rows),
+    new Map([["ISIN-A", ["2025-11-20", "2025-11-21"]]]),
+  );
+  const a = summary.find((entry) => entry.instrument === "ISIN-A");
+  const b = summary.find((entry) => entry.instrument === "ISIN-B");
+  assert.equal(a.daysWithoutTrades, 1);
+  assert.equal(a.windowStatus, "CONTRACT_CALENDAR");
+  assert.equal(b.daysWithoutTrades, null);
+  assert.equal(b.density, null);
+  assert.equal(b.windowStatus, "CONTRACT_CALENDAR_ABSENT");
+});

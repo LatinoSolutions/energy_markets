@@ -54,10 +54,27 @@ export function daysWithoutTrades({ observedDays, expectedDays }) {
   return [...expectedDays].filter((day) => !observed.has(day)).sort();
 }
 
-// Resumen por instrumento contra un calendario esperado (Exchange Days de la
-// misión). `expectedDays` es obligatorio: un "día sin trades" sólo tiene sentido
-// contra el calendario, no contra la ausencia de filas.
-export function summarizeInstrumentCoverage(records, expectedDays) {
+const SHARED_WINDOW = "__shared__";
+
+// `expected` admite:
+//   - un array de días = calendario del contrato compartido por los instrumentos
+//     de `records` (sólo válido cuando el lote es de un instrumento);
+//   - un Map o un objeto `{ instrumento: [días] }` = ventana de cada contrato.
+// Nunca se deriva de la presencia de trades.
+function normalizeExpectedWindows(expected) {
+  if (expected == null) return { windows: new Map(), shared: null };
+  if (expected instanceof Map) return { windows: expected, shared: null };
+  if (Array.isArray(expected)) return { windows: new Map(), shared: expected };
+  return { windows: new Map(Object.entries(expected)), shared: null };
+}
+
+// Resumen por instrumento contra el calendario esperado del contrato (`expected`).
+// La ventana sale del calendario, NUNCA del primer/último trade: los días sin
+// trades al principio o al final de la vida del contrato cuentan como faltantes.
+// Sin ventana de contrato disponible, `daysWithoutTrades` y `density` quedan en
+// null (fail-closed) en vez de recortarse a lo observado.
+export function summarizeInstrumentCoverage(records, expected) {
+  const { windows, shared } = normalizeExpectedWindows(expected);
   const byInstrument = new Map();
   for (const record of records) {
     if (!byInstrument.has(record.instrument)) {
@@ -86,16 +103,34 @@ export function summarizeInstrumentCoverage(records, expectedDays) {
   return [...byInstrument.values()]
     .sort((a, b) => (a.instrument < b.instrument ? -1 : 1))
     .map((summary) => {
-      // Los días esperados fuera de [firstDate, lastDate] son anteriores al
-      // inicio o posteriores al vencimiento del instrumento: no cuentan ni como
-      // cobertura ni como ausencia.
-      const expectedInRange = expectedDays.filter((day) => day >= summary.firstDate && day <= summary.lastDate);
-      const missingDays = daysWithoutTrades({ observedDays: summary.observedDays, expectedDays: expectedInRange });
+      const window = windows.get(summary.instrument) ?? shared;
+      const observedSet = new Set(summary.observedDays);
+      if (window == null) {
+        return {
+          ...summary,
+          observedDays: undefined,
+          windowDays: null,
+          daysWithTradesInWindow: null,
+          daysWithTradesOutsideWindow: null,
+          daysWithoutTrades: null,
+          density: null,
+          windowStatus: "CONTRACT_CALENDAR_ABSENT",
+        };
+      }
+      const windowSet = new Set(window);
+      const observedInWindow = summary.observedDays.filter((day) => windowSet.has(day));
+      const missingDays = window.filter((day) => !observedSet.has(day));
       return {
         ...summary,
         observedDays: undefined,
+        windowDays: window.length,
+        daysWithTradesInWindow: observedInWindow.length,
+        daysWithTradesOutsideWindow: summary.daysWithTrades - observedInWindow.length,
         daysWithoutTrades: missingDays.length,
-        density: expectedInRange.length === 0 ? null : summary.daysWithTrades / expectedInRange.length,
+        density: window.length === 0 ? null : observedInWindow.length / window.length,
+        windowStatus: "CONTRACT_CALENDAR",
       };
     });
 }
+
+export { SHARED_WINDOW as SHARED_CONTRACT_WINDOW };

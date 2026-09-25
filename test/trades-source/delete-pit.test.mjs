@@ -86,3 +86,24 @@ test("un Delete anterior al alta sí niega deletionTimeObserved", () => {
   assert.equal(measurement.deleteUnparsableTm, 0);
   assert.equal(measurement.deletionTimeObserved, false);
 });
+
+test("buildDeleteIndex cuenta los Delete con Tm ilegible en vez de descartarlos en silencio", () => {
+  const rows = [
+    tradeRow({ TrdID: "1" }),
+    deleteRow({ TrdID: "1", Tm: "no-es-fecha" }),
+    deleteRow({ TrdID: "9", Tm: "tampoco-es-fecha" }),
+  ];
+  const stats = {};
+  const index = buildDeleteIndex(rows, stats);
+  assert.equal(index.size, 0);
+  assert.equal(stats.unparsableDeleteTm, 2);
+});
+
+test("un Delete con Tm ilegible y sin hermano New igual se cuenta en la medición", () => {
+  const rows = [deleteRow({ TrdID: "9", Tm: "" })];
+  const measurement = measureDeleteTmSemantics(rows);
+  assert.equal(measurement.deleteRows, 1);
+  assert.equal(measurement.deleteUnparsableTm, 1);
+  assert.equal(measurement.deletesWithNewSibling, 0);
+  assert.equal(measurement.deletionTimeObserved, false);
+});

@@ -63,6 +63,20 @@ test("compareSourceInventories prefiere el archivo sólo si no pierde cobertura 
   assert.equal(result.archiveAddsReference, true);
 });
 
+test("un inventario de escaneo con tableInventory tambien habilita la preferencia del archivo", () => {
+  const lake = { tables: ["eex_derivative_trade"], dateMax: "2026-07-28" };
+  const archive = {
+    dateMax: "2026-09-11",
+    tableInventory: {
+      eex_derivative_trade: { members: 100, rows: 10 },
+      eex_derivative_reference: { members: 20, rows: 2 },
+    },
+  };
+  const result = compareSourceInventories({ lakeInventory: lake, archiveInventory: archive });
+  assert.equal(result.satisfiesArchivePreference, true);
+  assert.equal(result.archiveAddsReference, true);
+});
+
 test("el manifest ata el artefacto a sus inputs sin acreditar acceptance", () => {
   const decision = buildDataSourceDecision(sourceCandidatesFixture());
   const manifest = buildTradesSourceManifest({

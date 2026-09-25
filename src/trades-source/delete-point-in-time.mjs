@@ -48,12 +48,22 @@ export function tradeLegIdentity(row) {
 
 // Índice de borrados por identidad de pata. Solo las filas Delete entran aquí;
 // las filas New se resuelven contra este índice.
-export function buildDeleteIndex(rows) {
+//
+// Un Delete con `Tm` ilegible no se puede indexar (no se sabe desde cuándo
+// retira el trade) pero NO se descarta en silencio: si el llamador pasa un
+// objeto `stats`, se acumula en `unparsableDeleteTm` para que la medición lo
+// muestre. Ocultarlo dejaría el trade elegible para siempre sin que se note.
+export function buildDeleteIndex(rows, stats = null) {
   const index = new Map();
   for (const row of rows) {
     if (row?.UpdtAct !== "Delete") continue;
     const epoch = tradeEpochMs(row?.Tm);
-    if (epoch === null) continue;
+    if (epoch === null) {
+      if (stats !== null && stats !== undefined) {
+        stats.unparsableDeleteTm = (stats.unparsableDeleteTm ?? 0) + 1;
+      }
+      continue;
+    }
     const key = tradeLegIdentity(row);
     if (!index.has(key)) index.set(key, []);
     index.get(key).push(epoch);
@@ -111,14 +121,15 @@ export function measureDeleteTmSemantics(rows) {
     measurement.deleteRows += 1;
     const deleteEpoch = tradeEpochMs(row.Tm);
     const siblings = (newsByIdentity.get(tradeLegIdentity(row)) ?? []).filter((epoch) => epoch !== null);
-    if (siblings.length === 0) continue;
-    measurement.deletesWithNewSibling += 1;
-    // Un Tm de Delete no parseable no es evidencia de "borrado antes del alta":
-    // se cuenta aparte para no negar deletionTimeObserved por un dato corrupto.
+    // Un Tm de Delete no parseable se cuenta aparte, tenga o no hermano New: no
+    // es evidencia de "borrado antes del alta" y no debe negar deletionTimeObserved.
     if (deleteEpoch === null) {
       measurement.deleteUnparsableTm += 1;
+      if (siblings.length > 0) measurement.deletesWithNewSibling += 1;
       continue;
     }
+    if (siblings.length === 0) continue;
+    measurement.deletesWithNewSibling += 1;
     const earliestNew = Math.min(...siblings);
     if (deleteEpoch > earliestNew) measurement.deleteAfterNew += 1;
     else if (deleteEpoch === earliestNew) measurement.deleteEqualNew += 1;
@@ -126,7 +137,7 @@ export function measureDeleteTmSemantics(rows) {
     measurement.pairs.push({
       identity: tradeLegIdentity(row),
       newTm: siblings.map((epoch) => new Date(epoch).toISOString()).sort(),
-      deleteTm: deleteEpoch === null ? null : new Date(deleteEpoch).toISOString(),
+      deleteTm: new Date(deleteEpoch).toISOString(),
     });
   }
   const deleteIdentities = new Set(
