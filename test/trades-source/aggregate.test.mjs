@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import { join } from "node:path";
 
 import {
@@ -136,7 +137,7 @@ test("la lectura por streaming del archivo da el mismo resultado que la carga co
     deleteRow({ TrdID: "2", TrdDate: "2025-11-21", Tm: "2025-11-21T12:00:00Z" }),
     tradeRow({ TrdID: "4", TrdDate: "2025-11-24", Tm: "2025-11-24T09:00:00Z" }),
   ];
-  const directory = mkdtempSync(join(tmpdir(), "tr01-"));
+  const directory = createTempDir("tr01-");
   const path = join(directory, "rows.ndjson");
   try {
     const body = [JSON.stringify({ _meta: { dateMin: "2025-11-20", dateMax: "2025-11-24" } }), ...rows.map((row) => JSON.stringify(row))];

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,7 +26,7 @@ const FIXTURE_ROWS = [
 ];
 
 test("la regla Python del job TOB coincide con la implementación JS (cross-check)", () => {
-  const directory = mkdtempSync(join(tmpdir(), "tr03-tob-"));
+  const directory = createTempDir("tr03-tob-");
   try {
     const rowsPath = join(directory, "rows.ndjson");
     writeFileSync(rowsPath, `${FIXTURE_ROWS.map((row) => JSON.stringify(row)).join("\n")}\n`);
@@ -62,7 +63,7 @@ pq.write_table(pa.Table.from_pylist(rows), os.path.join(path, "part.parquet"))
 `;
 
 test("el job TOB lee el lago y emite la serie por contrato y día", () => {
-  const directory = mkdtempSync(join(tmpdir(), "tr03-toblake-"));
+  const directory = createTempDir("tr03-toblake-");
   try {
     execFileSync("python3", ["-c", BUILD_LAKE, directory], { encoding: "utf8" });
     const outPath = join(directory, "tob.json");

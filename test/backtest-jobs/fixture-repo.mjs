@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 import { EXPLORATORY_ENTRY, EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT } from "../../src/backtest-jobs/index.mjs";
@@ -73,7 +74,7 @@ function expectedResultsBytes(slotsBytes, slots) {
 }
 
 export function makeFixtureRepo({ mode = "ok", committedResultsSha256 = null, committedResultsPath = EXPLORATORY_OUTPUT } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), "bt05-repo-"));
+  const root = createTempDir("bt05-repo-");
   const write = (relative, content) => {
     const target = path.join(root, relative);
     mkdirSync(path.dirname(target), { recursive: true });

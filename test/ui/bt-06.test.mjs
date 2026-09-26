@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -44,7 +45,7 @@ function powerSlots() {
 // Resultados Power reales del runner v3, para probar la unión y el render sin
 // depender de la extracción real (que lanza DATA-01).
 function powerResultsFromRunner() {
-  const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-run-"));
+  const workspace = createTempDir("bt06-ui-run-");
   const slots = path.join(workspace, "slots.json");
   writeFileSync(slots, JSON.stringify(powerSlots()));
   const out = path.join(workspace, "results.json");
@@ -56,7 +57,7 @@ function powerResultsFromRunner() {
 }
 
 test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas sigue solo", () => {
-  const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-empty-"));
+  const workspace = createTempDir("bt06-ui-empty-");
   try {
     const power = loadPowerExploratoryBacktestAt(workspace);
     assert.equal(power.ok, false);
@@ -74,7 +75,7 @@ test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas si
 });
 
 test("BT-06 UI: el release v3 se verifica por sha256 y su procedencia no se atribuye al gas", () => {
-  const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-release-"));
+  const workspace = createTempDir("bt06-ui-release-");
   try {
     const resultsPath = POWER_EXPLORATORY_RELEASE.results;
     const slotsPath = POWER_EXPLORATORY_RELEASE.slots;

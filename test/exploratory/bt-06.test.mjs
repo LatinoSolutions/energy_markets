@@ -9,6 +9,7 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -57,7 +58,7 @@ test("BT-06 misiones: Power Q y Power M existen con 10 MW y mapean al motor acep
 });
 
 test("BT-06 loader: parametrizado por mercado/producto, excluye gas y spreads, y aplica el best ask", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-loader-"));
+  const workspace = createTempDir("bt06-loader-");
   try {
     const lake = path.join(workspace, "lake");
     const fixture = `
@@ -116,7 +117,7 @@ pq.write_table(table, os.path.join(folder, "part.parquet"))
 });
 
 test("BT-06 loader: la agregación consume un iterable (no acumula las filas del día)", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-stream-"));
+  const workspace = createTempDir("bt06-stream-");
   try {
     const module = loader;
     const script = `
@@ -150,7 +151,7 @@ print(json.dumps({"consumed": consumed["n"], "series": list(series), "counts": d
 });
 
 test("BT-06 loader: una decisión provisional de TR-01 no acredita la fuente y falla cerrada", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-source-"));
+  const workspace = createTempDir("bt06-source-");
   try {
     const args = (decision, out) => [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--source-decision", decision, "--out", path.join(workspace, out)];
 
@@ -222,7 +223,7 @@ print(zst)
 `;
 
 test("BT-06 loader: con la decisión en el archivo sellado la extracción completa (no se detiene en el lago)", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-archive-"));
+  const workspace = createTempDir("bt06-archive-");
   try {
     const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
     const archiveBytes = readFileSync(archivePath);
@@ -258,7 +259,7 @@ test("BT-06 loader: con la decisión en el archivo sellado la extracción comple
 });
 
 test("BT-06 loader: con el archivo sellado como fuente, un sha distinto falla cerrado", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-archive-sha-"));
+  const workspace = createTempDir("bt06-archive-sha-");
   try {
     const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
     const decision = path.join(workspace, "archive-decision.json");
@@ -277,7 +278,7 @@ test("BT-06 loader: con el archivo sellado como fuente, un sha distinto falla ce
 });
 
 test("BT-06 dispatch: el job de DATA-01 extrae del archivo cuando TR-01 lo declara canónico", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-dispatch-"));
+  const workspace = createTempDir("bt06-dispatch-");
   const repo = path.join(workspace, "repo");
   const v3 = path.join(repo, "operations/exploratory/v3");
   const tr01 = path.join(repo, "operations/trades/TR-01");
@@ -316,7 +317,7 @@ test("BT-06 dispatch: el job de DATA-01 extrae del archivo cuando TR-01 lo decla
 });
 
 test("BT-06 loader: si el archivo sellado no trae TOB en la ventana, falla cerrado (no publica vacío)", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-archive-empty-"));
+  const workspace = createTempDir("bt06-archive-empty-");
   try {
     const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
     const archiveBytes = readFileSync(archivePath);
@@ -348,7 +349,7 @@ function runPowerBacktest(workspace) {
 }
 
 test("BT-06 runner: produce Power Q y Power M con target 10 MW y el mismo esquema que gas", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-run-"));
+  const workspace = createTempDir("bt06-run-");
   try {
     const { results, manifest } = runPowerBacktest(workspace);
     assert.equal(results.artifactKind, "EXPLORATORY_BACKTEST_RESULTS");
@@ -383,8 +384,8 @@ test("BT-06 runner: produce Power Q y Power M con target 10 MW y el mismo esquem
 });
 
 test("BT-06 runner: determinista y sin target gas (60 MW) colado en Power", () => {
-  const first = mkdtempSync(path.join(tmpdir(), "bt06-det-a-"));
-  const second = mkdtempSync(path.join(tmpdir(), "bt06-det-b-"));
+  const first = createTempDir("bt06-det-a-");
+  const second = createTempDir("bt06-det-b-");
   try {
     const a = runPowerBacktest(first);
     const b = runPowerBacktest(second);

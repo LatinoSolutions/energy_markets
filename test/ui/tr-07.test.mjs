@@ -9,6 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
@@ -130,7 +131,7 @@ test("TR-07 contrato y resultados: candidato HOLD de TR-04 y ningún run fabrica
 });
 
 test("TR-07 fail-closed: un artifact que no coincide con el hash del manifest no se carga", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "tr07-"));
+  const root = createTempDir("tr07-");
   const tr02 = path.join(root, "operations/trades/TR-02");
   mkdirSync(tr02, { recursive: true });
   const manifest = readJson(TRADES_PANEL_ARTIFACTS.zonePlan.manifest);

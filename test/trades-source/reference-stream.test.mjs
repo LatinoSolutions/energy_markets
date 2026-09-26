@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -17,7 +18,7 @@ const daily = (trdDate) => ({
 });
 
 test("la referencia se lee en streaming, sin filas repetidas y con el mismo resultado", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "tr01-reference-"));
+  const directory = createTempDir("tr01-reference-");
   try {
     const rows = [daily("2025-11-20"), daily("2025-11-21"), daily("2025-11-24"),
       { ...daily("2025-11-24"), Maturity: "202601", InstrumentISIN: "ISIN-DEBM-202601", EndDate: "2025-12-30", ExpiryDate: "2025-12-30" },
