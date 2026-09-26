@@ -114,8 +114,9 @@ export function buildDataQueueSteps({ repoRoot, archive = DATA_ARCHIVE, scratchD
   if (typeof scratchDir !== "string" || scratchDir.length === 0) throw new TypeError("buildDataQueueSteps requiere scratchDir.");
   const env = { ...envForArchive({ archive }), DATA_SCRATCH_DIR: scratchDir, DATA_REPO_ROOT: repoRoot, DATA_BT06_SLOTS: POWER_EXPLORATORY_RELEASE.slots };
   // El artefacto de DECOMPRESS sale del `archive` que se pasa (no del default
-  // global): es la marca que el script escribe en DATA_DECOMPRESS_MARKER, dentro
-  // del mismo extractDir que recibe por DATA_EXTRACT_DIR.
+  // global): es la marca que el script escribe en DATA_DECOMPRESS_MARKER, al lado
+  // de extractDir, no dentro (decompressMarkerPath, :25-27), para no contaminar
+  // el árbol extraído del cliente.
   const artifactsFor = (jobKind) => (jobKind === DATA_JOB_KIND.DECOMPRESS ? [decompressMarkerPath(archive)] : [...STEP_ARTIFACTS[jobKind]]);
   const step = (jobKind, command, extra = {}) => ({
     jobKind,
