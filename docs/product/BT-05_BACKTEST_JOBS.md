@@ -76,7 +76,9 @@ se interrumpió, se reintenta como `attempt-<n+1>` del mismo run.
 temporal: se borra al cerrar el intento, con éxito o con fallo, después de copiar resultado y
 MANIFEST a `output/`. El receipt lo declara (`workspace.retention: TEMPORARY`,
 `workspace.removed`). Si el servicio muere a mitad, el siguiente arranque cierra el intento
-como `INTERRUPTED` y borra su workspace. Reproducir un run = mismo commit + mismos datos (por
+como `INTERRUPTED` y borra su workspace. Si el borrado falla, el receipt lo dice
+(`workspace.removed: false` + `error`) y cada arranque y cada run lo reintentan; cuando se
+borra, el receipt pasa a `removed: true` (+ `removedAt`) y el registro asienta `WORKSPACE_REMOVED`. Reproducir un run = mismo commit + mismos datos (por
 hash) + mismos parámetros de la identidad: da el mismo `run_id` y el mismo resultado.
 Los runs anteriores a OPS-01 no declaran workspace temporal y el código no los toca.
 

@@ -82,6 +82,8 @@ export const REGISTRY_EVENT = Object.freeze({
   // Un intento SUCCEEDED cuyo RESULT_PROMOTED no llegó al registro (hallazgo
   // BT05-REGISTRY-06): no se reutiliza y el run se recalcula como intento nuevo.
   PROMOTION_MISSING: "PROMOTION_MISSING",
+  // Borrado diferido de un workspace temporal que falló al cerrar el intento (OPS-01).
+  WORKSPACE_REMOVED: "WORKSPACE_REMOVED",
 });
 
 const CHILD_ENTRY = fileURLToPath(new URL("./child-entry.mjs", import.meta.url));
@@ -579,7 +581,11 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
       for (const attempt of listAttempts(runId)) {
         if (runId === ownRunId && attempt === ownAttempt) continue;
         const receipt = readAttemptReceipt(runId, attempt);
-        if (receipt?.status !== JOB_STATUS.RUNNING) continue;
+        if (receipt === null) continue;
+        if (receipt.status !== JOB_STATUS.RUNNING) {
+          retryWorkspaceRemoval(receipt);
+          continue;
+        }
         // Sólo se borra el workspace que el receipt declara temporal (OPS-01); los
         // runs anteriores a OPS-01 no lo declaran y no se tocan sin GO de Bru.
         const workspace = receipt.workspace?.retention === WORKSPACE_RETENTION
@@ -596,6 +602,20 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
         appendRegistry({ event: REGISTRY_EVENT.RUN_CLOSED, runId, attempt, manifest: runManifest(closed) });
       }
     }
+  }
+
+  // Un intento cerrado cuyo workspace temporal no se pudo borrar sigue siendo un
+  // duplicado (OPS-01, Bru 2026-09-26 "sin duplicados"): se reintenta en cada arranque
+  // y en cada run. El receipt sólo cambia en `workspace`; el cambio queda en el registro.
+  function retryWorkspaceRemoval(receipt) {
+    if (receipt.workspace?.retention !== WORKSPACE_RETENTION) return;
+    if (receipt.workspace.removed === true) return;
+    const outcome = discardWorkspace(path.join(attemptDir(receipt.runId, receipt.attempt), WORKSPACE_DIR));
+    if (!outcome.removed) return;
+    const removedAt = now().toISOString();
+    const { error: _previousError, ...workspace } = receipt.workspace;
+    writeJsonAtomic(receiptFile(receipt.runId, receipt.attempt), { ...receipt, workspace: { ...workspace, removed: true, removedAt } });
+    appendRegistry({ event: REGISTRY_EVENT.WORKSPACE_REMOVED, runId: receipt.runId, attempt: receipt.attempt, previousError: receipt.workspace.error ?? null });
   }
 
   function latestStartedReceipt() {

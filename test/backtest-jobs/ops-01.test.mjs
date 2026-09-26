@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT, JOB_STATUS, OUTPUT_DIR, WORKSPACE_DIR, WORKSPACE_RETENTION, claimJobLock, createBacktestJobRunner, readJobLock } from "../../src/backtest-jobs/index.mjs";
+import { EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT, JOB_STATUS, OUTPUT_DIR, REGISTRY_EVENT, WORKSPACE_DIR, WORKSPACE_RETENTION, claimJobLock, createBacktestJobRunner, readJobLock } from "../../src/backtest-jobs/index.mjs";
 import { FIXTURE_HELPER_PATH, fixtureHelperSource, makeFixtureRepo } from "./fixture-repo.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -130,4 +130,60 @@ test("OPS-01 huérfanos: se borra el workspace que el receipt declara temporal; 
   assert.equal(legacy.status, JOB_STATUS.INTERRUPTED);
   assert.equal(legacy.workspace, undefined);
   assert.equal(readFileSync(path.join(legacyDir, WORKSPACE_DIR, "src", "copia.mjs"), "utf8"), "// copia legacy");
+});
+
+test("OPS-01: un workspace temporal que no se pudo borrar al cerrar se borra en el siguiente arranque y queda asentado", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const receipt = await runner.start({ requestedBy: "ui" }).done;
+  assert.equal(receipt.status, JOB_STATUS.SUCCEEDED, JSON.stringify(receipt.failure));
+
+  // estado que deja finish() cuando rmSync falla: el run cerró, el duplicado quedó
+  const attemptDir = path.join(runner.runsRoot, receipt.runId, "attempt-1");
+  const receiptPath = path.join(attemptDir, "RUN_RECEIPT.json");
+  mkdirSync(path.join(attemptDir, WORKSPACE_DIR, "src"), { recursive: true });
+  writeFileSync(path.join(attemptDir, WORKSPACE_DIR, "src", "copia.mjs"), "// copia que no se pudo borrar");
+  writeFileSync(receiptPath, JSON.stringify({ ...receipt, workspace: { ...receipt.workspace, removed: false, error: "EBUSY simulado" } }));
+
+  createBacktestJobRunner({ repoRoot: repo.root });
+
+  assert.equal(existsSync(path.join(attemptDir, WORKSPACE_DIR)), false);
+  const swept = JSON.parse(readFileSync(receiptPath, "utf8"));
+  assert.equal(swept.workspace.removed, true);
+  assert.equal(swept.workspace.error, undefined);
+  assert.match(swept.workspace.removedAt, /^\d{4}-\d{2}-\d{2}T/);
+  // sólo cambia el workspace: estado, resultado y hashes del intento siguen iguales
+  const { workspace: _a, ...sweptRest } = swept;
+  const { workspace: _b, ...originalRest } = receipt;
+  assert.deepEqual(sweptRest, originalRest);
+  const events = readFileSync(path.join(runner.runsRoot, "REGISTRY.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));
+  const removal = events.filter((event) => event.event === REGISTRY_EVENT.WORKSPACE_REMOVED);
+  assert.equal(removal.length, 1);
+  assert.equal(removal[0].runId, receipt.runId);
+  assert.equal(removal[0].previousError, "EBUSY simulado");
+  // el resultado vigente no cambia
+  assert.equal(runner.status().currentResult.runId, receipt.runId);
+
+  // un segundo arranque no repite el asiento
+  createBacktestJobRunner({ repoRoot: repo.root });
+  const after = readFileSync(path.join(runner.runsRoot, "REGISTRY.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));
+  assert.equal(after.filter((event) => event.event === REGISTRY_EVENT.WORKSPACE_REMOVED).length, 1);
+});
+
+test("OPS-01: un run cerrado anterior a OPS-01 conserva su workspace aunque el servicio arranque (limpieza sólo con GO de Bru)", async () => {
+  const repo = makeFixtureRepo();
+  const runner = createBacktestJobRunner({ repoRoot: repo.root });
+  const receipt = await runner.start({ requestedBy: "ui" }).done;
+  const legacyRunId = `BT-RUN-${"b".repeat(64)}`;
+  const legacyDir = path.join(runner.runsRoot, legacyRunId, "attempt-1");
+  mkdirSync(path.join(legacyDir, WORKSPACE_DIR, "src"), { recursive: true });
+  writeFileSync(path.join(legacyDir, WORKSPACE_DIR, "src", "copia.mjs"), "// copia legacy");
+  const { workspace: _ignored, ...legacyReceipt } = receipt;
+  const legacyBytes = JSON.stringify({ ...legacyReceipt, runId: legacyRunId, schemaVersion: "3" });
+  writeFileSync(path.join(legacyDir, "RUN_RECEIPT.json"), legacyBytes);
+
+  createBacktestJobRunner({ repoRoot: repo.root });
+
+  assert.equal(readFileSync(path.join(legacyDir, WORKSPACE_DIR, "src", "copia.mjs"), "utf8"), "// copia legacy");
+  assert.equal(readFileSync(path.join(legacyDir, "RUN_RECEIPT.json"), "utf8"), legacyBytes);
 });
