@@ -44,6 +44,7 @@ export {
   STEP_STATUS,
   buildSpawnCommand,
   createDataQueueRunner,
+  jobMemoryRecord,
   queueIdFor,
   stepFingerprint,
 } from "./runner.mjs";

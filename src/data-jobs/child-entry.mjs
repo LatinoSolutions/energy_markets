@@ -46,23 +46,40 @@ function readCgroupPeak() {
   };
 }
 
-function writePeak() {
+// `phase: "started"` sólo identifica el scope; el runner acepta como medición del
+// job únicamente `phase: "final"` (FIX-02, PLAN_STATUS 2026-09-26).
+function writePeak(phase, extra = {}) {
   try {
     const temporary = `${peakFile}.tmp`;
-    writeFileSync(temporary, JSON.stringify(readCgroupPeak()));
+    writeFileSync(temporary, JSON.stringify({ phase, ...readCgroupPeak(), ...extra }));
     renameSync(temporary, peakFile);
   } catch {
     // Sin pico del job el receipt lo declara; no se tumba el job por esto.
   }
 }
 
+writePeak("started");
 const child = spawn(command[0], command.slice(1), { stdio: "inherit", env: process.env });
 child.once("error", (error) => {
   process.stderr.write(`child-entry: no se pudo lanzar el job: ${String(error?.message ?? error)}\n`);
-  writePeak();
+  writePeak("final");
   process.exit(127);
 });
 child.once("exit", (code, signal) => {
-  writePeak();
+  writePeak("final");
   process.exit(code ?? (signal ? 128 : 1));
 });
+// Si systemd detiene el scope (p. ej. OOMPolicy=stop, journal 2026-09-26 09:55:30Z
+// `run-p3840432-i24808480.scope: Failed with result 'oom-kill'`), el cgroup sigue
+// vivo mientras este proceso viva: se mide antes de salir.
+for (const name of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+  process.once(name, () => {
+    writePeak("final", { terminatedBy: name });
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // El job ya terminó.
+    }
+    process.exit(143);
+  });
+}

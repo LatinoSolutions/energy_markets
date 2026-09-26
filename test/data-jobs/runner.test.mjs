@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -14,6 +15,7 @@ import {
   STEP_STATUS,
   buildSpawnCommand,
   createDataQueueRunner,
+  jobMemoryRecord,
   queueIdFor,
   stepFingerprint,
 } from "../../src/data-jobs/index.mjs";
@@ -172,6 +174,9 @@ test("DATA-01 runner: MemoryMax se impone con un scope de systemd por job cuando
   assert.equal(scoped.bin, "systemd-run");
   assert.equal(scoped.enforcedBy, "systemd-scope");
   assert.ok(scoped.args.includes("--property=MemoryMax=12345"));
+  // FIX-02: con OOMPolicy=stop (default) systemd mata a child-entry tras el OOM
+  // del job y el receipt se queda sin la medición del scope.
+  assert.ok(scoped.args.includes("--property=OOMPolicy=continue"));
   // El scope corre child-entry, que escribe el pico del cgroup del job.
   const separator = scoped.args.indexOf("--");
   assert.equal(scoped.args[separator + 1], process.execPath);
@@ -194,7 +199,7 @@ test("DATA-01 runner: con scope de systemd el receipt registra el cgroup y el pi
   const spawnJob = (spec) => {
     observedSpec = spec;
     // El supervisor (child-entry) escribe el pico de SU cgroup al terminar.
-    writeFileSync(spec.peakFile, JSON.stringify({ cgroup: "/user.slice/user-1001.slice/run-abc.scope", memoryPeakBytes: 4242, oomKills: 2 }));
+    writeFileSync(spec.peakFile, JSON.stringify({ phase: "final", cgroup: "/user.slice/user-1001.slice/run-abc.scope", memoryPeakBytes: 4242, oomKills: 2 }));
     mkdirSync(path.dirname(artifact), { recursive: true });
     writeFileSync(artifact, JSON.stringify({ ok: true }));
     const child = new EventEmitter();
@@ -263,4 +268,63 @@ test("DATA-01 runner: la huella del paso ata comando, entorno, techo y disparado
   assert.notEqual(stepFingerprint({ ...base, command: ["b"] }, "fp"), same);
   assert.notEqual(stepFingerprint({ ...base, memoryMaxBytes: 2 }, "fp"), same);
   assert.notEqual(stepFingerprint(base, "otro"), same);
+});
+
+// FIX-02 (PLAN_STATUS 2026-09-26): TR01_SCAN murió por OOM en su scope y el
+// receipt declaró peakSource service-cgroup, oomKillsDuringRun 0 y el pico del
+// servicio. Con scope, el receipt sólo acepta la medición final del scope.
+test("FIX-02: con scope y sin medición final del job, el receipt no toma pico ni OOM del servicio", async () => {
+  const repo = makeDataFixtureRepo();
+  const scopeCgroup = "/user.slice/user-1001.slice/user@1001.service/app.slice/run-p3840432-i24808480.scope";
+  const spawnJob = (spec) => {
+    // child-entry alcanzó a nombrar el scope pero murió antes de medir.
+    writeFileSync(spec.peakFile, JSON.stringify({ phase: "started", cgroup: scopeCgroup, memoryPeakBytes: 1234, oomKills: 0 }));
+    const child = new EventEmitter();
+    child.pid = 987655;
+    setImmediate(() => child.emit("exit", null, "SIGTERM"));
+    return child;
+  };
+  const runner = createDataQueueRunner({ repoRoot: repo.root, runsDir: repo.runsDir, useSystemdScope: true, spawnJob });
+  const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: stepsFor(repo, ["ok"]) });
+  assert.equal(result.ok, false);
+  const receipt = runner.get(result.queueId).steps[0];
+  assert.equal(receipt.status, STEP_STATUS.FAILED);
+  assert.equal(receipt.memory.enforcedBy, "systemd-scope");
+  assert.equal(receipt.memory.cgroup, scopeCgroup);
+  assert.equal(receipt.memory.peakSource, "unavailable");
+  assert.equal(receipt.memory.memoryPeakBytes, null, "un pico de 'started' o del servicio no es el pico del job");
+  assert.equal(receipt.memory.oomKillsDuringRun, null, "OOM desconocido es null, nunca 0");
+});
+
+test("FIX-02: jobMemoryRecord con scope ignora el cgroup del servicio; sin scope lo declara como tal", () => {
+  const serviceBefore = { cgroup: "/app.slice/energy-markets-data-queue.service", memoryPeakBytes: 50, oomKills: 0 };
+  const serviceAfter = { cgroup: "/app.slice/energy-markets-data-queue.service", memoryPeakBytes: 91791360, oomKills: 0 };
+  const scoped = { enforcedBy: "systemd-scope", memoryMaxBytes: 2147483648 };
+  const missing = jobMemoryRecord({ spawnSpec: scoped, jobPeak: null, serviceBefore, serviceAfter });
+  assert.deepEqual([missing.cgroup, missing.memoryPeakBytes, missing.peakSource, missing.oomKillsDuringRun], [null, null, "unavailable", null]);
+  const measured = jobMemoryRecord({ spawnSpec: scoped, jobPeak: { cgroup: "/x.scope", memoryPeakBytes: 2147483648, oomKills: 1 }, serviceBefore, serviceAfter });
+  assert.deepEqual([measured.cgroup, measured.memoryPeakBytes, measured.peakSource, measured.oomKillsDuringRun], ["/x.scope", 2147483648, "job-scope", 1]);
+  const plain = jobMemoryRecord({ spawnSpec: { enforcedBy: "none", memoryMaxBytes: 1 }, jobPeak: null, serviceBefore, serviceAfter });
+  assert.deepEqual([plain.cgroup, plain.memoryPeakBytes, plain.peakSource, plain.oomKillsDuringRun], [serviceAfter.cgroup, 91791360, "service-cgroup", 0]);
+});
+
+// Prueba real contra systemd --user (se salta si no hay bus de usuario). El job
+// pide ~256 MiB con MemoryMax 32 MiB: el kernel lo mata por OOM dentro del scope.
+const systemdUserAvailable = spawnSync("systemd-run", ["--user", "--scope", "--quiet", "--collect", "true"], { stdio: "ignore" }).status === 0;
+test("FIX-02: un job muerto por OOM en su scope real queda con oom_kill y memory.peak del scope", { skip: systemdUserAvailable ? false : "systemd-run --user no disponible" }, async () => {
+  const repo = makeDataFixtureRepo();
+  const hog = path.join(repo.root, "hog.mjs");
+  writeFileSync(hog, "const kept = [];\nfor (let i = 0; i < 256; i += 1) kept.push(Buffer.alloc(1 << 20, 1));\nsetTimeout(() => {}, 200);\n");
+  const memoryMaxBytes = 32 * 1024 * 1024;
+  const step = { jobKind: "OOM_HOG", command: [process.execPath, hog], memoryMaxBytes, timeoutMs: 30000, publishes: [] };
+  const runner = createDataQueueRunner({ repoRoot: repo.root, runsDir: repo.runsDir, useSystemdScope: true });
+  const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [step] });
+  assert.equal(result.ok, false);
+  const receipt = runner.get(result.queueId).steps[0];
+  assert.equal(receipt.status, STEP_STATUS.FAILED);
+  assert.equal(receipt.failure.code, "RUN_FAILED");
+  assert.equal(receipt.memory.peakSource, "job-scope", JSON.stringify(receipt.memory));
+  assert.match(receipt.memory.cgroup, /\.scope$/);
+  assert.ok(receipt.memory.oomKillsDuringRun >= 1, JSON.stringify(receipt.memory));
+  assert.ok(receipt.memory.memoryPeakBytes > 0 && receipt.memory.memoryPeakBytes <= memoryMaxBytes, JSON.stringify(receipt.memory));
 });
