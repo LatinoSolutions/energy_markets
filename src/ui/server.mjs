@@ -41,7 +41,7 @@ import {
 import { renderNavigationPage, renderSurfacePage } from "./render.mjs";
 import { observationFor, TRADES_MISSION_IDS } from "./trades-panels.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
-import { backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath } from "../backtest-jobs/http.mjs";
+import { backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath, tradesJobStatusPayload } from "../backtest-jobs/http.mjs";
 import { withBacktestJobControl } from "./backtest-job-panel.mjs";
 
 export const DEFAULT_UI_HOST = "127.0.0.1";
@@ -182,9 +182,9 @@ function sendResponse(res, { status, contentType, body }) {
 
 // Si el estado del job no se puede leer, el control se sirve igual con la línea
 // "Backtest status unavailable": la página no cae y no se inventa un estado.
-function jobStatusForPage(jobRunner) {
+function jobStatusForPage(jobRunner, tradesJobRunner) {
   try {
-    return backtestJobStatusPayload(jobRunner);
+    return { ...backtestJobStatusPayload(jobRunner), trades: tradesJobStatusPayload(tradesJobRunner) };
   } catch {
     return null;
   }
@@ -193,8 +193,9 @@ function jobStatusForPage(jobRunner) {
 // `backend` describe qué cargó el arrancador (ver ./canonical-inputs.mjs), para que
 // /health distinga "sin manifest" de "manifest cargado con 0 valores atestados".
 // `jobRunner` (BT-05) es el ejecutor de ../backtest-jobs/runner.mjs; null = sin
-// comando de backtest (el endpoint responde 503).
-export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null } = {}) {
+// comando de backtest (el endpoint responde 503). `tradesJobRunner` (BT-07) es el de
+// ../backtest-jobs/trades-runner.mjs; null = el modo TRADES del botón queda bloqueado.
+export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null, tradesJobRunner = null } = {}) {
   const viewModels = buildUiViewModels(inputs);
 
   const server = createServer((req, res) => {
@@ -209,7 +210,7 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
       pathname = null;
     }
     if (isBacktestJobsPath(pathname)) {
-      handleBacktestJobsRequest(req, res, pathname, jobRunner).catch((error) => {
+      handleBacktestJobsRequest(req, res, pathname, jobRunner, tradesJobRunner).catch((error) => {
         if (!res.headersSent) {
           res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
         }
@@ -245,7 +246,8 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
       return;
     }
     if (route.surface === SURFACES.BACKTESTS && jobRunner !== null) {
-      html = withBacktestJobControl(html, jobStatusForPage(jobRunner));
+      const mode = selectionFromSearchParams(searchParams).mode === "TRADES" ? "TRADES" : "TOB";
+      html = withBacktestJobControl(html, jobStatusForPage(jobRunner, tradesJobRunner), { mode });
     }
     sendResponse(res, { status: 200, contentType: "text/html; charset=utf-8", body: adaptLinksForServing(html) });
   });

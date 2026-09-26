@@ -2,15 +2,17 @@
 // Backtests y el servidor MCP (./mcp-server.mjs); ninguno corre el backtest por
 // su cuenta (nota BT-05 en PLAN_STATUS: "un solo endpoint backend").
 //
-//   POST /api/backtest-jobs            body {"requestedBy":"ui"|"mcp"} → 202 lanzado
+//   POST /api/backtest-jobs            body {"requestedBy":"ui"|"mcp", "mode"?:"TOB"|"TRADES"} → 202 lanzado
 //                                      | 200 reused (mismo run_id ya tiene resultado) | 409 | 4xx
-//   GET  /api/backtest-jobs            → { running, current, latest, currentResult, registry, display }
+//                                      Sin mode = TOB (BT-05). mode TRADES = secuencia TR-06 (BT-07).
+//   GET  /api/backtest-jobs            → { running, current, latest, currentResult, registry, display, trades }
 //   GET  /api/backtest-jobs/<runId>    → RUN_RECEIPT del último intento + vigencia | 404
+//                                      (BT-RUN-… = TOB, TR-RUN-… = TRADES)
 //
 // POST exige Content-Type application/json: un formulario de otro sitio no puede
 // mandarlo sin preflight CORS, y este servidor no responde CORS.
 
-import { describeJobStatus, describeLaunch, elapsedSeconds } from "./display.mjs";
+import { describeJobStatus, describeLaunch, describeTradesLaunch, describeTradesStatus, elapsedSeconds } from "./display.mjs";
 
 export const BACKTEST_JOBS_PATH = "/api/backtest-jobs";
 const MAX_BODY_BYTES = 4096;
@@ -53,11 +55,38 @@ export function backtestJobStatusPayload(runner) {
   return { ...published, display: { line: describeJobStatus(published, now) } };
 }
 
+// BT-07: estado del modo TRADES con su línea. Sin ejecutor TRADES, el motivo.
+export function tradesJobStatusPayload(tradesRunner) {
+  if (tradesRunner == null) {
+    const gate = { ok: false, code: "TRADES_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de runs TRADES" };
+    return { configured: false, running: null, gate, display: { line: describeTradesStatus({ running: false, gate }, new Date()) } };
+  }
+  const now = tradesRunner.now();
+  let status;
+  try {
+    status = tradesRunner.status();
+  } catch (error) {
+    // Estado ilegible: se dice, no se inventa ni tumba el GET del modo TOB.
+    return { configured: true, running: null, statusReadable: false, gate: null, display: { line: "TRADES status unavailable" }, error: String(error?.message ?? error) };
+  }
+  const current = status.current === null ? null : { ...status.current, elapsedSeconds: elapsedSeconds(status.current.startedAt, now) };
+  const published = { configured: true, ...status, current };
+  return { ...published, display: { line: describeTradesStatus(published, now) } };
+}
+
+function httpStatusOf(code) {
+  if (code === "JOB_ALREADY_RUNNING") return 409;
+  if (code === "INVALID_REQUESTER" || code === "INVALID_MODE") return 400;
+  if (code === "TRADES_NOT_CONFIGURED") return 503;
+  if (code === "STAGING_FAILED" || code.startsWith("REGISTRY_")) return 500;
+  return 422;
+}
+
 export function isBacktestJobsPath(pathname) {
   return pathname === BACKTEST_JOBS_PATH || pathname?.startsWith(`${BACKTEST_JOBS_PATH}/`) === true;
 }
 
-export async function handleBacktestJobsRequest(req, res, pathname, runner) {
+export async function handleBacktestJobsRequest(req, res, pathname, runner, tradesRunner = null) {
   if (runner == null) {
     sendJson(res, 503, { ok: false, code: "JOB_RUNNER_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de backtests" });
     return;
@@ -77,17 +106,26 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner) {
       body = null;
     }
     if (body === null || typeof body !== "object") {
-      sendJson(res, 400, { ok: false, code: "INVALID_BODY", message: 'body JSON {"requestedBy":"ui"|"mcp"}' });
+      sendJson(res, 400, { ok: false, code: "INVALID_BODY", message: 'body JSON {"requestedBy":"ui"|"mcp", "mode"?:"TOB"|"TRADES"}' });
       return;
     }
-    const started = runner.start({ requestedBy: body.requestedBy });
+    const mode = body.mode ?? "TOB";
+    if (mode !== "TOB" && mode !== "TRADES") {
+      sendJson(res, 400, { ok: false, code: "INVALID_MODE", message: 'mode debe ser "TOB" o "TRADES"' });
+      return;
+    }
+    const trades = mode === "TRADES";
+    const describe = trades ? describeTradesLaunch : describeLaunch;
+    const started = trades
+      ? tradesRunner?.start({ requestedBy: body.requestedBy }) ?? { ok: false, code: "TRADES_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de runs TRADES" }
+      : runner.start({ requestedBy: body.requestedBy });
+    const clock = trades && tradesRunner != null ? tradesRunner.now() : runner.now();
     if (started.ok) {
-      const display = { line: describeLaunch(started, runner.now()) };
-      sendJson(res, started.reused ? 200 : 202, { ok: true, reused: started.reused, job: started.job, display });
+      const display = { line: describe(started, clock) };
+      sendJson(res, started.reused ? 200 : 202, { ok: true, mode, reused: started.reused, job: started.job, display });
       return;
     }
-    const status = started.code === "JOB_ALREADY_RUNNING" ? 409 : started.code === "INVALID_REQUESTER" ? 400 : started.code === "STAGING_FAILED" || started.code.startsWith("REGISTRY_") ? 500 : 422;
-    sendJson(res, status, { ok: false, code: started.code, message: started.message ?? null, job: started.job ?? null, display: { line: describeLaunch(started, runner.now()) } });
+    sendJson(res, httpStatusOf(started.code), { ok: false, mode, code: started.code, message: started.message ?? null, job: started.job ?? null, display: { line: describe(started, clock) } });
     return;
   }
   if (method !== "GET" && method !== "HEAD") {
@@ -96,11 +134,11 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner) {
     return;
   }
   if (pathname === BACKTEST_JOBS_PATH) {
-    sendJson(res, 200, { ok: true, ...backtestJobStatusPayload(runner) });
+    sendJson(res, 200, { ok: true, ...backtestJobStatusPayload(runner), trades: tradesJobStatusPayload(tradesRunner) });
     return;
   }
   const runId = pathname.slice(BACKTEST_JOBS_PATH.length + 1);
-  const found = runner.get(runId);
+  const found = runId.startsWith("TR-RUN-") ? tradesRunner?.get(runId) ?? null : runner.get(runId);
   if (found === null) {
     sendJson(res, 404, { ok: false, code: "RUN_NOT_FOUND", runId });
     return;

@@ -193,6 +193,16 @@ export function buildInputManifest(inputs = {}) {
   return manifest;
 }
 
+// El artefacto de TR-04 en disco publica el contrato en `frozenContract`
+// (operations/trades/TR-04/build-trades-freeze.mjs:81); el motor lo lee de
+// `contract` (src/trades-engine/run.mjs:62-66, forma de `evaluateTradesFreeze`).
+// Sin esta adaptación un freeze FROZEN aprobado por Bru bloqueaba todos los runs
+// con TRADES_CONTRACT_NOT_FROZEN (hallazgo BT07-FREEZE-SHAPE, 2026-09-26).
+export function freezeResultFromArtifact(artifact) {
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) return null;
+  return { decision: artifact.decision ?? null, contract: artifact.frozenContract ?? null };
+}
+
 function freezeIsFrozen() {
   try {
     return readJson(FREEZE_PATH)?.decision === "FROZEN";
@@ -496,7 +506,7 @@ export async function buildSingleTradesRun({
   if (!OBSERVATION_RULE_LIST.includes(rule)) {
     return { ok: false, code: "UNKNOWN_OBSERVATION_RULE", mission, phase, rule, run: null, oos: null };
   }
-  const resolvedFreeze = frozenContract ?? readJsonOrNull(FREEZE_PATH);
+  const resolvedFreeze = frozenContract ?? freezeResultFromArtifact(readJsonOrNull(FREEZE_PATH));
   if (resolvedFreeze?.decision !== "FROZEN") {
     return { ok: false, code: "TRADES_CONTRACT_NOT_FROZEN", mission, phase, rule, run: null, oos: null };
   }

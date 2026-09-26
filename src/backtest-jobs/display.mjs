@@ -37,6 +37,23 @@ export const FAILURE_WORDS = Object.freeze({
   REGISTRY_CORRUPT: "the run registry is corrupt",
   REGISTRY_UNREADABLE: "the run registry could not be read",
   REGISTRY_WRITE_FAILED: "the run registry could not be written",
+  // BT-07: runs TRADES de TR-06 (./trades-runner.mjs).
+  TRADES_FREEZE_NOT_APPROVED: "Bru has not approved the TRADES-v1 freeze of TR-04",
+  TRADES_FREEZE_APPROVAL_UNREADABLE: "the TR-04 freeze approval could not be read",
+  TRADES_FREEZE_APPROVAL_INVALID: "the TR-04 freeze approval does not cover the current contract",
+  TRADES_FREEZE_MISSING: "the TR-04 freeze artifact is missing",
+  TRADES_FREEZE_NOT_FROZEN: "the TR-04 freeze has not been rebuilt as FROZEN with Bru's approval",
+  TRADES_FREEZE_APPROVAL_MISMATCH: "the TR-04 frozen contract does not carry Bru's approval",
+  TRADES_FREEZE_MANIFEST_MISMATCH: "the TR-04 freeze does not match its manifest",
+  TRADES_NOT_CONFIGURED: "this server has no TRADES run launcher",
+  ZONE_PLAN_NOT_RESERVED: "the TR-02 zone plan is not reserved",
+  RUN_ARTIFACT_MISSING: "a TRADES run produced no artifact",
+  RUN_ARTIFACT_CHANGED: "the assembled view does not bind this job's run artifacts",
+  ASSEMBLE_FAILED: "assembling the TRADES runs failed",
+  OOS_ACCESS_REGISTRY_UNREADABLE: "the OOS access registry could not be read",
+  OOS_ACCESS_REGISTRY_CORRUPT: "the OOS access registry is corrupt",
+  OOS_OPENED_MORE_THAN_ONCE: "the historical OOS was opened more than once",
+  SEQUENCE_INCOMPLETE: "the TRADES sequence ended without assembling",
 });
 
 export function failureInWords(code) {
@@ -109,5 +126,63 @@ export function describeLaunch(started, now) {
   if (started?.ok === true && started.reused === true) return "Last run: reused existing result";
   if (started?.ok === true) return runningLine(started.job, now);
   if (started?.code === "JOB_ALREADY_RUNNING") return runningLine(started.job, now);
+  return `Not started · ${failureInWords(started?.code)}`;
+}
+
+// ---------- BT-07: línea del botón en modo TRADES ----------
+
+function tradesProgress(job) {
+  const current = job?.steps?.current;
+  const total = job?.steps?.total;
+  if (current == null || !Number.isInteger(total)) return "preparing";
+  const what = current.kind === "ASSEMBLE" ? "assembling the four missions" : `${current.missionKey} · ${String(current.phase).toLowerCase()} · ${current.observationRule}`;
+  return `step ${current.index} of ${total} · ${what}`;
+}
+
+function tradesRunningLine(job, now) {
+  if (job?.jobKind !== undefined && job.jobKind !== "TRADES_RUN") {
+    return `A TOB backtest is running · ${runningLine(job, now).replace(/^Running · /, "")}`;
+  }
+  const started = parseInstant(job?.startedAt);
+  if (started === null) return `Running TRADES · ${tradesProgress(job)} · start time unavailable`;
+  const minutes = Math.floor(elapsedSeconds(job.startedAt, now) / 60);
+  const elapsed = minutes < 1 ? "less than 1 min elapsed" : `${minutes} min elapsed`;
+  return `Running TRADES · ${tradesProgress(job)} · started ${utcTime(started)} · ${elapsed}`;
+}
+
+function oosWords(job) {
+  const missions = Object.values(job?.oos ?? {});
+  const opened = missions.filter((entry) => entry?.opened === true).length;
+  return `historical OOS opened for ${opened} of 4 missions`;
+}
+
+function tradesLastLine(job) {
+  if (job == null) return "No TRADES run has been launched yet";
+  if (job.status === JOB_STATUS.SUCCEEDED) {
+    const finished = parseInstant(job.finishedAt);
+    const when = finished === null ? "finish time unavailable" : utcDateTime(finished);
+    const counts = job.steps?.counts ?? {};
+    return `Last TRADES run: finished · ${when} · ${counts.SUCCEEDED ?? 0} done, ${counts.BLOCKED ?? 0} blocked, ${counts.SKIPPED ?? 0} skipped · ${oosWords(job)}`;
+  }
+  const where = Number.isInteger(job.failure?.step) ? ` at step ${job.failure.step} of ${job.steps?.total ?? "?"}` : "";
+  if (job.status === JOB_STATUS.FAILED) return `Last TRADES run: failed${where} · ${failureInWords(job.failure?.code)}`;
+  if (job.status === JOB_STATUS.INTERRUPTED) return `Last TRADES run: interrupted · ${failureInWords(job.failure?.code ?? "INTERRUPTED")}`;
+  if (job.status === JOB_STATUS.RUNNING) return "Last TRADES run: did not finish · its process is no longer running";
+  return "Last TRADES run: status unavailable";
+}
+
+// Línea del botón en modo TRADES. Precedencia: job en curso (de cualquier tipo,
+// mismo lock) > gate de TR-04 cerrado (el motivo, nada se lanza) > último run.
+export function describeTradesStatus(status, now) {
+  if (status == null) return "TRADES status unavailable";
+  if (status.running === true) return tradesRunningLine(status.current, now);
+  if (status.gate?.ok !== true) return `TRADES runs locked · ${failureInWords(status.gate?.code)}`;
+  return tradesLastLine(status.latest ?? null);
+}
+
+export function describeTradesLaunch(started, now) {
+  if (started?.ok === true && started.reused === true) return "Last TRADES run: reused existing result";
+  if (started?.ok === true) return tradesRunningLine(started.job, now);
+  if (started?.code === "JOB_ALREADY_RUNNING") return tradesRunningLine(started.job, now);
   return `Not started · ${failureInWords(started?.code)}`;
 }
