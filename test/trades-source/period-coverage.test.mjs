@@ -223,6 +223,18 @@ test("el productor registra PARCHE VERIFICADO sin declarar completos los datos d
   assert.ok(gap.patch.days.some((entry) => entry.source === "DATA_INCOMPLETE"));
 });
 
+test("la regla se fija sin consumir resultados de estrategia", () => {
+  const inputs = repoInputs();
+  const before = buildSourcePeriodCoverage(inputs);
+  const after = buildSourcePeriodCoverage({
+    ...inputs,
+    strategyResults: { A0: { pnl: -999 }, A1: { pnl: 999 }, preferredSource: "EEX_LAKE" },
+  });
+  assert.deepEqual(after.ownerDecision.completenessRule, before.ownerDecision.completenessRule);
+  assert.equal(after.ownerDecision.completenessRuleSha256, before.ownerDecision.completenessRuleSha256);
+  assert.deepEqual(after.campaigns.map((item) => item.patch), before.campaigns.map((item) => item.patch));
+});
+
 test("fail-closed: una medición de trades que no viene del archivo verificado no se usa", () => {
   const inputs = repoInputs();
   inputs.archiveMeasurementGas.sourceMeta = { ...inputs.archiveMeasurementGas.sourceMeta, archiveVerification: { sha256: "otro" } };
