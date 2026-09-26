@@ -1813,7 +1813,7 @@ function tr07CalibrationRowsHtml(calibration, missionId) {
   const rows = parameters.missions.flatMap((mission) => mission.rules.map((entry) => {
     const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
     const groups = entry.penalty.byAggressor.map((group) => `${group.aggressor} ${tr07Value(group.penaltyEurMwh)} (${group.count})`).join(" · ");
-    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td class="mono small">${esc(entry.rule)}</td><td class="right mono">${esc(tr07Value(entry.freshness.limitSeconds, 0))} s ${tr07StatusChip(entry.freshness.status)}</td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
+    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td class="mono small">${esc(entry.rule)}</td><td class="right mono">${esc((entry.freshness.gridSeconds ?? []).join(" / "))} s<div class="tiny muted">selected: ${esc(entry.freshness.limitSeconds ?? "PENDING DEVELOPMENT")} ${tr07StatusChip(entry.freshness.status)}</div></td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
   })).join("");
   return `<table class="t" style="margin-top:8px"><thead><tr><th>Mission</th><th>Rule</th><th class="right">Freshness limit</th><th class="right">Coverage (calibration half)</th><th class="right">Penalty trade→ask</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -1822,7 +1822,7 @@ function tr07GateHtml(gate) {
   if (!gate) {
     return "";
   }
-  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}"><span class="mono small">${esc(metric.id)}</span> · ${esc(metric.passCriterion ?? "—")}</li>`).join("");
+  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}"><span class="mono small">${esc(metric.id)}</span> · ${esc(metric.description ?? "—")}</li>`).join("");
   return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted">${esc(gate.independence)}</span>
     <ul class="small" style="margin:4px 0 0 16px">${metrics}</ul>
     <div class="tiny muted">${esc(gate.declaration)}</div></div>`;
@@ -1839,7 +1839,7 @@ function tr07CalibrationHtml(panels, missionId) {
   return `<div class="card" style="margin-top:14px" data-tr07="calibration">
     <div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03 · bridge ${esc(window.startIso ?? "—")} → ${esc(window.endIso ?? "—")}</span><span class="grow"></span>${tr07StatusChip(calibration.status)}</div>
     <div class="bd"><div class="small muted">${esc(calibration.reason)}</div>
-      <div class="row small muted" style="gap:16px;margin-top:8px"><span>freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>measured freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))} · ${tr07StatusChip(calibration.gridStatus)}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
       ${tr07CalibrationRowsHtml(calibration, missionId)}
       ${tr07GateHtml(calibration.gate)}
     </div>
@@ -1854,7 +1854,7 @@ function tr07FrozenContractHtml(panels) {
   const parameters = (candidate?.sharedParameters ?? []).map((entry) => `<span>${esc(entry.key)} ${esc(entry.value === null ? "—" : `${entry.value} ${entry.unit ?? ""}`)} ${tr07StatusChip(entry.status)}</span>`).join("");
   const details = candidate
     ? `<div class="row small muted" style="gap:16px;margin-top:8px"><span class="mono">${esc(candidate.contractId)} · ${esc(candidate.versionLabel)} · ${esc(candidate.contractVersion)}</span><span>configHash <span class="mono" data-tr07-config-hash="${esc(candidate.configHash)}">${esc(candidate.configHash)}</span></span></div>
-      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ?? "—")} · ${esc(candidate.observationRules?.secondary ?? "—")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ?? "—")}</span>${parameters}</div>`
+      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ?? "—")} · ${esc(candidate.observationRules?.secondary ?? "—")}</span><span>freshness grid ${(candidate.freshnessSelection?.gridSeconds ?? []).map((value) => esc(value)).join(" / ")} s</span><span>selection: ${esc(Object.values(candidate.freshnessSelection?.results ?? {}).map((item) => `${item.missionKey} ${item.selectedSeconds ?? "PENDING"}`).join(" · ") || "PENDING DEVELOPMENT")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ?? "—")}</span>${parameters}</div>`
     : "";
   const blocked = (contract.blockedBy ?? []).length > 0 ? `<div class="tiny muted" style="margin-top:4px">blocked by ${esc(contract.blockedBy.join(", "))}</div>` : "";
   return `<div class="card" style="margin-top:14px" data-tr07="frozenContract" data-state="${esc(contract.status)}">
@@ -1874,13 +1874,21 @@ function tr07UnavailableCard(kind, title, subtitle, panels) {
 // Panel de contraste (diseño aprobado P-010, opción B): TOB vs TRADES sobre el puente.
 // Las medidas y sus criterios son los del gate predeclarado en el candidato de TR-04;
 // sin runs TRADES (TR-06) ningún resultado existe.
-function tr07ContrastHtml(panels) {
+function tr07ContrastHtml(panels, missionId) {
   const metrics = panels.calibration?.gate?.metrics ?? [];
-  const rows = metrics.length > 0
-    ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description)}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">${esc(metric.passCriterion ?? "—")}</td></tr>`).join("")
+  const reported = (panels.results?.bridge ?? []).filter((run) => run.missionKey === missionId);
+  const reportedRows = reported.flatMap((run) => Object.entries(run.perArm ?? {}).flatMap(([arm, report]) => (report.metrics ?? []).map((metric) => {
+    const details = metric.status === "REPORTED"
+      ? metric.id === "BUY_WAIT_AGREEMENT" ? `agreement ${tr07Value(metric.observed)} · n ${metric.compared}`
+        : `TOB ${tr07Value(metric.tob)} · TRADES ${tr07Value(metric.trades)} · Δ ${tr07Value(metric.delta)}`
+      : "UNAVAILABLE";
+    return `<tr data-tr09-contrast="${esc(missionId)}|${esc(run.observationRule)}|${esc(arm)}|${esc(metric.id)}"><td>${esc(run.observationRule)} · ${esc(arm)} · ${esc(metric.id)}</td><td class="mono small">${esc(details)}</td><td>${tr07StatusChip(metric.status)}</td></tr>`;
+  })));
+  const rows = reportedRows.length > 0 ? reportedRows.join("") : metrics.length > 0
+    ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description)}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">report by mission and arm</td></tr>`).join("")
     : `<tr><td colspan="3">${chip("unk", "?", "UNAVAILABLE")} <span class="small muted">no bridge gate declared by a verified TR-04 candidate</span></td></tr>`;
   return `<details class="card tr07side" style="margin-top:14px" data-tr07="contrast">
-    <summary class="hd" style="cursor:pointer;list-style:none"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only · ${metrics.length} measures · not run yet · click to open</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</summary>
+    <summary class="hd" style="cursor:pointer;list-style:none"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only · ${metrics.length} measures · ${reportedRows.length ? "reported" : "not run yet"} · click to open</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</summary>
     <div class="bd"><div class="small muted">does TRADES tell the same story as TOB? ${esc(panels.frozenContract.reason)}</div>
       <table class="t" style="margin-top:8px"><thead><tr><th>Measure</th><th>Result</th><th>Gate (declared before)</th></tr></thead><tbody>${rows}</tbody></table>
     </div>
@@ -1905,6 +1913,7 @@ function tr07GapDistributionHtml(panels, missionId) {
   const rows = mission.rules.flatMap((entry) => [
     line(entry.rule, "bridge", entry.overall),
     ...(entry.byHalf ?? []).map((stats) => line(entry.rule, String(stats.half).toLowerCase(), stats)),
+    ...(entry.byAgeBucket ?? []).map((stats) => line(entry.rule, String(stats.ageBucket), stats)),
   ]).join("");
   return `<table class="t" style="margin-top:8px"><thead><tr><th>Rule</th><th>Period</th><th class="right">n</th><th class="right">p10</th><th class="right">p50</th><th class="right">mean</th><th class="right">p90</th><th class="right">share &lt; 0</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="tiny muted">(observation − ask) in €/MWh at decision time, ${esc(missionId)} · TR-03 measurement ${esc(tr07ShortHash(calibration.measurement?.sha256))}</div>`;
@@ -2010,7 +2019,7 @@ function tr07GridHtml(panels, selection, modeViewHtml, measurementHtml = "") {
   const coversBridge = tr07CoversBridge(mode, period);
   const left = `${coversBridge ? "" : tr07ContrastNoteHtml()}${modeViewHtml}${measurementHtml}`;
   const missionId = selection.missionId ?? panels.selector?.marketMissions?.[0]?.missionId ?? null;
-  const right = coversBridge ? `${tr07ContrastHtml(panels)}${tr07ExpandHtml(panels, missionId)}` : "";
+  const right = coversBridge ? `${tr07ContrastHtml(panels, missionId)}${tr07ExpandHtml(panels, missionId)}` : "";
   return `<div class="tr07grid single">
     <div data-tr07="contrast-column">${right}</div>
     <div data-tr07="mode-view">${left}</div>

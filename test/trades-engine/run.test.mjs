@@ -87,7 +87,7 @@ test("missionObservationConfig lee frescura y penalización medidas del contrato
     ok: true,
     code: null,
     freshnessLimitSeconds: 900,
-    freshnessStatus: "MEASURED",
+    freshnessStatus: "SELECTED_DEVELOPMENT",
     penaltyEurMwh: 0.5,
     penaltyStatus: "MEASURED",
   });

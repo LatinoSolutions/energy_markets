@@ -16,6 +16,7 @@ import {
   slotEpochMs,
 } from "../../src/trades-bridge/index.mjs";
 import { TRADES_FREEZE_SCOPE } from "../../src/execution-contract/index.mjs";
+import { FRESHNESS_SELECTION_METRIC } from "../../src/trades-engine/freshness-selection.mjs";
 
 // Una misión por mercado/tenor, con su propio contrato (ShortCode|Maturity) y su
 // lado agresor declarado. El offset `penalty` es el gap constante que el
@@ -146,6 +147,8 @@ export function frozenInput(overrides = {}) {
     measurement: measurementFixture(),
     sourceDecision: sourceDecisionFixture(),
     deleteTmSemantics: "deletion-time",
+    developmentSelection: Object.fromEntries(MISSION_SPECS.map((spec) => [spec.missionKey, { status: "SELECTED", zone: "DEVELOPMENT", metric: FRESHNESS_SELECTION_METRIC, selectedSeconds: 900, scores: [] }])),
+    generatedFrom: { developmentSelectionSha256: "a".repeat(64) },
     ...overrides,
   };
 }

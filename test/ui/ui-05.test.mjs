@@ -110,7 +110,8 @@ test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barr
   // Receipts solo respaldan runs: sin runs, NO RECEIPTS honesto (UI05-RCP-01).
   const withoutRuns = results.campaigns.length - withRuns.length;
   assert.ok(withoutRuns > 0);
-  assert.equal(count(html, /<div class="receipt">/g), withRuns.length * 4);
+  const receiptCount = 1 + 3 * (vms.campaigns.exploratory.provenance.releases?.length ?? 1);
+  assert.equal(count(html, /<div class="receipt">/g), withRuns.length * receiptCount);
   assert.equal(count(html, /<span class="withheld">NO RECEIPTS<\/span> <span class="small muted">no run exists for this campaign<\/span>/g), withoutRuns);
   for (const campaign of results.campaigns.filter((item) => item.runs.length === 0)) {
     const section = html.split(`id="cmp-${campaign.id}"`)[1].split("</section>")[0];
@@ -153,7 +154,7 @@ test("UI-05 Research: pila en una tarjeta con recuento de evidencia, criterios, 
   assert.equal(count(html, /<a class="it" href="#res-/g), candidates.length);
   assert.equal(count(html, /<div class="card stack">/g), 1);
   for (const candidate of candidates) {
-    const expected = candidate.armId ? 4 : 0;
+    const expected = candidate.armId ? 1 + 3 * (vms.research.exploratory.provenance.releases?.length ?? 1) : 0;
     assert.match(html, new RegExp(`href="#res-${candidate.id}">[\\s\\S]*?EVIDENCE ${expected}<`));
   }
   const criteria = candidates.reduce((sum, candidate) => sum + candidate.criteria.reduce((inner, group) => inner + group.items.length, 0), 0);
@@ -168,7 +169,7 @@ test("UI-05 Research: pila en una tarjeta con recuento de evidencia, criterios, 
 test("UI-05 Backtests: leyenda de brazos, tabla de datos, histogramas con eje y forest plot por producto", () => {
   // TR-07: el selector de misión muestra una misión a la vez; se renderizan las dos
   // misiones Gas y se concatenan para cubrir ambos productos canónicos.
-  const html = ["GAS_QUARTERLY", "GAS_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vms.backtests, { missionId })).join("");
+  const html = ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vms.backtests, { missionId })).join("");
   const products = Object.keys(results.comparison);
   assert.match(html, /<div class="armhead"><span class="arm"><span class="sw" style="background:var\(--arm-base\)"><\/span>Baseline<\/span><span class="arm">[^]*?Arm A<\/span><span class="arm">[^]*?Arm B<\/span><\/div>/);
   assert.match(html, /Does another hour or a dip rule buy cheaper than the client's 11:00\?/);
@@ -245,7 +246,7 @@ test("UI-05 Campaigns rail: el view model agrupa por misión con recuentos, entr
   }
   // Cada campaign del artifact aparece exactamente una vez.
   assert.equal(groups.reduce((sum, group) => sum + group.total, 0), results.campaigns.length);
-  assert.equal(groups[2].total + groups[3].total, 0, "Power no tiene campaigns en el artifact");
+  assert.ok(groups[2].total + groups[3].total > 0, "el release v3 incluye Power en el artifact");
   // Formato de entrega pedido por Bru: "Q1-2026" y "Oct 2025".
   const label = (id) => groups.flatMap((group) => group.campaigns).find((row) => row.id === id).deliveryLabel;
   assert.equal(label("GAS-Q-202601"), "Q1-2026");

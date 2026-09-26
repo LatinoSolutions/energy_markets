@@ -21,6 +21,7 @@ import {
   TRADES_SCRATCH_INPUTS,
 } from "../../src/backtest-jobs/index.mjs";
 import { tradesBridgeMeasurement } from "../trades-engine/fixtures.mjs";
+import { syntheticDevelopmentEvidence } from "../trades-engine/development-evidence.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -95,8 +96,9 @@ write({ run: { runId, bridgeGate: phase === "BRIDGE" ? { decision: config.bridge
 export function freezeFixture({ approved = true, approvalConfigHash = null } = {}) {
   const measurement = tradesBridgeMeasurement();
   const sourceDecision = { deleteTmSemantics: "deletion-time" };
+  const evidence = syntheticDevelopmentEvidence(measurement, sourceDecision);
   const inputsPresent = { measurement: true };
-  const candidate = buildTradesFreezeArtifact({ measurement, sourceDecision, inputsPresent }).artifact;
+  const candidate = buildTradesFreezeArtifact({ measurement, sourceDecision, inputsPresent, ...evidence }).artifact;
   const approval = {
     approvalRef: "BRU-TRADES-FREEZE-FIXTURE",
     approvedBy: { authority: "Bru", role: "OWNER" },
@@ -105,7 +107,7 @@ export function freezeFixture({ approved = true, approvalConfigHash = null } = {
     approvedAtUtc: "2026-09-26T00:00:00Z",
     configHash: approvalConfigHash ?? candidate.humanGate.configHash,
   };
-  const { artifact } = buildTradesFreezeArtifact({ measurement, sourceDecision, inputsPresent: { ...inputsPresent, ownerApproval: approved }, ownerApproval: approved ? approval : null });
+  const { artifact } = buildTradesFreezeArtifact({ measurement, sourceDecision, ...evidence, inputsPresent: { ...inputsPresent, ownerApproval: approved }, ownerApproval: approved ? approval : null });
   return { artifact, approval };
 }
 
