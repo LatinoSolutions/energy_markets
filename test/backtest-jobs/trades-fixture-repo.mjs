@@ -35,7 +35,8 @@ const CALLS_FILE = "fixture-calls.jsonl";
 const CONFIG_FILE = "fixture-tr06.json";
 
 // Doble de TR-06. Config en fixture-tr06.json (cwd): bridge PASS|HOLD, failAt
-// <runKey> (sale 3 sin artefacto), touchScratchAt <runKey> (cambia el TOB de gas).
+// <runKey> (sale 3 sin artefacto), touchScratchAt <runKey> (cambia el TOB de gas),
+// hideMixedVersions (el ensamblado no declara runs de otra versión).
 const FAKE_TR06 = `import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -56,7 +57,9 @@ if (args.includes("--assemble")) {
   const files = readdirSync(RUNS).filter((name) => name.endsWith(".json")).sort();
   const runArtifacts = files.map((name) => { const bytes = readFileSync(RUNS + "/" + name); return { runKey: JSON.parse(bytes).runKey, path: RUNS + "/" + name, sha256: sha(bytes) }; });
   const runs = files.map((name) => JSON.parse(readFileSync(RUNS + "/" + name, "utf8"))).filter((artifact) => artifact.run).map((artifact) => artifact.run);
-  const artifact = { artifactKind: "TR-06_TRADES_RUNS", status: runArtifacts.length === 20 ? "RUN" : "BLOCKED", runs, blockedBy: [] };
+  const versions = new Set(files.map((name) => { const run = JSON.parse(readFileSync(RUNS + "/" + name, "utf8")); return run.codeCommit + "|" + JSON.stringify(run.inputs); }));
+  const blockedBy = versions.size > 1 && config.hideMixedVersions !== true ? ["RUN_ARTIFACTS_MIXED_VERSIONS"] : [];
+  const artifact = { artifactKind: "TR-06_TRADES_RUNS", status: runArtifacts.length === 20 && blockedBy.length === 0 ? "RUN" : "BLOCKED", runs, blockedBy };
   const bytes = Buffer.from(JSON.stringify(artifact, null, 1) + "\\n");
   writeFileSync("operations/trades/TR-06/trades-runs.json", bytes);
   writeFileSync("operations/trades/TR-06/trades-runs.MANIFEST.json", JSON.stringify({ artifact: { path: "operations/trades/TR-06/trades-runs.json", sha256: sha(bytes) }, runArtifacts }, null, 1));

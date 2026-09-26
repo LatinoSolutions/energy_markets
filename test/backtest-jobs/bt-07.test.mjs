@@ -6,7 +6,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +21,7 @@ import {
   TRADES_ENTRY,
   TRADES_JOB_KIND,
   TRADES_RECEIPT_KIND,
+  TRADES_SCRATCH_INPUTS,
   claimJobLock,
   createBacktestJobRunner,
   createTradesJobRunner,
@@ -43,6 +45,8 @@ import { resolveFrozenConfig } from "../../src/trades-engine/run.mjs";
 import {
   BRIDGE_DECISIONS_PATH as TR06_BRIDGE_DECISIONS_PATH,
   RUNS_DIR as TR06_RUNS_DIR,
+  artifactVersionOf,
+  assembleTradesRuns,
   freezeResultFromArtifact,
   runArtifactPath,
 } from "../../operations/trades/TR-06/build-trades-runs.mjs";
@@ -267,7 +271,86 @@ test("BT-07: con otro commit (run_id nuevo) el OOS ya abierto no se vuelve a abr
   assert.equal(repo.openings().length, 4);
   assert.equal(runCalls(repo).length, 20 + 16);
   for (const mission of Object.values(second.oos)) assert.equal(mission.openedByThisJob, false);
-  assert.match(describeTradesStatus(runner.status(), new Date()), /0 blocked, 4 skipped · historical OOS opened for 4 of 4 missions$/);
+
+  // BT07-OOS-STALE-ASSEMBLE: el OOS reutilizado es de la versión anterior; el
+  // ensamblado no lo presenta como vigente del job nuevo.
+  const firstCommit = first.code.gitHead;
+  const assembled = JSON.parse(readFileSync(path.join(repo.root, TRADES_ASSEMBLED_PATH), "utf8"));
+  assert.equal(assembled.status, "BLOCKED");
+  assert.ok(assembled.blockedBy.includes("RUN_ARTIFACTS_MIXED_VERSIONS"));
+  const foreign = second.result.assembled.foreignRuns;
+  assert.deepEqual(foreign.map((run) => run.runKey).sort(), oosSteps.map((step) => step.runKey).sort());
+  for (const run of foreign) assert.equal(run.codeCommit, firstCommit);
+  // Todo lo demás del ensamblado es de la versión de ESTE job.
+  const manifest = JSON.parse(readFileSync(path.join(repo.root, "operations/trades/TR-06/trades-runs.MANIFEST.json"), "utf8"));
+  const foreignKeys = new Set(foreign.map((run) => run.runKey));
+  for (const entry of manifest.runArtifacts.filter((item) => !foreignKeys.has(item.runKey))) {
+    assert.equal(JSON.parse(readFileSync(path.join(repo.root, entry.path), "utf8")).codeCommit, second.code.gitHead, entry.runKey);
+  }
+  assert.match(describeTradesStatus(runner.status(), new Date()), /0 blocked, 4 skipped · historical OOS opened for 4 of 4 missions · assembled view blocked: 4 runs are from another code or data version$/);
+});
+
+test("BT07-OOS-STALE-ASSEMBLE: si el ensamblado presenta como vigentes runs de otra versión, el job falla", async () => {
+  const repo = makeTradesFixtureRepo();
+  const runner = newRunner(repo);
+  assert.equal((await runner.start({ requestedBy: "ui" }).done).status, JOB_STATUS.SUCCEEDED);
+  repo.write("src/fixture-lib.mjs", 'export const FIXTURE_LABEL = "second commit";\n');
+  repo.commitAll("otro commit");
+  repo.setConfig({ hideMixedVersions: true });
+  const second = await runner.start({ requestedBy: "ui" }).done;
+  assert.equal(second.status, JOB_STATUS.FAILED);
+  assert.equal(second.failure.code, "ASSEMBLED_MIXED_VERSIONS");
+});
+
+test("BT07-OOS-STALE-ASSEMBLE: TR-06 --assemble bloquea la vista si los artefactos son de versiones distintas", () => {
+  const runsDir = mkdtempSync(path.join(tmpdir(), "bt07-tr06-runs-"));
+  const registryFile = path.join(runsDir, "access.jsonl");
+  const write = (step, codeCommit, inputs) => writeFileSync(runArtifactPath(step.runKey, runsDir), JSON.stringify({ runKey: step.runKey, codeCommit, inputs, run: { runId: `R-${step.runKey}` }, blockedBy: [] }));
+  const runSteps = tradesSequenceSteps().filter((step) => step.kind === "RUN");
+  for (const step of runSteps) write(step, "newcommit", { data: "new" });
+  const coherent = assembleTradesRuns({ runsDir, registryFile }).artifact;
+  assert.equal(coherent.status, "RUN");
+  assert.equal(coherent.codeCommit, "newcommit");
+  assert.equal(coherent.runVersions, null);
+
+  const staleOos = runSteps.find((step) => step.phase === "OOS");
+  write(staleOos, "oldcommit", { data: "old" });
+  const mixed = assembleTradesRuns({ runsDir, registryFile }).artifact;
+  assert.equal(mixed.status, "BLOCKED");
+  assert.ok(mixed.blockedBy.includes("RUN_ARTIFACTS_MIXED_VERSIONS"));
+  // Sin una versión única, la vista no declara commit ni manifest de datos.
+  assert.equal(mixed.codeCommit, null);
+  assert.equal(mixed.inputs, null);
+  const stale = mixed.runVersions.find((version) => version.runKey === staleOos.runKey);
+  assert.deepEqual(stale, { runKey: staleOos.runKey, ...artifactVersionOf({ codeCommit: "oldcommit", inputs: { data: "old" } }) });
+  assert.equal(mixed.runVersions.filter((version) => version.codeCommit === "newcommit").length, 19);
+});
+
+test("BT07-ACTIVE-RACE: un fallo sincrónico en el paso 1 no deja el runner bloqueado", async () => {
+  const repo = makeTradesFixtureRepo();
+  const gasTob = TRADES_SCRATCH_INPUTS.find((input) => input.flag === "--gas-tob");
+  let rewriteScratch = true;
+  // Simula a DATA-01 reescribiendo el scratch mientras start() prepara el job:
+  // driftBeforeStep falla en el paso 1 antes de cualquier await.
+  const runner = newRunner(repo, {
+    now: () => {
+      if (rewriteScratch) appendFileSync(path.join(repo.scratchDir, gasTob.file), " ");
+      return new Date();
+    },
+  });
+  const first = runner.start({ requestedBy: "ui" });
+  rewriteScratch = false;
+  assert.equal(first.ok, true);
+  const closed = await first.done;
+  assert.equal(closed.status, JOB_STATUS.FAILED);
+  assert.equal(closed.failure.code, "INPUT_CHANGED_DURING_RUN");
+  assert.equal(closed.failure.step, 1);
+  assert.equal(repo.calls().length, 0);
+
+  const second = runner.start({ requestedBy: "ui" });
+  assert.notEqual(second.code, "JOB_ALREADY_RUNNING");
+  assert.equal(second.ok, true);
+  assert.equal((await second.done).status, JOB_STATUS.SUCCEEDED);
 });
 
 test("BT-07: sin PASS del puente el OOS queda BLOCKED, no se abre y el job termina", async () => {

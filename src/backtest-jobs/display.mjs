@@ -50,6 +50,7 @@ export const FAILURE_WORDS = Object.freeze({
   RUN_ARTIFACT_MISSING: "a TRADES run produced no artifact",
   RUN_ARTIFACT_CHANGED: "the assembled view does not bind this job's run artifacts",
   ASSEMBLE_FAILED: "assembling the TRADES runs failed",
+  ASSEMBLED_MIXED_VERSIONS: "the assembled view presents runs from another code or data version as current",
   OOS_ACCESS_REGISTRY_UNREADABLE: "the OOS access registry could not be read",
   OOS_ACCESS_REGISTRY_CORRUPT: "the OOS access registry is corrupt",
   OOS_OPENED_MORE_THAN_ONCE: "the historical OOS was opened more than once",
@@ -162,7 +163,9 @@ function tradesLastLine(job) {
     const finished = parseInstant(job.finishedAt);
     const when = finished === null ? "finish time unavailable" : utcDateTime(finished);
     const counts = job.steps?.counts ?? {};
-    return `Last TRADES run: finished · ${when} · ${counts.SUCCEEDED ?? 0} done, ${counts.BLOCKED ?? 0} blocked, ${counts.SKIPPED ?? 0} skipped · ${oosWords(job)}`;
+    const foreign = job.result?.assembled?.foreignRuns?.length ?? 0;
+    const versionWords = foreign > 0 ? ` · assembled view blocked: ${foreign} runs are from another code or data version` : "";
+    return `Last TRADES run: finished · ${when} · ${counts.SUCCEEDED ?? 0} done, ${counts.BLOCKED ?? 0} blocked, ${counts.SKIPPED ?? 0} skipped · ${oosWords(job)}${versionWords}`;
   }
   const where = Number.isInteger(job.failure?.step) ? ` at step ${job.failure.step} of ${job.steps?.total ?? "?"}` : "";
   if (job.status === JOB_STATUS.FAILED) return `Last TRADES run: failed${where} · ${failureInWords(job.failure?.code)}`;

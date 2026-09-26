@@ -91,6 +91,9 @@ export const STEP_STATUS = Object.freeze({
 
 // TR-06 sale con código 2 cuando el run queda bloqueado (build-trades-runs.mjs, main).
 const BLOCKED_EXIT_CODE = 2;
+// Bloqueo que TR-06 declara cuando la vista junta runs de versiones distintas
+// (operations/trades/TR-06/build-trades-runs.mjs, assembleTradesRuns).
+const MIXED_VERSIONS_BLOCKER = "RUN_ARTIFACTS_MIXED_VERSIONS";
 const CHILD_ENTRY = fileURLToPath(new URL("./child-entry.mjs", import.meta.url));
 
 const sha256Of = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -754,6 +757,31 @@ export function createTradesJobRunner({
       return { status: STEP_STATUS.FAILED, failure: { code: "RUN_ARTIFACT_CHANGED", message: `el ensamblado no liga los artefactos de este job: ${changed.map((step) => step.runKey).join(", ")}` } };
     }
     const assembled = parseJson(bytes);
+    // También los artefactos que este job NO escribió (el OOS ya abierto por otra
+    // versión, patch 03 §4): se declaran como de otra versión y TR-06 tiene que
+    // haber bloqueado la vista por eso; nunca pasan como vigentes de este job
+    // (hallazgo BT07-OOS-STALE-ASSEMBLE, 2026-09-26).
+    const jobInputsSha256 = steps.find((step) => step.inputsSha256 != null)?.inputsSha256 ?? null;
+    const foreignRuns = [];
+    for (const entry of manifest.runArtifacts ?? []) {
+      let runBytes;
+      try {
+        runBytes = readFileSync(path.resolve(repoRoot, entry.path));
+      } catch {
+        runBytes = null;
+      }
+      if (runBytes === null || sha256Of(runBytes) !== entry.sha256) {
+        return { status: STEP_STATUS.FAILED, failure: { code: "RUN_ARTIFACT_CHANGED", message: `el artefacto ${entry.runKey} ya no coincide con el ensamblado` } };
+      }
+      const runArtifact = parseJson(runBytes);
+      const inputsSha256 = runArtifact?.inputs == null ? null : canonicalValueSha256(runArtifact.inputs).sha256 ?? null;
+      const codeCommit = runArtifact?.codeCommit ?? null;
+      if (codeCommit !== context.commit || inputsSha256 !== jobInputsSha256) foreignRuns.push({ runKey: entry.runKey, codeCommit, inputsSha256 });
+    }
+    const declaresMixed = Array.isArray(assembled?.blockedBy) && assembled.blockedBy.includes(MIXED_VERSIONS_BLOCKER);
+    if (foreignRuns.length > 0 && !declaresMixed) {
+      return { status: STEP_STATUS.FAILED, failure: { code: "ASSEMBLED_MIXED_VERSIONS", message: `trades-runs.json presenta como vigentes runs de otra versión: ${foreignRuns.map((run) => run.runKey).join(", ")}` } };
+    }
     return {
       status: STEP_STATUS.SUCCEEDED,
       assembled: {
@@ -763,6 +791,7 @@ export function createTradesJobRunner({
         status: assembled?.status ?? null,
         blockedBy: assembled?.blockedBy ?? null,
         runs: Array.isArray(assembled?.runs) ? assembled.runs.length : null,
+        foreignRuns,
       },
     };
   }
@@ -916,9 +945,13 @@ export function createTradesJobRunner({
       return { ok: false, code: "STAGING_FAILED", job: publicTradesJobView(closed) };
     }
     const context = { commit: code.commit, workspace, seal, runDir, verified, steps };
-    const done = runSequence(receipt, context).catch((error) => finish(receipt, { status: JOB_STATUS.FAILED, failure: { code: "RUN_FAILED", message: String(error?.message ?? error) } }));
-    active = { receipt, done };
-    return { ok: true, reused: false, job: publicTradesJobView(receipt, { state: RESULT_STATE.NONE, supersededBy: null }), done };
+    // `active` se toma ANTES de lanzar la secuencia: si falla sincrónicamente en el
+    // paso 1, finish() lo libera y no queda un job fantasma bloqueando el botón
+    // (hallazgo BT07-ACTIVE-RACE, 2026-09-26; mismo orden que runner.mjs:859).
+    const job = { receipt, done: null };
+    active = job;
+    job.done = runSequence(receipt, context).catch((error) => finish(receipt, { status: JOB_STATUS.FAILED, failure: { code: "RUN_FAILED", message: String(error?.message ?? error) } }));
+    return { ok: true, reused: false, job: publicTradesJobView(receipt, { state: RESULT_STATE.NONE, supersededBy: null }), done: job.done };
   }
 
   // Al arrancar el servicio: si nadie tiene el lock, cierra los TRADES huérfanos.
