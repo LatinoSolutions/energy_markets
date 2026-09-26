@@ -10,6 +10,7 @@ import {
   TRADES_PHASE_ZONES,
   TRADES_RUN_PHASES,
   TRADES_RUN_PHASE_ORDER,
+  TRADES_OOS_OPENING_PURPOSE,
   bridgeDecisionFromStatuses,
   evaluateBridgeForMission,
   observationRulesForPhase,
@@ -19,8 +20,15 @@ import {
   tradesRunKey,
 } from "../../src/trades-engine/runs.mjs";
 import { frozenTradesResult, missionTradeAt } from "./fixtures.mjs";
-import { buildTradesRunsStatus, earliestWindowStart } from "../../operations/trades/TR-06/build-trades-runs-status.mjs";
-import { memoryPeaksFromInput } from "../../operations/trades/TR-06/build-trades-runs.mjs";
+import { buildJobCommands, buildTradesRunsStatus, earliestWindowStart } from "../../operations/trades/TR-06/build-trades-runs-status.mjs";
+import {
+  buildSingleTradesRun,
+  createOosAccessPersister,
+  memoryPeaksFromInput,
+  parseRunSelector,
+  readBridgeDecision,
+  recordBridgeDecision,
+} from "../../operations/trades/TR-06/build-trades-runs.mjs";
 import { appendAccessRegistry, readAccessRegistry } from "../../operations/trades/TR-06/build-trades-runs.mjs";
 
 const FROZEN = frozenTradesResult();
@@ -508,7 +516,7 @@ test("el plan de accesos se encadena entre mercados (initialAccessPlan)", () => 
   });
 });
 
-test("relanzar el run no reinicia el registro: mismo run_id idempotente, run_id nuevo se acumula", () => {
+test("relanzar el run registra la relectura sin inflar el conteo de aperturas", () => {
   const fixture = buildFixture();
   const base = {
     zonePlan: fixture.zonePlan,
@@ -522,19 +530,21 @@ test("relanzar el run no reinicia el registro: mismo run_id idempotente, run_id 
   const first = runTradesRuns({ ...base, codeCommit: "deadbeef" });
   assert.equal(first.ok, true);
   const firstEntries = first.oosAccess.entries.length;
-  // Mismo código => mismos run_id: relanzar no añade aperturas (idempotente).
+  assert.equal(firstEntries, 4);
+  // Mismo código => mismos run_id: el conteo de aperturas no se infla, pero la
+  // relectura queda registrada append-only (patch 03 §4).
   const repeat = runTradesRuns({ ...base, codeCommit: "deadbeef", initialAccessPlan: first.accessPlan });
   assert.deepEqual(repeat.oosAccess.oosOpeningsByMission, first.oosAccess.oosOpeningsByMission);
-  assert.equal(repeat.oosAccess.entries.length, firstEntries);
+  assert.equal(repeat.oosAccess.entries.length, firstEntries * 2);
   // Código distinto => run_id nuevo sobre el OOS: se acumula y se cuenta.
-  const changed = runTradesRuns({ ...base, codeCommit: "cafebabe", initialAccessPlan: first.accessPlan });
+  const changed = runTradesRuns({ ...base, codeCommit: "cafebabe", initialAccessPlan: repeat.accessPlan });
   assert.deepEqual(changed.oosAccess.oosOpeningsByMission, {
     GAS_QUARTERLY: 2,
     GAS_MONTHLY: 2,
     POWER_QUARTERLY: 2,
     POWER_MONTHLY: 2,
   });
-  assert.equal(changed.oosAccess.entries.length, firstEntries * 2);
+  assert.equal(changed.oosAccess.entries.length, firstEntries * 3);
 });
 
 test("el pico de RAM del productor es un mapa por run: un valor único no se copia", () => {
@@ -553,17 +563,18 @@ test("el pico de RAM del productor es un mapa por run: un valor único no se cop
   }
 });
 
-test("el registro de accesos del OOS es append-only e idempotente en disco", () => {
+test("el registro de accesos del OOS es append-only en disco: cada lectura deja su entrada", () => {
   const file = `/tmp/tr06-access-${process.pid}-${Date.now()}.jsonl`;
   try {
     assert.deepEqual(readAccessRegistry(file), []);
     const entryA = { consumesOos: true, mission: "GAS_QUARTERLY", runId: "run-1", atUtc: "2026-09-26T00:00:00Z" };
     const entryB = { consumesOos: true, mission: "GAS_QUARTERLY", runId: "run-2", atUtc: "2026-09-26T01:00:00Z" };
     assert.deepEqual(appendAccessRegistry([entryA], file), { appended: 1, entries: [entryA] });
-    // Repetir la misma apertura no añade; una nueva sí.
-    assert.equal(appendAccessRegistry([entryA], file).appended, 0);
-    assert.deepEqual(appendAccessRegistry([entryB], file), { appended: 1, entries: [entryA, entryB] });
-    assert.deepEqual(readAccessRegistry(file), [entryA, entryB]);
+    // Repetir la misma lectura deja OTRA entrada (append-only, patch 03 §4); el
+    // conteo de aperturas es por run_id único y se calcula aparte.
+    assert.equal(appendAccessRegistry([entryA], file).appended, 1);
+    assert.deepEqual(appendAccessRegistry([entryB], file), { appended: 1, entries: [entryA, entryA, entryB] });
+    assert.deepEqual(readAccessRegistry(file), [entryA, entryA, entryB]);
   } finally {
     rmSync(file, { force: true });
   }
@@ -604,4 +615,118 @@ test("evaluateBridgeForMission es determinista y no muta sus entradas", () => {
     tobSeries: fixture.tobSeries,
   });
   assert.equal(first.decision, "HOLD");
+});
+
+// TR06-GATE-STRUCTURAL-HOLD: con el plan real de TR-02 hay campaigns del puente
+// en la calibración; sumar su target contra lo comprado sólo en evaluación dejaba
+// H null y el gate en HOLD para siempre (el OOS nunca se abría).
+test("el gate del puente evalúa SÓLO las campaigns de la mitad de evaluación", () => {
+  const fixture = buildFixture();
+  const CAL_DAYS = ["2025-09-01", "2025-09-02", "2025-09-03", "2025-09-04", "2025-09-05", "2025-09-08"];
+  for (const [missionKey, definition] of Object.entries(TRADES_ENGINE_MISSIONS)) {
+    const spec = MISSION_SPECS[missionKey];
+    const legacy = "202510";
+    const maturity = missionKey.includes("QUARTERLY") ? "2025Q4" : "2025-10";
+    const calibrationCampaign = campaignFor({ missionKey, definition, spec, zone: ZONES.PUENTE, maturity, legacy, days: CAL_DAYS, suffix: "BRIDGE-CAL" });
+    fixture.zonePlan.missions[missionKey].zones[ZONES.PUENTE].unshift(calibrationCampaign);
+    fixture.rows.push(...rowsFor({ spec, definition, days: CAL_DAYS, legacy, price: 100 }));
+    for (const [contract, byDay] of tobSeriesFor({ definition, legacy, days: CAL_DAYS, ask: 100 })) {
+      fixture.tobSeries.set(contract, byDay);
+    }
+  }
+  const result = runTradesRuns({
+    zonePlan: fixture.zonePlan,
+    rows: fixture.rows,
+    exchangeDays: [...new Set([...fixture.exchangeDays, ...CAL_DAYS])].sort(),
+    tobSeries: fixture.tobSeries,
+    frozenContract: FROZEN,
+    codeCommit: "deadbeef",
+    dataManifest: { files: [] },
+    atUtc: "2026-09-26T00:00:00Z",
+  });
+  const bridgeRun = result.runs.find((run) => run.phase === TRADES_RUN_PHASES.BRIDGE && run.observationRule === "LAST_TRADE" && run.missionKey === "GAS_QUARTERLY");
+  assert.equal(bridgeRun.bridgeGate.decision, "PASS");
+  assert.equal(bridgeRun.bridgeGate.exclusionRule, "CAMPAIGN_WINDOW_BEFORE_EVALUATION_START");
+  assert.equal(bridgeRun.bridgeGate.campaignsEvaluated.includes("GAS_QUARTERLY-BRIDGE"), true);
+  assert.equal(bridgeRun.bridgeGate.campaignsExcluded.includes("GAS_QUARTERLY-BRIDGE-CAL"), true);
+  // Con el gate PASS, el OOS se abre una vez por misión.
+  assert.equal(result.oosAccess.entries.filter((entry) => entry.consumesOos).length, 4);
+});
+
+// TR06-OOS-PERSIST-AFTER-READ: la apertura se persiste ANTES de leer el OOS.
+test("la apertura del OOS queda persistida antes de leerla aunque la lectura falle", () => {
+  const fixture = buildFixture();
+  const file = `/tmp/tr06-persist-${process.pid}-${Date.now()}.jsonl`;
+  try {
+    // `slotLabels` no-array fuerza una excepción DENTRO de la lectura del OOS,
+    // después de registrar la apertura.
+    assert.throws(() => runTradesMissionPhases({
+      phase: TRADES_RUN_PHASES.OOS,
+      missionKey: "GAS_QUARTERLY",
+      observationRule: OBSERVATION_RULES.LAST_TRADE,
+      zonePlan: fixture.zonePlan,
+      rows: fixture.rows,
+      exchangeDays: fixture.exchangeDays,
+      frozenContract: FROZEN,
+      atUtc: "2026-09-26T00:00:00Z",
+      bridgeGateDecision: "PASS",
+      slotLabels: null,
+      onOosAccess: createOosAccessPersister(file),
+    }));
+    const entries = readAccessRegistry(file);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].consumesOos, true);
+    assert.equal(entries[0].mission, "GAS_QUARTERLY");
+    assert.equal(entries[0].purpose, TRADES_OOS_OPENING_PURPOSE);
+  } finally {
+    rmSync(file, { force: true });
+  }
+});
+
+// TR06-RAM-PEAK-NOT-PER-RUN: un comando por run para que BT-05 mida el pico por job.
+test("el productor expone un selector de un solo run y un comando por run", () => {
+  const selector = parseRunSelector(["node", "x", "--mission", "GAS_QUARTERLY", "--phase", "BRIDGE", "--rule", "LAST_TRADE"]);
+  assert.deepEqual(selector, { mission: "GAS_QUARTERLY", phase: "BRIDGE", rule: "LAST_TRADE", bridgeDecision: null, bridgeDecisionFile: null });
+  assert.equal(parseRunSelector(["node", "x"]), null);
+  const plan = JSON.parse(readFileSync("operations/trades/TR-02/trades-zone-plan.json", "utf8"));
+  const perRun = buildJobCommands(plan).filter((command) => command.includes("--mission "));
+  assert.equal(perRun.length, 4 * (2 + 2 + 1));
+  for (const missionKey of Object.keys(TRADES_ENGINE_MISSIONS)) {
+    for (const phase of TRADES_RUN_PHASE_ORDER) {
+      for (const observationRule of observationRulesForPhase(phase)) {
+        const expected = `--mission ${missionKey} --phase ${phase} --rule ${observationRule}`;
+        assert.equal(perRun.some((command) => command.includes(expected)), true, expected);
+      }
+    }
+  }
+  const oosCommands = perRun.filter((command) => command.includes("--phase OOS"));
+  assert.equal(oosCommands.length, 4);
+  assert.equal(oosCommands.every((command) => command.includes("--bridge-decision-file")), true);
+});
+
+test("buildSingleTradesRun queda fail-closed sin freeze FROZEN (TR-04 es gate humano)", async () => {
+  const result = await buildSingleTradesRun({
+    selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.BRIDGE, rule: OBSERVATION_RULES.LAST_TRADE },
+    inputs: { "--gas-trades": "/nonexistent", "--gas-tob": "/nonexistent", "--power-trades": null, "--power-tob": null },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "TRADES_CONTRACT_NOT_FROZEN");
+});
+
+test("la decisión del puente se escribe por regla y el OOS aislado exige PASS en todas", () => {
+  const file = `/tmp/tr06-bridge-${process.pid}-${Date.now()}.json`;
+  try {
+    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "LAST_TRADE", decision: "PASS", file });
+    // Con una sola regla, la otra cuenta como HOLD: el OOS no se abre.
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "HOLD");
+    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "SLOT_VWAP", decision: "PASS", file });
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "PASS");
+    // Otra misión sin decisión no tiene gate evaluado (fail-closed).
+    assert.equal(readBridgeDecision({ mission: "POWER_MONTHLY", bridgeDecisionFile: file }), null);
+    // Una regla FAIL manda.
+    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "SLOT_VWAP", decision: "FAIL", file });
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "FAIL");
+  } finally {
+    rmSync(file, { force: true });
+  }
 });

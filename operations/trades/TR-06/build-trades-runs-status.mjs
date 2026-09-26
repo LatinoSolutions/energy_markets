@@ -52,15 +52,33 @@ export function earliestWindowStart(zonePlan) {
 // Comandos del job de TR-06 por la ruta de BT-05: primero los extractores de
 // TR-01/TR-03 (trades y TOB por mercado), después el productor de los runs. El
 // inicio de la extracción de trades cubre la primera ventana del plan de TR-02.
+//
+// Además del comando completo (un proceso para los 20 runs), se emite UN comando
+// POR RUN (misión, fase y regla): BT-05 mide un pico de RAM por job, y sólo un
+// proceso por run puede atribuir el pico a ese run (plan TR-06 "Pico de RAM por
+// run"). Los runs OOS leen la decisión del gate del puente del archivo declarado,
+// que la orquestación escribe tras los runs del puente; sin él el OOS queda
+// bloqueado (fail-closed).
 export function buildJobCommands(zonePlan) {
   const tradesStart = earliestWindowStart(zonePlan) ?? "2021-01-01";
-  return [
+  const inputFlags = "--gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json";
+  const base = [
     `python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --start ${tradesStart} --end 2026-07-28 --out /tmp/tr06-gas-the.ndjson`,
     `python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start ${tradesStart} --end 2026-07-28 --out /tmp/tr06-power-de.ndjson`,
     "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=NATGAS/area=THE --products G0BQ,G0BM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-gas.json",
     "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=POWER/area=DE --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-power.json",
-    "node operations/trades/TR-06/build-trades-runs.mjs --gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json",
+    `node operations/trades/TR-06/build-trades-runs.mjs ${inputFlags}`,
   ];
+  const perRun = [];
+  for (const missionKey of Object.keys(TRADES_ENGINE_MISSIONS)) {
+    for (const phase of TRADES_RUN_PHASE_ORDER) {
+      for (const observationRule of observationRulesForPhase(phase)) {
+        const bridgeFlag = phase === "OOS" ? " --bridge-decision-file operations/trades/TR-06/trades-oos-bridge-decisions.json" : "";
+        perRun.push(`node operations/trades/TR-06/build-trades-runs.mjs --mission ${missionKey} --phase ${phase} --rule ${observationRule}${bridgeFlag} ${inputFlags}`);
+      }
+    }
+  }
+  return [...base, ...perRun];
 }
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
