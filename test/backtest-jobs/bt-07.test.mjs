@@ -8,6 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -303,7 +304,7 @@ test("BT07-OOS-STALE-ASSEMBLE: si el ensamblado presenta como vigentes runs de o
 });
 
 test("BT07-OOS-STALE-ASSEMBLE: TR-06 --assemble bloquea la vista si los artefactos son de versiones distintas", () => {
-  const runsDir = mkdtempSync(path.join(tmpdir(), "bt07-tr06-runs-"));
+  const runsDir = createTempDir("bt07-tr06-runs-");
   const registryFile = path.join(runsDir, "access.jsonl");
   const write = (step, codeCommit, inputs) => writeFileSync(runArtifactPath(step.runKey, runsDir), JSON.stringify({ runKey: step.runKey, codeCommit, inputs, run: { runId: `R-${step.runKey}` }, blockedBy: [] }));
   const runSteps = tradesSequenceSteps().filter((step) => step.kind === "RUN");

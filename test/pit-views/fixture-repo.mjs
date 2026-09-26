@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 const created = [];
@@ -71,7 +72,7 @@ export function fixtureRepo({
   claims,
   imp = FIXTURE_IMP,
 } = {}) {
-  const repoRoot = mkdtempSync(path.join(tmpdir(), "pit-views-fixture-"));
+  const repoRoot = createTempDir("pit-views-fixture-");
   created.push(repoRoot);
   const refs = [];
   const evidenceTestHashes = [];

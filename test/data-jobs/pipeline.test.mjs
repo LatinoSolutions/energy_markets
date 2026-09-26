@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -39,7 +40,7 @@ function checksumTrigger({ lineNumber, at }) {
 }
 
 function makeDecompressFixture() {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-decompress-"));
+  const dir = createTempDir("data01-decompress-");
   const source = path.join(dir, "source");
   mkdirSync(source, { recursive: true });
   writeFileSync(path.join(source, "hola.txt"), "hola");
@@ -147,7 +148,7 @@ test("DATA-01 pipeline: los artefactos declarados son los que la cadena publica"
 });
 
 test("DATA-01 pipeline: el paso DECOMPRESS real extrae en un directorio que todavía no existía", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-decompress-"));
+  const dir = createTempDir("data01-decompress-");
   try {
     const source = path.join(dir, "source");
     mkdirSync(source, { recursive: true });

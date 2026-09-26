@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -132,7 +133,7 @@ test("toda lectura de parquet del extractor pasa por read_parquet_bytes", () => 
 });
 
 test("el inventario del archivo declara dateMin/dateMax y separa la tabla de referencia", () => {
-  const directory = mkdtempSync(join(tmpdir(), "tr01-archive-"));
+  const directory = createTempDir("tr01-archive-");
   try {
     const archivePath = execFileSync("python3", ["-c", BUILD_ARCHIVE, directory], { encoding: "utf8" }).trim();
     const archiveBytes = readFileSync(archivePath);

@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -124,8 +125,8 @@ export function writeFreeze(repo, { approved = true, approvalConfigHash = null, 
 }
 
 export function makeTradesFixtureRepo({ approved = true, realEntry = false, scratch = null } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), "bt07-repo-"));
-  const scratchDir = mkdtempSync(path.join(tmpdir(), "bt07-scratch-"));
+  const root = createTempDir("bt07-repo-");
+  const scratchDir = createTempDir("bt07-scratch-");
   const write = (relative, content) => {
     const target = path.join(root, relative);
     mkdirSync(path.dirname(target), { recursive: true });

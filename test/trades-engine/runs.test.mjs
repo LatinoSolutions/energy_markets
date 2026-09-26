@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import { join } from "node:path";
 
 import { CLIENT_SLOT } from "../../src/exploratory/backtest.mjs";
@@ -797,7 +798,7 @@ function writeBoundBridgePass({ mission = "GAS_QUARTERLY", inputs, codeCommit, f
 }
 
 test("el run OOS aislado liga su identidad a los inputs, siembra el registro y guarda su artefacto", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "tr06-single-"));
+  const dir = createTempDir("tr06-single-");
   try {
     const fixture = buildFixture();
     const registryFile = join(dir, "access.jsonl");
@@ -855,7 +856,7 @@ test("el run OOS aislado liga su identidad a los inputs, siembra el registro y g
 // agregada sin volver a correr estrategia. TR06-CHECK-READ-NOT-PERSISTED: el
 // ensamblado (lo que corre `--check`) NO lee el OOS ni añade entradas al registro.
 test("--assemble combina los artefactos por run sin leer el OOS", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "tr06-assemble-"));
+  const dir = createTempDir("tr06-assemble-");
   try {
     const fixture = buildFixture();
     const registryFile = join(dir, "access.jsonl");
@@ -898,7 +899,7 @@ test("--assemble combina los artefactos por run sin leer el OOS", async () => {
 // (data + commit + config). Un PASS de la versión A no abre el OOS de la versión
 // B: queda OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS y el registro no gana aperturas.
 test("el OOS aislado no acepta un PASS del puente de otra versión de datos", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "tr06-bind-"));
+  const dir = createTempDir("tr06-bind-");
   try {
     const fixture = buildFixture();
     const registryFile = join(dir, "access.jsonl");
@@ -953,7 +954,7 @@ test("el OOS aislado no acepta un PASS del puente de otra versión de datos", as
 // TR06-BRIDGE-DECISION-UNBOUND: el run del puente escribe HOLD al arrancar, antes
 // de cargar los trades. Un fallo al leer su data no deja el PASS de un job previo.
 test("un run del puente que falla al leer sus datos deja HOLD en el archivo", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "tr06-hold-"));
+  const dir = createTempDir("tr06-hold-");
   try {
     const fixture = buildFixture();
     const bridgeDecisionsPath = join(dir, "bridge.json");

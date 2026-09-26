@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,7 +41,7 @@ pq.write_table(pa.Table.from_pylist(rows), os.path.join(path, "part.parquet"))
 `;
 
 test("el filtro temprano en Arrow no cambia la serie ni el conteo de filas leídas", () => {
-  const directory = mkdtempSync(join(tmpdir(), "tr03-toblake-filter-"));
+  const directory = createTempDir("tr03-toblake-filter-");
   try {
     const rowsPath = join(directory, "rows.ndjson");
     writeFileSync(rowsPath, `${DAY_ROWS.map((row) => JSON.stringify(row)).join("\n")}\n`);
