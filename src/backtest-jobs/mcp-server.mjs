@@ -17,8 +17,8 @@ export const MCP_SERVER_INFO = Object.freeze({ name: "energy-markets-backtests",
 export const MCP_TOOLS = Object.freeze([
   {
     name: "start_backtest",
-    description: "Lanza el backtest exploratorio de Energy Markets en el backend EM (un job a la vez). Si ya existe un resultado para el mismo commit, datos, parámetros y versión lo devuelve sin recalcular (reused). Si no, devuelve el run creado o JOB_ALREADY_RUNNING con el job en curso.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    description: "Lanza el backtest de Energy Markets en el backend EM (un job a la vez). mode TOB (default): backtest exploratorio. mode TRADES: secuencia TR-06 de las 4 misiones (Development, puente, OOS histórico con una sola apertura); sin el freeze de TR-04 aprobado por Bru no lanza nada y devuelve el motivo. Si ya existe un resultado para el mismo commit, datos, parámetros y versión lo devuelve sin recalcular (reused). Si no, devuelve el run creado o JOB_ALREADY_RUNNING con el job en curso.",
+    inputSchema: { type: "object", properties: { mode: { type: "string", enum: ["TOB", "TRADES"], description: "TOB por defecto" } }, additionalProperties: false },
   },
   {
     name: "backtest_status",
@@ -39,7 +39,9 @@ async function callEndpoint(baseUrl, { method, path, body }) {
 
 async function callTool(baseUrl, name, args) {
   if (name === "start_backtest") {
-    return callEndpoint(baseUrl, { method: "POST", path: BACKTEST_JOBS_PATH, body: { requestedBy: "mcp" } });
+    // BT-07: mismo endpoint que el botón; sin mode queda el TOB de BT-05.
+    const body = args?.mode === undefined ? { requestedBy: "mcp" } : { requestedBy: "mcp", mode: args.mode };
+    return callEndpoint(baseUrl, { method: "POST", path: BACKTEST_JOBS_PATH, body });
   }
   if (name === "backtest_status") {
     const runId = typeof args?.runId === "string" && args.runId.length > 0 ? args.runId : null;

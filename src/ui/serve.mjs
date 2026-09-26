@@ -18,6 +18,7 @@ import {
 import { loadCanonicalUiInputs } from "./canonical-inputs.mjs";
 import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 import { createBacktestJobRunner } from "../backtest-jobs/runner.mjs";
+import { createTradesJobRunner } from "../backtest-jobs/trades-runner.mjs";
 
 function parseArgs(argv) {
   const options = { host: DEFAULT_UI_HOST, port: DEFAULT_UI_PORT };
@@ -54,7 +55,9 @@ const options = parseArgs(process.argv.slice(2));
 const canonical = loadCanonicalUiInputs();
 // BT-05: el backtest corre como hijo de este proceso, dentro del cgroup del servicio.
 const jobRunner = createBacktestJobRunner({ repoRoot: DEFAULT_REPO_ROOT });
-const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner });
+// BT-07: los runs TRADES de TR-06 por el mismo lock y el mismo directorio de runs.
+const tradesJobRunner = createTradesJobRunner({ repoRoot: DEFAULT_REPO_ROOT, runsDir: jobRunner.runsRoot });
+const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner, tradesJobRunner });
 const served = await ready;
 console.log(`Energy Markets Operator UI: ${served.url}`);
 console.log("rutas: / (navegación) · /replay · /backtests · /research · /campaigns · /health · /api/backtest-jobs");
