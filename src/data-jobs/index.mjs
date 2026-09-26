@@ -10,11 +10,13 @@ export {
 
 export {
   DATA_ARCHIVE,
+  DATA_DECOMPRESS_MARKER_NAME,
   DATA_JOB_KIND,
   PROVISIONAL_MEMORY_MAX_BYTES,
   PROVISIONAL_TIMEOUT_MS,
   STEP_ARTIFACTS,
   buildDataQueueSteps,
+  decompressMarkerPath,
 } from "./pipeline.mjs";
 
 export {

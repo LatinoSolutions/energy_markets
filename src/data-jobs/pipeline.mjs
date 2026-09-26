@@ -15,6 +15,17 @@ import { POWER_EXPLORATORY_RELEASE } from "../exploratory/missions.mjs";
 
 const GIB = 1024 ** 3;
 
+// Marca que deja el job de descompresión al terminar. Su mtime se reescribe en
+// cada extracción, así que sirve como prueba de frescura, a diferencia del
+// directorio extraído (su mtime no cambia al volver a extraer encima: hallazgo
+// DATA01-DECOMPRESS-STALE-DIR). Vive al lado del directorio, no dentro, para no
+// contaminar el árbol extraído del cliente. Contiene el sha/tamaño del archivo.
+export const DATA_DECOMPRESS_MARKER_NAME = ".decompress-complete.json";
+
+export function decompressMarkerPath(archive) {
+  return `${archive.extractDir}${DATA_DECOMPRESS_MARKER_NAME}`;
+}
+
 // Fuente: /srv/data/eex-client-archive/descargar.sh (declara TAM y SHA del
 // archivo sellado del cliente, 25-sep-2026). El trigger exige que el sha256 de la
 // línea `CHECKSUM OK` sea este: sin ese anclaje, un OK de otro contenido no dispara.
@@ -62,7 +73,7 @@ const WINDOW_END = BRIDGE_WINDOW.endIso;
 // Artefactos que cada paso publica. El runner verifica que existan al terminar:
 // un paso que "termina bien" sin dejar su artefacto es un fallo, no un éxito.
 export const STEP_ARTIFACTS = Object.freeze({
-  [DATA_JOB_KIND.DECOMPRESS]: [DATA_ARCHIVE.extractDir],
+  [DATA_JOB_KIND.DECOMPRESS]: [decompressMarkerPath(DATA_ARCHIVE)],
   [DATA_JOB_KIND.TR01_SCAN]: [
     "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json",
     "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json.MANIFEST.json",
@@ -90,6 +101,7 @@ function envForArchive({ archive }) {
     DATA_ARCHIVE_SHA256: archive.expectedSha256,
     DATA_ARCHIVE_BYTES: String(archive.expectedBytes),
     DATA_EXTRACT_DIR: archive.extractDir,
+    DATA_DECOMPRESS_MARKER: decompressMarkerPath(archive),
     DATA_WINDOW_START: WINDOW_START,
     DATA_WINDOW_END: WINDOW_END,
   };
@@ -102,8 +114,9 @@ export function buildDataQueueSteps({ repoRoot, archive = DATA_ARCHIVE, scratchD
   if (typeof scratchDir !== "string" || scratchDir.length === 0) throw new TypeError("buildDataQueueSteps requiere scratchDir.");
   const env = { ...envForArchive({ archive }), DATA_SCRATCH_DIR: scratchDir, DATA_REPO_ROOT: repoRoot, DATA_BT06_SLOTS: POWER_EXPLORATORY_RELEASE.slots };
   // El artefacto de DECOMPRESS sale del `archive` que se pasa (no del default
-  // global): tiene que ser el mismo path que recibe el script por DATA_EXTRACT_DIR.
-  const artifactsFor = (jobKind) => (jobKind === DATA_JOB_KIND.DECOMPRESS ? [archive.extractDir] : [...STEP_ARTIFACTS[jobKind]]);
+  // global): es la marca que el script escribe en DATA_DECOMPRESS_MARKER, dentro
+  // del mismo extractDir que recibe por DATA_EXTRACT_DIR.
+  const artifactsFor = (jobKind) => (jobKind === DATA_JOB_KIND.DECOMPRESS ? [decompressMarkerPath(archive)] : [...STEP_ARTIFACTS[jobKind]]);
   const step = (jobKind, command, extra = {}) => ({
     jobKind,
     command,

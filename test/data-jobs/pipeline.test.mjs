@@ -5,25 +5,48 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   DATA_ARCHIVE,
+  DATA_DECOMPRESS_MARKER_NAME,
   DATA_JOB_KIND,
   PROVISIONAL_MEMORY_MAX_BYTES,
   STEP_ARTIFACTS,
   buildDataQueueSteps,
+  decompressMarkerPath,
 } from "../../src/data-jobs/pipeline.mjs";
-import { createDataQueueRunner } from "../../src/data-jobs/runner.mjs";
+import { createDataQueueRunner, STEP_RECEIPT_FILE, STEP_STATUS } from "../../src/data-jobs/runner.mjs";
 import { CHECKSUM_OK_TRIGGER } from "./fixtures.mjs";
 import { POWER_EXPLORATORY_RELEASE } from "../../src/exploratory/missions.mjs";
 import { BRIDGE_WINDOW } from "../../src/trades-bridge/index.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const ctx = { repoRoot, scratchDir: "/tmp/data01-scratch" };
+const DECOMPRESS_SHA = "c0b8389dd2eae768e0144ebffa2eb8c557c1407ec8bbccb014c0ecdee075cdd3";
+
+// Disparador `CHECKSUM OK` con otra línea (distinto `at`/`lineNumber`): trae otra
+// huella y por lo tanto otra cola, como un evento nuevo de checksum en el log.
+function checksumTrigger({ lineNumber, at }) {
+  return {
+    kind: "CHECKSUM_OK",
+    event: { at, verdict: "OK", sha256: DECOMPRESS_SHA, lineNumber, line: `${at} CHECKSUM OK ${DECOMPRESS_SHA}` },
+    expectedSha256: DECOMPRESS_SHA,
+  };
+}
+
+function makeDecompressFixture() {
+  const dir = mkdtempSync(path.join(tmpdir(), "data01-decompress-"));
+  const source = path.join(dir, "source");
+  mkdirSync(source, { recursive: true });
+  writeFileSync(path.join(source, "hola.txt"), "hola");
+  const archivePath = path.join(dir, "fixture.tar.zst");
+  execFileSync("tar", ["--zstd", "-cf", archivePath, "-C", source, "."]);
+  return { dir, archivePath };
+}
 
 test("DATA-01 pipeline: el hash declarado del archivo coincide con descargar.sh", () => {
   assert.equal(DATA_ARCHIVE.expectedSha256, "c0b8389dd2eae768e0144ebffa2eb8c557c1407ec8bbccb014c0ecdee075cdd3");
@@ -139,6 +162,107 @@ test("DATA-01 pipeline: el paso DECOMPRESS real extrae en un directorio que toda
     const runner = createDataQueueRunner({ repoRoot, runsDir: path.join(dir, "runs") });
     const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [decompress] });
     assert.equal(result.ok, true, JSON.stringify(result.queue));
+    assert.equal(readFileSync(path.join(extractDir, "hola.txt"), "utf8"), "hola");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DATA-01 pipeline: el artefacto de DECOMPRESS es su marca propia, no el directorio extraído", () => {
+  const steps = buildDataQueueSteps(ctx);
+  const decompress = steps.find((step) => step.jobKind === DATA_JOB_KIND.DECOMPRESS);
+  assert.deepEqual(decompress.publishes, [decompressMarkerPath(DATA_ARCHIVE)]);
+  assert.equal(decompress.publishes[0], `${DATA_ARCHIVE.extractDir}${DATA_DECOMPRESS_MARKER_NAME}`);
+  assert.notDeepEqual(decompress.publishes, [DATA_ARCHIVE.extractDir]);
+  // El script escribe esa misma marca: pipeline y job no pueden divergir.
+  const script = readFileSync(`${repoRoot}/operations/data-jobs/jobs/decompress-archive.sh`, "utf8");
+  assert.match(script, /DATA_DECOMPRESS_MARKER/);
+  assert.match(script, /tar --zstd -xf "\$DATA_ARCHIVE_PATH" -C "\$DATA_EXTRACT_DIR"/);
+});
+
+test("DATA-01 pipeline: DECOMPRESS reanuda con un evento nuevo de checksum sobre el mismo extractDir", async () => {
+  const { dir, archivePath } = makeDecompressFixture();
+  try {
+    const extractDir = path.join(dir, "extracted");
+    const archive = { ...DATA_ARCHIVE, path: archivePath, extractDir };
+    const steps = buildDataQueueSteps({ repoRoot, archive, scratchDir: path.join(dir, "scratch") });
+    const decompress = steps.find((step) => step.jobKind === DATA_JOB_KIND.DECOMPRESS);
+    const runner = createDataQueueRunner({ repoRoot, runsDir: path.join(dir, "runs") });
+
+    const first = await runner.runQueue({ trigger: checksumTrigger({ lineNumber: 3, at: "2026-09-25T23:31:00Z" }), steps: [decompress] });
+    assert.equal(first.ok, true, JSON.stringify(first.queue));
+    // La marca existe y ata el sha/tamaño del archivo.
+    const marker = JSON.parse(readFileSync(decompressMarkerPath(archive), "utf8"));
+    assert.equal(marker.sha256, DECOMPRESS_SHA);
+    assert.equal(marker.bytes, DATA_ARCHIVE.expectedBytes);
+
+    // Otro evento (otra línea de checksum): otra cola, el árbol ya está poblado.
+    const second = await runner.runQueue({ trigger: checksumTrigger({ lineNumber: 7, at: "2026-09-26T01:00:00Z" }), steps: [decompress] });
+    assert.equal(second.ok, true, JSON.stringify(second.queue));
+    assert.notEqual(second.queueId, first.queueId);
+    assert.equal(readFileSync(path.join(extractDir, "hola.txt"), "utf8"), "hola");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DATA-01 pipeline: DECOMPRESS reanuda tras un corte con un extractDir parcialmente poblado", async () => {
+  const { dir, archivePath } = makeDecompressFixture();
+  try {
+    const extractDir = path.join(dir, "extracted");
+    // Corte a mitad de la descompresión: el árbol quedó poblado con las mismas
+    // entradas de nivel raíz que el archivo (así `tar` no cambia el mtime del
+    // directorio al reextraer), pero sin la marca de completitud.
+    const seed = path.join(dir, "seed");
+    mkdirSync(seed, { recursive: true });
+    execFileSync("tar", ["--zstd", "-xf", archivePath, "-C", seed]);
+    mkdirSync(extractDir, { recursive: true });
+    for (const entry of readdirSync(seed)) {
+      execFileSync("cp", ["-a", path.join(seed, entry), path.join(extractDir, entry)]);
+    }
+    assert.equal(existsSync(path.join(extractDir, "hola.txt")), true);
+    assert.equal(existsSync(decompressMarkerPath({ extractDir })), false);
+
+    const archive = { ...DATA_ARCHIVE, path: archivePath, extractDir };
+    const steps = buildDataQueueSteps({ repoRoot, archive, scratchDir: path.join(dir, "scratch") });
+    const decompress = steps.find((step) => step.jobKind === DATA_JOB_KIND.DECOMPRESS);
+    const runner = createDataQueueRunner({ repoRoot, runsDir: path.join(dir, "runs") });
+    const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [decompress] });
+    assert.equal(result.ok, true, JSON.stringify(result.queue));
+    assert.equal(existsSync(decompressMarkerPath(archive)), true);
+    assert.equal(readFileSync(path.join(extractDir, "hola.txt"), "utf8"), "hola");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DATA-01 pipeline: un corte (paso RUNNING) reanuda DECOMPRESS sobre el árbol ya extraído", async () => {
+  const { dir, archivePath } = makeDecompressFixture();
+  try {
+    const extractDir = path.join(dir, "extracted");
+    const runsDir = path.join(dir, "runs");
+    const archive = { ...DATA_ARCHIVE, path: archivePath, extractDir };
+    const steps = buildDataQueueSteps({ repoRoot, archive, scratchDir: path.join(dir, "scratch") });
+    const decompress = steps.find((step) => step.jobKind === DATA_JOB_KIND.DECOMPRESS);
+    const runner = createDataQueueRunner({ repoRoot, runsDir });
+    const first = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [decompress] });
+    assert.equal(first.ok, true, JSON.stringify(first.queue));
+
+    // El proceso murió a mitad: la cola y el paso quedan RUNNING. El árbol y la
+    // marca ya existen de la corrida anterior.
+    const queueReceiptFile = path.join(runsDir, first.queueId, "QUEUE_RECEIPT.json");
+    const queueReceipt = JSON.parse(readFileSync(queueReceiptFile, "utf8"));
+    writeFileSync(queueReceiptFile, JSON.stringify({ ...queueReceipt, status: "RUNNING" }));
+    const stepReceiptFile = path.join(runsDir, first.queueId, "01-DECOMPRESS", STEP_RECEIPT_FILE);
+    const stepReceipt = JSON.parse(readFileSync(stepReceiptFile, "utf8"));
+    assert.equal(stepReceipt.status, STEP_STATUS.SUCCEEDED);
+    writeFileSync(stepReceiptFile, JSON.stringify({ ...stepReceipt, status: STEP_STATUS.RUNNING }));
+
+    const resumed = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [decompress] });
+    assert.equal(resumed.ok, true, JSON.stringify(resumed.queue));
+    const finalReceipt = runner.get(resumed.queueId).steps.find((receipt) => receipt.jobKind === DATA_JOB_KIND.DECOMPRESS);
+    assert.equal(finalReceipt.status, STEP_STATUS.SUCCEEDED);
+    assert.notEqual(finalReceipt.reused, true, "el paso RUNNING se rehace, no se reusa");
     assert.equal(readFileSync(path.join(extractDir, "hola.txt"), "utf8"), "hola");
   } finally {
     rmSync(dir, { recursive: true, force: true });
