@@ -3,11 +3,11 @@
   "schemaVersion": "1.0",
   "artifact": {
     "path": "operations/trades/TR-06/TRADES_RUNS_STATUS.json",
-    "sha256": "2eeb689339e31164f3b95757c3751364a97b4cc7d35f9f67d53374ad349917a5"
+    "sha256": "76b345d998e62215149b7c6364f5199ed9d6800ca1338c1a54106d4992912775"
   },
   "generator": {
     "path": "operations/trades/TR-06/build-trades-runs-status.mjs",
-    "sha256": "b93635835990aceede534297d5472a99087661a28e118bdf7ec58593ab49f998"
+    "sha256": "0a65e30b9a5927f4a0766ec7e82afd9b90b989e696c989f5c43849824e3600d3"
   },
   "sources": {
     "zonePlan": {
@@ -24,7 +24,7 @@
     },
     "runsModule": {
       "path": "src/trades-engine/runs.mjs",
-      "sha256": "b63ba620abaa2c4b23dd722c99b72d2fb798f6dcd23739c23a5c69bde12d18d9"
+      "sha256": "d8b25c63e893da9d5327642c5af3c9090dd842149dc7bb27dd97c9f56a749ab2"
     }
   }
 }

@@ -1,21 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, rmSync } from "node:fs";
 
 import { CLIENT_SLOT } from "../../src/exploratory/backtest.mjs";
-import { SLOT_LABELS, HALVES } from "../../src/trades-bridge/constants.mjs";
+import { SLOT_LABELS, HALVES, OBSERVATION_RULES } from "../../src/trades-bridge/constants.mjs";
 import { ZONES } from "../../src/oos-reservation/trades-zones.mjs";
 import { TRADES_ENGINE_MISSIONS } from "../../src/trades-engine/missions.mjs";
 import {
-  TRADES_OOS_INSPECTION_PURPOSE,
-  TRADES_OOS_OPENING_PURPOSE,
   TRADES_PHASE_ZONES,
   TRADES_RUN_PHASES,
+  TRADES_RUN_PHASE_ORDER,
+  bridgeDecisionFromStatuses,
   evaluateBridgeForMission,
+  observationRulesForPhase,
   openTradesOosForMission,
+  runTradesMissionPhases,
   runTradesRuns,
+  tradesRunKey,
 } from "../../src/trades-engine/runs.mjs";
 import { frozenTradesResult, missionTradeAt } from "./fixtures.mjs";
-import { buildTradesRunsStatus } from "../../operations/trades/TR-06/build-trades-runs-status.mjs";
+import { buildTradesRunsStatus, earliestWindowStart } from "../../operations/trades/TR-06/build-trades-runs-status.mjs";
+import { memoryPeaksFromInput } from "../../operations/trades/TR-06/build-trades-runs.mjs";
+import { appendAccessRegistry, readAccessRegistry } from "../../operations/trades/TR-06/build-trades-runs.mjs";
 
 const FROZEN = frozenTradesResult();
 
@@ -125,6 +131,20 @@ export function buildFixture() {
   return { zonePlan, rows, exchangeDays: [...exchangeDays].sort(), tobSeries };
 }
 
+// Mapa de picos por run: cada run recibe el suyo (clave runKey). Un pico por run
+// no se copia a los demás (plan TR-06: pico de RAM por run).
+export function memoryPeaksFor(peakFor = () => 53000) {
+  const map = {};
+  for (const [missionKey, definition] of Object.entries(TRADES_ENGINE_MISSIONS)) {
+    for (const phase of TRADES_RUN_PHASE_ORDER) {
+      for (const observationRule of observationRulesForPhase(phase)) {
+        map[tradesRunKey({ market: definition.market, missionKey, phase, observationRule })] = peakFor({ market: definition.market, missionKey, phase, observationRule });
+      }
+    }
+  }
+  return map;
+}
+
 function runAll(overrides = {}) {
   const fixture = buildFixture();
   return runTradesRuns({
@@ -136,18 +156,18 @@ function runAll(overrides = {}) {
     codeCommit: "deadbeef",
     dataManifest: { files: [] },
     parameters: { phase: "TR-06" },
-    memoryPeak: { childMaxRssKb: 53000, cgroupMemoryPeakBytesAfter: 1000000 },
+    memoryPeaks: memoryPeaksFor(),
     atUtc: "2026-09-26T00:00:00Z",
     actor: "Bru",
     ...overrides,
   });
 }
 
-test("runTradesRuns corre las 4 misiones en las 3 fases y las 2 reglas (24 runs)", () => {
+test("runTradesRuns corre las 4 misiones: Development y puente con 2 reglas, OOS con 1 apertura (20 runs)", () => {
   const result = runAll();
   assert.equal(result.ok, true, JSON.stringify(result.blocks));
   assert.equal(result.status, "RUN");
-  assert.equal(result.runs.length, 4 * 3 * 2);
+  assert.equal(result.runs.length, 4 * (2 + 2 + 1));
   const missionsSeen = new Set(result.runs.map((run) => run.missionKey));
   assert.deepEqual([...missionsSeen].sort(), Object.keys(TRADES_ENGINE_MISSIONS).sort());
   for (const run of result.runs) {
@@ -157,15 +177,22 @@ test("runTradesRuns corre las 4 misiones en las 3 fases y las 2 reglas (24 runs)
     assert.equal(run.identity.observationRule, run.observationRule);
     assert.equal(run.identity.configHash, FROZEN.contract.configHash);
     assert.equal(run.manifest.jobKind, "TRADES_BACKTEST");
-    assert.equal(run.manifest.memoryPeak.childMaxRssKb, 53000);
+    assert.equal(run.manifest.memoryPeak, 53000);
   }
 });
 
-test("el pico de RAM por run sale del runner y nunca se inventa", () => {
-  const withPeak = runAll();
-  assert.equal(withPeak.runs.every((run) => run.manifest.memoryPeak.childMaxRssKb === 53000), true);
-  const withoutPeak = runAll({ memoryPeak: null });
+test("el pico de RAM por run sale del mapa del runner y nunca se inventa", () => {
+  // Cada run recibe el suyo: no se copia un valor único a todos.
+  const distinct = runAll({ memoryPeaks: memoryPeaksFor(({ missionKey }) => missionKey.length) });
+  assert.equal(distinct.runs.every((run) => run.manifest.memoryPeak === run.missionKey.length), true);
+  const withoutPeak = runAll({ memoryPeaks: null });
   assert.equal(withoutPeak.runs.every((run) => run.manifest.memoryPeak === null), true);
+  // Un mapa que no cubre un run deja ese run en null, sin heredar el de otro.
+  const partial = runAll({ memoryPeaks: { [tradesRunKey({ market: "GAS_THE", missionKey: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, observationRule: OBSERVATION_RULES.LAST_TRADE })]: 111 } });
+  const oosGasQuarterly = partial.runs.find((run) => run.missionKey === "GAS_QUARTERLY" && run.phase === TRADES_RUN_PHASES.OOS);
+  assert.equal(oosGasQuarterly.manifest.memoryPeak, 111);
+  const otherRun = partial.runs.find((run) => run.missionKey === "GAS_MONTHLY" && run.phase === TRADES_RUN_PHASES.DEVELOPMENT && run.observationRule === OBSERVATION_RULES.LAST_TRADE);
+  assert.equal(otherRun.manifest.memoryPeak, null);
 });
 
 test("Development es walk-forward: el primer episodio no corre HOUR y el siguiente sí", () => {
@@ -232,20 +259,16 @@ test("evaluateBridgeForMission ignora las decisiones fuera de la mitad de evalua
   assert.equal(bridgeRun.bridgeGate.decision, "HOLD");
 });
 
-test("el OOS histórico abre el sello UNA vez por misión y registra cada lectura", () => {
+test("el OOS histórico abre el sello UNA vez por misión (sólo la regla primaria)", () => {
   const result = runAll();
   const oosRuns = result.runs.filter((run) => run.phase === TRADES_RUN_PHASES.OOS);
-  assert.equal(oosRuns.length, 4 * 2);
+  // Una sola apertura por misión: la regla secundaria no abre un segundo run_id.
+  assert.equal(oosRuns.length, 4);
   for (const run of oosRuns) {
+    assert.equal(run.observationRule, OBSERVATION_RULES.LAST_TRADE);
     assert.notEqual(run.oosAccess, null);
-    if (run.observationRule === "LAST_TRADE") {
-      assert.equal(run.oosAccess.purpose, TRADES_OOS_OPENING_PURPOSE);
-    } else {
-      assert.equal(run.oosAccess.purpose, TRADES_OOS_INSPECTION_PURPOSE);
-    }
+    assert.equal(run.oosAccess.purpose, "TRADES_OOS_OPENING");
   }
-  // Una apertura que consume por misión; la regla secundaria inspecciona la
-  // misma apertura y queda registrada sin consumir el sello una segunda vez.
   assert.deepEqual(result.oosAccess.oosOpeningsByMission, {
     GAS_QUARTERLY: 1,
     GAS_MONTHLY: 1,
@@ -259,7 +282,133 @@ test("el OOS histórico abre el sello UNA vez por misión y registra cada lectur
     POWER_MONTHLY: "CONSUMED",
   });
   assert.equal(result.oosAccess.entries.filter((entry) => entry.consumesOos).length, 4);
-  assert.equal(result.oosAccess.entries.length, 8);
+  assert.equal(result.oosAccess.entries.length, 4);
+});
+
+test("la regla secundaria no abre un segundo run_id sobre el OOS (bloqueada)", () => {
+  const fixture = buildFixture();
+  const outcome = runTradesMissionPhases({
+    phase: TRADES_RUN_PHASES.OOS,
+    missionKey: "GAS_QUARTERLY",
+    observationRule: OBSERVATION_RULES.SLOT_VWAP,
+    zonePlan: fixture.zonePlan,
+    rows: fixture.rows,
+    exchangeDays: fixture.exchangeDays,
+    frozenContract: FROZEN,
+    atUtc: "2026-09-26T00:00:00Z",
+    bridgeGateDecision: "PASS",
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.code, "OOS_SECOND_OPENING_BLOCKED");
+  assert.equal(outcome.run, null);
+  // No se ejecutó la estrategia ni se abrió el sello.
+  assert.equal(fixture.zonePlan.accessRegistry.entries.length, 0);
+});
+
+test("el OOS se registra ANTES de leerlo: sin plan sellado o registro fallido no corre la estrategia", () => {
+  const fixture = buildFixture();
+  // Plan no sellado: no hay lectura ni apertura.
+  const notReserved = runTradesMissionPhases({
+    phase: TRADES_RUN_PHASES.OOS,
+    missionKey: "GAS_QUARTERLY",
+    observationRule: OBSERVATION_RULES.LAST_TRADE,
+    zonePlan: { ...fixture.zonePlan, decision: "HOLD" },
+    rows: fixture.rows,
+    exchangeDays: fixture.exchangeDays,
+    frozenContract: FROZEN,
+    atUtc: "2026-09-26T00:00:00Z",
+    bridgeGateDecision: "PASS",
+  });
+  assert.equal(notReserved.ok, false);
+  assert.equal(notReserved.code, "ZONE_PLAN_NOT_RESERVED");
+  // Sin atUtc el registro de acceso falla (INVALID_ACCESS_TIME) y la estrategia no
+  // corre: la lectura no queda fuera del registro.
+  const badAccess = runTradesMissionPhases({
+    phase: TRADES_RUN_PHASES.OOS,
+    missionKey: "GAS_QUARTERLY",
+    observationRule: OBSERVATION_RULES.LAST_TRADE,
+    zonePlan: fixture.zonePlan,
+    rows: fixture.rows,
+    exchangeDays: fixture.exchangeDays,
+    frozenContract: FROZEN,
+    atUtc: null,
+    bridgeGateDecision: "PASS",
+  });
+  assert.equal(badAccess.ok, false);
+  assert.equal(badAccess.code, "INVALID_ACCESS_TIME");
+  assert.equal(fixture.zonePlan.accessRegistry.entries.length, 0);
+});
+
+test("sin PASS del gate del puente el OOS no se abre y no hay aperturas", () => {
+  const result = runAll({ tobSeries: new Map() });
+  const oosRuns = result.runs.filter((run) => run.phase === TRADES_RUN_PHASES.OOS);
+  assert.equal(oosRuns.length, 0);
+  assert.equal(result.blockedBy.includes("OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS"), true);
+  assert.deepEqual(result.oosAccess.oosOpeningsByMission, {
+    GAS_QUARTERLY: 0,
+    GAS_MONTHLY: 0,
+    POWER_QUARTERLY: 0,
+    POWER_MONTHLY: 0,
+  });
+  assert.equal(result.oosAccess.entries.filter((entry) => entry.consumesOos).length, 0);
+});
+
+test("el gate del puente trata NOT_EVALUABLE como HOLD (no fail-open)", () => {
+  // El contrato de TR-04 devuelve NOT_EVALUABLE para una métrica no finita (ΔV
+  // sin los dos brazos completos); combinarlo hasta PASS sería un fail-open.
+  assert.equal(bridgeDecisionFromStatuses(["PASS", "PASS", "PASS", "NOT_EVALUABLE"]), "HOLD");
+  assert.equal(bridgeDecisionFromStatuses(["PASS", "HOLD", "PASS"]), "HOLD");
+  assert.equal(bridgeDecisionFromStatuses(["PASS", "FAIL", "NOT_EVALUABLE"]), "FAIL");
+  assert.equal(bridgeDecisionFromStatuses(["PASS", "PASS", "PASS"]), "PASS");
+});
+
+test("con brazos incompletos en la mitad de evaluación el gate queda HOLD, nunca PASS", () => {
+  const fixture = buildFixture();
+  const lastThree = BRIDGE_DAYS.slice(-3);
+  const rows = fixture.rows.filter((row) => !lastThree.includes(row.TrdDate));
+  const tobSeries = new Map();
+  for (const [contract, byDay] of fixture.tobSeries) {
+    const trimmed = Object.fromEntries(Object.entries(byDay).filter(([day]) => !lastThree.includes(day)));
+    tobSeries.set(contract, trimmed);
+  }
+  const result = runTradesRuns({
+    zonePlan: fixture.zonePlan,
+    rows,
+    exchangeDays: fixture.exchangeDays,
+    tobSeries,
+    frozenContract: FROZEN,
+    codeCommit: "deadbeef",
+    dataManifest: { files: [] },
+    atUtc: "2026-09-26T00:00:00Z",
+  });
+  const bridgeRun = result.runs.find((run) => run.phase === TRADES_RUN_PHASES.BRIDGE && run.observationRule === OBSERVATION_RULES.LAST_TRADE);
+  assert.equal(bridgeRun.bridgeGate.decision, "HOLD");
+});
+
+test("H no se publica con obligación incompleta: queda null y la métrica es NOT_EVALUABLE", () => {
+  const fixture = buildFixture();
+  // Sin observación en tres días del puente la obligación no se cubre completa;
+  // H (coste de cubrir la obligación completa, SPEC §5.5) no existe.
+  const lastThree = BRIDGE_DAYS.slice(-3);
+  const rows = fixture.rows.filter((row) => !lastThree.includes(row.TrdDate));
+  const tobSeries = new Map();
+  for (const [contract, byDay] of fixture.tobSeries) {
+    tobSeries.set(contract, Object.fromEntries(Object.entries(byDay).filter(([day]) => !lastThree.includes(day))));
+  }
+  const result = runTradesRuns({
+    zonePlan: fixture.zonePlan,
+    rows,
+    exchangeDays: fixture.exchangeDays,
+    tobSeries,
+    frozenContract: FROZEN,
+    codeCommit: "deadbeef",
+    dataManifest: { files: [] },
+    atUtc: "2026-09-26T00:00:00Z",
+  });
+  const bridgeRun = result.runs.find((run) => run.phase === TRADES_RUN_PHASES.BRIDGE && run.observationRule === OBSERVATION_RULES.LAST_TRADE);
+  const hMetric = bridgeRun.bridgeGate.perArm.BASELINE.metrics.find((metric) => metric.id === "H");
+  assert.equal(bridgeRun.bridgeGate.perArm.BASELINE.values.trades.H, null);
+  assert.equal(hMetric.status, "NOT_EVALUABLE");
 });
 
 test("un run_id nuevo sobre el OOS es una nueva apertura y se cuenta", () => {
@@ -359,14 +508,90 @@ test("el plan de accesos se encadena entre mercados (initialAccessPlan)", () => 
   });
 });
 
-test("el estado de TR-06 declara PENDING_FREEZE y la rejilla de 24 runs sin inventar resultados", () => {
+test("relanzar el run no reinicia el registro: mismo run_id idempotente, run_id nuevo se acumula", () => {
+  const fixture = buildFixture();
+  const base = {
+    zonePlan: fixture.zonePlan,
+    rows: fixture.rows,
+    exchangeDays: fixture.exchangeDays,
+    tobSeries: fixture.tobSeries,
+    frozenContract: FROZEN,
+    dataManifest: { files: [] },
+    atUtc: "2026-09-26T00:00:00Z",
+  };
+  const first = runTradesRuns({ ...base, codeCommit: "deadbeef" });
+  assert.equal(first.ok, true);
+  const firstEntries = first.oosAccess.entries.length;
+  // Mismo código => mismos run_id: relanzar no añade aperturas (idempotente).
+  const repeat = runTradesRuns({ ...base, codeCommit: "deadbeef", initialAccessPlan: first.accessPlan });
+  assert.deepEqual(repeat.oosAccess.oosOpeningsByMission, first.oosAccess.oosOpeningsByMission);
+  assert.equal(repeat.oosAccess.entries.length, firstEntries);
+  // Código distinto => run_id nuevo sobre el OOS: se acumula y se cuenta.
+  const changed = runTradesRuns({ ...base, codeCommit: "cafebabe", initialAccessPlan: first.accessPlan });
+  assert.deepEqual(changed.oosAccess.oosOpeningsByMission, {
+    GAS_QUARTERLY: 2,
+    GAS_MONTHLY: 2,
+    POWER_QUARTERLY: 2,
+    POWER_MONTHLY: 2,
+  });
+  assert.equal(changed.oosAccess.entries.length, firstEntries * 2);
+});
+
+test("el pico de RAM del productor es un mapa por run: un valor único no se copia", () => {
+  const previous = process.env.TR06_MEMORY_PEAK_JSON;
+  try {
+    process.env.TR06_MEMORY_PEAK_JSON = JSON.stringify({ "GAS_THE|GAS_QUARTERLY|OOS|LAST_TRADE": { childMaxRssKb: 1 } });
+    assert.deepEqual(memoryPeaksFromInput({}), { "GAS_THE|GAS_QUARTERLY|OOS|LAST_TRADE": { childMaxRssKb: 1 } });
+    // Un valor único no es una medición por run: no se acepta (nunca se copia).
+    process.env.TR06_MEMORY_PEAK_JSON = JSON.stringify(53000);
+    assert.equal(memoryPeaksFromInput({}), null);
+    delete process.env.TR06_MEMORY_PEAK_JSON;
+    assert.equal(memoryPeaksFromInput({}), null);
+  } finally {
+    if (previous === undefined) delete process.env.TR06_MEMORY_PEAK_JSON;
+    else process.env.TR06_MEMORY_PEAK_JSON = previous;
+  }
+});
+
+test("el registro de accesos del OOS es append-only e idempotente en disco", () => {
+  const file = `/tmp/tr06-access-${process.pid}-${Date.now()}.jsonl`;
+  try {
+    assert.deepEqual(readAccessRegistry(file), []);
+    const entryA = { consumesOos: true, mission: "GAS_QUARTERLY", runId: "run-1", atUtc: "2026-09-26T00:00:00Z" };
+    const entryB = { consumesOos: true, mission: "GAS_QUARTERLY", runId: "run-2", atUtc: "2026-09-26T01:00:00Z" };
+    assert.deepEqual(appendAccessRegistry([entryA], file), { appended: 1, entries: [entryA] });
+    // Repetir la misma apertura no añade; una nueva sí.
+    assert.equal(appendAccessRegistry([entryA], file).appended, 0);
+    assert.deepEqual(appendAccessRegistry([entryB], file), { appended: 1, entries: [entryA, entryB] });
+    assert.deepEqual(readAccessRegistry(file), [entryA, entryB]);
+  } finally {
+    rmSync(file, { force: true });
+  }
+});
+
+test("el estado de TR-06 declara PENDING_FREEZE y la rejilla de runs sin inventar resultados", () => {
   const status = buildTradesRunsStatus();
   assert.equal(status.status, "PENDING_FREEZE");
   assert.equal(status.blockedBy.includes("TRADES_CONTRACT_NOT_FROZEN"), true);
   assert.equal(status.freeze.decision, "HOLD");
-  assert.equal(status.runsGrid.count, 4 * 3 * 2);
+  // 4 misiones × (Development 2 reglas + puente 2 reglas + OOS 1 apertura) = 20.
+  assert.equal(status.runsGrid.count, 4 * (2 + 2 + 1));
   assert.deepEqual([...new Set(status.runsGrid.entries.map((entry) => entry.missionKey))].sort(), Object.keys(TRADES_ENGINE_MISSIONS).sort());
   assert.equal(status.runsArtifact, "operations/trades/TR-06/trades-runs.json");
+});
+
+test("la extracción de trades arranca en la primera ventana del plan de TR-02 (no 2021-01-01)", () => {
+  const status = buildTradesRunsStatus();
+  const tradesCommands = status.jobCommands.filter((command) => command.includes("extract-trades-rows.py"));
+  assert.equal(tradesCommands.length, 2);
+  // Primera ventana del plan de TR-02: 2020-11-01 (Monthly 2020-12), anterior al
+  // corte fijo 2021-01-01 que dejaba fuera esas campaigns (patch 03 §1).
+  const plan = JSON.parse(readFileSync("operations/trades/TR-02/trades-zone-plan.json", "utf8"));
+  const minStart = earliestWindowStart(plan);
+  assert.equal(minStart, "2020-11-01");
+  for (const command of tradesCommands) {
+    assert.match(command, new RegExp(`--start ${minStart} `));
+  }
 });
 
 test("evaluateBridgeForMission es determinista y no muta sus entradas", () => {

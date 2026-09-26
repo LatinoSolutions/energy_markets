@@ -22,6 +22,7 @@ import {
   TRADES_RUNS_ACCEPTANCE_TEST,
   TRADES_RUNS_VERSION,
   TRADES_RUN_PHASE_ORDER,
+  observationRulesForPhase,
 } from "../../../src/trades-engine/runs.mjs";
 import { TRADES_PATCH_IDENTITY } from "../../../src/trades-bridge/constants.mjs";
 
@@ -31,15 +32,36 @@ const SPEC_PATH = "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md";
 const OUT_PATH = "operations/trades/TR-06/TRADES_RUNS_STATUS.json";
 const RUNS_PATH = "operations/trades/TR-06/trades-runs.json";
 
+// El extractor de trades no puede empezar después de la primera ventana del plan
+// de TR-02: un corte tardío dejaría campaigns de Development DATA_INCOMPLETE por
+// el corte, no por falta de data (patch 03 §1). El inicio sale del plan, no de
+// una constante fija.
+export function earliestWindowStart(zonePlan) {
+  const starts = [];
+  for (const mission of Object.values(zonePlan?.missions ?? {})) {
+    for (const campaigns of Object.values(mission?.zones ?? {})) {
+      for (const campaign of campaigns ?? []) {
+        if (typeof campaign?.windowStart === "string" && campaign.windowStart.length > 0) starts.push(campaign.windowStart);
+      }
+    }
+  }
+  if (starts.length === 0) return null;
+  return starts.sort()[0];
+}
+
 // Comandos del job de TR-06 por la ruta de BT-05: primero los extractores de
-// TR-01/TR-03 (trades y TOB por mercado), después el productor de los runs.
-const JOB_COMMANDS = [
-  "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --start 2021-01-01 --end 2026-07-28 --out /tmp/tr06-gas-the.ndjson",
-  "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start 2021-01-01 --end 2026-07-28 --out /tmp/tr06-power-de.ndjson",
-  "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=NATGAS/area=THE --products G0BQ,G0BM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-gas.json",
-  "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=POWER/area=DE --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-power.json",
-  "node operations/trades/TR-06/build-trades-runs.mjs --gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json",
-];
+// TR-01/TR-03 (trades y TOB por mercado), después el productor de los runs. El
+// inicio de la extracción de trades cubre la primera ventana del plan de TR-02.
+export function buildJobCommands(zonePlan) {
+  const tradesStart = earliestWindowStart(zonePlan) ?? "2021-01-01";
+  return [
+    `python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --start ${tradesStart} --end 2026-07-28 --out /tmp/tr06-gas-the.ndjson`,
+    `python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start ${tradesStart} --end 2026-07-28 --out /tmp/tr06-power-de.ndjson`,
+    "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=NATGAS/area=THE --products G0BQ,G0BM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-gas.json",
+    "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=POWER/area=DE --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-power.json",
+    "node operations/trades/TR-06/build-trades-runs.mjs --gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json",
+  ];
+}
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const hashFile = (path) => sha256(readFileSync(path));
@@ -71,7 +93,7 @@ export function buildTradesRunsStatus() {
     targetMw: definition.targetMw,
     campaignsByZone: campaignCountsByZone(zonePlan, missionKey),
   }));
-  const runGrid = missions.flatMap((mission) => TRADES_RUN_PHASE_ORDER.flatMap((phase) => OBSERVATION_RULE_LIST.map((observationRule) => ({
+  const runGrid = missions.flatMap((mission) => TRADES_RUN_PHASE_ORDER.flatMap((phase) => observationRulesForPhase(phase).map((observationRule) => ({
     missionKey: mission.missionKey,
     phase,
     zone: TRADES_PHASE_ZONES[phase],
@@ -97,7 +119,7 @@ export function buildTradesRunsStatus() {
       : "Precondiciones listas; el run lo lanza Bru por la ruta de BT-05 con pico de RAM medido.",
     runsArtifact: RUNS_PATH,
     runsManifest: "operations/trades/TR-06/trades-runs.MANIFEST.json",
-    jobCommands: JOB_COMMANDS,
+    jobCommands: buildJobCommands(zonePlan),
     freeze: {
       path: FREEZE_PATH,
       present: freezeRead.ok,

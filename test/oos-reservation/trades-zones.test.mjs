@@ -199,9 +199,11 @@ test("acceso TRADES al OOS: un run_id nuevo es una nueva apertura y se cuenta po
 
   const second = recordTradesOosAccess(first.reservation, { atUtc: "2026-09-25T11:00:00Z", actor: "run", purpose: "TRADES_OOS_OPENING", mission: "GAS_QUARTERLY", runId: "run-2" });
   assert.equal(second.oosOpenings, 2);
-  // Repetir el mismo run_id no cuenta una apertura nueva.
+  // Repetir el mismo run_id no cuenta una apertura nueva ni añade una entrada
+  // (idempotencia append-only: relanzar el productor no infla el registro).
   const repeat = recordTradesOosAccess(second.reservation, { atUtc: "2026-09-25T12:00:00Z", actor: "run", purpose: "TRADES_OOS_OPENING", mission: "GAS_QUARTERLY", runId: "run-1" });
   assert.equal(repeat.oosOpenings, 2);
+  assert.equal(repeat.reservation.accessRegistry.entries.length, second.reservation.accessRegistry.entries.length);
 
   // La inspección sellada no consume; un propósito IMP-09 no es un acceso TRADES.
   const inspection = recordTradesOosAccess(plan, { atUtc: "2026-09-25T13:00:00Z", purpose: "TRADES_OOS_INSPECTION", mission: "GAS_QUARTERLY" });

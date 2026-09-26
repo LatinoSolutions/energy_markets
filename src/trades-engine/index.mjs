@@ -95,8 +95,10 @@ export {
   TRADES_RUN_PHASE_ORDER,
   decisionDayDiagnostics,
   evaluateBridgeForMission,
+  observationRulesForPhase,
   openTradesOosForMission,
   runTradesMissionPhases,
   runTradesRuns,
   scoreCampaigns,
+  tradesRunKey,
 } from "./runs.mjs";

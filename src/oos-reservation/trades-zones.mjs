@@ -113,6 +113,19 @@ function sealedAccessRegistry() {
   return { oosStatus: "SEALED", oosStatusByMission, oosOpeningsByMission, entries };
 }
 
+// Reconstruye el estado del registro de accesos a partir de sus entradas. El
+// productor lo usa para sembrar el registro persistido (append-only) sin
+// re-derivar el estado a mano.
+export function accessRegistryFromEntries(entries = []) {
+  const { oosStatusByMission, oosOpeningsByMission } = missionAccessState(entries);
+  return {
+    oosStatus: entries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED",
+    oosStatusByMission,
+    oosOpeningsByMission,
+    entries,
+  };
+}
+
 // Intervalo cerrado [windowStart, deadline] contra [zoneStart, zoneEnd].
 function overlapsWindow(windowStart, deadline, zoneStart, zoneEnd) {
   return compareIsoDates(windowStart, zoneEnd) <= 0 && compareIsoDates(deadline, zoneStart) >= 0;
@@ -368,6 +381,22 @@ export function recordTradesOosAccess(plan, entry = {}) {
   const consumesOos = entry.modifiesDesign === true || purpose.consumesOos;
   if (consumesOos && !isNonEmptyString(entry.runId)) {
     return { ok: false, code: "MISSING_RUN_ID", message: "Un acceso que consume el OOS exige run_id; sin run_id no se cuenta como apertura (patch 03 §4).", reservation: plan ?? null, oosOpenings: null };
+  }
+  // Idempotencia append-only (patch 03 §4): repetir la MISMA apertura (misma
+  // misión y run_id) no añade una entrada ni cuenta otra apertura; releer con el
+  // mismo run_id es la misma apertura. Así relanzar el productor no infla el
+  // registro persistido ni lo borra.
+  const priorEntries = plan?.accessRegistry?.entries ?? [];
+  const alreadyRecorded = plan?.decision === "RESERVED" && consumesOos
+    && priorEntries.some((item) => item.consumesOos && item.mission === entry.mission && item.runId === entry.runId);
+  if (alreadyRecorded) {
+    const { oosStatusByMission, oosOpeningsByMission } = missionAccessState(priorEntries);
+    const oosOpenings = new Set(
+      priorEntries
+        .filter((item) => item.consumesOos && isNonEmptyString(item.runId))
+        .map((item) => item.runId),
+    ).size;
+    return { ok: true, code: null, record: null, reservation: plan, oosOpenings, oosStatusByMission, oosOpeningsByMission };
   }
   const outcome = recordOosAccess(plan, entry, TRADES_ACCESS_PURPOSES);
   if (!outcome.ok) {

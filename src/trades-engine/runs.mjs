@@ -16,14 +16,19 @@
 // motor TR-05 (`runTradesMission`) y el gate del puente en el contrato de TR-04
 // (`evaluateTradesBridgeGate`).
 //
-// El pico de RAM lo mide la ruta de jobs de BT-05, no este módulo: `memoryPeak`
-// entra como dato del run y se copia al manifest; si falta, queda null (nunca un
-// número inventado).
+// El pico de RAM lo mide la ruta de jobs de BT-05 POR RUN, no este módulo:
+// `memoryPeaks` entra como mapa { runKey -> pico } y cada run recibe el suyo; si
+// falta su entrada, queda null (nunca un número inventado, nunca el pico de otro
+// run copiado). Un proceso no puede conocer su propio pico antes de correr, así
+// que un valor único para todos los runs no es una medición por run y se rechaza.
 //
 // Fail-closed en cada eslabón: sin FROZEN no corre ninguna estrategia; sin zona
 // plan RESERVED no se abre el OOS; sin historia de Development el brazo HOUR no
 // se corre (estado propio del motor TR-05); un parámetro sin medir bloquea el run
-// en vez de sustituirse por cero.
+// en vez de sustituirse por cero. El OOS histórico es una sola apertura por
+// misión con la versión congelada (patch 03 §4): la regla primaria abre DESPUÉS
+// de registrar el acceso y ANTES de leer; la regla secundaria no abre un segundo
+// run_id sobre el OOS, y sin PASS del gate del puente el OOS no se abre.
 
 import { CLIENT_SLOT } from "../exploratory/backtest.mjs";
 import { HALVES, OBSERVATION_RULES, OBSERVATION_RULE_LIST, SLOT_LABELS } from "../trades-bridge/constants.mjs";
@@ -31,6 +36,7 @@ import { bridgeHalves, halfOfDate } from "../trades-bridge/time.mjs";
 import { ZONE_BOUNDARIES, ZONES, recordTradesOosAccess } from "../oos-reservation/trades-zones.mjs";
 import {
   TRADES_BRIDGE_GATE,
+  TRADES_SOURCE_MODE,
   evaluateBridgeGateMetric,
   evaluateTradesBridgeGate,
 } from "../execution-contract/trades-contract.mjs";
@@ -39,7 +45,7 @@ import { TRADES_POLICIES, runTobEpisode } from "./episode.mjs";
 import { TRADES_JOB_KIND, buildTradesRunManifest, computeTradesRunIdentity } from "./identity.mjs";
 import { filterDaysByZone, tobSlotsForCampaign, tradingDaysForCampaign } from "./loaders.mjs";
 import { TRADES_ENGINE_MISSIONS, missionDefinition } from "./missions.mjs";
-import { TRADES_ARM_LABELS, TRADES_ARMS, runTradesMission } from "./run.mjs";
+import { TRADES_ARM_LABELS, TRADES_ARMS, resolveFrozenConfig, runTradesMission } from "./run.mjs";
 
 export const TRADES_RUNS_VERSION = "TR-06_TRADES_RUNS_V1";
 
@@ -63,8 +69,28 @@ export const TRADES_RUN_PHASE_ORDER = Object.freeze([
   TRADES_RUN_PHASES.OOS,
 ]);
 
+// Patch 03 §4: el OOS histórico es UNA sola apertura con la versión congelada.
+// Cada run_id nuevo sobre el OOS sería una nueva apertura y se contaría (patch 03
+// §4); por eso la fase OOS sólo corre la regla primaria (LAST_TRADE) y la regla
+// secundaria no abre un segundo run_id sobre el OOS. La rejilla real de runs es
+// 4 misiones × (Development 2 reglas + puente 2 reglas + OOS 1 apertura) = 20.
+export function observationRulesForPhase(phase) {
+  return phase === TRADES_RUN_PHASES.OOS ? [OBSERVATION_RULES.LAST_TRADE] : OBSERVATION_RULE_LIST;
+}
+
+// Clave estable de un run para ligar el pico de RAM medido por job (BT-05) a su
+// run. El pico es por run: un mapa permite que cada job aporte el suyo sin que
+// un valor único se copie a todos.
+export function tradesRunKey({ market, missionKey, phase, observationRule }) {
+  return `${market}|${missionKey}|${phase}|${observationRule}`;
+}
+
 // Propósito de acceso del OOS (TR-02). La apertura es la lectura que consume el
-// sello; la inspección de la regla secundaria no abre una segunda vez.
+// sello. `TRADES_OOS_INSPECTION` sigue declarado para lecturas no consumidoras
+// sin run_id (p. ej. una inspección de revisión), pero NO se usa para que un
+// segundo run_id de estrategia lea el OOS: un run_id nuevo sobre el OOS es una
+// nueva apertura y se cuenta (patch 03 §4), así que la regla secundaria se
+// bloquea en vez de disfrazarse de inspección.
 export const TRADES_OOS_OPENING_PURPOSE = "TRADES_OOS_OPENING";
 export const TRADES_OOS_INSPECTION_PURPOSE = "TRADES_OOS_INSPECTION";
 
@@ -142,8 +168,8 @@ export function decisionDayDiagnostics({ result }) {
 // Identidad y manifest del run (compatibles con BT-05)
 // ---------------------------------------------------------------------------
 
-function buildRunRecord({ phase, missionKey, observationRule, result, codeCommit, dataManifest, parameters, memoryPeak }) {
-  const identityResult = computeTradesRunIdentity({
+function buildRunRecord({ phase, missionKey, observationRule, result, codeCommit, dataManifest, parameters, memoryPeak, identityResult = null }) {
+  const resolved = identityResult ?? computeTradesRunIdentity({
     codeCommit,
     dataManifest,
     parameters: { jobKind: TRADES_JOB_KIND, phase, ...parameters },
@@ -154,20 +180,20 @@ function buildRunRecord({ phase, missionKey, observationRule, result, codeCommit
     zone: result.zone,
     configHash: result.configHash,
   });
-  const manifest = identityResult.ok
+  const manifest = resolved.ok
     ? buildTradesRunManifest({
-      runId: identityResult.runId,
-      identity: identityResult.identity,
+      runId: resolved.runId,
+      identity: resolved.identity,
       inputs: { zone: result.zone, observationRule, mission: result.missionKey },
       status: "SUCCEEDED",
       memoryPeak: memoryPeak ?? null,
     })
     : null;
   return {
-    ok: identityResult.ok,
-    code: identityResult.code ?? null,
-    runId: identityResult.runId,
-    identity: identityResult.identity,
+    ok: resolved.ok,
+    code: resolved.code ?? null,
+    runId: resolved.runId,
+    identity: resolved.identity,
     manifest,
   };
 }
@@ -301,9 +327,12 @@ function evaluationDecisions({ episodes, armId, half }) {
 }
 
 // Agrega un brazo sobre la mitad de evaluación: completion (BOUGHT_MW), fill
-// medio (FILL_PRICE) y coste all-in unitario (H). Este motor de ejecución sólo
-// tiene el precio de fill como coste, así que H y FILL_PRICE salen del mismo
-// ledger (declarado); no se inventa un coste separado.
+// medio (FILL_PRICE) y coste all-in unitario (H). SPEC §5.5: H es el coste de
+// cubrir la OBLIGACIÓN COMPLETA, no una media de fills; con completion < 1 (la
+// obligación no se cubrió entera) H no existe y la métrica queda NOT_EVALUABLE en
+// vez de publicar una media de fills parcial como si fuera H. Este motor de
+// ejecución sólo tiene el precio de fill como coste, así que H y FILL_PRICE salen
+// del mismo ledger (declarado); no se inventa un coste separado.
 function evaluationArmMetrics({ tradesEpisodes, tobEpisodes, armId }) {
   const aggregate = (episodes, mode) => {
     let target = 0;
@@ -316,10 +345,13 @@ function evaluationArmMetrics({ tradesEpisodes, tobEpisodes, armId }) {
       bought += summary.boughtMw ?? 0;
       cost += (summary.boughtMw ?? 0) * (summary.avgPriceEurMwh ?? 0);
     }
+    const complete = target > 0 && bought >= target;
     return {
       mode,
+      complete,
       completion: target > 0 ? bought / target : null,
       fillEurMwh: bought > 0 ? cost / bought : null,
+      hEurMwh: complete && bought > 0 ? cost / bought : null,
     };
   };
   const trades = aggregate(tradesEpisodes, "TRADES");
@@ -332,13 +364,13 @@ function evaluationArmMetrics({ tradesEpisodes, tobEpisodes, armId }) {
       BUY_WAIT_AGREEMENT: keys.map((key) => tobDecisions.get(key)),
       BOUGHT_MW: tob.completion,
       FILL_PRICE: tob.fillEurMwh,
-      H: tob.fillEurMwh,
+      H: tob.hEurMwh,
     },
     trades: {
       BUY_WAIT_AGREEMENT: keys.map((key) => tradesDecisions.get(key)),
       BOUGHT_MW: trades.completion,
       FILL_PRICE: trades.fillEurMwh,
-      H: trades.fillEurMwh,
+      H: trades.hEurMwh,
     },
     keys,
   };
@@ -375,6 +407,18 @@ function evaluationDeltaV({ missionKey, tradesEpisodes, tobEpisodes }) {
 const PER_ARM_GATE_METRICS = Object.freeze(TRADES_BRIDGE_GATE.metrics.filter((metric) => metric.id !== "DELTA_V"));
 const DELTA_V_GATE_METRIC = Object.freeze(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "DELTA_V"));
 
+// Combina los estados de las métricas del gate de TR-04: FAIL manda; HOLD o
+// NOT_EVALUABLE dejan el gate en HOLD; PASS sólo si todas pasan. El contrato de
+// TR-04 devuelve NOT_EVALUABLE para una métrica no finita (p. ej. ΔV sin los dos
+// brazos completos); sin normalizarlo, NOT_EVALUABLE se colaba hasta PASS
+// (fail-open).
+export function bridgeDecisionFromStatuses(statuses = []) {
+  const normalized = statuses.map((status) => (status === "NOT_EVALUABLE" ? "HOLD" : status));
+  if (normalized.includes("FAIL")) return "FAIL";
+  if (normalized.includes("HOLD")) return "HOLD";
+  return "PASS";
+}
+
 // Evalúa el gate del puente de TR-04 sobre la MITAD DE EVALUACIÓN (plan TR-06):
 // BUY_WAIT / BOUGHT_MW / FILL_PRICE / H por brazo y el signo/orden de ΔV a nivel
 // de misión. FAIL si alguna métrica falla; HOLD si ninguna falla pero alguna no
@@ -396,8 +440,11 @@ export function evaluateBridgeForMission({ missionKey, tradesResult, campaigns, 
   const deltaV = evaluationDeltaV({ missionKey, tradesEpisodes, tobEpisodes });
   const deltaGate = evaluateBridgeGateMetric(DELTA_V_GATE_METRIC, { tobValue: deltaV.tob, tradesValue: deltaV.trades });
 
+  // El contrato de TR-04 dice "HOLD si ninguna falla pero alguna no es evaluable"
+  // (trades-contract.mjs:292-299). La métrica de ΔV devuelve NOT_EVALUABLE, no
+  // HOLD: sin normalizarlo, NOT_EVALUABLE se colaba hasta PASS (fail-open).
   const decisions = [...Object.values(perArm).map((entry) => entry.decision), deltaGate.status];
-  const decision = decisions.includes("FAIL") ? "FAIL" : decisions.includes("HOLD") ? "HOLD" : "PASS";
+  const decision = bridgeDecisionFromStatuses(decisions);
   return {
     gateId: TRADES_BRIDGE_GATE.id,
     half: HALVES.EVALUATION,
@@ -436,8 +483,11 @@ function buildRun({ phase, missionKey, observationRule, result, codeCommit, data
 }
 
 // Corre las tres fases de UNA misión bajo UNA regla de observación. El OOS
-// histórico abre el sello UNA vez por misión (regla primaria); la regla
-// secundaria inspecciona la misma apertura sin consumirla otra vez.
+// histórico es UNA sola apertura por misión con la versión congelada (patch 03
+// §4): sólo la regla primaria (LAST_TRADE) abre, y lo hace DESPUÉS de registrar
+// el acceso y ANTES de leer. La regla secundaria no abre un segundo run_id sobre
+// el OOS (sería una segunda apertura y se contaría); sin PASS del gate del puente
+// el OOS no se abre.
 export function runTradesMissionPhases({
   phase,
   missionKey,
@@ -455,6 +505,7 @@ export function runTradesMissionPhases({
   atUtc = null,
   actor = null,
   oosPlan = null,
+  bridgeGateDecision = null,
 } = {}) {
   if (!Object.values(TRADES_RUN_PHASES).includes(phase)) {
     return { ok: false, code: "UNKNOWN_PHASE", phase: phase ?? null, run: null, oos: null };
@@ -490,7 +541,54 @@ export function runTradesMissionPhases({
     return { ok: true, code: null, run: buildRun({ phase, missionKey, observationRule, result, codeCommit, dataManifest, parameters, memoryPeak, extra: { bridgeGate: gate } }), oos: null };
   }
 
-  // OOS histórico
+  // OOS histórico. Orden fail-closed: plan sellado -> regla primaria -> gate del
+  // puente -> identidad -> registrar el acceso -> recién ahí leer.
+  const plan = oosPlan ?? zonePlan;
+  if (!plan || plan.decision !== "RESERVED") {
+    return { ok: false, code: "ZONE_PLAN_NOT_RESERVED", run: null, oos: { ok: false, code: "ZONE_PLAN_NOT_RESERVED", accessPlan: null, opening: null } };
+  }
+  // La regla secundaria no abre un segundo run_id sobre el OOS (patch 03 §4).
+  if (observationRule !== OBSERVATION_RULES.LAST_TRADE) {
+    return {
+      ok: false,
+      code: "OOS_SECOND_OPENING_BLOCKED",
+      run: null,
+      oos: { ok: false, code: "OOS_SECOND_OPENING_BLOCKED", accessPlan: plan, opening: null, observationRule },
+    };
+  }
+  // Plan TR-06: el OOS va después del puente; sin PASS no se abre el sello.
+  if (bridgeGateDecision !== "PASS") {
+    return {
+      ok: false,
+      code: "OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS",
+      run: null,
+      oos: { ok: false, code: "OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS", accessPlan: plan, opening: null, bridgeGateDecision: bridgeGateDecision ?? null },
+    };
+  }
+  // Identidad del run ANTES de leer: el run_id debe existir para registrar la
+  // apertura. `resolveFrozenConfig` valida el freeze sin tocar el OOS.
+  const frozen = resolveFrozenConfig(frozenContract);
+  if (!frozen.ok) return { ok: false, code: frozen.code, run: null, oos: null };
+  const identityResult = computeTradesRunIdentity({
+    codeCommit,
+    dataManifest,
+    parameters: { jobKind: TRADES_JOB_KIND, phase, ...parameters },
+    market: definition.definition.market,
+    mission: missionKey,
+    sourceMode: TRADES_SOURCE_MODE,
+    observationRule,
+    zone: ZONES.OOS_HISTORICO,
+    configHash: frozen.configHash,
+  });
+  if (!identityResult.ok) {
+    return { ok: false, code: "RUN_IDENTITY_FAILED", run: null, oos: { ok: false, code: "RUN_IDENTITY_FAILED", accessPlan: plan, opening: null } };
+  }
+  // Cada lectura del OOS queda en el registro ANTES de leerlo (patch 03 §4); si
+  // el registro falla, la estrategia no corre.
+  const opening = openTradesOosForMission({ plan, missionKey, runId: identityResult.runId, atUtc, actor, purpose: TRADES_OOS_OPENING_PURPOSE });
+  if (!opening.ok) {
+    return { ok: false, code: opening.code, run: null, oos: opening };
+  }
   const result = runOosForMission({
     missionKey,
     observationRule,
@@ -502,24 +600,7 @@ export function runTradesMissionPhases({
     frozenContract,
     slotLabels,
   });
-  if (!result.ok) return { ok: false, code: result.code, run: null, oos: null };
-
-  const record = buildRunRecord({ phase, missionKey, observationRule, result, codeCommit, dataManifest, parameters, memoryPeak });
-  // La apertura es UNA por misión: sólo la regla primaria la registra; la
-  // secundaria inspecciona la misma apertura sin abrir otra.
-  const isOpening = observationRule === OBSERVATION_RULES.LAST_TRADE;
-  const purpose = isOpening ? TRADES_OOS_OPENING_PURPOSE : TRADES_OOS_INSPECTION_PURPOSE;
-  const plan = oosPlan ?? zonePlan;
-  // Sin un plan sellado no hay examen del OOS: ni apertura ni inspección.
-  if (!plan || plan.decision !== "RESERVED") {
-    return { ok: false, code: "ZONE_PLAN_NOT_RESERVED", run: null, oos: { ok: false, code: "ZONE_PLAN_NOT_RESERVED", accessPlan: null, opening: null } };
-  }
-  const opening = record.ok
-    ? openTradesOosForMission({ plan, missionKey, runId: record.runId, atUtc, actor, purpose })
-    : { ok: false, code: "RUN_IDENTITY_FAILED", accessPlan: plan, opening: null };
-  if (!opening.ok) {
-    return { ok: false, code: opening.code, run: null, oos: opening };
-  }
+  if (!result.ok) return { ok: false, code: result.code, run: null, oos: opening };
   const run = buildRun({
     phase,
     missionKey,
@@ -529,16 +610,20 @@ export function runTradesMissionPhases({
     dataManifest,
     parameters,
     memoryPeak,
+    identityResult,
     extra: { oosAccess: opening.opening },
   });
   return { ok: true, code: null, run, oos: opening };
 }
 
-// Corre las 4 misiones en las tres fases y ambas reglas de observación. El OOS se
-// abre una vez por misión (la regla primaria); el plan de accesos se encadena
-// entre misiones para que el conteo de aperturas sea el real, no el de un run
-// aislado. Sin FROZEN, sin zona plan RESERVED o con una misión sin campaign, el
-// resultado queda BLOCKED con la causa, nunca con resultados parciales fingidos.
+// Corre las 4 misiones en las tres fases. Development y puente corren las dos
+// reglas; el OOS corre UNA sola apertura por misión (regla primaria) y sólo si el
+// gate del puente dio PASS en ambas reglas. El plan de accesos se encadena entre
+// misiones para que el conteo de aperturas sea el real, no el de un run aislado.
+// El pico de RAM entra como mapa { runKey -> pico } (medido por job en BT-05); sin
+// entrada, el run queda null. Sin FROZEN, sin zona plan RESERVED o con una misión
+// sin campaign, el resultado queda BLOCKED con la causa, nunca con resultados
+// parciales fingidos.
 export function runTradesRuns({
   zonePlan,
   rows = [],
@@ -548,7 +633,7 @@ export function runTradesRuns({
   codeCommit = null,
   dataManifest = null,
   parameters = {},
-  memoryPeak = null,
+  memoryPeaks = null,
   slotLabels = SLOT_LABELS,
   atUtc = null,
   actor = null,
@@ -585,8 +670,19 @@ export function runTradesRuns({
       });
       continue;
     }
+    const market = missionDefinition(missionKey).definition.market;
+    // Gate del puente por regla (lo produce la fase BRIDGE, que corre antes que
+    // OOS). El OOS es una sola apertura por misión: no se abre si alguna regla del
+    // puente no dio PASS (fail-closed, plan TR-06 "puente -> OOS"). Una regla del
+    // puente que no corrió cuenta como HOLD.
+    const bridgeGateByRule = {};
+    const bridgeRules = observationRulesForPhase(TRADES_RUN_PHASES.BRIDGE);
     for (const phase of TRADES_RUN_PHASE_ORDER) {
-      for (const observationRule of OBSERVATION_RULE_LIST) {
+      const missionBridgeDecision = bridgeDecisionFromStatuses(bridgeRules.map((rule) => bridgeGateByRule[rule] ?? "HOLD"));
+      for (const observationRule of observationRulesForPhase(phase)) {
+        const memoryPeak = memoryPeaks === null || memoryPeaks === undefined
+          ? null
+          : memoryPeaks[tradesRunKey({ market, missionKey, phase, observationRule })] ?? null;
         const outcome = runTradesMissionPhases({
           phase,
           missionKey,
@@ -604,10 +700,14 @@ export function runTradesRuns({
           atUtc,
           actor,
           oosPlan: accessPlan,
+          bridgeGateDecision: phase === TRADES_RUN_PHASES.OOS ? missionBridgeDecision : null,
         });
         if (!outcome.ok) {
           pushBlock(blocks, outcome.code, { missionKey, phase, observationRule });
           continue;
+        }
+        if (phase === TRADES_RUN_PHASES.BRIDGE) {
+          bridgeGateByRule[observationRule] = outcome.run.bridgeGate?.decision ?? "HOLD";
         }
         if (outcome.oos?.accessPlan) accessPlan = outcome.oos.accessPlan;
         runs.push(outcome.run);
