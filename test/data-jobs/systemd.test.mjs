@@ -4,13 +4,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DATA_ARCHIVE } from "../../src/data-jobs/pipeline.mjs";
+import { claimJobLock } from "../../src/backtest-jobs/runner.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const systemdDir = path.join(repoRoot, "operations/data-jobs/systemd");
@@ -64,6 +65,74 @@ test("DATA-01 CLI: un log sin línea de checksum no lanza nada (WAIT)", () => {
     assert.match(output, /sin línea de checksum/);
     assert.equal(existsSync(path.join(runsDir, "TRIGGER_STATE.json")), false);
     assert.equal(existsSync(path.join(runsDir, "DATA-QUEUE")), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DATA-01 CLI: una cola fallida no se relanza ni reavisa cada 15 min (disparador procesado)", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "data01-cli-retry-"));
+  try {
+    const log = path.join(dir, "descarga.log");
+    writeFileSync(log, `2026-09-25T23:31:00Z CHECKSUM OK ${DATA_ARCHIVE.expectedSha256}\n`);
+    const runsDir = path.join(dir, "runs");
+    const env = {
+      ...process.env,
+      DATA_REPO_ROOT: repoRoot,
+      DATA_ARCHIVE_LOG: log,
+      DATA_RUNS_DIR: runsDir,
+      DATA_SCRATCH_DIR: path.join(dir, "scratch"),
+      DATA_EXTRACT_DIR: path.join(dir, "extracted"),
+      // El archivo no existe: el primer job (DECOMPRESS) falla, así la cola falla.
+      DATA_ARCHIVE_PATH: path.join(dir, "no-existe.tar.zst"),
+      DATA_DISABLE_SYSTEMD_SCOPE: "1",
+    };
+    const first = spawnSync(process.execPath, [CLI], { encoding: "utf8", env });
+    assert.equal(first.status, 1, first.stderr);
+    assert.match(first.stderr, /la cola falló/);
+    const stateFile = path.join(runsDir, "TRIGGER_STATE.json");
+    const afterFirst = JSON.parse(readFileSync(stateFile, "utf8"));
+    assert.equal(afterFirst.lastHandled.status, "FAILED");
+    assert.equal(afterFirst.lastHandled.kind, "CHECKSUM_OK");
+    const queueDirsAfterFirst = readdirSync(runsDir).filter((name) => name.startsWith("DATA-QUEUE-")).length;
+    assert.equal(queueDirsAfterFirst, 1);
+
+    // Segunda corrida del timer sobre el MISMO disparador: SKIP, sin relanzar ni reavisar.
+    const second = spawnSync(process.execPath, [CLI], { encoding: "utf8", env });
+    assert.equal(second.status, 0, second.stderr);
+    assert.match(second.stdout, /ya procesado/);
+    assert.equal(readFileSync(stateFile, "utf8"), JSON.stringify(afterFirst, null, 1), "el estado no se reescribió");
+    assert.equal(readdirSync(runsDir).filter((name) => name.startsWith("DATA-QUEUE-")).length, 1, "no se creó otra cola");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DATA-01 CLI: con otra cola corriendo el disparador NO se marca procesado (no se pierde el evento)", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "data01-cli-busy-"));
+  try {
+    const log = path.join(dir, "descarga.log");
+    writeFileSync(log, `2026-09-25T23:31:00Z CHECKSUM OK ${DATA_ARCHIVE.expectedSha256}\n`);
+    const runsDir = path.join(dir, "runs");
+    mkdirSync(runsDir, { recursive: true });
+    // Otra cola tiene el lock (pid vivo): el CLI no puede intentarlo.
+    claimJobLock(runsDir, 0, { queueId: `DATA-QUEUE-${"0".repeat(64)}`, pid: process.pid });
+    const run = spawnSync(process.execPath, [CLI], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        DATA_REPO_ROOT: repoRoot,
+        DATA_ARCHIVE_LOG: log,
+        DATA_RUNS_DIR: runsDir,
+        DATA_SCRATCH_DIR: path.join(dir, "scratch"),
+        DATA_EXTRACT_DIR: path.join(dir, "extracted"),
+        DATA_ARCHIVE_PATH: path.join(dir, "no-existe.tar.zst"),
+        DATA_DISABLE_SYSTEMD_SCOPE: "1",
+      },
+    });
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, /QUEUE_ALREADY_RUNNING/);
+    assert.equal(existsSync(path.join(runsDir, "TRIGGER_STATE.json")), false, "el disparador no debe marcarse como procesado");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -9,10 +9,10 @@ normativo §25.2.2).
 Cuando la descarga del archivo sellado del cliente termina con `CHECKSUM OK`,
 la cola descomprime y lanza **en orden**:
 
-1. `DECOMPRESS` — `tar --zstd -xf` del archivo en `/srv/data/eex-client-archive/extracted`.
+1. `DECOMPRESS` — `tar --zstd -xf` del archivo en `/srv/data/eex-client-archive/extracted` (el job crea el directorio antes de extraer).
 2. `TR01_SCAN` — escaneo de TR-01 (trades desde el archivo verificado, medición + decisión de fuente).
 3. `TR03_BRIDGE` — medición del puente de TR-03 (trades del archivo + best ask del lago).
-4. `BT06_EXTRACT` — extracción del top of book de Power DE (`operations/exploratory/v3/build_tob_slots.py`).
+4. `BT06_EXTRACT` — extracción del top of book de Power DE (`operations/exploratory/v3/build_tob_slots.py`). La fuente la decide TR-01: el job lee `DATA_SOURCE_DECISION.json` y extrae del archivo sellado o del lago, el que TR-01 declare canónico.
 5. `BT06_BACKTEST` — backtest exploratorio TOB de Power (`operations/exploratory/v3/run-exploratory-backtest.mjs`).
 
 Si la línea es `CHECKSUM FALLA` (o `CHECKSUM OK` con un sha distinto al
@@ -56,13 +56,20 @@ systemctl --user enable --now energy-markets-data-queue.timer
   con: comando, `memoryMaxBytes`, `enforcedBy`, `memory.peak` (cgroup), exit,
   estado, aviso de Telegram y artefactos publicados.
 - **MemoryMax por job**: en producción cada job corre en su propio scope de
-  systemd (`systemd-run --user --scope -p MemoryMax=<bytes>`); el techo es
-  PROVISIONAL y se recalibra con el `memory.peak` medido del primer run real.
+  systemd (`systemd-run --user --scope -p MemoryMax=<bytes>`); un supervisor
+  (`src/data-jobs/child-entry.mjs`) escribe el pico del cgroup **del job** en el
+  receipt antes de que systemd lo recoja. Sin scope, el pico es del cgroup del
+  servicio y así queda declarado (`peakSource`). El techo es PROVISIONAL y se
+  recalibra con el `memory.peak` medido del primer run real.
 - **Un paso que "termina bien" sin dejar su artefacto es un fallo**
-  (`STEP_ARTIFACT_MISSING`): un éxito sin prueba no se acepta.
+  (`STEP_ARTIFACT_MISSING`); y un artefacto que ya existía y no se reescribió
+  tampoco cuenta (`STEP_ARTIFACT_STALE`): un éxito sin prueba no se acepta.
 - **Idempotencia y reanudación**: la cola se identifica por la huella del
   disparador (`CHECKSUM_OK:<at>:<sha>:<línea>`); un corte a mitad reanuda desde el
-  primer paso que no quedó `SUCCEEDED`.
+  primer paso que no quedó `SUCCEEDED`. Un disparador ya procesado —aunque la cola
+  haya fallado— no se relanza ni se reavisa: el timer de red de seguridad no
+  repite el paso fallido cada 15 min. Un evento nuevo (otra línea de checksum)
+  trae otra huella y sí reanuda.
 - **Fail-closed**: el disparador exige el sha declarado del archivo
   (`DATA_ARCHIVE.expectedSha256`); `CHECKSUM FALLA`/mismatch no lanzan nada.
 

@@ -100,35 +100,33 @@ function envForArchive({ archive }) {
 export function buildDataQueueSteps({ repoRoot, archive = DATA_ARCHIVE, scratchDir }) {
   if (typeof repoRoot !== "string" || repoRoot.length === 0) throw new TypeError("buildDataQueueSteps requiere repoRoot.");
   if (typeof scratchDir !== "string" || scratchDir.length === 0) throw new TypeError("buildDataQueueSteps requiere scratchDir.");
-  const env = { ...envForArchive({ archive }), DATA_SCRATCH_DIR: scratchDir, DATA_REPO_ROOT: repoRoot };
+  const env = { ...envForArchive({ archive }), DATA_SCRATCH_DIR: scratchDir, DATA_REPO_ROOT: repoRoot, DATA_BT06_SLOTS: POWER_EXPLORATORY_RELEASE.slots };
+  // El artefacto de DECOMPRESS sale del `archive` que se pasa (no del default
+  // global): tiene que ser el mismo path que recibe el script por DATA_EXTRACT_DIR.
+  const artifactsFor = (jobKind) => (jobKind === DATA_JOB_KIND.DECOMPRESS ? [archive.extractDir] : [...STEP_ARTIFACTS[jobKind]]);
   const step = (jobKind, command, extra = {}) => ({
     jobKind,
     command,
     env,
     memoryMaxBytes: PROVISIONAL_MEMORY_MAX_BYTES[jobKind],
     timeoutMs: PROVISIONAL_TIMEOUT_MS[jobKind],
-    publishes: [...STEP_ARTIFACTS[jobKind]],
+    publishes: artifactsFor(jobKind),
     ...extra,
   });
   return [
-    // El owner pidió descomprimir en /srv/data/eex-client-archive. Nota de
-    // ingeniería (OPEN_ITEM): el extractor de TR-01 lee el `.tar.zst` en streaming
-    // (`zstd -dc | tar`), así que este paso deja el árbol extraído en disco pero
-    // hoy no lo consume ningún job; se conserva porque el owner lo pidió explícito.
-    step(DATA_JOB_KIND.DECOMPRESS, ["tar", "--zstd", "-xf", archive.path, "-C", archive.extractDir]),
+    // El owner pidió descomprimir en /srv/data/eex-client-archive. El script crea
+    // el directorio de extracción antes de tar (`tar -C` falla con exit 2 si no
+    // existe, hallazgo DATA01-DECOMPRESS-MKDIR). Nota de ingeniería (OPEN_ITEM):
+    // el extractor de TR-01 lee el `.tar.zst` en streaming (`zstd -dc | tar`), así
+    // que este paso deja el árbol extraído en disco pero hoy no lo consume ningún
+    // job; se conserva porque el owner lo pidió explícito.
+    step(DATA_JOB_KIND.DECOMPRESS, ["bash", "operations/data-jobs/jobs/decompress-archive.sh"]),
     step(DATA_JOB_KIND.TR01_SCAN, ["bash", "operations/data-jobs/jobs/tr01-scan.sh"]),
     step(DATA_JOB_KIND.TR03_BRIDGE, ["bash", "operations/data-jobs/jobs/tr03-bridge.sh"]),
-    step(DATA_JOB_KIND.BT06_EXTRACT, [
-      "python3",
-      "operations/exploratory/v3/build_tob_slots.py",
-      "--source", "lake",
-      "--market", "POWER_DE",
-      "--products", "DEBQ,DEBM",
-      "--start", WINDOW_START,
-      "--end", WINDOW_END,
-      "--source-decision", "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
-      "--out", POWER_EXPLORATORY_RELEASE.slots,
-    ]),
+    // La fuente la decide TR-01 (PLAN_STATUS BT-06): el script lee
+    // DATA_SOURCE_DECISION.json y extrae del lago o del archivo sellado, el que
+    // TR-01 haya declarado canónico (hallazgo DATA01-BT06-SOURCE-GATE).
+    step(DATA_JOB_KIND.BT06_EXTRACT, ["bash", "operations/data-jobs/jobs/bt06-extract.sh"]),
     step(DATA_JOB_KIND.BT06_BACKTEST, [
       "node",
       POWER_EXPLORATORY_RELEASE.generator,

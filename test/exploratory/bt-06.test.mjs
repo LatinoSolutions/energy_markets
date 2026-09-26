@@ -5,8 +5,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync, execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -174,16 +175,159 @@ test("BT-06 loader: una decisión provisional de TR-01 no acredita la fuente y f
     assert.notEqual(pendingRun.status, 0);
     assert.match(pendingRun.stderr, /decisión definitiva|PROVISIONAL_ONLY/);
 
-    // Decisión definitiva pero de otra fuente: no se extrae del archivo.
+    // Decisión definitiva pero de otra fuente: no se extrae del lago.
     const archive = path.join(workspace, "archive.json");
     writeFileSync(archive, JSON.stringify({ status: "DECIDED", selectedSource: "CLIENT_SEALED_ARCHIVE", selectedSourceRole: "CANONICAL", failClosed: false }));
     const archiveRun = spawnSync("python3", args(archive, "archive-out.json"), { encoding: "utf8" });
     assert.notEqual(archiveRun.status, 0);
-    assert.match(archiveRun.stderr, /no eligió EEX_LAKE/);
+    assert.match(archiveRun.stderr, /eligió 'CLIENT_SEALED_ARCHIVE'/);
 
     const noDecision = spawnSync("python3", [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--out", path.join(workspace, "out.json")], { encoding: "utf8" });
     assert.notEqual(noDecision.status, 0);
     assert.match(noDecision.stderr, /source-decision es obligatorio/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+const BUILD_TOB_ARCHIVE = String.raw`
+import io, os, subprocess, sys, tarfile
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+outdir = sys.argv[1]
+
+def parquet_bytes(rows):
+    buf = io.BytesIO()
+    pq.write_table(pa.Table.from_pylist(rows), buf)
+    return buf.getvalue()
+
+rows = [
+    {"ShortCode": "DEBQ", "Maturity": "202601", "Tm": "2025-11-25T09:59:50.50498Z", "AskPx": "31.33", "AskSz": "1", "BidPx": "", "InstrumentType": "Simple Instrument"},
+    {"ShortCode": "DEBM", "Maturity": "202602", "Tm": "2025-11-25T09:29:58Z", "AskPx": "40.5", "AskSz": "2", "BidPx": "40.0", "InstrumentType": "Simple Instrument"},
+    {"ShortCode": "DEBQ", "Maturity": "202601", "Tm": "2025-11-25T09:59:50Z", "AskPx": "10.0", "AskSz": "1", "BidPx": "", "InstrumentType": "Futures Spread"},
+]
+members = {
+    "data/lake/v1/table=eex_derivative_top_of_book/cmdty=POWER/area=DE/trd_date=2025-11-25/pull_id=fixture/part.parquet": parquet_bytes(rows),
+}
+tar_path = os.path.join(outdir, "tob.tar")
+with tarfile.open(tar_path, "w") as tar:
+    for name, data in members.items():
+        info = tarfile.TarInfo(name)
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+zst = os.path.join(outdir, "tob.tar.zst")
+subprocess.run(["zstd", "-q", "-f", "-o", zst, tar_path], check=True)
+print(zst)
+`;
+
+test("BT-06 loader: con la decisión en el archivo sellado la extracción completa (no se detiene en el lago)", () => {
+  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-archive-"));
+  try {
+    const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
+    const archiveBytes = readFileSync(archivePath);
+    const sha256 = createHash("sha256").update(archiveBytes).digest("hex");
+    const decision = path.join(workspace, "archive-decision.json");
+    writeFileSync(decision, JSON.stringify({ status: "DECIDED", selectedSource: "CLIENT_SEALED_ARCHIVE", selectedSourceRole: "CANONICAL", failClosed: false }));
+    const out = path.join(workspace, "tob-archive.json");
+    const run = spawnSync("python3", [
+      loader, "--source", "archive", "--archive", archivePath,
+      "--expected-sha256", sha256, "--expected-bytes", String(archiveBytes.length),
+      "--market", "POWER_DE", "--products", "DEBQ,DEBM",
+      "--start", "2025-11-25", "--end", "2025-11-25",
+      "--source-decision", decision, "--out", out,
+    ], { encoding: "utf8" });
+    assert.equal(run.status, 0, run.stderr);
+    const document = JSON.parse(readFileSync(out, "utf8"));
+    assert.equal(document.sourceDecision.selectedSource, "CLIENT_SEALED_ARCHIVE");
+    assert.equal(document.sourceDecision.selectedSourceRole, "CANONICAL");
+    assert.equal(document.archiveVerification.sha256, sha256);
+    assert.deepEqual(Object.keys(document.series).sort(), ["DEBM|202602", "DEBQ|202601"]);
+    const at1100 = document.series["DEBQ|202601"]["2025-11-25"][document.slotsBerlin.indexOf("11:00")];
+    assert.deepEqual([at1100.ask, at1100.askSz], [31.33, 1]);
+    // El spread no entra: misma regla de slots que la ruta del lago.
+    assert.equal(document.series["DEBQ|202601"]["2025-11-25"].some((slot) => slot && slot.ask === 10.0), false);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("BT-06 loader: con el archivo sellado como fuente, un sha distinto falla cerrado", () => {
+  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-archive-sha-"));
+  try {
+    const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
+    const decision = path.join(workspace, "archive-decision.json");
+    writeFileSync(decision, JSON.stringify({ status: "DECIDED", selectedSource: "CLIENT_SEALED_ARCHIVE", selectedSourceRole: "CANONICAL", failClosed: false }));
+    const out = path.join(workspace, "out.json");
+    const run = spawnSync("python3", [
+      loader, "--source", "archive", "--archive", archivePath,
+      "--expected-sha256", "c".repeat(64), "--market", "POWER_DE", "--products", "DEBQ",
+      "--source-decision", decision, "--out", out,
+    ], { encoding: "utf8" });
+    assert.notEqual(run.status, 0);
+    assert.match(run.stderr, /FAIL-CLOSED: sha256/);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("BT-06 dispatch: el job de DATA-01 extrae del archivo cuando TR-01 lo declara canónico", () => {
+  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-dispatch-"));
+  const repo = path.join(workspace, "repo");
+  const v3 = path.join(repo, "operations/exploratory/v3");
+  const tr01 = path.join(repo, "operations/trades/TR-01");
+  try {
+    mkdirSync(v3, { recursive: true });
+    mkdirSync(tr01, { recursive: true });
+    execFileSync("cp", [loader, path.join(v3, "build_tob_slots.py")]);
+    const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
+    const archiveBytes = readFileSync(archivePath);
+    const sha256 = createHash("sha256").update(archiveBytes).digest("hex");
+    writeFileSync(path.join(tr01, "DATA_SOURCE_DECISION.json"), JSON.stringify({ status: "DECIDED", selectedSource: "CLIENT_SEALED_ARCHIVE", selectedSourceRole: "CANONICAL", failClosed: false }));
+    const out = path.join(workspace, "dispatch-out.json");
+    const dispatch = path.join(repoRoot, "operations/data-jobs/jobs/bt06-extract.sh");
+    const run = spawnSync("bash", [dispatch], {
+      cwd: repo,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        DATA_REPO_ROOT: repo,
+        DATA_SCRATCH_DIR: path.join(workspace, "scratch"),
+        DATA_WINDOW_START: "2025-11-25",
+        DATA_WINDOW_END: "2025-11-25",
+        DATA_BT06_SLOTS: out,
+        DATA_ARCHIVE_PATH: archivePath,
+        DATA_ARCHIVE_SHA256: sha256,
+        DATA_ARCHIVE_BYTES: String(archiveBytes.length),
+      },
+    });
+    assert.equal(run.status, 0, run.stderr);
+    const document = JSON.parse(readFileSync(out, "utf8"));
+    assert.equal(document.sourceDecision.selectedSource, "CLIENT_SEALED_ARCHIVE");
+    assert.deepEqual(Object.keys(document.series).sort(), ["DEBM|202602", "DEBQ|202601"]);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("BT-06 loader: si el archivo sellado no trae TOB en la ventana, falla cerrado (no publica vacío)", () => {
+  const workspace = mkdtempSync(path.join(tmpdir(), "bt06-archive-empty-"));
+  try {
+    const archivePath = execFileSync("python3", ["-c", BUILD_TOB_ARCHIVE, workspace], { encoding: "utf8" }).trim();
+    const archiveBytes = readFileSync(archivePath);
+    const sha256 = createHash("sha256").update(archiveBytes).digest("hex");
+    const decision = path.join(workspace, "archive-decision.json");
+    writeFileSync(decision, JSON.stringify({ status: "DECIDED", selectedSource: "CLIENT_SEALED_ARCHIVE", selectedSourceRole: "CANONICAL", failClosed: false }));
+    const out = path.join(workspace, "out.json");
+    const run = spawnSync("python3", [
+      loader, "--source", "archive", "--archive", archivePath,
+      "--expected-sha256", sha256, "--expected-bytes", String(archiveBytes.length),
+      "--market", "POWER_DE", "--products", "DEBQ,DEBM",
+      "--start", "2025-01-01", "--end", "2025-01-02",
+      "--source-decision", decision, "--out", out,
+    ], { encoding: "utf8" });
+    assert.notEqual(run.status, 0);
+    assert.match(run.stderr, /FAIL-CLOSED: el archivo .* no trae/);
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }

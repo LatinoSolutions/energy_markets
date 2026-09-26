@@ -4,7 +4,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { EventEmitter } from "node:events";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 
 import {
   QUEUE_STATUS,
@@ -50,8 +52,10 @@ test("DATA-01 runner: los jobs corren de a uno y en orden, cada uno con su recei
     assert.equal(receipt.status, STEP_STATUS.SUCCEEDED);
     assert.equal(receipt.memoryMaxBytes, 64 * 1024 * 1024);
     assert.equal(receipt.enforcedBy, "none", "sin scope de systemd el techo queda declarado, no fingido");
-    assert.ok("cgroupMemoryPeakBytesAfter" in receipt.memory);
-    assert.equal(typeof receipt.memory.cgroupMemoryPeakBytesAfter === "number" || receipt.memory.cgroupMemoryPeakBytesAfter === null, true);
+    // Sin scope el job corre en el cgroup del servicio: se declara como tal.
+    assert.equal(receipt.memory.peakSource, "service-cgroup");
+    assert.equal(typeof receipt.memory.memoryPeakBytes, "number");
+    assert.equal(typeof receipt.memory.cgroup, "string");
     assert.equal(receipt.notification.ok, true);
   }
   assert.deepEqual(notifier.messages, [
@@ -163,16 +167,93 @@ test("DATA-01 runner: dos procesos no corren la cola a la vez (lock en disco)", 
 
 test("DATA-01 runner: MemoryMax se impone con un scope de systemd por job cuando está habilitado", () => {
   const step = { command: ["python3", "job.py", "--x"], memoryMaxBytes: 12345 };
-  const scoped = buildSpawnCommand(step, { useSystemdScope: true });
+  const peakFile = "/tmp/data01-peak.json";
+  const scoped = buildSpawnCommand(step, { useSystemdScope: true, peakFile });
   assert.equal(scoped.bin, "systemd-run");
   assert.equal(scoped.enforcedBy, "systemd-scope");
   assert.ok(scoped.args.includes("--property=MemoryMax=12345"));
-  assert.deepEqual(scoped.args.slice(scoped.args.indexOf("--") + 1), step.command);
+  // El scope corre child-entry, que escribe el pico del cgroup del job.
+  const separator = scoped.args.indexOf("--");
+  assert.equal(scoped.args[separator + 1], process.execPath);
+  assert.match(scoped.args[separator + 2], /child-entry\.mjs$/);
+  assert.equal(scoped.args[separator + 3], peakFile);
+  assert.equal(scoped.args[separator + 4], "--");
+  assert.deepEqual(scoped.args.slice(separator + 5), step.command);
   const plain = buildSpawnCommand(step, { useSystemdScope: false });
   assert.equal(plain.bin, "python3");
   assert.equal(plain.enforcedBy, "none");
   assert.equal(plain.memoryMaxBytes, 12345, "el techo declarado se conserva aunque no se imponga");
+  assert.equal(plain.peakFile, null);
   assert.throws(() => buildSpawnCommand({ command: [] }), /no tiene comando/);
+});
+
+test("DATA-01 runner: con scope de systemd el receipt registra el cgroup y el pico del JOB, no del servicio", async () => {
+  const repo = makeDataFixtureRepo();
+  const artifact = path.join(repo.root, "out/step-1.json");
+  let observedSpec = null;
+  const spawnJob = (spec) => {
+    observedSpec = spec;
+    // El supervisor (child-entry) escribe el pico de SU cgroup al terminar.
+    writeFileSync(spec.peakFile, JSON.stringify({ cgroup: "/user.slice/user-1001.slice/run-abc.scope", memoryPeakBytes: 4242, oomKills: 2 }));
+    mkdirSync(path.dirname(artifact), { recursive: true });
+    writeFileSync(artifact, JSON.stringify({ ok: true }));
+    const child = new EventEmitter();
+    child.pid = 987654;
+    setImmediate(() => child.emit("exit", 0, null));
+    return child;
+  };
+  const runner = createDataQueueRunner({ repoRoot: repo.root, runsDir: repo.runsDir, useSystemdScope: true, spawnJob });
+  const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: stepsFor(repo, ["ok"]) });
+  assert.equal(result.ok, true, JSON.stringify(result.queue));
+  assert.equal(observedSpec.bin, "systemd-run");
+  assert.match(observedSpec.peakFile, /job-memory\.json$/);
+  const receipt = runner.get(result.queueId).steps[0];
+  assert.equal(receipt.enforcedBy, "systemd-scope");
+  assert.equal(receipt.memory.cgroup, "/user.slice/user-1001.slice/run-abc.scope");
+  assert.equal(receipt.memory.memoryPeakBytes, 4242);
+  assert.equal(receipt.memory.peakSource, "job-scope");
+  assert.equal(receipt.memory.oomKillsDuringRun, 2);
+});
+
+test("DATA-01 runner: el timeout mata al proceso directo y a sus hijos (no quedan huérfanos)", async () => {
+  const repo = makeDataFixtureRepo();
+  const pidFile = path.join(repo.root, "tree.pid");
+  const killer = path.join(repo.root, "hang-tree.sh");
+  writeFileSync(killer, `#!/bin/bash\nsleep 300 & echo $! > "$TREE_PID_FILE"\nsleep 300\n`);
+  const runner = createDataQueueRunner({ repoRoot: repo.root, runsDir: repo.runsDir });
+  const step = {
+    jobKind: "HANG_TREE",
+    command: ["bash", killer],
+    env: { TREE_PID_FILE: pidFile },
+    memoryMaxBytes: 64 * 1024 * 1024,
+    timeoutMs: 400,
+    publishes: [],
+  };
+  const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [step] });
+  assert.equal(result.ok, false);
+  assert.equal(result.queue.failure.code, "TIMEOUT");
+  const grandchild = Number.parseInt(readFileSync(pidFile, "utf8").trim(), 10);
+  assert.ok(Number.isInteger(grandchild) && grandchild > 0);
+  // SIGKILL es asíncrono: se espera a que el grupo muera.
+  let alive = true;
+  for (let attempt = 0; attempt < 50 && alive; attempt += 1) {
+    try {
+      process.kill(grandchild, 0);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    } catch {
+      alive = false;
+    }
+  }
+  assert.equal(alive, false, `el proceso ${grandchild} del job sobrevivió al timeout`);
+});
+
+test("DATA-01 runner: un artefacto que ya existía y no se reescribió no cuenta como publicado", async () => {
+  const repo = makeDataFixtureRepo();
+  repo.write("out/step-1.json", JSON.stringify({ viejo: true }));
+  const runner = createDataQueueRunner({ repoRoot: repo.root, runsDir: repo.runsDir });
+  const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: stepsFor(repo, ["no-artifact"]) });
+  assert.equal(result.ok, false);
+  assert.equal(result.queue.failure.code, "STEP_ARTIFACT_STALE");
 });
 
 test("DATA-01 runner: la huella del paso ata comando, entorno, techo y disparador", () => {

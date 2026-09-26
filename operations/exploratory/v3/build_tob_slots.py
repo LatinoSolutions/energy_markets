@@ -27,6 +27,12 @@ Uso:
       --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 \
       --source-decision operations/trades/TR-01/DATA_SOURCE_DECISION.json \
       --out operations/exploratory/v3/tob-slots-power.json
+  # job real (archivo sellado del cliente), si TR-01 eligió esa fuente canónica
+  python3 build_tob_slots.py --source archive --archive <archivo.tar.zst> \
+      --expected-sha256 <hex> --expected-bytes <n> --market POWER_DE \
+      --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 \
+      --source-decision operations/trades/TR-01/DATA_SOURCE_DECISION.json \
+      --out operations/exploratory/v3/tob-slots-power.json
   # prueba pura con filas NDJSON (sin pyarrow), para fixtures chicos
   python3 build_tob_slots.py --from-rows rows.ndjson --market POWER_DE --products DEBQ,DEBM --out out.json
 """
@@ -35,7 +41,9 @@ import glob
 import hashlib
 import json
 import os
+import subprocess
 import sys
+import tarfile
 from collections import defaultdict
 from datetime import date, datetime, time, timezone
 from zoneinfo import ZoneInfo
@@ -124,11 +132,16 @@ def better(candidate, ask, ask_sz):
     return False
 
 
-def aggregate_day(rows, day, products, counts):
-    """Estado por (contrato, slot) de UN día, alimentado fila a fila (streaming)."""
-    epochs = slot_utc_epochs(day)
-    candidates = {}  # (contract, slot_index) -> (ts, ask, askSz, bid, rawTm)
-    contracts = set()
+def new_day_state(day):
+    """Estado por (contrato, slot) de UN día, vacío."""
+    return {"epochs": slot_utc_epochs(day), "candidates": {}, "contracts": set()}
+
+
+def feed_day_state(state, rows, products, counts):
+    """Alimenta el estado del día fila a fila (streaming, sin acumular filas)."""
+    epochs = state["epochs"]
+    candidates = state["candidates"]
+    contracts = state["contracts"]
     for row in rows:
         if not row_is_usable(row, products):
             counts["rows_excluded"] += 1
@@ -149,11 +162,14 @@ def aggregate_day(rows, day, products, counts):
         current = candidates.get(key)
         if current is None or ts > current[0] or (ts == current[0] and better(current, ask, ask_sz)):
             candidates[key] = (ts, ask, ask_sz, bid, row.get("Tm"))
+
+
+def day_series(state, counts):
     series = {}
-    for contract in sorted(contracts):
+    for contract in sorted(state["contracts"]):
         slots = []
         for index in range(len(SLOTS)):
-            candidate = candidates.get((contract, index))
+            candidate = state["candidates"].get((contract, index))
             if candidate is None:
                 slots.append(None)
                 counts["slots_empty"] += 1
@@ -163,6 +179,13 @@ def aggregate_day(rows, day, products, counts):
                 counts["slots_filled"] += 1
         series[contract] = slots
     return series
+
+
+def aggregate_day(rows, day, products, counts):
+    """Estado por (contrato, slot) de UN día, alimentado fila a fila (streaming)."""
+    state = new_day_state(day)
+    feed_day_state(state, rows, products, counts)
+    return day_series(state, counts)
 
 
 def build_document(series, *, source, market, area, products, counts, source_decision):
@@ -267,6 +290,104 @@ def run_lake(lake_root, market, products, start, end, out_path, source_decision,
     return document
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_archive(path, expected_sha256, expected_bytes):
+    if not os.path.exists(path):
+        raise SystemExit(f"archivo ausente: {path}")
+    actual_bytes = os.path.getsize(path)
+    if expected_bytes is not None and actual_bytes != expected_bytes:
+        raise SystemExit(f"FAIL-CLOSED: tamano {actual_bytes} != esperado {expected_bytes}; descarga incompleta")
+    actual_sha256 = sha256_file(path)
+    if expected_sha256 is not None and actual_sha256 != expected_sha256:
+        raise SystemExit(f"FAIL-CLOSED: sha256 {actual_sha256} != esperado {expected_sha256}")
+    return {"bytes": actual_bytes, "sha256": actual_sha256}
+
+
+def parse_hive_keys(name):
+    keys = {}
+    for segment in str(name).split("/"):
+        if "=" in segment:
+            key, value = segment.split("=", 1)
+            keys[key] = value
+    return keys
+
+
+def iter_archive_tob_members(archive_path, market, start, end):
+    """Miembros top-of-book del mercado pedido, en streaming (`zstd -dc | tar`)."""
+    partition = MARKETS[market]
+    zstd = subprocess.Popen(["zstd", "-dc", archive_path], stdout=subprocess.PIPE)
+    try:
+        with tarfile.open(fileobj=zstd.stdout, mode="r|") as tar:
+            for member in tar:
+                if not member.isfile() or not member.name.endswith(".parquet"):
+                    continue
+                keys = parse_hive_keys(member.name)
+                if keys.get("table") != TOB_TABLE:
+                    continue
+                if keys.get("cmdty") != partition["cmdty"] or keys.get("area") != partition["area"]:
+                    continue
+                day = keys.get("trd_date")
+                if day is None:
+                    continue
+                if start is not None and day < start:
+                    continue
+                if end is not None and day > end:
+                    continue
+                yield day, tar.extractfile(member).read()
+    finally:
+        zstd.stdout.close()
+        zstd.wait()
+
+
+def run_archive(archive_path, market, products, start, end, out_path, source_decision, expected_sha256, expected_bytes):
+    """Extrae el TOB del archivo sellado del cliente con la misma regla de slots.
+
+    Igual que la ruta del lago, sólo se acumula el estado por día (un candidato por
+    contrato/slot), nunca las filas: cada miembro del tar se lee, se agrega y se
+    descarta. Un miembro sin las columnas de ask se inventaria y no se agrega.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    verification = verify_archive(archive_path, expected_sha256, expected_bytes)
+    states = {}
+    counts = defaultdict(int)
+    for day, raw in iter_archive_tob_members(archive_path, market, start, end):
+        parquet = pq.ParquetFile(pa.BufferReader(raw))
+        names = set(parquet.schema_arrow.names)
+        if not {"ShortCode", "Maturity", "Tm", "AskPx", "InstrumentType"} <= names:
+            counts["files_without_ask_columns"] += 1
+            continue
+        columns = [name for name in COLS if name in names]
+        rows = parquet.read(columns=columns, use_threads=False).to_pylist()
+        counts["rows_read"] += len(rows)
+        state = states.setdefault(day, new_day_state(date.fromisoformat(day)))
+        feed_day_state(state, rows, products, counts)
+    series = {}
+    for day in sorted(states):
+        for contract, slots in day_series(states[day], counts).items():
+            series.setdefault(contract, {})[day] = slots
+    counts["days"] = len(states)
+    # Fail-closed: el archivo sellado debe traer la tabla de top of book (misma
+    # convención que el lago; supuesto declarado). Sin miembros en la ventana no
+    # se publica un artifact vacío como si la extracción hubiera funcionado.
+    if not states:
+        raise SystemExit(
+            f"FAIL-CLOSED: el archivo {archive_path} no trae {TOB_TABLE} para {market} en [{start}, {end}]"
+        )
+    document = build_document(series, source=archive_path, market=market, area=MARKETS[market], products=products, counts=counts, source_decision=source_decision)
+    document["archiveVerification"] = verification
+    write_document(document, out_path)
+    return document
+
+
 # Estados de TR-01 que acreditan una fuente CANONICAL. Mientras el archivo del
 # cliente no esté verificado, la decisión queda PENDING_ARCHIVE_VERIFICATION /
 # PROVISIONAL_ONLY / failClosed y NO acredita acceptance (source-decision.mjs
@@ -276,7 +397,7 @@ ACCEPTED_SOURCE_DECISION_STATUSES = frozenset({"DECIDED", "DECIDED_FALLBACK_LAKE
 CANONICAL_SOURCE_ROLE = "CANONICAL"
 
 
-def read_source_decision(path):
+def read_source_decision(path, expected_source):
     with open(path, "rb") as handle:
         body = handle.read()
     decision = json.loads(body)
@@ -296,8 +417,10 @@ def read_source_decision(path):
         raise SystemExit(
             f"TR-01 no declaró la fuente como CANONICAL (selectedSourceRole={role!r})"
         )
-    if selected != "EEX_LAKE":
-        raise SystemExit(f"TR-01 no eligió EEX_LAKE (selectedSource={selected!r}); no se extrae de otra fuente")
+    if selected != expected_source:
+        raise SystemExit(
+            f"TR-01 eligió {selected!r} como fuente canónica; este job extrae de {expected_source!r}"
+        )
     return {
         "path": path,
         "sha256": hashlib.sha256(body).hexdigest(),
@@ -310,12 +433,15 @@ def read_source_decision(path):
 
 def main():
     parser = argparse.ArgumentParser(description="BT-06: best ask por slot, parametrizado por mercado/producto")
-    parser.add_argument("--source", choices=["lake"])
+    parser.add_argument("--source", choices=["lake", "archive"])
     parser.add_argument("--market", required=True, choices=sorted(MARKETS))
     parser.add_argument("--products", required=True, help="códigos separados por coma, p.ej. DEBQ,DEBM")
     parser.add_argument("--start")
     parser.add_argument("--end")
     parser.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    parser.add_argument("--archive", help="archivo sellado del cliente (.tar.zst) con --source archive")
+    parser.add_argument("--expected-sha256", help="sha256 esperado del archivo con --source archive")
+    parser.add_argument("--expected-bytes", type=int, help="tamaño esperado del archivo con --source archive")
     parser.add_argument("--source-decision", help="artifact TR-01 de decisión de fuente; se liga por sha256")
     parser.add_argument("--batch-size", type=int, default=65536)
     parser.add_argument("--from-rows", help="prueba pura: filas NDJSON de TOB")
@@ -333,12 +459,19 @@ def main():
 
     if not arguments.source:
         raise SystemExit("--source es obligatorio salvo con --from-rows")
-    # La fuente la decide TR-01 (PLAN_STATUS BT-06): el job del lago no arranca sin
-    # atar el artifact de decisión, y falla cerrado si TR-01 no eligió EEX_LAKE.
+    # La fuente la decide TR-01 (PLAN_STATUS BT-06): el job no arranca sin atar el
+    # artifact de decisión, y falla cerrado si TR-01 no eligió la fuente que este
+    # job sabe leer (lago o archivo sellado).
     if not arguments.source_decision:
-        raise SystemExit("--source-decision es obligatorio con --source lake: la fuente la decide TR-01")
-    source_decision = read_source_decision(arguments.source_decision)
-    document = run_lake(arguments.lake_root, arguments.market, products, arguments.start, arguments.end, arguments.out, source_decision, arguments.batch_size)
+        raise SystemExit(f"--source-decision es obligatorio con --source {arguments.source}: la fuente la decide TR-01")
+    if arguments.source == "archive":
+        if not arguments.archive:
+            raise SystemExit("--archive es obligatorio con --source archive")
+        source_decision = read_source_decision(arguments.source_decision, "CLIENT_SEALED_ARCHIVE")
+        document = run_archive(arguments.archive, arguments.market, products, arguments.start, arguments.end, arguments.out, source_decision, arguments.expected_sha256, arguments.expected_bytes)
+    else:
+        source_decision = read_source_decision(arguments.source_decision, "EEX_LAKE")
+        document = run_lake(arguments.lake_root, arguments.market, products, arguments.start, arguments.end, arguments.out, source_decision, arguments.batch_size)
     print(json.dumps({"series": len(document["series"]), "counts": document["counts"]}))
     return 0
 

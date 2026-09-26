@@ -81,12 +81,34 @@ async function main() {
   await notifier.notify(triggerNotificationText(trigger));
   const steps = buildDataQueueSteps({ repoRoot: REPO_ROOT, archive, scratchDir });
   const result = await runner.runQueue({ trigger, steps });
+  // El disparador queda registrado como procesado cuando la cola efectivamente lo
+  // intentó y falló (STEP_FAILED): el timer de red de seguridad no debe relanzar el
+  // paso fallido ni reavisar cada 15 min (hallazgo DATA01-RETRY-STORM;
+  // docs/product/DATA-01_DATA_JOB_QUEUE.md). Un evento NUEVO (otra línea de
+  // checksum) trae otra huella y sí reanuda.
+  //
+  // Pero si la cola NO llegó a intentarlo (QUEUE_ALREADY_RUNNING: hay otra cola
+  // corriendo), el disparador NO se marca: marcarlo perdería el evento y el timer
+  // debe reintentarlo cuando el lock quede libre.
+  if (result.ok || result.code === "STEP_FAILED") {
+    writeTriggerState(runsDir, {
+      lastHandled: {
+        fingerprint: plan.fingerprint,
+        kind: trigger.kind,
+        at: trigger.event?.at ?? null,
+        sha256: trigger.event?.sha256 ?? null,
+        handledAt: new Date().toISOString(),
+        status: result.ok ? "SUCCEEDED" : "FAILED",
+        queueId: result.queueId,
+        reused: result.reused === true,
+        failedStep: result.queue?.failedStep ?? null,
+      },
+    });
+  }
   if (!result.ok) {
     process.stderr.write(`DATA-01: la cola falló (${result.code})${result.queue?.failedStep ? ` en ${result.queue.failedStep.jobKind}` : ""}\n`);
-    // No se marca el disparador como manejado: un evento nuevo reanuda la cola.
     return 1;
   }
-  writeTriggerState(runsDir, { lastHandled: { fingerprint: plan.fingerprint, kind: trigger.kind, at: trigger.event?.at ?? null, sha256: trigger.event?.sha256 ?? null, handledAt: new Date().toISOString(), queueId: result.queueId, reused: result.reused === true } });
   process.stdout.write(`DATA-01: cola ${result.reused ? "ya completa" : "completa"} ${result.queueId}\n`);
   return 0;
 }

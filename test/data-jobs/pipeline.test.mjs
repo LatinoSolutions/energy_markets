@@ -4,7 +4,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -14,6 +17,8 @@ import {
   STEP_ARTIFACTS,
   buildDataQueueSteps,
 } from "../../src/data-jobs/pipeline.mjs";
+import { createDataQueueRunner } from "../../src/data-jobs/runner.mjs";
+import { CHECKSUM_OK_TRIGGER } from "./fixtures.mjs";
 import { POWER_EXPLORATORY_RELEASE } from "../../src/exploratory/missions.mjs";
 import { BRIDGE_WINDOW } from "../../src/trades-bridge/index.mjs";
 
@@ -54,7 +59,10 @@ test("DATA-01 pipeline: los jobs corren en el orden del owner (descomprimir, TR-
     assert.equal(JSON.stringify(step.env).includes("TOKEN"), false);
   }
   const decompress = steps[0];
-  assert.deepEqual(decompress.command, ["tar", "--zstd", "-xf", DATA_ARCHIVE.path, "-C", DATA_ARCHIVE.extractDir]);
+  assert.deepEqual(decompress.command, ["bash", "operations/data-jobs/jobs/decompress-archive.sh"]);
+  const extract = steps.find((step) => step.jobKind === DATA_JOB_KIND.BT06_EXTRACT);
+  assert.deepEqual(extract.command, ["bash", "operations/data-jobs/jobs/bt06-extract.sh"]);
+  assert.equal(extract.env.DATA_BT06_SLOTS, POWER_EXPLORATORY_RELEASE.slots);
 });
 
 test("DATA-01 pipeline: el backtest de BT-06 publica en los paths que la UI carga como release Power v3", () => {
@@ -63,17 +71,26 @@ test("DATA-01 pipeline: el backtest de BT-06 publica en los paths que la UI carg
   const backtest = steps.find((step) => step.jobKind === DATA_JOB_KIND.BT06_BACKTEST);
   assert.deepEqual(extract.publishes, [POWER_EXPLORATORY_RELEASE.slots]);
   assert.deepEqual(backtest.publishes, [POWER_EXPLORATORY_RELEASE.results, POWER_EXPLORATORY_RELEASE.manifest]);
-  assert.ok(extract.command.includes(POWER_EXPLORATORY_RELEASE.slots));
   assert.ok(backtest.command.includes(POWER_EXPLORATORY_RELEASE.results));
   assert.ok(backtest.command.includes(POWER_EXPLORATORY_RELEASE.generator));
   assert.ok(backtest.command.includes(POWER_EXPLORATORY_RELEASE.slots));
-  // El extractor de Power exige la decisión de fuente de TR-01 (fail-closed).
-  assert.ok(extract.command.includes("operations/trades/TR-01/DATA_SOURCE_DECISION.json"));
+});
+
+test("DATA-01 pipeline: la extracción de Power sigue la decisión de TR-01 (archivo sellado o lago)", () => {
+  const extract = readFileSync(`${repoRoot}/operations/data-jobs/jobs/bt06-extract.sh`, "utf8");
+  assert.match(extract, /operations\/exploratory\/v3\/build_tob_slots\.py/);
+  assert.match(extract, /DATA_SOURCE_DECISION\.json/);
+  assert.match(extract, /--source lake/);
+  assert.match(extract, /--source archive/);
+  assert.match(extract, /set -euo pipefail/);
+  assert.equal(extract.includes("TELEGRAM_BOT_TOKEN"), false);
 });
 
 test("DATA-01 pipeline: los scripts de job reales existen y usan las herramientas canónicas", () => {
   const tr01 = readFileSync(`${repoRoot}/operations/data-jobs/jobs/tr01-scan.sh`, "utf8");
   const tr03 = readFileSync(`${repoRoot}/operations/data-jobs/jobs/tr03-bridge.sh`, "utf8");
+  const decompress = readFileSync(`${repoRoot}/operations/data-jobs/jobs/decompress-archive.sh`, "utf8");
+  const bt06 = readFileSync(`${repoRoot}/operations/data-jobs/jobs/bt06-extract.sh`, "utf8");
   assert.match(tr01, /operations\/trades\/TR-01\/extract-trades-rows\.py/);
   assert.match(tr01, /aggregate-trades-rows\.mjs/);
   assert.match(tr01, /build-trades-source-decision\.mjs/);
@@ -81,7 +98,11 @@ test("DATA-01 pipeline: los scripts de job reales existen y usan las herramienta
   assert.match(tr03, /operations\/trades\/TR-01\/extract-trades-rows\.py/);
   assert.match(tr03, /operations\/trades\/TR-03\/extract-tob-rows\.py/);
   assert.match(tr03, /build-bridge-measurement\.mjs/);
-  for (const script of [tr01, tr03]) {
+  // El descompresor crea el directorio antes de tar (hallazgo DATA01-DECOMPRESS-MKDIR).
+  assert.match(decompress, /mkdir -p "\$DATA_EXTRACT_DIR"/);
+  assert.match(decompress, /tar --zstd -xf/);
+  assert.match(bt06, /build_tob_slots\.py/);
+  for (const script of [tr01, tr03, decompress, bt06]) {
     assert.match(script, /set -euo pipefail/);
     assert.equal(script.includes("TELEGRAM_BOT_TOKEN"), false);
   }
@@ -100,4 +121,26 @@ test("DATA-01 pipeline: los artefactos declarados son los que la cadena publica"
     "operations/trades/TR-03/bridge-measurement.json",
     "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
   ]);
+});
+
+test("DATA-01 pipeline: el paso DECOMPRESS real extrae en un directorio que todavía no existía", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "data01-decompress-"));
+  try {
+    const source = path.join(dir, "source");
+    mkdirSync(source, { recursive: true });
+    writeFileSync(path.join(source, "hola.txt"), "hola");
+    const archivePath = path.join(dir, "fixture.tar.zst");
+    execFileSync("tar", ["--zstd", "-cf", archivePath, "-C", source, "."]);
+    const extractDir = path.join(dir, "extracted-no-existe");
+    assert.equal(existsSync(extractDir), false);
+    const archive = { ...DATA_ARCHIVE, path: archivePath, extractDir };
+    const steps = buildDataQueueSteps({ repoRoot, archive, scratchDir: path.join(dir, "scratch") });
+    const decompress = steps.find((step) => step.jobKind === DATA_JOB_KIND.DECOMPRESS);
+    const runner = createDataQueueRunner({ repoRoot, runsDir: path.join(dir, "runs") });
+    const result = await runner.runQueue({ trigger: CHECKSUM_OK_TRIGGER, steps: [decompress] });
+    assert.equal(result.ok, true, JSON.stringify(result.queue));
+    assert.equal(readFileSync(path.join(extractDir, "hola.txt"), "utf8"), "hola");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -17,8 +17,9 @@
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { claimJobLock, readCgroupMemoryPeak, readJobLock, releaseJobLock } from "../backtest-jobs/runner.mjs";
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
@@ -32,6 +33,11 @@ export const QUEUE_RECEIPT_FILE = "QUEUE_RECEIPT.json";
 export const STEP_RECEIPT_FILE = "JOB_RECEIPT.json";
 export const QUEUE_ID_PATTERN = /^DATA-QUEUE-[0-9a-f]{64}$/;
 const STEP_DIR_PATTERN = /^\d{2}-[A-Z0-9_]+$/;
+// Supervisor que corre dentro del scope de systemd y escribe el pico del cgroup
+// del job al terminar (hallazgo DATA01-MEMPEAK-SCOPE: el cgroup del servicio no es
+// el del job, y con `--collect` el scope se borra al salir).
+const CHILD_ENTRY = fileURLToPath(new URL("./child-entry.mjs", import.meta.url));
+const PEAK_FILE = "job-memory.json";
 
 export const QUEUE_STATUS = Object.freeze({
   RUNNING: "RUNNING",
@@ -61,9 +67,13 @@ function writeJsonAtomic(file, value) {
 }
 
 // MemoryMax del job: en producción cada job corre en su propio scope de systemd
-// con este techo. Fuera de systemd el techo no se impone (enforcedBy "none"),
-// pero igual queda declarado en el receipt: nunca se finge que se aplicó.
-export function buildSpawnCommand(step, { useSystemdScope = false, systemdRun = "systemd-run" } = {}) {
+// con este techo. El scope envuelve a `child-entry.mjs`, que corre el comando y
+// escribe el pico del cgroup del scope en `peakFile` antes de salir (con `--collect`
+// el scope se borra al terminar y su memory.peak se pierde: hallazgo
+// DATA01-MEMPEAK-SCOPE). Fuera de systemd el techo no se impone (enforcedBy "none")
+// y el pico se lee del cgroup del servicio, declarado como tal: nunca se finge que
+// el pico es del job si no lo es.
+export function buildSpawnCommand(step, { useSystemdScope = false, systemdRun = "systemd-run", nodeBinary = process.execPath, childEntry = CHILD_ENTRY, peakFile = null } = {}) {
   if (!Array.isArray(step?.command) || step.command.length === 0) {
     throw new TypeError("el paso no tiene comando");
   }
@@ -71,12 +81,84 @@ export function buildSpawnCommand(step, { useSystemdScope = false, systemdRun = 
   if (memoryMaxBytes !== null && useSystemdScope) {
     return {
       bin: systemdRun,
-      args: ["--user", "--scope", "--quiet", "--collect", `--property=MemoryMax=${memoryMaxBytes}`, "--", ...step.command],
+      args: ["--user", "--scope", "--quiet", "--collect", `--property=MemoryMax=${memoryMaxBytes}`, "--", nodeBinary, childEntry, peakFile, "--", ...step.command],
       enforcedBy: "systemd-scope",
       memoryMaxBytes,
+      peakFile,
     };
   }
-  return { bin: step.command[0], args: step.command.slice(1), enforcedBy: "none", memoryMaxBytes };
+  return { bin: step.command[0], args: step.command.slice(1), enforcedBy: "none", memoryMaxBytes, peakFile: null };
+}
+
+// El supervisor deja `{cgroup, memoryPeakBytes, oomKills}` del cgroup en el que
+// corrió. Sin archivo (o ilegible) no hay pico del job: el receipt lo declara.
+function readJobPeakFile(file) {
+  if (typeof file !== "string" || file.length === 0) return null;
+  try {
+    const parsed = readJson(file);
+    return {
+      cgroup: typeof parsed?.cgroup === "string" ? parsed.cgroup : null,
+      memoryPeakBytes: Number.isInteger(parsed?.memoryPeakBytes) ? parsed.memoryPeakBytes : null,
+      oomKills: Number.isInteger(parsed?.oomKills) ? parsed.oomKills : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Foto del artefacto ANTES de lanzar el job. Un artefacto que ya existía y no se
+// reescribió no cuenta como publicado (hallazgo DATA01-ARTIFACT-EXISTENCE): se
+// compara mtime/tamaño contra la foto. Un artefacto que no existía antes se acepta
+// sólo si aparece.
+function snapshotArtifacts(entries, resolve) {
+  const snapshot = new Map();
+  for (const entry of entries) {
+    try {
+      const info = statSync(resolve(entry));
+      snapshot.set(entry, { mtimeMs: info.mtimeMs, size: info.size });
+    } catch {
+      snapshot.set(entry, null);
+    }
+  }
+  return snapshot;
+}
+
+function checkArtifacts(entries, snapshot, resolve) {
+  const missing = [];
+  const stale = [];
+  for (const entry of entries) {
+    let info;
+    try {
+      info = statSync(resolve(entry));
+    } catch {
+      missing.push(entry);
+      continue;
+    }
+    const before = snapshot.get(entry) ?? null;
+    if (before === null) continue;
+    if (info.mtimeMs !== before.mtimeMs || info.size !== before.size) continue;
+    stale.push(entry);
+  }
+  return { missing, stale };
+}
+
+// Un timeout mata al proceso directo y a TODA su descendencia: el hijo se lanza en
+// su propio grupo de procesos y se mata el grupo (hallazgo DATA01-TIMEOUT-ORPHANS).
+// Sin detached (spawn inyectado en tests) sólo se puede matar al hijo directo.
+function killProcessTree(child, detached) {
+  if (detached && Number.isInteger(child?.pid) && child.pid > 0) {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    } catch {
+      // El grupo ya no existe: se intenta el hijo directo.
+    }
+  }
+  try {
+    child?.kill("SIGKILL");
+  } catch {
+    // El proceso ya terminó.
+  }
 }
 
 // Huella del paso dentro de una cola: mismo comando + mismo entorno + mismo
@@ -222,8 +304,10 @@ export function createDataQueueRunner({
       return Promise.resolve({ ...existing, reused: true });
     }
 
-    const spawnSpec = buildSpawnCommand(step, { useSystemdScope, systemdRun });
+    const peakFile = path.join(dir, PEAK_FILE);
+    const spawnSpec = buildSpawnCommand(step, { useSystemdScope, systemdRun, peakFile });
     const memoryBefore = readCgroupMemoryPeak();
+    const artifactSnapshot = snapshotArtifacts(step.publishes ?? [], resolveArtifact);
     let receipt = {
       receiptKind: STEP_RECEIPT_KIND,
       schemaVersion: "1",
@@ -248,9 +332,10 @@ export function createDataQueueRunner({
 
     let logFd = null;
     let child = null;
+    const detached = spawnJob === null;
     try {
       logFd = openSync(path.join(dir, "job.log"), "a");
-      const spawnImpl = spawnJob ?? ((spec) => spawn(spec.bin, spec.args, { cwd: spec.cwd, env: spec.env, stdio: ["ignore", spec.logFd, spec.logFd] }));
+      const spawnImpl = spawnJob ?? ((spec) => spawn(spec.bin, spec.args, { cwd: spec.cwd, env: spec.env, stdio: ["ignore", spec.logFd, spec.logFd], detached: true }));
       child = spawnImpl({ ...spawnSpec, cwd: repoRoot, env: { ...process.env, ...(step.env ?? {}) }, logFd });
     } catch (error) {
       if (logFd !== null) closeSync(logFd);
@@ -267,7 +352,7 @@ export function createDataQueueRunner({
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill("SIGKILL");
+      killProcessTree(child, detached);
     }, step.timeoutMs ?? 0);
 
     return new Promise((resolveOnce) => {
@@ -276,15 +361,19 @@ export function createDataQueueRunner({
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        const memoryAfter = readCgroupMemoryPeak();
+        const jobPeak = readJobPeakFile(spawnSpec.peakFile);
+        const serviceAfter = readCgroupMemoryPeak();
+        const jobScopePeakBytes = jobPeak?.memoryPeakBytes ?? null;
         const memory = {
           memoryMaxBytes: spawnSpec.memoryMaxBytes,
           enforcedBy: spawnSpec.enforcedBy,
-          cgroup: memoryAfter.cgroup,
-          cgroupMemoryPeakBytesBefore: memoryBefore.memoryPeakBytes,
-          cgroupMemoryPeakBytesAfter: memoryAfter.memoryPeakBytes,
-          cgroupOomKillsDuringRun: memoryBefore.oomKills === null || memoryAfter.oomKills === null ? null : memoryAfter.oomKills - memoryBefore.oomKills,
-          note: "memory.peak es el pico del cgroup del servicio; con enforcedBy=systemd-scope cada job corre en su propio scope con MemoryMax.",
+          cgroup: jobPeak?.cgroup ?? serviceAfter.cgroup,
+          memoryPeakBytes: jobScopePeakBytes ?? serviceAfter.memoryPeakBytes,
+          peakSource: jobScopePeakBytes !== null ? "job-scope" : (serviceAfter.memoryPeakBytes !== null ? "service-cgroup" : "unavailable"),
+          oomKillsDuringRun: jobPeak?.oomKills != null ? jobPeak.oomKills : (memoryBefore.oomKills === null || serviceAfter.oomKills === null ? null : serviceAfter.oomKills - memoryBefore.oomKills),
+          note: spawnSpec.enforcedBy === "systemd-scope"
+            ? "memory.peak es el pico del cgroup del scope del job; child-entry lo escribe al terminar, antes de que systemd lo recoja."
+            : "sin scope de systemd el job corre en el cgroup del servicio: memory.peak es del servicio completo, no sólo de este job.",
         };
         const closed = { ...receipt, ...patch, memory, finishedAt: now().toISOString() };
         const notification = await notify(jobNotificationText({ queueId, step: { ...step, index, total }, receipt: closed }));
@@ -304,9 +393,13 @@ export function createDataQueueRunner({
           settle({ status: STEP_STATUS.FAILED, exit, failure: { code: "RUN_FAILED", message: `el job terminó con code=${exitCode} signal=${signal}; ver job.log` } });
           return;
         }
-        const missing = (step.publishes ?? []).filter((entry) => !existsSync(resolveArtifact(entry)));
+        const { missing, stale } = checkArtifacts(step.publishes ?? [], artifactSnapshot, resolveArtifact);
         if (missing.length > 0) {
           settle({ status: STEP_STATUS.FAILED, exit, failure: { code: "STEP_ARTIFACT_MISSING", message: `el job terminó bien pero no dejó su artefacto: ${missing.join(", ")}` } });
+          return;
+        }
+        if (stale.length > 0) {
+          settle({ status: STEP_STATUS.FAILED, exit, failure: { code: "STEP_ARTIFACT_STALE", message: `el job terminó bien pero no reescribió un artefacto que ya existía: ${stale.join(", ")}` } });
           return;
         }
         settle({ status: STEP_STATUS.SUCCEEDED, exit });
