@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { CLIENT_SLOT } from "../../src/exploratory/backtest.mjs";
-import { SLOT_LABELS, HALVES, OBSERVATION_RULES } from "../../src/trades-bridge/constants.mjs";
+import { SLOT_LABELS, HALVES, OBSERVATION_RULES, OBSERVATION_RULE_LIST } from "../../src/trades-bridge/constants.mjs";
 import { ZONES } from "../../src/oos-reservation/trades-zones.mjs";
 import { TRADES_ENGINE_MISSIONS } from "../../src/trades-engine/missions.mjs";
 import {
@@ -22,8 +22,11 @@ import {
   tradesRunKey,
 } from "../../src/trades-engine/runs.mjs";
 import { frozenTradesResult, missionTradeAt } from "./fixtures.mjs";
+import { resolveFrozenConfig } from "../../src/trades-engine/run.mjs";
 import { buildJobCommands, buildTradesRunsStatus, earliestWindowStart } from "../../operations/trades/TR-06/build-trades-runs-status.mjs";
 import {
+  buildInputManifest,
+  bridgeDecisionBindingOf,
   buildSingleTradesRun,
   assembleTradesRuns,
   createOosAccessPersister,
@@ -690,7 +693,7 @@ test("la apertura del OOS queda persistida antes de leerla aunque la lectura fal
 // TR06-RAM-PEAK-NOT-PER-RUN: un comando por run para que BT-05 mida el pico por job.
 test("el productor expone un selector de un solo run y un comando por run", () => {
   const selector = parseRunSelector(["node", "x", "--mission", "GAS_QUARTERLY", "--phase", "BRIDGE", "--rule", "LAST_TRADE"]);
-  assert.deepEqual(selector, { mission: "GAS_QUARTERLY", phase: "BRIDGE", rule: "LAST_TRADE", bridgeDecision: null, bridgeDecisionFile: null });
+  assert.deepEqual(selector, { mission: "GAS_QUARTERLY", phase: "BRIDGE", rule: "LAST_TRADE", bridgeDecisionFile: null });
   assert.equal(parseRunSelector(["node", "x"]), null);
   const plan = JSON.parse(readFileSync("operations/trades/TR-02/trades-zone-plan.json", "utf8"));
   const perRun = buildJobCommands(plan).filter((command) => command.includes("--mission "));
@@ -717,19 +720,26 @@ test("buildSingleTradesRun queda fail-closed sin freeze FROZEN (TR-04 es gate hu
   assert.equal(result.code, "TRADES_CONTRACT_NOT_FROZEN");
 });
 
-test("la decisión del puente se escribe por regla y el OOS aislado exige PASS en todas", () => {
+test("la decisión del puente se liga a la versión y el OOS aislado exige PASS en todas", () => {
   const file = `/tmp/tr06-bridge-${process.pid}-${Date.now()}.json`;
+  const binding = { codeCommit: "deadbeef", configHash: "cfg", dataManifestSha256: "abc" };
   try {
-    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "LAST_TRADE", decision: "PASS", file });
+    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "LAST_TRADE", decision: "PASS", binding, file });
     // Con una sola regla, la otra cuenta como HOLD: el OOS no se abre.
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file, expectedBinding: binding }), "HOLD");
+    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "SLOT_VWAP", decision: "PASS", binding, file });
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file, expectedBinding: binding }), "PASS");
+    // Una versión distinta (otra data, commit o config) NO hereda el PASS.
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file, expectedBinding: { ...binding, dataManifestSha256: "other" } }), "HOLD");
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file, expectedBinding: { ...binding, codeCommit: "other" } }), "HOLD");
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file, expectedBinding: { ...binding, configHash: "other" } }), "HOLD");
+    // Sin binding esperado no se acepta un PASS de archivo (fail-closed).
     assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "HOLD");
-    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "SLOT_VWAP", decision: "PASS", file });
-    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "PASS");
     // Otra misión sin decisión no tiene gate evaluado (fail-closed).
-    assert.equal(readBridgeDecision({ mission: "POWER_MONTHLY", bridgeDecisionFile: file }), null);
+    assert.equal(readBridgeDecision({ mission: "POWER_MONTHLY", bridgeDecisionFile: file, expectedBinding: binding }), null);
     // Una regla FAIL manda.
-    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "SLOT_VWAP", decision: "FAIL", file });
-    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "FAIL");
+    recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "SLOT_VWAP", decision: "FAIL", binding, file });
+    assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file, expectedBinding: binding }), "FAIL");
   } finally {
     rmSync(file, { force: true });
   }
@@ -772,15 +782,34 @@ function writeGasInputs(fixture, dir, suffix = "", transform = (row) => row) {
   return { "--gas-trades": tradesPath, "--gas-tob": tobPath, "--power-trades": null, "--power-tob": null };
 }
 
+// Deja un PASS del puente ligado a la versión de estos inputs (data + commit +
+// config congelado): es el único PASS que el OOS aislado acepta.
+function writeBoundBridgePass({ mission = "GAS_QUARTERLY", inputs, codeCommit, file }) {
+  const binding = bridgeDecisionBindingOf({
+    codeCommit,
+    configHash: resolveFrozenConfig(FROZEN).configHash,
+    dataManifest: buildInputManifest(inputs),
+  });
+  for (const rule of OBSERVATION_RULE_LIST) {
+    recordBridgeDecision({ mission, observationRule: rule, decision: "PASS", binding, file });
+  }
+  return binding;
+}
+
 test("el run OOS aislado liga su identidad a los inputs, siembra el registro y guarda su artefacto", async () => {
   const dir = mkdtempSync(join(tmpdir(), "tr06-single-"));
   try {
     const fixture = buildFixture();
     const registryFile = join(dir, "access.jsonl");
     const outputDir = join(dir, "runs");
+    const bridgeDecisionsPath = join(dir, "bridge.json");
+    const inputs = writeGasInputs(fixture, dir);
+    writeBoundBridgePass({ inputs, codeCommit: "deadbeef", file: bridgeDecisionsPath });
     const base = {
-      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecision: "PASS", bridgeDecisionFile: null },
-      inputs: writeGasInputs(fixture, dir),
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecisionFile: bridgeDecisionsPath },
+      inputs,
+      codeCommit: "deadbeef",
+      bridgeDecisionsPath,
       frozenContract: FROZEN,
       zonePlan: fixture.zonePlan,
       exchangeDays: fixture.exchangeDays,
@@ -809,10 +838,11 @@ test("el run OOS aislado liga su identidad a los inputs, siembra el registro y g
     assert.equal(second.oos.oosOpeningsByMission.GAS_QUARTERLY, 1);
 
     // Otros datos de entrada => otro run_id (una apertura nueva, que se cuenta).
-    const changed = await buildSingleTradesRun({
-      ...base,
-      inputs: writeGasInputs(fixture, dir, "-b", (row, index) => (index === 0 ? { ...row, Px: "100.5" } : row)),
-    });
+    // El PASS del puente se vuelve a ligar a la versión nueva: con el de la versión
+    // anterior el OOS quedaría bloqueado (binding distinto).
+    const inputsB = writeGasInputs(fixture, dir, "-b", (row, index) => (index === 0 ? { ...row, Px: "100.5" } : row));
+    writeBoundBridgePass({ inputs: inputsB, codeCommit: "deadbeef", file: bridgeDecisionsPath });
+    const changed = await buildSingleTradesRun({ ...base, inputs: inputsB });
     assert.equal(changed.ok, true, changed.code);
     assert.notEqual(changed.run.runId, first.run.runId);
     assert.equal(changed.oos.oosOpeningsByMission.GAS_QUARTERLY, 2);
@@ -830,9 +860,14 @@ test("--assemble combina los artefactos por run sin leer el OOS", async () => {
     const fixture = buildFixture();
     const registryFile = join(dir, "access.jsonl");
     const outputDir = join(dir, "runs");
+    const bridgeDecisionsPath = join(dir, "bridge.json");
+    const inputs = writeGasInputs(fixture, dir);
+    writeBoundBridgePass({ inputs, codeCommit: "deadbeef", file: bridgeDecisionsPath });
     const result = await buildSingleTradesRun({
-      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecision: "PASS", bridgeDecisionFile: null },
-      inputs: writeGasInputs(fixture, dir),
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecisionFile: bridgeDecisionsPath },
+      inputs,
+      codeCommit: "deadbeef",
+      bridgeDecisionsPath,
       frozenContract: FROZEN,
       zonePlan: fixture.zonePlan,
       exchangeDays: fixture.exchangeDays,
@@ -854,6 +889,94 @@ test("--assemble combina los artefactos por run sin leer el OOS", async () => {
     // El ensamblado es determinista.
     const again = assembleTradesRuns({ runsDir: outputDir, registryFile });
     assert.deepEqual(again.artifact, artifact);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// TR06-BRIDGE-DECISION-UNBOUND: la decisión del puente va ligada a la versión
+// (data + commit + config). Un PASS de la versión A no abre el OOS de la versión
+// B: queda OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS y el registro no gana aperturas.
+test("el OOS aislado no acepta un PASS del puente de otra versión de datos", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "tr06-bind-"));
+  try {
+    const fixture = buildFixture();
+    const registryFile = join(dir, "access.jsonl");
+    const outputDir = join(dir, "runs");
+    const bridgeDecisionsPath = join(dir, "bridge.json");
+    const inputsA = writeGasInputs(fixture, dir);
+    const base = {
+      frozenContract: FROZEN,
+      zonePlan: fixture.zonePlan,
+      exchangeDays: fixture.exchangeDays,
+      bridgeDecisionsPath,
+      registryFile,
+      outputDir,
+      atUtc: "2026-09-26T00:00:00Z",
+      onOosAccess: createOosAccessPersister(registryFile),
+    };
+    // Los dos runs del puente con la data A dejan PASS ligado a la versión A.
+    for (const rule of OBSERVATION_RULE_LIST) {
+      const bridge = await buildSingleTradesRun({
+        ...base,
+        inputs: inputsA,
+        selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.BRIDGE, rule, bridgeDecisionFile: null },
+      });
+      assert.equal(bridge.ok, true, bridge.code);
+    }
+    // Con la MISMA versión de datos el OOS abre; lo probamos para no confundir
+    // "bloqueado por binding" con "bloqueado por otra causa".
+    const oosA = await buildSingleTradesRun({
+      ...base,
+      inputs: inputsA,
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecisionFile: null },
+    });
+    assert.equal(oosA.ok, true, oosA.code);
+    assert.equal(readAccessRegistry(registryFile).length, 1);
+
+    // Otra versión de datos (B): el PASS de A no vale. El OOS no se abre y no hay
+    // ninguna apertura nueva en el registro.
+    const inputsB = writeGasInputs(fixture, dir, "-b", (row, index) => (index === 0 ? { ...row, Px: "100.5" } : row));
+    const oosB = await buildSingleTradesRun({
+      ...base,
+      inputs: inputsB,
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecisionFile: null },
+    });
+    assert.equal(oosB.ok, false);
+    assert.equal(oosB.code, "OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS");
+    assert.equal(readAccessRegistry(registryFile).length, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// TR06-BRIDGE-DECISION-UNBOUND: el run del puente escribe HOLD al arrancar, antes
+// de cargar los trades. Un fallo al leer su data no deja el PASS de un job previo.
+test("un run del puente que falla al leer sus datos deja HOLD en el archivo", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "tr06-hold-"));
+  try {
+    const fixture = buildFixture();
+    const bridgeDecisionsPath = join(dir, "bridge.json");
+    recordBridgeDecision({
+      mission: "GAS_QUARTERLY",
+      observationRule: OBSERVATION_RULES.LAST_TRADE,
+      decision: "PASS",
+      binding: { codeCommit: "old", configHash: "old", dataManifestSha256: "old" },
+      file: bridgeDecisionsPath,
+    });
+    await assert.rejects(buildSingleTradesRun({
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.BRIDGE, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecisionFile: null },
+      inputs: { "--gas-trades": join(dir, "missing.ndjson"), "--gas-tob": join(dir, "missing-tob.json"), "--power-trades": null, "--power-tob": null },
+      frozenContract: FROZEN,
+      zonePlan: fixture.zonePlan,
+      exchangeDays: fixture.exchangeDays,
+      bridgeDecisionsPath,
+      registryFile: join(dir, "access.jsonl"),
+      outputDir: join(dir, "runs"),
+      atUtc: "2026-09-26T00:00:00Z",
+    }));
+    const document = JSON.parse(readFileSync(bridgeDecisionsPath, "utf8"));
+    assert.equal(document.GAS_QUARTERLY.LAST_TRADE.decision, "HOLD");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

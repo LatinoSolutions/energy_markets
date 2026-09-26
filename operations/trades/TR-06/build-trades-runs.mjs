@@ -39,9 +39,11 @@ import { createReadStream, mkdirSync, readFileSync, writeFileSync } from "node:f
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
+import { canonicalValueSha256 } from "../../../src/pit-views/pit-record.mjs";
 import { tobSlotsDocumentToSeries } from "../../../src/trades-bridge/tob-slots.mjs";
 import { OBSERVATION_RULE_LIST } from "../../../src/trades-bridge/constants.mjs";
 import { accessRegistryFromEntries } from "../../../src/oos-reservation/trades-zones.mjs";
+import { resolveFrozenConfig } from "../../../src/trades-engine/run.mjs";
 import { TRADES_ENGINE_MISSIONS } from "../../../src/trades-engine/missions.mjs";
 import {
   TRADES_RUN_PHASES,
@@ -351,16 +353,40 @@ export function parseRunSelector(args = process.argv) {
     mission,
     phase,
     rule,
-    bridgeDecision: argument("--bridge-decision", args),
     bridgeDecisionFile: argument("--bridge-decision-file", args),
   };
 }
 
-// Decisión del gate del puente para un run OOS aislado: explícita o leída del
-// archivo de decisiones (misión -> regla -> decisión) o del artefacto de runs.
-// Sin decisión, el OOS queda bloqueado (fail-closed), nunca se asume PASS.
-export function readBridgeDecision({ mission, bridgeDecision = null, bridgeDecisionFile = null } = {}) {
-  if (typeof bridgeDecision === "string" && bridgeDecision.length > 0) return bridgeDecision;
+// Versión a la que se liga una decisión del puente: commit del código, config
+// del contrato congelado (TR-04) y hash canónico del manifest de datos de
+// entrada. Una decisión PASS sólo vale para la MISMA versión: el OOS histórico
+// es "una sola apertura con la versión congelada" (patch 03 §4), así que con otra
+// data, otro commit u otro config el OOS no la acepta (fail-closed). El binding
+// es todo strings/null, de modo que su comparación es exacta y barata.
+export function bridgeDecisionBindingOf({ codeCommit = null, configHash = null, dataManifest = null, dataManifestSha256 = null } = {}) {
+  let manifestSha256 = dataManifestSha256 ?? null;
+  if (manifestSha256 === null && dataManifest !== null && dataManifest !== undefined) {
+    const hashed = canonicalValueSha256(dataManifest);
+    manifestSha256 = hashed.ok ? hashed.sha256 : null;
+  }
+  return { codeCommit: codeCommit ?? null, configHash: configHash ?? null, dataManifestSha256: manifestSha256 };
+}
+
+function sameBridgeBinding(left, right) {
+  if (!left || !right) return false;
+  return left.codeCommit === right.codeCommit
+    && left.configHash === right.configHash
+    && left.dataManifestSha256 === right.dataManifestSha256;
+}
+
+// Decisión del gate del puente para un run OOS aislado: leída del archivo de
+// decisiones (misión -> regla -> {decision, binding}) o del artefacto de runs.
+// Sin decisión, el OOS queda bloqueado (fail-closed), nunca se asume PASS. Sólo
+// se acepta una decisión cuyo binding coincida con `expectedBinding` (la versión
+// de ESTE run); sin binding esperado o con otro binding, la regla cuenta como
+// HOLD. No hay override sin binding: todo PASS que abre el OOS queda ligado a la
+// versión (patch 03 §4, "una sola apertura con la versión congelada").
+export function readBridgeDecision({ mission, bridgeDecisionFile = null, expectedBinding = null } = {}) {
   if (typeof bridgeDecisionFile !== "string" || bridgeDecisionFile.length === 0) return null;
   let document = null;
   try {
@@ -370,23 +396,43 @@ export function readBridgeDecision({ mission, bridgeDecision = null, bridgeDecis
   }
   if (document && typeof document === "object" && !Array.isArray(document)) {
     const forMission = document[mission];
-    if (typeof forMission === "string") return forMission;
+    // Una decisión sin binding (formato viejo) no habilita PASS: se conserva el
+    // FAIL (más severo) y todo lo demás queda HOLD.
+    if (typeof forMission === "string") return bridgeDecisionFromStatuses([forMission === "FAIL" ? "FAIL" : "HOLD"]);
     if (forMission && typeof forMission === "object" && !Array.isArray(forMission)) {
       // El OOS exige PASS en TODAS las reglas del puente (OOS_BRIDGE_PASS_RULES):
-      // una regla sin decisión cuenta como HOLD.
-      return bridgeDecisionFromStatuses(OBSERVATION_RULE_LIST.map((rule) => forMission[rule] ?? "HOLD"));
+      // una regla sin decisión cuenta como HOLD, y una decisión de otra versión
+      // también (patch 03 §4).
+      const statuses = OBSERVATION_RULE_LIST.map((rule) => {
+        const entry = forMission[rule];
+        const decision = typeof entry === "string" ? entry : entry?.decision ?? "HOLD";
+        const binding = typeof entry === "string" ? null : entry?.binding ?? null;
+        if (expectedBinding === null || !sameBridgeBinding(binding, expectedBinding)) return "HOLD";
+        return decision;
+      });
+      return bridgeDecisionFromStatuses(statuses);
     }
   }
   const runs = Array.isArray(document?.runs) ? document.runs : [];
   const bridgeRuns = runs.filter((run) => run.missionKey === mission && run.phase === TRADES_RUN_PHASES.BRIDGE);
   if (bridgeRuns.length === 0) return null;
-  return bridgeDecisionFromStatuses(bridgeRuns.map((run) => run.bridgeGate?.decision ?? "HOLD"));
+  const statuses = bridgeRuns.map((run) => {
+    const binding = bridgeDecisionBindingOf({
+      codeCommit: run?.identity?.codeCommit ?? null,
+      configHash: run?.identity?.configHash ?? null,
+      dataManifestSha256: run?.identity?.dataManifestSha256 ?? null,
+    });
+    if (expectedBinding === null || !sameBridgeBinding(binding, expectedBinding)) return "HOLD";
+    return run.bridgeGate?.decision ?? "HOLD";
+  });
+  return bridgeDecisionFromStatuses(statuses);
 }
 
-// Escribe la decisión del gate del puente de un run aislado (misión + regla) en
-// el archivo de decisiones, preservando las demás misiones/reglas. La usa el run
-// del puente; el run OOS aislado la lee.
-export function recordBridgeDecision({ mission, observationRule, decision, file = BRIDGE_DECISIONS_PATH } = {}) {
+// Escribe la decisión del gate del puente de un run aislado (misión + regla) con
+// el binding de su versión, preservando las demás misiones/reglas. La usa el run
+// del puente (primero HOLD al arrancar, luego la decisión real); el run OOS
+// aislado la lee y sólo la acepta si el binding coincide.
+export function recordBridgeDecision({ mission, observationRule, decision, binding = null, file = BRIDGE_DECISIONS_PATH } = {}) {
   let document = null;
   try {
     document = JSON.parse(readFileSync(file, "utf8"));
@@ -397,7 +443,7 @@ export function recordBridgeDecision({ mission, observationRule, decision, file 
   const forMission = document[mission] && typeof document[mission] === "object" && !Array.isArray(document[mission])
     ? { ...document[mission] }
     : {};
-  forMission[observationRule] = decision ?? "HOLD";
+  forMission[observationRule] = { decision: decision ?? "HOLD", binding: binding ?? null };
   document[mission] = forMission;
   writeFileSync(file, `${JSON.stringify(document, null, 1)}\n`);
   return document;
@@ -447,12 +493,32 @@ export async function buildSingleTradesRun({
   const resolvedZonePlan = zonePlan ?? readJson(ZONE_PLAN_PATH);
   const resolvedDataManifest = dataManifest ?? buildInputManifest(inputs);
   const resolvedCommit = codeCommit ?? gitHead();
+  // Versión del run (data + commit + config congelado) a la que se ligan tanto la
+  // decisión que escribe el puente como la que acepta el OOS.
+  const binding = bridgeDecisionBindingOf({
+    codeCommit: resolvedCommit,
+    configHash: resolveFrozenConfig(resolvedFreeze).configHash ?? null,
+    dataManifest: resolvedDataManifest,
+  });
+  // Fail-closed al arrancar: el run del puente escribe HOLD ANTES de cargar los
+  // trades. Si el proceso muere (el pico de RAM puede tumbarlo con la data de
+  // Power en memoria), el archivo no conserva el PASS de un job anterior hecho
+  // con otra data o código (TR06-BRIDGE-DECISION-UNBOUND).
+  if (phase === TRADES_RUN_PHASES.BRIDGE) {
+    recordBridgeDecision({ mission, observationRule: rule, decision: "HOLD", binding, file: bridgeDecisionsPath });
+  }
+  // La decisión del puente se lee ANTES de cargar los trades y sólo vale si su
+  // binding coincide con la versión de este run.
+  const resolvedBridge = phase === TRADES_RUN_PHASES.OOS
+    ? readBridgeDecision({
+      mission,
+      bridgeDecisionFile: selector.bridgeDecisionFile ?? bridgeDecisionsPath,
+      expectedBinding: binding,
+    })
+    : null;
   const rows = await readNdjsonRows(tradesPath);
   const tobSeries = tobSlotsDocumentToSeries(readJson(tobPath));
   const resolvedExchangeDays = exchangeDays ?? exchangeDaysOf(market.calendarPath);
-  const resolvedBridge = phase === TRADES_RUN_PHASES.OOS
-    ? readBridgeDecision({ mission, bridgeDecision: selector.bridgeDecision, bridgeDecisionFile: selector.bridgeDecisionFile ?? bridgeDecisionsPath })
-    : null;
   const oosPlan = phase === TRADES_RUN_PHASES.OOS
     ? seedOosPlan({ zonePlan: resolvedZonePlan, registryFile })
     : null;
@@ -480,7 +546,7 @@ export async function buildSingleTradesRun({
   // cuando el run queda bloqueado (HOLD): una decisión PASS vieja no debe
   // sobrevivir a un puente que ya no da PASS (fail-closed).
   if (phase === TRADES_RUN_PHASES.BRIDGE) {
-    recordBridgeDecision({ mission, observationRule: rule, decision: outcome.run?.bridgeGate?.decision ?? "HOLD", file: bridgeDecisionsPath });
+    recordBridgeDecision({ mission, observationRule: rule, decision: outcome.run?.bridgeGate?.decision ?? "HOLD", binding, file: bridgeDecisionsPath });
   }
   const runKey = tradesRunKey({ market: market.market, missionKey: mission, phase, observationRule: rule });
   const artifact = {
