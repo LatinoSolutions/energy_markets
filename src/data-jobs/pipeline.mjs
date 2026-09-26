@@ -52,7 +52,10 @@ export const DATA_JOB_KIND = Object.freeze({
 export const PROVISIONAL_MEMORY_MAX_BYTES = Object.freeze({
   [DATA_JOB_KIND.DECOMPRESS]: 1 * GIB,
   [DATA_JOB_KIND.TR01_SCAN]: 2 * GIB,
-  [DATA_JOB_KIND.TR03_BRIDGE]: 2 * GIB,
+  // 2 GiB mató por OOM la extracción TOB de gas del puente (2026-09-26 11:12Z, anon-rss
+  // 2.044.240 kB en dmesg). 8 GiB es el siguiente techo acotado; se recalibra con el
+  // memory.peak de este run.
+  [DATA_JOB_KIND.TR03_BRIDGE]: 8 * GIB,
   [DATA_JOB_KIND.BT06_EXTRACT]: 4 * GIB,
   [DATA_JOB_KIND.BT06_BACKTEST]: 2 * GIB,
 });
