@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -23,6 +23,13 @@ import {
 const HELPER_URL = new URL("./tmpdir.mjs", import.meta.url).href;
 const VERIFIER_PATH = new URL("./verify-tmpdir-run.mjs", import.meta.url).pathname;
 const SUITE_PREFIX = "bt05-repo-";
+
+function runnerTestFiles() {
+  // Node runs each test file in a worker process. The parent runner retains
+  // the explicit file list from `node --test $(find test -name '*.test.mjs')`.
+  const argv = readFileSync(`/proc/${process.ppid}/cmdline`, "utf8").split("\0");
+  return argv.filter((arg) => arg.endsWith(".test.mjs"));
+}
 
 function runChild(source, env = process.env) {
   return spawnSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8", env });
@@ -150,6 +157,40 @@ test("clean", () => {
   }
 });
 
+test("FIX-05: el comando habitual falla si otro archivo deja una carpeta sin ficha", {
+  skip: Boolean(process.env.FIX05_REGRESSION_CHILD),
+}, () => {
+  const fixtureRoot = createTempDir("fix05-runner-fixture-");
+  const isolatedTmp = createTempDir("fix05-runner-tmp-");
+  try {
+    const fixture = path.join(fixtureRoot, "leak.test.mjs");
+    writeFileSync(fixture, `
+import { test } from "node:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+test("leak", () => { mkdtempSync(path.join(tmpdir(), "bt05-repo-")); });
+`);
+    const env = {
+      ...process.env,
+      FIX05_REGRESSION_CHILD: "1",
+      TMPDIR: isolatedTmp,
+      TMP: isolatedTmp,
+      TEMP: isolatedTmp,
+    };
+    delete env.NODE_TEST_CONTEXT;
+    const child = spawnSync(process.execPath, ["--test", new URL(import.meta.url).pathname, fixture], {
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(child.status, 1, child.stderr);
+    assert.match(child.stdout, /la corrida dejó entradas en tmpdir: bt05-repo-/);
+  } finally {
+    cleanupTempDir(isolatedTmp);
+    cleanupTempDir(fixtureRoot);
+  }
+});
+
 test("FIX-05: cleanupTempDir borra en el acto y desregistra la carpeta", () => {
   const dir = createTempDir(SUITE_PREFIX);
   assert.equal(existsSync(dir), true);
@@ -171,4 +212,15 @@ test("FIX-05: cleanupAllTempDirs vacía lo registrado por el helper", () => {
 
 test("FIX-05: no hay fugas registradas durante este archivo", () => {
   assert.deepEqual(findLeakedTempDirs(), [], "hay carpetas temporales de tests EM sin borrar");
+});
+
+test("FIX-05: el runner verifica los remanentes al terminar todos sus archivos", {
+  skip: Boolean(process.env.FIX05_NESTED_VERIFY),
+}, () => {
+  const files = runnerTestFiles();
+  assert.ok(files.length > 0, "no se encontró la lista de tests del runner");
+  const child = spawnSync(process.execPath, [VERIFIER_PATH, "--leaks-only", ...files], {
+    encoding: "utf8",
+  });
+  assert.equal(child.status, 0, child.stderr);
 });

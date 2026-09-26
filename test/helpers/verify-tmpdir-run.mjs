@@ -15,11 +15,11 @@ function allTestFiles(dir) {
   });
 }
 
-export function verifyTempDirRun(files, { output = "inherit" } = {}) {
+export function verifyTempDirRun(files, { output = "inherit", leaksOnly = false } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "em-test-run-"));
   let status = 1;
   try {
-    const env = { ...process.env, TMPDIR: root, TMP: root, TEMP: root };
+    const env = { ...process.env, TMPDIR: root, TMP: root, TEMP: root, FIX05_NESTED_VERIFY: "1" };
     // A verifier invoked by a test must start a new runner, rather than
     // inherit Node's worker context and silently skip the supplied files.
     delete env.NODE_TEST_CONTEXT;
@@ -27,8 +27,11 @@ export function verifyTempDirRun(files, { output = "inherit" } = {}) {
       env,
       stdio: output,
     });
-    status = child.status ?? 1;
-    if (child.error) process.stderr.write(`[FIX-05] no se pudo lanzar la suite: ${child.error.message}\n`);
+    status = leaksOnly && child.status !== null ? 0 : child.status ?? 1;
+    if (child.error) {
+      process.stderr.write(`[FIX-05] no se pudo lanzar la suite: ${child.error.message}\n`);
+      status = 1;
+    }
 
     const leftovers = readdirSync(root).filter((name) => {
       // The helper may leave its empty registry directory. A marker within it
@@ -53,6 +56,10 @@ export function verifyTempDirRun(files, { output = "inherit" } = {}) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  const files = process.argv.slice(2);
-  process.exitCode = verifyTempDirRun(files.length ? files : allTestFiles(path.resolve("test")));
+  const leaksOnly = process.argv[2] === "--leaks-only";
+  const files = process.argv.slice(leaksOnly ? 3 : 2);
+  process.exitCode = verifyTempDirRun(files.length ? files : allTestFiles(path.resolve("test")), {
+    leaksOnly,
+    output: leaksOnly ? "ignore" : "inherit",
+  });
 }
