@@ -32,7 +32,7 @@
    },
    {
     "id": "EEX_LAKE_ONLY",
-    "consequence": "Ver summary.*.*.EEX_LAKE: el lago acaba en su dateMax (post-puente OUT_OF_SOURCE_RANGE) y no trae eex_derivative_reference; su cobertura de trades elegibles sigue NOT_MEASURED."
+    "consequence": "Ver summary.*.*.EEX_LAKE: el lago acaba en su dateMax (post-puente OUT_OF_SOURCE_RANGE) y no trae eex_derivative_reference; su cobertura de trades elegibles sigue NOT_MEASURED en GAS_THE, POWER_DE."
    },
    {
     "id": "DECLARED_PER_PERIOD",
@@ -3196,7 +3196,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -4057,7 +4057,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -4929,7 +4929,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -5638,7 +5638,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -6241,7 +6241,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -6849,7 +6849,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -7456,7 +7456,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -8067,7 +8067,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -8666,7 +8666,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -9257,7 +9257,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -9860,7 +9860,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -10471,7 +10471,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -11066,7 +11066,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -11653,7 +11653,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -12252,7 +12252,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -12859,7 +12859,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -13454,7 +13454,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -14037,7 +14037,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -14371,7 +14371,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -14456,7 +14456,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -14546,7 +14546,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -14733,7 +14733,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -15085,7 +15085,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -15433,7 +15433,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -15769,7 +15769,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -16097,7 +16097,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -16449,7 +16449,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -16798,7 +16798,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -17139,7 +17139,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -17487,7 +17487,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -17839,7 +17839,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -18191,7 +18191,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -18548,7 +18548,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -18812,7 +18812,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -19071,7 +19071,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -19338,7 +19338,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -19601,7 +19601,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -19852,7 +19852,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -20116,7 +20116,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -20376,7 +20376,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -20627,7 +20627,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -20890,7 +20890,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -21149,7 +21149,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -21412,7 +21412,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -21679,7 +21679,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -21938,7 +21938,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -22197,7 +22197,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -22456,7 +22456,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -22715,7 +22715,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -22970,7 +22970,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -23229,7 +23229,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -23480,7 +23480,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -23727,7 +23727,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -23990,7 +23990,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -24249,7 +24249,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -24512,7 +24512,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -24775,7 +24775,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -25034,7 +25034,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -25297,7 +25297,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -25548,7 +25548,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -25799,7 +25799,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -26058,7 +26058,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -26309,7 +26309,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -26560,7 +26560,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -26819,7 +26819,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -27074,7 +27074,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -27333,7 +27333,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -27600,7 +27600,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -27859,7 +27859,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -28122,7 +28122,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -28385,7 +28385,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -28636,7 +28636,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -28891,7 +28891,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -29146,7 +29146,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -29397,7 +29397,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -29648,7 +29648,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -29899,7 +29899,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -30069,7 +30069,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30154,7 +30154,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30239,7 +30239,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30324,7 +30324,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30409,7 +30409,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30494,7 +30494,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30579,7 +30579,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30669,7 +30669,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30754,7 +30754,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30844,7 +30844,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": true,
@@ -30942,7 +30942,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -31125,7 +31125,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -31777,7 +31777,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -32613,7 +32613,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -33485,7 +33485,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -34193,7 +34193,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -34801,7 +34801,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -35413,7 +35413,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -36037,7 +36037,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -36653,7 +36653,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -37252,7 +37252,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -37843,7 +37843,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -38451,7 +38451,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -39071,7 +39071,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -39666,7 +39666,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -40253,7 +40253,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -40865,7 +40865,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -41477,7 +41477,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -42077,7 +42077,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -42661,7 +42661,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -43000,7 +43000,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -43085,7 +43085,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -43175,7 +43175,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -43375,7 +43375,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -43727,7 +43727,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -44059,7 +44059,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -44387,7 +44387,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -44715,7 +44715,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -45067,7 +45067,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -45407,7 +45407,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -45739,7 +45739,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -46087,7 +46087,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -46439,7 +46439,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -46791,7 +46791,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -47143,7 +47143,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -47407,7 +47407,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -47671,7 +47671,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -47935,7 +47935,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -48190,7 +48190,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -48450,7 +48450,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -48714,7 +48714,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -48978,7 +48978,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -49238,7 +49238,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -49506,7 +49506,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -49774,7 +49774,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -50042,7 +50042,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -50309,7 +50309,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -50573,7 +50573,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -50832,7 +50832,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -51091,7 +51091,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -51350,7 +51350,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -51605,7 +51605,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -51864,7 +51864,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -52115,7 +52115,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -52362,7 +52362,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -52630,7 +52630,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -52889,7 +52889,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -53152,7 +53152,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -53420,7 +53420,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -53684,7 +53684,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -53947,7 +53947,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -54198,7 +54198,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -54449,7 +54449,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -54708,7 +54708,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -54959,7 +54959,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -55210,7 +55210,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -55469,7 +55469,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -55729,7 +55729,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -55993,7 +55993,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -56265,7 +56265,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -56524,7 +56524,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -56792,7 +56792,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -57055,7 +57055,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -57303,7 +57303,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -57555,7 +57555,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -57815,7 +57815,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -58066,7 +58066,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -58322,7 +58322,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -58578,7 +58578,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -58753,7 +58753,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -58838,7 +58838,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -58923,7 +58923,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59008,7 +59008,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59093,7 +59093,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59178,7 +59178,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59263,7 +59263,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59353,7 +59353,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59438,7 +59438,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59541,7 +59541,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": true,
@@ -59639,7 +59639,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -59822,7 +59822,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -60149,7 +60149,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -60472,7 +60472,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -60711,7 +60711,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -60869,7 +60869,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json"
      },
      "tobPartitions": {
       "required": false,
@@ -61120,7 +61120,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -61448,7 +61448,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -61692,7 +61692,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,
@@ -61850,7 +61850,7 @@
      },
      "eligibleTrades": {
       "status": "NOT_MEASURED",
-      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01."
+      "reason": "Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json"
      },
      "tobPartitions": {
       "required": false,

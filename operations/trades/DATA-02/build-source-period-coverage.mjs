@@ -9,12 +9,14 @@
 // Uso: node build-source-period-coverage.mjs [--check]
 
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 import {
+  MARKET_AREAS,
+  PARTITION_TABLES,
   PERIOD_COVERAGE_VERSION,
-  indexArchivePartitions,
+  partitionKey,
   indexLakePartitions,
   measureSourcePeriodCoverage,
 } from "../../../src/trades-source/period-coverage.mjs";
@@ -28,6 +30,12 @@ export const INPUT_PATHS = Object.freeze({
   archiveMeasurementGas: "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json",
   archiveMeasurementPower: "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json",
 });
+// Mediciones del lago: salida del job de escaneo (no lo corre un agente). Si el
+// archivo no existe, la cobertura elegible del lago queda NOT_MEASURED.
+export const OPTIONAL_INPUT_PATHS = Object.freeze({
+  lakeMeasurementGas: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
+  lakeMeasurementPower: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
+});
 const ARTIFACT_PATH = "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json";
 const MANIFEST_PATH = "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json";
 const PRODUCER_PATHS = Object.freeze([
@@ -35,9 +43,12 @@ const PRODUCER_PATHS = Object.freeze([
   "src/trades-source/period-coverage.mjs",
 ]);
 
-// El lago no tiene TRADES_MEASUREMENT: el escaneo de trades elegibles es un job
-// (TRADES_MODE_PLAN.md: los agentes no corren escaneos completos).
-const LAKE_ELIGIBLE_PENDING = "Sin TRADES_MEASUREMENT del lago. Job pendiente: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE (y cmdty=POWER/area=DE) + aggregate-trades-rows.mjs, por la ruta de jobs de DATA-01.";
+// El escaneo de trades elegibles del lago es un job (TRADES_MODE_PLAN.md: los
+// agentes no corren escaneos completos).
+const LAKE_ELIGIBLE_PENDING = {
+  GAS_THE: `Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out ${OPTIONAL_INPUT_PATHS.lakeMeasurementGas}`,
+  POWER_DE: `Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out ${OPTIONAL_INPUT_PATHS.lakeMeasurementPower}`,
+};
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
@@ -60,9 +71,41 @@ function requireArchiveMeasurement(measurement, decision, path) {
   return measurement.coverage;
 }
 
+// La cobertura elegible del lago sólo vale si la medición salió del mismo lago y
+// área que el listado de particiones y si el escaneo recorrió todos sus días: un
+// escaneo recortado (--start/--end/--max-days) haría pasar días no leídos por
+// días sin trades.
+function requireLakeMeasurement(measurement, lake, market, path) {
+  if (measurement === null) return null;
+  const meta = measurement?.sourceMeta ?? {};
+  const { cmdty, area } = MARKET_AREAS[market];
+  const listedDays = Object.keys(lake.listing[partitionKey(PARTITION_TABLES.TRADES, cmdty, area)] ?? {}).sort();
+  const sameSource = meta.source === "lake"
+    && meta.table === PARTITION_TABLES.TRADES
+    && meta.area === `cmdty=${cmdty}/area=${area}`
+    && meta.lakeRoot === lake.inputs?.lakeRoot;
+  if (!sameSource || !Array.isArray(measurement.coverage)) {
+    throw new Error(`${path} no es una medición del lago ${lake.inputs?.lakeRoot} para cmdty=${cmdty}/area=${area}.`);
+  }
+  const scanCoversListing = listedDays.length > 0
+    && meta.dateMin <= listedDays[0]
+    && meta.dateMax >= listedDays.at(-1)
+    && Number(meta.dayCount) >= listedDays.length;
+  if (!scanCoversListing) {
+    throw new Error(`${path} no escaneó todos los días del listado del lago (${listedDays[0]}..${listedDays.at(-1)}, ${listedDays.length} días).`);
+  }
+  return measurement.coverage;
+}
+
 export function buildSourcePeriodCoverage(inputs) {
   const { sourcePartitions, zonePlan, gasExchangeCalendar, powerExchangeCalendar, tr01Decision, archiveMeasurementGas, archiveMeasurementPower } = inputs;
   const archivePartitions = sourcePartitions.sources.CLIENT_SEALED_ARCHIVE.partitions;
+  const lake = sourcePartitions.sources.EEX_LAKE;
+  const lakeEligible = {
+    GAS_THE: requireLakeMeasurement(inputs.lakeMeasurementGas ?? null, lake, "GAS_THE", OPTIONAL_INPUT_PATHS.lakeMeasurementGas),
+    POWER_DE: requireLakeMeasurement(inputs.lakeMeasurementPower ?? null, lake, "POWER_DE", OPTIONAL_INPUT_PATHS.lakeMeasurementPower),
+  };
+  const lakeNotMeasured = Object.keys(lakeEligible).filter((market) => lakeEligible[market] === null);
   const measurement = measureSourcePeriodCoverage({
     zonePlan,
     exchangeDays: { GAS_THE: gasExchangeCalendar.exchangeDays, POWER_DE: powerExchangeCalendar.exchangeDays },
@@ -77,8 +120,8 @@ export function buildSourcePeriodCoverage(inputs) {
       },
       EEX_LAKE: {
         range: sourceRange(tr01Decision, "EEX_LAKE"),
-        partitions: indexLakePartitions(sourcePartitions.sources.EEX_LAKE.listing),
-        eligibleCoverage: { GAS_THE: null, POWER_DE: null },
+        partitions: indexLakePartitions(lake.listing),
+        eligibleCoverage: lakeEligible,
         eligiblePendingReason: LAKE_ELIGIBLE_PENDING,
       },
     },
@@ -111,7 +154,7 @@ export function buildSourcePeriodCoverage(inputs) {
       blocks: ["FIX-03"],
       options: [
         { id: "CLIENT_SEALED_ARCHIVE_ONLY", consequence: "Ver summary.*.*.CLIENT_SEALED_ARCHIVE: campaigns sin trades quedan DATA_INCOMPLETE (patch 03 §3.4)." },
-        { id: "EEX_LAKE_ONLY", consequence: "Ver summary.*.*.EEX_LAKE: el lago acaba en su dateMax (post-puente OUT_OF_SOURCE_RANGE) y no trae eex_derivative_reference; su cobertura de trades elegibles sigue NOT_MEASURED." },
+        { id: "EEX_LAKE_ONLY", consequence: `Ver summary.*.*.EEX_LAKE: el lago acaba en su dateMax (post-puente OUT_OF_SOURCE_RANGE) y no trae eex_derivative_reference${lakeNotMeasured.length > 0 ? `; su cobertura de trades elegibles sigue NOT_MEASURED en ${lakeNotMeasured.join(", ")}` : ""}.` },
         { id: "DECLARED_PER_PERIOD", consequence: "Fuente distinta por período, declarada y versionada; exige que cada artefacto downstream registre la fuente por campaign." },
       ],
     },
@@ -128,6 +171,10 @@ function readInputs() {
     bytes[name] = readFileSync(path);
     parsed[name] = JSON.parse(bytes[name].toString("utf8"));
   }
+  for (const [name, path] of Object.entries(OPTIONAL_INPUT_PATHS)) {
+    bytes[name] = existsSync(path) ? readFileSync(path) : null;
+    parsed[name] = bytes[name] === null ? null : JSON.parse(bytes[name].toString("utf8"));
+  }
   return { bytes, parsed };
 }
 
@@ -138,7 +185,8 @@ export function buildArtifacts({ bytes, parsed }) {
     artifactKind: "DATA-02_SOURCE_PERIOD_COVERAGE_MANIFEST",
     schemaVersion: "1.0",
     artifact: { path: ARTIFACT_PATH, sha256: sha256(artifactBytes) },
-    inputs: Object.fromEntries(Object.entries(INPUT_PATHS).map(([name, path]) => [name, { path, sha256: sha256(bytes[name]) }])),
+    inputs: Object.fromEntries(Object.entries({ ...INPUT_PATHS, ...OPTIONAL_INPUT_PATHS }).map(([name, path]) =>
+      [name, { path, sha256: bytes[name] === null || bytes[name] === undefined ? null : sha256(bytes[name]) }])),
     producer: PRODUCER_PATHS.map((path) => ({ path, sha256: sha256(readFileSync(path)) })),
     ownerDecision: artifact.ownerDecision.status,
   };

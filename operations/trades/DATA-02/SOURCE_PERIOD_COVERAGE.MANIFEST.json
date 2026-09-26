@@ -3,7 +3,7 @@
  "schemaVersion": "1.0",
  "artifact": {
   "path": "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
-  "sha256": "80bce6bd76b8d9f38107e691f4fa5214863103b1be66a2bebebb40acdc47bb87"
+  "sha256": "22a100da177d25e9b28470eb1c3c66fb56e99e7bba25cff10019f39fa07d5fb5"
  },
  "inputs": {
   "sourcePartitions": {
@@ -33,16 +33,24 @@
   "archiveMeasurementPower": {
    "path": "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json",
    "sha256": "ba524c950921cde25515d7ecdd32b83e0e3295c4a8fbf0519b6db2a3722a0dd2"
+  },
+  "lakeMeasurementGas": {
+   "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
+   "sha256": null
+  },
+  "lakeMeasurementPower": {
+   "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
+   "sha256": null
   }
  },
  "producer": [
   {
    "path": "operations/trades/DATA-02/build-source-period-coverage.mjs",
-   "sha256": "20d806c2ef3a337ac2870a13f16ff6805838f0d6f6dccdf249e9e88433d61381"
+   "sha256": "e4ed6050ef2ee130d98068962948665021da988eacf60ccc0b994817a5b0750a"
   },
   {
    "path": "src/trades-source/period-coverage.mjs",
-   "sha256": "922e5b4bf3765fbf129e9cfece7babcfd18cc75aff8957f3536e7d16a80e07f1"
+   "sha256": "ee579aae2be95d55796cf10e276fa65dcb96b897e2677c89513a278d0b330721"
   }
  ],
  "ownerDecision": "PENDING_OWNER_DECISION"

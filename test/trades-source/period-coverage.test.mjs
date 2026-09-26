@@ -84,7 +84,7 @@ function sources() {
       range: { from: "2020-11-02", to: "2025-09-01" },
       partitions: lakeFixture(),
       eligibleCoverage: { GAS_THE: null, POWER_DE: null },
-      eligiblePendingReason: "job de escaneo del lago pendiente",
+      eligiblePendingReason: { GAS_THE: "job de escaneo del lago pendiente", POWER_DE: "job power pendiente" },
     },
   };
 }
@@ -199,4 +199,65 @@ test("el artefacto comprometido es reproducible y muestra lo que la comparación
   assert.deepEqual(artifact.tr01Comparison.comparisonDifferences, []);
   assert.ok(artifact.tr01Comparison.periodDifferencesFoundHere > 0);
   assert.equal(artifact.campaigns.length, new Set(artifact.campaigns.map((entry) => `${entry.missionKey}|${entry.campaignId}`)).size);
+});
+
+// Medición del lago con la forma de TRADES_MEASUREMENT (sourceMeta = `_meta` de
+// extract-trades-rows.py --source lake). El escaneo cubre todo el listado.
+function lakeMeasurementFixture(inputs, overrides = {}) {
+  const lake = inputs.sourcePartitions.sources.EEX_LAKE;
+  const listed = Object.keys(lake.listing["eex_derivative_trade|NATGAS|THE"]).sort();
+  return {
+    artifactKind: "TR-01_TRADES_MEASUREMENT",
+    sourceMeta: {
+      artifactKind: "TR-01_TRADES_ROWS",
+      source: "lake",
+      lakeRoot: lake.inputs.lakeRoot,
+      table: "eex_derivative_trade",
+      area: "cmdty=NATGAS/area=THE",
+      dateMin: listed[0],
+      dateMax: listed.at(-1),
+      dayCount: listed.length,
+      ...overrides,
+    },
+    coverage: [
+      { cmdty: "NATGAS", area: "THE", shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-01", eligibleCount: 3 },
+      { cmdty: "NATGAS", area: "THE", shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-02", eligibleCount: 2 },
+      // Otro contrato el mismo día: no cuenta para GAS-Q-2021Q3.
+      { cmdty: "NATGAS", area: "THE", shortCode: "G0BM", maturity: "202104", trdDate: "2021-03-01", eligibleCount: 7 },
+    ],
+  };
+}
+
+test("con una medición del lago, sus trades elegibles dejan de ser NOT_MEASURED y se cuentan por contrato", () => {
+  const inputs = repoInputs();
+  inputs.lakeMeasurementGas = lakeMeasurementFixture(inputs);
+  const artifact = buildSourcePeriodCoverage(inputs);
+  const q3 = artifact.campaigns.find((entry) => entry.missionKey === "GAS_QUARTERLY" && entry.campaignId === "GAS-Q-2021Q3");
+  const lake = q3.bySource.EEX_LAKE.eligibleTrades;
+  assert.equal(lake.contract, "G0BQ|202107");
+  assert.equal(lake.daysWithTrades, 2);
+  assert.equal(lake.eligibleTrades, 5);
+  assert.equal(lake.status, CAMPAIGN_STATUS.PARTIAL);
+  assert.equal(artifact.summary.GAS_QUARTERLY[q3.zone].EEX_LAKE.eligibleTrades.NOT_MEASURED, 0);
+  // Power sin medición del lago sigue NOT_MEASURED con su propio job.
+  const power = artifact.campaigns.find((entry) => entry.market === "POWER_DE");
+  assert.equal(power.bySource.EEX_LAKE.eligibleTrades.status, CAMPAIGN_STATUS.NOT_MEASURED);
+  assert.match(power.bySource.EEX_LAKE.eligibleTrades.reason, /cmdty=POWER\/area=DE/);
+  assert.match(artifact.ownerDecision.options.find((option) => option.id === "EEX_LAKE_ONLY").consequence, /NOT_MEASURED en POWER_DE\./);
+});
+
+test("fail-closed: una medición del lago de otra fuente, área o escaneo recortado no se usa", () => {
+  const cases = [
+    [{ source: "archive" }, /no es una medición del lago/],
+    [{ area: "cmdty=NATGAS/area=THE___TTF" }, /no es una medición del lago/],
+    [{ lakeRoot: "/otro/lago" }, /no es una medición del lago/],
+    [{ table: "eex_derivative_top_of_book" }, /no es una medición del lago/],
+    [{ dateMin: "2021-01-04" }, /no escaneó todos los días/],
+    [{ dayCount: 10 }, /no escaneó todos los días/],
+  ];
+  for (const [overrides, error] of cases) {
+    const inputs = repoInputs();
+    inputs.lakeMeasurementGas = lakeMeasurementFixture(inputs, overrides);
+    assert.throws(() => buildSourcePeriodCoverage(inputs), error);
+  }
 });

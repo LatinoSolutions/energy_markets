@@ -227,7 +227,8 @@ function marketCalendarDays(exchangeDays, campaign) {
 }
 
 // sources: { [sourceId]: { range: {from,to}, partitions, eligibleCoverage:
-// { GAS_THE: records|null, POWER_DE: records|null }, eligiblePendingReason } }
+// { GAS_THE: records|null, POWER_DE: records|null }, eligiblePendingReason:
+// { GAS_THE: string, POWER_DE: string } } (motivo de NOT_MEASURED por mercado)
 export function measureSourcePeriodCoverage({ zonePlan, exchangeDays, sources }) {
   const campaigns = campaignsFromZonePlan(zonePlan);
   const sourceIds = Object.keys(sources);
@@ -257,7 +258,7 @@ export function measureSourcePeriodCoverage({ zonePlan, exchangeDays, sources })
         campaign,
         windowDays,
         eligibleIndex: eligibleIndexes[sourceId][campaign.market],
-        pendingReason: source.eligiblePendingReason ?? null,
+        pendingReason: source.eligiblePendingReason?.[campaign.market] ?? null,
       });
       bySource[sourceId] = { tradePartitions: trades, eligibleTrades: eligible, tobPartitions: { required: tobRequired, ...tob } };
 
