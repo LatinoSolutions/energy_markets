@@ -57,7 +57,7 @@
     "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
     "present": true,
     "decision": "HOLD",
-    "configHash": null
+    "configHash": "7d1aa1e763423114c56d3a93fe86b2e45c74b040202f65dd4256e894ba51b327"
   },
   "runsGrid": {
     "count": 20,

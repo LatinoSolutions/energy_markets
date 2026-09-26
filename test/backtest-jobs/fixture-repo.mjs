@@ -38,11 +38,13 @@ if (slots.mode === "hang") {
 }
 const output = { artifactKind: "EXPLORATORY_BACKTEST_RESULTS", status: "EXPLORATORY", inputs: { slots: { path: slotsPath, sha256: sha(slotsBytes) } }, fixture: describeFixture(slots) };
 const outputBytes = Buffer.from(JSON.stringify(output, null, 1));
-writeFileSync(outPath, outputBytes);
+// "escape": declara resultados fuera del workspace (OPS-01, no deben copiarse a output/).
+const resultsPath = slots.mode === "escape" ? "../escaped-results.json" : outPath;
+writeFileSync(resultsPath, outputBytes);
 const manifest = {
   artifactKind: "EXPLORATORY_BACKTEST_MANIFEST",
   status: "EXPLORATORY",
-  results: { path: outPath, sha256: sha(outputBytes) },
+  results: { path: resultsPath, sha256: sha(outputBytes) },
   slots: output.inputs.slots,
   generators: [${JSON.stringify(EXPLORATORY_ENTRY)}, "src/exploratory/fixture-lib.mjs"].map((path) => ({ path, sha256: sha(readFileSync(path)) })),
 };
