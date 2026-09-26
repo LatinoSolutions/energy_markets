@@ -650,3 +650,91 @@ test("TR08-BLOCKED-DAY-LOCKOUT-10: un estado desfasado no se avanza en silencio"
   assert.equal(result.nextForwardState, null);
 });
 
+// TR08-FORWARD-LATE-ATTACH-11: el forward corre "desde el freeze de TRADES-v1"
+// (patch 03 §4) y en forward es sólo registro shadow (§7). La secuencia natural
+// es que la sesión TOB arranque antes de que el contrato TRADES esté congelado y
+// el forward se adjunte a mitad de sesión. Sin estado previo, el forward debe
+// abrir su estado en el cursor actual del progreso (no en 0) y anotar el cursor
+// de arranque, sin repetir ni saltarse días en silencio.
+test("TR08-FORWARD-LATE-ATTACH-11: un forward adjuntado a mitad de sesión arranca en el cursor actual", () => {
+  const { frozen } = frozenShadowFixture();
+  const frozenTradesContract = frozenTradesContractFixture();
+  const { session, progress } = openForward({ frozen });
+  const opportunities = frozen.frozenBundles.a1.decisionCalendar.opportunities;
+
+  // Día 0: la sesión TOB corre sin forwardTrades (el contrato todavía no está
+  // congelado). El paso no lleva registro paralelo ni estado del forward.
+  const day0 = captureShadowOpportunity({
+    session, frozen, progress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunities[0].decisionTimeUtc }),
+    posteriorObservations: [],
+  });
+  assert.equal(day0.ok, true, day0.code);
+  assert.equal(day0.step.parallelTradesHypotheses, undefined);
+  assert.equal(day0.nextForwardState, undefined);
+  assert.equal(day0.nextProgress.cursor, 1);
+
+  // Día 1: el contrato ya está congelado y el forward se adjunta SIN estado
+  // previo. Antes se abría en cursor 0 y la sesión quedaba bloqueada para
+  // siempre con FORWARD_STATE_OUT_OF_SEQUENCE.
+  const day1 = captureShadowOpportunity({
+    session, frozen, progress: day0.nextProgress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunities[1].decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(day1.ok, true, day1.code);
+  assert.equal(day1.step.frontier, "2021-06-23");
+  assert.equal(day1.step.parallelTradesHypotheses.artifactKind, FORWARD_TRADES_REGISTRATION_KIND);
+  assert.equal(day1.step.parallelTradesHypotheses.sources.TOB.status, "DECISION_REGISTERED");
+  // El arranque a mitad de sesión queda anotado en el estado y en el registro.
+  assert.equal(day1.step.parallelTradesHypotheses.startCursor, 1);
+  assert.equal(day1.nextForwardState.startCursor, 1);
+  assert.equal(day1.nextForwardState.cursor, 2);
+
+  // Día 2: continúa desde el estado devuelto, sin repetir ni saltar fronteras.
+  const day2 = captureShadowOpportunity({
+    session, frozen, progress: day1.nextProgress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunities[2].decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract,
+      forwardState: day1.nextForwardState,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(day2.ok, true, day2.code);
+  assert.equal(day2.step.frontier, "2021-06-24");
+  assert.equal(day2.step.parallelTradesHypotheses.artifactKind, FORWARD_TRADES_REGISTRATION_KIND);
+  assert.equal(day2.step.parallelTradesHypotheses.startCursor, 1);
+  assert.equal(day2.nextForwardState.cursor, 3);
+});
+
+// TR08-FORWARD-LATE-ATTACH-11: un estado desfasado SÍ se sigue rechazando. El
+// arranque a mitad de sesión sólo aplica cuando el llamante no aporta estado; un
+// estado explícito fuera del cursor del progreso no se "cura" (fail-closed).
+test("TR08-FORWARD-LATE-ATTACH-11: el arranque a mitad de sesión no relaja la cronología", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[1];
+  const result = registerForwardTradesHypotheses({
+    session, frozen,
+    progress: { ...progress, cursor: 1 },
+    forwardState: state,
+    missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(),
+    frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "FORWARD_STATE_OUT_OF_SEQUENCE");
+});
+

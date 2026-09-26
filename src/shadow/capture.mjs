@@ -278,7 +278,7 @@ function buildShadowRecord({ session, opportunity, pitReferences, recommendedAct
 // sin registro. En ese caso se devuelve null y el siguiente intento vuelve a
 // fallar con su código (fail-closed).
 function nextForwardStateAfterBlocked({ session, frozen, progress, forwardState }) {
-  const base = forwardState ?? openForwardTradesState({ session, frozen }).state;
+  const base = forwardState ?? openForwardTradesState({ session, frozen, startCursor: progress.cursor }).state;
   if (!base || base.cursor !== progress.cursor) {
     return null;
   }
@@ -532,10 +532,21 @@ function forwardSourceState({ executedVolume, remainingVolume, pastPrices = [] }
 // contentHash + cursor. Sin ese vínculo, repetir un día o saltarlo duplicaría o
 // perdería compras y precios del historial de DIP10, como ya evita
 // `PROGRESS_SESSION_MISMATCH` en el progreso IMP-18.
-export function openForwardTradesState({ session = null, frozen, seedPastPrices = {} } = {}) {
+//
+// `startCursor` (patch 03 §4: el forward corre "desde el freeze de TRADES-v1",
+// no desde la apertura de la sesión TOB): cuando el contrato se congela a mitad
+// de una sesión ya en curso, el forward no existía en los días previos, así que
+// su estado arranca en el cursor donde se adjunta y deja constancia de ello
+// (`startCursor` viaja en el estado y en el registro). Nunca se rellena un día
+// previo en silencio: esos días no tienen registro forward porque el forward no
+// estaba activo.
+export function openForwardTradesState({ session = null, frozen, seedPastPrices = {}, startCursor = 0 } = {}) {
   const openingObligation = frozen?.frozenBundles?.a1?.openingContract?.openingObligation;
   if (!isFiniteNumber(openingObligation) || openingObligation <= 0) {
     return fail("INVALID_OPENING_OBLIGATION", "El opening obligation del bundle congelado no es un volumen finito positivo; el forward TRADES no arranca sin obligación (§13.2).");
+  }
+  if (!isFiniteNumber(startCursor) || startCursor < 0 || !Number.isInteger(startCursor)) {
+    return fail("INVALID_START_CURSOR", "El cursor de arranque del forward debe ser un entero >= 0 (patch 03 §4).");
   }
   const sources = {};
   for (const source of FORWARD_TRADES_OBSERVATION_SOURCES) {
@@ -550,7 +561,8 @@ export function openForwardTradesState({ session = null, frozen, seedPastPrices 
     state: {
       sessionId: session?.sessionId ?? null,
       sessionContentHash: session?.contentHash ?? null,
-      cursor: 0,
+      startCursor,
+      cursor: startCursor,
       sources,
     },
   };
@@ -750,7 +762,16 @@ export function registerForwardTradesHypotheses({
     return fail("UNKNOWN_POLICY", `La policy ${policyId} no existe en el motor TRADES.`);
   }
 
-  const opened = forwardState ? { ok: true, state: forwardState } : openForwardTradesState({ session, frozen });
+  // Sin estado previo, el forward se abre en el cursor actual del progreso: la
+  // sesión TOB pudo arrancar antes del freeze de TRADES-v1 (patch 03 §4) y el
+  // forward se adjunta en ese momento. Abrir siempre en cursor 0 dejaría la
+  // sesión bloqueada para siempre con FORWARD_STATE_OUT_OF_SEQUENCE. El cursor
+  // de arranque queda anotado en el estado y en el registro (`startCursor`), así
+  // que no hay salto silencioso: los días previos no tienen registro forward
+  // porque el forward no estaba activo.
+  const opened = forwardState
+    ? { ok: true, state: forwardState }
+    : openForwardTradesState({ session, frozen, startCursor: progress.cursor });
   if (!opened.ok) return opened;
   const state = opened.state;
   // §15.3: el estado del forward va atado a la sesión y a la cronología. Un
@@ -776,6 +797,10 @@ export function registerForwardTradesHypotheses({
   if (state.cursor !== progress.cursor) {
     return fail("FORWARD_STATE_OUT_OF_SEQUENCE", `El estado del forward espera el cursor ${state.cursor} y el progreso apunta al ${progress.cursor}: no hay registro fuera de cronología (§15.3).`);
   }
+
+  // Cursor donde arrancó este forward (patch 03 §4): los estados abiertos por
+  // `openForwardTradesState` lo declaran; los de forma previa caen a 0.
+  const startCursor = isFiniteNumber(state.startCursor) ? state.startCursor : 0;
 
   const daysLeft = opportunities.length - progress.cursor;
 
@@ -855,6 +880,7 @@ export function registerForwardTradesHypotheses({
   const nextForwardState = {
     sessionId: session.sessionId,
     sessionContentHash: session.contentHash,
+    startCursor,
     cursor: progress.cursor + 1,
     sources: Object.fromEntries(FORWARD_TRADES_OBSERVATION_SOURCES.map((source) => [
       source,
@@ -868,6 +894,10 @@ export function registerForwardTradesHypotheses({
     sessionId: session.sessionId,
     sessionContentHash: session.contentHash,
     sequence: progress.cursor + 1,
+    // Cursor donde arrancó el forward (patch 03 §4): si se adjuntó a mitad de
+    // sesión, el registro lo declara en vez de saltar los días previos en
+    // silencio.
+    startCursor,
     frontier: opportunity.date,
     decisionTimeUtc: opportunity.decisionTimeUtc,
     missionKey,
