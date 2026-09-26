@@ -1,0 +1,271 @@
+{
+  "artifactKind": "TR-06_TRADES_RUNS_STATUS",
+  "schemaVersion": "TR-06_TRADES_RUNS_V1",
+  "status": "PENDING_FREEZE",
+  "spec": {
+    "id": "OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+    "version": "EM-SPEC-OWNER-PATCH-2026-09-25-03",
+    "path": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+    "sha256": "3e68171cec3f2eb86e48341b3046ba81f3ef925d12fb1cfa835863c9c8b9a494"
+  },
+  "acceptanceTest": "Runs de las 4 misiones por fase (Development walk-forward, puente contra el gate de TR-04 en la mitad de evaluación y OOS histórico con una sola apertura registrada por misión), con scoring por campaign, métricas por día-decisión como diagnóstico y pico de RAM por run medido por la ruta de BT-05.",
+  "phases": [
+    "DEVELOPMENT",
+    "BRIDGE",
+    "OOS"
+  ],
+  "phaseZones": {
+    "DEVELOPMENT": "DEVELOPMENT",
+    "BRIDGE": "PUENTE",
+    "OOS": "OOS_HISTORICO"
+  },
+  "observationRules": [
+    "LAST_TRADE",
+    "SLOT_VWAP"
+  ],
+  "reason": "Los runs TRADES exigen el freeze de TRADES-v1 (TR-04, gate humano) y el escaneo de TR-01/TR-03. Hasta que existan, no se corre ningún run ni se inventa ningún resultado.",
+  "runsArtifact": "operations/trades/TR-06/trades-runs.json",
+  "runsManifest": "operations/trades/TR-06/trades-runs.MANIFEST.json",
+  "jobCommands": [
+    "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --start 2021-01-01 --end 2026-07-28 --out /tmp/tr06-gas-the.ndjson",
+    "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start 2021-01-01 --end 2026-07-28 --out /tmp/tr06-power-de.ndjson",
+    "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=NATGAS/area=THE --products G0BQ,G0BM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-gas.json",
+    "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=POWER/area=DE --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-power.json",
+    "node operations/trades/TR-06/build-trades-runs.mjs --gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json"
+  ],
+  "freeze": {
+    "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
+    "present": true,
+    "decision": "HOLD",
+    "configHash": null
+  },
+  "runsGrid": {
+    "count": 24,
+    "missions": [
+      "GAS_QUARTERLY",
+      "GAS_MONTHLY",
+      "POWER_QUARTERLY",
+      "POWER_MONTHLY"
+    ],
+    "entries": [
+      {
+        "missionKey": "GAS_QUARTERLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "GAS_QUARTERLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "GAS_QUARTERLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "GAS_QUARTERLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "GAS_QUARTERLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "GAS_QUARTERLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "GAS_MONTHLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "GAS_MONTHLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "GAS_MONTHLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "GAS_MONTHLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "GAS_MONTHLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "GAS_MONTHLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "POWER_QUARTERLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "POWER_QUARTERLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "POWER_QUARTERLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "POWER_QUARTERLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "POWER_QUARTERLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "POWER_QUARTERLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "POWER_MONTHLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "POWER_MONTHLY",
+        "phase": "DEVELOPMENT",
+        "zone": "DEVELOPMENT",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "POWER_MONTHLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "POWER_MONTHLY",
+        "phase": "BRIDGE",
+        "zone": "PUENTE",
+        "observationRule": "SLOT_VWAP"
+      },
+      {
+        "missionKey": "POWER_MONTHLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "LAST_TRADE"
+      },
+      {
+        "missionKey": "POWER_MONTHLY",
+        "phase": "OOS",
+        "zone": "OOS_HISTORICO",
+        "observationRule": "SLOT_VWAP"
+      }
+    ]
+  },
+  "missions": [
+    {
+      "missionKey": "GAS_QUARTERLY",
+      "market": "GAS_THE",
+      "product": "Gas",
+      "shortCode": "G0BQ",
+      "targetMw": 60,
+      "campaignsByZone": {
+        "DEVELOPMENT": 14,
+        "OOS_HISTORICO": 4,
+        "EMBARGO": 0,
+        "PUENTE": 3,
+        "POST_PUENTE": 1,
+        "FORWARD": 0,
+        "PURGE": 0
+      }
+    },
+    {
+      "missionKey": "GAS_MONTHLY",
+      "market": "GAS_THE",
+      "product": "Gas",
+      "shortCode": "G0BM",
+      "targetMw": 10,
+      "campaignsByZone": {
+        "DEVELOPMENT": 43,
+        "OOS_HISTORICO": 12,
+        "EMBARGO": 0,
+        "PUENTE": 10,
+        "POST_PUENTE": 2,
+        "FORWARD": 0,
+        "PURGE": 0
+      }
+    },
+    {
+      "missionKey": "POWER_QUARTERLY",
+      "market": "POWER_DE",
+      "product": "Power",
+      "shortCode": "DEBQ",
+      "targetMw": 10,
+      "campaignsByZone": {
+        "DEVELOPMENT": 14,
+        "OOS_HISTORICO": 4,
+        "EMBARGO": 0,
+        "PUENTE": 3,
+        "POST_PUENTE": 1,
+        "FORWARD": 0,
+        "PURGE": 0
+      }
+    },
+    {
+      "missionKey": "POWER_MONTHLY",
+      "market": "POWER_DE",
+      "product": "Power",
+      "shortCode": "DEBM",
+      "targetMw": 10,
+      "campaignsByZone": {
+        "DEVELOPMENT": 43,
+        "OOS_HISTORICO": 12,
+        "EMBARGO": 0,
+        "PUENTE": 10,
+        "POST_PUENTE": 2,
+        "FORWARD": 0,
+        "PURGE": 0
+      }
+    }
+  ],
+  "blockedBy": [
+    "TRADES_CONTRACT_NOT_FROZEN"
+  ],
+  "provenance": {
+    "zonePlan": "operations/trades/TR-02/trades-zone-plan.json",
+    "freeze": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
+    "spec": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md"
+  }
+}
