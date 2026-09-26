@@ -138,6 +138,33 @@ test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barr
   }
 });
 
+test("FIX-04: campañas y Replay Power muestran identidad de Power DE del artifact", () => {
+  const campaignsHtml = renderSurfacePage("campaigns", vms.campaigns);
+  const replayHtml = renderSurfacePage("replay", vms.replay);
+  for (const product of ["DEBQ", "DEBM"]) {
+    const campaign = results.campaigns.find((entry) => entry.product === product);
+    assert.ok(campaign, product);
+    const section = campaignsHtml.split(`id="cmp-${campaign.id}"`)[1].split("</section>")[0];
+    const title = product === "DEBQ" ? "Power Quarterly" : "Power Monthly";
+    assert.match(section, new RegExp(`${campaign.id} · DE ${product} · target`));
+    assert.ok(section.includes(`<h1 class="page">${title} · delivery`));
+    assert.equal(section.includes(`THE ${product}`), false);
+
+    const replay = results.replay.find((entry) => entry.product === product && entry.inspector.length > 0);
+    assert.ok(replay, `${product} tiene una compra en el artifact`);
+    const replayCampaign = results.campaigns.find((entry) => entry.product === product && entry.maturity === replay.maturity);
+    assert.ok(replayCampaign);
+    const replaySection = replayHtml.split(`id="rep-${product}-${replay.maturity}"`)[1].split("</section>")[0];
+    assert.ok(replaySection.includes(`${replayCampaign.id} · run EXP-${replayCampaign.id}-ARM_A`));
+    assert.ok(replaySection.includes(`DE ${product} `));
+    assert.equal(replaySection.includes(`THE ${product}`), false);
+    assert.ok(replayHtml.includes(`${title} ${replay.maturity.slice(0, 4)}-${replay.maturity.slice(4, 6)}`));
+    const missionId = product === "DEBQ" ? "POWER_QUARTERLY" : "POWER_MONTHLY";
+    const backtestsHtml = renderSurfacePage("backtests", vms.backtests, { missionId });
+    assert.ok(backtestsHtml.includes(`${title} (DE)`));
+  }
+});
+
 test("UI-05 Campaigns: el determinismo por run queda UNKNOWN (el artifact solo trae un check global)", () => {
   const html = renderSurfacePage("campaigns", vms.campaigns);
   const runs = results.campaigns.reduce((sum, campaign) => sum + campaign.runs.length, 0);
