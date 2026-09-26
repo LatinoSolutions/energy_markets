@@ -10,7 +10,14 @@
 
 import { buildExperimentFixture } from "../p5-experiment/fixtures.mjs";
 import { freezeP5Experiment } from "../../src/p5-experiment/index.mjs";
-import { gasQuarterlyTradeAt, frozenTradesResult } from "../trades-engine/fixtures.mjs";
+import { contentHashOf, createGasQuarterlyExecutionContract } from "../../src/execution-contract/execution-contract.mjs";
+import {
+  gasQuarterlyTradeAt,
+  gasMonthlyTradeAt,
+  powerQuarterlyTradeAt,
+  powerMonthlyTradeAt,
+  frozenTradesResult,
+} from "../trades-engine/fixtures.mjs";
 
 // --- TR-08: forward shadow con TOB vivo + registro paralelo TRADES ----------
 // Fixtures SINTÉTICAS: reproducen la forma de las filas del lago sin copiar
@@ -108,4 +115,93 @@ export function benchmarkDailyClosesFixture({ overridden = {} } = {}) {
     { date: "2021-06-25", close: 40.2 },
     ...Object.entries(overridden).map(([date, close]) => ({ date, close })),
   ];
+}
+
+// --- TR-08: cobertura de las 4 misiones (patch 03 §6) ------------------------
+// El forward corre sobre el manifest P5 congelado, que es POR campaña. Para
+// ejercitar la identidad y el registro en las 4 misiones se construye un
+// manifest sintético por misión reutilizando la estructura del fixture P5 y los
+// MISMOS parámetros provisionales del paquete (slippage 0.15, cap 12). El
+// contrato de ejecución Power REAL (IMP-07) es un entregable aparte: esto es una
+// fixture de ingeniería declarada, no un contrato de mercado ni evidencia.
+export const FORWARD_MISSION_FIXTURE = Object.freeze({
+  GAS_QUARTERLY: { campaignId: "GAS-Q-2021Q3", product: "Gas", mission: "Quarterly", market: "GAS_THE", targetMw: 12 },
+  GAS_MONTHLY: { campaignId: "GAS-M-2021Q3", product: "Gas", mission: "Monthly", market: "GAS_THE", targetMw: 10 },
+  POWER_QUARTERLY: { campaignId: "POWER-Q-2021Q3", product: "Power", mission: "Quarterly", market: "POWER_DE", targetMw: 10 },
+  POWER_MONTHLY: { campaignId: "POWER-M-2021Q3", product: "Power", mission: "Monthly", market: "POWER_DE", targetMw: 10 },
+});
+
+const MISSION_TRADE_AT = Object.freeze({
+  GAS_QUARTERLY: gasQuarterlyTradeAt,
+  GAS_MONTHLY: gasMonthlyTradeAt,
+  POWER_QUARTERLY: powerQuarterlyTradeAt,
+  POWER_MONTHLY: powerMonthlyTradeAt,
+});
+
+// Filas del lago por misión: misma forma que `forwardTradesForDate` pero con el
+// ShortCode/maturity de la misión (el módulo no filtra por contrato; las filas
+// llegan ya acotadas a la misión).
+export function forwardTradesForMission({ missionKey, dates = ["2021-06-22"] }) {
+  const tradeAt = MISSION_TRADE_AT[missionKey];
+  if (!tradeAt) throw new Error(`misión sin fixture de trades: ${missionKey}`);
+  return dates.flatMap((date) => {
+    const vwapPrice = FORWARD_VWAP_TRADE_PRICES[date];
+    const lastTradePrice = FORWARD_LAST_TRADE_PRICES[date];
+    return [
+      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:35:00.000000Z`, TrdID: `V1-${missionKey}-${date}` } }),
+      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:40:00.000000Z`, TrdID: `V2-${missionKey}-${date}` } }),
+      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: lastTradePrice, size: "1", overrides: { Tm: `${date}T09:55:00.000000Z`, TrdID: `L-${missionKey}-${date}` } }),
+    ];
+  });
+}
+
+function syntheticExecutionContractFor({ product, mission, missionKey }) {
+  const base = createGasQuarterlyExecutionContract();
+  const frozenRules = [...base.frozenRules];
+  const parameters = base.parameters.map((entry) => ({ ...entry }));
+  return {
+    ...base,
+    contractId: `EXEC-${missionKey}-TR08-FIXTURE`,
+    product,
+    mission,
+    frozenRules,
+    parameters,
+    contentHash: contentHashOf({ frozenRules, parameters }),
+  };
+}
+
+function rehashedBundle(bundle) {
+  const { contentHash, ...core } = bundle;
+  return { ...core, contentHash: contentHashOf(core) };
+}
+
+// Manifest P5 sintético de una misión: identidad de campaña, obligación de
+// apertura y contrato de ejecución de la misión; re-sella bundles y manifest
+// para que la sesión Shadow acepte la versión fija (verifyFrozenIntegrity).
+export function frozenShadowFixtureForMission(missionKey) {
+  const spec = FORWARD_MISSION_FIXTURE[missionKey];
+  if (!spec) throw new Error(`misión sin fixture de manifest: ${missionKey}`);
+  const { frozen } = frozenShadowFixture();
+  const campaign = { campaignId: spec.campaignId, product: spec.product, mission: spec.mission };
+  const executionContract = syntheticExecutionContractFor({ product: spec.product, mission: spec.mission, missionKey });
+  const patch = (bundle) => rehashedBundle({
+    ...bundle,
+    campaign,
+    openingContract: { ...bundle.openingContract, openingObligation: spec.targetMw },
+    executionContract,
+    execution: { ...bundle.execution, executionContractVersion: executionContract.contractVersion },
+  });
+  const a0 = patch(frozen.frozenBundles.a0);
+  const a1 = patch(frozen.frozenBundles.a1);
+  const { contentHash, ...core } = frozen;
+  const nextCore = {
+    ...core,
+    frozenBundles: { a0, a1 },
+    arms: {
+      ...core.arms,
+      a0: { ...core.arms.a0, bundleContentHash: a0.contentHash },
+      a1: { ...core.arms.a1, bundleContentHash: a1.contentHash },
+    },
+  };
+  return { frozen: { ...nextCore, contentHash: contentHashOf(nextCore) } };
 }

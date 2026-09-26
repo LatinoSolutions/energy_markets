@@ -22,10 +22,11 @@ import { readDecisionView } from "../pit-views/index.mjs";
 import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { buildExperienceRecord } from "../experience/record.mjs";
 import { FILL_EVIDENCE_KINDS } from "../experience/source-types.mjs";
-import { CLIENT_SLOT } from "../exploratory/backtest.mjs";
-import { OBSERVATION_RULE_LIST } from "../trades-bridge/constants.mjs";
+import { DAILY_CAP_MW, minimumRequired } from "../exploratory/backtest.mjs";
+import { OBSERVATION_RULE_LIST, TOB_SLOT_RULE } from "../trades-bridge/constants.mjs";
+import { berlinSlotLabelOf } from "../trades-bridge/time.mjs";
 import { buildDeleteIndex } from "../trades-source/delete-point-in-time.mjs";
-import { observationAtDecision } from "../trades-engine/observation.mjs";
+import { observationAtInstant } from "../trades-engine/observation.mjs";
 import { TRADES_POLICIES } from "../trades-engine/episode.mjs";
 import { tradesFillPrice } from "../trades-engine/fill.mjs";
 import { missionDefinition } from "../trades-engine/missions.mjs";
@@ -421,9 +422,11 @@ export function captureShadowOpportunity({ session, frozen, progress, sightableP
     record,
   });
   if (forwardTrades) {
-    // El registro paralelo exige el contrato TRADES FROZEN (gate TR-04): si no
-    // está, el paso entero queda fail-closed en vez de emitir una captura sin
-    // sus hipótesis.
+    // El registro TRADES en el forward es SÓLO registro shadow (patch 03 §7): no
+    // condiciona la captura TOB. Si el contrato no está FROZEN (HOLD) o falta
+    // cualquier pieza del registro paralelo, el paso TOB se devuelve igual y el
+    // registro queda marcado como bloqueado con su código, en vez de tumbar la
+    // captura viva.
     const parallel = registerForwardTradesHypotheses({
       session,
       frozen,
@@ -436,7 +439,15 @@ export function captureShadowOpportunity({ session, frozen, progress, sightableP
       sightablePriceObservations: sightablePriceObservations ?? bundle.priceObservations,
       slotLabel: forwardTrades.slotLabel,
     });
-    if (!parallel.ok) return parallel;
+    if (!parallel.ok) {
+      step.parallelTradesHypotheses = {
+        ok: false,
+        status: "BLOCKED",
+        code: parallel.code,
+        reason: parallel.reason ?? parallel.message ?? null,
+      };
+      return { ok: true, step, record, nextProgress };
+    }
     step.parallelTradesHypotheses = parallel.registration;
     return { ok: true, step, record, nextProgress, nextForwardState: parallel.nextForwardState };
   }
@@ -497,7 +508,14 @@ export function openForwardTradesState({ frozen, seedPastPrices = {} } = {}) {
 // Una decisión de una fuente: sin observación no hay decisión (fail-closed); con
 // observación corre la policy y, si el fill es derivable, avanza el estado
 // propio de esa fuente. Nunca se inventa cantidad ni precio.
-function decideForwardSource({ source, sourceState, observation, observationFailure, daysLeft, policy, fillOf }) {
+//
+// El cap diario es DURO (revisión TR05-DAILY-CAP-03; `01_shared_campaign_rules.md`
+// §5, cap 12 MW/día): la cantidad se recorta a min(remaining, cap, propuesta),
+// aunque DIP10 proponga más para recuperar un hueco. Si el mínimo factible L_t ya
+// supera el cap, NINGUNA decisión puede cumplirlo y la causa es el hueco de data
+// (episode.mjs, dataForcedDays): se registra `forcedByDataGap` en vez de dejar el
+// excedente pasar.
+function decideForwardSource({ source, sourceState, observation, observationFailure, daysLeft, policy, fillOf, dailyCapMw = DAILY_CAP_MW }) {
   if (!observation || observationFailure) {
     return {
       source,
@@ -515,7 +533,11 @@ function decideForwardSource({ source, sourceState, observation, observationFail
     price: observation.price,
     pastPrices: sourceState.pastPrices,
   });
-  const requestedQuantity = isFiniteNumber(proposed) ? proposed : null;
+  const floor = minimumRequired(sourceState.remainingVolume, daysLeft);
+  const requestedQuantity = isFiniteNumber(proposed)
+    ? Math.max(0, Math.min(sourceState.remainingVolume, dailyCapMw, proposed))
+    : null;
+  const forcedByDataGap = requestedQuantity !== null && requestedQuantity < floor && floor > dailyCapMw;
   const recommendedAction = requestedQuantity !== null && requestedQuantity > 0 ? "BUY" : "WAIT";
   const fill = fillOf(observation);
   const fillable = fill.ok === true && recommendedAction === "BUY";
@@ -530,6 +552,9 @@ function decideForwardSource({ source, sourceState, observation, observationFail
       aggressor: observation.aggressor ?? null,
     },
     requestedQuantity,
+    proposedQuantity: isFiniteNumber(proposed) ? proposed : null,
+    floorQuantity: floor,
+    forcedByDataGap,
     recommendedAction,
     fill: fill.ok
       ? { fillable, executionPrice: fillable ? fill.price : null }
@@ -574,9 +599,15 @@ function compareForwardDecision({ reference, hypothesis }) {
 
 // Registra, en la frontera actual del calendario congelado, la decisión TOB vivo
 // (contrato de ejecución) y las decisiones LAST_TRADE y SLOT_VWAP, y las compara.
-// Fail-closed: sin contrato TRADES FROZEN (gate TR-04), sin misión conocida, sin
-// ask vivo elegible o sin observación de una regla, ese lado queda sin decisión
-// (no se inventa). Devuelve además el estado propio actualizado de cada fuente.
+// Fail-closed: sin contrato TRADES FROZEN (gate TR-04), sin misión conocida que
+// coincida con la campaña congelada, sin ask vivo elegible o sin observación de
+// una regla, ese lado queda sin decisión (no se inventa). Devuelve además el
+// estado propio actualizado de cada fuente.
+//
+// La frontera de las tres fuentes es la MISMA: el instante sale de
+// `decisionTimeUtc` del calendario congelado (TOB y TRADES no deciden en slots
+// distintos por un default; patch 03 §3.2). `slotLabel`, si se aporta, es sólo
+// una comprobación de que el llamante apunta al slot correcto.
 export function registerForwardTradesHypotheses({
   session,
   frozen,
@@ -587,7 +618,7 @@ export function registerForwardTradesHypotheses({
   deleteIndex = null,
   frozenTradesContract = null,
   sightablePriceObservations = null,
-  slotLabel = CLIENT_SLOT,
+  slotLabel = null,
   policyId = "DIP10",
 } = {}) {
   const boundsGuard = verifySessionBounds({ session, frozen });
@@ -606,6 +637,14 @@ export function registerForwardTradesHypotheses({
   }
 
   const bundle = frozen.frozenBundles.a1;
+  // Identidad de run (patch 03 §2/§6): la misión del forward tiene que ser la de
+  // la campaña congelada. Aceptar otra mezcla la obligación y el calendario de
+  // una misión con la identidad y el contrato TRADES de otra.
+  const campaign = bundle.campaign ?? null;
+  if (!campaign || definition.definition.product !== campaign.product || definition.definition.mission !== campaign.mission) {
+    return fail("MISSION_BUNDLE_MISMATCH", `La misión ${missionKey} (${definition.definition.product}/${definition.definition.mission}) no coincide con la campaña congelada ${campaign?.product ?? "null"}/${campaign?.mission ?? "null"}: el forward no mezcla identidades de misión (patch 03 §2/§6).`);
+  }
+
   const opportunities = bundle.decisionCalendar.opportunities;
   if (progress?.terminal === true || progress?.cursor >= opportunities.length) {
     return fail("CAPTURE_PAST_CALENDAR_END", "El calendario prospectivo ya se recorrió completo: no hay registro fuera de cronología (§13.2).");
@@ -618,6 +657,12 @@ export function registerForwardTradesHypotheses({
   const decisionMs = instantMs(opportunity.decisionTimeUtc);
   if (!decisionMs.ok) {
     return fail(decisionMs.code ?? "INVALID_DECISION_TIME", "decisionTimeUtc del calendario no es un instante anclado (§6.1).");
+  }
+  if (slotLabel !== null && slotLabel !== undefined) {
+    const derivedSlot = berlinSlotLabelOf(decisionMs.ms);
+    if (derivedSlot !== slotLabel) {
+      return fail("SLOT_LABEL_MISMATCH", `El slot ${slotLabel} no es el del instante de decisión ${opportunity.decisionTimeUtc} (${derivedSlot} Europe/Berlin): TOB y TRADES deben decidir en la MISMA frontera (patch 03 §3.2).`);
+    }
   }
 
   const policy = TRADES_POLICIES[policyId];
@@ -639,7 +684,9 @@ export function registerForwardTradesHypotheses({
   const daysLeft = opportunities.length - progress.cursor;
 
   // TOB vivo: la referencia de ejecución es el último best ask at-or-before la
-  // frontera y el fill añade el slippage frozen del execution contract.
+  // frontera y el fill añade el slippage frozen del execution contract. Modo TOB
+  // (patch 03 §2; `build_tob_slots.py` MAX_AGE_S): el ask debe tener <= 15 min;
+  // uno más viejo no es observación viva y no entra a la media de DIP10.
   const sightable = sightablePriceObservations ?? [];
   const tobGuard = validateSightableObservations({ observations: sightable, decisionMs: decisionMs.ms });
   if (tobGuard) return tobGuard;
@@ -649,14 +696,28 @@ export function registerForwardTradesHypotheses({
     ? tobSlippage.value
     : null;
 
+  let tobObservation = null;
+  let tobFailure = tobSelection.ok ? null : tobSelection.code;
+  if (tobSelection.ok) {
+    const tobAgeSeconds = (decisionMs.ms - Date.parse(tobSelection.reference.timestamp)) / 1000;
+    if (tobAgeSeconds > TOB_SLOT_RULE.maxQuoteAgeSeconds) {
+      tobFailure = "STALE_OBSERVATION";
+    } else {
+      tobObservation = {
+        price: tobSelection.reference.bestAsk,
+        observationTm: tobSelection.reference.timestamp,
+        observationRule: FORWARD_TRADES_SOURCE_TOB,
+        ageSeconds: tobAgeSeconds,
+      };
+    }
+  }
+
   const sources = {};
   sources[FORWARD_TRADES_SOURCE_TOB] = decideForwardSource({
     source: FORWARD_TRADES_SOURCE_TOB,
     sourceState: state.sources[FORWARD_TRADES_SOURCE_TOB],
-    observation: tobSelection.ok
-      ? { price: tobSelection.reference.bestAsk, observationTm: tobSelection.reference.timestamp, observationRule: FORWARD_TRADES_SOURCE_TOB }
-      : null,
-    observationFailure: tobSelection.ok ? null : tobSelection.code,
+    observation: tobObservation,
+    observationFailure: tobFailure,
     daysLeft,
     policy,
     fillOf: (observation) => (tobSlippageValue === null
@@ -671,11 +732,10 @@ export function registerForwardTradesHypotheses({
       sources[rule] = { source: rule, status: config.code, observation: null, requestedQuantity: null, recommendedAction: null, fill: null, executedDelta: 0 };
       continue;
     }
-    const result = observationAtDecision({
+    const result = observationAtInstant({
       rows: tradesRows,
       rule,
-      dayIso: opportunity.date,
-      slotLabel,
+      decisionEpochMs: decisionMs.ms,
       freshnessLimitSeconds: config.freshnessLimitSeconds,
       deleteIndex: index,
     });

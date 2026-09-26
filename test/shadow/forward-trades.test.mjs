@@ -17,6 +17,7 @@ import {
   openForwardTradesState,
   FORWARD_TRADES_REGISTRATION_KIND,
   FORWARD_TRADES_SOURCE_TOB,
+  FORWARD_TRADES_OBSERVATION_SOURCES,
 } from "../../src/shadow/index.mjs";
 import { executionParameterOf } from "../../src/execution-contract/execution-contract.mjs";
 import {
@@ -26,6 +27,9 @@ import {
   forwardTradesFixture,
   frozenTradesContractFixture,
   FORWARD_SLOT_LABEL,
+  FORWARD_MISSION_FIXTURE,
+  forwardTradesForMission,
+  frozenShadowFixtureForMission,
 } from "./fixtures.mjs";
 
 const PERMISSIONS = {
@@ -287,4 +291,166 @@ test("fail-closed: un estado de forward incompleto no produce registro", () => {
   });
   assert.equal(result.ok, false);
   assert.equal(result.code, "INVALID_FORWARD_STATE");
+});
+
+// --- TR-08: correcciones de la revisión (TR08-*) -----------------------------
+
+// Estado propio del forward con una obligación pendiente declarada: cada fuente
+// arranca con la misma remaining y la historia sembrada.
+function forwardStateWithRemaining({ remainingVolume, seedPastPrices = forwardSeedPastPrices() }) {
+  const sources = {};
+  for (const source of FORWARD_TRADES_OBSERVATION_SOURCES) {
+    sources[source] = { executedVolume: 0, remainingVolume, pastPrices: [...seedPastPrices[source]] };
+  }
+  return { sources };
+}
+
+// TR08-DAILY-CAP-01: con 60 MW pendientes y 2 días por delante, L_t = 48 supera
+// el cap. El forward debe recortar a 12 MW/día (cap duro, `01_shared_campaign_rules.md`
+// §5) y registrar el excedente como forcing por hueco de data, no ejecutarlo.
+test("TR08-DAILY-CAP-01: el forward respeta el cap duro de 12 MW/día", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[2];
+  const result = registerForwardTradesHypotheses({
+    session, frozen,
+    progress: { ...progress, cursor: 2 },
+    forwardState: forwardStateWithRemaining({ remainingVolume: 60 }),
+    missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(),
+    frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, true, result.code);
+  for (const source of FORWARD_TRADES_OBSERVATION_SOURCES) {
+    const decision = result.registration.sources[source];
+    assert.equal(decision.status, "DECISION_REGISTERED", source);
+    assert.ok(decision.proposedQuantity > 12, `${source}: la policy propuso ${decision.proposedQuantity}`);
+    assert.ok(decision.requestedQuantity <= 12, `${source}: requested ${decision.requestedQuantity}`);
+    assert.ok(decision.executedDelta <= 12, `${source}: executed ${decision.executedDelta}`);
+    assert.equal(decision.forcedByDataGap, true, source);
+  }
+});
+
+// TR08-FRONTIER-02: el instante de decisión de TRADES sale de decisionTimeUtc,
+// no de un slotLabel por defecto. Sin slotLabel, TOB y TRADES deciden en la
+// misma frontera (10:00Z = 12:00 Berlin) y las hipótesis se registran.
+test("TR08-FRONTIER-02: TOB y TRADES deciden en la frontera de decisionTimeUtc", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.registration.decisionTimeUtc, "2021-06-22T10:00:00Z");
+  assert.equal(result.registration.sources.TOB.status, "DECISION_REGISTERED");
+  assert.equal(result.registration.sources.LAST_TRADE.status, "DECISION_REGISTERED");
+  assert.equal(result.registration.sources.LAST_TRADE.observation.price, 60);
+  assert.equal(result.registration.sources.SLOT_VWAP.status, "DECISION_REGISTERED");
+});
+
+test("TR08-FRONTIER-02: un slotLabel que no corresponde a decisionTimeUtc falla con cierre seguro", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: "11:00",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "SLOT_LABEL_MISMATCH");
+});
+
+// TR08-MISSION-BIND-03: la misión del forward debe ser la de la campaña
+// congelada; otra misión mezcla identidad y contrato (patch 03 §2/§6).
+test("TR08-MISSION-BIND-03: una misión distinta de la del bundle congelado se rechaza", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: "POWER_MONTHLY",
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "MISSION_BUNDLE_MISMATCH");
+});
+
+// TR08-TOB-FRESHNESS-04: el modo TOB exige un ask de <= 15 min (patch 03 §2;
+// build_tob_slots.py MAX_AGE_S). Un ask viejo no es observación y no contamina
+// la media de DIP10.
+test("TR08-TOB-FRESHNESS-04: el TOB vivo descarta un ask de más de 15 minutos", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: [{ timestamp: "2021-06-19T09:55:00Z", bestAsk: 40 }],
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.registration.sources.TOB.status, "STALE_OBSERVATION");
+  assert.equal(result.registration.sources.TOB.observation, null);
+  assert.equal(result.registration.comparison.LAST_TRADE.comparable, false);
+  // El ask viejo no entra a la historia de precios del TOB.
+  assert.equal(result.nextForwardState.sources.TOB.pastPrices.length, 10);
+});
+
+// TR08-PARALLEL-BLOCKS-TOB-05: TRADES en forward es "sólo registro shadow"
+// (patch 03 §7); un fallo del registro paralelo no descarta la captura TOB.
+test("TR08-PARALLEL-BLOCKS-TOB-05: el registro TRADES bloqueado no tumba la captura TOB", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = captureShadowOpportunity({
+    session, frozen, progress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract: { decision: "HOLD", contract: null },
+      forwardState: state,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.step.recommendedAction, "BUY");
+  assert.equal(result.step.parallelTradesHypotheses.ok, false);
+  assert.equal(result.step.parallelTradesHypotheses.status, "BLOCKED");
+  assert.equal(result.step.parallelTradesHypotheses.code, "TRADES_CONTRACT_NOT_FROZEN");
+});
+
+// TR08-FOUR-MISSIONS-06: el forward registra las hipótesis de las 4 misiones
+// (patch 03 §6), cada una sobre el manifest congelado de su campaña.
+test("TR08-FOUR-MISSIONS-06: el forward registra las 4 misiones con su identidad de bundle", () => {
+  const frozenTradesContract = frozenTradesContractFixture();
+  for (const missionKey of Object.keys(FORWARD_MISSION_FIXTURE)) {
+    const spec = FORWARD_MISSION_FIXTURE[missionKey];
+    const { frozen } = frozenShadowFixtureForMission(missionKey);
+    const { session, progress, state } = openForward({ frozen });
+    const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+    const result = registerForwardTradesHypotheses({
+      session, frozen, progress, forwardState: state, missionKey,
+      tradesRows: forwardTradesForMission({ missionKey }),
+      frozenTradesContract,
+      sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+      slotLabel: FORWARD_SLOT_LABEL,
+    });
+    assert.equal(result.ok, true, `${missionKey}: ${result.code}`);
+    assert.equal(result.registration.missionKey, missionKey);
+    assert.equal(result.registration.mission, spec.mission);
+    assert.equal(result.registration.market, spec.market);
+    assert.equal(result.registration.sources.TOB.status, "DECISION_REGISTERED", missionKey);
+    assert.equal(result.registration.sources.LAST_TRADE.status, "DECISION_REGISTERED", missionKey);
+    assert.equal(result.registration.sources.SLOT_VWAP.status, "DECISION_REGISTERED", missionKey);
+  }
 });
