@@ -571,7 +571,7 @@ test("el pico de RAM del productor es un mapa por run: un valor único no se cop
 });
 
 test("el registro de accesos del OOS es append-only en disco: cada lectura deja su entrada", () => {
-  const file = `/tmp/tr06-access-${process.pid}-${Date.now()}.jsonl`;
+  const file = join(tmpdir(), `tr06-access-${process.pid}-${Date.now()}.jsonl`);
   try {
     assert.deepEqual(readAccessRegistry(file), []);
     const entryA = { consumesOos: true, mission: "GAS_QUARTERLY", runId: "run-1", atUtc: "2026-09-26T00:00:00Z" };
@@ -663,7 +663,7 @@ test("el gate del puente evalúa SÓLO las campaigns de la mitad de evaluación"
 // TR06-OOS-PERSIST-AFTER-READ: la apertura se persiste ANTES de leer el OOS.
 test("la apertura del OOS queda persistida antes de leerla aunque la lectura falle", () => {
   const fixture = buildFixture();
-  const file = `/tmp/tr06-persist-${process.pid}-${Date.now()}.jsonl`;
+  const file = join(tmpdir(), `tr06-persist-${process.pid}-${Date.now()}.jsonl`);
   try {
     // `slotLabels` no-array fuerza una excepción DENTRO de la lectura del OOS,
     // después de registrar la apertura.
@@ -721,7 +721,7 @@ test("buildSingleTradesRun queda fail-closed sin freeze FROZEN (TR-04 es gate hu
 });
 
 test("la decisión del puente se liga a la versión y el OOS aislado exige PASS en todas", () => {
-  const file = `/tmp/tr06-bridge-${process.pid}-${Date.now()}.json`;
+  const file = join(tmpdir(), `tr06-bridge-${process.pid}-${Date.now()}.json`);
   const binding = { codeCommit: "deadbeef", configHash: "cfg", dataManifestSha256: "abc" };
   try {
     recordBridgeDecision({ mission: "GAS_QUARTERLY", observationRule: "LAST_TRADE", decision: "PASS", binding, file });
