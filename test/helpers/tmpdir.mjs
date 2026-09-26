@@ -77,8 +77,18 @@ function cleanupNow(dir) {
 export function createTempDir(prefix) {
   installExitHook();
   const dir = mkdtempSync(path.join(tmpdir(), prefix));
-  activeDirs.set(dir, writeMarker(dir, prefix));
-  return dir;
+  // Register in memory before writing the marker. An ENOSPC while writing it
+  // must not leave the newly created directory outside the exit cleanup hook.
+  activeDirs.set(dir, markerPathFor(dir));
+  try {
+    activeDirs.set(dir, writeMarker(dir, prefix));
+    return dir;
+  } catch (error) {
+    // writeFileSync can leave a partial marker. cleanupNow removes it after
+    // the directory; if deletion fails, the exit hook retries the directory.
+    cleanupNow(dir);
+    throw error;
+  }
 }
 
 export function cleanupTempDir(dir) {

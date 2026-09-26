@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, rmSync, unlinkSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -21,10 +21,11 @@ import {
 } from "./tmpdir.mjs";
 
 const HELPER_URL = new URL("./tmpdir.mjs", import.meta.url).href;
+const VERIFIER_PATH = new URL("./verify-tmpdir-run.mjs", import.meta.url).pathname;
 const SUITE_PREFIX = "bt05-repo-";
 
-function runChild(source) {
-  return spawnSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8" });
+function runChild(source, env = process.env) {
+  return spawnSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8", env });
 }
 
 function helperImport() {
@@ -93,6 +94,62 @@ test("FIX-05: un fallo de borrado se informa y hace fallar la corrida", () => {
   assert.match(child.stderr, /no se pudo borrar/);
 });
 
+test("FIX-05: un fallo de registro borra la carpeta recién creada", () => {
+  const root = createTempDir("fix05-register-");
+  try {
+    // A file in place of the registry forces mkdirSync to fail after mkdtemp.
+    writeFileSync(path.join(root, "em-test-tmpdir-registry"), "blocked");
+    const child = runChild(
+      helperImport() + `createTempDir(${JSON.stringify(SUITE_PREFIX)});\n`,
+      { ...process.env, TMPDIR: root, TMP: root, TEMP: root },
+    );
+    assert.notEqual(child.status, 0, "el fallo de registro debe fallar");
+    assert.deepEqual(readdirSync(root), ["em-test-tmpdir-registry"]);
+  } finally {
+    cleanupTempDir(root);
+  }
+});
+
+test("FIX-05: la verificación posterior falla por una carpeta sin ficha", () => {
+  const fixtureRoot = createTempDir("fix05-verifier-");
+  try {
+    const fixture = path.join(fixtureRoot, "leak.test.mjs");
+    writeFileSync(fixture, `
+import { test } from "node:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+test("leak", () => { mkdtempSync(path.join(tmpdir(), "bt05-repo-")); });
+`);
+    const child = spawnSync(process.execPath, [VERIFIER_PATH, fixture], { encoding: "utf8" });
+    assert.equal(child.status, 1, child.stderr);
+    assert.match(child.stderr, /la corrida dejó entradas en tmpdir: bt05-repo-/);
+  } finally {
+    cleanupTempDir(fixtureRoot);
+  }
+});
+
+test("FIX-05: la verificación posterior acepta una corrida limpia", () => {
+  const fixtureRoot = createTempDir("fix05-verifier-");
+  try {
+    const fixture = path.join(fixtureRoot, "clean.test.mjs");
+    writeFileSync(fixture, `
+import { test } from "node:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+test("clean", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "bt05-repo-"));
+  rmSync(dir, { recursive: true, force: true });
+});
+`);
+    const child = spawnSync(process.execPath, [VERIFIER_PATH, fixture], { encoding: "utf8" });
+    assert.equal(child.status, 0, child.stderr);
+  } finally {
+    cleanupTempDir(fixtureRoot);
+  }
+});
+
 test("FIX-05: cleanupTempDir borra en el acto y desregistra la carpeta", () => {
   const dir = createTempDir(SUITE_PREFIX);
   assert.equal(existsSync(dir), true);
@@ -112,6 +169,6 @@ test("FIX-05: cleanupAllTempDirs vacía lo registrado por el helper", () => {
   assert.deepEqual(activeTempDirs(), []);
 });
 
-test("FIX-05: no hay fugas registradas al terminar el guard", () => {
+test("FIX-05: no hay fugas registradas durante este archivo", () => {
   assert.deepEqual(findLeakedTempDirs(), [], "hay carpetas temporales de tests EM sin borrar");
 });
