@@ -167,6 +167,17 @@ def lake_partitions(area, start, end):
     return [day for day in days if (start is None or day >= start) and (end is None or day <= end)]
 
 
+def product_mask(table, products):
+    """Filas Simple Instrument de los productos pedidos (4 primeros caracteres del ShortCode)."""
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    simple = pc.equal(table["InstrumentType"], "Simple Instrument")
+    prefix = pc.utf8_slice_codeunits(pc.cast(table["ShortCode"], pa.string()), 0, 4)
+    wanted = pc.is_in(prefix, value_set=pa.array(sorted(products), type=pa.string()))
+    return pc.fill_null(pc.and_(simple, wanted), False)
+
+
 def run_lake(area, products, start, end, out_path, max_days):
     import pyarrow.parquet as pq
 
@@ -178,17 +189,24 @@ def run_lake(area, products, start, end, out_path, max_days):
     for day in days:
         pattern = os.path.join(LAKE_ROOT, f"table={TOB_TABLE}", area, f"trd_date={day}", "*", "part.parquet")
         rows = []
+        day_rows_read = 0
         for path in sorted(glob.glob(pattern)):
             names = set(pq.read_schema(path).names)
             if not {"ShortCode", "Maturity", "Tm", "AskPx", "InstrumentType"} <= names:
                 counts["files_without_ask_columns"] += 1
                 continue
             table = pq.read_table(path, columns=[name for name in COLS if name in names], use_threads=False)
+            day_rows_read += table.num_rows
+            # Mismo filtro de producto e instrumento que slots_for_rows, aplicado en
+            # Arrow antes de crear filas de Python: un dia de top of book de power DE
+            # pesa ~371 MB de parquet (2026-03-10) y como lista de dicts superaba el
+            # techo de 2 GiB del job (DATA-01, 2026-09-26).
+            table = table.filter(product_mask(table, products))
             for row in table.to_pylist():
                 row["TrdDate"] = day
                 rows.append(row)
         counts["days"] += 1
-        counts["rows"] += len(rows)
+        counts["rows"] += day_rows_read
         for contract, slots in slots_for_rows(rows, date.fromisoformat(day), products).items():
             series.setdefault(contract, {})[day] = slots
         print(day, file=sys.stderr, flush=True) if day.endswith("-01") else None
