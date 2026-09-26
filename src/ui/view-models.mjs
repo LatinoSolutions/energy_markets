@@ -245,12 +245,13 @@ export function projectBacktestReadiness(readiness) {
 
 // Rail de Campaigns por misión: decisión de Bru 2026-09-25 (P-008, prototipo
 // UI-05-prototipo-2026-09-25/prototipo-ui05.html sha256 a79c8652…, pestaña Campaigns).
-// Power no tiene código de producto en el artifact: grupo vacío, "no data yet".
+// BT-06 (2026-09-26): Power ya tiene código de producto (DEBQ/DEBM) en el release
+// exploratorio v3; si el artifact no está, el grupo queda vacío, "no data yet".
 const CAMPAIGN_MISSIONS = [
   { mission: "Gas Quarterly", product: "G0BQ", cadence: "QUARTERLY" },
   { mission: "Gas Monthly", product: "G0BM", cadence: "MONTHLY" },
-  { mission: "Power Quarterly", product: null, cadence: "QUARTERLY" },
-  { mission: "Power Monthly", product: null, cadence: "MONTHLY" },
+  { mission: "Power Quarterly", product: "DEBQ", cadence: "QUARTERLY" },
+  { mission: "Power Monthly", product: "DEBM", cadence: "MONTHLY" },
 ];
 const READINESS_LABEL = { EXPLORATORY_COMPLETE: "complete", INSUFFICIENT_DATA: "insufficient data" };
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
