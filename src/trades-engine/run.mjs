@@ -9,6 +9,13 @@
 // (TRADES_MODE_PLAN.md non-negotiable), de modo que las filas y los días de otro
 // tramo nunca llegan al episodio.
 //
+// El brazo HOUR elige la hora walk-forward SÓLO con episodios de Development
+// anteriores (patch 03 §5 riesgo 4; TRADES_MODE_PLAN.md TR-05). Un run de OOS
+// histórico, puente o post-puente no incluye campaigns de Development en su
+// propia zona, así que recibe esa historia por separado (`historyCampaigns` /
+// `historyRows`): esas filas sólo alimentan la elección de hora y NUNCA entran a
+// los episodios del run (Baseline/DIP10/HOUR corren sólo con la zona del run).
+//
 // Este módulo es PURO: recibe las filas de trades, el calendario del mercado y
 // el resultado FROZEN del contrato TRADES-v1 (TR-04), y devuelve los episodios y
 // la comparación de brazos de esa misión y regla. NO abre el lago, no corre
@@ -19,6 +26,7 @@
 
 import { CLIENT_SLOT } from "../exploratory/backtest.mjs";
 import { OBSERVATION_RULE_LIST, SLOT_LABELS } from "../trades-bridge/constants.mjs";
+import { ZONES } from "../oos-reservation/trades-zones.mjs";
 import { buildDeleteIndex } from "../trades-source/delete-point-in-time.mjs";
 import {
   TRADES_SOURCE_MODE,
@@ -166,6 +174,20 @@ function runArm({ campaign, tradingDays, rows, deleteIndex, slotLabel, targetMw,
   });
 }
 
+// Prepara las filas y los días de una campaign dentro de UNA zona: filtra las
+// filas por zona, indexa por contrato, resuelve la ventana por calendario y
+// acota los días a la zona. Separado para reutilizarlo tanto con los episodios
+// del run como con la historia de Development del brazo HOUR.
+function prepareEpisodeInputs({ campaign, rows, zone, exchangeDays }) {
+  const zoneRows = filterTradesByZone({ rows, zone });
+  const index = indexTradesByContract(zoneRows);
+  const contractRows = contractRowsForCampaign({ index, campaign });
+  const { tradingDays } = tradingDaysForCampaign({ campaign, exchangeDays });
+  const zoneDays = filterDaysByZone({ days: tradingDays, zone });
+  const deleteIndex = buildDeleteIndex(contractRows);
+  return { campaign, contractRows, tradingDays: zoneDays, deleteIndex };
+}
+
 // Perfil horario A0 de un episodio (para el walk-forward del brazo HOUR).
 function hourProfileForCampaign({ campaign, tradingDays, rows, deleteIndex, targetMw, observationRule, config, slotLabels }) {
   return slotLabels.map((slot) => {
@@ -181,8 +203,11 @@ function hourProfileForCampaign({ campaign, tradingDays, rows, deleteIndex, targ
 
 // Corre UNA misión en UNA zona bajo UNA regla de observación: por cada campaign
 // de la zona, los tres brazos (A0, DIP10, HOUR). La hora del brazo HOUR se elige
-// walk-forward sólo con episodios de Development anteriores (patch 03 §5.4); sin
-// historia, el brazo HOUR no se corre (NOT_RUN_NO_HISTORY).
+// walk-forward sólo con episodios de Development anteriores (patch 03 §5 riesgo
+// 4); sin historia, el brazo HOUR no se corre (NOT_RUN_NO_HISTORY). Un run de
+// OOS/puente/post-puente recibe la historia de Development por separado en
+// `historyCampaigns`/`historyRows`: esa historia se usa SÓLO para elegir la hora
+// y sus filas nunca entran a los episodios del run.
 export function runTradesMission({
   missionKey,
   zone,
@@ -190,6 +215,8 @@ export function runTradesMission({
   campaigns = [],
   rows = [],
   exchangeDays = [],
+  historyCampaigns = [],
+  historyRows = [],
   frozenContract,
   slotLabels = SLOT_LABELS,
 } = {}) {
@@ -219,23 +246,33 @@ export function runTradesMission({
   // Todo loader filtra por zona: ni las filas de trades de otra zona entran al
   // índice del contrato (revisión TR05-ZONE-FILTER-05).
   const zoneRows = filterTradesByZone({ rows, zone });
-  const index = indexTradesByContract(zoneRows);
 
-  const prepared = runnable.map((campaign) => {
-    const contractRows = contractRowsForCampaign({ index, campaign });
-    const { tradingDays } = tradingDaysForCampaign({ campaign, exchangeDays });
-    // Guard de zona sobre los días: la ventana sale del calendario de la misión,
-    // pero ningún día de otro tramo entra al episodio (TRADES_MODE_PLAN.md).
-    const zoneDays = filterDaysByZone({ days: tradingDays, zone });
-    const deleteIndex = buildDeleteIndex(contractRows);
-    return { campaign, contractRows, tradingDays: zoneDays, deleteIndex };
-  });
+  const prepared = runnable.map((campaign) => prepareEpisodeInputs({ campaign, rows, zone, exchangeDays }));
 
-  // Walk-forward del brazo HOUR bajo esta regla de observación.
+  // Historia de Development para el walk-forward del brazo HOUR. Sólo se aceptan
+  // campaigns de DEVELOPMENT que no sean ya episodios del run (para no contar dos
+  // veces la misma historia cuando la zona del run ES Development), y sus filas
+  // se filtran por zona Development. Estas filas alimentan SÓLO la elección de
+  // hora: nunca entran a los episodios del run.
+  const runnableIds = new Set(runnable.map((campaign) => campaign.campaignId));
+  const historyPool = historyCampaigns.filter((campaign) => campaign.zone === ZONES.DEVELOPMENT && !runnableIds.has(campaign.campaignId));
+  const historyPrepared = historyPool.map((campaign) => prepareEpisodeInputs({
+    campaign,
+    rows: historyRows,
+    zone: ZONES.DEVELOPMENT,
+    exchangeDays,
+  }));
+
+  // Walk-forward del brazo HOUR bajo esta regla de observación. La lista combina
+  // la historia de Development con los episodios del run; `assignWalkForwardHours`
+  // ordena por ventana y sólo acumula Development como pasado, así que un
+  // episodio de OOS/puente ve la historia de Development anterior a él.
+  const hourPrepared = [...historyPrepared, ...prepared];
+  const hourPreparedById = new Map(hourPrepared.map((item) => [item.campaign.campaignId, item]));
   const hourAssignments = assignWalkForwardHours({
-    episodes: prepared.map((item) => ({ ...item.campaign, windowStart: item.campaign.windowStart })),
+    episodes: hourPrepared.map((item) => ({ ...item.campaign, windowStart: item.campaign.windowStart })),
     hourProfileOf: (episode) => {
-      const item = prepared.find((entry) => entry.campaign.campaignId === episode.campaignId);
+      const item = hourPreparedById.get(episode.campaignId);
       return hourProfileForCampaign({
         campaign: item.campaign,
         tradingDays: item.tradingDays,

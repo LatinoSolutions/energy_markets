@@ -178,6 +178,74 @@ test("con historia de Development el brazo HOUR walk-forward elige hora solo con
   assert.equal(laterEpisode.arms.HOUR.summary.status, "COMPLETE");
 });
 
+test("un run de OOS_HISTORICO recibe la historia de Development para elegir la hora y no deja que esas filas entren al episodio", () => {
+  const def = MISSION_CASES[3];
+  const OOS_DAYS = ["2024-09-02", "2024-09-03", "2024-09-04", "2024-09-05", "2024-09-06"];
+  const devCampaign = campaignFor(def, { campaignId: "POWER_MONTHLY-DEV-HISTORY" });
+  const oosCampaign = {
+    ...campaignFor(def, { campaignId: "POWER_MONTHLY-OOS", days: OOS_DAYS }),
+    zone: "OOS_HISTORICO",
+  };
+  // La historia de Development usa un precio distinto: si sus filas se colaran al
+  // episodio del OOS, el ledger del Baseline lo delataría.
+  const devRows = rowsFor(def, DAYS, 120);
+  const oosRows = rowsFor(def, OOS_DAYS, 100);
+
+  const result = runTradesMission({
+    missionKey: def.missionKey,
+    zone: "OOS_HISTORICO",
+    observationRule: "LAST_TRADE",
+    campaigns: [oosCampaign],
+    rows: oosRows,
+    exchangeDays: [...DAYS, ...OOS_DAYS],
+    historyCampaigns: [devCampaign],
+    historyRows: devRows,
+    frozenContract: FROZEN,
+  });
+
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.episodes.length, 1);
+  const episode = result.episodes[0];
+  assert.equal(episode.campaign.campaignId, oosCampaign.campaignId);
+  // La hora se elige walk-forward con la historia de Development anterior.
+  assert.equal(episode.hour.chosenSlot, "11:00");
+  assert.equal(episode.hour.historySize, 1);
+  assert.equal(episode.hour.historyOnlyDevelopment, true);
+  assert.equal(episode.arms.HOUR.summary.status, "COMPLETE");
+  // Las filas de Development nunca llegan al episodio del OOS.
+  assert.equal(episode.arms.BASELINE.ledger.every((entry) => entry.price === 100), true);
+  const hourRow = result.comparison.table.find((row) => row.armId === "HOUR");
+  assert.notEqual(hourRow.status, "NOT_COMPARABLE");
+  assert.equal(hourRow.status, "COMPLETE");
+});
+
+test("la historia del brazo HOUR sólo admite Development: una campaign de otra zona no entra", () => {
+  const def = MISSION_CASES[3];
+  const OOS_DAYS = ["2024-09-02", "2024-09-03", "2024-09-04", "2024-09-05", "2024-09-06"];
+  const devCampaign = campaignFor(def, { campaignId: "POWER_MONTHLY-DEV-HISTORY" });
+  const puenteCampaign = { ...campaignFor(def, { campaignId: "POWER_MONTHLY-PUENTE-HISTORY" }), zone: "PUENTE" };
+  const oosCampaign = {
+    ...campaignFor(def, { campaignId: "POWER_MONTHLY-OOS", days: OOS_DAYS }),
+    zone: "OOS_HISTORICO",
+  };
+
+  const result = runTradesMission({
+    missionKey: def.missionKey,
+    zone: "OOS_HISTORICO",
+    observationRule: "LAST_TRADE",
+    campaigns: [oosCampaign],
+    rows: rowsFor(def, OOS_DAYS),
+    exchangeDays: [...DAYS, ...OOS_DAYS],
+    historyCampaigns: [devCampaign, puenteCampaign],
+    historyRows: rowsFor(def, DAYS),
+    frozenContract: FROZEN,
+  });
+
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.episodes[0].hour.historySize, 1);
+  assert.equal(result.episodes[0].hour.historyOnlyDevelopment, true);
+});
+
 test("la identidad del run lleva el configHash y el alcance del resultado", () => {
   const def = MISSION_CASES[0];
   const result = runFor(def);
