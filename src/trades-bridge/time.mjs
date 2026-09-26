@@ -59,6 +59,15 @@ export function slotEpochMs(dayIso, slotLabel) {
   return berlinWallClockToEpochMs(dayIso, slotLabel);
 }
 
+// Etiqueta de slot Berlin (HH:MM) del instante. Sirve para comprobar que una
+// frontera de decisión cae en la grilla declarada: el forward exige que TOB y
+// TRADES decidan en el MISMO instante (TR-08; patch 03 §3.2), no en dos slots
+// distintos por un default.
+export function berlinSlotLabelOf(epochMs) {
+  const wall = berlinWallClockOf(epochMs);
+  return `${String(wall.hour).padStart(2, "0")}:${String(wall.minute).padStart(2, "0")}`;
+}
+
 // Instantes UTC de los 20 slots del día, en orden.
 export function slotEpochsForDay(dayIso) {
   return SLOT_LABELS.map((label) => slotEpochMs(dayIso, label));

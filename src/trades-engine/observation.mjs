@@ -25,6 +25,7 @@ export const OBSERVATION_FAILURE = Object.freeze({
   NO_OBSERVATION: "NO_OBSERVATION",
   STALE_OBSERVATION: "STALE_OBSERVATION",
   FRESHNESS_LIMIT_UNKNOWN: "FRESHNESS_LIMIT_UNKNOWN",
+  INVALID_DECISION_INSTANT: "INVALID_DECISION_INSTANT",
   UNKNOWN_RULE: "UNKNOWN_RULE",
 });
 
@@ -67,21 +68,27 @@ export function buildObservation({ eligibleTrades, rule, decisionEpochMs, slotSt
   };
 }
 
-// Observación en el instante de decisión, con PIT y frescura. `rows` puede
-// incluir filas Delete (se usan como índice, no como observación). `deleteIndex`
-// se puede inyectar para no reconstruirlo por día.
-export function observationAtDecision({
+// Observación en un instante de decisión EXACTO, con PIT y frescura. `rows`
+// puede incluir filas Delete (se usan como índice, no como observación).
+// `deleteIndex` se puede inyectar para no reconstruirlo por día. La ventana del
+// VWAP es el slot que termina en ese instante (decisión - 30 min). El instante
+// lo aporta el llamante para que la frontera NO se derive de un slot por
+// defecto: el forward TOB y el registro TRADES deben decidir en el mismo
+// instante (TR-08; patch 03 §3.2).
+export function observationAtInstant({
   rows,
   rule,
-  dayIso,
-  slotLabel,
+  decisionEpochMs,
   freshnessLimitSeconds,
   deleteIndex = null,
 } = {}) {
   if (rule !== OBSERVATION_RULES.LAST_TRADE && rule !== OBSERVATION_RULES.SLOT_VWAP) {
     return { ok: false, code: OBSERVATION_FAILURE.UNKNOWN_RULE, observation: null, ageSeconds: null };
   }
-  const { decisionEpochMs, slotStartEpochMs } = decisionInstants({ dayIso, slotLabel });
+  if (!Number.isFinite(decisionEpochMs)) {
+    return { ok: false, code: OBSERVATION_FAILURE.INVALID_DECISION_INSTANT, observation: null, ageSeconds: null };
+  }
+  const slotStartEpochMs = decisionEpochMs - SLOT_STEP_SECONDS * 1000;
   const index = deleteIndex ?? buildDeleteIndex(rows ?? []);
   const eligibleTrades = eligibleTradesAt(rows ?? [], decisionEpochMs, { deleteIndex: index });
   const observation = buildObservation({ eligibleTrades, rule, decisionEpochMs, slotStartEpochMs });
@@ -101,4 +108,23 @@ export function observationAtDecision({
     decisionEpochMs,
     observation: { ...observation, ageSeconds },
   };
+}
+
+// Observación en el instante de decisión de un slot Berlin (ruta del motor
+// TRADES, TR-05). Deriva el instante del día y el slot y delega en
+// `observationAtInstant`; el forward que exige una frontera explícita usa
+// `observationAtInstant` directo.
+export function observationAtDecision({
+  rows,
+  rule,
+  dayIso,
+  slotLabel,
+  freshnessLimitSeconds,
+  deleteIndex = null,
+} = {}) {
+  if (rule !== OBSERVATION_RULES.LAST_TRADE && rule !== OBSERVATION_RULES.SLOT_VWAP) {
+    return { ok: false, code: OBSERVATION_FAILURE.UNKNOWN_RULE, observation: null, ageSeconds: null };
+  }
+  const { decisionEpochMs } = decisionInstants({ dayIso, slotLabel });
+  return observationAtInstant({ rows, rule, decisionEpochMs, freshnessLimitSeconds, deleteIndex });
 }

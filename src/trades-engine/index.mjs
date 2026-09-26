@@ -23,6 +23,7 @@ export {
   buildObservation,
   decisionInstants,
   observationAtDecision,
+  observationAtInstant,
 } from "./observation.mjs";
 
 export {
