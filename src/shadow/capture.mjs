@@ -264,6 +264,27 @@ function buildShadowRecord({ session, opportunity, pitReferences, recommendedAct
   });
 }
 
+// Un día con el registro paralelo BLOCKED (p. ej. el contrato TRADES todavía en
+// HOLD) no puede dejar la sesión sin estado. La captura TOB avanzó su progreso
+// igual, así que el forward avanza su cursor con él y las fuentes quedan
+// intactas (ninguna decisión TRADES se tomó): el hueco no se salta en silencio,
+// el paso lo registra como BLOCKED con su código (patch 03 §4 "Forward desde el
+// freeze de TRADES-v1" y §7 "TRADES en forward corre en paralelo solo como
+// registro shadow"). Sin esto, el primer día bloqueado deja el registro TRADES
+// bloqueado para el resto de la sesión: el cursor del estado ya no coincide con
+// el del progreso y toda captura posterior falla FORWARD_STATE_OUT_OF_SEQUENCE.
+//
+// Un estado ausente o desfasado NO se "cura" aquí: avanzarlo sería saltarse días
+// sin registro. En ese caso se devuelve null y el siguiente intento vuelve a
+// fallar con su código (fail-closed).
+function nextForwardStateAfterBlocked({ session, frozen, progress, forwardState }) {
+  const base = forwardState ?? openForwardTradesState({ session, frozen }).state;
+  if (!base || base.cursor !== progress.cursor) {
+    return null;
+  }
+  return { ...base, cursor: progress.cursor + 1 };
+}
+
 // Una oportunidad de la captura prospectiva. Devuelve la fila (step), el
 // registro Experience y el siguiente progreso; fail-closed ante interferencia
 // temporal, calendario agotado o falta de derivación del controller.
@@ -448,7 +469,21 @@ export function captureShadowOpportunity({ session, frozen, progress, sightableP
         code: parallel.code,
         reason: parallel.reason ?? parallel.message ?? null,
       };
-      return { ok: true, step, record, nextProgress };
+      // El progreso TOB avanzó igual, así que el estado del forward avanza su
+      // cursor con él para que el día siguiente pueda retomar; el hueco queda
+      // registrado como BLOCKED con su código, nunca saltado en silencio.
+      return {
+        ok: true,
+        step,
+        record,
+        nextProgress,
+        nextForwardState: nextForwardStateAfterBlocked({
+          session,
+          frozen,
+          progress,
+          forwardState: forwardTrades.forwardState ?? null,
+        }),
+      };
     }
     step.parallelTradesHypotheses = parallel.registration;
     return { ok: true, step, record, nextProgress, nextForwardState: parallel.nextForwardState };

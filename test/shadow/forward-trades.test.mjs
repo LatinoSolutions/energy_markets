@@ -547,3 +547,106 @@ test("TR08-RUN-IDENTITY-ZONE-09: el registro declara la zona FORWARD", () => {
   assert.equal(result.ok, true, result.code);
   assert.equal(result.registration.zone, ZONES.FORWARD);
 });
+
+// TR08-BLOCKED-DAY-LOCKOUT-10: un día con el registro paralelo BLOCKED (contrato
+// TRADES todavía en HOLD) no puede bloquear el resto de la sesión. La captura
+// TOB avanzó su progreso, así que el forward avanza su cursor con él y el hueco
+// queda registrado como BLOCKED; el día siguiente con el contrato FROZEN
+// registra, sin repetir ni saltarse días en silencio (patch 03 §4/§7).
+test("TR08-BLOCKED-DAY-LOCKOUT-10: tras un día bloqueado el día congelado siguiente registra", () => {
+  const { frozen } = frozenShadowFixture();
+  const frozenTradesContract = frozenTradesContractFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunities = frozen.frozenBundles.a1.decisionCalendar.opportunities;
+
+  // Día 0: contrato TRADES todavía en HOLD → registro paralelo BLOCKED, pero la
+  // captura TOB sigue y el estado del forward avanza su cursor.
+  const day0 = captureShadowOpportunity({
+    session, frozen, progress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunities[0].decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract: { decision: "HOLD", contract: null },
+      forwardState: state,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(day0.ok, true, day0.code);
+  assert.equal(day0.step.frontier, "2021-06-22");
+  assert.equal(day0.step.parallelTradesHypotheses.status, "BLOCKED");
+  assert.equal(day0.step.parallelTradesHypotheses.code, "TRADES_CONTRACT_NOT_FROZEN");
+  // El día bloqueado no tomó decisión: las fuentes quedan intactas y sólo avanza
+  // el cursor (el hueco no se salta en silencio).
+  assert.ok(day0.nextForwardState, "el día bloqueado debe devolver el estado del forward");
+  assert.equal(day0.nextForwardState.cursor, 1);
+  assert.equal(day0.nextForwardState.sources.TOB.executedVolume, 0);
+  assert.equal(day0.nextForwardState.sources.TOB.pastPrices.length, 10);
+  assert.equal(day0.nextProgress.cursor, 1);
+
+  // Día 1: contrato FROZEN → el forward registra en la frontera correcta,
+  // retomando desde el estado avanzado (antes fallaba OUT_OF_SEQUENCE).
+  const day1 = captureShadowOpportunity({
+    session, frozen, progress: day0.nextProgress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunities[1].decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract,
+      forwardState: day0.nextForwardState,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(day1.ok, true, day1.code);
+  assert.equal(day1.step.frontier, "2021-06-23");
+  assert.equal(day1.step.parallelTradesHypotheses.artifactKind, FORWARD_TRADES_REGISTRATION_KIND);
+  assert.equal(day1.step.parallelTradesHypotheses.sources.TOB.status, "DECISION_REGISTERED");
+  assert.equal(day1.nextForwardState.cursor, 2);
+  assert.equal(day1.nextProgress.cursor, 2);
+
+  // Día 2: sigue registrando; ningún día se repite ni se salta.
+  const day2 = captureShadowOpportunity({
+    session, frozen, progress: day1.nextProgress,
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunities[2].decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract,
+      forwardState: day1.nextForwardState,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(day2.ok, true, day2.code);
+  assert.equal(day2.step.frontier, "2021-06-24");
+  assert.equal(day2.step.parallelTradesHypotheses.artifactKind, FORWARD_TRADES_REGISTRATION_KIND);
+  assert.equal(day2.nextForwardState.cursor, 3);
+});
+
+// TR08-BLOCKED-DAY-LOCKOUT-10: el día bloqueado no "cura" en silencio un estado
+// desfasado. Si el estado no está en el cursor del progreso, no se avanza: el
+// siguiente intento debe seguir fallando (fail-closed), nunca saltarse días.
+test("TR08-BLOCKED-DAY-LOCKOUT-10: un estado desfasado no se avanza en silencio", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = captureShadowOpportunity({
+    session, frozen,
+    progress: { ...progress, cursor: 2 },
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    posteriorObservations: [],
+    forwardTrades: {
+      missionKey: MISSION_KEY,
+      tradesRows: forwardTradesFixture(),
+      frozenTradesContract: { decision: "HOLD", contract: null },
+      forwardState: state,
+      slotLabel: FORWARD_SLOT_LABEL,
+    },
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.step.parallelTradesHypotheses.status, "BLOCKED");
+  assert.equal(result.nextForwardState, null);
+});
+
