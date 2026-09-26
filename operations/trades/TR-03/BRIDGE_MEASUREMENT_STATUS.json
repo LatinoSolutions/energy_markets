@@ -1,7 +1,7 @@
 {
   "artifactKind": "TR-03_BRIDGE_MEASUREMENT_STATUS",
   "schemaVersion": "TRADES_BRIDGE_V1",
-  "status": "PENDING_SCAN_JOB",
+  "status": "MEASURED",
   "spec": {
     "id": "OWNER_PATCH_TRADES_MODE_2026-09-25.md",
     "version": "EM-SPEC-OWNER-PATCH-2026-09-25-03",
@@ -25,9 +25,19 @@
     "LAST_TRADE",
     "SLOT_VWAP"
   ],
-  "reason": "Las mediciones del puente requieren el escaneo del lago (trades y TOB), que es un job que lanza Bru. Hasta que exista, no hay bridge-measurement.json y no se inventa ninguna medición.",
+  "reason": "Medición del puente atada por SHA-256 a su manifest; mide exactamente las campaigns del puente del zone plan vigente.",
   "measurementArtifact": "operations/trades/TR-03/bridge-measurement.json",
   "measurementManifest": "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
+  "measurement": {
+    "path": "operations/trades/TR-03/bridge-measurement.json",
+    "sha256": "533f51aa4c8fbf68f53d297a4b4d870f9b947362ecdfa5d281e81044256fc72e",
+    "manifestPath": "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
+    "artifactStatus": "MEASURED",
+    "brokenSpreadPolicy": "INCLUDE",
+    "measuredWithZonePlanSha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20",
+    "currentZonePlanSha256": "beea1e3788dd92e8da3df6cd7aa93d978706b782d3acdc1ca67eaa0c106ae227",
+    "bridgePopulationMatches": true
+  },
   "jobCommands": [
     "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --start 2025-08-12 --end 2026-07-28 --out /tmp/tr03-gas-the.ndjson",
     "python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start 2025-08-12 --end 2026-07-28 --out /tmp/tr03-power-de.ndjson",
@@ -38,11 +48,6 @@
   "bridgeCampaigns": {
     "count": 26,
     "byMission": {
-      "GAS_QUARTERLY": [
-        "GAS-Q-2026Q1",
-        "GAS-Q-2026Q2",
-        "GAS-Q-2026Q3"
-      ],
       "GAS_MONTHLY": [
         "GAS-M-2025-10",
         "GAS-M-2025-11",
@@ -55,10 +60,10 @@
         "GAS-M-2026-06",
         "GAS-M-2026-07"
       ],
-      "POWER_QUARTERLY": [
-        "POW-Q-2026Q1",
-        "POW-Q-2026Q2",
-        "POW-Q-2026Q3"
+      "GAS_QUARTERLY": [
+        "GAS-Q-2026Q1",
+        "GAS-Q-2026Q2",
+        "GAS-Q-2026Q3"
       ],
       "POWER_MONTHLY": [
         "POW-M-2025-10",
@@ -71,6 +76,11 @@
         "POW-M-2026-05",
         "POW-M-2026-06",
         "POW-M-2026-07"
+      ],
+      "POWER_QUARTERLY": [
+        "POW-Q-2026Q1",
+        "POW-Q-2026Q2",
+        "POW-Q-2026Q3"
       ]
     }
   },

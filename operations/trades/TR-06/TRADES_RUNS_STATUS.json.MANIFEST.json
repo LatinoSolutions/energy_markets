@@ -12,7 +12,7 @@
   "sources": {
     "zonePlan": {
       "path": "operations/trades/TR-02/trades-zone-plan.json",
-      "sha256": "2faf712b1a6206c3fd279b3f9a73bbcdefc2b86ab337071a3ff32683348e4796"
+      "sha256": "beea1e3788dd92e8da3df6cd7aa93d978706b782d3acdc1ca67eaa0c106ae227"
     },
     "freeze": {
       "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",

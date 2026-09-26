@@ -3,13 +3,17 @@
  "schemaVersion": "1.0",
  "plan": {
   "path": "operations/trades/TR-02/trades-zone-plan.json",
-  "sha256": "2faf712b1a6206c3fd279b3f9a73bbcdefc2b86ab337071a3ff32683348e4796"
+  "sha256": "beea1e3788dd92e8da3df6cd7aa93d978706b782d3acdc1ca67eaa0c106ae227"
  },
  "generator": {
   "path": "operations/trades/TR-02/build-trades-zone-plan.mjs",
-  "sha256": "4bcbd9859d32f3a392023dc24051cf906a676c3be6819ea480675a272f7d27e5"
+  "sha256": "f7ccafb66f7cb780095e86137422b73c5a9c4b011e2cac49714a3b27c795bf3f"
  },
  "modules": [
+  {
+   "path": "src/trades-source/measurement-artifacts.mjs",
+   "sha256": "6205b5cdaac82f13e7fc4344ae221da7c5befc9a7e42a72e7ad81d5aa85f43ac"
+  },
   {
    "path": "src/oos-reservation/trades-zones.mjs",
    "sha256": "96cca114bb02aa636b6b7615766fe2618a9c0093763f9b7898d68c896f7475e7"
@@ -47,6 +51,22 @@
   "tradesSourceDecision": {
    "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
    "sha256": "45e0c6902e294b9bdc7468672e76805d567ef53539209c7fd58425a43853e4ac"
+  },
+  "tradesMeasurement_GAS_THE": {
+   "path": "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json",
+   "sha256": "c7beb7f3f628a1a45a43877a543687c358197994df67adb0b1d65e34fcbfae09",
+   "manifest": {
+    "path": "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json.MANIFEST.json",
+    "sha256": "422567e578cce278bdf71d1cdfeff7eddb17be3c74addd4d8e97e067e9c4775d"
+   }
+  },
+  "tradesMeasurement_POWER_DE": {
+   "path": "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json",
+   "sha256": "ba524c950921cde25515d7ecdd32b83e0e3295c4a8fbf0519b6db2a3722a0dd2",
+   "manifest": {
+    "path": "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json.MANIFEST.json",
+    "sha256": "5f916ca23a1e2c90c9be504610f12cd950d9d6fd7f483f34b92bb63a687c448e"
+   }
   }
  }
 }

@@ -14,6 +14,7 @@
 
 import { createHash } from "node:crypto";
 import { createReadStream, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -30,6 +31,15 @@ import {
 } from "../../../src/trades-source/index.mjs";
 
 const HERE = new URL("./", import.meta.url).pathname;
+const REPO_ROOT = new URL("../../../", import.meta.url).pathname;
+
+// El manifest declara el path real del artefacto, relativo al repo: DATA-01
+// publica un artefacto por mercado (TRADES_MEASUREMENT-{gas-the,power-de}.json)
+// y un path fijo dejaba a cada manifest acreditando un archivo que no existe
+// (UI-07, hallazgo UI07-TR01-MANIFEST-PATH).
+export function repoRelativeArtifactPath(outputPath, repoRoot = REPO_ROOT) {
+  return path.relative(repoRoot, path.resolve(outputPath)).split(path.sep).join("/");
+}
 
 // Área hive del mercado: rellena Cmdty/Area de las filas de reference cuando la
 // tabla no los repite como columna (el escaneo ya filtró por esa área exacta).
@@ -131,12 +141,12 @@ function applyDerivedMeasurements(measurement, { market, start, end, referenceRo
   return measurement;
 }
 
-function buildManifest({ measurement, artifactSha256, inputPath, inputSha256 }) {
+export function buildManifest({ measurement, artifactPath, artifactSha256, inputPath, inputSha256 }) {
   return {
     artifactKind: "TR-01_TRADES_MEASUREMENT_MANIFEST",
     schemaVersion: "1.0",
     producer: "operations/trades/TR-01/aggregate-trades-rows.mjs",
-    artifact: { path: "operations/trades/TR-01/TRADES_MEASUREMENT.json", sha256: artifactSha256 },
+    artifact: { path: artifactPath, sha256: artifactSha256 },
     input: { path: inputPath, sha256: inputSha256 },
     counts: {
       rows: measurement.dedup.inputCount,
@@ -209,7 +219,7 @@ async function main() {
 
   const artifactBytes = Buffer.from(`${JSON.stringify(measurement, null, 2)}\n`);
   const artifactSha256 = createHash("sha256").update(artifactBytes).digest("hex");
-  const manifestBytes = Buffer.from(`${JSON.stringify(buildManifest({ measurement, artifactSha256, inputPath, inputSha256 }), null, 2)}\n`);
+  const manifestBytes = Buffer.from(`${JSON.stringify(buildManifest({ measurement, artifactPath: repoRelativeArtifactPath(outputPath), artifactSha256, inputPath, inputSha256 }), null, 2)}\n`);
   writeFileSync(outputPath, artifactBytes);
   writeFileSync(`${outputPath}.MANIFEST.json`, manifestBytes);
   console.log(`TR-01 TRADES_MEASUREMENT rows=${measurement.dedup.inputCount} eligible=${measurement.eligibility.eligible}`);

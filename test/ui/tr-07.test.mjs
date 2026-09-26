@@ -34,14 +34,13 @@ const zonePlan = readJson(TRADES_PANEL_ARTIFACTS.zonePlan.artifact);
 const bridgeStatus = readJson(TRADES_PANEL_ARTIFACTS.bridgeStatus.artifact);
 const sourceDecision = readJson(TRADES_PANEL_ARTIFACTS.sourceDecision.artifact);
 
-test("TR-07: los tres artifacts de panel se cargan y atan por hash a su manifest", () => {
-  for (const name of ["sourceDecision", "zonePlan", "bridgeStatus"]) {
+test("TR-07: los artifacts de panel se cargan y atan por hash a su manifest", () => {
+  // UI-07: la medición del puente (TR-03) y el freeze de TR-04 existen tras DATA-01.
+  for (const name of ["sourceDecision", "zonePlan", "bridgeStatus", "bridgeMeasurement", "tradesFreeze"]) {
     assert.equal(loaded[name].ok, true, `${name}: ${loaded[name].code ?? ""}`);
     assert.equal(typeof loaded[name].provenance.sha256, "string", name);
     assert.match(loaded[name].provenance.sha256, /^[0-9a-f]{64}$/, name);
   }
-  // La medición del puente aún no existe: es un estado, no un error de carga.
-  assert.equal(loaded.bridgeMeasurement.ok, false);
 });
 
 test("TR-07: el selector ofrece las 4 misiones y los modos TOB/TRADES", () => {
@@ -61,9 +60,8 @@ test("TR-07: el selector ofrece las 4 misiones y los modos TOB/TRADES", () => {
 test("TR-07 cobertura: cada fila sale del artifact y conserva su zona", () => {
   assert.equal(panels.coverage.status, zonePlan.coverageStatus.status);
   assert.equal(panels.coverage.reason, zonePlan.coverageStatus.reason);
-  assert.equal(panels.coverage.status, "PENDING_SCAN_JOB");
+  assert.equal(panels.coverage.status, "MEASURED");
   assert.equal(panels.coverage.sourceDecisionStatus, sourceDecision.status);
-  assert.equal(panels.coverage.sourceDecisionStatus, "PENDING_ARCHIVE_VERIFICATION");
   assert.equal(panels.coverage.missions.length, Object.keys(zonePlan.missions).length);
   for (const mission of panels.coverage.missions) {
     assert.equal(mission.market, zonePlan.missions[mission.missionId].market);
@@ -74,8 +72,6 @@ test("TR-07 cobertura: cada fila sale del artifact y conserva su zona", () => {
         const source = zonePlan.missions[mission.missionId].zones[zone.zone].find((entry) => entry.campaignId === campaign.campaignId);
         assert.equal(campaign.maturity, source.maturity);
         assert.equal(campaign.windowStart, source.windowStart);
-        // El artifact declara NO_COVERAGE con ceros mientras el escaneo no corre;
-        // TR-07 conserva ese estado en artifactStatus pero no lo presenta como medido.
         assert.equal(campaign.coverage.artifactStatus, source.coverage.status);
       }
     }
@@ -83,7 +79,9 @@ test("TR-07 cobertura: cada fila sale del artifact y conserva su zona", () => {
 });
 
 test("TR-07 cobertura: con PENDING_SCAN_JOB las cifras salen pendientes, no en cero", () => {
-  const quarterly = panels.coverage.missions.find((mission) => mission.missionId === "GAS_QUARTERLY");
+  const pendingPlan = { ...zonePlan, coverageStatus: { source: "TR-01_COVERAGE", status: "PENDING_SCAN_JOB", reason: "sin escaneo" } };
+  const pending = projectTradesPanels({ ...loaded, zonePlan: { ...loaded.zonePlan, json: pendingPlan } });
+  const quarterly = pending.coverage.missions.find((mission) => mission.missionId === "GAS_QUARTERLY");
   const development = quarterly.zones.find((zone) => zone.zone === "DEVELOPMENT");
   assert.ok(development.campaigns.length > 0);
   for (const campaign of development.campaigns) {
@@ -112,22 +110,21 @@ test("TR-07 zonas: OOS histórico sellado, cero aperturas, purge y forward pendi
   assert.equal(panels.zones.forward.fromIso, null);
 });
 
-test("TR-07 calibración: PENDING_SCAN_JOB con su ventana, límites y reglas del artifact", () => {
+test("TR-07 calibración: estado, ventana, límites y reglas salen del artifact de TR-03", () => {
   assert.equal(panels.calibration.status, bridgeStatus.status);
-  assert.equal(panels.calibration.status, "PENDING_SCAN_JOB");
-  assert.equal(panels.calibration.measurement.status, "PENDING_SCAN_JOB");
+  assert.equal(panels.calibration.status, "MEASURED");
+  assert.equal(panels.calibration.measurement.status, "MEASURED");
   assert.deepEqual(panels.calibration.freshnessLimitsSeconds, bridgeStatus.freshnessLimitsSeconds);
   assert.deepEqual(panels.calibration.observationRules, bridgeStatus.observationRules);
   assert.equal(panels.calibration.bridgeCampaigns.count, bridgeStatus.bridgeCampaigns.count);
   assert.equal(panels.calibration.window.zone, "PUENTE");
-  // Ninguna medición se inventa mientras el job no corra.
+  // El contenido crudo de la medición no viaja entero a la UI: sólo lo proyectado.
   assert.equal(panels.calibration.measurement.content, undefined);
 });
 
-test("TR-07 contrato congelado y resultados: UNAVAILABLE, sin versión ni run fabricados", () => {
-  assert.equal(panels.frozenContract.status, "UNAVAILABLE");
-  assert.equal(panels.frozenContract.brokenSpreadPolicy, sourceDecision.brokenSpreadPolicy);
-  assert.match(panels.frozenContract.reason, /TR-04/);
+test("TR-07 contrato y resultados: candidato HOLD de TR-04 y ningún run fabricado", () => {
+  assert.equal(panels.frozenContract.status, "PENDING_OWNER_APPROVAL");
+  assert.match(panels.frozenContract.reason, /pendiente de aprobación de Bru/);
   assert.equal(panels.results.status, "UNAVAILABLE");
   assert.match(panels.results.reason, /TR-06/);
 });
@@ -162,9 +159,11 @@ test("TR-07 fail-closed: sin plan verificado la cobertura y las zonas son ERROR,
   assert.equal(empty.results.status, "UNAVAILABLE");
 });
 
+// UI-07: la penalización trade->ask y la distribución (observación − ask) son
+// diferencias medidas en €/MWh, no precios; ningún precio de trade ni ask viaja.
 test("TR-07: el soporte backend no abre ninguna columna de precio", () => {
   const serialized = JSON.stringify(panels);
-  for (const priceField of ["Px", "AskPx", "BidPx", "EurMwh", "eurMwh"]) {
+  for (const priceField of ["Px", "AskPx", "BidPx", "tradePrice", "askPrice", "\"price\""]) {
     assert.equal(serialized.includes(priceField), false, `no debe exponer ${priceField}`);
   }
 });
@@ -173,7 +172,8 @@ test("TR-07: la procedencia identifica el artifact y su manifest", () => {
   assert.equal(panels.provenance.zonePlan.path, TRADES_PANEL_ARTIFACTS.zonePlan.artifact);
   assert.equal(panels.provenance.zonePlan.manifestPath, TRADES_PANEL_ARTIFACTS.zonePlan.manifest);
   assert.equal(panels.provenance.bridgeStatus.path, TRADES_PANEL_ARTIFACTS.bridgeStatus.artifact);
-  assert.equal(panels.provenance.bridgeMeasurement, null);
+  assert.equal(panels.provenance.bridgeMeasurement.path, TRADES_PANEL_ARTIFACTS.bridgeMeasurement.artifact);
+  assert.equal(panels.provenance.tradesFreeze.path, TRADES_PANEL_ARTIFACTS.tradesFreeze.artifact);
 });
 
 test("TR-07 gate: el prototipo no pinta ceros no medidos y muestra el estado de la fuente TR-01", () => {
@@ -203,11 +203,12 @@ test("TR-07 UI: la pantalla de Backtests dibuja selector y paneles con los estad
   for (const panel of ["coverage", "zones", "calibration", "frozenContract", "results"]) {
     assert.ok(html.includes(`data-tr07="${panel}"`), panel);
   }
-  // Estados reales mostrados como tales, nunca como ceros.
-  assert.ok(html.includes("PENDING_ARCHIVE_VERIFICATION"));
-  assert.ok(html.includes("PENDING_SCAN_JOB"));
-  assert.equal(/0 \/ \d+ d/.test(html), false);
-  assert.ok(html.includes("— / 62 d"), "la ventana estructural se conserva y la medición pendiente sale —");
+  // Estados reales mostrados como tales; una ventana anterior a la fuente no es cero.
+  assert.ok(html.includes(sourceDecision.status));
+  assert.ok(html.includes("MEASURED"));
+  assert.ok(html.includes("PENDING_OWNER_APPROVAL"));
+  assert.ok(html.includes("BEFORE_SOURCE_START"));
+  assert.ok(html.includes("— / 62 d"), "la ventana estructural se conserva y lo que la fuente no trae sale —");
 });
 
 test("TR-07 UI: el modo parametriza el texto de observación (best ask vs last trade/VWAP)", () => {
@@ -229,8 +230,7 @@ test("TR-07 UI: cada resultado de cobertura lleva su zona y su estado de artifac
   assert.match(html, /data-tr07="coverage" data-mission="POWER_MONTHLY"/);
   assert.ok(html.includes('data-tr07-campaign="POW-M-2020-12"'));
   assert.ok(html.includes(">DEVELOPMENT<"));
-  // El estado NO_COVERAGE del artifact aceptado no se presenta como medición.
-  assert.ok(html.includes("PENDING_SCAN_JOB"));
+  assert.ok(html.includes("OBSERVED"));
 });
 
 test("TR-07 UI: sin view model de paneles la sección TR-07 queda fuera (fail-closed)", () => {
@@ -269,11 +269,12 @@ test("TR-07 UI: el servidor acepta el modo por query y lo refleja, sin romper ru
 });
 
 test("TR-07 UI: la misión elegida filtra la vista TOB (plan :73; prototipo tobView)", () => {
+  // Tras DATA-01 existe el release v3 de Power (BT-06): Power muestra su producto,
+  // nunca los de Gas.
   const power = renderBacktests({ mode: "TOB", missionId: "POWER_MONTHLY" });
   assert.equal(power.includes('data-product="G0BQ"'), false, "Power no debe mostrar la comparación de Gas Q");
   assert.equal(power.includes('data-product="G0BM"'), false, "Power no debe mostrar la comparación de Gas M");
-  assert.ok(power.includes("No TOB data for Power yet"));
-  assert.match(power, /data-tr07="tob-unavailable" data-mission="POWER_MONTHLY"/);
+  assert.ok(power.includes('data-product="DEBM"'));
 
   const gasMonthly = renderBacktests({ mode: "TOB", missionId: "GAS_MONTHLY" });
   assert.equal(gasMonthly.includes('data-product="G0BQ"'), false);
@@ -316,7 +317,7 @@ test("TR-07 UI: el contraste sólo aparece con el puente en la vista (plan :76)"
   assert.ok(development.includes("Contrast only exists for the bridge, 2025-08-12 to 2026-07-28"));
 });
 
-test("TR-07 UI: el botón de expandir abre los gráficos de calibración pendientes, sin números (plan :77)", () => {
+test("TR-07 UI: el botón de expandir abre los caminos sin runs y la calibración medida (plan :77)", () => {
   const html = renderBacktests({ mode: "TRADES", period: "PUENTE" });
   assert.match(html, /data-tr07="expand"/);
   assert.ok(html.includes("Expand calibration charts"));
@@ -324,12 +325,14 @@ test("TR-07 UI: el botón de expandir abre los gráficos de calibración pendien
   assert.match(html, /data-tr07="expanded-paths"/);
   assert.match(html, /data-tr07="expanded-calibration"/);
   assert.ok(html.includes("Not run yet"));
-  assert.ok(html.includes("Not measured yet"));
+  // UI-07: la distribución (observación − ask) ya está medida en TR-03.
+  assert.equal(html.includes("Not measured yet"), false);
+  assert.match(html, /data-tr07-gap="GAS_QUARTERLY\|LAST_TRADE\|bridge"/);
 
-  const start = html.indexOf('data-tr07="expanded-charts"');
-  const end = html.indexOf("</details>", start);
-  const expanded = html.slice(start, end === -1 ? undefined : end);
-  assert.equal(/€\/MWh|k€/.test(expanded), false, "sin medición no se inventan valores");
+  const start = html.indexOf('data-tr07="expanded-paths"');
+  const end = html.indexOf('data-tr07="expanded-calibration"', start);
+  const paths = html.slice(start, end);
+  assert.equal(/€\/MWh|k€/.test(paths), false, "sin runs no se inventan caminos");
 
   const development = renderBacktests({ mode: "TRADES", period: "DEVELOPMENT" });
   assert.equal(development.includes('data-tr07="expanded-charts"'), false, "fuera del puente no hay nada que expandir");

@@ -105,6 +105,7 @@ test("el DATA_SOURCE_DECISION committeado es reproducible desde source-candidate
   const { artifactBytes, manifestBytes, decision } = buildArtifacts(candidatesDocument, { candidatesSha256 });
   assert.equal(artifactBytes.equals(readFileSync(`${HERE}DATA_SOURCE_DECISION.json`)), true);
   assert.equal(manifestBytes.equals(readFileSync(`${HERE}DATA_SOURCE_DECISION.MANIFEST.json`)), true);
-  assert.equal(decision.status, SOURCE_DECISION_STATUS.PENDING_ARCHIVE_VERIFICATION);
-  assert.equal(decision.selectedSource, SOURCE_IDS.EEX_LAKE);
+  // DATA-01 (2026-09-26) verificó el archivo sellado: la decisión committeada es DECIDED.
+  assert.equal(decision.status, SOURCE_DECISION_STATUS.DECIDED);
+  assert.equal(decision.selectedSource, SOURCE_IDS.CLIENT_SEALED_ARCHIVE);
 });
