@@ -50,15 +50,18 @@ export function earliestWindowStart(zonePlan) {
 }
 
 // Comandos del job de TR-06 por la ruta de BT-05: primero los extractores de
-// TR-01/TR-03 (trades y TOB por mercado), después el productor de los runs. El
-// inicio de la extracción de trades cubre la primera ventana del plan de TR-02.
+// TR-01/TR-03 (trades y TOB por mercado), después UN comando POR RUN (misión, fase
+// y regla) y al final el ensamblado. El inicio de la extracción de trades cubre la
+// primera ventana del plan de TR-02.
 //
-// Además del comando completo (un proceso para los 20 runs), se emite UN comando
-// POR RUN (misión, fase y regla): BT-05 mide un pico de RAM por job, y sólo un
-// proceso por run puede atribuir el pico a ese run (plan TR-06 "Pico de RAM por
-// run"). Los runs OOS leen la decisión del gate del puente del archivo declarado,
-// que la orquestación escribe tras los runs del puente; sin él el OOS queda
-// bloqueado (fail-closed).
+// Un proceso por run es el ÚNICO camino que corre estrategia: BT-05 mide un pico
+// de RAM por job, y sólo un proceso por run puede atribuir el pico a ese run
+// (plan TR-06 "Pico de RAM por run"). NO hay un comando "completo" que corra los
+// 20 runs: además de no poder atribuir el pico, volvía a abrir el OOS de cada
+// misión (segunda apertura con otro run_id). Los runs OOS leen la decisión del
+// gate del puente del archivo declarado, que los runs del puente escriben antes;
+// sin él el OOS queda bloqueado (fail-closed). `--assemble` sólo combina los
+// artefactos por run: no corre estrategia ni lee el OOS.
 export function buildJobCommands(zonePlan) {
   const tradesStart = earliestWindowStart(zonePlan) ?? "2021-01-01";
   const inputFlags = "--gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json";
@@ -67,7 +70,6 @@ export function buildJobCommands(zonePlan) {
     `python3 operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --start ${tradesStart} --end 2026-07-28 --out /tmp/tr06-power-de.ndjson`,
     "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=NATGAS/area=THE --products G0BQ,G0BM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-gas.json",
     "python3 operations/trades/TR-03/extract-tob-rows.py --source lake --area cmdty=POWER/area=DE --products DEBQ,DEBM --start 2025-08-12 --end 2026-07-28 --out /tmp/tr06-tob-power.json",
-    `node operations/trades/TR-06/build-trades-runs.mjs ${inputFlags}`,
   ];
   const perRun = [];
   for (const missionKey of Object.keys(TRADES_ENGINE_MISSIONS)) {
@@ -78,7 +80,8 @@ export function buildJobCommands(zonePlan) {
       }
     }
   }
-  return [...base, ...perRun];
+  const assemble = `node operations/trades/TR-06/build-trades-runs.mjs --assemble ${inputFlags}`;
+  return [...base, ...perRun, assemble];
 }
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");

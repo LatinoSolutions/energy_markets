@@ -8,43 +8,48 @@
 // orquestación a `src/trades-engine/runs.mjs`. No calcula economía ni inventa
 // resultados.
 //
-// Precondición fail-closed: el contrato TRADES-v1 debe estar FROZEN (gate humano
-// de TR-04). Sin freeze, el script termina sin escribir resultados.
+// UN SOLO CAMINO por run (plan TR-06 "Pico de RAM por run"): cada proceso corre
+// EXACTAMENTE un run (misión, fase y regla) y guarda su artefacto por runKey; el
+// pico de RAM lo mide BT-05 sobre ese proceso. No hay un productor "completo" que
+// corra los 20 runs: eso duplicaba la apertura del OOS (el run aislado abría el
+// sello otra vez, con otro run_id, y contaba dos aperturas por misión). La vista
+// agregada `trades-runs.json` la ENSAMBLA `--assemble` a partir de los artefactos
+// por run, sin volver a leer el OOS.
 //
-// El run lo lanza Bru por la ruta de jobs de BT-05, que mide el pico de RAM POR
-// RUN (memory.peak del cgroup por job). El pico entra como MAPA
-// { runKey -> pico } (`TR06_MEMORY_PEAK_JSON` o `--memory-peaks <json>`); un
-// valor único NO es una medición por run y no se copia a todos los runs: cada run
-// sin entrada en el mapa queda null (nunca un número inventado). Conectar el
-// runner para que invoque un job por run es el binding de DATA-01
-// (`PLAN_STATUS.md`: "añadir los tipos de job necesarios").
+// El identificador de cada run se liga a los datos de entrada: `dataManifest`
+// lleva el sha256 de la zona plan, del freeze y de los archivos de trades/TOB, así
+// que dos corridas con los mismos inputs dan el mismo run_id y una con otros
+// inputs da otro (una apertura nueva, que se cuenta).
 //
-// El registro de accesos del OOS es append-only: cada ejecución parte del
-// registro persistido en `trades-runs.json` (si existe) y sólo añade aperturas
-// nuevas; repetir el mismo run_id es la misma apertura (patch 03 §4). El
-// `atUtc` se toma del artefacto previo para que `--check` sea reproducible.
+// El registro de accesos del OOS es append-only: el run OOS parte del registro
+// persistido en `trades-oos-access.jsonl` (si existe), así ve las aperturas
+// anteriores y no informa "1 apertura" desde cero. Cada lectura deja su entrada;
+// el conteo de aperturas es por run_id único por misión (patch 03 §4).
 //
-// Uso:
+// Uso (un proceso por run, BT-05 mide el pico de RAM de cada uno):
 //   node operations/trades/TR-06/build-trades-runs.mjs \
-//     --gas-trades /tmp/tr06-gas-the.ndjson --power-trades /tmp/tr06-power-de.ndjson \
-//     --gas-tob /tmp/tr06-tob-gas.json --power-tob /tmp/tr06-tob-power.json
+//     --mission GAS_QUARTERLY --phase OOS --rule LAST_TRADE \
+//     --gas-trades /tmp/tr06-gas-the.ndjson --gas-tob /tmp/tr06-tob-gas.json
+//   node operations/trades/TR-06/build-trades-runs.mjs --assemble
 //   node operations/trades/TR-06/build-trades-runs.mjs --check
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { createReadStream, readFileSync, writeFileSync } from "node:fs";
+import { createReadStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
 import { tobSlotsDocumentToSeries } from "../../../src/trades-bridge/tob-slots.mjs";
 import { OBSERVATION_RULE_LIST } from "../../../src/trades-bridge/constants.mjs";
 import { accessRegistryFromEntries } from "../../../src/oos-reservation/trades-zones.mjs";
+import { TRADES_ENGINE_MISSIONS } from "../../../src/trades-engine/missions.mjs";
 import {
   TRADES_RUN_PHASES,
+  TRADES_RUN_PHASE_ORDER,
   TRADES_RUNS_VERSION,
   bridgeDecisionFromStatuses,
+  observationRulesForPhase,
   runTradesMissionPhases,
-  runTradesRuns,
   tradesRunKey,
 } from "../../../src/trades-engine/runs.mjs";
 
@@ -54,8 +59,11 @@ const GAS_CALENDAR_PATH = "operations/audit/IMP-09/eex-exchange-calendar.json";
 const POWER_CALENDAR_PATH = "operations/trades/TR-01/power-de-exchange-calendar.json";
 const OUT_PATH = "operations/trades/TR-06/trades-runs.json";
 const MANIFEST_PATH = "operations/trades/TR-06/trades-runs.MANIFEST.json";
+// Artefacto por run (plan TR-06 "Pico de RAM por run"): un archivo por runKey con
+// su manifest y los hashes de sus inputs. `--assemble` los combina.
+export const RUNS_DIR = "operations/trades/TR-06/runs";
 // Registro de accesos del OOS append-only (patch 03 §4): una línea JSON por
-// apertura. El artefacto publica una foto; este archivo es la fuente persistente.
+// lectura. El artefacto publica una foto; este archivo es la fuente persistente.
 const ACCESS_REGISTRY_PATH = "operations/trades/TR-06/trades-oos-access.jsonl";
 // Decisiones del gate del puente por misión y regla, escritas por los runs del
 // puente y leídas por los runs OOS aislados (selector de un solo run). Sin este
@@ -90,6 +98,14 @@ async function readNdjsonRows(file) {
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function readJsonOrNull(file) {
+  try {
+    return readJson(file);
+  } catch {
+    return null;
+  }
 }
 
 function exchangeDaysOf(calendarPath) {
@@ -131,12 +147,46 @@ export function memoryPeaksFromInput({ memoryPeaksPath = null } = {}) {
   return entries.length === 0 ? null : Object.fromEntries(entries);
 }
 
+// Binding de un archivo de entrada: path + sha256. Sin archivo legible se declara
+// sha256 null (nunca un hash inventado); el run ya falla antes si su input falta.
+function fileBinding(file) {
+  try {
+    return { path: file, sha256: hashFile(file) };
+  } catch {
+    return { path: file, sha256: null };
+  }
+}
+
+// Manifest de datos de entrada del run: zona plan, freeze y los trades/TOB de
+// cada mercado presente. Es la misma forma para todos los runs (los cuatro flags
+// van juntos), así el run_id es estable entre procesos.
+export function buildInputManifest(inputs = {}) {
+  const manifest = {
+    zonePlan: fileBinding(ZONE_PLAN_PATH),
+    freeze: fileBinding(FREEZE_PATH),
+    trades: {},
+    tob: {},
+  };
+  for (const market of MARKET_RUNS) {
+    const tradesPath = inputs?.[market.tradesFlag];
+    const tobPath = inputs?.[market.tobFlag];
+    if (typeof tradesPath === "string" && tradesPath.length > 0) manifest.trades[market.market] = fileBinding(tradesPath);
+    if (typeof tobPath === "string" && tobPath.length > 0) manifest.tob[market.market] = fileBinding(tobPath);
+  }
+  return manifest;
+}
+
 function freezeIsFrozen() {
   try {
     return readJson(FREEZE_PATH)?.decision === "FROZEN";
   } catch {
     return false;
   }
+}
+
+// Ruta del artefacto por run. El runKey usa `|`; en disco se sustituye por `__`.
+export function runArtifactPath(runKey, dir = RUNS_DIR) {
+  return `${dir}/${String(runKey).replaceAll("|", "__")}.json`;
 }
 
 // Registro append-only: lee las entradas persistidas (una por línea JSON). Sin
@@ -218,75 +268,75 @@ export function dedupeAccessLogEntries(entries = []) {
   return result;
 }
 
-export async function buildTradesRuns({ inputs, seedRegistry = null, atUtc = null, memoryPeaks = null, codeCommit = null, onOosAccess = null }) {
-  const zonePlan = readJson(ZONE_PLAN_PATH);
-  const resolvedCommit = codeCommit ?? gitHead();
-  const resolvedAtUtc = atUtc ?? new Date().toISOString();
-  const resolvedMemoryPeaks = memoryPeaks ?? memoryPeaksFromInput({ memoryPeaksPath: inputs?.["--memory-peaks"] ?? null });
-  const dataManifest = {
-    zonePlan: { path: ZONE_PLAN_PATH, sha256: hashFile(ZONE_PLAN_PATH) },
-    freeze: { path: FREEZE_PATH, sha256: hashFile(FREEZE_PATH) },
-    trades: {},
-    tob: {},
-  };
+// Plan del OOS con el registro persistido sembrado: el run aislado ve las
+// aperturas anteriores (no informa "1 apertura" desde cero) y el conteo de
+// aperturas es el real (patch 03 §4).
+function seedOosPlan({ zonePlan, registryFile }) {
+  const entries = readAccessRegistry(registryFile);
+  if (entries.length === 0) return zonePlan;
+  return { ...zonePlan, accessRegistry: accessRegistryFromEntries(entries) };
+}
 
+// Ensambla la vista agregada `trades-runs.json` a partir de los artefactos por run
+// (un proceso por run, plan TR-06 "Pico de RAM por run"). NO corre ninguna
+// estrategia ni lee el OOS: sólo lee artefactos ya producidos y el registro de
+// accesos persistido. Un runKey sin artefacto queda declarado como bloqueo.
+export function assembleTradesRuns({ inputs = null, runsDir = RUNS_DIR, registryFile = ACCESS_REGISTRY_PATH } = {}) {
   const runs = [];
-  // Registro append-only: se parte del registro persistido (si existe) y se
-  // encadena. El callback `onOosAccess` persiste cada apertura ANTES de leer el
-  // OOS (patch 03 §4), así que una caída a mitad de la lectura no deja la lectura
-  // sin registro guardado.
-  let accessPlan = seedRegistry === null ? null : { ...zonePlan, accessRegistry: seedRegistry };
+  const artifacts = [];
+  const runArtifacts = [];
   const blockedBy = [];
-
-  for (const market of MARKET_RUNS) {
-    const tradesPath = inputs[market.tradesFlag];
-    const tobPath = inputs[market.tobFlag];
-    if (tradesPath === null || tobPath === null) {
-      blockedBy.push(`MISSING_INPUT_${market.market}`);
-      continue;
+  for (const [missionKey, definition] of Object.entries(TRADES_ENGINE_MISSIONS)) {
+    for (const phase of TRADES_RUN_PHASE_ORDER) {
+      for (const observationRule of observationRulesForPhase(phase)) {
+        const runKey = tradesRunKey({ market: definition.market, missionKey, phase, observationRule });
+        const artifactPath = runArtifactPath(runKey, runsDir);
+        let bytes = null;
+        try {
+          bytes = readFileSync(artifactPath);
+        } catch {
+          bytes = null;
+        }
+        if (bytes === null) {
+          blockedBy.push("MISSING_RUN_ARTIFACT");
+          continue;
+        }
+        const artifact = JSON.parse(bytes.toString("utf8"));
+        runArtifacts.push({ runKey, path: artifactPath, sha256: sha256(bytes) });
+        artifacts.push(artifact);
+        blockedBy.push(...(artifact.blockedBy ?? []));
+        if (artifact.run) runs.push(artifact.run);
+      }
     }
-    const rows = await readNdjsonRows(tradesPath);
-    const tobSeries = tobSlotsDocumentToSeries(readJson(tobPath));
-    const exchangeDays = exchangeDaysOf(market.calendarPath);
-    dataManifest.trades[market.market] = { path: tradesPath, sha256: hashFile(tradesPath) };
-    dataManifest.tob[market.market] = { path: tobPath, sha256: hashFile(tobPath) };
-
-    const outcome = runTradesRuns({
-      zonePlan,
-      rows,
-      exchangeDays,
-      tobSeries,
-      frozenContract: readJson(FREEZE_PATH),
-      codeCommit: resolvedCommit,
-      dataManifest,
-      parameters: { jobKind: "TRADES_BACKTEST", phase: "TR-06" },
-      memoryPeaks: resolvedMemoryPeaks,
-      atUtc: resolvedAtUtc,
-      actor: "Bru",
-      missions: market.missions,
-      initialAccessPlan: accessPlan,
-      onOosAccess,
-    });
-    blockedBy.push(...outcome.blockedBy);
-    runs.push(...outcome.runs);
-    if (outcome.accessPlan) accessPlan = outcome.accessPlan;
   }
-
-  const artifact = {
-    artifactKind: "TR-06_TRADES_RUNS",
-    schemaVersion: TRADES_RUNS_VERSION,
-    status: blockedBy.length === 0 ? "RUN" : "BLOCKED",
-    spec: { id: "OWNER_PATCH_TRADES_MODE_2026-09-25.md", version: "EM-SPEC-OWNER-PATCH-2026-09-25-03" },
-    codeCommit: resolvedCommit,
-    inputs: dataManifest,
-    memoryPeaks: resolvedMemoryPeaks,
+  const codeCommit = artifacts.find((artifact) => artifact.codeCommit)?.codeCommit ?? null;
+  const inputManifest = artifacts.find((artifact) => artifact.inputs)?.inputs ?? (inputs === null ? null : buildInputManifest(inputs));
+  const memoryPeaks = {};
+  for (const artifact of artifacts) {
+    const peak = artifact.run?.manifest?.memoryPeak;
+    if (peak !== null && peak !== undefined) memoryPeaks[artifact.runKey] = peak;
+  }
+  const zonePlan = readJsonOrNull(ZONE_PLAN_PATH);
+  return {
+    artifact: {
+      artifactKind: "TR-06_TRADES_RUNS",
+      schemaVersion: TRADES_RUNS_VERSION,
+      status: blockedBy.length === 0 ? "RUN" : "BLOCKED",
+      spec: { id: "OWNER_PATCH_TRADES_MODE_2026-09-25.md", version: "EM-SPEC-OWNER-PATCH-2026-09-25-03" },
+      codeCommit,
+      inputs: inputManifest,
+      memoryPeaks: Object.keys(memoryPeaks).length === 0 ? null : memoryPeaks,
+      runs,
+      // Vista de aperturas (dedupe por misión+run_id); el log completo de lecturas
+      // vive en el registro append-only en disco.
+      oosAccess: zonePlan?.decision === "RESERVED"
+        ? accessRegistryFromEntries(dedupeAccessLogEntries(readAccessRegistry(registryFile)))
+        : null,
+      blockedBy: [...new Set(blockedBy)],
+    },
     runs,
-    // Vista de aperturas (dedupe por misión+run_id); el log completo de lecturas
-    // vive en el registro append-only en disco.
-    oosAccess: accessPlan === null ? null : accessRegistryFromEntries(dedupeAccessLogEntries(accessPlan.accessRegistry?.entries ?? [])),
-    blockedBy: [...new Set(blockedBy)],
+    runArtifacts,
   };
-  return { artifact, runs };
 }
 
 // Selección de UN solo run (misión, fase y regla) para que BT-05 pueda medir el
@@ -353,9 +403,11 @@ export function recordBridgeDecision({ mission, observationRule, decision, file 
   return document;
 }
 
-// Corre EXACTAMENTE un run (misión, fase y regla) por la ruta pura del motor.
-// No escribe el artefacto de los 20 runs: el pico de RAM lo mide BT-05 sobre este
-// proceso. La apertura del OOS se persiste antes de leer vía `onOosAccess`.
+// Corre EXACTAMENTE un run (misión, fase y regla) por la ruta pura del motor y
+// guarda su artefacto por runKey. El pico de RAM lo mide BT-05 sobre este proceso.
+// El identificador del run se liga a los datos de entrada (`buildInputManifest`);
+// el OOS parte del registro persistido en disco y persiste su apertura antes de
+// leer vía `onOosAccess`.
 export async function buildSingleTradesRun({
   selector,
   inputs,
@@ -366,6 +418,11 @@ export async function buildSingleTradesRun({
   actor = "Bru",
   onOosAccess = null,
   bridgeDecisionsPath = BRIDGE_DECISIONS_PATH,
+  zonePlan = null,
+  frozenContract = null,
+  exchangeDays = null,
+  registryFile = ACCESS_REGISTRY_PATH,
+  outputDir = RUNS_DIR,
 } = {}) {
   const mission = selector?.mission ?? null;
   const phase = selector?.phase ?? null;
@@ -378,7 +435,8 @@ export async function buildSingleTradesRun({
   if (!OBSERVATION_RULE_LIST.includes(rule)) {
     return { ok: false, code: "UNKNOWN_OBSERVATION_RULE", mission, phase, rule, run: null, oos: null };
   }
-  if (!freezeIsFrozen()) {
+  const resolvedFreeze = frozenContract ?? readJsonOrNull(FREEZE_PATH);
+  if (resolvedFreeze?.decision !== "FROZEN") {
     return { ok: false, code: "TRADES_CONTRACT_NOT_FROZEN", mission, phase, rule, run: null, oos: null };
   }
   const tradesPath = inputs?.[market.tradesFlag];
@@ -386,45 +444,73 @@ export async function buildSingleTradesRun({
   if (typeof tradesPath !== "string" || tradesPath.length === 0 || typeof tobPath !== "string" || tobPath.length === 0) {
     return { ok: false, code: `MISSING_INPUT_${market.market}`, mission, phase, rule, run: null, oos: null };
   }
-  const zonePlan = readJson(ZONE_PLAN_PATH);
+  const resolvedZonePlan = zonePlan ?? readJson(ZONE_PLAN_PATH);
+  const resolvedDataManifest = dataManifest ?? buildInputManifest(inputs);
+  const resolvedCommit = codeCommit ?? gitHead();
   const rows = await readNdjsonRows(tradesPath);
   const tobSeries = tobSlotsDocumentToSeries(readJson(tobPath));
-  const exchangeDays = exchangeDaysOf(market.calendarPath);
+  const resolvedExchangeDays = exchangeDays ?? exchangeDaysOf(market.calendarPath);
   const resolvedBridge = phase === TRADES_RUN_PHASES.OOS
     ? readBridgeDecision({ mission, bridgeDecision: selector.bridgeDecision, bridgeDecisionFile: selector.bridgeDecisionFile ?? bridgeDecisionsPath })
+    : null;
+  const oosPlan = phase === TRADES_RUN_PHASES.OOS
+    ? seedOosPlan({ zonePlan: resolvedZonePlan, registryFile })
     : null;
   const outcome = runTradesMissionPhases({
     phase,
     missionKey: mission,
     observationRule: rule,
-    zonePlan,
+    zonePlan: resolvedZonePlan,
     rows,
-    exchangeDays,
+    exchangeDays: resolvedExchangeDays,
     tobSeries,
-    frozenContract: readJson(FREEZE_PATH),
-    codeCommit: codeCommit ?? gitHead(),
-    dataManifest,
+    frozenContract: resolvedFreeze,
+    codeCommit: resolvedCommit,
+    dataManifest: resolvedDataManifest,
     parameters: { jobKind: "TRADES_BACKTEST", phase: "TR-06" },
     memoryPeak,
     atUtc: atUtc ?? new Date().toISOString(),
     actor,
+    oosPlan,
     bridgeGateDecision: resolvedBridge,
     onOosAccess,
   });
   // Un run del puente deja su decisión para el run OOS aislado de la misma misión
-  // (que exige PASS en todas las reglas del puente).
-  if (phase === TRADES_RUN_PHASES.BRIDGE && outcome.ok) {
-    recordBridgeDecision({ mission, observationRule: rule, decision: outcome.run.bridgeGate?.decision ?? "HOLD", file: bridgeDecisionsPath });
+  // (que exige PASS en todas las reglas del puente). Se registra SIEMPRE, también
+  // cuando el run queda bloqueado (HOLD): una decisión PASS vieja no debe
+  // sobrevivir a un puente que ya no da PASS (fail-closed).
+  if (phase === TRADES_RUN_PHASES.BRIDGE) {
+    recordBridgeDecision({ mission, observationRule: rule, decision: outcome.run?.bridgeGate?.decision ?? "HOLD", file: bridgeDecisionsPath });
   }
+  const runKey = tradesRunKey({ market: market.market, missionKey: mission, phase, observationRule: rule });
+  const artifact = {
+    artifactKind: "TR-06_TRADES_RUN",
+    schemaVersion: TRADES_RUNS_VERSION,
+    runKey,
+    missionKey: mission,
+    market: market.market,
+    phase,
+    observationRule: rule,
+    codeCommit: resolvedCommit,
+    inputs: resolvedDataManifest,
+    run: outcome.run ?? null,
+    oosAccess: outcome.oos?.opening ?? null,
+    blockedBy: outcome.ok ? [] : [outcome.code ?? "RUN_BLOCKED"],
+  };
+  const artifactPath = runArtifactPath(runKey, outputDir);
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(artifactPath, `${JSON.stringify(artifact, null, 1)}\n`);
   return {
     ok: outcome.ok,
     code: outcome.code ?? null,
     mission,
     phase,
     rule,
-    runKey: tradesRunKey({ market: market.market, missionKey: mission, phase, observationRule: rule }),
-    run: outcome.run,
+    runKey,
+    run: outcome.run ?? null,
     oos: outcome.oos,
+    artifact,
+    artifactPath,
   };
 }
 
@@ -441,19 +527,21 @@ function parseInputs() {
 async function main() {
   const inputs = parseInputs();
   const selector = parseRunSelector();
-  // Selector de un solo run: un proceso por run (BT-05 mide su pico de RAM).
+  // Selector de un solo run: un proceso por run (BT-05 mide su pico de RAM). Es el
+  // ÚNICO camino que corre estrategia; guarda su artefacto por runKey.
   if (selector !== null) {
     const market = MARKET_RUNS.find((entry) => entry.missions.includes(selector.mission)) ?? null;
     const peaks = memoryPeaksFromInput({ memoryPeaksPath: inputs["--memory-peaks"] ?? null });
+    const runKey = tradesRunKey({
+      market: market?.market ?? "",
+      missionKey: selector.mission,
+      phase: selector.phase,
+      observationRule: selector.rule,
+    });
     const result = await buildSingleTradesRun({
       selector,
       inputs,
-      memoryPeak: peaks?.[tradesRunKey({
-        market: market?.market ?? "",
-        missionKey: selector.mission,
-        phase: selector.phase,
-        observationRule: selector.rule,
-      })] ?? null,
+      memoryPeak: peaks?.[runKey] ?? null,
       onOosAccess: createOosAccessPersister(),
     });
     if (!result.ok) {
@@ -465,21 +553,13 @@ async function main() {
     return;
   }
   if (process.argv.includes("--check")) {
+    // Reproducible y sin tocar el OOS: re-ensambla la vista agregada desde los
+    // artefactos por run y el registro persistido, y compara bytes. No ejecuta
+    // ninguna lectura del OOS.
     const committed = readFileSync(OUT_PATH);
-    const previous = JSON.parse(committed.toString("utf8"));
-    // Reproducible: se reusa el registro persistido, la identidad de código y el
-    // mapa de picos del artefacto commiteado; un check NO escribe.
-    const seedEntries = readAccessRegistry();
-    const seedRegistry = seedEntries.length > 0 ? accessRegistryFromEntries(seedEntries) : (previous.oosAccess ?? null);
-    const { artifact } = await buildTradesRuns({
-      inputs,
-      seedRegistry,
-      atUtc: (seedRegistry?.entries ?? []).at(-1)?.atUtc ?? null,
-      memoryPeaks: previous.memoryPeaks ?? null,
-      codeCommit: previous.codeCommit ?? null,
-    });
+    const { artifact } = assembleTradesRuns({ inputs });
     const bytes = Buffer.from(`${JSON.stringify(artifact, null, 1)}\n`);
-    if (!committed.equals(bytes)) throw new Error("trades-runs.json no es reproducible con los inputs actuales.");
+    if (!committed.equals(bytes)) throw new Error("trades-runs.json no es reproducible con los artefactos de run actuales.");
     console.log("TR-06 runs reproducible");
     return;
   }
@@ -488,16 +568,10 @@ async function main() {
     process.exitCode = 2;
     return;
   }
-  const seedEntries = readAccessRegistry();
-  const seedRegistry = seedEntries.length === 0 ? null : accessRegistryFromEntries(seedEntries);
-  const { artifact } = await buildTradesRuns({
-    inputs,
-    seedRegistry,
-    memoryPeaks: memoryPeaksFromInput({ memoryPeaksPath: inputs["--memory-peaks"] ?? null }),
-    // Cada apertura del OOS se persiste append-only ANTES de leerla (patch 03 §4):
-    // una caída durante la lectura no deja la lectura sin registro guardado.
-    onOosAccess: createOosAccessPersister(),
-  });
+  // Ensambla la vista agregada de los artefactos por run. No corre estrategia ni
+  // lee el OOS: cada apertura ya quedó persistida por el run OOS aislado.
+  const assembly = assembleTradesRuns({ inputs });
+  const { artifact } = assembly;
   const bytes = Buffer.from(`${JSON.stringify(artifact, null, 1)}\n`);
   writeFileSync(OUT_PATH, bytes);
   const registryBinding = readRegistryBinding();
@@ -507,6 +581,7 @@ async function main() {
     artifact: { path: OUT_PATH, sha256: sha256(bytes) },
     generator: { path: "operations/trades/TR-06/build-trades-runs.mjs", sha256: hashFile("operations/trades/TR-06/build-trades-runs.mjs") },
     accessRegistry: registryBinding,
+    runArtifacts: assembly.runArtifacts,
     inputs: artifact.inputs,
   };
   writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 1)}\n`);

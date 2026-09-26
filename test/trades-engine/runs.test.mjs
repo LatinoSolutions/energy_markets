@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { CLIENT_SLOT } from "../../src/exploratory/backtest.mjs";
 import { SLOT_LABELS, HALVES, OBSERVATION_RULES } from "../../src/trades-bridge/constants.mjs";
@@ -23,11 +25,13 @@ import { frozenTradesResult, missionTradeAt } from "./fixtures.mjs";
 import { buildJobCommands, buildTradesRunsStatus, earliestWindowStart } from "../../operations/trades/TR-06/build-trades-runs-status.mjs";
 import {
   buildSingleTradesRun,
+  assembleTradesRuns,
   createOosAccessPersister,
   memoryPeaksFromInput,
   parseRunSelector,
   readBridgeDecision,
   recordBridgeDecision,
+  runArtifactPath,
 } from "../../operations/trades/TR-06/build-trades-runs.mjs";
 import { appendAccessRegistry, readAccessRegistry } from "../../operations/trades/TR-06/build-trades-runs.mjs";
 
@@ -728,5 +732,129 @@ test("la decisión del puente se escribe por regla y el OOS aislado exige PASS e
     assert.equal(readBridgeDecision({ mission: "GAS_QUARTERLY", bridgeDecisionFile: file }), "FAIL");
   } finally {
     rmSync(file, { force: true });
+  }
+});
+
+// TR06-OOS-DOUBLE-OPENING: un solo camino. El job no tiene un comando "completo"
+// que corra los 20 runs (eso volvía a abrir el OOS de cada misión); hay un comando
+// por run y un ensamblado final que no corre estrategia.
+test("el job de TR-06 no tiene productor completo: un comando por run y un ensamblado", () => {
+  const plan = JSON.parse(readFileSync("operations/trades/TR-02/trades-zone-plan.json", "utf8"));
+  const commands = buildJobCommands(plan);
+  const producer = commands.filter((command) => command.includes("build-trades-runs.mjs"));
+  const fullProducer = producer.filter((command) => !command.includes("--mission ") && !command.includes("--assemble"));
+  assert.equal(fullProducer.length, 0, JSON.stringify(fullProducer));
+  const perRun = producer.filter((command) => command.includes("--mission "));
+  assert.equal(perRun.length, 4 * (2 + 2 + 1));
+  const assemble = producer.filter((command) => command.includes("--assemble"));
+  assert.equal(assemble.length, 1);
+  // El ensamblado va al final, después de todos los runs.
+  assert.equal(producer.at(-1), assemble[0]);
+  // Una sola apertura del OOS por misión: un único comando OOS por misión.
+  const oosCommands = perRun.filter((command) => command.includes("--phase OOS"));
+  assert.equal(oosCommands.length, 4);
+  assert.equal(new Set(oosCommands).size, 4);
+});
+
+// Fixture de entradas del run OOS: filas de Gas y documento TOB en archivos
+// temporales (el productor es I/O). `transform` permite cambiar el contenido para
+// probar que el run_id se liga a los hashes de entrada.
+function writeGasInputs(fixture, dir, suffix = "", transform = (row) => row) {
+  const gasRows = fixture.rows
+    .filter((row) => row.Cmdty === "NATGAS" && row.Area === "THE")
+    .map(transform);
+  const tradesPath = join(dir, `gas-the${suffix}.ndjson`);
+  writeFileSync(tradesPath, `${gasRows.map((row) => JSON.stringify(row)).join("\n")}\n`);
+  const series = {};
+  for (const [contract, byDay] of fixture.tobSeries) series[contract] = byDay;
+  const tobPath = join(dir, `gas-tob${suffix}.json`);
+  writeFileSync(tobPath, JSON.stringify({ series }));
+  return { "--gas-trades": tradesPath, "--gas-tob": tobPath, "--power-trades": null, "--power-tob": null };
+}
+
+test("el run OOS aislado liga su identidad a los inputs, siembra el registro y guarda su artefacto", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "tr06-single-"));
+  try {
+    const fixture = buildFixture();
+    const registryFile = join(dir, "access.jsonl");
+    const outputDir = join(dir, "runs");
+    const base = {
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecision: "PASS", bridgeDecisionFile: null },
+      inputs: writeGasInputs(fixture, dir),
+      frozenContract: FROZEN,
+      zonePlan: fixture.zonePlan,
+      exchangeDays: fixture.exchangeDays,
+      registryFile,
+      outputDir,
+      atUtc: "2026-09-26T00:00:00Z",
+      onOosAccess: createOosAccessPersister(registryFile),
+    };
+    const first = await buildSingleTradesRun(base);
+    assert.equal(first.ok, true, first.code);
+    assert.match(first.run.runId, /^BT-RUN-[0-9a-f]{64}$/);
+    // Artefacto por runKey con su manifest y los hashes de sus inputs.
+    const artifact = JSON.parse(readFileSync(runArtifactPath(first.runKey, outputDir), "utf8"));
+    assert.equal(artifact.runKey, first.runKey);
+    assert.equal(artifact.run.manifest.runId, first.run.runId);
+    assert.equal(artifact.inputs.trades.GAS_THE.sha256.length, 64);
+    assert.equal(artifact.inputs.tob.GAS_THE.sha256.length, 64);
+    assert.equal(readAccessRegistry(registryFile).length, 1);
+
+    // Relanzar con los mismos inputs: mismo run_id (misma apertura), la relectura
+    // queda en el log pero el conteo no se infla, y el run ve el registro del disco.
+    const second = await buildSingleTradesRun(base);
+    assert.equal(second.ok, true, second.code);
+    assert.equal(second.run.runId, first.run.runId);
+    assert.equal(readAccessRegistry(registryFile).length, 2);
+    assert.equal(second.oos.oosOpeningsByMission.GAS_QUARTERLY, 1);
+
+    // Otros datos de entrada => otro run_id (una apertura nueva, que se cuenta).
+    const changed = await buildSingleTradesRun({
+      ...base,
+      inputs: writeGasInputs(fixture, dir, "-b", (row, index) => (index === 0 ? { ...row, Px: "100.5" } : row)),
+    });
+    assert.equal(changed.ok, true, changed.code);
+    assert.notEqual(changed.run.runId, first.run.runId);
+    assert.equal(changed.oos.oosOpeningsByMission.GAS_QUARTERLY, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// TR06-SINGLE-RUN-NO-OUTPUT: el artefacto por run permite ensamblar la vista
+// agregada sin volver a correr estrategia. TR06-CHECK-READ-NOT-PERSISTED: el
+// ensamblado (lo que corre `--check`) NO lee el OOS ni añade entradas al registro.
+test("--assemble combina los artefactos por run sin leer el OOS", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "tr06-assemble-"));
+  try {
+    const fixture = buildFixture();
+    const registryFile = join(dir, "access.jsonl");
+    const outputDir = join(dir, "runs");
+    const result = await buildSingleTradesRun({
+      selector: { mission: "GAS_QUARTERLY", phase: TRADES_RUN_PHASES.OOS, rule: OBSERVATION_RULES.LAST_TRADE, bridgeDecision: "PASS", bridgeDecisionFile: null },
+      inputs: writeGasInputs(fixture, dir),
+      frozenContract: FROZEN,
+      zonePlan: fixture.zonePlan,
+      exchangeDays: fixture.exchangeDays,
+      registryFile,
+      outputDir,
+      atUtc: "2026-09-26T00:00:00Z",
+      onOosAccess: createOosAccessPersister(registryFile),
+    });
+    assert.equal(result.ok, true, result.code);
+    const registryBefore = readAccessRegistry(registryFile).length;
+    const { artifact } = assembleTradesRuns({ runsDir: outputDir, registryFile });
+    // Sólo el artefacto producido entra; los demás runKey quedan como bloqueo.
+    assert.equal(artifact.runs.length, 1);
+    assert.equal(artifact.blockedBy.includes("MISSING_RUN_ARTIFACT"), true);
+    assert.equal(artifact.oosAccess.entries.length, 1);
+    assert.equal(artifact.oosAccess.oosOpeningsByMission.GAS_QUARTERLY, 1);
+    // Ensamblar no ejecuta la lectura del OOS: el registro no cambia.
+    assert.equal(readAccessRegistry(registryFile).length, registryBefore);
+    // El ensamblado es determinista.
+    const again = assembleTradesRuns({ runsDir: outputDir, registryFile });
+    assert.deepEqual(again.artifact, artifact);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

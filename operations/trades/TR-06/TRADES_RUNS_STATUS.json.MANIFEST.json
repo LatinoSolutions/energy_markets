@@ -3,11 +3,11 @@
   "schemaVersion": "1.0",
   "artifact": {
     "path": "operations/trades/TR-06/TRADES_RUNS_STATUS.json",
-    "sha256": "3243153505893452f58a157d5bd21ecebf915406190148157da005ff04251ef9"
+    "sha256": "5602c2483c27bc8a740fa911b402e10622cb7c53ded307c79f69444fa4d3631e"
   },
   "generator": {
     "path": "operations/trades/TR-06/build-trades-runs-status.mjs",
-    "sha256": "9f873f5d0c0175a901da47d1b29db6c21ffb019a1990b4bda389ab7bfb33b025"
+    "sha256": "e05c344f063ec624ce4eedeb2c65cdcf27d007de364404736ecb6289181d1137"
   },
   "sources": {
     "zonePlan": {
