@@ -27,8 +27,27 @@ export {
   verifyExploratoryInputs,
 } from "./runner.mjs";
 
-export { BACKTEST_JOBS_PATH, backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath } from "./http.mjs";
+export { BACKTEST_JOBS_PATH, backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath, tradesJobStatusPayload } from "./http.mjs";
 
-export { FAILURE_WORDS, describeJobStatus, describeLaunch, elapsedSeconds, failureInWords } from "./display.mjs";
+export { FAILURE_WORDS, describeJobStatus, describeLaunch, describeTradesLaunch, describeTradesStatus, elapsedSeconds, failureInWords } from "./display.mjs";
+
+// BT-07 — runs TRADES de TR-06 desde el mismo botón (owner goal 2026-09-26).
+export {
+  DEFAULT_TRADES_SCRATCH_DIR,
+  OWNER_FREEZE_APPROVAL_PATH,
+  STEP_KIND,
+  STEP_STATUS,
+  TRADES_ACCESS_REGISTRY_PATH,
+  TRADES_ENTRY,
+  TRADES_JOB_KIND,
+  TRADES_RECEIPT_KIND,
+  TRADES_SCRATCH_INPUTS,
+  computeTradesRunIdentity,
+  createTradesJobRunner,
+  evaluateTradesLaunchGate,
+  readOosOpenings,
+  tradesSequenceSteps,
+  verifyTradesInputs,
+} from "./trades-runner.mjs";
 
 export { MCP_TOOLS, handleMcpMessage, runStdioServer } from "./mcp-server.mjs";

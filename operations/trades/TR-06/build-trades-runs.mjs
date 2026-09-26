@@ -193,6 +193,16 @@ export function buildInputManifest(inputs = {}) {
   return manifest;
 }
 
+// El artefacto de TR-04 en disco publica el contrato en `frozenContract`
+// (operations/trades/TR-04/build-trades-freeze.mjs:81); el motor lo lee de
+// `contract` (src/trades-engine/run.mjs:62-66, forma de `evaluateTradesFreeze`).
+// Sin esta adaptación un freeze FROZEN aprobado por Bru bloqueaba todos los runs
+// con TRADES_CONTRACT_NOT_FROZEN (hallazgo BT07-FREEZE-SHAPE, 2026-09-26).
+export function freezeResultFromArtifact(artifact) {
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) return null;
+  return { decision: artifact.decision ?? null, contract: artifact.frozenContract ?? null };
+}
+
 function freezeIsFrozen() {
   try {
     return readJson(FREEZE_PATH)?.decision === "FROZEN";
@@ -294,6 +304,13 @@ function seedOosPlan({ zonePlan, registryFile }) {
   return { ...zonePlan, accessRegistry: accessRegistryFromEntries(entries) };
 }
 
+// Versión de la que sale un artefacto por run: commit del código y hash canónico
+// de su manifest de datos (misma forma que el binding del puente).
+export function artifactVersionOf(artifact) {
+  const hashed = artifact?.inputs == null ? null : canonicalValueSha256(artifact.inputs);
+  return { codeCommit: artifact?.codeCommit ?? null, inputsSha256: hashed?.ok ? hashed.sha256 : null };
+}
+
 // Ensambla la vista agregada `trades-runs.json` a partir de los artefactos por run
 // (un proceso por run, plan TR-06 "Pico de RAM por run"). NO corre ninguna
 // estrategia ni lee el OOS: sólo lee artefactos ya producidos y el registro de
@@ -326,8 +343,17 @@ export function assembleTradesRuns({ inputs = null, runsDir = RUNS_DIR, registry
       }
     }
   }
-  const codeCommit = artifacts.find((artifact) => artifact.codeCommit)?.codeCommit ?? null;
-  const inputManifest = artifacts.find((artifact) => artifact.inputs)?.inputs ?? (inputs === null ? null : buildInputManifest(inputs));
+  // Una vista agregada es de UNA versión (commit + manifest de datos). Un OOS ya
+  // abierto no se repite con otra versión (patch 03 §4, "una sola apertura con la
+  // versión congelada"), así que su artefacto viejo puede convivir con runs
+  // nuevos: la vista no lo presenta como vigente, se bloquea y publica la versión
+  // de cada run (hallazgo BT07-OOS-STALE-ASSEMBLE, 2026-09-26).
+  const runVersions = runArtifacts.map((entry, index) => ({ runKey: entry.runKey, ...artifactVersionOf(artifacts[index]) }));
+  const mixedVersions = new Set(runVersions.map((version) => `${version.codeCommit}|${version.inputsSha256}`)).size > 1;
+  if (mixedVersions) blockedBy.push("RUN_ARTIFACTS_MIXED_VERSIONS");
+  const codeCommit = mixedVersions ? null : artifacts.find((artifact) => artifact.codeCommit)?.codeCommit ?? null;
+  const declaredInputs = artifacts.find((artifact) => artifact.inputs)?.inputs ?? (inputs === null ? null : buildInputManifest(inputs));
+  const inputManifest = mixedVersions ? null : declaredInputs;
   const memoryPeaks = {};
   for (const artifact of artifacts) {
     const peak = artifact.run?.manifest?.memoryPeak;
@@ -344,6 +370,7 @@ export function assembleTradesRuns({ inputs = null, runsDir = RUNS_DIR, registry
       inputs: inputManifest,
       memoryPeaks: Object.keys(memoryPeaks).length === 0 ? null : memoryPeaks,
       runs,
+      runVersions: mixedVersions ? runVersions : null,
       // Vista de aperturas (dedupe por misión+run_id); el log completo de lecturas
       // vive en el registro append-only en disco.
       oosAccess: zonePlan?.decision === "RESERVED"
@@ -496,7 +523,7 @@ export async function buildSingleTradesRun({
   if (!OBSERVATION_RULE_LIST.includes(rule)) {
     return { ok: false, code: "UNKNOWN_OBSERVATION_RULE", mission, phase, rule, run: null, oos: null };
   }
-  const resolvedFreeze = frozenContract ?? readJsonOrNull(FREEZE_PATH);
+  const resolvedFreeze = frozenContract ?? freezeResultFromArtifact(readJsonOrNull(FREEZE_PATH));
   if (resolvedFreeze?.decision !== "FROZEN") {
     return { ok: false, code: "TRADES_CONTRACT_NOT_FROZEN", mission, phase, rule, run: null, oos: null };
   }
