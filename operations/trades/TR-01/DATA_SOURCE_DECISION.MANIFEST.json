@@ -9,19 +9,22 @@
   "generatedAtUtc": null,
   "artifact": {
     "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
-    "sha256": "b0709d827b2b963aea166522d64eec5598e81fbc09a547eae615106b9abe1b61"
+    "sha256": "45e0c6902e294b9bdc7468672e76805d567ef53539209c7fd58425a43853e4ac"
   },
   "inputs": {
     "candidates": {
       "path": "operations/trades/TR-01/source-candidates.json",
-      "sha256": "1c4642030bd2976dc58fbc9757e3a9f66f2ed6f173ba5638487897b36bd43408"
+      "sha256": "451524c524938618bccd62d03523b7de0b41c8701d4c113a8cddfd8a3a0d5875"
     }
   },
   "decision": {
-    "status": "PENDING_ARCHIVE_VERIFICATION",
-    "selectedSource": "EEX_LAKE",
-    "selectedSourceRole": "PROVISIONAL_ONLY",
-    "failClosed": true,
-    "staleArtifacts": []
+    "status": "DECIDED",
+    "selectedSource": "CLIENT_SEALED_ARCHIVE",
+    "selectedSourceRole": "CANONICAL",
+    "failClosed": false,
+    "staleArtifacts": [
+      "BT-01-CAMPAIGN-BENCHMARKS",
+      "IMP-05-LAKE-PROXY-ROWS"
+    ]
   }
 }

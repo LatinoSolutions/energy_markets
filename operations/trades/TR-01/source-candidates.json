@@ -15,11 +15,42 @@
       "sha256Verified": false,
       "inventory": {
         "sourceLabel": "EEX_LAKE",
-        "tables": ["eex_derivative_trade", "eex_derivative_top_of_book"],
-        "commodities": ["NATGAS", "POWER"],
+        "tables": [
+          "eex_derivative_trade",
+          "eex_derivative_top_of_book"
+        ],
+        "commodities": [
+          "NATGAS",
+          "POWER"
+        ],
         "areas": {
-          "NATGAS": ["THE", "PEG___THE", "CEGHVTP___THE", "CZVTP___THE", "ETF___THE", "GPL___THE", "THE___TTF", "ZTP___THE"],
-          "POWER": ["DE", "DE___AT", "DE___CZ", "DE___DK1", "DE___DK2", "DE___ES", "DE___FR", "DE___HU", "DE___Nordic", "DE___SK", "DE___TTF", "GR___DE", "IT___DE", "NL___DE", "CH___DE"]
+          "NATGAS": [
+            "THE",
+            "PEG___THE",
+            "CEGHVTP___THE",
+            "CZVTP___THE",
+            "ETF___THE",
+            "GPL___THE",
+            "THE___TTF",
+            "ZTP___THE"
+          ],
+          "POWER": [
+            "DE",
+            "DE___AT",
+            "DE___CZ",
+            "DE___DK1",
+            "DE___DK2",
+            "DE___ES",
+            "DE___FR",
+            "DE___HU",
+            "DE___Nordic",
+            "DE___SK",
+            "DE___TTF",
+            "GR___DE",
+            "IT___DE",
+            "NL___DE",
+            "CH___DE"
+          ]
         },
         "dateMin": "2020-11-02",
         "dateMax": "2026-07-28",
@@ -39,16 +70,44 @@
     },
     {
       "id": "CLIENT_SEALED_ARCHIVE",
-      "path": "/srv/data/eex-client-archive/eex-sealed-production-outright-2020-11-02--2026-09-11.tar.zst",
+      "path": "/srv/hot-data/energy-markets/data/eex-client-archive/eex-sealed-production-outright-2020-11-02--2026-09-11.tar.zst",
       "kind": "archive",
       "present": true,
       "sha256": "c0b8389dd2eae768e0144ebffa2eb8c557c1407ec8bbccb014c0ecdee075cdd3",
-      "sha256Verified": false,
+      "sha256Verified": true,
       "declaredSha256Source": "/srv/data/eex-client-archive/descargar.sh (declared expected hash)",
       "expectedBytes": 108015856868,
-      "observedBytes": 7042793472,
-      "inventory": null,
-      "verification": "download incomplete (7,042,793,472 of 108,015,856,868 bytes at 2026-09-25T17:43Z); SHA-256 not yet computed"
+      "observedBytes": 108015856868,
+      "inventory": {
+        "sourceLabel": "CLIENT_SEALED_ARCHIVE",
+        "tables": [
+          "eex_derivative_reference",
+          "eex_derivative_top_of_book",
+          "eex_derivative_trade",
+          "unknown"
+        ],
+        "tableInventory": {
+          "eex_derivative_reference": {
+            "members": 82466,
+            "rows": 31578559
+          },
+          "eex_derivative_top_of_book": {
+            "members": 128728,
+            "rows": 0
+          },
+          "eex_derivative_trade": {
+            "members": 53026,
+            "rows": 15553930
+          },
+          "unknown": {
+            "members": 2,
+            "rows": 0
+          }
+        },
+        "dateMin": "2020-11-02",
+        "dateMax": "2026-09-11"
+      },
+      "verification": "SHA-256 y tamaño observados por el escaneo de TR-01 (DATA-01), 2026-09-26T10:49:42.778Z"
     }
   ],
   "comparison": null,
@@ -84,7 +143,12 @@
       "note": "El patch 03 §3.1 reporta 244 elegibles en la medición preliminar; la reproducción de TR-01 mide 249 sobre el pull actual del lago. Diferencia a reconciliar por el job de escaneo."
     },
     "dedupSample20251120NatgasThe": {
-      "value": { "rowsPerPull": 353, "uniqueKeysPerPull": 353, "intersection": 353, "uniqueTrdIdsPerPull": 341 },
+      "value": {
+        "rowsPerPull": 353,
+        "uniqueKeysPerPull": 353,
+        "intersection": 353,
+        "uniqueTrdIdsPerPull": 341
+      },
       "method": "two pulls of eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20; observationKey = sha256 of all non-underscore market columns.",
       "note": "Los dos pulls son la misma observación duplicada; TrdID no es único (un spread comparte TrdID entre patas)."
     },

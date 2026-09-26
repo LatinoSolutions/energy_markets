@@ -10,27 +10,620 @@
  "contractId": "EXEC-TRADES-v1",
  "versionLabel": "TRADES-v1",
  "decision": "HOLD",
- "status": "PENDING_MEASUREMENT",
+ "status": "PENDING_OWNER_APPROVAL",
  "humanGate": {
   "scope": "TRADES_V1_FREEZE",
   "requiresOwnerApproval": true,
   "approvalRef": null,
-  "configHash": null,
+  "configHash": "7d1aa1e763423114c56d3a93fe86b2e45c74b040202f65dd4256e894ba51b327",
   "rule": "Bru aprueba el freeze antes de cualquier run de estrategia en TRADES (TRADES_MODE_PLAN.md TR-04)."
  },
  "blockedBy": [
-  "MISSING_BRIDGE_MEASUREMENT",
-  "MISSING_BROKEN_SPREAD_POLICY"
+  "MISSING_OWNER_APPROVAL"
  ],
- "errors": [],
- "reason": "La medición del puente (TR-03), que trae la política de broken spread bajo la que se midió, es un job que lanza Bru; hasta que exista no se inventa ninguna penalización ni límite de frescura.",
- "candidate": null,
+ "errors": [
+  {
+   "code": "MISSING_OWNER_APPROVAL",
+   "message": "El freeze de TRADES-v1 exige la aprobación explícita de Bru (scope TRADES_V1_FREEZE); el default es no congelar."
+  }
+ ],
+ "reason": "El freeze de TRADES-v1 exige la aprobación explícita de Bru (scope TRADES_V1_FREEZE); el default es no congelar.",
+ "candidate": {
+  "artifactKind": "TRADES_CONTRACT_V1",
+  "contractId": "EXEC-TRADES-v1",
+  "contractVersion": "v1.0",
+  "versionLabel": "TRADES-v1",
+  "sourceMode": "TRADES",
+  "controlSourceMode": "TOB",
+  "frozenRules": [
+   "CAUSAL_EXECUTION",
+   "SINGLE_COST_ACCOUNTING",
+   "OPERATIONAL_PARITY",
+   "NO_INVENTED_DEFAULTS",
+   "VALIDITY_GATE",
+   "TRADE_NEVER_PRESENTED_AS_ASK",
+   "OBSERVATION_LAST_TRADE_PIT",
+   "PENALTY_SEPARATE_FROM_SLIPPAGE",
+   "PENALTY_SIGN_UNRESTRICTED",
+   "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+   "NO_AGGRESSOR_OWN_GROUP",
+   "BROKEN_SPREAD_POLICY_FROM_MEASUREMENT",
+   "DELETE_POINT_IN_TIME_DECLARED",
+   "WINDOW_FROM_CALENDAR",
+   "FRESHNESS_NO_CARRY",
+   "DATA_INCOMPLETE_DISTINCT"
+  ],
+  "observationRules": {
+   "primary": "LAST_TRADE",
+   "secondary": "SLOT_VWAP"
+  },
+  "missingDataRules": {
+   "WINDOW_SOURCE": "WINDOW_FROM_MISSION_AND_MARKET_CALENDAR_NOT_FROM_TRADE_PRESENCE",
+   "DECISION_DAY_WITHOUT_TRADE": "DECISION_DAY_WITHOUT_ELIGIBLE_TRADE_WITHIN_FRESHNESS_IS_NO_OBSERVATION",
+   "CARRY": "NO_CARRY_OF_A_PRICE_BEYOND_THE_FRESHNESS_LIMIT",
+   "INCOMPLETE_OBLIGATION": "CAMPAIGN_WITH_OBLIGATION_UNCOMPLETABLE_BY_LACK_OF_TRADES_IS_DATA_INCOMPLETE",
+   "INCOMPLETE_VS_FORCING": "DATA_INCOMPLETE_IS_DISTINCT_FROM_CLIENT_FORCING_HARD_REJECT"
+  },
+  "halves": {
+   "calibration": "CALIBRATION",
+   "evaluation": "EVALUATION",
+   "calibrationUsedFor": [
+    "penaltyEurMwh",
+    "freshnessLimitSeconds"
+   ],
+   "evaluationUsedFor": [
+    "bridgeGate"
+   ]
+  },
+  "tradeEligibility": {
+   "brokenSpreadPolicy": "INCLUDE",
+   "brokenSpreadPolicySource": "TR-03 bridge measurement",
+   "sourceDecisionPolicy": "PENDING_MEASUREMENT; se congela en TR-04",
+   "deleteTmSemantics": "deletion-time",
+   "penaltySignRule": {
+    "id": "PENALTY_SIGN_UNRESTRICTED",
+    "section": "patch 03 §3.3",
+    "rule": "la penalización trade->ask es la media observada de (ask - trade) y no se le impone signo; una media negativa por trades por encima del ask es un valor medido válido."
+   },
+   "penaltyAggressionRule": {
+    "id": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+    "section": "patch 03 §3.3",
+    "headlineAggregation": "OBSERVATION_FREQUENCY_WEIGHTED_MEAN_OVER_ALL_DECLARED_BELOW_MEAN_GROUPS",
+    "groups": [
+     {
+      "aggressor": "BUY",
+      "role": "KNOWN_SIDE",
+      "reassignedToSide": false
+     },
+     {
+      "aggressor": "SELL",
+      "role": "KNOWN_SIDE",
+      "reassignedToSide": false
+     },
+     {
+      "aggressor": "UNKNOWN",
+      "role": "OWN_GROUP_NO_AGGRESSOR",
+      "reassignedToSide": false
+     },
+     {
+      "aggressor": "MIXED",
+      "role": "OWN_GROUP_MIXED_SIDE",
+      "reassignedToSide": false
+     }
+    ],
+    "rule": "cada grupo agresor conserva su identidad y su propia media/conteo; el grupo sin agresor (UNKNOWN) y el mixto (MIXED) forman su propio grupo declarado y nunca se reasignan a BUY/SELL por suposición (patch 03 §3.3)."
+   }
+  },
+  "sharedParameters": [
+   {
+    "key": "slippage",
+    "status": "PROVISIONAL",
+    "value": 0.15,
+    "unit": "EUR/MWh",
+    "source": {
+     "authority": "Fundamental (cliente); paquete ENERGY_MARKETS_CLIENT_INPUTS_2026-09-23 verificado",
+     "locator": "02_execution_costs/execution_parameters.csv",
+     "quote": "virtual_slippage,0.15,EUR/MWh,Execution assumption"
+    }
+   },
+   {
+    "key": "fees",
+    "status": "UNKNOWN",
+    "value": null,
+    "unit": null,
+    "excluded": true,
+    "reason": "Brokerage, exchange, clearing u otros fees siguen unknown/excluded pending evidence; nunca se representan como cero (patch 03 §7).",
+    "source": {
+     "authority": "Fundamental (cliente)",
+     "locator": "02_execution_costs/execution_and_costs.md",
+     "quote": "other_fees,unknown / excluded pending evidence"
+    }
+   }
+  ],
+  "fillModel": {
+   "authority": "patch 03 §3.3",
+   "formula": "tradeObserved + penaltyEurMwh(mission, observationRule) + slippageEurMwh",
+   "penaltySource": "market/mission/observationRule, calibrada en la mitad de calibración del puente",
+   "penaltyAggressionRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+   "penaltySignRuleId": "PENALTY_SIGN_UNRESTRICTED",
+   "slippageSource": "02_execution_costs/execution_parameters.csv (0,15 EUR/MWh, cliente)"
+  },
+  "markets": {
+   "GAS_THE": {
+    "market": "GAS_THE",
+    "missions": {
+     "GAS_QUARTERLY": {
+      "product": "Gas",
+      "mission": "Quarterly",
+      "shortCode": "G0BQ",
+      "observations": {
+       "LAST_TRADE": {
+        "freshness": {
+         "status": "LOW_COVERAGE",
+         "value": 86400,
+         "coverage": 0.8314814814814815,
+         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.12654060066740827,
+         "observations": 899,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 217,
+           "meanGapEurMwh": -0.1268202764976958,
+           "penaltyEurMwh": 0.1268202764976958
+          },
+          {
+           "aggressor": "SELL",
+           "count": 412,
+           "meanGapEurMwh": -0.13609223300970885,
+           "penaltyEurMwh": 0.13609223300970885
+          },
+          {
+           "aggressor": "UNKNOWN",
+           "count": 270,
+           "meanGapEurMwh": -0.1117407407407407,
+           "penaltyEurMwh": 0.1117407407407407
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       },
+       "SLOT_VWAP": {
+        "freshness": {
+         "status": "LOW_COVERAGE",
+         "value": 86400,
+         "coverage": 0.21805555555555556,
+         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.0562970476025965,
+         "observations": 260,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 52,
+           "meanGapEurMwh": -0.04223557692307732,
+           "penaltyEurMwh": 0.04223557692307732
+          },
+          {
+           "aggressor": "MIXED",
+           "count": 92,
+           "meanGapEurMwh": -0.05303465078797267,
+           "penaltyEurMwh": 0.05303465078797267
+          },
+          {
+           "aggressor": "SELL",
+           "count": 73,
+           "meanGapEurMwh": -0.058803121061848186,
+           "penaltyEurMwh": 0.058803121061848186
+          },
+          {
+           "aggressor": "UNKNOWN",
+           "count": 43,
+           "meanGapEurMwh": -0.07602713178294575,
+           "penaltyEurMwh": 0.07602713178294575
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       }
+      },
+      "missingDataRule": "CAMPAIGN_WITH_OBLIGATION_UNCOMPLETABLE_BY_LACK_OF_TRADES_IS_DATA_INCOMPLETE"
+     },
+     "GAS_MONTHLY": {
+      "product": "Gas",
+      "mission": "Monthly",
+      "shortCode": "G0BM",
+      "observations": {
+       "LAST_TRADE": {
+        "freshness": {
+         "status": "MEASURED",
+         "value": 86400,
+         "coverage": 0.9504761904761905,
+         "reason": null
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.0840975254730715,
+         "observations": 687,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 197,
+           "meanGapEurMwh": -0.06403553299492402,
+           "penaltyEurMwh": 0.06403553299492402
+          },
+          {
+           "aggressor": "SELL",
+           "count": 226,
+           "meanGapEurMwh": -0.0736946902654867,
+           "penaltyEurMwh": 0.0736946902654867
+          },
+          {
+           "aggressor": "UNKNOWN",
+           "count": 264,
+           "meanGapEurMwh": -0.10797348484848523,
+           "penaltyEurMwh": 0.10797348484848523
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       },
+       "SLOT_VWAP": {
+        "freshness": {
+         "status": "LOW_COVERAGE",
+         "value": 86400,
+         "coverage": 0.5071428571428571,
+         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.06026990510018623,
+         "observations": 289,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 46,
+           "meanGapEurMwh": -0.05394404960981053,
+           "penaltyEurMwh": 0.05394404960981053
+          },
+          {
+           "aggressor": "MIXED",
+           "count": 145,
+           "meanGapEurMwh": -0.05262729569376963,
+           "penaltyEurMwh": 0.05262729569376963
+          },
+          {
+           "aggressor": "SELL",
+           "count": 53,
+           "meanGapEurMwh": -0.050897480533093654,
+           "penaltyEurMwh": 0.050897480533093654
+          },
+          {
+           "aggressor": "UNKNOWN",
+           "count": 45,
+           "meanGapEurMwh": -0.10240115440115502,
+           "penaltyEurMwh": 0.10240115440115502
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       }
+      },
+      "missingDataRule": "CAMPAIGN_WITH_OBLIGATION_UNCOMPLETABLE_BY_LACK_OF_TRADES_IS_DATA_INCOMPLETE"
+     }
+    }
+   },
+   "POWER_DE": {
+    "market": "POWER_DE",
+    "missions": {
+     "POWER_QUARTERLY": {
+      "product": "Power",
+      "mission": "Quarterly",
+      "shortCode": "DEBQ",
+      "observations": {
+       "LAST_TRADE": {
+        "freshness": {
+         "status": "MEASURED",
+         "value": 86400,
+         "coverage": 0.9792452830188679,
+         "reason": null
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.07391768292682935,
+         "observations": 656,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 312,
+           "meanGapEurMwh": -0.05330128205128199,
+           "penaltyEurMwh": 0.05330128205128199
+          },
+          {
+           "aggressor": "SELL",
+           "count": 298,
+           "meanGapEurMwh": -0.09436241610738266,
+           "penaltyEurMwh": 0.09436241610738266
+          },
+          {
+           "aggressor": "UNKNOWN",
+           "count": 46,
+           "meanGapEurMwh": -0.08130434782608777,
+           "penaltyEurMwh": 0.08130434782608777
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       },
+       "SLOT_VWAP": {
+        "freshness": {
+         "status": "LOW_COVERAGE",
+         "value": 86400,
+         "coverage": 0.9113207547169812,
+         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.05774719335816354,
+         "observations": 630,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 12,
+           "meanGapEurMwh": -0.04260155122655599,
+           "penaltyEurMwh": 0.04260155122655599
+          },
+          {
+           "aggressor": "MIXED",
+           "count": 611,
+           "meanGapEurMwh": -0.05693182738831052,
+           "penaltyEurMwh": 0.05693182738831052
+          },
+          {
+           "aggressor": "SELL",
+           "count": 7,
+           "meanGapEurMwh": -0.15488095238094754,
+           "penaltyEurMwh": 0.15488095238094754
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       }
+      },
+      "missingDataRule": "CAMPAIGN_WITH_OBLIGATION_UNCOMPLETABLE_BY_LACK_OF_TRADES_IS_DATA_INCOMPLETE"
+     },
+     "POWER_MONTHLY": {
+      "product": "Power",
+      "mission": "Monthly",
+      "shortCode": "DEBM",
+      "observations": {
+       "LAST_TRADE": {
+        "freshness": {
+         "status": "MEASURED",
+         "value": 86400,
+         "coverage": 0.9884615384615385,
+         "reason": null
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.036592427616926264,
+         "observations": 449,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "BUY",
+           "count": 203,
+           "meanGapEurMwh": -0.03014778325123169,
+           "penaltyEurMwh": 0.03014778325123169
+          },
+          {
+           "aggressor": "SELL",
+           "count": 186,
+           "meanGapEurMwh": -0.043172043010752156,
+           "penaltyEurMwh": 0.043172043010752156
+          },
+          {
+           "aggressor": "UNKNOWN",
+           "count": 60,
+           "meanGapEurMwh": -0.037999999999999305,
+           "penaltyEurMwh": 0.037999999999999305
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       },
+       "SLOT_VWAP": {
+        "freshness": {
+         "status": "LOW_COVERAGE",
+         "value": 86400,
+         "coverage": 0.9471153846153846,
+         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+        },
+        "penalty": {
+         "status": "MEASURED",
+         "value": 0.04604288354281691,
+         "observations": 451,
+         "freshnessLimitSeconds": 86400,
+         "byAggressor": [
+          {
+           "aggressor": "MIXED",
+           "count": 451,
+           "meanGapEurMwh": -0.04604288354281691,
+           "penaltyEurMwh": 0.04604288354281691
+          }
+         ],
+         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+         "reason": null
+        }
+       }
+      },
+      "missingDataRule": "CAMPAIGN_WITH_OBLIGATION_UNCOMPLETABLE_BY_LACK_OF_TRADES_IS_DATA_INCOMPLETE"
+     }
+    }
+   }
+  },
+  "sensitivityGrid": {
+   "id": "TRADES_V1_SENSITIVITY_GRID",
+   "source": "patch 03 §5 riesgo 1",
+   "penaltyMultipliers": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2
+   ],
+   "freshnessLimitSeconds": [
+    900,
+    1800,
+    3600,
+    7200,
+    86400
+   ],
+   "observationRules": [
+    "LAST_TRADE",
+    "SLOT_VWAP"
+   ],
+   "declaration": "DECLARED/PROVISIONAL (REGLA 2): grilla de ingeniería predeclarada antes de cualquier run; no es un valor canónico ni se ajusta mirando resultados de estrategia."
+  },
+  "bridgeGate": {
+   "id": "TRADES_BRIDGE_GATE_V1",
+   "zone": "PUENTE",
+   "window": {
+    "startIso": "2025-08-12",
+    "endIso": "2026-07-28",
+    "zone": "PUENTE",
+    "role": "EXPLORATORY"
+   },
+   "arms": [
+    "BASELINE",
+    "DIP10",
+    "HOUR"
+   ],
+   "toBridgeResultsAlreadyKnown": true,
+   "independence": "NOT_INDEPENDENT_VALIDATION",
+   "thresholdStatus": "DECLARED/PROVISIONAL",
+   "metrics": [
+    {
+     "id": "BUY_WAIT_AGREEMENT",
+     "section": "plan TR-04",
+     "description": "% de decisiones BUY/WAIT iguales entre TOB y TRADES",
+     "definition": "fracción de días-decisión con la misma decisión BUY/WAIT entre TOB y TRADES, por misión y por brazo",
+     "unit": "fraction",
+     "aggregate": "por misión y por brazo",
+     "threshold": {
+      "kind": "min_agreement_fraction_vs_tob",
+      "value": 0.8
+     },
+     "passCriterion": "agreement(TOB, TRADES) >= 0.8",
+     "failCriterion": "agreement(TOB, TRADES) < 0.8"
+    },
+    {
+     "id": "BOUGHT_MW",
+     "section": "plan TR-04",
+     "description": "MW comprados: contraste TOB vs TRADES",
+     "definition": "diferencia absoluta entre la fracción de completion (comprado / target de la obligación) de TRADES y la de TOB, por misión y por brazo; una obligación que no puede completarse por falta de trades se declara DATA_INCOMPLETE, no FAIL",
+     "unit": "fraction_of_target",
+     "threshold": {
+      "kind": "max_abs_delta_vs_tob",
+      "value": 0.05
+     },
+     "passCriterion": "abs(completion(TRADES) - completion(TOB)) <= 0.05",
+     "failCriterion": "abs(completion(TRADES) - completion(TOB)) > 0.05"
+    },
+    {
+     "id": "FILL_PRICE",
+     "section": "plan TR-04",
+     "description": "precio de fill: contraste TOB vs TRADES",
+     "definition": "diferencia absoluta entre el precio de fill medio de TRADES (trade observado + penalización trade->ask + 0,15 EUR/MWh, patch 03 §3.3) y el de TOB, por misión y por brazo",
+     "unit": "EUR/MWh",
+     "threshold": {
+      "kind": "max_abs_delta_vs_tob",
+      "value": 0.5
+     },
+     "passCriterion": "abs(fillEurMwh(TRADES) - fillEurMwh(TOB)) <= 0.5",
+     "failCriterion": "abs(fillEurMwh(TRADES) - fillEurMwh(TOB)) > 0.5"
+    },
+    {
+     "id": "H",
+     "section": "plan TR-04 / SPEC §5.5",
+     "description": "H: coste all-in unitario de cubrir la obligación completa; contraste TOB vs TRADES",
+     "definition": "diferencia absoluta entre el coste all-in unitario H de TRADES y el de TOB, derivados del execution ledger (SPEC §5.5); cada coste atribuible entra exactamente una vez y fees UNKNOWN no se representan como cero",
+     "unit": "EUR/MWh",
+     "threshold": {
+      "kind": "max_abs_delta_vs_tob",
+      "value": 0.5
+     },
+     "passCriterion": "abs(h(TRADES) - h(TOB)) <= 0.5",
+     "failCriterion": "abs(h(TRADES) - h(TOB)) > 0.5"
+    },
+    {
+     "id": "DELTA_V",
+     "section": "plan TR-04",
+     "description": "ΔV entre brazos (sólo con los dos brazos completos; el benchmark se cancela) y contraste con TOB",
+     "definition": "ΔV por brazo respecto de Baseline, sólo con ambos brazos completos (el benchmark se cancela, SPEC §13.7); se compara el signo de cada brazo y el orden Baseline / DIP10 / HOUR contra el puente TOB",
+     "unit": "EUR",
+     "threshold": {
+      "kind": "sign_order_match_vs_tob",
+      "value": [
+       "BASELINE",
+       "DIP10",
+       "HOUR"
+      ]
+     },
+     "passCriterion": "el signo de ΔV de cada brazo y el orden Baseline / DIP10 / HOUR coinciden con el puente TOB",
+     "failCriterion": "una inversión del signo de ΔV o del orden de brazos respecto del puente TOB"
+    }
+   ],
+   "armOrderRule": {
+    "id": "ARM_SIGN_ORDER",
+    "arms": [
+     "BASELINE",
+     "DIP10",
+     "HOUR"
+    ],
+    "rule": "se verifica el signo de ΔV y el orden Baseline / DIP10 / HOUR contra el puente TOB; una inversión es fallo del gate."
+   },
+   "declaration": "DECLARED: los resultados TOB del puente ya son conocidos; el gate se predeclara sabiéndolo y tiene poca potencia (3 Gas Q con TOB). No es validación independiente (patch 03 §5 riesgo 2)."
+  },
+  "generatedFrom": {
+   "bridgeMeasurement": "operations/trades/TR-03/bridge-measurement.json",
+   "bridgeMeasurementSha256": "533f51aa4c8fbf68f53d297a4b4d870f9b947362ecdfa5d281e81044256fc72e",
+   "sourceDecision": "operations/trades/TR-01/DATA_SOURCE_DECISION.json"
+  },
+  "configHash": "7d1aa1e763423114c56d3a93fe86b2e45c74b040202f65dd4256e894ba51b327"
+ },
  "frozenContract": null,
  "inputs": {
   "measurement": {
    "path": "operations/trades/TR-03/bridge-measurement.json",
-   "present": false,
-   "brokenSpreadPolicy": null
+   "present": true,
+   "brokenSpreadPolicy": "INCLUDE"
   },
   "measurementStatus": {
    "path": "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json",

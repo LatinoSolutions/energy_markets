@@ -119,23 +119,68 @@
     },
     {
       "id": "CLIENT_SEALED_ARCHIVE",
-      "path": "/srv/data/eex-client-archive/eex-sealed-production-outright-2020-11-02--2026-09-11.tar.zst",
+      "path": "/srv/hot-data/energy-markets/data/eex-client-archive/eex-sealed-production-outright-2020-11-02--2026-09-11.tar.zst",
       "kind": "archive",
       "present": true,
       "sha256": "c0b8389dd2eae768e0144ebffa2eb8c557c1407ec8bbccb014c0ecdee075cdd3",
-      "sha256Verified": false,
-      "inventory": null
+      "sha256Verified": true,
+      "inventory": {
+        "sourceLabel": "CLIENT_SEALED_ARCHIVE",
+        "tables": [
+          "eex_derivative_reference",
+          "eex_derivative_top_of_book",
+          "eex_derivative_trade",
+          "unknown"
+        ],
+        "tableInventory": {
+          "eex_derivative_reference": {
+            "members": 82466,
+            "rows": 31578559
+          },
+          "eex_derivative_top_of_book": {
+            "members": 128728,
+            "rows": 0
+          },
+          "eex_derivative_trade": {
+            "members": 53026,
+            "rows": 15553930
+          },
+          "unknown": {
+            "members": 2,
+            "rows": 0
+          }
+        },
+        "dateMin": "2020-11-02",
+        "dateMax": "2026-09-11"
+      }
     }
   ],
-  "status": "PENDING_ARCHIVE_VERIFICATION",
-  "selectedSource": "EEX_LAKE",
-  "selectedSourceRole": "PROVISIONAL_ONLY",
-  "failClosed": true,
-  "comparison": null,
-  "staleArtifacts": [],
-  "blocking": {
-    "reason": "El archivo del cliente está presente pero su SHA-256 no está verificado.",
-    "requiredAction": "Completar la descarga del archivo sellado, verificar su SHA-256 contra el hash declarado y correr el job de escaneo de TR-01 (inventario + comparación lago/archivo).",
-    "scanJob": "operations/trades/TR-01/extract-trades-rows.py"
-  }
+  "status": "DECIDED",
+  "selectedSource": "CLIENT_SEALED_ARCHIVE",
+  "selectedSourceRole": "CANONICAL",
+  "failClosed": false,
+  "comparison": {
+    "comparable": true,
+    "archiveAddsReference": true,
+    "satisfiesArchivePreference": true,
+    "differences": []
+  },
+  "staleArtifacts": [
+    {
+      "id": "BT-01-CAMPAIGN-BENCHMARKS",
+      "paths": [
+        "operations/audit/BT-01/campaign-provisional-benchmarks-BT-01.json",
+        "operations/audit/BT-01/v2/campaign-provisional-benchmarks-BT-01.json"
+      ],
+      "reason": "B provisional construido desde las tablas del lago EEX; si TRADES adopta el archivo del cliente como fuente canónica, B debe declararse stale y reconstruirse con esa fuente."
+    },
+    {
+      "id": "IMP-05-LAKE-PROXY-ROWS",
+      "paths": [
+        "operations/audit/IMP-05/lake-proxy-rows-IMP-05.json",
+        "operations/audit/IMP-05/lake-proxy-rows-IMP-05-v2.json"
+      ],
+      "reason": "Filas proxy extraídas del lago EEX; quedan stale si la fuente canónica de trades deja de ser el lago."
+    }
+  ]
 }

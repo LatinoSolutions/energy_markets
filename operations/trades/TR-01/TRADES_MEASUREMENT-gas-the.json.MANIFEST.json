@@ -1,0 +1,19 @@
+{
+  "artifactKind": "TR-01_TRADES_MEASUREMENT_MANIFEST",
+  "schemaVersion": "1.0",
+  "producer": "operations/trades/TR-01/aggregate-trades-rows.mjs",
+  "artifact": {
+    "path": "operations/trades/TR-01/TRADES_MEASUREMENT.json",
+    "sha256": "c7beb7f3f628a1a45a43877a543687c358197994df67adb0b1d65e34fcbfae09"
+  },
+  "input": {
+    "path": "/srv/hot-data/energy-markets/data/scratch/tr01-gas-the.ndjson",
+    "sha256": "f430c84f24a338dd53c499bd09cdea4a54120d35976676a20a4e02be85e025eb"
+  },
+  "counts": {
+    "rows": 305415,
+    "unique": 247336,
+    "eligible": 116917,
+    "duplicates": 58079
+  }
+}

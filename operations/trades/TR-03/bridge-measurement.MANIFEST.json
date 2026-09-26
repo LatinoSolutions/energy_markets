@@ -1,0 +1,100 @@
+{
+  "artifactKind": "TR-03_BRIDGE_MEASUREMENT_MANIFEST",
+  "schemaVersion": "1.0",
+  "artifact": {
+    "path": "operations/trades/TR-03/bridge-measurement.json",
+    "sha256": "533f51aa4c8fbf68f53d297a4b4d870f9b947362ecdfa5d281e81044256fc72e"
+  },
+  "generator": {
+    "path": "operations/trades/TR-03/build-bridge-measurement.mjs",
+    "sha256": "cd510c6fc3f254c9b714afc25e3870ff4018620864c3017880fdbd6158ee7cca"
+  },
+  "modules": [
+    {
+      "path": "src/trades-bridge/index.mjs",
+      "sha256": "9f028d8ce0d2f6f8c4ccde02a9152b802e50c4e000d95a056f2d1f8f5d6ce633"
+    },
+    {
+      "path": "src/trades-bridge/constants.mjs",
+      "sha256": "20433fa83fd77639244b94a131953321d864e3cd214eac7d1d18a74ece071ebd"
+    },
+    {
+      "path": "src/trades-bridge/time.mjs",
+      "sha256": "7b1330931f401d59e0ec9f49f9ce0f9521f5d19ccc4ccf7285ff5b5f41f04ea0"
+    },
+    {
+      "path": "src/trades-bridge/tob-slots.mjs",
+      "sha256": "4acaa2e00a3be57b2116f35a76274b8e240a76c93c950c3368ac6026d326e081"
+    },
+    {
+      "path": "src/trades-bridge/observations.mjs",
+      "sha256": "b297733d3e87a65e7d3aa7220f5cbdd2c996f07f7d8c73b7d1f09deafef06b38"
+    },
+    {
+      "path": "src/trades-bridge/measurement.mjs",
+      "sha256": "b2831f0e64201937df89d26e2ac094d76d837032a9d4632f327a32c4e41f3430"
+    },
+    {
+      "path": "src/trades-source/index.mjs",
+      "sha256": "54943101e90b422e5d57f7969243321768ff0655ffa53fb5127a65c3bd3ca891"
+    },
+    {
+      "path": "src/trades-source/dedup.mjs",
+      "sha256": "49fb19d4f8f5179926f1b0b97e8be566df0ee8828a4e11bb0c3a7ba8cdb57646"
+    },
+    {
+      "path": "src/trades-source/eligibility.mjs",
+      "sha256": "1745330ae4f5eea52f871ddab0484f3684ea84fc802831633bd2b78e3fbb4a84"
+    },
+    {
+      "path": "src/trades-source/delete-point-in-time.mjs",
+      "sha256": "c056ae0deb86d1eccfa71521036677ef3971e7e23a6c9465956438d9640caed8"
+    },
+    {
+      "path": "src/trades-source/patch0-density.mjs",
+      "sha256": "ba38339d4d50938dc5a818e7e50438bfd862f8d5788d31a380db083d9f7885b0"
+    },
+    {
+      "path": "src/trades-source/coverage.mjs",
+      "sha256": "636548515f56198aecbcfcde8d69b5f6ae1576d670f37cd1629e25cf7f05b75b"
+    },
+    {
+      "path": "operations/trades/TR-03/extract-tob-rows.py",
+      "sha256": "fbd9bf3b8e45ba6c5caf1063d95f96c4d6c6d517c09c22c2515e3b9e66dfdd2e"
+    }
+  ],
+  "inputs": {
+    "gasTrades": {
+      "path": "/srv/hot-data/energy-markets/data/scratch/tr03-gas-the.ndjson",
+      "sha256": "f0a7d31e089a779f383a10f4d36ee8e80fc68bcb28fb34b1c49215d881949f62"
+    },
+    "powerTrades": {
+      "path": "/srv/hot-data/energy-markets/data/scratch/tr03-power-de.ndjson",
+      "sha256": "b31704b337fc753b35192ff939c586d2e1b9299961c37d8d984d728aa507e0c5"
+    },
+    "gasTob": {
+      "path": "/srv/hot-data/energy-markets/data/scratch/tr03-tob-gas.json",
+      "sha256": "9a9b3f04884e61e6366e8792f7fd121a8cf6b540b09d9b9fbfbf04961650a7ae"
+    },
+    "powerTob": {
+      "path": "/srv/hot-data/energy-markets/data/scratch/tr03-tob-power.json",
+      "sha256": "ad6680a9bc429b1410793c5c041f29a378c16a4c54958fa79a243bc3ef6daa40"
+    },
+    "zonePlan": {
+      "path": "operations/trades/TR-02/trades-zone-plan.json",
+      "sha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20"
+    },
+    "gasCalendar": {
+      "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
+      "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5"
+    },
+    "powerCalendar": {
+      "path": "operations/trades/TR-01/power-de-exchange-calendar.json",
+      "sha256": "3a5ec37db9c0640e422df817fdc512e48fbf57905a603f7741af5c74a87007c7"
+    },
+    "spec": {
+      "path": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md",
+      "sha256": "3e68171cec3f2eb86e48341b3046ba81f3ef925d12fb1cfa835863c9c8b9a494"
+    }
+  }
+}
