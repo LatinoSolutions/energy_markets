@@ -153,6 +153,23 @@ test("FIX-04: sin provenance del release del producto una campaña no atribuye r
   }
 });
 
+test("FIX-04: una procedencia de otro mercado o sin hash completo no acredita receipts", () => {
+  const campaign = results.campaigns.find((entry) => entry.product === "G0BQ" && entry.runs.length > 0);
+  assert.ok(campaign);
+  for (const tamper of [
+    (release) => { release.market = "POWER_DE"; },
+    (release) => { release.resultsSha256 = "unknown"; },
+  ]) {
+    const exploratory = structuredClone(vms.campaigns.exploratory);
+    tamper(exploratory.provenance.byProduct.G0BQ);
+    const html = renderSurfacePage("campaigns", { ...vms.campaigns, exploratory });
+    const section = html.split(`id="cmp-${campaign.id}"`)[1].split("</section>")[0];
+    const ledger = section.slice(section.indexOf('<h2 class="sec">Receipts</h2>'));
+    assert.match(ledger, /NO RECEIPTS<\/span> <span class="small muted">product release provenance unavailable/);
+    assert.equal(count(ledger, /<div class="receipt">/g), 0);
+  }
+});
+
 test("FIX-04: campañas y Replay Power muestran identidad de Power DE del artifact", () => {
   const campaignsHtml = renderSurfacePage("campaigns", vms.campaigns);
   const replayHtml = renderSurfacePage("replay", vms.replay);

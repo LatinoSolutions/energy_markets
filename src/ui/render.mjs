@@ -598,7 +598,7 @@ const EXP_ARM_SHORT = { BASELINE: "Baseline", ARM_A: "Arm A", ARM_B: "Arm B" };
 // misiones; el release Power no hereda el hub THE ni los títulos de Gas.
 const PRODUCT_META = Object.fromEntries(Object.values(EXPLORATORY_MISSIONS).map((mission) => {
   const title = mission.missionId.split("_").map((part) => part[0] + part.slice(1).toLowerCase()).join(" ");
-  return [mission.product, { title, area: mission.area }];
+  return [mission.product, { title, area: mission.area, market: mission.market }];
 }));
 const PRODUCT_TITLE = Object.fromEntries(Object.entries(PRODUCT_META).map(([product, meta]) => [product, `${meta.title} (${meta.area})`]));
 const productArea = (product) => PRODUCT_META[product]?.area ?? UNAVAILABLE_TEXT;
@@ -1074,7 +1074,10 @@ function exploratoryReceipts(provenance) {
 // v3 cargados, una campaign gas no lista los artifacts de Power ni al revés.
 function campaignReceipts(campaign, provenance) {
   const productRelease = provenance?.byProduct?.[campaign.product];
-  if (!productRelease || !["resultsSha256", "resultsPath", "slotsSha256", "manifestPath"].every((key) => typeof productRelease[key] === "string" && productRelease[key].length > 0)) {
+  const expectedMarket = PRODUCT_META[campaign.product]?.market;
+  if (!expectedMarket || productRelease?.market !== expectedMarket
+    || !["resultsSha256", "slotsSha256"].every((key) => /^[a-f0-9]{64}$/i.test(productRelease[key]))
+    || !["resultsPath", "manifestPath"].every((key) => typeof productRelease[key] === "string" && productRelease[key].length > 0)) {
     return [];
   }
   return exploratoryReceipts({ releases: [productRelease] });
