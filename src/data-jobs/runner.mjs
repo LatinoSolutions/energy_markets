@@ -70,9 +70,11 @@ function writeJsonAtomic(file, value) {
 // con este techo. El scope envuelve a `child-entry.mjs`, que corre el comando y
 // escribe el pico del cgroup del scope en `peakFile` antes de salir (con `--collect`
 // el scope se borra al terminar y su memory.peak se pierde: hallazgo
-// DATA01-MEMPEAK-SCOPE). Fuera de systemd el techo no se impone (enforcedBy "none")
-// y el pico se lee del cgroup del servicio, declarado como tal: nunca se finge que
-// el pico es del job si no lo es.
+// DATA01-MEMPEAK-SCOPE). OOMPolicy=continue: con el default `stop` systemd termina
+// el scope cuando el kernel mata al job por OOM y child-entry muere sin medir
+// (FIX-02: TR01_SCAN 2026-09-26 09:55:30Z quedó con oomKillsDuringRun 0).
+// Fuera de systemd el techo no se impone (enforcedBy "none") y el pico se lee del
+// cgroup del servicio, declarado como tal: nunca se finge que el pico es del job.
 export function buildSpawnCommand(step, { useSystemdScope = false, systemdRun = "systemd-run", nodeBinary = process.execPath, childEntry = CHILD_ENTRY, peakFile = null } = {}) {
   if (!Array.isArray(step?.command) || step.command.length === 0) {
     throw new TypeError("el paso no tiene comando");
@@ -81,7 +83,7 @@ export function buildSpawnCommand(step, { useSystemdScope = false, systemdRun = 
   if (memoryMaxBytes !== null && useSystemdScope) {
     return {
       bin: systemdRun,
-      args: ["--user", "--scope", "--quiet", "--collect", `--property=MemoryMax=${memoryMaxBytes}`, "--", nodeBinary, childEntry, peakFile, "--", ...step.command],
+      args: ["--user", "--scope", "--quiet", "--collect", `--property=MemoryMax=${memoryMaxBytes}`, "--property=OOMPolicy=continue", "--", nodeBinary, childEntry, peakFile, "--", ...step.command],
       enforcedBy: "systemd-scope",
       memoryMaxBytes,
       peakFile,
@@ -90,20 +92,52 @@ export function buildSpawnCommand(step, { useSystemdScope = false, systemdRun = 
   return { bin: step.command[0], args: step.command.slice(1), enforcedBy: "none", memoryMaxBytes, peakFile: null };
 }
 
-// El supervisor deja `{cgroup, memoryPeakBytes, oomKills}` del cgroup en el que
-// corrió. Sin archivo (o ilegible) no hay pico del job: el receipt lo declara.
+// El supervisor deja `{phase, cgroup, memoryPeakBytes, oomKills}` del cgroup en el
+// que corrió. Sólo `phase: "final"` es medición; `started` sólo nombra el scope.
+// Sin archivo (o ilegible) no hay pico del job: el receipt lo declara.
 function readJobPeakFile(file) {
   if (typeof file !== "string" || file.length === 0) return null;
   try {
     const parsed = readJson(file);
+    const isFinal = parsed?.phase === "final";
     return {
       cgroup: typeof parsed?.cgroup === "string" ? parsed.cgroup : null,
-      memoryPeakBytes: Number.isInteger(parsed?.memoryPeakBytes) ? parsed.memoryPeakBytes : null,
-      oomKills: Number.isInteger(parsed?.oomKills) ? parsed.oomKills : null,
+      memoryPeakBytes: isFinal && Number.isInteger(parsed?.memoryPeakBytes) ? parsed.memoryPeakBytes : null,
+      oomKills: isFinal && Number.isInteger(parsed?.oomKills) ? parsed.oomKills : null,
     };
   } catch {
     return null;
   }
+}
+
+// FIX-02: un job en su scope nunca toma números del cgroup del servicio (otro
+// cgroup: su memory.peak y su oom_kill no ven al scope). Sin medición final del
+// scope, pico y OOM quedan null/"unavailable", nunca 0.
+export function jobMemoryRecord({ spawnSpec, jobPeak, serviceBefore, serviceAfter }) {
+  if (spawnSpec.enforcedBy === "systemd-scope") {
+    const measured = jobPeak?.memoryPeakBytes != null;
+    return {
+      memoryMaxBytes: spawnSpec.memoryMaxBytes,
+      enforcedBy: spawnSpec.enforcedBy,
+      cgroup: jobPeak?.cgroup ?? null,
+      memoryPeakBytes: jobPeak?.memoryPeakBytes ?? null,
+      peakSource: measured ? "job-scope" : "unavailable",
+      oomKillsDuringRun: jobPeak?.oomKills ?? null,
+      note: measured
+        ? "memory.peak y memory.events (oom_kill) son del cgroup del scope del job; child-entry los escribe al terminar, antes de que systemd lo recoja."
+        : "el scope del job no dejó su medición final: pico y OOM del job son desconocidos (no se sustituyen por los del servicio).",
+    };
+  }
+  const oomKillsDuringRun = serviceBefore.oomKills === null || serviceAfter.oomKills === null ? null : serviceAfter.oomKills - serviceBefore.oomKills;
+  return {
+    memoryMaxBytes: spawnSpec.memoryMaxBytes,
+    enforcedBy: spawnSpec.enforcedBy,
+    cgroup: serviceAfter.cgroup,
+    memoryPeakBytes: serviceAfter.memoryPeakBytes,
+    peakSource: serviceAfter.memoryPeakBytes !== null ? "service-cgroup" : "unavailable",
+    oomKillsDuringRun,
+    note: "sin scope de systemd el job corre en el cgroup del servicio: memory.peak es del servicio completo, no sólo de este job.",
+  };
 }
 
 // Foto del artefacto ANTES de lanzar el job. Un artefacto que ya existía y no se
@@ -361,20 +395,12 @@ export function createDataQueueRunner({
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        const jobPeak = readJobPeakFile(spawnSpec.peakFile);
-        const serviceAfter = readCgroupMemoryPeak();
-        const jobScopePeakBytes = jobPeak?.memoryPeakBytes ?? null;
-        const memory = {
-          memoryMaxBytes: spawnSpec.memoryMaxBytes,
-          enforcedBy: spawnSpec.enforcedBy,
-          cgroup: jobPeak?.cgroup ?? serviceAfter.cgroup,
-          memoryPeakBytes: jobScopePeakBytes ?? serviceAfter.memoryPeakBytes,
-          peakSource: jobScopePeakBytes !== null ? "job-scope" : (serviceAfter.memoryPeakBytes !== null ? "service-cgroup" : "unavailable"),
-          oomKillsDuringRun: jobPeak?.oomKills != null ? jobPeak.oomKills : (memoryBefore.oomKills === null || serviceAfter.oomKills === null ? null : serviceAfter.oomKills - memoryBefore.oomKills),
-          note: spawnSpec.enforcedBy === "systemd-scope"
-            ? "memory.peak es el pico del cgroup del scope del job; child-entry lo escribe al terminar, antes de que systemd lo recoja."
-            : "sin scope de systemd el job corre en el cgroup del servicio: memory.peak es del servicio completo, no sólo de este job.",
-        };
+        const memory = jobMemoryRecord({
+          spawnSpec,
+          jobPeak: readJobPeakFile(spawnSpec.peakFile),
+          serviceBefore: memoryBefore,
+          serviceAfter: readCgroupMemoryPeak(),
+        });
         const closed = { ...receipt, ...patch, memory, finishedAt: now().toISOString() };
         const notification = await notify(jobNotificationText({ queueId, step: { ...step, index, total }, receipt: closed }));
         closed.notification = notification;
