@@ -2,7 +2,7 @@
 // test corre la cola con estos pasos, no con los jobs reales del pipeline.
 
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir } from "../support/temp-dir.mjs";
 import path from "node:path";
 
 // Uso: node fixture-job.mjs <outPath> <mode> [marker]

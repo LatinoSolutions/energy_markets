@@ -97,7 +97,7 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
 test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", async () => {
   const { loadExploratoryBacktestAt, EXPLORATORY_MANIFEST_PATH } = await import("../../src/ui/canonical-inputs.mjs");
   const { mkdtempSync, mkdirSync, writeFileSync, cpSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
+  const { tmpdir } = await import("../support/temp-dir.mjs");
   const path = await import("node:path");
   const root = mkdtempSync(path.join(tmpdir(), "ui04-"));
   const manifest = JSON.parse(readFileSync(new URL("../../" + EXPLORATORY_MANIFEST_PATH, import.meta.url), "utf8"));

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir } from "../support/temp-dir.mjs";
 import path from "node:path";
 
 // BT04-H1-TOB-TIE (2026-09-25): varias filas TOB (EXPLICIT / IMPLIED) con el mismo

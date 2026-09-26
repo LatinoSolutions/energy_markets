@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir } from "../support/temp-dir.mjs";
 import path from "node:path";
 
 import { EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT, JOB_STATUS, OUTPUT_DIR, REGISTRY_EVENT, WORKSPACE_DIR, WORKSPACE_RETENTION, claimJobLock, createBacktestJobRunner, readJobLock } from "../../src/backtest-jobs/index.mjs";

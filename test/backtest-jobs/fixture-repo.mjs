@@ -7,7 +7,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir } from "../support/temp-dir.mjs";
 import path from "node:path";
 
 import { EXPLORATORY_ENTRY, EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT } from "../../src/backtest-jobs/index.mjs";

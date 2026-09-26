@@ -4,7 +4,7 @@
 // consumidores reducen por contrato, el resultado es el mismo que con todas las filas.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir } from "../support/temp-dir.mjs";
 import { join } from "node:path";
 import test from "node:test";
 

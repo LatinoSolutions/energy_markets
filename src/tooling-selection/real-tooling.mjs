@@ -9,9 +9,8 @@
 // EM-SPEC-OWNER-PATCH-2026-09-24-01 (docs/canonical/v1_1_1/SHA256SUMS).
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
+import { mkdtempWithFallback } from "../util/temp-dir.mjs";
 
 import {
   benchmarkB,
@@ -543,7 +542,7 @@ json.dump(result, sys.stdout)
 `;
 
 function readThroughEnvironment(python) {
-  const directory = mkdtempSync(join(tmpdir(), "imp04-eex-read-"));
+  const directory = mkdtempWithFallback("imp04-eex-read-");
   try {
     const tables = [
       { name: "eex_derivative_trade", columns: Object.values(EEX_READ_ENVIRONMENT_TRADE_COLUMNS), rows: SYNTHETIC_TRADE_ROWS },
