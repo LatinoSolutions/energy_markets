@@ -1,0 +1,13 @@
+[Unit]
+# DATA-01 (PLAN_STATUS, owner decision 2026-09-26): vigila el log de la descarga
+# del archivo del cliente. Cuando `descargar.sh` escribe su línea terminal
+# (CHECKSUM OK / CHECKSUM FALLA), arranca el servicio de la cola. Un path unit es
+# event-driven: no hay polling ni humano al medio.
+Description=DATA-01: vigila el log de descarga del archivo EEX del cliente
+
+[Path]
+PathModified=/srv/data/eex-client-archive/descarga.log
+Unit=energy-markets-data-queue.service
+
+[Install]
+WantedBy=default.target
