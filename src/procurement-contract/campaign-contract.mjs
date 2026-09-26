@@ -1,9 +1,10 @@
 // Ficha de campaña y contrato de obligación. Fuente: SPEC v1.1.1 §4.1
-// (inputs del contrato de campaña, tabla de cantidades confirmadas 10/10/60/20
-// MW y su alcance), §4.2 (BUY/WAIT separado del sizing) y §4.3 (identidad de
-// reconciliación y conducta ante ausencia de terminal rule). Regla del trabajo:
-// incorporar los datos confirmados por el owner y dejar todo lo demás como
-// faltante explícito; nunca inventar producto, delivery, calendario ni unidad.
+// (inputs del contrato de campaña, tabla de cantidades confirmadas y su
+// alcance; Power Quarterly sustituido por owner patch 02 §1), §4.2 (BUY/WAIT
+// separado del sizing) y §4.3 (identidad de reconciliación y conducta ante
+// ausencia de terminal rule). Regla del trabajo: incorporar los datos
+// confirmados por el owner y dejar todo lo demás como faltante explícito;
+// nunca inventar producto, delivery, calendario ni unidad.
 
 import { isDeepStrictEqual } from "node:util";
 
@@ -32,11 +33,19 @@ const OWNER_CONFIRMATION = {
   quote: "Confirmación de Bru, 2026-09-22",
 };
 
+// Power Quarterly: el owner patch 02 §1 sustituye el 20 MW de §4.1 ("Donde
+// contradiga a la SPEC, manda este patch").
+const OWNER_PATCH_02_CONFIRMATION = {
+  authority: "Bru (owner)",
+  locator: "docs/canonical/v1_1_1/OWNER_PATCH_STRATEGY_SCOPE_2026-09-24.md (EM-SPEC-OWNER-PATCH-2026-09-24-02) §1, 2026-09-24",
+  quote: "Power Quarterly es **10 MW**. El valor 20 MW registrado el 2026-09-22 queda superado.",
+};
+
 export const CONFIRMED_OBLIGATIONS = [
   { product: "Gas", mission: "Monthly", quantity: 10, unit: "MW", source: OWNER_CONFIRMATION },
   { product: "Power", mission: "Monthly", quantity: 10, unit: "MW", source: OWNER_CONFIRMATION },
   { product: "Gas", mission: "Quarterly", quantity: 60, unit: "MW", source: OWNER_CONFIRMATION },
-  { product: "Power", mission: "Quarterly", quantity: 20, unit: "MW", source: OWNER_CONFIRMATION },
+  { product: "Power", mission: "Quarterly", quantity: 10, unit: "MW", source: OWNER_PATCH_02_CONFIRMATION },
 ];
 
 // §25.1/§25.2 IMP-02: reconciliar la ficha con el material auditado. El
