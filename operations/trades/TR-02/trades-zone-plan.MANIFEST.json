@@ -3,7 +3,7 @@
  "schemaVersion": "1.0",
  "plan": {
   "path": "operations/trades/TR-02/trades-zone-plan.json",
-  "sha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20"
+  "sha256": "2faf712b1a6206c3fd279b3f9a73bbcdefc2b86ab337071a3ff32683348e4796"
  },
  "generator": {
   "path": "operations/trades/TR-02/build-trades-zone-plan.mjs",
@@ -24,7 +24,7 @@
   },
   {
    "path": "src/procurement-contract/campaign-contract.mjs",
-   "sha256": "aeba3ed2fb31dc17a6a22262ab6c80063109a0c827fc371a94f842632fd894e8"
+   "sha256": "1f7d1534a53fb8a35948dc451e4bb27fc8a8b2670ba2288f5c1b5b16c5cbcadd"
   }
  ],
  "sources": {
@@ -46,7 +46,7 @@
   },
   "tradesSourceDecision": {
    "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
-   "sha256": "b0709d827b2b963aea166522d64eec5598e81fbc09a547eae615106b9abe1b61"
+   "sha256": "45e0c6902e294b9bdc7468672e76805d567ef53539209c7fd58425a43853e4ac"
   }
  }
 }

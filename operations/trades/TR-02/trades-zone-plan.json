@@ -4720,7 +4720,7 @@
    "gasExchangeCalendar": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5",
    "powerExchangeCalendar": "3a5ec37db9c0640e422df817fdc512e48fbf57905a603f7741af5c74a87007c7",
    "clientCampaignRules": "ce64348c67983290733b3d2b79708371b3b10ad9b2a77fa3bd9344c9fe1daec4",
-   "tradesSourceDecision": "b0709d827b2b963aea166522d64eec5598e81fbc09a547eae615106b9abe1b61",
+   "tradesSourceDecision": "45e0c6902e294b9bdc7468672e76805d567ef53539209c7fd58425a43853e4ac",
    "tobSeenEpisodes": "614d021f03c04feb0c3097dabc3d8a69c547a71ad651b976ef2fbb66fee6817b"
   }
  },
@@ -4743,7 +4743,7 @@
  "errors": [],
  "blockedBy": [],
  "reason": null,
- "contentHash": "27a3a93a8aab340390603c0cce1beee38e145473535328f36566f95a38464f15",
+ "contentHash": "a812ff5bdda8d4cb35171ae765850da51b2003bde7cf8e16bccb2e549e8be121",
  "coverageStatus": {
   "source": "TR-01_COVERAGE",
   "status": "PENDING_SCAN_JOB",
