@@ -7,13 +7,16 @@ import { readFileSync } from "node:fs";
 import {
   CAMPAIGN_STATUS,
   DAY_STATUS,
+  PATCH_COMPLETENESS_RULE,
   classifyDay,
   indexArchivePartitions,
   indexLakePartitions,
   measureSourcePeriodCoverage,
   partitionKey,
+  resolveVerifiedPatchDays,
 } from "../../src/trades-source/period-coverage.mjs";
 import { buildSourcePeriodCoverage } from "../../operations/trades/DATA-02/build-source-period-coverage.mjs";
+import { buildManifest as buildTradesMeasurementManifest } from "../../operations/trades/TR-01/aggregate-trades-rows.mjs";
 
 const TRADE_GAS = partitionKey("eex_derivative_trade", "NATGAS", "THE");
 const TOB_GAS = partitionKey("eex_derivative_top_of_book", "NATGAS", "THE");
@@ -165,6 +168,36 @@ test("sin mezcla: la medición de cada fuente es idéntica a medirla sola", () =
   }
 });
 
+test("PARCHE VERIFICADO elige archivo, lago normal y DATA_INCOMPLETE para día cortado", () => {
+  const days = ["2021-03-01", "2021-03-02", "2021-03-03", "2021-03-04", "2021-03-05", "2021-03-08"];
+  const records = days.map((trdDate, index) => ({
+    shortCode: "G0BQ", maturity: "202107", trdDate,
+    eligibleCount: index === 4 ? 1 : 10,
+  }));
+  const selected = resolveVerifiedPatchDays({
+    campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
+    windowDays: [days[0], days[3], days[4], "2021-03-09"],
+    archivePartitions: { included: { [days[0]]: 1 }, excluded: {} },
+    archiveRange: { from: days[0], to: "2026-09-11" },
+    lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    lakeRange: { from: days[0], to: days.at(-1) },
+    lakeCoverage: records,
+  });
+  assert.deepEqual(selected.map((row) => row.source), [
+    "CLIENT_SEALED_ARCHIVE", "EEX_LAKE_PATCH", "DATA_INCOMPLETE", "DATA_INCOMPLETE",
+  ]);
+  assert.equal(selected[1].threshold, 5);
+  assert.equal(selected[2].reason, "BELOW_COMPLETENESS_THRESHOLD");
+  assert.equal(selected[3].reason, "LAKE_PARTITION_ABSENT");
+  assert.equal(resolveVerifiedPatchDays({
+    campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
+    windowDays: [days[3]], archivePartitions: { included: {}, excluded: {} },
+    archiveRange: { from: days[0], to: days.at(-1) },
+    lakePartitions: { included: { [days[3]]: 1 }, excluded: {} },
+    lakeRange: { from: days[0], to: days.at(-1) }, lakeCoverage: records,
+  })[0].source, "DATA_INCOMPLETE");
+});
+
 function repoInputs() {
   const read = (path) => JSON.parse(readFileSync(path, "utf8"));
   return {
@@ -184,6 +217,10 @@ test("el productor registra PARCHE VERIFICADO sin declarar completos los datos d
   assert.equal(artifact.ownerDecision.selectedSource, "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH");
   assert.equal(artifact.ownerDecision.verificationStatus, "PENDING_LAKE_MEASUREMENT");
   assert.deepEqual(artifact.ownerDecision.unmeasuredLakeMarkets, ["GAS_THE", "POWER_DE"]);
+  assert.equal(artifact.ownerDecision.completenessRuleSha256,
+    createHash("sha256").update(JSON.stringify(PATCH_COMPLETENESS_RULE)).digest("hex"));
+  const gap = artifact.campaigns.find((entry) => entry.campaignId === "GAS-Q-2021Q3");
+  assert.ok(gap.patch.days.some((entry) => entry.source === "DATA_INCOMPLETE"));
 });
 
 test("fail-closed: una medición de trades que no viene del archivo verificado no se usa", () => {
@@ -268,13 +305,13 @@ function sealLakeMeasurement(inputs, measurement) {
   const bytes = Buffer.from(`${JSON.stringify(measurement)}\n`);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   inputs.lakeMeasurementGas = bytes;
-  inputs.lakeMeasurementGasManifest = {
-    artifactKind: "TR-01_TRADES_MEASUREMENT_MANIFEST",
-    schemaVersion: "1.0",
-    producer: "operations/trades/TR-01/aggregate-trades-rows.mjs",
-    artifact: { path: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json", sha256 },
-    input: { path: "rows-lake-gas-the.ndjson", sha256: "a".repeat(64) },
-  };
+  inputs.lakeMeasurementGasManifest = buildTradesMeasurementManifest({
+    measurement: { dedup: { inputCount: 10, uniqueCount: 10, duplicates: 0 }, eligibility: { eligible: 5 } },
+    artifactPath: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
+    artifactSha256: sha256,
+    inputPath: "rows-lake-gas-the.ndjson",
+    inputSha256: "a".repeat(64),
+  });
 }
 
 test("fail-closed: medición del lago requiere manifest válido ligado a los bytes y al escaneo", () => {

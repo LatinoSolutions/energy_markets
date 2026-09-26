@@ -16,6 +16,7 @@ import {
   MARKET_AREAS,
   PARTITION_TABLES,
   PERIOD_COVERAGE_VERSION,
+  PATCH_COMPLETENESS_RULE,
   partitionKey,
   indexLakePartitions,
   measureSourcePeriodCoverage,
@@ -48,8 +49,8 @@ const PRODUCER_PATHS = Object.freeze([
 // El escaneo de trades elegibles del lago es un job (TRADES_MODE_PLAN.md: los
 // agentes no corren escaneos completos).
 const LAKE_ELIGIBLE_PENDING = {
-  GAS_THE: `Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=NATGAS/area=THE --out rows-lake-gas-the.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-gas-the.ndjson --market gas-the --out ${OPTIONAL_INPUT_PATHS.lakeMeasurementGas}`,
-  POWER_DE: `Sin TRADES_MEASUREMENT del lago. Job pendiente por la ruta de jobs de DATA-01: operations/trades/TR-01/extract-trades-rows.py --source lake --area cmdty=POWER/area=DE --out rows-lake-power-de.ndjson; node operations/trades/TR-01/aggregate-trades-rows.mjs --in rows-lake-power-de.ndjson --market power-de --out ${OPTIONAL_INPUT_PATHS.lakeMeasurementPower}`,
+  GAS_THE: `Sin TRADES_MEASUREMENT del lago para cmdty=NATGAS/area=THE. Job DATA02_LAKE_SCAN pendiente: ${OPTIONAL_INPUT_PATHS.lakeMeasurementGas}`,
+  POWER_DE: `Sin TRADES_MEASUREMENT del lago para cmdty=POWER/area=DE. Job DATA02_LAKE_SCAN pendiente: ${OPTIONAL_INPUT_PATHS.lakeMeasurementPower}`,
 };
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -153,7 +154,7 @@ export function buildSourcePeriodCoverage(inputs) {
       eligibleTrades: "Días de la ventana con al menos un trade elegible del contrato de la campaign (ShortCode|YYYYMM), desde el campo coverage de TRADES_MEASUREMENT de TR-01.",
       tobPartitions: "Igual que tradePartitions sobre eex_derivative_top_of_book; required sólo en PUENTE (patch 03 §4).",
       calendar: "La ventana sale del calendario de la misión y del mercado (patch 03 §3.4), nunca de la presencia de data.",
-      noMixing: "Cada fuente se mide por separado; ningún campo combina fuentes.",
+      noMixing: "Cada fuente se mide por separado; patch.days declara la elección por día y deja los no verificables DATA_INCOMPLETE.",
     },
     tr01Comparison: {
       decisionStatus: tr01Decision.status,
@@ -169,10 +170,12 @@ export function buildSourcePeriodCoverage(inputs) {
       baseSource: "CLIENT_SEALED_ARCHIVE",
       patchSource: "EEX_LAKE_PATCH",
       rule: "Un día ausente o excluido del archivo sólo puede cubrirse con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
-      verificationStatus: lakeNotMeasured.length > 0 ? "PENDING_LAKE_MEASUREMENT" : "PENDING_PATCH_COMPLETENESS_VERIFICATION",
+      verificationStatus: lakeNotMeasured.length > 0 ? "PENDING_LAKE_MEASUREMENT" : "RULE_APPLIED",
       unmeasuredLakeMarkets: lakeNotMeasured,
-      provenance: "Cada fila y campaign debe declarar CLIENT_SEALED_ARCHIVE o EEX_LAKE_PATCH; esta medición por fuente no materializa parches.",
-      blocks: ["FIX-03: reconstrucción futura requiere parches verificados por día"],
+      completenessRule: PATCH_COMPLETENESS_RULE,
+      completenessRuleSha256: sha256(Buffer.from(JSON.stringify(PATCH_COMPLETENESS_RULE))),
+      provenance: "patch.days declara la fuente de cada día de cada campaign; DATA_INCOMPLETE conserva los huecos que no pasan la regla.",
+      blocks: lakeNotMeasured.length ? ["FIX-03: requiere medición completa del lago antes de reconstruir días faltantes"] : [],
     },
     summary: measurement.summary,
     differences: measurement.differences,

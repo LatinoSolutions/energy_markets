@@ -3,14 +3,26 @@
 // OWNER_PATCH_TRADES_MODE_2026-09-25.md §3.4 (la ventana sale del calendario,
 // nunca de la presencia de data) y §4 (zonas y fuentes por zona).
 //
-// Cada fuente se mide por separado sobre las mismas campaigns y el mismo
-// calendario. Ningún campo combina las dos fuentes: aplicar el parche verificado
-// requiere una verificación posterior, no se infiere de esta cobertura.
+// Cada fuente se mide por separado; la selección diaria se calcula después
+// con una regla predeclarada, sin consultar resultados de estrategia.
 
 import { contractKey } from "./coverage.mjs";
 import { legacyMaturityFor } from "../oos-reservation/trades-windows.mjs";
 
-export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-1";
+export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-2";
+
+// Umbrales de ingeniería predeclarados. La mediana de tres o más días vecinos
+// amortigua un pull cortado aislado. El mínimo absoluto evita aprobar una sola
+// fila cuando la muestra normal del contrato es muy tenue.
+export const PATCH_COMPLETENESS_RULE = Object.freeze({
+  version: "DATA-02-patch-completeness-1",
+  peerDistanceCalendarDays: 14,
+  minPositivePeerDays: 3,
+  minDailyEligibleTrades: 2,
+  minFractionOfPeerMedian: 0.5,
+  peerScope: "same ShortCode|Maturity, within calendar-day distance to delivery",
+  statistic: "median of positive eligible-trade counts; candidate >= max(2, ceil(0.5 * median))",
+});
 
 export const PARTITION_TABLES = Object.freeze({
   TRADES: "eex_derivative_trade",
@@ -224,6 +236,45 @@ function marketCalendarDays(exchangeDays, campaign) {
   return exchangeDays.filter((day) => day >= campaign.windowStart && day <= campaign.windowEnd);
 }
 
+const utcDay = (day) => Date.parse(`${day}T00:00:00Z`);
+
+// El lago sólo puede cubrir un día sin partición sellada del archivo. Un día
+// parcialmente sellado se conserva incompleto: el listado no certifica su
+// completitud y reemplazarlo podría ocultar pulls del cliente.
+export function resolveVerifiedPatchDays({ campaign, windowDays, archivePartitions, archiveRange, lakePartitions, lakeRange, lakeCoverage, lakeEligibleIndex }) {
+  const contract = `${campaign.shortCode}|${legacyMaturityFor(campaign.mission, campaign.maturity) ?? ""}`;
+  const byDay = lakeEligibleIndex === null || (lakeEligibleIndex === undefined && lakeCoverage === null)
+    ? null : ((lakeEligibleIndex ?? indexEligibleCoverage(lakeCoverage)).get(contract) ?? new Map());
+  const delivery = utcDay(`${String(legacyMaturityFor(campaign.mission, campaign.maturity)).slice(0, 4)}-${String(legacyMaturityFor(campaign.mission, campaign.maturity)).slice(4, 6)}-01`);
+  if (!Number.isFinite(delivery)) throw new Error(`Maturity inválida para ${campaign.campaignId}`);
+  return windowDays.map((day) => {
+    const archiveStatus = classifyDay({ day, partitions: archivePartitions, range: archiveRange });
+    if (archiveStatus === DAY_STATUS.SEALED) return { day, source: "CLIENT_SEALED_ARCHIVE" };
+    if (archiveStatus === DAY_STATUS.PRESENT_WITH_EXCLUDED_PULLS) {
+      return { day, source: "DATA_INCOMPLETE", reason: "ARCHIVE_HAS_EXCLUDED_PULLS" };
+    }
+    if (byDay === null) return { day, source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" };
+    if (classifyDay({ day, partitions: lakePartitions, range: lakeRange }) !== DAY_STATUS.SEALED) {
+      return { day, source: "DATA_INCOMPLETE", reason: "LAKE_PARTITION_ABSENT" };
+    }
+    const count = byDay.get(day) ?? 0;
+    const distance = Math.abs(delivery - utcDay(day));
+    const peers = [...byDay].filter(([peerDay, peerCount]) =>
+      peerDay !== day && peerCount > 0 && Number.isFinite(utcDay(peerDay))
+      && Math.abs(Math.abs(delivery - utcDay(peerDay)) - distance) <= PATCH_COMPLETENESS_RULE.peerDistanceCalendarDays * 86400000
+      && classifyDay({ day: peerDay, partitions: lakePartitions, range: lakeRange }) === DAY_STATUS.SEALED)
+      .map(([, peerCount]) => peerCount).sort((a, b) => a - b);
+    if (peers.length < PATCH_COMPLETENESS_RULE.minPositivePeerDays) {
+      return { day, source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: count, peerDays: peers.length };
+    }
+    const median = peers.length % 2 ? peers[(peers.length - 1) / 2] : (peers[peers.length / 2 - 1] + peers[peers.length / 2]) / 2;
+    const threshold = Math.max(PATCH_COMPLETENESS_RULE.minDailyEligibleTrades, Math.ceil(PATCH_COMPLETENESS_RULE.minFractionOfPeerMedian * median));
+    return count >= threshold
+      ? { day, source: "EEX_LAKE_PATCH", eligibleTrades: count, peerDays: peers.length, peerMedian: median, threshold }
+      : { day, source: "DATA_INCOMPLETE", reason: "BELOW_COMPLETENESS_THRESHOLD", eligibleTrades: count, peerDays: peers.length, peerMedian: median, threshold };
+  });
+}
+
 // sources: { [sourceId]: { range: {from,to}, partitions, eligibleCoverage:
 // { GAS_THE: records|null, POWER_DE: records|null }, eligiblePendingReason:
 // { GAS_THE: string, POWER_DE: string } } (motivo de NOT_MEASURED por mercado)
@@ -274,7 +325,23 @@ export function measureSourcePeriodCoverage({ zonePlan, exchangeDays, sources })
         zoneSummary.campaignsRequiredTobNotSealed.push(campaign.campaignId);
       }
     }
-    measured.push({ ...campaign, windowExchangeDays: windowDays.length, bySource });
+    const patchDays = sources.CLIENT_SEALED_ARCHIVE && sources.EEX_LAKE
+      ? resolveVerifiedPatchDays({
+        campaign, windowDays,
+        archivePartitions: sources.CLIENT_SEALED_ARCHIVE.partitions[partitionKey(PARTITION_TABLES.TRADES, cmdty, area)],
+        archiveRange: sources.CLIENT_SEALED_ARCHIVE.range,
+        lakePartitions: sources.EEX_LAKE.partitions[partitionKey(PARTITION_TABLES.TRADES, cmdty, area)],
+        lakeRange: sources.EEX_LAKE.range,
+        lakeCoverage: sources.EEX_LAKE.eligibleCoverage?.[campaign.market] ?? null,
+        lakeEligibleIndex: eligibleIndexes.EEX_LAKE[campaign.market],
+      }) : null;
+    measured.push({ ...campaign, windowExchangeDays: windowDays.length, bySource,
+      patch: patchDays === null ? null : {
+        days: patchDays,
+        sources: [...new Set(patchDays.map((item) => item.source))],
+        status: patchDays.some((item) => item.source === "DATA_INCOMPLETE") ? "DATA_INCOMPLETE" : "COMPLETE",
+      },
+    });
   }
   return { campaigns: measured, summary, differences: sourceDifferences(measured, sourceIds) };
 }
