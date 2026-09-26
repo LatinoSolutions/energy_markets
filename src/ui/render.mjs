@@ -2089,7 +2089,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   </div>
 
   ${validated ? tr07ScopeHtml(vm.tradesPanels, selection) : ""}
-  ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness, tobProduct)) : ""}
+  ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness, selectedMission?.shortCode ?? null)) : ""}
   ${validated ? tr07PanelsHtml(vm.tradesPanels, selection) : ""}
 
   ${hasExploratory ? "" : `
