@@ -1,13 +1,11 @@
 // Cobertura por período de cada fuente candidata de trades/TOB (DATA-02). Fuente:
-// PLAN_STATUS.md DATA-02 (Bru, 2026-09-26: "Medir la cobertura por campaign y
-// zona con cada fuente y dejar la decisión a Bru: sin mezclar fuentes a
-// escondidas y con la insuficiencia visible") y
+// PLAN_STATUS.md DATA-02 (Bru, 2026-09-26: PARCHE VERIFICADO) y
 // OWNER_PATCH_TRADES_MODE_2026-09-25.md §3.4 (la ventana sale del calendario,
 // nunca de la presencia de data) y §4 (zonas y fuentes por zona).
 //
 // Cada fuente se mide por separado sobre las mismas campaigns y el mismo
-// calendario. Ningún campo combina las dos fuentes y el módulo no elige fuente:
-// la decisión queda PENDING_OWNER_DECISION.
+// calendario. Ningún campo combina las dos fuentes: aplicar el parche verificado
+// requiere una verificación posterior, no se infiere de esta cobertura.
 
 import { contractKey } from "./coverage.mjs";
 import { legacyMaturityFor } from "../oos-reservation/trades-windows.mjs";

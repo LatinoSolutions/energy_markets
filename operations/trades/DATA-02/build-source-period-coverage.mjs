@@ -3,8 +3,8 @@
 //
 // Mide, para cada campaign del zone plan de TR-02 y para cada fuente por
 // separado, los días de su ventana con partición de trades y de TOB y, donde
-// existe la medición de TR-01, los días con trade elegible del contrato. No elige
-// fuente: la decisión queda PENDING_OWNER_DECISION para Bru.
+// existe la medición de TR-01, los días con trade elegible del contrato. Registra
+// la política PARCHE VERIFICADO de Bru sin presumir que el lago ya fue medido.
 //
 // Uso: node build-source-period-coverage.mjs [--check]
 
@@ -34,7 +34,9 @@ export const INPUT_PATHS = Object.freeze({
 // archivo no existe, la cobertura elegible del lago queda NOT_MEASURED.
 export const OPTIONAL_INPUT_PATHS = Object.freeze({
   lakeMeasurementGas: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
+  lakeMeasurementGasManifest: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json.MANIFEST.json",
   lakeMeasurementPower: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
+  lakeMeasurementPowerManifest: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json.MANIFEST.json",
 });
 const ARTIFACT_PATH = "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json";
 const MANIFEST_PATH = "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json";
@@ -75,8 +77,22 @@ function requireArchiveMeasurement(measurement, decision, path) {
 // área que el listado de particiones y si el escaneo recorrió todos sus días: un
 // escaneo recortado (--start/--end/--max-days) haría pasar días no leídos por
 // días sin trades.
-function requireLakeMeasurement(measurement, lake, market, path) {
-  if (measurement === null) return null;
+function requireLakeMeasurement(measurementBytes, manifest, lake, market, path) {
+  if (measurementBytes === null && manifest === null) return null;
+  if (measurementBytes === null || manifest === null || !Buffer.isBuffer(measurementBytes)) {
+    throw new Error(`${path} requiere medición y manifest del productor juntos.`);
+  }
+  const validHash = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+  if (manifest.artifactKind !== "TR-01_TRADES_MEASUREMENT_MANIFEST"
+    || manifest.schemaVersion !== "1.0"
+    || manifest.producer !== "operations/trades/TR-01/aggregate-trades-rows.mjs"
+    || manifest.artifact?.path !== path
+    || manifest.artifact?.sha256 !== sha256(measurementBytes)
+    || typeof manifest.input?.path !== "string" || !manifest.input.path
+    || !validHash(manifest.input?.sha256)) {
+    throw new Error(`${path} no tiene un manifest válido que vincule la medición al escaneo.`);
+  }
+  const measurement = JSON.parse(measurementBytes.toString("utf8"));
   const meta = measurement?.sourceMeta ?? {};
   const { cmdty, area } = MARKET_AREAS[market];
   const listedDays = Object.keys(lake.listing[partitionKey(PARTITION_TABLES.TRADES, cmdty, area)] ?? {}).sort();
@@ -84,7 +100,7 @@ function requireLakeMeasurement(measurement, lake, market, path) {
     && meta.table === PARTITION_TABLES.TRADES
     && meta.area === `cmdty=${cmdty}/area=${area}`
     && meta.lakeRoot === lake.inputs?.lakeRoot;
-  if (!sameSource || !Array.isArray(measurement.coverage)) {
+  if (measurement.artifactKind !== "TR-01_TRADES_MEASUREMENT" || !sameSource || !Array.isArray(measurement.coverage)) {
     throw new Error(`${path} no es una medición del lago ${lake.inputs?.lakeRoot} para cmdty=${cmdty}/area=${area}.`);
   }
   const scanCoversListing = listedDays.length > 0
@@ -102,8 +118,8 @@ export function buildSourcePeriodCoverage(inputs) {
   const archivePartitions = sourcePartitions.sources.CLIENT_SEALED_ARCHIVE.partitions;
   const lake = sourcePartitions.sources.EEX_LAKE;
   const lakeEligible = {
-    GAS_THE: requireLakeMeasurement(inputs.lakeMeasurementGas ?? null, lake, "GAS_THE", OPTIONAL_INPUT_PATHS.lakeMeasurementGas),
-    POWER_DE: requireLakeMeasurement(inputs.lakeMeasurementPower ?? null, lake, "POWER_DE", OPTIONAL_INPUT_PATHS.lakeMeasurementPower),
+    GAS_THE: requireLakeMeasurement(inputs.lakeMeasurementGas ?? null, inputs.lakeMeasurementGasManifest ?? null, lake, "GAS_THE", OPTIONAL_INPUT_PATHS.lakeMeasurementGas),
+    POWER_DE: requireLakeMeasurement(inputs.lakeMeasurementPower ?? null, inputs.lakeMeasurementPowerManifest ?? null, lake, "POWER_DE", OPTIONAL_INPUT_PATHS.lakeMeasurementPower),
   };
   const lakeNotMeasured = Object.keys(lakeEligible).filter((market) => lakeEligible[market] === null);
   const measurement = measureSourcePeriodCoverage({
@@ -147,16 +163,16 @@ export function buildSourcePeriodCoverage(inputs) {
       periodDifferencesFoundHere: measurement.differences.length,
     },
     ownerDecision: {
-      status: "PENDING_OWNER_DECISION",
-      decidedBy: null,
-      selectedSource: null,
-      mixing: "NONE: ninguna fuente se completa con la otra sin una decisión explícita de Bru, versionada y visible por campaign.",
-      blocks: ["FIX-03"],
-      options: [
-        { id: "CLIENT_SEALED_ARCHIVE_ONLY", consequence: "Ver summary.*.*.CLIENT_SEALED_ARCHIVE: campaigns sin trades quedan DATA_INCOMPLETE (patch 03 §3.4)." },
-        { id: "EEX_LAKE_ONLY", consequence: `Ver summary.*.*.EEX_LAKE: el lago acaba en su dateMax (post-puente OUT_OF_SOURCE_RANGE) y no trae eex_derivative_reference${lakeNotMeasured.length > 0 ? `; su cobertura de trades elegibles sigue NOT_MEASURED en ${lakeNotMeasured.join(", ")}` : ""}.` },
-        { id: "DECLARED_PER_PERIOD", consequence: "Fuente distinta por período, declarada y versionada; exige que cada artefacto downstream registre la fuente por campaign." },
-      ],
+      status: "PARCHE_VERIFICADO",
+      decidedBy: "Bru, PLAN_STATUS.md DATA-02 (2026-09-26)",
+      selectedSource: "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
+      baseSource: "CLIENT_SEALED_ARCHIVE",
+      patchSource: "EEX_LAKE_PATCH",
+      rule: "Un día ausente o excluido del archivo sólo puede cubrirse con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
+      verificationStatus: lakeNotMeasured.length > 0 ? "PENDING_LAKE_MEASUREMENT" : "PENDING_PATCH_COMPLETENESS_VERIFICATION",
+      unmeasuredLakeMarkets: lakeNotMeasured,
+      provenance: "Cada fila y campaign debe declarar CLIENT_SEALED_ARCHIVE o EEX_LAKE_PATCH; esta medición por fuente no materializa parches.",
+      blocks: ["FIX-03: reconstrucción futura requiere parches verificados por día"],
     },
     summary: measurement.summary,
     differences: measurement.differences,
@@ -173,7 +189,7 @@ function readInputs() {
   }
   for (const [name, path] of Object.entries(OPTIONAL_INPUT_PATHS)) {
     bytes[name] = existsSync(path) ? readFileSync(path) : null;
-    parsed[name] = bytes[name] === null ? null : JSON.parse(bytes[name].toString("utf8"));
+    parsed[name] = bytes[name] === null ? null : name.endsWith("Manifest") ? JSON.parse(bytes[name].toString("utf8")) : bytes[name];
   }
   return { bytes, parsed };
 }

@@ -3,7 +3,7 @@
  "schemaVersion": "1.0",
  "artifact": {
   "path": "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
-  "sha256": "22a100da177d25e9b28470eb1c3c66fb56e99e7bba25cff10019f39fa07d5fb5"
+  "sha256": "87842339b0689b0a67036c21f21daf87d275b100f7ec7d9562164c34aae97789"
  },
  "inputs": {
   "sourcePartitions": {
@@ -38,20 +38,28 @@
    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
    "sha256": null
   },
+  "lakeMeasurementGasManifest": {
+   "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json.MANIFEST.json",
+   "sha256": null
+  },
   "lakeMeasurementPower": {
    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
+   "sha256": null
+  },
+  "lakeMeasurementPowerManifest": {
+   "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json.MANIFEST.json",
    "sha256": null
   }
  },
  "producer": [
   {
    "path": "operations/trades/DATA-02/build-source-period-coverage.mjs",
-   "sha256": "e4ed6050ef2ee130d98068962948665021da988eacf60ccc0b994817a5b0750a"
+   "sha256": "c84b3dbe21a3cf3c8cdea51b95a17281c31f63348679bcd2c9695d453d18666e"
   },
   {
    "path": "src/trades-source/period-coverage.mjs",
-   "sha256": "ee579aae2be95d55796cf10e276fa65dcb96b897e2677c89513a278d0b330721"
+   "sha256": "652e4d43f8e3fbb3988e0f2749822566148af0e4f3ff5038a4ebee98a1e58d5c"
   }
  ],
- "ownerDecision": "PENDING_OWNER_DECISION"
+ "ownerDecision": "PARCHE_VERIFICADO"
 }

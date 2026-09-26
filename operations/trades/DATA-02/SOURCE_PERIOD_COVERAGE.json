@@ -18,26 +18,20 @@
   "periodDifferencesFoundHere": 84
  },
  "ownerDecision": {
-  "status": "PENDING_OWNER_DECISION",
-  "decidedBy": null,
-  "selectedSource": null,
-  "mixing": "NONE: ninguna fuente se completa con la otra sin una decisión explícita de Bru, versionada y visible por campaign.",
-  "blocks": [
-   "FIX-03"
+  "status": "PARCHE_VERIFICADO",
+  "decidedBy": "Bru, PLAN_STATUS.md DATA-02 (2026-09-26)",
+  "selectedSource": "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
+  "baseSource": "CLIENT_SEALED_ARCHIVE",
+  "patchSource": "EEX_LAKE_PATCH",
+  "rule": "Un día ausente o excluido del archivo sólo puede cubrirse con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
+  "verificationStatus": "PENDING_LAKE_MEASUREMENT",
+  "unmeasuredLakeMarkets": [
+   "GAS_THE",
+   "POWER_DE"
   ],
-  "options": [
-   {
-    "id": "CLIENT_SEALED_ARCHIVE_ONLY",
-    "consequence": "Ver summary.*.*.CLIENT_SEALED_ARCHIVE: campaigns sin trades quedan DATA_INCOMPLETE (patch 03 §3.4)."
-   },
-   {
-    "id": "EEX_LAKE_ONLY",
-    "consequence": "Ver summary.*.*.EEX_LAKE: el lago acaba en su dateMax (post-puente OUT_OF_SOURCE_RANGE) y no trae eex_derivative_reference; su cobertura de trades elegibles sigue NOT_MEASURED en GAS_THE, POWER_DE."
-   },
-   {
-    "id": "DECLARED_PER_PERIOD",
-    "consequence": "Fuente distinta por período, declarada y versionada; exige que cada artefacto downstream registre la fuente por campaign."
-   }
+  "provenance": "Cada fila y campaign debe declarar CLIENT_SEALED_ARCHIVE o EEX_LAKE_PATCH; esta medición por fuente no materializa parches.",
+  "blocks": [
+   "FIX-03: reconstrucción futura requiere parches verificados por día"
   ]
  },
  "summary": {

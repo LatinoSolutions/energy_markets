@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import {
@@ -177,11 +178,12 @@ function repoInputs() {
   };
 }
 
-test("el productor no elige fuente: la decisión queda pendiente de Bru", () => {
+test("el productor registra PARCHE VERIFICADO sin declarar completos los datos del lago", () => {
   const artifact = buildSourcePeriodCoverage(repoInputs());
-  assert.equal(artifact.ownerDecision.status, "PENDING_OWNER_DECISION");
-  assert.equal(artifact.ownerDecision.selectedSource, null);
-  assert.deepEqual(artifact.ownerDecision.blocks, ["FIX-03"]);
+  assert.equal(artifact.ownerDecision.status, "PARCHE_VERIFICADO");
+  assert.equal(artifact.ownerDecision.selectedSource, "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH");
+  assert.equal(artifact.ownerDecision.verificationStatus, "PENDING_LAKE_MEASUREMENT");
+  assert.deepEqual(artifact.ownerDecision.unmeasuredLakeMarkets, ["GAS_THE", "POWER_DE"]);
 });
 
 test("fail-closed: una medición de trades que no viene del archivo verificado no se usa", () => {
@@ -230,7 +232,7 @@ function lakeMeasurementFixture(inputs, overrides = {}) {
 
 test("con una medición del lago, sus trades elegibles dejan de ser NOT_MEASURED y se cuentan por contrato", () => {
   const inputs = repoInputs();
-  inputs.lakeMeasurementGas = lakeMeasurementFixture(inputs);
+  sealLakeMeasurement(inputs, lakeMeasurementFixture(inputs));
   const artifact = buildSourcePeriodCoverage(inputs);
   const q3 = artifact.campaigns.find((entry) => entry.missionKey === "GAS_QUARTERLY" && entry.campaignId === "GAS-Q-2021Q3");
   const lake = q3.bySource.EEX_LAKE.eligibleTrades;
@@ -243,7 +245,7 @@ test("con una medición del lago, sus trades elegibles dejan de ser NOT_MEASURED
   const power = artifact.campaigns.find((entry) => entry.market === "POWER_DE");
   assert.equal(power.bySource.EEX_LAKE.eligibleTrades.status, CAMPAIGN_STATUS.NOT_MEASURED);
   assert.match(power.bySource.EEX_LAKE.eligibleTrades.reason, /cmdty=POWER\/area=DE/);
-  assert.match(artifact.ownerDecision.options.find((option) => option.id === "EEX_LAKE_ONLY").consequence, /NOT_MEASURED en POWER_DE\./);
+  assert.deepEqual(artifact.ownerDecision.unmeasuredLakeMarkets, ["POWER_DE"]);
 });
 
 test("fail-closed: una medición del lago de otra fuente, área o escaneo recortado no se usa", () => {
@@ -257,7 +259,36 @@ test("fail-closed: una medición del lago de otra fuente, área o escaneo recort
   ];
   for (const [overrides, error] of cases) {
     const inputs = repoInputs();
-    inputs.lakeMeasurementGas = lakeMeasurementFixture(inputs, overrides);
+    sealLakeMeasurement(inputs, lakeMeasurementFixture(inputs, overrides));
     assert.throws(() => buildSourcePeriodCoverage(inputs), error);
   }
+});
+
+function sealLakeMeasurement(inputs, measurement) {
+  const bytes = Buffer.from(`${JSON.stringify(measurement)}\n`);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  inputs.lakeMeasurementGas = bytes;
+  inputs.lakeMeasurementGasManifest = {
+    artifactKind: "TR-01_TRADES_MEASUREMENT_MANIFEST",
+    schemaVersion: "1.0",
+    producer: "operations/trades/TR-01/aggregate-trades-rows.mjs",
+    artifact: { path: "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json", sha256 },
+    input: { path: "rows-lake-gas-the.ndjson", sha256: "a".repeat(64) },
+  };
+}
+
+test("fail-closed: medición del lago requiere manifest válido ligado a los bytes y al escaneo", () => {
+  const inputs = repoInputs();
+  sealLakeMeasurement(inputs, lakeMeasurementFixture(inputs));
+  const original = inputs.lakeMeasurementGas;
+  inputs.lakeMeasurementGas = Buffer.from(original.toString().replace('"eligibleCount":3', '"eligibleCount":9'));
+  assert.throws(() => buildSourcePeriodCoverage(inputs), /manifest válido/);
+  inputs.lakeMeasurementGas = original;
+  inputs.lakeMeasurementGasManifest = null;
+  assert.throws(() => buildSourcePeriodCoverage(inputs), /requiere medición y manifest/);
+  sealLakeMeasurement(inputs, lakeMeasurementFixture(inputs));
+  inputs.lakeMeasurementGasManifest.producer = "otro-productor";
+  assert.throws(() => buildSourcePeriodCoverage(inputs), /manifest válido/);
+  inputs.lakeMeasurementGas = null;
+  assert.throws(() => buildSourcePeriodCoverage(inputs), /requiere medición y manifest/);
 });
