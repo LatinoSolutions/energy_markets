@@ -93,12 +93,17 @@ test("DATA-02: el job del lago publica ambas mediciones y sus manifests con recu
   const step = buildDataQueueSteps(ctx).find((item) => item.jobKind === DATA_JOB_KIND.DATA02_LAKE_SCAN);
   const script = readFileSync(`${repoRoot}/operations/data-jobs/jobs/data02-lake-scan.sh`, "utf8");
   assert.deepEqual(step.command, ["bash", "operations/data-jobs/jobs/data02-lake-scan.sh"]);
-  assert.equal(step.publishes.length, 4);
-  assert.ok(step.publishes.every((path) => path.startsWith("operations/trades/DATA-02/TRADES_MEASUREMENT-lake-")));
+  assert.equal(step.publishes.length, 6);
+  assert.ok(step.publishes.slice(0, 4).every((path) => path.startsWith("operations/trades/DATA-02/TRADES_MEASUREMENT-lake-")));
+  assert.deepEqual(step.publishes.slice(4), [
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json",
+  ]);
   assert.ok(step.memoryMaxBytes > 0 && step.timeoutMs > 0);
   assert.match(script, /extract-trades-rows\.py/);
   assert.match(script, /--source lake/);
   assert.match(script, /aggregate-trades-rows\.mjs/);
+  assert.match(script, /build-source-period-coverage\.mjs\nnode operations\/trades\/DATA-02\/build-source-period-coverage\.mjs --check/);
   assert.doesNotMatch(script, /--max-days|--start|--end/);
 });
 

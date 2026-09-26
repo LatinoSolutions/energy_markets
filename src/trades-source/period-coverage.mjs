@@ -9,7 +9,7 @@
 import { contractKey } from "./coverage.mjs";
 import { legacyMaturityFor } from "../oos-reservation/trades-windows.mjs";
 
-export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-2";
+export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-3";
 
 // Umbrales de ingeniería predeclarados. La mediana de tres o más días vecinos
 // amortigua un pull cortado aislado. El mínimo absoluto evita aprobar una sola
@@ -238,9 +238,9 @@ function marketCalendarDays(exchangeDays, campaign) {
 
 const utcDay = (day) => Date.parse(`${day}T00:00:00Z`);
 
-// El lago sólo puede cubrir un día sin partición sellada del archivo. Un día
-// parcialmente sellado se conserva incompleto: el listado no certifica su
-// completitud y reemplazarlo podría ocultar pulls del cliente.
+// Un día con cualquier pull excluido no está completo en el archivo, incluso
+// si otros pulls del mismo día sí están sellados. Se evalúa el día entero del
+// lago con la misma regla predeclarada; nunca se suman ambas fuentes.
 export function resolveVerifiedPatchDays({ campaign, windowDays, archivePartitions, archiveRange, lakePartitions, lakeRange, lakeCoverage, lakeEligibleIndex }) {
   const contract = `${campaign.shortCode}|${legacyMaturityFor(campaign.mission, campaign.maturity) ?? ""}`;
   const byDay = lakeEligibleIndex === null || (lakeEligibleIndex === undefined && lakeCoverage === null)
@@ -250,9 +250,6 @@ export function resolveVerifiedPatchDays({ campaign, windowDays, archivePartitio
   return windowDays.map((day) => {
     const archiveStatus = classifyDay({ day, partitions: archivePartitions, range: archiveRange });
     if (archiveStatus === DAY_STATUS.SEALED) return { day, source: "CLIENT_SEALED_ARCHIVE" };
-    if (archiveStatus === DAY_STATUS.PRESENT_WITH_EXCLUDED_PULLS) {
-      return { day, source: "DATA_INCOMPLETE", reason: "ARCHIVE_HAS_EXCLUDED_PULLS" };
-    }
     if (byDay === null) return { day, source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" };
     if (classifyDay({ day, partitions: lakePartitions, range: lakeRange }) !== DAY_STATUS.SEALED) {
       return { day, source: "DATA_INCOMPLETE", reason: "LAKE_PARTITION_ABSENT" };

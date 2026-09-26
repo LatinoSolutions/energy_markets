@@ -84,6 +84,11 @@ export const TRADES_PANEL_ARTIFACTS = Object.freeze({
     manifest: "operations/trades/TR-02/trades-zone-plan.MANIFEST.json",
     manifestRef: "plan",
   },
+  sourcePeriodCoverage: {
+    artifact: "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
+    manifest: "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json",
+    manifestRef: "artifact",
+  },
   bridgeStatus: {
     artifact: "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json",
     manifest: "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json.MANIFEST.json",
@@ -148,6 +153,27 @@ function loadVerified(repoRoot, spec) {
   return { ok: true, json: artifactRead.json, manifest: manifestRead.json, provenance: { path: spec.artifact, sha256: declared.sha256, manifestPath: spec.manifest, manifestRef: spec.manifestRef } };
 }
 
+// DATA-02 registra también los inputs y el productor. El artifact visible sólo
+// puede atribuir procedencia a días del lago mientras esos bytes sigan vigentes.
+function loadVerifiedPeriodCoverage(repoRoot) {
+  const result = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.sourcePeriodCoverage);
+  if (!result.ok) return result;
+  if (result.json?.artifactKind !== "DATA-02_SOURCE_PERIOD_COVERAGE"
+    || result.manifest?.artifactKind !== "DATA-02_SOURCE_PERIOD_COVERAGE_MANIFEST"
+    || !Array.isArray(result.json.campaigns)) {
+    return { ok: false, code: "DATA02_COVERAGE_INVALID" };
+  }
+  for (const item of [...Object.values(result.manifest.inputs ?? {}), ...(result.manifest.producer ?? [])]) {
+    if (item?.sha256 !== null && (typeof item?.path !== "string" || hashOfFile(repoRoot, item.path) !== item.sha256)) {
+      return { ok: false, code: "DATA02_COVERAGE_STALE", path: item?.path ?? null };
+    }
+    if (item?.sha256 === null && hashOfFile(repoRoot, item.path) !== null) {
+      return { ok: false, code: "DATA02_COVERAGE_STALE", path: item.path };
+    }
+  }
+  return result;
+}
+
 // El plan de zonas proyecta la cobertura desde las mediciones de TR-01; su manifest
 // ata cada una por SHA-256 (`sources.tradesMeasurement_*`). Si una medición cambió
 // después de construir el plan, la cobertura mostrada ya no es la de la fuente.
@@ -176,12 +202,13 @@ function loadOwnerApproval(repoRoot) {
 export function loadTradesPanelsAt(repoRoot = DEFAULT_REPO_ROOT) {
   const sourceDecision = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.sourceDecision);
   const zonePlan = verifyZonePlanMeasurements(repoRoot, loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.zonePlan));
+  const sourcePeriodCoverage = loadVerifiedPeriodCoverage(repoRoot);
   const bridgeStatus = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.bridgeStatus);
   // Sin el job de TR-03 la medición no existe: es un estado, no un error.
   const bridgeMeasurement = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.bridgeMeasurement);
   const tradesFreeze = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.tradesFreeze);
   const ownerApproval = loadOwnerApproval(repoRoot);
-  return { sourceDecision, zonePlan, bridgeStatus, bridgeMeasurement, tradesFreeze, ownerApproval };
+  return { sourceDecision, zonePlan, sourcePeriodCoverage, bridgeStatus, bridgeMeasurement, tradesFreeze, ownerApproval };
 }
 
 // Sin medición de TR-01 el artifact de TR-02 declara cada campaign NO_COVERAGE con
@@ -242,13 +269,15 @@ function campaignEntry(campaign, zone, overallStatus, sourceRange) {
 
 // Panel de cobertura (TR-01/TR-02). Agrupa por misión y zona; la zona queda
 // visible en cada fila (TR-07: "zona visible en cada resultado").
-function projectCoverage(zonePlan, sourceDecision) {
+function projectCoverage(zonePlan, sourceDecision, sourcePeriodCoverage) {
   if (zonePlan?.ok !== true) {
     return { status: "ERROR", code: zonePlan?.code ?? "TRADES_PANEL_ARTIFACT_MISSING", reason: "sin plan de zonas verificado no hay cobertura que mostrar" };
   }
   const plan = zonePlan.json;
   const coverageStatus = plan.coverageStatus ?? { status: "UNAVAILABLE", reason: "el artifact no declara coverageStatus" };
   const sourceRangeById = new Map((coverageStatus.campaignsBeforeSourceStart ?? []).map((entry) => [entry.campaignId, entry]));
+  const patchByCampaign = new Map(sourcePeriodCoverage?.ok === true
+    ? sourcePeriodCoverage.json.campaigns.map((entry) => [`${entry.missionKey}|${entry.campaignId}`, entry.patch]) : []);
   const missions = Object.entries(plan.missions ?? {}).map(([missionId, mission]) => ({
     missionId,
     market: mission.market,
@@ -256,7 +285,13 @@ function projectCoverage(zonePlan, sourceDecision) {
     shortCode: mission.shortCode,
     zones: Object.entries(mission.zones ?? {}).map(([zone, campaigns]) => ({
       zone,
-      campaigns: campaigns.map((campaign) => campaignEntry(campaign, zone, coverageStatus.status, sourceRangeById.get(campaign.campaignId) ?? null)),
+      campaigns: campaigns.map((campaign) => ({
+        ...campaignEntry(campaign, zone, coverageStatus.status, sourceRangeById.get(campaign.campaignId) ?? null),
+        sourcePeriod: sourcePeriodCoverage?.ok === true
+          ? { status: "VERIFIED", patch: patchByCampaign.get(`${missionId}|${campaign.campaignId}`) ?? null,
+            provenance: sourcePeriodCoverage.provenance }
+          : { status: "UNAVAILABLE", reason: sourcePeriodCoverage?.code ?? "DATA02_COVERAGE_MISSING" },
+      })),
     })),
   }));
   return {
@@ -519,7 +554,7 @@ export function projectTradesPanels(loaded, selection = {}) {
     selector: selectorFrom(loaded?.zonePlan),
     observation: observationFor(mode),
     modes: TRADES_MODES,
-    coverage: projectCoverage(loaded?.zonePlan, loaded?.sourceDecision),
+    coverage: projectCoverage(loaded?.zonePlan, loaded?.sourceDecision, loaded?.sourcePeriodCoverage),
     zones: projectZones(loaded?.zonePlan),
     calibration: projectCalibration(loaded?.bridgeStatus, loaded?.bridgeMeasurement, loaded?.tradesFreeze),
     frozenContract: projectFrozenContract(loaded?.tradesFreeze, loaded?.bridgeMeasurement, loaded?.ownerApproval),

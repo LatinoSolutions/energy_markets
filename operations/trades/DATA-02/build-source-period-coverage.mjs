@@ -29,7 +29,9 @@ export const INPUT_PATHS = Object.freeze({
   powerExchangeCalendar: "operations/trades/TR-01/power-de-exchange-calendar.json",
   tr01Decision: "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
   archiveMeasurementGas: "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json",
+  archiveMeasurementGasManifest: "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json.MANIFEST.json",
   archiveMeasurementPower: "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json",
+  archiveMeasurementPowerManifest: "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json.MANIFEST.json",
 });
 // Mediciones del lago: salida del job de escaneo (no lo corre un agente). Si el
 // archivo no existe, la cobertura elegible del lago queda NOT_MEASURED.
@@ -65,7 +67,18 @@ function sourceRange(decision, sourceId) {
 
 // La cobertura elegible del archivo sólo vale si la medición de TR-01 salió del
 // mismo archivo que la decisión declara verificado.
-function requireArchiveMeasurement(measurement, decision, path) {
+function requireArchiveMeasurement(measurementBytes, manifest, decision, path) {
+  const legacyPath = "operations/trades/TR-01/TRADES_MEASUREMENT.json";
+  if (!Buffer.isBuffer(measurementBytes) || manifest?.artifactKind !== "TR-01_TRADES_MEASUREMENT_MANIFEST"
+    || manifest.schemaVersion !== "1.0"
+    || manifest.producer !== "operations/trades/TR-01/aggregate-trades-rows.mjs"
+    || ![path, legacyPath].includes(manifest.artifact?.path)
+    || manifest.artifact?.sha256 !== sha256(measurementBytes)
+    || typeof manifest.input?.path !== "string" || !manifest.input.path
+    || !/^[0-9a-f]{64}$/.test(manifest.input?.sha256 ?? "")) {
+    throw new Error(`${path} no tiene un manifest válido que vincule la medición del archivo a sus bytes.`);
+  }
+  const measurement = JSON.parse(measurementBytes.toString("utf8"));
   const archive = decision.candidates?.find((candidate) => candidate.id === "CLIENT_SEALED_ARCHIVE");
   const measuredSha = measurement?.sourceMeta?.archiveVerification?.sha256 ?? null;
   if (measurement?.sourceMeta?.source !== "archive" || measuredSha === null || measuredSha !== archive?.sha256) {
@@ -131,8 +144,8 @@ export function buildSourcePeriodCoverage(inputs) {
         range: sourceRange(tr01Decision, "CLIENT_SEALED_ARCHIVE"),
         partitions: archivePartitions,
         eligibleCoverage: {
-          GAS_THE: requireArchiveMeasurement(archiveMeasurementGas, tr01Decision, INPUT_PATHS.archiveMeasurementGas),
-          POWER_DE: requireArchiveMeasurement(archiveMeasurementPower, tr01Decision, INPUT_PATHS.archiveMeasurementPower),
+          GAS_THE: requireArchiveMeasurement(archiveMeasurementGas, inputs.archiveMeasurementGasManifest, tr01Decision, INPUT_PATHS.archiveMeasurementGas),
+          POWER_DE: requireArchiveMeasurement(archiveMeasurementPower, inputs.archiveMeasurementPowerManifest, tr01Decision, INPUT_PATHS.archiveMeasurementPower),
         },
       },
       EEX_LAKE: {
@@ -169,7 +182,7 @@ export function buildSourcePeriodCoverage(inputs) {
       selectedSource: "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
       baseSource: "CLIENT_SEALED_ARCHIVE",
       patchSource: "EEX_LAKE_PATCH",
-      rule: "Un día ausente o excluido del archivo sólo puede cubrirse con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
+      rule: "Un día ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
       verificationStatus: lakeNotMeasured.length > 0 ? "PENDING_LAKE_MEASUREMENT" : "RULE_APPLIED",
       unmeasuredLakeMarkets: lakeNotMeasured,
       completenessRule: PATCH_COMPLETENESS_RULE,
@@ -188,7 +201,8 @@ function readInputs() {
   const parsed = {};
   for (const [name, path] of Object.entries(INPUT_PATHS)) {
     bytes[name] = readFileSync(path);
-    parsed[name] = JSON.parse(bytes[name].toString("utf8"));
+    parsed[name] = name.startsWith("archiveMeasurement") && !name.endsWith("Manifest")
+      ? bytes[name] : JSON.parse(bytes[name].toString("utf8"));
   }
   for (const [name, path] of Object.entries(OPTIONAL_INPUT_PATHS)) {
     bytes[name] = existsSync(path) ? readFileSync(path) : null;

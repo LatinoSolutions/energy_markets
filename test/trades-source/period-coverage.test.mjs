@@ -15,7 +15,7 @@ import {
   partitionKey,
   resolveVerifiedPatchDays,
 } from "../../src/trades-source/period-coverage.mjs";
-import { buildSourcePeriodCoverage } from "../../operations/trades/DATA-02/build-source-period-coverage.mjs";
+import { buildArtifacts, buildSourcePeriodCoverage, INPUT_PATHS, OPTIONAL_INPUT_PATHS } from "../../operations/trades/DATA-02/build-source-period-coverage.mjs";
 import { buildManifest as buildTradesMeasurementManifest } from "../../operations/trades/TR-01/aggregate-trades-rows.mjs";
 
 const TRADE_GAS = partitionKey("eex_derivative_trade", "NATGAS", "THE");
@@ -198,17 +198,56 @@ test("PARCHE VERIFICADO elige archivo, lago normal y DATA_INCOMPLETE para día c
   })[0].source, "DATA_INCOMPLETE");
 });
 
+test("un día del archivo con pulls incluidos y excluidos usa sólo el lago si supera la regla", () => {
+  const days = ["2021-03-01", "2021-03-02", "2021-03-03", "2021-03-04", "2021-03-05"];
+  const selected = resolveVerifiedPatchDays({
+    campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
+    windowDays: [days[3], days[4]],
+    archivePartitions: { included: { [days[3]]: 1, [days[4]]: 1 }, excluded: {
+      [days[3]]: { pulls: 1, reasons: ["missing-date-completion-receipt"] },
+      [days[4]]: { pulls: 1, reasons: ["missing-date-completion-receipt"] },
+    } },
+    archiveRange: { from: days[0], to: days.at(-1) },
+    lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    lakeRange: { from: days[0], to: days.at(-1) },
+    lakeCoverage: days.map((trdDate, index) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: index === 4 ? 1 : 10 })),
+  });
+  assert.deepEqual(selected.map((row) => row.source), ["EEX_LAKE_PATCH", "DATA_INCOMPLETE"]);
+  assert.equal(selected[1].reason, "BELOW_COMPLETENESS_THRESHOLD");
+});
+
 function repoInputs() {
   const read = (path) => JSON.parse(readFileSync(path, "utf8"));
-  return {
+  const inputs = {
     sourcePartitions: read("operations/trades/DATA-02/source-partitions.json"),
     zonePlan: read("operations/trades/TR-02/trades-zone-plan.json"),
     gasExchangeCalendar: read("operations/audit/IMP-09/eex-exchange-calendar.json"),
     powerExchangeCalendar: read("operations/trades/TR-01/power-de-exchange-calendar.json"),
     tr01Decision: read("operations/trades/TR-01/DATA_SOURCE_DECISION.json"),
-    archiveMeasurementGas: { sourceMeta: read("operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json").sourceMeta, coverage: [] },
-    archiveMeasurementPower: { sourceMeta: read("operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json").sourceMeta, coverage: [] },
   };
+  for (const market of ["Gas", "Power"]) {
+    const suffix = market === "Gas" ? "gas-the" : "power-de";
+    sealArchiveMeasurement(inputs, market, {
+      artifactKind: "TR-01_TRADES_MEASUREMENT",
+      sourceMeta: read(`operations/trades/TR-01/TRADES_MEASUREMENT-${suffix}.json`).sourceMeta,
+      coverage: [],
+    });
+  }
+  return inputs;
+}
+
+function sealArchiveMeasurement(inputs, market, measurement) {
+  const suffix = market === "Gas" ? "gas-the" : "power-de";
+  const path = `operations/trades/TR-01/TRADES_MEASUREMENT-${suffix}.json`;
+  const bytes = Buffer.from(`${JSON.stringify(measurement)}\n`);
+  inputs[`archiveMeasurement${market}`] = bytes;
+  inputs[`archiveMeasurement${market}Manifest`] = buildTradesMeasurementManifest({
+    measurement: { dedup: { inputCount: 0, uniqueCount: 0, duplicates: 0 }, eligibility: { eligible: 0 } },
+    artifactPath: path,
+    artifactSha256: createHash("sha256").update(bytes).digest("hex"),
+    inputPath: `rows-${suffix}.ndjson`,
+    inputSha256: "a".repeat(64),
+  });
 }
 
 test("el productor registra PARCHE VERIFICADO sin declarar completos los datos del lago", () => {
@@ -237,11 +276,21 @@ test("la regla se fija sin consumir resultados de estrategia", () => {
 
 test("fail-closed: una medición de trades que no viene del archivo verificado no se usa", () => {
   const inputs = repoInputs();
-  inputs.archiveMeasurementGas.sourceMeta = { ...inputs.archiveMeasurementGas.sourceMeta, archiveVerification: { sha256: "otro" } };
+  const gas = JSON.parse(inputs.archiveMeasurementGas.toString());
+  gas.sourceMeta.archiveVerification.sha256 = "otro";
+  sealArchiveMeasurement(inputs, "Gas", gas);
   assert.throws(() => buildSourcePeriodCoverage(inputs), /no es una medición del archivo sellado/);
   const lakeRows = repoInputs();
-  lakeRows.archiveMeasurementPower.sourceMeta = { ...lakeRows.archiveMeasurementPower.sourceMeta, source: "lake" };
+  const power = JSON.parse(lakeRows.archiveMeasurementPower.toString());
+  power.sourceMeta.source = "lake";
+  sealArchiveMeasurement(lakeRows, "Power", power);
   assert.throws(() => buildSourcePeriodCoverage(lakeRows), /no es una medición del archivo sellado/);
+});
+
+test("fail-closed: la cobertura del archivo está ligada a su manifest de TR-01", () => {
+  const inputs = repoInputs();
+  inputs.archiveMeasurementGas = Buffer.from(inputs.archiveMeasurementGas.toString().replace('"coverage":[]', '"coverage":[{"eligibleCount":1001}]'));
+  assert.throws(() => buildSourcePeriodCoverage(inputs), /manifest válido/);
 });
 
 test("el artefacto comprometido es reproducible y muestra lo que la comparación de TR-01 no vio", () => {
@@ -325,6 +374,38 @@ function sealLakeMeasurement(inputs, measurement) {
     inputSha256: "a".repeat(64),
   });
 }
+
+test("tras ambas mediciones del job, el productor reconstruye cobertura y manifest con días de parche", () => {
+  const parsed = repoInputs();
+  const gas = lakeMeasurementFixture(parsed);
+  gas.coverage = [
+    { shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-01", eligibleCount: 10 },
+    { shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-02", eligibleCount: 10 },
+    { shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-03", eligibleCount: 10 },
+    { shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-04", eligibleCount: 10 },
+  ];
+  sealLakeMeasurement(parsed, gas);
+  // El segundo mercado también debe estar presente antes de RULE_APPLIED.
+  parsed.lakeMeasurementPower = Buffer.from(JSON.stringify({ artifactKind: "TR-01_TRADES_MEASUREMENT", sourceMeta: {
+    artifactKind: "TR-01_TRADES_ROWS", source: "lake", lakeRoot: parsed.sourcePartitions.sources.EEX_LAKE.inputs.lakeRoot,
+    table: "eex_derivative_trade", area: "cmdty=POWER/area=DE",
+    dateMin: "2020-11-02", dateMax: "2026-07-28", dayCount: 9999,
+  }, coverage: [] }));
+  parsed.lakeMeasurementPowerManifest = buildTradesMeasurementManifest({
+    measurement: { dedup: { inputCount: 0, uniqueCount: 0, duplicates: 0 }, eligibility: { eligible: 0 } },
+    artifactPath: OPTIONAL_INPUT_PATHS.lakeMeasurementPower,
+    artifactSha256: createHash("sha256").update(parsed.lakeMeasurementPower).digest("hex"),
+    inputPath: "rows-lake-power-de.ndjson", inputSha256: "a".repeat(64),
+  });
+  const bytes = Object.fromEntries(Object.keys({ ...INPUT_PATHS, ...OPTIONAL_INPUT_PATHS }).map((key) => [key,
+    Buffer.isBuffer(parsed[key]) ? parsed[key] : Buffer.from(JSON.stringify(parsed[key]))]));
+  const { artifact, artifactBytes, manifestBytes } = buildArtifacts({ parsed, bytes });
+  const manifest = JSON.parse(manifestBytes.toString());
+  assert.equal(artifact.ownerDecision.verificationStatus, "RULE_APPLIED");
+  assert.ok(artifact.campaigns.some((entry) => entry.patch.days.some((day) => day.source === "EEX_LAKE_PATCH")));
+  assert.equal(manifest.artifact.sha256, createHash("sha256").update(artifactBytes).digest("hex"));
+  assert.equal(manifest.inputs.lakeMeasurementGas.sha256, createHash("sha256").update(parsed.lakeMeasurementGas).digest("hex"));
+});
 
 test("fail-closed: medición del lago requiere manifest válido ligado a los bytes y al escaneo", () => {
   const inputs = repoInputs();

@@ -93,6 +93,8 @@ export const STEP_ARTIFACTS = Object.freeze({
     "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json.MANIFEST.json",
     "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
     "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json.MANIFEST.json",
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json",
   ],
   // El manifest de la medición vive en `bridge-measurement.MANIFEST.json` (misma
   // convención que el status de TR-03 y la UI, src/ui/trades-panels.mjs:96).

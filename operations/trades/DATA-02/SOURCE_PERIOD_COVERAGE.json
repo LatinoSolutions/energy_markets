@@ -1,7 +1,7 @@
 {
  "artifactKind": "DATA-02_SOURCE_PERIOD_COVERAGE",
  "schemaVersion": "1.0",
- "version": "DATA-02-period-coverage-2",
+ "version": "DATA-02-period-coverage-3",
  "spec": "PLAN_STATUS.md DATA-02; OWNER_PATCH_TRADES_MODE_2026-09-25.md §3.4, §4",
  "method": {
   "tradePartitions": "Exchange Days de la ventana de la campaign con partición eex_derivative_trade del área de la misión. SEALED = sólo pulls sellados; PRESENT_WITH_EXCLUDED_PULLS = hay pulls sellados y otros excluidos por el cliente (el listado no prueba que el día esté completo); EXCLUDED_BY_CLIENT = todos los pulls del día excluidos; OUT_OF_SOURCE_RANGE = fuera del rango dateMin..dateMax de la fuente.",
@@ -23,7 +23,7 @@
   "selectedSource": "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
   "baseSource": "CLIENT_SEALED_ARCHIVE",
   "patchSource": "EEX_LAKE_PATCH",
-  "rule": "Un día ausente o excluido del archivo sólo puede cubrirse con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
+  "rule": "Un día ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
   "verificationStatus": "PENDING_LAKE_MEASUREMENT",
   "unmeasuredLakeMarkets": [
    "GAS_THE",
@@ -7088,7 +7088,7 @@
      {
       "day": "2021-10-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-10-27",
@@ -8749,7 +8749,7 @@
      {
       "day": "2022-03-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-03-29",
@@ -8802,7 +8802,7 @@
      {
       "day": "2022-04-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-04-19",
@@ -26278,7 +26278,7 @@
      {
       "day": "2021-10-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-10-27",
@@ -28068,7 +28068,7 @@
      {
       "day": "2022-03-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-03-29",
@@ -28374,7 +28374,7 @@
      {
       "day": "2022-04-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-04-19",
@@ -44557,302 +44557,302 @@
      {
       "day": "2020-12-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -45717,292 +45717,292 @@
      {
       "day": "2021-03-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-31",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-24",
@@ -46011,27 +46011,27 @@
      {
       "day": "2021-05-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-31",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -46925,332 +46925,332 @@
      {
       "day": "2021-06-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-31",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -47967,112 +47967,112 @@
      {
       "day": "2021-09-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-10-01",
@@ -48145,7 +48145,7 @@
      {
       "day": "2021-10-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-10-27",
@@ -48218,7 +48218,7 @@
      {
       "day": "2021-11-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-11-22",
@@ -48884,7 +48884,7 @@
      {
       "day": "2021-12-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-12-13",
@@ -49069,12 +49069,12 @@
      {
       "day": "2022-02-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-02-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-02-18",
@@ -49812,7 +49812,7 @@
      {
       "day": "2022-03-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-03-29",
@@ -49853,7 +49853,7 @@
      {
       "day": "2022-04-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-04-12",
@@ -49866,7 +49866,7 @@
      {
       "day": "2022-04-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-04-19",
@@ -49919,7 +49919,7 @@
      {
       "day": "2022-05-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-05-06",
@@ -49988,7 +49988,7 @@
      {
       "day": "2022-05-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-05-31",
@@ -50690,7 +50690,7 @@
      {
       "day": "2022-06-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-06-21",
@@ -50767,7 +50767,7 @@
      {
       "day": "2022-07-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-07-18",
@@ -50784,7 +50784,7 @@
      {
       "day": "2022-07-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-07-22",
@@ -50853,7 +50853,7 @@
      {
       "day": "2022-08-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-08-16",
@@ -51623,7 +51623,7 @@
      {
       "day": "2022-10-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-10-06",
@@ -54159,7 +54159,7 @@
      {
       "day": "2023-06-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2023-06-16",
@@ -55061,7 +55061,7 @@
      {
       "day": "2023-09-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2023-09-21",
@@ -55118,7 +55118,7 @@
      {
       "day": "2023-10-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2023-10-11",
@@ -57630,7 +57630,7 @@
      {
       "day": "2024-06-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-06-18",
@@ -57735,7 +57735,7 @@
      {
       "day": "2024-07-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-07-24",
@@ -57836,7 +57836,7 @@
      {
       "day": "2024-08-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-08-28",
@@ -58558,7 +58558,7 @@
      {
       "day": "2024-10-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-10-02",
@@ -59356,7 +59356,7 @@
      {
       "day": "2024-12-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-12-13",
@@ -59449,7 +59449,7 @@
      {
       "day": "2025-01-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-01-22",
@@ -59550,7 +59550,7 @@
      {
       "day": "2025-02-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-02-26",
@@ -60256,7 +60256,7 @@
      {
       "day": "2025-04-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-04-03",
@@ -60365,7 +60365,7 @@
      {
       "day": "2025-05-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-05-15",
@@ -60537,7 +60537,7 @@
      {
       "day": "2025-09-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-09-09",
@@ -61839,7 +61839,7 @@
      {
       "day": "2026-06-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2026-06-29",
@@ -62377,107 +62377,107 @@
      {
       "day": "2020-11-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-11-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -62818,102 +62818,102 @@
      {
       "day": "2020-12-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2020-12-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -63254,102 +63254,102 @@
      {
       "day": "2021-01-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-01-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -63690,102 +63690,102 @@
      {
       "day": "2021-02-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-02-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -64162,117 +64162,117 @@
      {
       "day": "2021-03-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-03-31",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -64613,102 +64613,102 @@
      {
       "day": "2021-04-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-04-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -65057,77 +65057,77 @@
      {
       "day": "2021-05-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-24",
@@ -65136,27 +65136,27 @@
      {
       "day": "2021-05-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-05-31",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -65522,112 +65522,112 @@
      {
       "day": "2021-06-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-06-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -65992,112 +65992,112 @@
      {
       "day": "2021-07-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-07-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -66462,112 +66462,112 @@
      {
       "day": "2021-08-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-04",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-18",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-08-31",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -66932,112 +66932,112 @@
      {
       "day": "2021-09-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-03",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-06",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-07",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-09",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-13",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-22",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-24",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-09-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      }
     ],
     "sources": [
@@ -67378,7 +67378,7 @@
      {
       "day": "2021-10-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-10-27",
@@ -67728,7 +67728,7 @@
      {
       "day": "2021-11-19",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-11-22",
@@ -68058,7 +68058,7 @@
      {
       "day": "2021-12-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2021-12-13",
@@ -68771,12 +68771,12 @@
      {
       "day": "2022-02-16",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-02-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-02-18",
@@ -69170,7 +69170,7 @@
      {
       "day": "2022-03-28",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-03-29",
@@ -69468,7 +69468,7 @@
      {
       "day": "2022-04-11",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-04-12",
@@ -69481,7 +69481,7 @@
      {
       "day": "2022-04-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-04-19",
@@ -69815,7 +69815,7 @@
      {
       "day": "2022-05-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-05-06",
@@ -69884,7 +69884,7 @@
      {
       "day": "2022-05-30",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-05-31",
@@ -70222,7 +70222,7 @@
      {
       "day": "2022-06-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-06-21",
@@ -70572,7 +70572,7 @@
      {
       "day": "2022-07-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-07-18",
@@ -70589,7 +70589,7 @@
      {
       "day": "2022-07-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-07-22",
@@ -70943,7 +70943,7 @@
      {
       "day": "2022-08-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-08-16",
@@ -71632,7 +71632,7 @@
      {
       "day": "2022-10-05",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2022-10-06",
@@ -74467,7 +74467,7 @@
      {
       "day": "2023-06-15",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2023-06-16",
@@ -75555,7 +75555,7 @@
      {
       "day": "2023-09-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2023-09-21",
@@ -75889,7 +75889,7 @@
      {
       "day": "2023-10-10",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2023-10-11",
@@ -78684,7 +78684,7 @@
      {
       "day": "2024-06-17",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-06-18",
@@ -79074,7 +79074,7 @@
      {
       "day": "2024-07-23",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-07-24",
@@ -79452,7 +79452,7 @@
      {
       "day": "2024-08-27",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-08-28",
@@ -80101,7 +80101,7 @@
      {
       "day": "2024-10-01",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-10-02",
@@ -80818,7 +80818,7 @@
      {
       "day": "2024-12-12",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2024-12-13",
@@ -81188,7 +81188,7 @@
      {
       "day": "2025-01-21",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-01-22",
@@ -81550,7 +81550,7 @@
      {
       "day": "2025-02-25",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-02-26",
@@ -82179,7 +82179,7 @@
      {
       "day": "2025-04-02",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-04-03",
@@ -82557,7 +82557,7 @@
      {
       "day": "2025-05-14",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-05-15",
@@ -82729,7 +82729,7 @@
      {
       "day": "2025-09-08",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-09-09",
@@ -84395,7 +84395,7 @@
      {
       "day": "2026-06-26",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2026-06-29",
@@ -86945,7 +86945,7 @@
      {
       "day": "2025-06-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-06-23",
@@ -87054,7 +87054,7 @@
      {
       "day": "2025-07-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-07-30",
@@ -87468,7 +87468,7 @@
      {
       "day": "2025-06-20",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-06-23",
@@ -87818,7 +87818,7 @@
      {
       "day": "2025-07-29",
       "source": "DATA_INCOMPLETE",
-      "reason": "ARCHIVE_HAS_EXCLUDED_PULLS"
+      "reason": "LAKE_NOT_MEASURED"
      },
      {
       "day": "2025-07-30",

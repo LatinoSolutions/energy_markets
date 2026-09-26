@@ -20,3 +20,5 @@ for market in gas-the power-de; do
     --in "$rows" --market "$market" \
     --out "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-$market.json"
 done
+node operations/trades/DATA-02/build-source-period-coverage.mjs
+node operations/trades/DATA-02/build-source-period-coverage.mjs --check
