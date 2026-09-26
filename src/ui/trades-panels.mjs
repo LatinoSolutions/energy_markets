@@ -3,7 +3,7 @@
 //
 // El render de estos paneles ya existe en src/ui/render.mjs (gate visual cerrado,
 // P-010 opción B). Este módulo es la única capa que la UI consume: carga los
-// artifacts ya producidos por TR-01/TR-02/TR-03, los ata por SHA-256 a su manifest y
+// artifacts ya producidos por TR-01/TR-02/TR-03/TR-04, los ata por SHA-256 a su manifest y
 // proyecta el estado de cada panel. Aquí no se dibuja ni se calcula nada.
 //
 // Reglas no negociables:
@@ -13,16 +13,16 @@
 //   - nunca se abre una columna de precio (`Px`, `AskPx`, `BidPx`): los artifacts
 //     de zona/cobertura/catálogo no las traen y aquí no se derivan.
 //
-// Estado real hoy (25-sep-2026, artifacts aceptados en PLAN_STATUS):
-//   - TR-01/TR-02/TR-03 existen; cobertura y calibración son PENDING_SCAN_JOB
-//     (el escaneo lo lanza Bru), así que sus valores están ausentes, no en cero;
-//   - TR-04 (contrato congelado) y TR-06 (resultados) no existen todavía.
+// UI-07 (2026-09-26): cobertura, calibración y contrato leen las mediciones reales
+// que dejó la cola DATA-01 (TR-01, TR-03) y el candidato de TR-04, cada uno atado por
+// SHA-256 a su manifest. TR-06 (resultados) sigue sin runs.
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
+import { freezeApprovalProblem } from "../execution-contract/trades-contract.mjs";
 import { TRADES_MISSIONS } from "../oos-reservation/trades-windows.mjs";
 
 // Modos del mismo backtest (patch 03 §2). El control TOB no se reescribe.
@@ -89,12 +89,21 @@ export const TRADES_PANEL_ARTIFACTS = Object.freeze({
     manifest: "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json.MANIFEST.json",
     manifestRef: "artifact",
   },
+  bridgeMeasurement: {
+    artifact: "operations/trades/TR-03/bridge-measurement.json",
+    manifest: "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
+    manifestRef: "artifact",
+  },
+  tradesFreeze: {
+    artifact: "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
+    manifest: "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.MANIFEST.json",
+    manifestRef: "artifact",
+  },
 });
 
-const BRIDGE_MEASUREMENT = Object.freeze({
-  artifact: "operations/trades/TR-03/bridge-measurement.json",
-  manifest: "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
-});
+// La aprobación de Bru del freeze (TR-04, gate humano). Sólo cuenta si su hash es
+// el que ató el manifest del freeze y si cubre el configHash exacto del contrato.
+export const OWNER_FREEZE_APPROVAL_PATH = "operations/trades/TR-04/OWNER_FREEZE_APPROVAL.json";
 
 function sha256Of(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -106,6 +115,14 @@ function readJson(repoRoot, relativePath) {
     return { ok: true, bytes, json: JSON.parse(bytes.toString("utf8")) };
   } catch {
     return { ok: false };
+  }
+}
+
+function hashOfFile(repoRoot, relativePath) {
+  try {
+    return sha256Of(readFileSync(path.join(repoRoot, relativePath)));
+  } catch {
+    return null;
   }
 }
 
@@ -128,37 +145,71 @@ function loadVerified(repoRoot, spec) {
   if (sha256Of(artifactRead.bytes) !== declared.sha256) {
     return { ok: false, code: "TRADES_PANEL_HASH_MISMATCH", path: spec.artifact };
   }
-  return { ok: true, json: artifactRead.json, provenance: { path: spec.artifact, sha256: declared.sha256, manifestPath: spec.manifest, manifestRef: spec.manifestRef } };
+  return { ok: true, json: artifactRead.json, manifest: manifestRead.json, provenance: { path: spec.artifact, sha256: declared.sha256, manifestPath: spec.manifest, manifestRef: spec.manifestRef } };
+}
+
+// El plan de zonas proyecta la cobertura desde las mediciones de TR-01; su manifest
+// ata cada una por SHA-256 (`sources.tradesMeasurement_*`). Si una medición cambió
+// después de construir el plan, la cobertura mostrada ya no es la de la fuente.
+function verifyZonePlanMeasurements(repoRoot, zonePlan) {
+  if (zonePlan?.ok !== true) {
+    return zonePlan;
+  }
+  const bound = Object.entries(zonePlan.manifest?.sources ?? {}).filter(([name]) => name.startsWith("tradesMeasurement_"));
+  for (const [, source] of bound) {
+    if (hashOfFile(repoRoot, source.path) !== source.sha256) {
+      return { ok: false, code: "TRADES_PANEL_TR01_MEASUREMENT_STALE", path: source.path };
+    }
+  }
+  return zonePlan;
+}
+
+// La aprobación se lee sólo si existe; su ausencia es el estado normal del gate.
+function loadOwnerApproval(repoRoot) {
+  const read = readJson(repoRoot, OWNER_FREEZE_APPROVAL_PATH);
+  if (!read.ok) {
+    return { present: false };
+  }
+  return { present: true, json: read.json, sha256: sha256Of(read.bytes) };
 }
 
 export function loadTradesPanelsAt(repoRoot = DEFAULT_REPO_ROOT) {
   const sourceDecision = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.sourceDecision);
-  const zonePlan = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.zonePlan);
+  const zonePlan = verifyZonePlanMeasurements(repoRoot, loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.zonePlan));
   const bridgeStatus = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.bridgeStatus);
-  // La medición del puente sólo aparecerá cuando Bru lance el job de TR-03; si no
-  // existe, su ausencia es un estado, no un error (fail-closed).
-  const bridgeMeasurement = loadVerified(repoRoot, BRIDGE_MEASUREMENT);
-  return { sourceDecision, zonePlan, bridgeStatus, bridgeMeasurement };
+  // Sin el job de TR-03 la medición no existe: es un estado, no un error.
+  const bridgeMeasurement = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.bridgeMeasurement);
+  const tradesFreeze = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.tradesFreeze);
+  const ownerApproval = loadOwnerApproval(repoRoot);
+  return { sourceDecision, zonePlan, bridgeStatus, bridgeMeasurement, tradesFreeze, ownerApproval };
 }
 
-// El artifact de TR-02 (aceptado) declara cada campaign en NO_COVERAGE con ceros
-// mientras el escaneo de TR-01 no ha corrido. Un cero no medido no es un dato: si el
-// nivel general sigue PENDING_SCAN_JOB, TR-07 presenta las cifras como pendientes en
-// vez de propagar los ceros (TRADES_MODE_PLAN.md TR-07; hallazgo TR07-PENDING-ZEROS).
+// Sin medición de TR-01 el artifact de TR-02 declara cada campaign NO_COVERAGE con
+// ceros. Un cero no medido no es un dato: con el nivel general PENDING_SCAN_JOB las
+// cifras salen pendientes (TRADES_MODE_PLAN.md TR-07; hallazgo TR07-PENDING-ZEROS).
+// Con medición (UI-07), una ventana entera anterior al primer día con trades de la
+// fuente canónica tampoco es un cero medido: la fuente no trae esos días (DATA-02).
 const COVERAGE_PENDING_STATUSES = Object.freeze(new Set(["PENDING_SCAN_JOB"]));
+const SOURCE_RANGE_STATUS = Object.freeze({
+  WINDOW_BEFORE_SOURCE_START: "BEFORE_SOURCE_START",
+  WINDOW_PARTIALLY_BEFORE_SOURCE_START: "PARTIAL_SOURCE_RANGE",
+});
 
 // Una fila de cobertura: sólo se copian campos del artifact de TR-02 (que a su vez
 // los toma de TR-01_COVERAGE). Ningún campo de precio. `overallStatus` decide si la
 // medición existe; cuando no, los campos medidos salen null (ausentes, no cero).
-function coverageCell(coverage, overallStatus) {
+function coverageCell(coverage, overallStatus, sourceRange = null) {
   if (coverage === null || typeof coverage !== "object") {
     return { status: "UNAVAILABLE", reason: "cobertura no declarada en el plan de zonas" };
   }
-  const measurementPending = COVERAGE_PENDING_STATUSES.has(overallStatus);
+  const beforeSource = sourceRange?.extent === "WINDOW_BEFORE_SOURCE_START";
+  const measurementPending = COVERAGE_PENDING_STATUSES.has(overallStatus) || beforeSource;
+  const rangeStatus = sourceRange === null ? null : SOURCE_RANGE_STATUS[sourceRange.extent] ?? "UNAVAILABLE";
   return {
-    status: measurementPending ? overallStatus : coverage.status,
+    status: COVERAGE_PENDING_STATUSES.has(overallStatus) ? overallStatus : rangeStatus ?? coverage.status,
     artifactStatus: coverage.status,
     measurementPending,
+    sourceRange,
     source: coverage.source,
     legacyMaturity: coverage.legacyMaturity,
     contract: coverage.contract,
@@ -172,7 +223,7 @@ function coverageCell(coverage, overallStatus) {
   };
 }
 
-function campaignEntry(campaign, zone, overallStatus) {
+function campaignEntry(campaign, zone, overallStatus, sourceRange) {
   return {
     campaignId: campaign.campaignId,
     product: campaign.product,
@@ -185,7 +236,7 @@ function campaignEntry(campaign, zone, overallStatus) {
     windowEnd: campaign.windowEnd ?? null,
     deadline: campaign.deadline ?? null,
     windowRule: campaign.windowRule ?? null,
-    coverage: coverageCell(campaign.coverage, overallStatus),
+    coverage: coverageCell(campaign.coverage, overallStatus, sourceRange),
   };
 }
 
@@ -197,6 +248,7 @@ function projectCoverage(zonePlan, sourceDecision) {
   }
   const plan = zonePlan.json;
   const coverageStatus = plan.coverageStatus ?? { status: "UNAVAILABLE", reason: "el artifact no declara coverageStatus" };
+  const sourceRangeById = new Map((coverageStatus.campaignsBeforeSourceStart ?? []).map((entry) => [entry.campaignId, entry]));
   const missions = Object.entries(plan.missions ?? {}).map(([missionId, mission]) => ({
     missionId,
     market: mission.market,
@@ -204,13 +256,22 @@ function projectCoverage(zonePlan, sourceDecision) {
     shortCode: mission.shortCode,
     zones: Object.entries(mission.zones ?? {}).map(([zone, campaigns]) => ({
       zone,
-      campaigns: campaigns.map((campaign) => campaignEntry(campaign, zone, coverageStatus.status)),
+      campaigns: campaigns.map((campaign) => campaignEntry(campaign, zone, coverageStatus.status, sourceRangeById.get(campaign.campaignId) ?? null)),
     })),
   }));
   return {
     status: coverageStatus.status,
     reason: coverageStatus.reason ?? null,
     source: coverageStatus.source ?? null,
+    brokenSpreadPolicy: coverageStatus.brokenSpreadPolicy ?? null,
+    measurements: (coverageStatus.measurements ?? []).map((entry) => ({
+      market: entry.market,
+      path: entry.path,
+      sha256: entry.sha256,
+      dateMin: entry.dateMin,
+      dateMax: entry.dateMax,
+      eligibleTrades: entry.eligibleTrades,
+    })),
     sourceDecisionStatus: sourceDecision?.ok === true ? sourceDecision.json?.status ?? null : "UNAVAILABLE",
     sourceDecisionPolicy: sourceDecision?.ok === true ? sourceDecision.json?.brokenSpreadPolicy ?? null : null,
     missions,
@@ -241,14 +302,89 @@ function projectZones(zonePlan) {
   };
 }
 
-// Panel de calibración (TR-03): si el job aún no corrió, la ausencia es explícita.
-// Cuando exista `bridge-measurement.json` atado por hash, se expone su contenido.
-function projectCalibration(bridgeStatus, bridgeMeasurement) {
+// Candidato de TR-04 utilizable por la calibración y el contrato: el freeze atado a
+// su manifest y derivado de ESTA medición del puente (generatedFrom), no de otra.
+function candidateFor(tradesFreeze, bridgeMeasurement) {
+  if (tradesFreeze?.ok !== true) {
+    return { ok: false, code: tradesFreeze?.code ?? "TRADES_PANEL_ARTIFACT_MISSING" };
+  }
+  const candidate = tradesFreeze.json.candidate ?? tradesFreeze.json.frozenContract ?? null;
+  if (candidate === null) {
+    return { ok: false, code: "TR04_NO_CANDIDATE" };
+  }
+  if (bridgeMeasurement?.ok !== true || candidate.generatedFrom?.bridgeMeasurementSha256 !== bridgeMeasurement.provenance.sha256) {
+    return { ok: false, code: "TR04_CANDIDATE_NOT_FROM_VERIFIED_MEASUREMENT" };
+  }
+  return { ok: true, candidate };
+}
+
+// Por misión y regla de observación: frescura elegida, su cobertura en la mitad de
+// calibración y la penalización trade->ask por grupo agresor, tal como las publica
+// el candidato de TR-04 desde la medición de TR-03 (patch 03 §3.3–§3.4).
+function calibrationMissions(candidate) {
+  return Object.values(candidate.markets ?? {}).flatMap((market) =>
+    Object.entries(market.missions ?? {}).map(([missionId, mission]) => ({
+      missionId,
+      market: market.market,
+      shortCode: mission.shortCode,
+      rules: Object.entries(mission.observations ?? {}).map(([rule, observation]) => ({
+        rule,
+        freshness: {
+          status: observation.freshness?.status ?? "UNAVAILABLE",
+          limitSeconds: observation.freshness?.value ?? null,
+          coverage: observation.freshness?.coverage ?? null,
+          reason: observation.freshness?.reason ?? null,
+        },
+        penalty: {
+          status: observation.penalty?.status ?? "UNAVAILABLE",
+          valueEurMwh: observation.penalty?.value ?? null,
+          observations: observation.penalty?.observations ?? null,
+          freshnessLimitSeconds: observation.penalty?.freshnessLimitSeconds ?? null,
+          byAggressor: (observation.penalty?.byAggressor ?? []).map((group) => ({ aggressor: group.aggressor, count: group.count, penaltyEurMwh: group.penaltyEurMwh })),
+          reason: observation.penalty?.reason ?? null,
+        },
+      })),
+    })));
+}
+
+// Gate del puente predeclarado en TR-04 (antes de cualquier run TRADES).
+function bridgeGateOf(candidate) {
+  const gate = candidate.bridgeGate;
+  if (!gate) {
+    return null;
+  }
+  return {
+    id: gate.id,
+    thresholdStatus: gate.thresholdStatus ?? null,
+    independence: gate.independence ?? null,
+    declaration: gate.declaration ?? null,
+    arms: gate.arms ?? [],
+    metrics: (gate.metrics ?? []).map((metric) => ({ id: metric.id, description: metric.description, unit: metric.unit ?? null, passCriterion: metric.passCriterion ?? null })),
+  };
+}
+
+// Distribución (observación TRADES − ask) medida en TR-03 por misión y regla, sólo
+// sus cuantiles ya calculados (vista expandida del prototipo).
+function gapDistributions(measurement) {
+  return Object.values(measurement.markets ?? {}).flatMap((market) =>
+    Object.entries(market.missions ?? {}).map(([missionId, mission]) => ({
+      missionId,
+      rules: Object.entries(mission.summary?.gaps ?? {}).map(([rule, gaps]) => ({
+        rule,
+        overall: gaps.overall ?? null,
+        byHalf: gaps.byHalf ?? null,
+      })),
+    })));
+}
+
+// Panel de calibración (TR-03 + candidato TR-04). MEASURED sólo si el estado de
+// TR-03 lo declara y la medición cargada es la misma que el estado verificó.
+function projectCalibration(bridgeStatus, bridgeMeasurement, tradesFreeze) {
   if (bridgeStatus?.ok !== true) {
     return { status: "ERROR", code: bridgeStatus?.code ?? "TRADES_PANEL_ARTIFACT_MISSING", reason: "sin estado de medición verificado no hay calibración que mostrar" };
   }
   const status = bridgeStatus.json;
-  return {
+  const base = {
     status: status.status,
     reason: status.reason ?? null,
     window: status.window ?? null,
@@ -257,21 +393,97 @@ function projectCalibration(bridgeStatus, bridgeMeasurement) {
     bridgeCampaigns: status.bridgeCampaigns ?? null,
     measurementArtifact: status.measurementArtifact ?? null,
     measurementManifest: status.measurementManifest ?? null,
-    measurement: bridgeMeasurement?.ok === true
-      ? { status: "MEASURED", content: bridgeMeasurement.json }
-      : { status: status.status === "PENDING_SCAN_JOB" ? "PENDING_SCAN_JOB" : "UNAVAILABLE", reason: status.reason ?? null },
+  };
+  if (status.status !== "MEASURED") {
+    return { ...base, measurement: { status: status.status, reason: status.reason ?? null } };
+  }
+  if (bridgeMeasurement?.ok !== true || bridgeMeasurement.provenance.sha256 !== status.measurement?.sha256) {
+    return {
+      ...base,
+      status: "ERROR",
+      code: bridgeMeasurement?.ok === true ? "TR03_MEASUREMENT_NOT_THE_VERIFIED_ONE" : bridgeMeasurement?.code ?? "TRADES_PANEL_ARTIFACT_MISSING",
+      reason: "El estado de TR-03 declara MEASURED pero la medición cargada no es la que verificó; no se muestra ninguna cifra.",
+      measurement: { status: "ERROR" },
+    };
+  }
+  const measurement = bridgeMeasurement.json;
+  const candidate = candidateFor(tradesFreeze, bridgeMeasurement);
+  return {
+    ...base,
+    brokenSpreadPolicy: measurement.brokenSpreadPolicy ?? null,
+    halves: measurement.halves ?? null,
+    measurement: { status: "MEASURED", sha256: bridgeMeasurement.provenance.sha256 },
+    parameters: candidate.ok
+      ? { status: "MEASURED", source: TRADES_PANEL_ARTIFACTS.tradesFreeze.artifact, missions: calibrationMissions(candidate.candidate) }
+      : { status: "UNAVAILABLE", code: candidate.code, missions: [] },
+    gate: candidate.ok ? bridgeGateOf(candidate.candidate) : null,
+    gapDistributions: gapDistributions(measurement),
   };
 }
 
-// Panel del contrato congelado (TR-04). TR-07 depende del freeze, que es un gate
-// humano y todavía no está aprobado: se declara UNAVAILABLE, sin inventar un path
-// ni una versión de contrato.
-function projectFrozenContract(sourceDecision) {
-  const policy = sourceDecision?.ok === true ? sourceDecision.json?.brokenSpreadPolicy ?? null : null;
+// La aprobación sólo es válida si es el archivo que ató el manifest del freeze y si
+// cubre el configHash exacto (mismo validador que TR-04: freezeApprovalProblem).
+function approvalProblem(tradesFreeze, ownerApproval, configHash) {
+  if (ownerApproval?.present !== true) {
+    return "OWNER_APPROVAL_MISSING";
+  }
+  if (tradesFreeze.manifest?.sources?.ownerApproval?.sha256 !== ownerApproval.sha256) {
+    return "OWNER_APPROVAL_NOT_BOUND";
+  }
+  return freezeApprovalProblem(ownerApproval.json, configHash)?.code ?? null;
+}
+
+// Panel del contrato (TR-04). El candidato se muestra con su configHash y como
+// pendiente de aprobación de Bru; FROZEN sólo con OWNER_FREEZE_APPROVAL.json válido.
+function projectFrozenContract(tradesFreeze, bridgeMeasurement, ownerApproval) {
+  if (tradesFreeze?.ok !== true) {
+    return {
+      status: "UNAVAILABLE",
+      code: tradesFreeze?.code ?? "TRADES_PANEL_ARTIFACT_MISSING",
+      reason: "Sin artifact de freeze de TR-04 atado a su manifest no se muestra versión, frescura ni penalización.",
+    };
+  }
+  const freeze = tradesFreeze.json;
+  const candidate = candidateFor(tradesFreeze, bridgeMeasurement);
+  if (!candidate.ok) {
+    return { status: freeze.status ?? "UNAVAILABLE", code: candidate.code, reason: freeze.reason ?? null, blockedBy: freeze.blockedBy ?? [] };
+  }
+  const contract = candidate.candidate;
+  const summary = {
+    contractId: contract.contractId,
+    versionLabel: contract.versionLabel,
+    contractVersion: contract.contractVersion,
+    configHash: contract.configHash,
+    brokenSpreadPolicy: contract.tradeEligibility?.brokenSpreadPolicy ?? null,
+    observationRules: contract.observationRules ?? null,
+    sharedParameters: (contract.sharedParameters ?? []).map((entry) => ({ key: entry.key, status: entry.status, value: entry.value, unit: entry.unit })),
+    sensitivityGrid: contract.sensitivityGrid ?? null,
+  };
+  if (freeze.decision === "FROZEN") {
+    const problem = approvalProblem(tradesFreeze, ownerApproval, contract.configHash);
+    if (problem !== null || freeze.humanGate?.configHash !== contract.configHash) {
+      return {
+        status: "ERROR",
+        code: problem ?? "CONFIG_HASH_MISMATCH",
+        reason: "El artifact de TR-04 declara FROZEN sin una OWNER_FREEZE_APPROVAL.json válida y atada al mismo configHash; no se presenta como congelado.",
+        candidate: summary,
+      };
+    }
+    return {
+      status: "FROZEN",
+      reason: `Contrato ${contract.versionLabel} congelado con la aprobación de Bru (${freeze.humanGate.approvalRef}).`,
+      approvalRef: freeze.humanGate.approvalRef,
+      candidate: summary,
+    };
+  }
   return {
-    status: "UNAVAILABLE",
-    reason: "El contrato TRADES-v1 (TR-04) no está congelado ni aprobado por Bru; no se muestra versión, frescura ni penalización inventadas.",
-    brokenSpreadPolicy: policy,
+    status: freeze.status ?? "HOLD",
+    decision: freeze.decision ?? "HOLD",
+    reason: freeze.status === "PENDING_OWNER_APPROVAL"
+      ? `Candidato ${contract.versionLabel} pendiente de aprobación de Bru (configHash ${contract.configHash}); no está congelado y ningún run TRADES arranca.`
+      : freeze.reason ?? null,
+    blockedBy: freeze.blockedBy ?? [],
+    candidate: summary,
   };
 }
 
@@ -309,14 +521,15 @@ export function projectTradesPanels(loaded, selection = {}) {
     modes: TRADES_MODES,
     coverage: projectCoverage(loaded?.zonePlan, loaded?.sourceDecision),
     zones: projectZones(loaded?.zonePlan),
-    calibration: projectCalibration(loaded?.bridgeStatus, loaded?.bridgeMeasurement),
-    frozenContract: projectFrozenContract(loaded?.sourceDecision),
+    calibration: projectCalibration(loaded?.bridgeStatus, loaded?.bridgeMeasurement, loaded?.tradesFreeze),
+    frozenContract: projectFrozenContract(loaded?.tradesFreeze, loaded?.bridgeMeasurement, loaded?.ownerApproval),
     results: projectResults(),
     provenance: {
       sourceDecision: loaded?.sourceDecision?.ok === true ? loaded.sourceDecision.provenance : null,
       zonePlan: loaded?.zonePlan?.ok === true ? loaded.zonePlan.provenance : null,
       bridgeStatus: loaded?.bridgeStatus?.ok === true ? loaded.bridgeStatus.provenance : null,
       bridgeMeasurement: loaded?.bridgeMeasurement?.ok === true ? loaded.bridgeMeasurement.provenance : null,
+      tradesFreeze: loaded?.tradesFreeze?.ok === true ? loaded.tradesFreeze.provenance : null,
     },
   };
 }

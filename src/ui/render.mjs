@@ -1697,10 +1697,21 @@ function tr07Query(selection, overrides = {}) {
 }
 
 function tr07StatusChip(status) {
-  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION") return chip("warn", "!", status);
-  if (status === "NO_COVERAGE") return chip("unk", "?", status);
-  if (status === "SEALED" || status === "RESERVED") return chip("run", "◆", status);
-  return chip("unk", "?", status);
+  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION" || status === "PENDING_OWNER_APPROVAL") return chip("warn", "!", esc(status));
+  if (status === "LOW_COVERAGE" || status === "PARTIAL_SOURCE_RANGE") return chip("warn", "!", esc(status));
+  if (status === "NO_COVERAGE" || status === "BEFORE_SOURCE_START") return chip("unk", "?", esc(status));
+  if (status === "SEALED" || status === "RESERVED" || status === "MEASURED" || status === "OBSERVED" || status === "DECIDED" || status === "FROZEN") return chip("run", "◆", esc(status));
+  return chip("unk", "?", esc(status));
+}
+
+// Presentación de valores que el backend ya trae; nunca se derivan aquí.
+function tr07Value(value, digits = 3) {
+  if (value === null || value === undefined) return "—";
+  return typeof value === "number" ? value.toFixed(digits) : String(value);
+}
+
+function tr07ShortHash(sha) {
+  return typeof sha === "string" ? `${sha.slice(0, 8)}…${sha.slice(-4)}` : "—";
 }
 
 function tr07SelectorHtml(panels, selection) {
@@ -1751,16 +1762,21 @@ function tr07CoverageHtml(panels, missionId) {
   const rows = mission.zones.flatMap((zone) => zone.campaigns.map((campaign) => {
     const cell = campaign.coverage;
     const days = cell.daysWithTrades === null || cell.daysWithTrades === undefined ? "—" : String(cell.daysWithTrades);
-    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td></tr>`;
+    const trades = cell.totalEligibleTrades === null || cell.totalEligibleTrades === undefined ? "—" : String(cell.totalEligibleTrades);
+    const rangeNote = cell.sourceRange ? `<div class="tiny muted">${esc(cell.sourceRange.windowExchangeDaysBeforeSource)} d before source start ${esc(cell.sourceRange.sourceDateMin)}</div>` : "";
+    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}${rangeNote}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td><td class="right mono" data-tr07-eligible-trades="${esc(trades)}">${esc(trades)}</td></tr>`;
   })).join("");
+  const sources = (coverage.measurements ?? []).filter((entry) => entry.market === mission.market).map((entry) =>
+    `<div class="tiny muted" data-tr07-source-sha="${esc(entry.sha256)}">TR-01 measurement ${esc(entry.market)} · trades ${esc(entry.dateMin)} → ${esc(entry.dateMax)} · sha ${esc(tr07ShortHash(entry.sha256))} · broken spread ${esc(coverage.brokenSpreadPolicy ?? "—")}</div>`).join("");
   const zoneSummary = mission.zones.map((zone) => `${esc(zone.zone)} ${zone.campaigns.length}`).join(" · ");
   return `<div class="card" style="margin-top:14px" data-tr07="coverage" data-mission="${esc(mission.missionId)}">
     <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(mission.market)} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
     <div class="bd">
       <div class="small muted">${esc(coverage.reason)}</div>
       <div class="small muted" style="margin-top:6px">TR-01 source decision: ${tr07StatusChip(coverage.sourceDecisionStatus)}</div>
+      ${sources}
       <details style="margin-top:8px"><summary class="small" style="cursor:pointer">${zoneSummary} · click to see every campaign</summary>
-      <table class="t" style="margin-top:8px"><thead><tr><th>Campaign</th><th>Zone</th><th>Window</th><th>Coverage</th><th class="right">Days w/ trades</th></tr></thead><tbody>${rows}</tbody></table></details>
+      <table class="t" style="margin-top:8px"><thead><tr><th>Campaign</th><th>Zone</th><th>Window</th><th>Coverage</th><th class="right">Days w/ trades</th><th class="right">Eligible trades</th></tr></thead><tbody>${rows}</tbody></table></details>
     </div>
   </div>`;
 }
@@ -1786,17 +1802,64 @@ function tr07ZonesHtml(panels, missionId) {
   </div>`;
 }
 
-function tr07CalibrationHtml(panels) {
+// Frescura, cobertura y penalización trade->ask por misión y regla, tal como las
+// publica el candidato de TR-04 desde la medición de TR-03; la misión elegida va en
+// negrita. Sin parámetros medidos, la tabla no se dibuja (nunca ceros).
+function tr07CalibrationRowsHtml(calibration, missionId) {
+  const parameters = calibration.parameters;
+  if (parameters?.status !== "MEASURED") {
+    return calibration.status === "MEASURED" ? `<div class="small muted" style="margin-top:6px">TR-04 parameters: ${tr07StatusChip(parameters?.status ?? "UNAVAILABLE")} ${esc(parameters?.code ?? "")}</div>` : "";
+  }
+  const rows = parameters.missions.flatMap((mission) => mission.rules.map((entry) => {
+    const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
+    const groups = entry.penalty.byAggressor.map((group) => `${group.aggressor} ${tr07Value(group.penaltyEurMwh)} (${group.count})`).join(" · ");
+    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td class="mono small">${esc(entry.rule)}</td><td class="right mono">${esc(tr07Value(entry.freshness.limitSeconds, 0))} s ${tr07StatusChip(entry.freshness.status)}</td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
+  })).join("");
+  return `<table class="t" style="margin-top:8px"><thead><tr><th>Mission</th><th>Rule</th><th class="right">Freshness limit</th><th class="right">Coverage (calibration half)</th><th class="right">Penalty trade→ask</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function tr07GateHtml(gate) {
+  if (!gate) {
+    return "";
+  }
+  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}"><span class="mono small">${esc(metric.id)}</span> · ${esc(metric.passCriterion ?? "—")}</li>`).join("");
+  return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted">${esc(gate.independence)}</span>
+    <ul class="small" style="margin:4px 0 0 16px">${metrics}</ul>
+    <div class="tiny muted">${esc(gate.declaration)}</div></div>`;
+}
+
+function tr07CalibrationHtml(panels, missionId) {
   const calibration = panels.calibration;
   if (calibration?.status === "ERROR") {
     return `<div class="card" style="margin-top:14px" data-tr07="calibration" data-state="ERROR"><div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03</span><span class="grow"></span>${tr07StatusChip("ERROR")}</div><div class="bd"><div class="small muted">${esc(calibration.reason ?? calibration.code)}</div></div></div>`;
   }
   const window = calibration.window ?? {};
+  const halves = calibration.halves ? `<span>calibration half → ${esc(calibration.halves.calibrationEndIso)} · evaluation half ${esc(calibration.halves.evaluationStartIso)} →</span>` : "";
+  const measurementSha = calibration.measurement?.sha256 ? ` <span class="mono tiny" data-tr07-measurement-sha="${esc(calibration.measurement.sha256)}">${esc(tr07ShortHash(calibration.measurement.sha256))}</span>` : "";
   return `<div class="card" style="margin-top:14px" data-tr07="calibration">
     <div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03 · bridge ${esc(window.startIso ?? "—")} → ${esc(window.endIso ?? "—")}</span><span class="grow"></span>${tr07StatusChip(calibration.status)}</div>
     <div class="bd"><div class="small muted">${esc(calibration.reason)}</div>
-      <div class="row small muted" style="gap:16px;margin-top:8px"><span>freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}</span></div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
+      ${tr07CalibrationRowsHtml(calibration, missionId)}
+      ${tr07GateHtml(calibration.gate)}
     </div>
+  </div>`;
+}
+
+// Contrato TRADES-v1 (TR-04): el candidato con su configHash, pendiente de la
+// aprobación de Bru; FROZEN sólo si el backend lo verificó con la aprobación.
+function tr07FrozenContractHtml(panels) {
+  const contract = panels.frozenContract;
+  const candidate = contract.candidate;
+  const parameters = (candidate?.sharedParameters ?? []).map((entry) => `<span>${esc(entry.key)} ${esc(entry.value === null ? "—" : `${entry.value} ${entry.unit ?? ""}`)} ${tr07StatusChip(entry.status)}</span>`).join("");
+  const details = candidate
+    ? `<div class="row small muted" style="gap:16px;margin-top:8px"><span class="mono">${esc(candidate.contractId)} · ${esc(candidate.versionLabel)} · ${esc(candidate.contractVersion)}</span><span>configHash <span class="mono" data-tr07-config-hash="${esc(candidate.configHash)}">${esc(candidate.configHash)}</span></span></div>
+      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ?? "—")} · ${esc(candidate.observationRules?.secondary ?? "—")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ?? "—")}</span>${parameters}</div>`
+    : "";
+  const blocked = (contract.blockedBy ?? []).length > 0 ? `<div class="tiny muted" style="margin-top:4px">blocked by ${esc(contract.blockedBy.join(", "))}</div>` : "";
+  return `<div class="card" style="margin-top:14px" data-tr07="frozenContract" data-state="${esc(contract.status)}">
+    <div class="hd"><h3>Frozen contract</h3><span class="small muted">TR-04 · TRADES-v1 execution contract · gate: Bru approves the freeze</span><span class="grow"></span>${tr07StatusChip(contract.status)}</div>
+    <div class="bd"><div class="small muted">${esc(contract.reason)}</div>${details}${blocked}</div>
   </div>`;
 }
 
@@ -1809,20 +1872,15 @@ function tr07UnavailableCard(kind, title, subtitle, panels) {
 }
 
 // Panel de contraste (diseño aprobado P-010, opción B): TOB vs TRADES sobre el puente.
-// El gate del puente se declara en TR-04; hasta su freeze, toda medida está pendiente.
-const TR07_CONTRAST_METRICS = [
-  "Same BUY/WAIT decision (% of days)",
-  "MW bought, difference",
-  "Fill price, difference (€/MWh)",
-  "H, difference (€/MWh)",
-  "ΔV, difference (k€)",
-  "Same sign and same arm order",
-];
-
+// Las medidas y sus criterios son los del gate predeclarado en el candidato de TR-04;
+// sin runs TRADES (TR-06) ningún resultado existe.
 function tr07ContrastHtml(panels) {
-  const rows = TR07_CONTRAST_METRICS.map((metric) => `<tr><td>${esc(metric)}</td><td>${chip("unk", "?", "UNAVAILABLE")}</td><td>${chip("unk", "?", "set in TR-04")}</td></tr>`).join("");
+  const metrics = panels.calibration?.gate?.metrics ?? [];
+  const rows = metrics.length > 0
+    ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description)}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">${esc(metric.passCriterion ?? "—")}</td></tr>`).join("")
+    : `<tr><td colspan="3">${chip("unk", "?", "UNAVAILABLE")} <span class="small muted">no bridge gate declared by a verified TR-04 candidate</span></td></tr>`;
   return `<details class="card tr07side" style="margin-top:14px" data-tr07="contrast">
-    <summary class="hd" style="cursor:pointer;list-style:none"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only · ${TR07_CONTRAST_METRICS.length} measures · not run yet · click to open</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</summary>
+    <summary class="hd" style="cursor:pointer;list-style:none"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only · ${metrics.length} measures · not run yet · click to open</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</summary>
     <div class="bd"><div class="small muted">does TRADES tell the same story as TOB? ${esc(panels.frozenContract.reason)}</div>
       <table class="t" style="margin-top:8px"><thead><tr><th>Measure</th><th>Result</th><th>Gate (declared before)</th></tr></thead><tbody>${rows}</tbody></table>
     </div>
@@ -1835,17 +1893,34 @@ function tr07ContrastNoteHtml() {
   return `<div class="card" style="margin-top:14px;padding:8px 14px" data-tr07="contrast-note"><div class="small muted">Contrast only exists for the bridge, 2025-08-12 to 2026-07-28. Select "Bridge" or "All" to see it.</div></div>`;
 }
 
-// Vista a ancho completo al expandir (prototipo contrastCharts): superposición TOB/
-// TRADES día por día y distribución (último trade − ask) de TR-03. Sin runs ni
-// medición corrida, los recuadros quedan vacíos y explícitos: nunca un número
-// inventado (TRADES_MODE_PLAN.md TR-07:77,81).
-function tr07ExpandedChartsHtml() {
-  return `<div class="card" style="margin-top:14px" data-tr07="expanded-paths"><div class="hd"><h3>Both paths on the same days</h3><span class="small muted">full width · TOB solid, TRADES dashed, per arm, over the bridge</span></div><div class="tr07empty"><b>Not run yet</b>Filled by TR-06 after the TRADES-v1 freeze (TR-04)</div></div>
-    <div class="card" style="margin-top:14px" data-tr07="expanded-calibration"><div class="hd"><h3>Calibration: last trade vs best ask at decision time</h3><span class="small muted">full width · market data only, no strategy · per slot, distance to delivery and aggressor side · TR-03</span></div><div class="tr07empty"><b>Not measured yet</b>Distribution of (last trade − ask); this is what freezes the fill penalty in TR-04</div></div>`;
+// Distribución (observación TRADES − ask) medida por TR-03 para la misión elegida:
+// sólo los cuantiles que trae el artifact, total y por mitad del puente.
+function tr07GapDistributionHtml(panels, missionId) {
+  const calibration = panels.calibration;
+  const mission = (calibration?.gapDistributions ?? []).find((entry) => entry.missionId === missionId);
+  if (calibration?.status !== "MEASURED" || !mission) {
+    return `<div class="tr07empty"><b>Not measured yet</b>Distribution of (last trade − ask); this is what freezes the fill penalty in TR-04</div>`;
+  }
+  const line = (rule, label, stats) => `<tr data-tr07-gap="${esc(missionId)}|${esc(rule)}|${esc(label)}"><td class="mono small">${esc(rule)}</td><td>${esc(label)}</td><td class="right mono">${esc(stats?.count ?? "—")}</td>${["p10", "p50", "mean", "p90"].map((key) => `<td class="right mono">${esc(tr07Value(stats?.[key]))}</td>`).join("")}<td class="right mono">${esc(tr07Value(stats?.shareNegative))}</td></tr>`;
+  const rows = mission.rules.flatMap((entry) => [
+    line(entry.rule, "bridge", entry.overall),
+    ...(entry.byHalf ?? []).map((stats) => line(entry.rule, String(stats.half).toLowerCase(), stats)),
+  ]).join("");
+  return `<table class="t" style="margin-top:8px"><thead><tr><th>Rule</th><th>Period</th><th class="right">n</th><th class="right">p10</th><th class="right">p50</th><th class="right">mean</th><th class="right">p90</th><th class="right">share &lt; 0</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="tiny muted">(observation − ask) in €/MWh at decision time, ${esc(missionId)} · TR-03 measurement ${esc(tr07ShortHash(calibration.measurement?.sha256))}</div>`;
 }
 
-function tr07ExpandHtml() {
-  return `<details class="tr07expand" data-tr07="expanded-charts"><summary class="tr07btn" data-tr07="expand">Expand calibration charts ▾</summary>${tr07ExpandedChartsHtml()}</details>`;
+// Vista a ancho completo al expandir (prototipo contrastCharts): superposición TOB/
+// TRADES día por día y distribución (último trade − ask) de TR-03. Sin runs, el
+// recuadro de caminos queda vacío y explícito: nunca un número inventado
+// (TRADES_MODE_PLAN.md TR-07:77,81).
+function tr07ExpandedChartsHtml(panels, missionId) {
+  return `<div class="card" style="margin-top:14px" data-tr07="expanded-paths"><div class="hd"><h3>Both paths on the same days</h3><span class="small muted">full width · TOB solid, TRADES dashed, per arm, over the bridge</span></div><div class="tr07empty"><b>Not run yet</b>Filled by TR-06 after the TRADES-v1 freeze (TR-04)</div></div>
+    <div class="card" style="margin-top:14px" data-tr07="expanded-calibration"><div class="hd"><h3>Calibration: last trade vs best ask at decision time</h3><span class="small muted">full width · market data only, no strategy · per slot, distance to delivery and aggressor side · TR-03</span></div>${tr07GapDistributionHtml(panels, missionId)}</div>`;
+}
+
+function tr07ExpandHtml(panels, missionId) {
+  return `<details class="tr07expand" data-tr07="expanded-charts"><summary class="tr07btn" data-tr07="expand">Expand calibration charts ▾</summary>${tr07ExpandedChartsHtml(panels, missionId)}</details>`;
 }
 
 // En TOB, una misión sin datos en el release exploratorio (Power) se declara
@@ -1903,8 +1978,8 @@ function tr07PanelsHtml(panels, selection) {
   const missionId = selection.missionId ?? missions[0]?.missionId ?? null;
   return `${tr07CoverageHtml(panels, missionId)}
   ${tr07ZonesHtml(panels, missionId)}
-  ${tr07CalibrationHtml(panels)}
-  ${tr07UnavailableCard("frozenContract", "Frozen contract", "TR-04 · TRADES-v1 execution contract · gate: Bru approves the freeze", panels)}
+  ${tr07CalibrationHtml(panels, missionId)}
+  ${tr07FrozenContractHtml(panels)}
   ${tr07UnavailableCard("results", "Results", "TR-06 · runs of the 4 missions", panels)}`;
 }
 
@@ -1934,7 +2009,8 @@ function tr07GridHtml(panels, selection, modeViewHtml, measurementHtml = "") {
   const period = selection.period ?? null;
   const coversBridge = tr07CoversBridge(mode, period);
   const left = `${coversBridge ? "" : tr07ContrastNoteHtml()}${modeViewHtml}${measurementHtml}`;
-  const right = coversBridge ? `${tr07ContrastHtml(panels)}${tr07ExpandHtml()}` : "";
+  const missionId = selection.missionId ?? panels.selector?.marketMissions?.[0]?.missionId ?? null;
+  const right = coversBridge ? `${tr07ContrastHtml(panels)}${tr07ExpandHtml(panels, missionId)}` : "";
   return `<div class="tr07grid single">
     <div data-tr07="contrast-column">${right}</div>
     <div data-tr07="mode-view">${left}</div>

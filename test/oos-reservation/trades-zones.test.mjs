@@ -357,7 +357,9 @@ test("el artefacto TR-02 commiteado es coherente con su manifest y con §4", () 
     "POW-M-2025-07", "POW-M-2025-08", "POW-M-2025-09",
   ]);
   assert.equal(plan.forward.status, "OPEN_PENDING_FREEZE");
-  assert.equal(plan.coverageStatus.status, "PENDING_SCAN_JOB");
+  // UI-07: cobertura proyectada desde las mediciones de TR-01 (cola DATA-01).
+  assert.equal(plan.coverageStatus.status, "MEASURED");
+  assert.deepEqual(plan.coverageStatus.measurements.map((entry) => entry.market), ["GAS_THE", "POWER_DE"]);
   // El plan real registra los episodios ya vistos por TOB en post-puente y purge.
   assert.deepEqual(plan.tobSeen.unmatchedCampaignIds, ["GAS-M-2026-10", "GAS-M-2026-11", "GAS-M-2026-12"]);
   assert.ok(plan.tobSeen.materializedCampaignIds.includes("GAS-Q-2026Q4"));
