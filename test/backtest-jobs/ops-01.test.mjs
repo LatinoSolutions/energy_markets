@@ -94,6 +94,7 @@ test("OPS-01: resultados declarados fuera del workspace no se copian a output/; 
   assert.equal(receipt.status, JOB_STATUS.FAILED);
   assert.equal(receipt.failure.code, "RUN_OUTPUT_NOT_PRESERVED");
   assert.equal(runner.status().currentResult, null);
+  assert.equal(existsSync(path.join(runner.runsRoot, receipt.runId, "attempt-1", OUTPUT_DIR)), false);
   assert.equal(existsSync(path.join(runner.runsRoot, receipt.runId, "attempt-1", WORKSPACE_DIR)), false);
 });
 

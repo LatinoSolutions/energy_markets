@@ -720,6 +720,8 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
       preservedResults = preserveOutput(workspace, outputDir, producedManifest.results.path, resultsSha256);
       preservedManifest = preserveOutput(workspace, outputDir, EXPLORATORY_MANIFEST_PATH, producedManifestSha256);
     } catch (error) {
+      // Un intento FAILED no deja una copia a medias sin receipt que la ate.
+      rmSync(outputDir, { recursive: true, force: true });
       return { error: { code: "RUN_OUTPUT_NOT_PRESERVED", message: String(error?.message ?? error) } };
     }
     return {
