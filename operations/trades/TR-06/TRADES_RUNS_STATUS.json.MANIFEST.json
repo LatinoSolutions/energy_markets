@@ -3,7 +3,7 @@
   "schemaVersion": "1.0",
   "artifact": {
     "path": "operations/trades/TR-06/TRADES_RUNS_STATUS.json",
-    "sha256": "5602c2483c27bc8a740fa911b402e10622cb7c53ded307c79f69444fa4d3631e"
+    "sha256": "75e49983d46c1987461037090f5e3afda4f8369912e766cb4a0e687d64cd3037"
   },
   "generator": {
     "path": "operations/trades/TR-06/build-trades-runs-status.mjs",
@@ -12,11 +12,11 @@
   "sources": {
     "zonePlan": {
       "path": "operations/trades/TR-02/trades-zone-plan.json",
-      "sha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20"
+      "sha256": "2faf712b1a6206c3fd279b3f9a73bbcdefc2b86ab337071a3ff32683348e4796"
     },
     "freeze": {
       "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
-      "sha256": "474514ce1464ca6f79c0093e3a70b295e23af272e563edb2ce6c6ea3fe2385bb"
+      "sha256": "66140f4d8c18e6086b5ebffc9b9e531db46de1aa51c079d0fd1772b3c2612c88"
     },
     "spec": {
       "path": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md",

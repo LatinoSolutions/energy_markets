@@ -12,7 +12,7 @@
   "sources": {
     "zonePlan": {
       "path": "operations/trades/TR-02/trades-zone-plan.json",
-      "sha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20"
+      "sha256": "2faf712b1a6206c3fd279b3f9a73bbcdefc2b86ab337071a3ff32683348e4796"
     },
     "gasCalendar": {
       "path": "operations/audit/IMP-09/eex-exchange-calendar.json",

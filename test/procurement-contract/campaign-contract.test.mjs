@@ -22,6 +22,7 @@ import {
   validateQuarterlyEpisodeSequence,
 } from "../../src/procurement-contract/index.mjs";
 import { EEX_QUARTERLY_DEADLINE_EVIDENCE } from "../../src/procurement-contract/eex-deadline-evidence.mjs";
+import { TRADES_TARGET_MW } from "../../src/trades-engine/missions.mjs";
 
 const EVIDENCE_2021Q1 = EEX_QUARTERLY_DEADLINE_EVIDENCE["2021Q1"];
 
@@ -32,18 +33,40 @@ function fact(ficha, factId) {
   return ficha.facts.find((entry) => entry.factId === factId);
 }
 
-test("las cuatro cantidades confirmadas coinciden con §4.1 (10/10/60/20 MW)", () => {
+test("las cuatro cantidades confirmadas coinciden con §4.1 y owner patch 02 §1 (10/10/60/10 MW)", () => {
   const byKey = new Map(CONFIRMED_OBLIGATIONS.map((entry) => [`${entry.product}/${entry.mission}`, entry]));
   assert.equal(byKey.get("Gas/Monthly").quantity, 10);
   assert.equal(byKey.get("Power/Monthly").quantity, 10);
   assert.equal(byKey.get("Gas/Quarterly").quantity, 60);
-  assert.equal(byKey.get("Power/Quarterly").quantity, 20);
+  assert.equal(byKey.get("Power/Quarterly").quantity, 10);
   for (const entry of CONFIRMED_OBLIGATIONS) {
     assert.equal(entry.unit, "MW");
     assert.equal(entry.source.authority, "Bru (owner)");
   }
   assert.equal(confirmedQuantityFor("Gas", "Quarterly").quantity, 60);
   assert.equal(confirmedQuantityFor("Gas", "Yearly"), null);
+});
+
+// FIX-01: owner patch 02 §1 (2026-09-24) "Power Quarterly es **10 MW**. El
+// valor 20 MW registrado el 2026-09-22 queda superado." Falla si el valor
+// superado reaparece en la fuente o si el motor TRADES diverge del contrato.
+test("Power Quarterly = 10 MW (patch 02 §1): el 20 MW superado no reaparece", () => {
+  const powerQuarterly = confirmedQuantityFor("Power", "Quarterly");
+  assert.equal(powerQuarterly.quantity, 10);
+  assert.equal(powerQuarterly.unit, "MW");
+  assert.match(powerQuarterly.source.locator, /OWNER_PATCH_STRATEGY_SCOPE_2026-09-24\.md.*§1/);
+
+  const patch = readFileSync(resolve(repoRoot, "docs/canonical/v1_1_1/OWNER_PATCH_STRATEGY_SCOPE_2026-09-24.md"), "utf8");
+  assert.ok(patch.includes(powerQuarterly.source.quote), "la cita debe existir literal en el patch 02");
+
+  const TRADES_KEY = { "Gas/Quarterly": "GAS_QUARTERLY", "Gas/Monthly": "GAS_MONTHLY", "Power/Quarterly": "POWER_QUARTERLY", "Power/Monthly": "POWER_MONTHLY" };
+  for (const entry of CONFIRMED_OBLIGATIONS) {
+    const missionKey = TRADES_KEY[`${entry.product}/${entry.mission}`];
+    assert.equal(TRADES_TARGET_MW[missionKey], entry.quantity, `${missionKey} diverge del contrato de campaña`);
+  }
+
+  const contractSource = readFileSync(resolve(repoRoot, "src/procurement-contract/campaign-contract.mjs"), "utf8");
+  assert.doesNotMatch(contractSource, /product: "Power", mission: "Quarterly", quantity: 20\b/);
 });
 
 test("la ficha Gas Quarterly incorpora lo confirmado y deja el resto faltante explícito", () => {
