@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 import { BT02_MANIFEST_PATH, loadBacktestReadinessAt } from "../../src/ui/canonical-inputs.mjs";
@@ -28,7 +29,7 @@ test("BT-03: readiness table projects verified BT-02 measurements and keeps offi
 });
 
 function copyBt02Fixture() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "bt03-loader-"));
+  const root = createTempDir("bt03-loader-");
   const manifest = JSON.parse(readFileSync(BT02_MANIFEST_PATH, "utf8"));
   for (const ref of [manifest.artifact, ...Object.values(manifest.inputs)]) {
     const target = path.join(root, ref.path);

@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
@@ -107,7 +108,7 @@ test("UI-07 (1): el productor de TR-01 declara en el manifest el path real del a
 });
 
 test("UI-07 (1): si una medición de TR-01 cambia tras construir el plan, la cobertura es ERROR", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "ui07-"));
+  const root = createTempDir("ui07-");
   try {
     for (const relative of [TRADES_PANEL_ARTIFACTS.zonePlan.artifact, TRADES_PANEL_ARTIFACTS.zonePlan.manifest]) {
       mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });

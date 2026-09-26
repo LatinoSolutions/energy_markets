@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -238,7 +239,7 @@ test("BT-05: el snapshot exploratorio real del repo verifica por hash contra su 
 // release (build_tob_slots.py, LAKE en su línea 24) sólo se coteja por hash, nunca se ejecuta.
 test("BT-05 P-011: el job lanza un solo proceso, el generador node sobre el snapshot de slots commiteado; nunca el extractor del lago", async () => {
   const repo = makeFixtureRepo();
-  const spawnLog = path.join(mkdtempSync(path.join(tmpdir(), "bt05-spawn-")), "argv.log");
+  const spawnLog = path.join(createTempDir("bt05-spawn-"), "argv.log");
   const recordingNode = path.join(path.dirname(spawnLog), "node");
   writeFileSync(recordingNode, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${spawnLog}"\nexec "${process.execPath}" "$@"\n`, { mode: 0o755 });
   const runner = createBacktestJobRunner({ repoRoot: repo.root, nodeBinary: recordingNode });
@@ -673,7 +674,7 @@ test("BT-05 identidad: código sin commitear o sin git no arranca (el commit no 
   assert.match(dirty.message, /src\/exploratory\/extra\.mjs/);
   assert.equal(runner.status().latest, null);
 
-  const noGit = mkdtempSync(path.join(tmpdir(), "bt05-nogit-"));
+  const noGit = createTempDir("bt05-nogit-");
   const bare = createBacktestJobRunner({ repoRoot: noGit, runsDir: path.join(noGit, "runs") });
   assert.equal(bare.start({ requestedBy: "ui" }).code, "CODE_COMMIT_UNKNOWN");
 });
@@ -735,7 +736,7 @@ process.stdout.write(JSON.stringify({ running: s.running, current: s.current?.ru
 // ---------- lock obsoleto con arranques concurrentes (hallazgo BT05-LOCK-05) ----------
 
 test("BT-05 lock: dos procesos que vieron el mismo lock obsoleto no pueden tomarlo ambos", () => {
-  const runsRoot = mkdtempSync(path.join(tmpdir(), "bt05-lock-"));
+  const runsRoot = createTempDir("bt05-lock-");
   assert.equal(claimJobLock(runsRoot, 0, { runId: "muerto", attempt: 1, pid: DEAD_PID }), 1);
   // ambos leen el lock obsoleto antes de que ninguno actúe
   const seenByA = readJobLock(runsRoot);
