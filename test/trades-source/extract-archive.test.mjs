@@ -78,6 +78,9 @@ reference_rows = [
 members = {
     "data/lake/v1/table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet": parquet_bytes(trade_rows),
     "data/lake/v1/table=eex_derivative_reference/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet": parquet_bytes(reference_rows),
+    # No es un parquet valido: si el extractor lo leyera, fallaria. Otra tabla del area
+    # pedida se inventaria por miembro sin leerse (un top of book real pesa hasta 2,66 GB).
+    "data/lake/v1/table=eex_derivative_top_of_book/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet": b"not a parquet: must never be read",
 }
 tar_path = os.path.join(outdir, "fixture.tar")
 with tarfile.open(tar_path, "w") as tar:
@@ -156,6 +159,8 @@ test("el inventario del archivo declara dateMin/dateMax y separa la tabla de ref
     assert.equal(meta.dateMax, "2025-11-24");
     assert.equal(meta.tableInventory.eex_derivative_trade.rows, 2);
     assert.equal(meta.tableInventory.eex_derivative_reference.rows, 1);
+    // Top of book: contado por miembro, sin leer sus filas; null = no medido, nunca 0.
+    assert.deepEqual(meta.tableInventory.eex_derivative_top_of_book, { members: 1, rows: null });
     const tradeLines = lines.filter((line) => !line._meta);
     assert.equal(tradeLines.length, 2);
     const referenceLines = readFileSync(referencePath, "utf8").trim().split("\n").map((line) => JSON.parse(line));

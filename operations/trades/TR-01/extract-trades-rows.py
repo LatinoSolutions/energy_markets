@@ -198,7 +198,7 @@ def iter_tar_members(archive_path):
             for member in tar:
                 if not member.isfile() or not member.name.endswith(".parquet"):
                     continue
-                yield member.name, tar.extractfile(member).read()
+                yield member.name, (lambda m=member: tar.extractfile(m).read())
     finally:
         zstd.stdout.close()
         zstd.wait()
@@ -223,14 +223,18 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
     rows_emitted = 0
     members_seen = 0
     skipped_other_area = 0
-    trade_dates = []
+    date_min = None
+    date_max = None
 
-    def bump(table, member_count=0, row_count=0):
-        entry = table_inventory.setdefault(table, {"members": 0, "rows": 0})
+    # rows = None mientras no se haya contado ninguna fila de esa tabla: un miembro
+    # inventariado sin leer no es "0 filas".
+    def bump(table, member_count=0, row_count=None):
+        entry = table_inventory.setdefault(table, {"members": 0, "rows": None})
         entry["members"] += member_count
-        entry["rows"] += row_count
+        if row_count is not None:
+            entry["rows"] = (entry["rows"] or 0) + row_count
 
-    for name, raw in iter_tar_members(archive_path):
+    for name, read_member in iter_tar_members(archive_path):
         members_seen += 1
         classification = classify_archive_member(name, wanted_cmdty, wanted_area)
         kind = classification["kind"]
@@ -243,25 +247,26 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             continue
         if kind == "trade":
             table = TRADE_TABLE
-            table_data = read_parquet_bytes(raw)
+            table_data = read_parquet_bytes(read_member())
             for row in table_data.to_pylist():
                 emit_row(row, TRADE_TABLE, out)
                 rows_emitted += 1
                 trade_date = row.get("TrdDate")
                 if trade_date:
-                    trade_dates.append(str(trade_date))
+                    trade_date = str(trade_date)
+                    date_min = trade_date if date_min is None or trade_date < date_min else date_min
+                    date_max = trade_date if date_max is None or trade_date > date_max else date_max
             bump(table, member_count=1, row_count=len(table_data))
         elif kind == "reference":
             table = REFERENCE_TABLE
-            reference_data = read_parquet_bytes(raw)
+            reference_data = read_parquet_bytes(read_member())
             reference_rows = reference_data.to_pylist()
             bump(table, member_count=1, row_count=len(reference_rows))
             if reference_out is not None:
                 for row in reference_rows:
                     emit_row(row, REFERENCE_TABLE, reference_out, reference=True)
-        else:  # other_table con area pedida: se inventaria pero NO se emite como trade
-            table_data = read_parquet_bytes(raw)
-            bump(table, member_count=1, row_count=len(table_data))
+        else:  # other_table con area pedida: se inventaria por miembro, sin leer sus filas
+            bump(table, member_count=1)
         if max_members is not None and members_seen >= max_members:
             break
 
@@ -279,8 +284,8 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             "requestedArea": {"cmdty": wanted_cmdty, "area": wanted_area},
             "table": TRADE_TABLE,
             "tableInventory": table_inventory,
-            "dateMin": min(trade_dates) if trade_dates else None,
-            "dateMax": max(trade_dates) if trade_dates else None,
+            "dateMin": date_min,
+            "dateMax": date_max,
             "skippedOtherArea": skipped_other_area,
             "membersSeen": members_seen,
         },
