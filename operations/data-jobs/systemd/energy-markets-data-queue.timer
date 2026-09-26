@@ -1,0 +1,14 @@
+[Unit]
+# DATA-01 (opcional): red de seguridad. El path unit es el disparador principal;
+# este timer re-ejecuta la cola cada 15 min por si el evento del log se perdió
+# (p. ej. el servicio estaba caído). La cola es idempotente: un disparador ya
+# procesado no re-lanza ni re-avisa (src/data-jobs/run.mjs planTriggerAction).
+Description=DATA-01: red de seguridad de la cola automática de jobs de data
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=15min
+Unit=energy-markets-data-queue.service
+
+[Install]
+WantedBy=timers.target

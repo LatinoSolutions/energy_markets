@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   MODULES,
   bridgeCampaignsFromZonePlan,
+  bridgeMeasurementManifestPath,
   buildMeasurementArtifact,
 } from "../../operations/trades/TR-03/build-bridge-measurement.mjs";
 import { askSeries, gasQuarterlyTrade } from "./fixtures.mjs";
@@ -127,4 +128,16 @@ test("la lista de módulos del manifest cubre las dependencias del motor y del p
   // manifest tiene que cambiar.
   assert.ok(modules.has("src/trades-source/dedup.mjs"));
   assert.ok(modules.has("src/trades-source/index.mjs"));
+});
+
+// DATA-01: el manifest debe caer en el path que declaran el status de TR-03 y la
+// UI (src/ui/trades-panels.mjs:96), no en `bridge-measurement.json.MANIFEST.json`.
+test("el manifest de la medición usa la convención <nombre>.MANIFEST.json que consume la UI", () => {
+  assert.equal(
+    bridgeMeasurementManifestPath("operations/trades/TR-03/bridge-measurement.json"),
+    "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
+  );
+  const status = JSON.parse(readFileSync("operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json", "utf8"));
+  assert.equal(status.measurementManifest, bridgeMeasurementManifestPath(status.measurementArtifact));
+  assert.match(readFileSync("src/ui/trades-panels.mjs", "utf8"), /bridge-measurement\.MANIFEST\.json/);
 });
