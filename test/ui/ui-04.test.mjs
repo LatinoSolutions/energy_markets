@@ -84,9 +84,10 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
     const region = page.slice(0, page.indexOf('data-kind="backend-measurements"'));
     return sum + (region.match(/data-arm="(BASELINE|ARM_A|ARM_B)"/g) ?? []).length;
   }, 0);
-  assert.equal(arms, 3 * Object.keys(canonical.inputs.exploratoryBacktest.results.comparison).length);
+  assert.equal(arms, 3 * pages.length);
   assert.doesNotMatch(html, /not produced by a canonical producer · not zero/);
-  assert.equal((html.match(/data-status="EXPLORATORY" data-product=/g) ?? []).length, canonical.inputs.exploratoryBacktest.results.results.length);
+  const gasResults = canonical.inputs.exploratoryBacktest.results.results.filter((result) => ["G0BQ", "G0BM"].includes(result.product));
+  assert.equal((html.match(/data-status="EXPLORATORY" data-product=/g) ?? []).length, gasResults.length);
 });
 
 test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", async () => {

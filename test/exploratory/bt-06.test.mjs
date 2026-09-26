@@ -149,17 +149,17 @@ print(json.dumps({"consumed": consumed["n"], "series": list(series), "counts": d
   }
 });
 
-test("BT-06 loader: una decisión provisional de TR-01 no acredita la fuente y falla cerrada", () => {
+test("BT-06 loader: una fuente distinta de la decisión de TR-01 falla cerrada", () => {
   const workspace = mkdtempSync(path.join(tmpdir(), "bt06-source-"));
   try {
     const args = (decision, out) => [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--source-decision", decision, "--out", path.join(workspace, out)];
 
-    // La decisión REAL de TR-01 hoy es PENDING_ARCHIVE_VERIFICATION /
-    // PROVISIONAL_ONLY / failClosed: el job no arranca sobre una fuente provisional.
-    const provisional = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
-    const provisionalRun = spawnSync("python3", args(provisional, "provisional.json"), { encoding: "utf8" });
-    assert.notEqual(provisionalRun.status, 0);
-    assert.match(provisionalRun.stderr, /no cerró la decisión|provisional/);
+    // La decisión real ahora elige el archivo sellado; extraer del lago sigue
+    // fallando cerrado porque no coincide con la fuente declarada.
+    const decisionPath = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
+    const decisionRun = spawnSync("python3", args(decisionPath, "decision.json"), { encoding: "utf8" });
+    assert.notEqual(decisionRun.status, 0);
+    assert.match(decisionRun.stderr, /CLIENT_SEALED_ARCHIVE.*EEX_LAKE/);
 
     // failClosed true aunque el status y la fuente parezcan definitivos.
     const failClosed = path.join(workspace, "fail-closed.json");

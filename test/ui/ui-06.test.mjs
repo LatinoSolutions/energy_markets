@@ -55,8 +55,8 @@ test("UI-06: fecha, campaña, target y ledger salen del replay del mismo episodi
       assert.equal(detail.day, baseline.day);
       assert.equal(detail.campaignId, campaign.id);
       assert.equal(detail.targetMw, campaign.targetMw);
-      assert.equal(detail.bestAsk.eurMwh, armA.ask);
-      assert.equal(detail.bestAsk.quoteTm, armA.quoteTm);
+      assert.equal(detail.bestAsk?.eurMwh ?? null, typeof armA.ask === "number" ? armA.ask : null);
+      assert.equal(detail.bestAsk?.quoteTm ?? null, typeof armA.ask === "number" ? armA.quoteTm ?? null : null);
       for (const [armId, ledger] of [["BASELINE", baseline], ["ARM_A", armA]]) {
         const row = detail.arms[armId];
         assert.equal(row.status, ledger.status);
@@ -142,7 +142,7 @@ test("UI-06: el tooltip pinta los valores del artifact sin aritmética nueva", (
 
 test("UI-06: una franja de hover por decisión, marcadores y script de click persistente", () => {
   const html = renderBothGasMissions();
-  const total = Object.values(pairedPoints).reduce((sum, list) => sum + list.length, 0);
+  const total = ["G0BQ", "G0BM"].reduce((sum, product) => sum + pairedPoints[product].length, 0);
   assert.equal((html.match(/<rect class="pphit" data-pp="\d+"/g) ?? []).length, total);
   assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, 2);
   assert.equal((html.match(/<div class="pptip"/g) ?? []).length, 2);

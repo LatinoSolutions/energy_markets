@@ -55,7 +55,7 @@ function powerResultsFromRunner() {
   return results;
 }
 
-test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas sigue solo", () => {
+test("BT-06 UI: sin release v3 el loader Power falla cerrado; el repo real conserva procedencia separada", () => {
   const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-empty-"));
   try {
     const power = loadPowerExploratoryBacktestAt(workspace);
@@ -64,10 +64,10 @@ test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas si
 
     const gas = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
     assert.equal(gas.ok, true);
-    assert.equal(gas.power.loaded, false);
-    assert.equal(gas.provenance.releases.length, 1);
+    assert.equal(gas.power.loaded, true);
+    assert.equal(gas.provenance.releases.length, 2);
     assert.equal(gas.provenance.byProduct.G0BQ.release, "v2");
-    assert.equal(gas.provenance.byProduct.DEBQ, undefined);
+    assert.equal(gas.provenance.byProduct.DEBQ.release, "v3");
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
