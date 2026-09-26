@@ -71,15 +71,11 @@ export const STEP_ARTIFACTS = Object.freeze({
     "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
     "operations/trades/TR-01/DATA_SOURCE_DECISION.MANIFEST.json",
   ],
-  // El productor de TR-03 escribe el manifest como `<out>.MANIFEST.json`
-  // (build-bridge-measurement.mjs). HALLAZGO_TECNICO: el status de TR-03 y la UI
-  // (src/ui/trades-panels.mjs:96) esperan `bridge-measurement.MANIFEST.json`, no
-  // `bridge-measurement.json.MANIFEST.json`. Es una inconsistencia de TR-03/TR-07
-  // fuera del scope de DATA-01; el job publica lo que el productor realmente
-  // escribe y el desalineo queda reportado, no parcheado aquí.
+  // El manifest de la medición vive en `bridge-measurement.MANIFEST.json` (misma
+  // convención que el status de TR-03 y la UI, src/ui/trades-panels.mjs:96).
   [DATA_JOB_KIND.TR03_BRIDGE]: [
     "operations/trades/TR-03/bridge-measurement.json",
-    "operations/trades/TR-03/bridge-measurement.json.MANIFEST.json",
+    "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
   ],
   [DATA_JOB_KIND.BT06_EXTRACT]: [POWER_EXPLORATORY_RELEASE.slots],
   // Los mismos paths que la UI carga como release Power v3

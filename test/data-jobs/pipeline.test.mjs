@@ -98,6 +98,6 @@ test("DATA-01 pipeline: los artefactos declarados son los que la cadena publica"
   ]);
   assert.deepEqual(STEP_ARTIFACTS[DATA_JOB_KIND.TR03_BRIDGE], [
     "operations/trades/TR-03/bridge-measurement.json",
-    "operations/trades/TR-03/bridge-measurement.json.MANIFEST.json",
+    "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
   ]);
 });
