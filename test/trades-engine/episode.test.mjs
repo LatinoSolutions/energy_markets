@@ -51,6 +51,30 @@ test("día sin trade elegible dentro de la frescura no arrastra precio y marca D
   assert.equal(result.ledger.every((entry) => entry.price === null), true);
 });
 
+test("el hueco de data no deja superar el cap de 12 MW/día ni se cuenta como forcing de la estrategia", () => {
+  // 60 MW, 6 días, sin observación los 2 primeros (revisión TR05-DAILY-CAP-03).
+  const days = ["2023-09-01", "2023-09-04", "2023-09-05", "2023-09-06", "2023-09-07", "2023-09-08"];
+  const rows = days.slice(2).map((day) => gasQuarterlyTradeAt({ day, slot: "11:00", price: 100 }));
+  const params = { campaign, tradingDays: days, rows, targetMw: 60, observationRule: OBSERVATION_RULES.LAST_TRADE, freshnessLimitSeconds: 900, penaltyEurMwh: 0.5 };
+
+  const dip = runTradesEpisode({ ...params, policy: TRADES_POLICIES.DIP10 });
+  assert.equal(dip.ok, true);
+  assert.equal(dip.ledger.every((entry) => entry.filledMw <= 12), true);
+  assert.equal(dip.summary.complete, false);
+  assert.equal(dip.summary.status, "DATA_INCOMPLETE");
+  assert.equal(dip.summary.forcedDays, 0);
+  assert.equal(dip.summary.hardRejected, false);
+  assert.deepEqual(dip.ledger.map((entry) => entry.filledMw), [0, 0, 12, 12, 12, 12]);
+
+  // A0, con la misma data, da el MISMO estado de data y tampoco es hard-rejected:
+  // el forcing por falta de data es distinto del hard-reject de la estrategia
+  // (patch 03 §3.4).
+  const a0 = runTradesEpisode({ ...params, policy: TRADES_POLICIES.A0 });
+  assert.equal(a0.summary.status, "DATA_INCOMPLETE");
+  assert.equal(a0.summary.hardRejected, false);
+  assert.equal(a0.ledger.every((entry) => entry.filledMw <= 12), true);
+});
+
 test("DEPTH no existe en TRADES y el fill falla cerrado", () => {
   const result = run({ fillModel: "DEPTH" });
   assert.equal(result.ok, false);

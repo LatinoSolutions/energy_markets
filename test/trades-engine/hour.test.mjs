@@ -10,7 +10,7 @@ const profile = (mid, late) => [
   { slot: "13:00", avgPriceEurMwh: late, complete: true },
 ];
 
-test("sin historia previa no se elige hora (el primer episodio corre A0 a la hora del cliente)", () => {
+test("sin historia previa no se elige hora: el brazo HOUR no se corre (NOT_RUN_NO_HISTORY)", () => {
   assert.equal(chooseHourFromHistory({ history: [], slotLabels }), null);
 });
 

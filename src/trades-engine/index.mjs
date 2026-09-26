@@ -68,6 +68,7 @@ export { assignWalkForwardHours, chooseHourFromHistory } from "./hour.mjs";
 export { deliveryHoursForMission } from "./hours.mjs";
 
 export {
+  TRADES_IDENTITY_SCOPE_FIELDS,
   TRADES_JOB_KIND,
   TRADES_RUN_ID_PREFIX,
   buildTradesRunManifest,
@@ -78,6 +79,7 @@ export {
 export {
   TRADES_ARM_LABELS,
   TRADES_ARMS,
+  frozenContractOf,
   missionObservationConfig,
   resolveFrozenConfig,
   runTradesMission,

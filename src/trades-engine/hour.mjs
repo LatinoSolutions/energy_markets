@@ -26,8 +26,10 @@ function relativeToClient(profile, slot, clientSlot) {
 // Elige la hora con menor diferencia media contra A0@clientSlot sobre la
 // HISTORIA (episodios anteriores). Sólo cuentan los episodios donde ambas horas
 // completan el target; una hora que no completa en alguno de los pares se
-// descarta. Sin historia no se elige hora (null): el primer episodio de
-// Development corre A0 a la hora del cliente.
+// descarta. Sin historia no se elige hora (null): el brazo HOUR no se corre y
+// queda en su propio estado NOT_RUN_NO_HISTORY (no es un fallo de la
+// estrategia; revisión TR05-HOUR-STUB-07). El primer episodio de Development,
+// por tanto, no tiene brazo HOUR.
 export function chooseHourFromHistory({ history = [], slotLabels, clientSlot = CLIENT_SLOT } = {}) {
   if (history.length === 0) return null;
   let bestSlot = null;

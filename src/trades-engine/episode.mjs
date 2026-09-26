@@ -31,6 +31,10 @@ export const TRADES_EPISODE_STATUS = Object.freeze({
   COMPLETE: "COMPLETE",
   DATA_INCOMPLETE: "DATA_INCOMPLETE",
   INCOMPLETE: "INCOMPLETE",
+  // Brazo HOUR sin historia de Development anterior: la hora no se puede elegir
+  // walk-forward (patch 03 §5.4), así que NO se corre. Es un estado propio del
+  // brazo, no un fallo de la estrategia (revisión TR05-HOUR-STUB-07).
+  NOT_RUN_NO_HISTORY: "NOT_RUN_NO_HISTORY",
 });
 
 export const TRADES_OBSERVATION_RULE = Object.freeze({ TOB: "TOB" });
@@ -80,6 +84,7 @@ export function runObservationEpisode({
   let remainingMw = targetMw;
   let costEur = 0;
   let forcedDays = 0;
+  let dataForcedDays = 0;
   let noObservationDays = 0;
   let staleDays = 0;
   const pastPrices = [];
@@ -110,13 +115,25 @@ export function runObservationEpisode({
       continue;
     }
     const observation = result.observation;
-    const wanted = Math.min(remainingMw, policy({
+    // Regla del cliente (`01_shared_campaign_rules.md` §5): la cantidad de un día
+    // es un entero entre 0 y min(12 MW, remaining). El cap es DURO: nunca se
+    // supera, ni siquiera para recuperar un hueco de data (revisión
+    // TR05-DAILY-CAP-03; cap 12 MW/día, `01_shared_campaign_rules.md:94`).
+    const proposed = policy({
       remainingMw,
       daysLeftIncludingToday: daysLeft,
       price: observation.price,
       pastPrices,
-    }));
-    if (wanted < floor) forcedDays += 1;
+    });
+    const wanted = Math.max(0, Math.min(remainingMw, DAILY_CAP_MW, proposed));
+    // Forcing del cliente (`01_shared_campaign_rules.md` §6): si la estrategia
+    // propone menos que el mínimo factible L_t, el sistema supervisor tendría que
+    // intervenir y la estrategia queda rechazada. Si el propio L_t ya supera el
+    // cap, NINGUNA decisión puede cumplirlo: la causa es el hueco de data, no la
+    // estrategia, y no cuenta como hard-reject (patch 03 §3.4; revisión
+    // TR05-DAILY-CAP-03).
+    if (wanted < floor && floor <= DAILY_CAP_MW) forcedDays += 1;
+    else if (wanted < floor) dataForcedDays += 1;
     const fill = fillPriceOf(observation);
     if (!fill?.ok) {
       return { ok: false, code: fill?.code ?? "FILL_FAILED", summary: null, ledger };
@@ -163,6 +180,7 @@ export function runObservationEpisode({
       complete,
       status,
       forcedDays,
+      dataForcedDays,
       noObservationDays,
       staleDays,
       hardRejected: forcedDays > 0,
