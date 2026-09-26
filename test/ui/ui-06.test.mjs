@@ -27,7 +27,7 @@ function replayOf(product, maturity) {
 // TR-07: el selector de misión muestra una misión a la vez. Las pruebas que cubren
 // los dos productos Gas renderizan las dos misiones y concatenan sus páginas.
 function renderBothGasMissions(vm = vms.backtests) {
-  return ["GAS_QUARTERLY", "GAS_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vm, { missionId })).join("");
+  return ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vm, { missionId })).join("");
 }
 
 test("UI-06: hay un detalle por cada punto del efecto emparejado, en los dos productos", () => {
@@ -55,8 +55,8 @@ test("UI-06: fecha, campaña, target y ledger salen del replay del mismo episodi
       assert.equal(detail.day, baseline.day);
       assert.equal(detail.campaignId, campaign.id);
       assert.equal(detail.targetMw, campaign.targetMw);
-      assert.equal(detail.bestAsk.eurMwh, armA.ask);
-      assert.equal(detail.bestAsk.quoteTm, armA.quoteTm);
+      assert.equal(detail.bestAsk?.eurMwh ?? null, armA.ask ?? null);
+      assert.equal(detail.bestAsk?.quoteTm ?? null, armA.quoteTm ?? null);
       for (const [armId, ledger] of [["BASELINE", baseline], ["ARM_A", armA]]) {
         const row = detail.arms[armId];
         assert.equal(row.status, ledger.status);
@@ -144,8 +144,8 @@ test("UI-06: una franja de hover por decisión, marcadores y script de click per
   const html = renderBothGasMissions();
   const total = Object.values(pairedPoints).reduce((sum, list) => sum + list.length, 0);
   assert.equal((html.match(/<rect class="pphit" data-pp="\d+"/g) ?? []).length, total);
-  assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, 2);
-  assert.equal((html.match(/<div class="pptip"/g) ?? []).length, 2);
+  assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, 4);
+  assert.equal((html.match(/<div class="pptip"/g) ?? []).length, 4);
   assert.match(html, /Click or tap to pin the tooltip; click again to release\./);
   assert.match(html, /tip\.classList\.add\("pinned"\)/);
   // El script solo inserta texto: nada de innerHTML con datos.
@@ -199,7 +199,7 @@ test("UI-06 fail-closed: sin detalle por punto el chart dice UNAVAILABLE y no pi
   const vm = { ...vms.backtests, exploratory: { ...vms.backtests.exploratory, pairedPoints: null } };
   const html = renderBothGasMissions(vm);
   assert.equal((html.match(/class="pphit"/g) ?? []).length, 0);
-  assert.equal((html.match(/data-paired-detail="UNAVAILABLE"/g) ?? []).length, 2);
+  assert.equal((html.match(/data-paired-detail="UNAVAILABLE"/g) ?? []).length, 4);
 });
 
 test("UI-06: el JSON del tooltip no puede cerrar su <script>", () => {

@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
 import { POWER_EXPLORATORY_RELEASE } from "../../src/exploratory/missions.mjs";
 import { mergeExploratoryResults } from "../../src/exploratory/exploratory-merge.mjs";
-import { loadCanonicalUiInputs, loadExploratoryBacktestAt, loadPowerExploratoryBacktestAt } from "../../src/ui/canonical-inputs.mjs";
+import { EXPLORATORY_MANIFEST_PATH, loadCanonicalUiInputs, loadExploratoryBacktestAt, loadPowerExploratoryBacktestAt } from "../../src/ui/canonical-inputs.mjs";
 import { buildUiViewModels } from "../../src/ui/server.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { powerDeExchangeDaysBetween } from "../../src/trades-source/power-calendar.mjs";
@@ -63,7 +63,15 @@ test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas si
     assert.equal(power.ok, false);
     assert.equal(power.code, "EXPLORATORY_MANIFEST_MISSING");
 
-    const gas = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
+    // Build a gas-only fixture from the verified v2 manifest. The production
+    // repo now also has v3 Power, so it is not a valid missing-Power fixture.
+    const gasManifest = JSON.parse(readFileSync(path.join(repoRoot, EXPLORATORY_MANIFEST_PATH), "utf8"));
+    for (const relative of [EXPLORATORY_MANIFEST_PATH, gasManifest.results.path, gasManifest.slots.path, ...(gasManifest.generators ?? []).map((entry) => entry.path)]) {
+      const target = path.join(workspace, relative);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(path.join(repoRoot, relative)));
+    }
+    const gas = loadExploratoryBacktestAt(workspace);
     assert.equal(gas.ok, true);
     assert.equal(gas.power.loaded, false);
     assert.equal(gas.provenance.releases.length, 1);

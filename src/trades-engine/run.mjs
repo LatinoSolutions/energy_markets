@@ -25,7 +25,7 @@
 // se sustituye por cero.
 
 import { CLIENT_SLOT } from "../exploratory/backtest.mjs";
-import { OBSERVATION_RULE_LIST, SLOT_LABELS } from "../trades-bridge/constants.mjs";
+import { FRESHNESS_LIMIT_CANDIDATES_SECONDS, OBSERVATION_RULE_LIST, SLOT_LABELS } from "../trades-bridge/constants.mjs";
 import { ZONES } from "../oos-reservation/trades-zones.mjs";
 import { buildDeleteIndex } from "../trades-source/delete-point-in-time.mjs";
 import {
@@ -79,7 +79,7 @@ export function missionObservationConfig(frozenResult, missionKey, observationRu
   return {
     ok: true,
     code: null,
-    freshnessLimitSeconds: freshness && freshness.status !== "UNKNOWN" ? freshness.value ?? null : null,
+    freshnessLimitSeconds: freshness?.status === "SELECTED_DEVELOPMENT" ? freshness.selectedSeconds : null,
     freshnessStatus: freshness?.status ?? "MISSING",
     penaltyEurMwh: penalty && penalty.status === "MEASURED" ? penalty.value : null,
     penaltyStatus: penalty?.status ?? "MISSING",
@@ -218,10 +218,20 @@ export function runTradesMission({
   historyCampaigns = [],
   historyRows = [],
   frozenContract,
+  freshnessCandidateSeconds = null,
   slotLabels = SLOT_LABELS,
 } = {}) {
   // Gate de freeze de TR-04 (fail-closed): sin FROZEN no corre ninguna estrategia.
-  const frozen = resolveFrozenConfig(frozenContract);
+  const candidateMode = freshnessCandidateSeconds !== null;
+  if (candidateMode && (zone !== ZONES.DEVELOPMENT || !FRESHNESS_LIMIT_CANDIDATES_SECONDS.includes(freshnessCandidateSeconds))) {
+    return { ok: false, code: "DEVELOPMENT_GRID_ONLY" };
+  }
+  const candidate = frozenContract?.candidate;
+  const candidateValidation = candidateMode ? validateTradesContract(candidate) : null;
+  if (candidateMode && (!candidateValidation.ok || frozenContract?.decision === "FROZEN")) {
+    return { ok: false, code: "INVALID_DEVELOPMENT_CANDIDATE", errors: candidateValidation?.errors ?? [] };
+  }
+  const frozen = candidateMode ? { ok: true, configHash: candidate.configHash } : resolveFrozenConfig(frozenContract);
   if (!frozen.ok) return { ok: false, code: frozen.code, reason: frozen.reason ?? null, errors: frozen.errors ?? [] };
 
   const definition = missionDefinition(missionKey);
@@ -234,7 +244,11 @@ export function runTradesMission({
     return { ok: false, code: "UNKNOWN_OBSERVATION_RULE", observationRule: observationRule ?? null };
   }
 
-  const config = missionObservationConfig(frozenContract, missionKey, observationRule);
+  const config = candidateMode ? (() => {
+    const observation = candidate.markets?.[definition.definition.market]?.missions?.[missionKey]?.observations?.[observationRule];
+    const penalty = observation?.penaltiesByFreshness?.[String(freshnessCandidateSeconds)];
+    return { ok: true, freshnessLimitSeconds: freshnessCandidateSeconds, penaltyEurMwh: penalty?.status === "MEASURED" ? penalty.value : null };
+  })() : missionObservationConfig(frozenContract, missionKey, observationRule);
   if (!config.ok) return { ok: false, code: config.code };
   if (config.freshnessLimitSeconds === null || config.penaltyEurMwh === null) {
     return { ok: false, code: "UNMEASURED_OBSERVATION_CONFIG", missionKey, observationRule };

@@ -3,16 +3,16 @@
  "schemaVersion": "1.0",
  "artifact": {
   "path": "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
-  "sha256": "66140f4d8c18e6086b5ebffc9b9e531db46de1aa51c079d0fd1772b3c2612c88"
+  "sha256": "4281f5e3c7c3403d1fe480552cb439c100d042812bd62ec7297b99a5b1db89e1"
  },
  "generator": {
   "path": "operations/trades/TR-04/build-trades-freeze.mjs",
-  "sha256": "2979cf01ec4706b9aaa033c34066691f78d001510ca5715e60a8a6e5dd659272"
+  "sha256": "2c6d4eefdd4213f36f1f0715e1238394f3c4f1e0a33e9ea947c46d0da24f0795"
  },
  "modules": [
   {
    "path": "src/execution-contract/trades-contract.mjs",
-   "sha256": "bfec19db89ad96ef4208cc2883f784f0130c0db4409e73483404f4826295f3c4"
+   "sha256": "deb874676e3fb63359d377ec32c44deaadfe6a4dc9d70f3ce9c724f7de62abd5"
   },
   {
    "path": "src/execution-contract/execution-contract.mjs",
@@ -20,7 +20,7 @@
   },
   {
    "path": "src/trades-bridge/constants.mjs",
-   "sha256": "20433fa83fd77639244b94a131953321d864e3cd214eac7d1d18a74ece071ebd"
+   "sha256": "61b35ef603f7e57c7c0888f7bde39e506da2b1569615236ce612c26d966a1218"
   },
   {
    "path": "src/oos-reservation/trades-windows.mjs",
@@ -40,6 +40,7 @@
    "path": "operations/trades/TR-03/bridge-measurement.json",
    "sha256": "533f51aa4c8fbf68f53d297a4b4d870f9b947362ecdfa5d281e81044256fc72e"
   },
+  "developmentSelection": null,
   "ownerApproval": null
  }
 }

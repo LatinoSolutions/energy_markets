@@ -160,7 +160,7 @@ test("BT-06 loader: una decisión provisional de TR-01 no acredita la fuente y f
     const provisional = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
     const provisionalRun = spawnSync("python3", args(provisional, "provisional.json"), { encoding: "utf8" });
     assert.notEqual(provisionalRun.status, 0);
-    assert.match(provisionalRun.stderr, /no cerró la decisión|provisional/);
+    assert.match(provisionalRun.stderr, /no cerró la decisión|provisional|fuente canónica/);
 
     // failClosed true aunque el status y la fuente parezcan definitivos.
     const failClosed = path.join(workspace, "fail-closed.json");

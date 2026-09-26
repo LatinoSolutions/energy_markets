@@ -58,7 +58,7 @@ export const SLOT_MIXED_AGGRESSOR = "MIXED";
 // frescura; TR-04 lo congela con esta medición. La grilla candidata es una
 // elección de ingeniería declarada, no un valor canónico ni elegido mirando
 // resultados de estrategia.
-export const FRESHNESS_LIMIT_CANDIDATES_SECONDS = Object.freeze([900, 1800, 3600, 7200, 86400]);
+export const FRESHNESS_LIMIT_CANDIDATES_SECONDS = Object.freeze([900, 1800, 3600, 14400, 86400]);
 
 // DIP10 (patch 03 §3.2): la observación de hoy contra la media de las últimas 10
 // observaciones del episodio, con fallback a A0 si hay menos de 5

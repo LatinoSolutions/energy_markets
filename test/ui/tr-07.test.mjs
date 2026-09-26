@@ -124,10 +124,28 @@ test("TR-07 calibración: estado, ventana, límites y reglas salen del artifact 
 });
 
 test("TR-07 contrato y resultados: candidato HOLD de TR-04 y ningún run fabricado", () => {
-  assert.equal(panels.frozenContract.status, "PENDING_OWNER_APPROVAL");
-  assert.match(panels.frozenContract.reason, /pendiente de aprobación de Bru/);
+  assert.equal(panels.frozenContract.status, "PENDING_MEASUREMENT");
+  assert.match(panels.frozenContract.reason, /TR-03 debe medir la grilla/);
+  assert.deepEqual(panels.frozenContract.candidate.freshnessSelection.gridSeconds, [900, 1800, 3600, 14400, 86400]);
   assert.equal(panels.results.status, "UNAVAILABLE");
   assert.match(panels.results.reason, /TR-06/);
+});
+
+test("TR-09 UI muestra grilla, elección y contraste verificado por misión y brazo", () => {
+  const reported = projectTradesPanels({ ...loaded, tradesRuns: {
+    ok: true,
+    json: { inputs: { freeze: { sha256: loaded.tradesFreeze.provenance.sha256 } }, blockedBy: [], runs: [{
+      phase: "BRIDGE", missionKey: "GAS_QUARTERLY", observationRule: "LAST_TRADE",
+      bridgeGate: { gateId: "TRADES_BRIDGE_CONTRAST_V2", decision: "REPORTED", perArm: { BASELINE: { metrics: [{ id: "FILL_PRICE", status: "REPORTED", tob: 100, trades: 101, delta: 1 }] } } },
+    }] },
+  } });
+  assert.equal(reported.results.status, "REPORTED");
+  const withWinner = { ...reported, frozenContract: { ...reported.frozenContract, candidate: { ...reported.frozenContract.candidate, freshnessSelection: { ...reported.frozenContract.candidate.freshnessSelection, results: { GAS_QUARTERLY: { missionKey: "GAS_QUARTERLY", selectedSeconds: 1800 } } } } } };
+  const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: withWinner }, { mode: "TRADES", missionId: "GAS_QUARTERLY", period: "PUENTE" });
+  assert.match(html, /900 \/ 1800 \/ 3600 \/ 14400 \/ 86400/);
+  assert.match(html, /GAS_QUARTERLY 1800/);
+  assert.match(html, /data-tr09-contrast="GAS_QUARTERLY\|LAST_TRADE\|BASELINE\|FILL_PRICE"/);
+  assert.match(html, /TOB 100.*TRADES 101/);
 });
 
 test("TR-07 fail-closed: un artifact que no coincide con el hash del manifest no se carga", () => {
@@ -207,7 +225,7 @@ test("TR-07 UI: la pantalla de Backtests dibuja selector y paneles con los estad
   // Estados reales mostrados como tales; una ventana anterior a la fuente no es cero.
   assert.ok(html.includes(sourceDecision.status));
   assert.ok(html.includes("MEASURED"));
-  assert.ok(html.includes("PENDING_OWNER_APPROVAL"));
+  assert.ok(html.includes("PENDING_MEASUREMENT"));
   assert.ok(html.includes("BEFORE_SOURCE_START"));
   assert.ok(html.includes("— / 62 d"), "la ventana estructural se conserva y lo que la fuente no trae sale —");
 });

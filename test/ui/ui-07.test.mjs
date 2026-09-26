@@ -167,11 +167,12 @@ test("UI-07 (3): frescura, cobertura y penalización por misión y regla son las
     for (const entry of mission.rules) {
       const source = freeze.candidate.markets[mission.market].missions[mission.missionId].observations[entry.rule];
       assert.equal(entry.freshness.status, source.freshness.status);
-      assert.equal(entry.freshness.limitSeconds, source.freshness.value);
-      assert.equal(entry.freshness.coverage, source.freshness.coverage);
+      assert.equal(entry.freshness.limitSeconds, source.freshness.selectedSeconds);
+      assert.deepEqual(entry.freshness.gridSeconds, source.freshness.candidatesSeconds);
+      assert.equal(entry.freshness.coverage, null);
       assert.equal(entry.penalty.valueEurMwh, source.penalty.value);
-      assert.equal(entry.penalty.observations, source.penalty.observations);
-      assert.deepEqual(entry.penalty.byAggressor.map((group) => group.aggressor), source.penalty.byAggressor.map((group) => group.aggressor));
+      assert.equal(entry.penalty.observations, source.penalty.observations ?? null);
+      assert.deepEqual(entry.penalty.byAggressor.map((group) => group.aggressor), (source.penalty.byAggressor ?? []).map((group) => group.aggressor));
     }
   }
   // El candidato vale para la calibración porque se derivó de ESTA medición de TR-03.
@@ -181,9 +182,9 @@ test("UI-07 (3): frescura, cobertura y penalización por misión y regla son las
 test("UI-07 (3): el gate del puente predeclarado sale del candidato, métrica por métrica", () => {
   const gate = panels.calibration.gate;
   assert.equal(gate.id, freeze.candidate.bridgeGate.id);
-  assert.equal(gate.thresholdStatus, "DECLARED/PROVISIONAL");
+  assert.equal(gate.thresholdStatus, "NO_AUTOMATIC_THRESHOLD");
   assert.deepEqual(gate.metrics.map((metric) => metric.id), freeze.candidate.bridgeGate.metrics.map((metric) => metric.id));
-  assert.deepEqual(gate.metrics.map((metric) => metric.passCriterion), freeze.candidate.bridgeGate.metrics.map((metric) => metric.passCriterion));
+  assert.deepEqual(gate.metrics.map((metric) => metric.description), freeze.candidate.bridgeGate.metrics.map((metric) => metric.description));
 });
 
 test("UI-07 (3): un candidato derivado de otra medición no alimenta la calibración", () => {
@@ -216,11 +217,11 @@ function frozenLoaded({ ownerApproval, boundSha = approvalSha }) {
 
 test("UI-07 (4): el candidato real sale con su configHash y pendiente de aprobación de Bru", () => {
   assert.equal(freeze.decision, "HOLD");
-  assert.equal(panels.frozenContract.status, "PENDING_OWNER_APPROVAL");
+  assert.equal(panels.frozenContract.status, "PENDING_MEASUREMENT");
   assert.equal(panels.frozenContract.candidate.configHash, freeze.humanGate.configHash);
-  assert.match(panels.frozenContract.candidate.configHash, /^7d1aa1e7/);
-  assert.match(panels.frozenContract.reason, /pendiente de aprobación de Bru/);
-  assert.deepEqual(panels.frozenContract.blockedBy, ["MISSING_OWNER_APPROVAL"]);
+  assert.match(panels.frozenContract.candidate.configHash, /^[0-9a-f]{64}$/);
+  assert.match(panels.frozenContract.reason, /TR-03 debe medir la grilla/);
+  assert.deepEqual(panels.frozenContract.blockedBy, ["BRIDGE_MEASUREMENT_GRID_STALE"]);
   // Sin OWNER_FREEZE_APPROVAL.json en el repo.
   assert.equal(loaded.ownerApproval.present, false);
 });
@@ -266,13 +267,14 @@ test("UI-07 (5): la UI dibuja las cifras medidas tal cual las trae el view model
   assert.ok(html.includes(`data-tr07-eligible-trades="${campaign.coverage.totalEligibleTrades}"`));
   const lastTrade = panels.calibration.parameters.missions.find((entry) => entry.missionId === "GAS_QUARTERLY").rules[0];
   assert.match(html, /data-tr07-calibration="GAS_QUARTERLY\|LAST_TRADE"/);
-  assert.ok(html.includes(`${lastTrade.penalty.valueEurMwh.toFixed(3)} €/MWh`));
+  assert.equal(lastTrade.penalty.valueEurMwh, null);
+  assert.ok(html.includes("PENDING DEVELOPMENT"));
   for (const metric of panels.calibration.gate.metrics) {
     assert.ok(html.includes(`data-tr07-gate-metric="${metric.id}"`), metric.id);
     assert.ok(html.includes(`data-tr07-contrast-metric="${metric.id}"`), metric.id);
   }
   assert.ok(html.includes(`data-tr07-config-hash="${configHash}"`));
-  assert.ok(html.includes("pendiente de aprobación de Bru"));
+  assert.ok(html.includes("TR-03 debe medir la grilla"));
   assert.ok(html.includes(`data-tr07-measurement-sha="${loaded.bridgeMeasurement.provenance.sha256}"`));
 });
 

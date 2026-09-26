@@ -3,7 +3,8 @@
 // inventados y sólo prueban la regla.
 
 import { tradeRow, deleteRow as baseDeleteRow } from "../trades-source/fixtures.mjs";
-import { SLOT_LABELS, HALVES } from "../../src/trades-bridge/constants.mjs";
+import { SLOT_LABELS, HALVES, FRESHNESS_LIMIT_CANDIDATES_SECONDS } from "../../src/trades-bridge/constants.mjs";
+import { FRESHNESS_SELECTION_METRIC } from "../../src/trades-engine/freshness-selection.mjs";
 import { slotEpochMs } from "../../src/trades-bridge/time.mjs";
 import { TRADES_ENGINE_MISSIONS } from "../../src/trades-engine/missions.mjs";
 import {
@@ -101,7 +102,7 @@ export function tradesBridgeMeasurement() {
       },
     };
   }
-  return { brokenSpreadPolicy: "INCLUDE", markets };
+  return { brokenSpreadPolicy: "INCLUDE", freshnessLimitsSeconds: FRESHNESS_LIMIT_CANDIDATES_SECONDS, markets };
 }
 
 // Resultado FROZEN REAL del contrato TRADES-v1: pasa por `evaluateTradesFreeze`
@@ -109,7 +110,9 @@ export function tradesBridgeMeasurement() {
 // la forma `{decision, markets}` que el motor no puede consumir (revisión
 // TR05-FREEZE-SHAPE-02).
 export function frozenTradesResult({ measurement = tradesBridgeMeasurement(), ownerApproval = null } = {}) {
-  const candidate = buildTradesFreezeCandidate({ measurement, deleteTmSemantics: "deletion-time" });
+  const developmentSelection = Object.fromEntries(Object.keys(TRADES_ENGINE_MISSIONS).map((missionKey) => [missionKey, { status: "SELECTED", zone: "DEVELOPMENT", metric: FRESHNESS_SELECTION_METRIC, selectedSeconds: 900, scores: [] }]));
+  const generatedFrom = { developmentSelectionSha256: "a".repeat(64) };
+  const candidate = buildTradesFreezeCandidate({ measurement, deleteTmSemantics: "deletion-time", developmentSelection, generatedFrom });
   const approval = ownerApproval ?? {
     approvalRef: "BRU-TRADES-FREEZE-TEST",
     approvedBy: { authority: "Bru", role: "OWNER" },
@@ -118,5 +121,5 @@ export function frozenTradesResult({ measurement = tradesBridgeMeasurement(), ow
     approvedAtUtc: "2026-09-25T00:00:00Z",
     configHash: candidate.configHash,
   };
-  return evaluateTradesFreeze({ measurement, deleteTmSemantics: "deletion-time", ownerApproval: approval });
+  return evaluateTradesFreeze({ measurement, deleteTmSemantics: "deletion-time", developmentSelection, generatedFrom, ownerApproval: approval });
 }

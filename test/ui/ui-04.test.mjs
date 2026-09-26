@@ -76,7 +76,7 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
   // TR-07: el selector de misión muestra una misión a la vez. Para cubrir los dos
   // productos Gas canónicos se renderiza cada misión y se concatenan sus páginas.
   const backtestsVm = buildUiViewModels(canonical.inputs).backtests;
-  const pages = ["GAS_QUARTERLY", "GAS_MONTHLY"].map((missionId) => renderSurfacePage("backtests", backtestsVm, { missionId }));
+  const pages = ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"].map((missionId) => renderSurfacePage("backtests", backtestsVm, { missionId }));
   const html = pages.join("");
   assert.match(html, /data-exploratory="true"/);
   assert.match(html, /EXPLORATORY/);
