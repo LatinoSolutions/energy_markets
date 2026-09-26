@@ -50,15 +50,17 @@ const FORWARD_VWAP_TRADE_PRICES = {
   "2021-06-25": 39.7,
 };
 
-// Filas elegibles GAS_QUARTERLY (G0BQ/202601) de un día: dos trades dentro del
-// slot que forman el VWAP y uno más tardío que es el LAST_TRADE.
+// Filas elegibles GAS_QUARTERLY (G0BQ/202107) de un día: dos trades dentro del
+// slot que forman el VWAP y uno más tardío que es el LAST_TRADE. La entrega
+// `202107` es la legada de la campaña GAS-Q-2021Q3 del manifest P5 (identidad
+// de run, patch 03 §2/§6): la fila pertenece al contrato de la campaña.
 export function forwardTradesForDate({ date }) {
   const vwapPrice = FORWARD_VWAP_TRADE_PRICES[date];
   const lastTradePrice = FORWARD_LAST_TRADE_PRICES[date];
   return [
-    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:35:00.000000Z`, TrdID: `V1-${date}` } }),
-    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:40:00.000000Z`, TrdID: `V2-${date}` } }),
-    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: lastTradePrice, size: "1", overrides: { Tm: `${date}T09:55:00.000000Z`, TrdID: `L-${date}` } }),
+    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:35:00.000000Z`, TrdID: `V1-${date}`, Maturity: "202107" } }),
+    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:40:00.000000Z`, TrdID: `V2-${date}`, Maturity: "202107" } }),
+    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: lastTradePrice, size: "1", overrides: { Tm: `${date}T09:55:00.000000Z`, TrdID: `L-${date}`, Maturity: "202107" } }),
   ];
 }
 
@@ -124,11 +126,16 @@ export function benchmarkDailyClosesFixture({ overridden = {} } = {}) {
 // MISMOS parámetros provisionales del paquete (slippage 0.15, cap 12). El
 // contrato de ejecución Power REAL (IMP-07) es un entregable aparte: esto es una
 // fixture de ingeniería declarada, no un contrato de mercado ni evidencia.
+//
+// Cada misión declara su `maturity` canónica y la entrega legada `YYYYMM` de su
+// contrato; las filas de trades usan esa entrega para que la identidad de run
+// (patch 03 §2/§6) coincida (el fixture anterior mezclaba la entrega 202601 con
+// campañas 2021Q3/2021Q3-inválidas).
 export const FORWARD_MISSION_FIXTURE = Object.freeze({
-  GAS_QUARTERLY: { campaignId: "GAS-Q-2021Q3", product: "Gas", mission: "Quarterly", market: "GAS_THE", targetMw: 12 },
-  GAS_MONTHLY: { campaignId: "GAS-M-2021Q3", product: "Gas", mission: "Monthly", market: "GAS_THE", targetMw: 10 },
-  POWER_QUARTERLY: { campaignId: "POWER-Q-2021Q3", product: "Power", mission: "Quarterly", market: "POWER_DE", targetMw: 10 },
-  POWER_MONTHLY: { campaignId: "POWER-M-2021Q3", product: "Power", mission: "Monthly", market: "POWER_DE", targetMw: 10 },
+  GAS_QUARTERLY: { campaignId: "GAS-Q-2021Q3", product: "Gas", mission: "Quarterly", market: "GAS_THE", maturity: "2021Q3", legacyMaturity: "202107", targetMw: 12 },
+  GAS_MONTHLY: { campaignId: "GAS-M-2021-07", product: "Gas", mission: "Monthly", market: "GAS_THE", maturity: "2021-07", legacyMaturity: "202107", targetMw: 10 },
+  POWER_QUARTERLY: { campaignId: "POW-Q-2021Q3", product: "Power", mission: "Quarterly", market: "POWER_DE", maturity: "2021Q3", legacyMaturity: "202107", targetMw: 10 },
+  POWER_MONTHLY: { campaignId: "POW-M-2021-07", product: "Power", mission: "Monthly", market: "POWER_DE", maturity: "2021-07", legacyMaturity: "202107", targetMw: 10 },
 });
 
 const MISSION_TRADE_AT = Object.freeze({
@@ -139,18 +146,20 @@ const MISSION_TRADE_AT = Object.freeze({
 });
 
 // Filas del lago por misión: misma forma que `forwardTradesForDate` pero con el
-// ShortCode/maturity de la misión (el módulo no filtra por contrato; las filas
-// llegan ya acotadas a la misión).
+// ShortCode/maturity de la misión. La entrega sale del contrato de la campaña
+// del fixture (`legacyMaturity`), no de un valor suelto, para que la identidad
+// de run coincida (patch 03 §2/§6).
 export function forwardTradesForMission({ missionKey, dates = ["2021-06-22"] }) {
   const tradeAt = MISSION_TRADE_AT[missionKey];
   if (!tradeAt) throw new Error(`misión sin fixture de trades: ${missionKey}`);
+  const maturity = FORWARD_MISSION_FIXTURE[missionKey].legacyMaturity;
   return dates.flatMap((date) => {
     const vwapPrice = FORWARD_VWAP_TRADE_PRICES[date];
     const lastTradePrice = FORWARD_LAST_TRADE_PRICES[date];
     return [
-      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:35:00.000000Z`, TrdID: `V1-${missionKey}-${date}` } }),
-      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:40:00.000000Z`, TrdID: `V2-${missionKey}-${date}` } }),
-      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: lastTradePrice, size: "1", overrides: { Tm: `${date}T09:55:00.000000Z`, TrdID: `L-${missionKey}-${date}` } }),
+      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:35:00.000000Z`, TrdID: `V1-${missionKey}-${date}`, Maturity: maturity } }),
+      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:40:00.000000Z`, TrdID: `V2-${missionKey}-${date}`, Maturity: maturity } }),
+      tradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: lastTradePrice, size: "1", overrides: { Tm: `${date}T09:55:00.000000Z`, TrdID: `L-${missionKey}-${date}`, Maturity: maturity } }),
     ];
   });
 }
@@ -182,7 +191,7 @@ export function frozenShadowFixtureForMission(missionKey) {
   const spec = FORWARD_MISSION_FIXTURE[missionKey];
   if (!spec) throw new Error(`misión sin fixture de manifest: ${missionKey}`);
   const { frozen } = frozenShadowFixture();
-  const campaign = { campaignId: spec.campaignId, product: spec.product, mission: spec.mission };
+  const campaign = { campaignId: spec.campaignId, product: spec.product, mission: spec.mission, maturity: spec.maturity };
   const executionContract = syntheticExecutionContractFor({ product: spec.product, mission: spec.mission, missionKey });
   const patch = (bundle) => rehashedBundle({
     ...bundle,

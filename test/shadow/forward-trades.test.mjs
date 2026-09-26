@@ -20,6 +20,7 @@ import {
   FORWARD_TRADES_OBSERVATION_SOURCES,
 } from "../../src/shadow/index.mjs";
 import { executionParameterOf } from "../../src/execution-contract/execution-contract.mjs";
+import { ZONES } from "../../src/oos-reservation/trades-zones.mjs";
 import {
   frozenShadowFixture,
   sightableObservationsFor,
@@ -44,7 +45,7 @@ function openForward({ frozen, seedPastPrices = forwardSeedPastPrices() } = {}) 
     frozen, startedAtUtc: SESSION_START, prospectivePermissions: PERMISSIONS, synthetic: true,
   }).session;
   const progress = openShadowProgress({ session, frozen }).progress;
-  const state = openForwardTradesState({ frozen, seedPastPrices }).state;
+  const state = openForwardTradesState({ session, frozen, seedPastPrices }).state;
   return { session, progress, state };
 }
 
@@ -296,13 +297,14 @@ test("fail-closed: un estado de forward incompleto no produce registro", () => {
 // --- TR-08: correcciones de la revisión (TR08-*) -----------------------------
 
 // Estado propio del forward con una obligación pendiente declarada: cada fuente
-// arranca con la misma remaining y la historia sembrada.
-function forwardStateWithRemaining({ remainingVolume, seedPastPrices = forwardSeedPastPrices() }) {
+// arranca con la misma remaining y la historia sembrada. Va atado a la sesión y
+// a la cronología (patch 03 §2; §15.3).
+function forwardStateWithRemaining({ session, cursor = 0, remainingVolume, seedPastPrices = forwardSeedPastPrices() }) {
   const sources = {};
   for (const source of FORWARD_TRADES_OBSERVATION_SOURCES) {
     sources[source] = { executedVolume: 0, remainingVolume, pastPrices: [...seedPastPrices[source]] };
   }
-  return { sources };
+  return { sessionId: session.sessionId, sessionContentHash: session.contentHash, cursor, sources };
 }
 
 // TR08-DAILY-CAP-01: con 60 MW pendientes y 2 días por delante, L_t = 48 supera
@@ -315,7 +317,7 @@ test("TR08-DAILY-CAP-01: el forward respeta el cap duro de 12 MW/día", () => {
   const result = registerForwardTradesHypotheses({
     session, frozen,
     progress: { ...progress, cursor: 2 },
-    forwardState: forwardStateWithRemaining({ remainingVolume: 60 }),
+    forwardState: forwardStateWithRemaining({ session, cursor: 2, remainingVolume: 60 }),
     missionKey: MISSION_KEY,
     tradesRows: forwardTradesFixture(),
     frozenTradesContract: frozenTradesContractFixture(),
@@ -453,4 +455,95 @@ test("TR08-FOUR-MISSIONS-06: el forward registra las 4 misiones con su identidad
     assert.equal(result.registration.sources.LAST_TRADE.status, "DECISION_REGISTERED", missionKey);
     assert.equal(result.registration.sources.SLOT_VWAP.status, "DECISION_REGISTERED", missionKey);
   }
+});
+
+// TR08-ROWS-CONTRACT-07: las filas del forward se validan contra la misión y el
+// contrato de la campaña congelada (patch 03 §2/§6; el motor TR-05 acota con
+// `contractRowsForCampaign`). Una fila de otro mercado no se registra como
+// hipótesis de esta misión.
+test("TR08-ROWS-CONTRACT-07: filas de otra misión se rechazan (identidad de run)", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesForMission({ missionKey: "POWER_MONTHLY" }),
+    frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "TRADES_ROWS_MISSION_MISMATCH");
+});
+
+test("TR08-ROWS-CONTRACT-07: una fila de la misión pero de otra entrega se rechaza", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const wrongDelivery = forwardTradesFixture().map((row) => ({ ...row, Maturity: "202601" }));
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: wrongDelivery,
+    frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "TRADES_ROWS_CONTRACT_MISMATCH");
+});
+
+// TR08-STATE-BINDING-08: el estado del forward va atado a la sesión y a la
+// cronología (§15.3). Repetir un día con el estado ya avanzado no puede duplicar
+// el precio en el historial de DIP10 ni las compras.
+test("TR08-STATE-BINDING-08: el mismo día dos veces (estado ya avanzado) falla por cronología", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const sightable = sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc });
+  const first = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightable, slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(first.ok, true, first.code);
+  assert.equal(first.nextForwardState.cursor, 1);
+
+  const repeated = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: first.nextForwardState, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightable, slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(repeated.ok, false);
+  assert.equal(repeated.code, "FORWARD_STATE_OUT_OF_SEQUENCE");
+});
+
+test("TR08-STATE-BINDING-08: un estado de otra sesión se rechaza", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress,
+    forwardState: { ...state, sessionContentHash: "otro-sello" },
+    missionKey: MISSION_KEY, tradesRows: forwardTradesFixture(),
+    frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "FORWARD_STATE_SESSION_MISMATCH");
+});
+
+// TR08-RUN-IDENTITY-ZONE-09: patch 03 §2, la identidad de cada run lleva zone.
+test("TR08-RUN-IDENTITY-ZONE-09: el registro declara la zona FORWARD", () => {
+  const { frozen } = frozenShadowFixture();
+  const { session, progress, state } = openForward({ frozen });
+  const opportunity = frozen.frozenBundles.a1.decisionCalendar.opportunities[0];
+  const result = registerForwardTradesHypotheses({
+    session, frozen, progress, forwardState: state, missionKey: MISSION_KEY,
+    tradesRows: forwardTradesFixture(), frozenTradesContract: frozenTradesContractFixture(),
+    sightablePriceObservations: sightableObservationsFor({ frozen, upToUtc: opportunity.decisionTimeUtc }),
+    slotLabel: FORWARD_SLOT_LABEL,
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.registration.zone, ZONES.FORWARD);
 });
