@@ -110,6 +110,17 @@ def classify_archive_member(name, wanted_cmdty, wanted_area):
     return {**base, "kind": "other_table"}
 
 
+# Campos de la referencia que leen sus consumidores: contract-windows.mjs
+# (contractKey, StartDate, EndDate, ExpiryDate, instrumentIdentity) y
+# patch0-density.mjs (Cmdty, Area, ShortCode, Maturity). Todos reducen por
+# contrato, así que una fila repetida con estos mismos valores no cambia nada.
+REFERENCE_FIELDS = ("Cmdty", "Area", "ShortCode", "Maturity", "InstrumentISIN", "StartDate", "EndDate", "ExpiryDate")
+
+
+def reference_projection(row):
+    return {field: row.get(field) for field in REFERENCE_FIELDS if row.get(field) not in (None, "")}
+
+
 def emit_row(row, source, out, reference=False):
     payload = {key: value for key, value in row.items()}
     payload["_source"] = source
@@ -220,6 +231,8 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
         reference_out.write("\n")
 
     table_inventory = {}
+    reference_seen = set()
+    reference_emitted = 0
     rows_emitted = 0
     members_seen = 0
     skipped_other_area = 0
@@ -264,7 +277,15 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             bump(table, member_count=1, row_count=len(reference_rows))
             if reference_out is not None:
                 for row in reference_rows:
-                    emit_row(row, REFERENCE_TABLE, reference_out, reference=True)
+                    projected = reference_projection(row)
+                    has_identity = projected.get("InstrumentISIN") or projected.get("ShortCode") or projected.get("Maturity")
+                    if has_identity:
+                        key = tuple(projected.get(field) for field in REFERENCE_FIELDS)
+                        if key in reference_seen:
+                            continue
+                        reference_seen.add(key)
+                    emit_row(projected, REFERENCE_TABLE, reference_out, reference=True)
+                    reference_emitted += 1
         else:  # other_table con area pedida: se inventaria por miembro, sin leer sus filas
             bump(table, member_count=1)
         if max_members is not None and members_seen >= max_members:
@@ -288,6 +309,7 @@ def extract_archive(archive_path, wanted_cmdty, wanted_area, out, expected_sha25
             "dateMax": date_max,
             "skippedOtherArea": skipped_other_area,
             "membersSeen": members_seen,
+            "referenceRowsEmittedDistinct": reference_emitted,
         },
     }, separators=(",", ":"), ensure_ascii=False))
     out.write("\n")

@@ -62,13 +62,29 @@ export function aggregateNdjson(text, { brokenSpreadPolicy = DEFAULT_BROKEN_SPRE
   return measurement;
 }
 
-function readReferenceRows(path) {
+const REFERENCE_FIELDS = Object.freeze(["Cmdty", "Area", "ShortCode", "Maturity", "InstrumentISIN", "StartDate", "EndDate", "ExpiryDate"]);
+
+// Streaming y sin filas repetidas: todos los consumidores (contract-windows.mjs,
+// patch0-density.mjs) reducen por contrato con estos campos, así que el resultado
+// es el mismo que con todas las filas. Una fila sin identidad se conserva tal cual.
+export async function readReferenceRows(path) {
   const rows = [];
-  for (const line of readFileSync(path, "utf8").split("\n")) {
+  const seen = new Set();
+  const lines = readline.createInterface({ input: createReadStream(path), crlfDelay: Infinity });
+  for await (const line of lines) {
     if (line.trim() === "") continue;
     const parsed = JSON.parse(line);
     if (parsed._meta) continue;
-    rows.push(parsed);
+    const projected = {};
+    for (const field of REFERENCE_FIELDS) {
+      if (parsed[field] !== undefined && parsed[field] !== null && parsed[field] !== "") projected[field] = parsed[field];
+    }
+    if (projected.InstrumentISIN || projected.ShortCode || projected.Maturity) {
+      const key = JSON.stringify(REFERENCE_FIELDS.map((field) => projected[field] ?? null));
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    rows.push(projected);
   }
   return rows;
 }
@@ -176,7 +192,7 @@ async function main() {
   const start = argument("--start");
   const end = argument("--end");
   const referencePath = argument("--reference");
-  const referenceRows = referencePath ? readReferenceRows(referencePath) : null;
+  const referenceRows = referencePath ? await readReferenceRows(referencePath) : null;
 
   if (process.argv.includes("--check")) {
     const measurement = aggregateNdjson(readFileSync(inputPath, "utf8"));

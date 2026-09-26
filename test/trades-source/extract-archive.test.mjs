@@ -71,10 +71,10 @@ trade_rows = [
     {"Cmdty": "NATGAS", "Area": "THE", "ShortCode": "G0BM", "InstrumentISIN": "ISIN-1",
      "Maturity": "202512", "TrdDate": "2025-11-24", "Tm": "2025-11-24T10:00:00Z", "Px": "33.1"},
 ]
-reference_rows = [
-    {"Cmdty": "NATGAS", "Area": "THE", "ShortCode": "G0BM", "InstrumentISIN": "ISIN-1",
-     "Maturity": "202512", "StartDate": "2025-11-01", "EndDate": "2025-11-21", "ExpiryDate": "2025-11-25"},
-]
+reference_row = {"Cmdty": "NATGAS", "Area": "THE", "ShortCode": "G0BM", "InstrumentISIN": "ISIN-1",
+     "Maturity": "202512", "StartDate": "2025-11-01", "EndDate": "2025-11-21", "ExpiryDate": "2025-11-25"}
+# La misma foto dos veces (la tabla trae una por dia): se emite una sola vez.
+reference_rows = [reference_row, dict(reference_row)]
 members = {
     "data/lake/v1/table=eex_derivative_trade/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet": parquet_bytes(trade_rows),
     "data/lake/v1/table=eex_derivative_reference/cmdty=NATGAS/area=THE/trd_date=2025-11-20/pull_id=abc/part.parquet": parquet_bytes(reference_rows),
@@ -158,7 +158,8 @@ test("el inventario del archivo declara dateMin/dateMax y separa la tabla de ref
     assert.equal(meta.dateMin, "2025-11-20");
     assert.equal(meta.dateMax, "2025-11-24");
     assert.equal(meta.tableInventory.eex_derivative_trade.rows, 2);
-    assert.equal(meta.tableInventory.eex_derivative_reference.rows, 1);
+    assert.equal(meta.tableInventory.eex_derivative_reference.rows, 2);
+    assert.equal(meta.referenceRowsEmittedDistinct, 1);
     // Top of book: contado por miembro, sin leer sus filas; null = no medido, nunca 0.
     assert.deepEqual(meta.tableInventory.eex_derivative_top_of_book, { members: 1, rows: null });
     const tradeLines = lines.filter((line) => !line._meta);
