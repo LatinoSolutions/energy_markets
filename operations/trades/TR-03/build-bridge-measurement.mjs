@@ -31,7 +31,7 @@
 // artefacto commiteado.
 
 import { createHash } from "node:crypto";
-import { createReadStream, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, createReadStream, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -81,7 +81,22 @@ export const MODULES = [
 ];
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const hashFile = (path) => sha256(readFileSync(path));
+// sha256 de un archivo leído por bloques: los NDJSON de trades de power pesan
+// 14.023.282.996 bytes y readFileSync no lee archivos de más de 2 GiB (DATA-01,
+// 2026-09-26). Mismo resultado que sha256(readFileSync(path)).
+function hashFileStreamed(file) {
+  const hash = createHash("sha256");
+  const buffer = Buffer.alloc(16 * 1024 * 1024);
+  const fd = openSync(file, "r");
+  try {
+    let bytesRead;
+    while ((bytesRead = readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, bytesRead));
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest("hex");
+}
+const hashFile = (path) => hashFileStreamed(path);
 
 // El manifest vive junto al artefacto con la convención del repo
 // (`<nombre>.MANIFEST.json`, sin duplicar el `.json` del artefacto). Es el path

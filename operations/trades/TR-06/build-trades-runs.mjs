@@ -35,7 +35,7 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { createReadStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, createReadStream, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -80,7 +80,22 @@ export const MARKET_RUNS = Object.freeze([
 ]);
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const hashFile = (file) => sha256(readFileSync(file));
+// sha256 de un archivo leído por bloques: los NDJSON de trades de power pesan
+// 14.023.282.996 bytes y readFileSync no lee archivos de más de 2 GiB (DATA-01,
+// 2026-09-26). Mismo resultado que sha256(readFileSync(path)).
+function hashFileStreamed(file) {
+  const hash = createHash("sha256");
+  const buffer = Buffer.alloc(16 * 1024 * 1024);
+  const fd = openSync(file, "r");
+  try {
+    let bytesRead;
+    while ((bytesRead = readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, bytesRead));
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest("hex");
+}
+const hashFile = (file) => hashFileStreamed(file);
 
 function argument(flag, args = process.argv) {
   const index = args.indexOf(flag);
