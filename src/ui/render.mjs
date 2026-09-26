@@ -1073,11 +1073,8 @@ function exploratoryReceipts(provenance) {
 // respalda el release que produjo ese producto (byProduct, BT-06); con gas v2 + Power
 // v3 cargados, una campaign gas no lista los artifacts de Power ni al revés.
 function campaignReceipts(campaign, provenance) {
-  if (provenance?.byProduct === undefined) {
-    return exploratoryReceipts(provenance);
-  }
-  const productRelease = provenance.byProduct[campaign.product];
-  if (productRelease === undefined) {
+  const productRelease = provenance?.byProduct?.[campaign.product];
+  if (!productRelease || !["resultsSha256", "resultsPath", "slotsSha256", "manifestPath"].every((key) => typeof productRelease[key] === "string" && productRelease[key].length > 0)) {
     return [];
   }
   return exploratoryReceipts({ releases: [productRelease] });
@@ -1200,7 +1197,9 @@ function campaignDetailHtml(campaign, pages, isDefault) {
   // Receipts bind runs; a campaign without runs has nothing they could back (review UI05-RCP-01, same rule as Research NO RECEIPTS).
   const ledger = campaign.runs.length === 0
     ? '<span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this campaign</span>'
-    : receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
+    : receipts.length === 0
+      ? '<span class="withheld">NO RECEIPTS</span> <span class="small muted">product release provenance unavailable</span>'
+      : receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="cmp-${esc(campaign.id)}" data-campaign="${esc(campaign.id)}">
     <div class="row" style="align-items:flex-end">
       <div class="grow">

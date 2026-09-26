@@ -138,6 +138,21 @@ test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barr
   }
 });
 
+test("FIX-04: sin provenance del release del producto una campaña no atribuye receipts ajenos", () => {
+  const campaign = results.campaigns.find((entry) => entry.product === "G0BQ" && entry.runs.length > 0);
+  assert.ok(campaign);
+  const exploratory = structuredClone(vms.campaigns.exploratory);
+  delete exploratory.provenance.byProduct;
+  const html = renderSurfacePage("campaigns", { ...vms.campaigns, exploratory });
+  const section = html.split(`id="cmp-${campaign.id}"`)[1].split("</section>")[0];
+  const ledger = section.slice(section.indexOf('<h2 class="sec">Receipts</h2>'));
+  assert.match(ledger, /NO RECEIPTS<\/span> <span class="small muted">product release provenance unavailable/);
+  assert.equal(count(ledger, /<div class="receipt">/g), 0);
+  for (const release of canonical.inputs.exploratoryBacktest.provenance.releases) {
+    assert.equal(ledger.includes(release.manifestPath), false);
+  }
+});
+
 test("FIX-04: campañas y Replay Power muestran identidad de Power DE del artifact", () => {
   const campaignsHtml = renderSurfacePage("campaigns", vms.campaigns);
   const replayHtml = renderSurfacePage("replay", vms.replay);
