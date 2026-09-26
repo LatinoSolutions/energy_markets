@@ -23,6 +23,7 @@ export const FAILURE_WORDS = Object.freeze({
   RUN_RESULTS_MISSING: "the run produced no results",
   RUN_RESULTS_UNREADABLE: "the run results could not be read",
   RUN_RESULTS_HASH_MISMATCH: "the run results do not match their manifest",
+  RUN_OUTPUT_NOT_PRESERVED: "the run results could not be saved",
   JOB_ALREADY_RUNNING: "a backtest is already running",
   INVALID_REQUESTER: "the request did not say who launched it",
   CODE_NOT_COMMITTED: "the code has uncommitted changes",

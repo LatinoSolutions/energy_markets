@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -892,9 +892,8 @@ test("BT-05 identidad: alterar un módulo transitivo de src/ tras el preflight n
   const results = JSON.parse(readFileSync(path.join(repo.root, receipt.result.results.path)));
   assert.equal(results.fixture.helper, COMMITTED_HELPER_LABEL);
   assert.equal(receipt.result.reproducesCommittedResults, true);
-  const workspace = path.join(runner.runsRoot, receipt.runId, "attempt-1", "workspace");
-  assert.equal(lstatSync(path.join(workspace, "src")).isSymbolicLink(), false);
-  assert.equal(readFileSync(path.join(workspace, FIXTURE_HELPER_PATH), "utf8"), fixtureHelperSource(COMMITTED_HELPER_LABEL));
+  // el workspace es temporal (OPS-01): el código del commit se prueba por el resultado y el sello
+  assert.equal(receipt.workspace.removed, true);
   assert.equal(receipt.code.source, "git archive del commit");
   assert.match(receipt.code.staged.sha256, /^[0-9a-f]{64}$/);
 });

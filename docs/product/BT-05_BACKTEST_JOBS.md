@@ -67,13 +67,23 @@ se interrumpió, se reintenta como `attempt-<n+1>` del mismo run.
   sola línea. De ahí sale la vigencia: `CURRENT`, `SUPERSEDED` (+ `supersededBy`) o `NONE`.
   Si el registro está corrupto, no arranca ningún run (`REGISTRY_CORRUPT`).
 - `<runId>/attempt-<n>/RUN_RECEIPT.json` — receipt del intento (no se reescribe al superarse).
-- `<runId>/attempt-<n>/workspace/…` — resultado y MANIFEST del run (artefactos pesados).
+- `<runId>/attempt-<n>/output/…` — resultado y MANIFEST que escribió el generador, con las
+  mismas rutas relativas; el receipt los ata por sha256.
 - `<runId>/attempt-<n>/job.log` — salida del generador.
+
+**Sin duplicados (OPS-01, Bru 2026-09-26):** el run corre en `attempt-<n>/workspace/`
+(código extraído del commit + datos copiados y verificados por hash), pero ese workspace es
+temporal: se borra al cerrar el intento, con éxito o con fallo, después de copiar resultado y
+MANIFEST a `output/`. El receipt lo declara (`workspace.retention: TEMPORARY`,
+`workspace.removed`). Si el servicio muere a mitad, el siguiente arranque cierra el intento
+como `INTERRUPTED` y borra su workspace. Reproducir un run = mismo commit + mismos datos (por
+hash) + mismos parámetros de la identidad: da el mismo `run_id` y el mismo resultado.
+Los runs anteriores a OPS-01 no declaran workspace temporal y el código no los toca.
 
 Solo hay un resultado vigente. Pedir otra vez un run ya superado devuelve su resultado sin
 recalcular y no cambia cuál es el vigente.
 
-**Retención:** el código no borra nada. Los artefactos pesados de un run superado solo se
+**Retención:** fuera del workspace temporal, el código no borra nada. Los artefactos de un run superado solo se
 borran después de enumerarlos a Bru y recibir su GO, dejando un ledger de limpieza. Ese
 procedimiento todavía no está implementado.
 

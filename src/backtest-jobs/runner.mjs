@@ -18,6 +18,10 @@
 //     manifest de cada run; un solo resultado vigente; nada se borra sin GO de Bru.
 //   - La escritura originada en la UI es un comando autorizado que produce su
 //     receipt (SPEC v1.1.1 §26.5).
+//   - Sin duplicados por run (OPS-01, PLAN_STATUS, Bru 2026-09-26): el workspace es
+//     temporal y se borra al cerrar el intento; del run quedan receipt, registro,
+//     log y el resultado con su MANIFEST en output/. Reproducir = mismo commit +
+//     datos por hash + parámetros de la identidad.
 
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -36,6 +40,10 @@ export const RECEIPT_KIND = "BT-05_BACKTEST_RUN_RECEIPT";
 export const RECEIPT_FILE = "RUN_RECEIPT.json";
 export const REGISTRY_FILE = "REGISTRY.jsonl";
 export const DEFAULT_RUNS_DIR = "operations/backtest-runs";
+export const WORKSPACE_DIR = "workspace";
+// Lo único que se conserva de lo que escribe el generador (OPS-01).
+export const OUTPUT_DIR = "output";
+export const WORKSPACE_RETENTION = "TEMPORARY";
 
 // El job corre la release vigente, la misma que muestra la UI
 // (src/ui/canonical-inputs.mjs:47-48; operations/audit/BT-04/HANDOFF-BT-04.md:28
@@ -356,6 +364,31 @@ function stageWorkspace(repoRoot, workspace, commit, files) {
   return stagedCodeSeal(workspace);
 }
 
+// OPS-01: sólo sale del workspace lo que el receipt ata por hash; la copia se
+// vuelve a hashear antes de borrar el original.
+function preserveOutput(workspace, outputDir, relativePath, sha256) {
+  const inWorkspace = path.relative(workspace, path.resolve(workspace, relativePath));
+  const escapes = inWorkspace === "" || inWorkspace === ".." || inWorkspace.startsWith(`..${path.sep}`) || path.isAbsolute(inWorkspace);
+  if (escapes) throw new Error(`ruta fuera del workspace: ${relativePath}`);
+  const source = path.join(workspace, inWorkspace);
+  const target = path.join(outputDir, inWorkspace);
+  mkdirSync(path.dirname(target), { recursive: true });
+  copyFileSync(source, target);
+  if (sha256Of(readFileSync(target)) !== sha256) throw new Error(`copia distinta al original: ${relativePath}`);
+  return target;
+}
+
+// Borra el workspace temporal y devuelve lo que se asienta en el receipt. Un fallo
+// no cambia el estado del run (el resultado ya está en output/), pero queda visible.
+function discardWorkspace(workspace) {
+  try {
+    rmSync(workspace, { recursive: true, force: true });
+    return { removed: true };
+  } catch (error) {
+    return { removed: false, error: String(error?.message ?? error) };
+  }
+}
+
 function relative(repoRoot, absolute) {
   return path.relative(repoRoot, absolute).split(path.sep).join("/");
 }
@@ -547,11 +580,17 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
         if (runId === ownRunId && attempt === ownAttempt) continue;
         const receipt = readAttemptReceipt(runId, attempt);
         if (receipt?.status !== JOB_STATUS.RUNNING) continue;
+        // Sólo se borra el workspace que el receipt declara temporal (OPS-01); los
+        // runs anteriores a OPS-01 no lo declaran y no se tocan sin GO de Bru.
+        const workspace = receipt.workspace?.retention === WORKSPACE_RETENTION
+          ? { ...receipt.workspace, ...discardWorkspace(path.join(attemptDir(runId, attempt), WORKSPACE_DIR)) }
+          : receipt.workspace;
         const closed = {
           ...receipt,
           status: JOB_STATUS.INTERRUPTED,
           finishedAt: now().toISOString(),
           failure: { code: "INTERRUPTED", message: "el proceso que corría el job ya no existe; el run no se completó" },
+          ...(workspace === undefined ? {} : { workspace }),
         };
         writeJsonAtomic(receiptFile(runId, attempt), closed);
         appendRegistry({ event: REGISTRY_EVENT.RUN_CLOSED, runId, attempt, manifest: runManifest(closed) });
@@ -599,7 +638,8 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
   // el servicio): lo devuelve en `settlement`. Un SUCCEEDED sin promoción asentada
   // no se reutiliza en start(), así que el fallo queda fail-closed.
   function finish(receipt, patch) {
-    const closed = { ...receipt, ...patch, finishedAt: now().toISOString() };
+    const workspace = { ...receipt.workspace, ...discardWorkspace(path.join(attemptDir(receipt.runId, receipt.attempt), WORKSPACE_DIR)) };
+    const closed = { ...receipt, ...patch, workspace, finishedAt: now().toISOString() };
     try {
       writeJsonAtomic(receiptFile(receipt.runId, receipt.attempt), closed);
       appendRegistry({ event: REGISTRY_EVENT.RUN_CLOSED, runId: closed.runId, attempt: closed.attempt, manifest: runManifest(closed) });
@@ -618,7 +658,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     return closed;
   }
 
-  function collectResult(workspace, verified, seal) {
+  function collectResult(workspace, outputDir, verified, seal) {
     let sealAfter;
     try {
       sealAfter = stagedCodeSeal(workspace);
@@ -673,11 +713,20 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
     if (dataDrift.length > 0) {
       return { error: { code: "INPUT_CHANGED_DURING_RUN", message: `datos distintos a los verificados: ${dataDrift.join(", ")}` } };
     }
+    const producedManifestSha256 = sha256Of(producedManifestBytes);
+    let preservedResults;
+    let preservedManifest;
+    try {
+      preservedResults = preserveOutput(workspace, outputDir, producedManifest.results.path, resultsSha256);
+      preservedManifest = preserveOutput(workspace, outputDir, EXPLORATORY_MANIFEST_PATH, producedManifestSha256);
+    } catch (error) {
+      return { error: { code: "RUN_OUTPUT_NOT_PRESERVED", message: String(error?.message ?? error) } };
+    }
     return {
       result: {
         status: resultsStatus,
-        results: { path: relative(repoRoot, resultsPath), sha256: resultsSha256 },
-        manifest: { path: relative(repoRoot, producedManifestPath), sha256: sha256Of(producedManifestBytes) },
+        results: { path: relative(repoRoot, preservedResults), sha256: resultsSha256 },
+        manifest: { path: relative(repoRoot, preservedManifest), sha256: producedManifestSha256 },
         committedResults: verified.committedResults,
         reproducesCommittedResults: verified.committedResults.sha256 === resultsSha256,
       },
@@ -751,10 +800,10 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
 
     const startedAt = now();
     const runDir = attemptDir(runId, attempt);
-    const workspace = path.join(runDir, "workspace");
+    const workspace = path.join(runDir, WORKSPACE_DIR);
     let receipt = {
       receiptKind: RECEIPT_KIND,
-      schemaVersion: "3",
+      schemaVersion: "4", // 4: workspace temporal + output/ (OPS-01)
       runId,
       attempt,
       jobKind: JOB_KIND,
@@ -767,6 +816,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
       code: { gitHead: code.commit, entry: EXPLORATORY_ENTRY },
       inputs: { release: verified.release, manifest: verified.manifest, files: verified.files },
       authority: "BT-05 owner request 25-sep-2026; comando autorizado con receipt (SPEC v1.1.1 §26.5). Resultado EXPLORATORY, no canónico.",
+      workspace: { path: relative(repoRoot, workspace), retention: WORKSPACE_RETENTION, removed: false },
     };
     try {
       mkdirSync(runDir, { recursive: true });
@@ -848,7 +898,7 @@ export function createBacktestJobRunner({ repoRoot, runsDir = null, timeoutMs = 
           resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "RUN_FAILED", message: `el generador terminó con code=${exitCode} signal=${signal}; ver job.log` } }));
           return;
         }
-        const collected = collectResult(workspace, verified, receipt.code.staged);
+        const collected = collectResult(workspace, path.join(runDir, OUTPUT_DIR), verified, receipt.code.staged);
         if (collected.error) {
           resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: collected.error }));
           return;
