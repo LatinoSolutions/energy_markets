@@ -1,0 +1,24 @@
+[Unit]
+# DATA-01 (PLAN_STATUS, owner decision 2026-09-26): cola automática de jobs de
+# data. La arranca el path unit al ver la línea terminal del log de descarga (o
+# el timer opcional como red de seguridad). No la lanza un humano.
+Description=DATA-01 cola automática de jobs de data (Energy Markets)
+After=network-online.target
+
+[Service]
+Type=oneshot
+# El repo canónico en brunode (AGENTS.md: "Run on brunode in
+# /srv/hot-data/energy-markets/app").
+WorkingDirectory=/srv/hot-data/energy-markets/app
+Environment=DATA_REPO_ROOT=/srv/hot-data/energy-markets/app
+# Credenciales de Telegram y overrides opcionales fuera del repo (no se versionan).
+EnvironmentFile=-%h/.config/energy-markets/data-queue.env
+ExecStart=/usr/bin/node operations/data-jobs/run-data-queue.mjs
+# Techo del servicio completo. Cada job declara además su propio MemoryMax y, en
+# producción, corre en su scope de systemd (src/data-jobs/runner.mjs).
+MemoryMax=24G
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target

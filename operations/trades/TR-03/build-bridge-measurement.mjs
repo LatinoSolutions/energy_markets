@@ -83,6 +83,15 @@ export const MODULES = [
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const hashFile = (path) => sha256(readFileSync(path));
 
+// El manifest vive junto al artefacto con la convención del repo
+// (`<nombre>.MANIFEST.json`, sin duplicar el `.json` del artefacto). Es el path
+// que ya declaran el status de TR-03 (build-bridge-status.mjs) y la UI
+// (src/ui/trades-panels.mjs:96): antes el productor escribía
+// `bridge-measurement.json.MANIFEST.json` y la medición nunca se ataba en la UI.
+export function bridgeMeasurementManifestPath(outPath) {
+  return `${outPath.replace(/\.json$/, "")}.MANIFEST.json`;
+}
+
 function argument(name, fallback = null) {
   const index = process.argv.indexOf(name);
   return index === -1 ? fallback : process.argv[index + 1];
@@ -228,7 +237,7 @@ async function main() {
       spec: { path: SPEC_PATH, sha256: hashFile(SPEC_PATH) },
     },
   };
-  writeFileSync(`${outPath}.MANIFEST.json`, `${JSON.stringify(manifest, null, 2)}\n`);
+  writeFileSync(bridgeMeasurementManifestPath(outPath), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`TR-03 bridge measurement: campaigns=${campaigns.length} rowsInScope=${rowsInScope}`);
 }
 
