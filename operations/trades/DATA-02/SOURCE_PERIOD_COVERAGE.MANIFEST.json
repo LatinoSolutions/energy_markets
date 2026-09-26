@@ -1,0 +1,49 @@
+{
+ "artifactKind": "DATA-02_SOURCE_PERIOD_COVERAGE_MANIFEST",
+ "schemaVersion": "1.0",
+ "artifact": {
+  "path": "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
+  "sha256": "80bce6bd76b8d9f38107e691f4fa5214863103b1be66a2bebebb40acdc47bb87"
+ },
+ "inputs": {
+  "sourcePartitions": {
+   "path": "operations/trades/DATA-02/source-partitions.json",
+   "sha256": "e1bc4e951d66404fd3a51ee000f5b39db467c616cbe9d0098b2e133540a3252f"
+  },
+  "zonePlan": {
+   "path": "operations/trades/TR-02/trades-zone-plan.json",
+   "sha256": "ecb313d682cb7641a78ce8bd88564f9fe558e2a1f5c12557fc16639c6a53bf20"
+  },
+  "gasExchangeCalendar": {
+   "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
+   "sha256": "148bf6996fb7ca7a7ecadce4f7343536c0d566720ec0bbfc1085986ed0f07ca5"
+  },
+  "powerExchangeCalendar": {
+   "path": "operations/trades/TR-01/power-de-exchange-calendar.json",
+   "sha256": "3a5ec37db9c0640e422df817fdc512e48fbf57905a603f7741af5c74a87007c7"
+  },
+  "tr01Decision": {
+   "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
+   "sha256": "45e0c6902e294b9bdc7468672e76805d567ef53539209c7fd58425a43853e4ac"
+  },
+  "archiveMeasurementGas": {
+   "path": "operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json",
+   "sha256": "c7beb7f3f628a1a45a43877a543687c358197994df67adb0b1d65e34fcbfae09"
+  },
+  "archiveMeasurementPower": {
+   "path": "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json",
+   "sha256": "ba524c950921cde25515d7ecdd32b83e0e3295c4a8fbf0519b6db2a3722a0dd2"
+  }
+ },
+ "producer": [
+  {
+   "path": "operations/trades/DATA-02/build-source-period-coverage.mjs",
+   "sha256": "20d806c2ef3a337ac2870a13f16ff6805838f0d6f6dccdf249e9e88433d61381"
+  },
+  {
+   "path": "src/trades-source/period-coverage.mjs",
+   "sha256": "922e5b4bf3765fbf129e9cfece7babcfd18cc75aff8957f3536e7d16a80e07f1"
+  }
+ ],
+ "ownerDecision": "PENDING_OWNER_DECISION"
+}
