@@ -340,10 +340,24 @@ def iter_archive_tob_members(archive_path, market, start, end):
                     continue
                 if end is not None and day > end:
                     continue
-                yield day, tar.extractfile(member).read()
+                yield day, tar.extractfile(member)
     finally:
         zstd.stdout.close()
         zstd.wait()
+
+
+ARCHIVE_BATCH_ROWS = 200_000
+
+
+def product_mask(batch, products):
+    """Filas Simple Instrument de los productos pedidos (4 primeros caracteres del ShortCode)."""
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    simple = pc.equal(batch.column("InstrumentType"), "Simple Instrument")
+    prefix = pc.utf8_slice_codeunits(pc.cast(batch.column("ShortCode"), pa.string()), 0, 4)
+    wanted = pc.is_in(prefix, value_set=pa.array(sorted(products), type=pa.string()))
+    return pc.fill_null(pc.and_(simple, wanted), False)
 
 
 def run_archive(archive_path, market, products, start, end, out_path, source_decision, expected_sha256, expected_bytes):
@@ -356,20 +370,31 @@ def run_archive(archive_path, market, products, start, end, out_path, source_dec
     import pyarrow as pa
     import pyarrow.parquet as pq
 
+    import shutil
+    import tempfile
+
     verification = verify_archive(archive_path, expected_sha256, expected_bytes)
     states = {}
     counts = defaultdict(int)
-    for day, raw in iter_archive_tob_members(archive_path, market, start, end):
-        parquet = pq.ParquetFile(pa.BufferReader(raw))
-        names = set(parquet.schema_arrow.names)
-        if not {"ShortCode", "Maturity", "Tm", "AskPx", "InstrumentType"} <= names:
-            counts["files_without_ask_columns"] += 1
-            continue
-        columns = [name for name in COLS if name in names]
-        rows = parquet.read(columns=columns, use_threads=False).to_pylist()
-        counts["rows_read"] += len(rows)
-        state = states.setdefault(day, new_day_state(date.fromisoformat(day)))
-        feed_day_state(state, rows, products, counts)
+    spool_dir = os.environ.get("DATA_SCRATCH_DIR") or None
+    if spool_dir is not None:
+        os.makedirs(spool_dir, exist_ok=True)
+    for day, member_file in iter_archive_tob_members(archive_path, market, start, end):
+        with tempfile.NamedTemporaryFile(dir=spool_dir, suffix=".parquet") as spool:
+            shutil.copyfileobj(member_file, spool, length=16 * 1024 * 1024)
+            spool.flush()
+            parquet = pq.ParquetFile(spool.name)
+            names = set(parquet.schema_arrow.names)
+            if not {"ShortCode", "Maturity", "Tm", "AskPx", "InstrumentType"} <= names:
+                counts["files_without_ask_columns"] += 1
+                continue
+            columns = [name for name in COLS if name in names]
+            state = states.setdefault(day, new_day_state(date.fromisoformat(day)))
+            for batch in parquet.iter_batches(batch_size=ARCHIVE_BATCH_ROWS, columns=columns, use_threads=False):
+                counts["rows_read"] += batch.num_rows
+                kept = batch.filter(product_mask(batch, products))
+                counts["rows_excluded"] += batch.num_rows - kept.num_rows
+                feed_day_state(state, kept.to_pylist(), products, counts)
     series = {}
     for day in sorted(states):
         for contract, slots in day_series(states[day], counts).items():

@@ -247,6 +247,11 @@ test("BT-06 loader: con la decisión en el archivo sellado la extracción comple
     assert.deepEqual([at1100.ask, at1100.askSz], [31.33, 1]);
     // El spread no entra: misma regla de slots que la ruta del lago.
     assert.equal(document.series["DEBQ|202601"]["2025-11-25"].some((slot) => slot && slot.ask === 10.0), false);
+    // El filtro en Arrow (miembro volcado a disco y leído por lotes) conserva los
+    // conteos: 3 filas leídas, el spread cuenta como excluida.
+    assert.equal(document.counts.rows_read, 3);
+    assert.equal(document.counts.rows_excluded, 1);
+    assert.equal(document.counts.rows_usable, 2);
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
