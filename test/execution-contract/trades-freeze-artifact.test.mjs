@@ -20,23 +20,27 @@ const committedArtifact = JSON.parse(committedArtifactBytes.toString("utf8"));
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-test("el artefacto committeado queda HOLD por falta de medición y de política congelada", () => {
+// Tras la cola DATA-01 (2026-09-26) la medición del puente existe: el artefacto
+// publica el candidato y queda HOLD sólo por la aprobación de Bru (gate humano).
+test("el artefacto committeado queda HOLD pendiente de la aprobación de Bru", () => {
   assert.equal(committedArtifact.decision, "HOLD");
-  assert.equal(committedArtifact.status, "PENDING_MEASUREMENT");
+  assert.equal(committedArtifact.status, "PENDING_OWNER_APPROVAL");
   assert.equal(committedArtifact.contractId, "EXEC-TRADES-v1");
   assert.equal(committedArtifact.frozenContract, null);
   assert.equal(committedArtifact.humanGate.requiresOwnerApproval, true);
-  assert.ok(committedArtifact.blockedBy.includes("MISSING_BRIDGE_MEASUREMENT"));
-  assert.ok(committedArtifact.blockedBy.includes("MISSING_BROKEN_SPREAD_POLICY"));
+  assert.deepEqual(committedArtifact.blockedBy, ["MISSING_OWNER_APPROVAL"]);
+  assert.equal(committedArtifact.humanGate.configHash, committedArtifact.candidate.configHash);
 });
 
 test("el artefacto committeado es reproducible con los mismos inputs", () => {
   const sourceDecision = JSON.parse(readFileSync("operations/trades/TR-01/DATA_SOURCE_DECISION.json", "utf8"));
+  const measurementBytes = readFileSync("operations/trades/TR-03/bridge-measurement.json");
   const { artifact } = buildTradesFreezeArtifact({
-    measurement: null,
+    measurement: JSON.parse(measurementBytes.toString("utf8")),
     sourceDecision,
     ownerApproval: null,
-    inputsPresent: { measurement: false, measurementStatus: true, sourceDecision: true, ownerApproval: false },
+    bridgeMeasurementSha256: sha256(measurementBytes),
+    inputsPresent: { measurement: true, measurementStatus: true, sourceDecision: true, ownerApproval: false },
   });
   const bytes = Buffer.from(`${JSON.stringify(artifact, null, 1)}\n`);
   assert.equal(bytes.equals(committedArtifactBytes), true);

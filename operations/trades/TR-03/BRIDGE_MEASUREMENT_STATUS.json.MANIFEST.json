@@ -3,16 +3,16 @@
   "schemaVersion": "1.0",
   "artifact": {
     "path": "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json",
-    "sha256": "b0c8ea03045bf46676d6c21bc12326569e605aec99428124cdcf0940a895db06"
+    "sha256": "c8305d36fa31b39564b5dff6fd62cea2990167a50c9d668ec0066e420b5043b1"
   },
   "generator": {
     "path": "operations/trades/TR-03/build-bridge-status.mjs",
-    "sha256": "766c03eefe1e960c352ec08f183e50e01f484b9814b8b7d4f3572c08cfdc02ab"
+    "sha256": "01ca0d7a098d3e1601f802916b6f06e567659d86b07af1d893a0b42e99e1b970"
   },
   "sources": {
     "zonePlan": {
       "path": "operations/trades/TR-02/trades-zone-plan.json",
-      "sha256": "2faf712b1a6206c3fd279b3f9a73bbcdefc2b86ab337071a3ff32683348e4796"
+      "sha256": "beea1e3788dd92e8da3df6cd7aa93d978706b782d3acdc1ca67eaa0c106ae227"
     },
     "gasCalendar": {
       "path": "operations/audit/IMP-09/eex-exchange-calendar.json",
@@ -25,6 +25,14 @@
     "spec": {
       "path": "docs/canonical/v1_1_1/OWNER_PATCH_TRADES_MODE_2026-09-25.md",
       "sha256": "3e68171cec3f2eb86e48341b3046ba81f3ef925d12fb1cfa835863c9c8b9a494"
+    },
+    "measurement": {
+      "path": "operations/trades/TR-03/bridge-measurement.json",
+      "sha256": "533f51aa4c8fbf68f53d297a4b4d870f9b947362ecdfa5d281e81044256fc72e"
+    },
+    "measurementManifest": {
+      "path": "operations/trades/TR-03/bridge-measurement.MANIFEST.json",
+      "sha256": "b2f4f7ff962a7f1a83d82d28e5da582ca7f4e7299f7551fa3a1ed7a8e48f80d2"
     }
   }
 }

@@ -103,10 +103,11 @@ test("el estado del artefacto commiteado es coherente con su manifest y el zone 
     assert.equal(sha256OfFile(entry.path), entry.sha256, `${entry.path} stale`);
   }
   const status = JSON.parse(readFileSync(statusPath, "utf8"));
-  assert.equal(status.status, "PENDING_SCAN_JOB");
+  // UI-07: la medición del puente existe, verifica por hash y cubre el puente vigente.
+  assert.equal(status.status, "MEASURED");
+  assert.equal(status.measurement.sha256, sha256OfFile(status.measurementArtifact));
   assert.deepEqual(Object.keys(status.bridgeCampaigns.byMission).sort(), ["GAS_MONTHLY", "GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"]);
   assert.equal(status.bridgeCampaigns.count, 26);
-  // El artefacto de medición todavía no existe: el job lo produce.
   assert.equal(status.measurementArtifact, "operations/trades/TR-03/bridge-measurement.json");
 });
 
