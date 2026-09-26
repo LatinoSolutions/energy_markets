@@ -1,0 +1,40 @@
+{
+ "artifactKind": "EXPLORATORY_BACKTEST_MANIFEST",
+ "status": "EXPLORATORY",
+ "ownerPatch": "EM-SPEC-OWNER-PATCH-2026-09-24-02",
+ "market": "POWER_DE",
+ "missions": [
+  "POWER_QUARTERLY",
+  "POWER_MONTHLY"
+ ],
+ "results": {
+  "path": "operations/exploratory/v3/backtest-results.json",
+  "sha256": "3ad9a23457e1e63503bd20828af7d9e6d543da63d16bf50a983d74519e6e70e1"
+ },
+ "slots": {
+  "path": "operations/exploratory/v3/tob-slots-power.json",
+  "sha256": "59b32310aaa3aeca799132bec9f27254ebabbb7e0d66277c491338e31bd095c6"
+ },
+ "generators": [
+  {
+   "path": "operations/exploratory/v3/build_tob_slots.py",
+   "sha256": "451cdf4c9d7d603f688c4acafaf9e0f64ab06e2c13acf146a166d5650b563e2d"
+  },
+  {
+   "path": "operations/exploratory/v3/run-exploratory-backtest.mjs",
+   "sha256": "0741ed59067f436ffcf1db9f128edaff336f19755789f185028ab7858b4a3344"
+  },
+  {
+   "path": "src/exploratory/backtest.mjs",
+   "sha256": "7ba8860d53cc879f8719c32eb91777cce20d04c952cfd50a3531cb966b26e1d0"
+  },
+  {
+   "path": "src/exploratory/comparison.mjs",
+   "sha256": "ab09f7cefba71b6d9a5f94b7e0c81f141bf4083ea7e78513a4ceb3eafd0715fc"
+  },
+  {
+   "path": "src/exploratory/missions.mjs",
+   "sha256": "56541c0acb7cd4b1b848101acddf3a0d43541607862098476d3296935a0c4ee7"
+  }
+ ]
+}
