@@ -12,7 +12,7 @@
  "modules": [
   {
    "path": "src/oos-reservation/trades-zones.mjs",
-   "sha256": "8ce3215ba47c8efeb47d8943fc8c417d85828ec2b212615f2333388401124136"
+   "sha256": "96cca114bb02aa636b6b7615766fe2618a9c0093763f9b7898d68c896f7475e7"
   },
   {
    "path": "src/oos-reservation/trades-windows.mjs",

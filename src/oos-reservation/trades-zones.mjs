@@ -113,6 +113,19 @@ function sealedAccessRegistry() {
   return { oosStatus: "SEALED", oosStatusByMission, oosOpeningsByMission, entries };
 }
 
+// Reconstruye el estado del registro de accesos a partir de sus entradas. El
+// productor lo usa para sembrar el registro persistido (append-only) sin
+// re-derivar el estado a mano.
+export function accessRegistryFromEntries(entries = []) {
+  const { oosStatusByMission, oosOpeningsByMission } = missionAccessState(entries);
+  return {
+    oosStatus: entries.some((item) => item.consumesOos) ? "CONSUMED" : "SEALED",
+    oosStatusByMission,
+    oosOpeningsByMission,
+    entries,
+  };
+}
+
 // Intervalo cerrado [windowStart, deadline] contra [zoneStart, zoneEnd].
 function overlapsWindow(windowStart, deadline, zoneStart, zoneEnd) {
   return compareIsoDates(windowStart, zoneEnd) <= 0 && compareIsoDates(deadline, zoneStart) >= 0;
@@ -369,6 +382,11 @@ export function recordTradesOosAccess(plan, entry = {}) {
   if (consumesOos && !isNonEmptyString(entry.runId)) {
     return { ok: false, code: "MISSING_RUN_ID", message: "Un acceso que consume el OOS exige run_id; sin run_id no se cuenta como apertura (patch 03 §4).", reservation: plan ?? null, oosOpenings: null };
   }
+  // Append-only (patch 03 §4: "cada lectura del OOS queda en un registro de
+  // acceso append-only"). TODA lectura deja su entrada, incluso repitiendo el
+  // mismo run_id: la idempotencia es del CONTEO de aperturas (run_id único por
+  // misión), no del registro. Así `--check` y un relanzamiento del productor
+  // quedan registrados, y el conteo de aperturas no se infla.
   const outcome = recordOosAccess(plan, entry, TRADES_ACCESS_PURPOSES);
   if (!outcome.ok) {
     return { ...outcome, oosOpenings: null };

@@ -85,3 +85,21 @@ export {
   resolveFrozenConfig,
   runTradesMission,
 } from "./run.mjs";
+
+export {
+  TRADES_OOS_INSPECTION_PURPOSE,
+  TRADES_OOS_OPENING_PURPOSE,
+  TRADES_PHASE_ZONES,
+  TRADES_RUNS_ACCEPTANCE_TEST,
+  TRADES_RUNS_VERSION,
+  TRADES_RUN_PHASES,
+  TRADES_RUN_PHASE_ORDER,
+  decisionDayDiagnostics,
+  evaluateBridgeForMission,
+  observationRulesForPhase,
+  openTradesOosForMission,
+  runTradesMissionPhases,
+  runTradesRuns,
+  scoreCampaigns,
+  tradesRunKey,
+} from "./runs.mjs";
