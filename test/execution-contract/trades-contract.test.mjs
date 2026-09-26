@@ -26,6 +26,7 @@ import {
   deriveTradesFillPrice,
   evaluateTradesBridgeGate,
   evaluateTradesFreeze,
+  freezeApprovalProblem,
   tradesConfigHash,
   validateTradesContract,
 } from "../../src/execution-contract/index.mjs";
@@ -109,6 +110,10 @@ test("con medición y aprobación de Bru el freeze es FROZEN y el config tiene h
   assert.equal(outcome.contract.configHash, candidate.configHash);
   assert.equal(validateTradesContract(outcome.contract).ok, true);
   assert.equal(outcome.contract.approval.approvedBy.authority, "Bru");
+  // La aprobación congelada re-valida contra su propio configHash: el motor TRADES
+  // (TR-05) puede verificarla sin asumir nada (revisión TR05-FREEZE-SHAPE-02).
+  assert.equal(freezeApprovalProblem(outcome.contract.approval, outcome.contract.configHash), null);
+  assert.equal(outcome.contract.approval.decision, "APPROVED");
 });
 
 // --- Defecto 1: ruta real del artefacto de TR-03 -------------------------

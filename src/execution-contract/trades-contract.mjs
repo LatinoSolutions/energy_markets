@@ -876,6 +876,10 @@ export function evaluateTradesFreeze({
       approval: {
         approvalRef: ownerApproval.approvalRef,
         approvedBy: { authority: ownerApproval.approvedBy.authority, role: ownerApproval.approvedBy.role },
+        // `decision` se copia para que la aprobación congelada siga siendo
+        // validable por `freezeApprovalProblem`: sin este campo el propio
+        // resultado FROZEN no pasa su validador (revisión TR05-FREEZE-SHAPE-02).
+        decision: ownerApproval.decision,
         approvedAtUtc: ownerApproval.approvedAtUtc,
         scope: ownerApproval.scope,
         configHash: ownerApproval.configHash,
