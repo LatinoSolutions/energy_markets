@@ -10,6 +10,60 @@
 
 import { buildExperimentFixture } from "../p5-experiment/fixtures.mjs";
 import { freezeP5Experiment } from "../../src/p5-experiment/index.mjs";
+import { gasQuarterlyTradeAt, frozenTradesResult } from "../trades-engine/fixtures.mjs";
+
+// --- TR-08: forward shadow con TOB vivo + registro paralelo TRADES ----------
+// Fixtures SINTÉTICAS: reproducen la forma de las filas del lago sin copiar
+// datos de mercado. El slot "12:00" Europe/Berlin de junio equivale a las
+// 10:00Z del calendario congelado del fixture Shadow.
+
+export const FORWARD_SLOT_LABEL = "12:00";
+export const FORWARD_HISTORY_PRICES = Object.freeze(Array.from({ length: 10 }, () => 50));
+
+export function forwardSeedPastPrices(overrides = {}) {
+  const seed = {};
+  for (const source of ["TOB", "LAST_TRADE", "SLOT_VWAP"]) {
+    seed[source] = [...(overrides[source] ?? FORWARD_HISTORY_PRICES)];
+  }
+  return seed;
+}
+
+// Precios por frontera: LAST_TRADE por encima de la media sembrada en D1 (WAIT)
+// y SLOT_VWAP por debajo (BUY), para ejercitar una divergencia de acción real.
+const FORWARD_LAST_TRADE_PRICES = {
+  "2021-06-22": 60,
+  "2021-06-23": 39,
+  "2021-06-24": 39.5,
+  "2021-06-25": 39.7,
+};
+const FORWARD_VWAP_TRADE_PRICES = {
+  "2021-06-22": 30,
+  "2021-06-23": 39,
+  "2021-06-24": 39.5,
+  "2021-06-25": 39.7,
+};
+
+// Filas elegibles GAS_QUARTERLY (G0BQ/202601) de un día: dos trades dentro del
+// slot que forman el VWAP y uno más tardío que es el LAST_TRADE.
+export function forwardTradesForDate({ date }) {
+  const vwapPrice = FORWARD_VWAP_TRADE_PRICES[date];
+  const lastTradePrice = FORWARD_LAST_TRADE_PRICES[date];
+  return [
+    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:35:00.000000Z`, TrdID: `V1-${date}` } }),
+    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: vwapPrice, size: "10", overrides: { Tm: `${date}T09:40:00.000000Z`, TrdID: `V2-${date}` } }),
+    gasQuarterlyTradeAt({ day: date, slot: FORWARD_SLOT_LABEL, price: lastTradePrice, size: "1", overrides: { Tm: `${date}T09:55:00.000000Z`, TrdID: `L-${date}` } }),
+  ];
+}
+
+export function forwardTradesFixture({ dates = ["2021-06-22", "2021-06-23", "2021-06-24", "2021-06-25"] } = {}) {
+  return dates.flatMap((date) => forwardTradesForDate({ date }));
+}
+
+// Resultado FROZEN del contrato TRADES-v1 (TR-04) con la aprobación explícita
+// del owner ligada al configHash: es el gate que el forward TRADES consume.
+export function frozenTradesContractFixture() {
+  return frozenTradesResult();
+}
 
 // Manifest P5 congelado del experimento, versión fija del brazo A1.
 export function frozenShadowFixture() {

@@ -12,6 +12,12 @@ export {
   openShadowProgress,
   captureShadowOpportunity,
   SHADOW_STEP_KIND,
+  FORWARD_TRADES_REGISTRATION_KIND,
+  FORWARD_TRADES_SOURCE_TOB,
+  FORWARD_TRADES_OBSERVATION_SOURCES,
+  FORWARD_TRADES_HYPOTHESIS_RULES,
+  openForwardTradesState,
+  registerForwardTradesHypotheses,
 } from "./capture.mjs";
 export {
   verifyShadowNonInterference,
