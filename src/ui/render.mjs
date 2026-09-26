@@ -1061,6 +1061,20 @@ function exploratoryReceipts(provenance) {
   return receipts;
 }
 
+// FIX-04 (PLAN_STATUS 2026-09-26): una campaign es de un solo producto, así que sólo la
+// respalda el release que produjo ese producto (byProduct, BT-06); con gas v2 + Power
+// v3 cargados, una campaign gas no lista los artifacts de Power ni al revés.
+function campaignReceipts(campaign, provenance) {
+  if (provenance?.byProduct === undefined) {
+    return exploratoryReceipts(provenance);
+  }
+  const productRelease = provenance.byProduct[campaign.product];
+  if (productRelease === undefined) {
+    return [];
+  }
+  return exploratoryReceipts({ releases: [productRelease] });
+}
+
 const NOT_RECORDED = '<span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span>';
 
 // ---------- Campaigns & Runs ----------
@@ -1140,7 +1154,7 @@ function candidateByArm(research, armId) {
 
 function campaignDetailHtml(campaign, pages, isDefault) {
   const { campaignUnknowns: unknowns, provenance, research } = pages;
-  const receipts = exploratoryReceipts(provenance);
+  const receipts = campaignReceipts(campaign, provenance);
   const gates = campaign.gates.map((gate) => {
     const [kind, glyph, label] = GATE_CHIP[gate.status] ?? ["unk", "?", gate.status];
     return `<div class="chk"><span>${esc(gate.label)}</span>${chip(kind, glyph, label)}<span class="d">${esc(gate.detail)}</span></div>`;

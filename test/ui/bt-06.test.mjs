@@ -62,9 +62,18 @@ test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas si
     assert.equal(power.ok, false);
     assert.equal(power.code, "EXPLORATORY_MANIFEST_MISSING");
 
-    const gas = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
+    // Fixture propio: sólo el release gas v2 (manifest + cada pieza que declara),
+    // sin v3. El repo real ya tiene v3 desde ad8531b; no se asume su ausencia.
+    const gasManifestPath = "operations/exploratory/v2/MANIFEST.json";
+    const gasManifest = JSON.parse(readFileSync(path.join(repoRoot, gasManifestPath), "utf8"));
+    for (const relative of [gasManifestPath, gasManifest.results.path, gasManifest.slots.path, ...gasManifest.generators.map((entry) => entry.path)]) {
+      mkdirSync(path.dirname(path.join(workspace, relative)), { recursive: true });
+      writeFileSync(path.join(workspace, relative), readFileSync(path.join(repoRoot, relative)));
+    }
+    const gas = loadExploratoryBacktestAt(workspace);
     assert.equal(gas.ok, true);
     assert.equal(gas.power.loaded, false);
+    assert.equal(gas.power.code, "EXPLORATORY_MANIFEST_MISSING");
     assert.equal(gas.provenance.releases.length, 1);
     assert.equal(gas.provenance.byProduct.G0BQ.release, "v2");
     assert.equal(gas.provenance.byProduct.DEBQ, undefined);
