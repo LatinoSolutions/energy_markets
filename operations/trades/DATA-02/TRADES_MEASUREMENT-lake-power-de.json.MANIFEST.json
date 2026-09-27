@@ -1,0 +1,19 @@
+{
+  "artifactKind": "TR-01_TRADES_MEASUREMENT_MANIFEST",
+  "schemaVersion": "1.0",
+  "producer": "operations/trades/TR-01/aggregate-trades-rows.mjs",
+  "artifact": {
+    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
+    "sha256": "8eaf6f11c9e2a7d086173086395476a6f25235132d03bf9d90e6947a4e519e48"
+  },
+  "input": {
+    "path": "/srv/hot-data/energy-markets/data/scratch/fix03-20260927-194903/data02-lake-power-de.ndjson",
+    "sha256": "84998dfe809952bc6a58d76dd110c774ef18778e9cbd122387bf32953b55da0e"
+  },
+  "counts": {
+    "rows": 12252552,
+    "unique": 9071504,
+    "eligible": 5680165,
+    "duplicates": 3181048
+  }
+}

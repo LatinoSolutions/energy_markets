@@ -358,8 +358,8 @@ export function createDataQueueRunner({
       status: STEP_STATUS.RUNNING,
       startedAt: now().toISOString(),
       receiptPath: relative(receiptFile),
-      requestedBy: "systemd-path-unit",
-      authority: "DATA-01 owner decision 2026-09-26: cola automática sin humano al medio.",
+      requestedBy: step.requestedBy ?? "systemd-path-unit",
+      authority: step.authority ?? "DATA-01 owner decision 2026-09-26: cola automática sin humano al medio.",
       trigger: { kind: trigger.kind, at: trigger.event?.at ?? null, sha256: trigger.event?.sha256 ?? null },
     };
     writeJsonAtomic(receiptFile, receipt);

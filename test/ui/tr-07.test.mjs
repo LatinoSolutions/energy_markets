@@ -82,15 +82,17 @@ test("DATA-02: la UI expone la fecha del hueco de TOB Power como DATA_INCOMPLETE
   assert.match(html, /data-tr07-period-sha="b{64}"/);
 });
 
-test("DATA-02: el artefacto real muestra el hueco TOB Power con procedencia ligada al manifest", () => {
+test("DATA-02: la UI proyecta la selección medida de Power con procedencia ligada al manifest", () => {
   assert.equal(loaded.sourcePeriodCoverage.ok, true, loaded.sourcePeriodCoverage.code);
   const row = panels.coverage.missions.find((mission) => mission.missionId === "POWER_QUARTERLY")
     .zones.flatMap((zone) => zone.campaigns).find((campaign) => campaign.campaignId === "POW-Q-2026Q3");
-  assert.deepEqual(row.sourcePeriod.patch.days.find((entry) => entry.day === "2026-04-17"),
-    { day: "2026-04-17", source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" });
+  const source = loaded.sourcePeriodCoverage.json.campaigns.find((campaign) => campaign.campaignId === "POW-Q-2026Q3" && campaign.market === "POWER_DE");
+  const measuredDay = source.patch.days.find((entry) => entry.day === "2026-04-17");
+  assert.ok(measuredDay);
+  assert.deepEqual(row.sourcePeriod.patch.days.find((entry) => entry.day === "2026-04-17"), measuredDay);
   const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: panels },
     { mode: "TRADES", missionId: "POWER_QUARTERLY", period: "PUENTE" });
-  assert.match(html, /DATA_INCOMPLETE [^<]*2026-04-17/);
+  assert.match(html, new RegExp(`${measuredDay.source} [^<]*2026-04-17`));
   assert.match(html, /data-tr07-period-sha="[0-9a-f]{64}"/);
 });
 

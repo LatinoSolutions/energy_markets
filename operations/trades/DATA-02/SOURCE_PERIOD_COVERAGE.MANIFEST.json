@@ -3,7 +3,7 @@
  "schemaVersion": "1.0",
  "artifact": {
   "path": "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
-  "sha256": "e5d50660cc9c4352a342d51b9a186d5199c85cf6e137193b714dfe421f80293f"
+  "sha256": "43e030e4fc691431fc1f51159a661dc86f813fc612eaa2917bf66a0ae3e4ca82"
  },
  "inputs": {
   "sourcePartitions": {
@@ -44,19 +44,19 @@
   },
   "lakeMeasurementGas": {
    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
-   "sha256": null
+   "sha256": "14087f970784b7d5aadff8618dec11bef1efa2da0ef70695964eec290946ca2f"
   },
   "lakeMeasurementGasManifest": {
    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json.MANIFEST.json",
-   "sha256": null
+   "sha256": "115bf8a2b8b1cedb9026f67d39d56c274a73061605b2ad84855e1f0145f39e64"
   },
   "lakeMeasurementPower": {
    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
-   "sha256": null
+   "sha256": "8eaf6f11c9e2a7d086173086395476a6f25235132d03bf9d90e6947a4e519e48"
   },
   "lakeMeasurementPowerManifest": {
    "path": "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json.MANIFEST.json",
-   "sha256": null
+   "sha256": "6b83b731e5ea97b1a2138fdc20c8ef16f2fc9244a6c1db3f2b5da55d173fb0cb"
   }
  },
  "producer": [

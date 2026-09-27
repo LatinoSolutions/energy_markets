@@ -46,9 +46,9 @@ function temporalManifestRef(repoRoot) {
   return { path: entry.path, sha256: entry.sha256 };
 }
 
-// La UI muestra sólo la versión vigente del backend (BT02_CURRENT_RELEASE); las
-// anteriores se conservan en disco pero no se consumen (BT-04, 2026-09-25).
-const BT02_RELEASE = BT02_RELEASES[existsSync(path.join(DEFAULT_REPO_ROOT, BT02_RELEASES.v3.manifest)) ? "v3" : BT02_CURRENT_RELEASE];
+// La UI y el runner consumen la misma versión vigente declarada por el backend.
+// La mera presencia de un manifest nuevo no activa un release.
+const BT02_RELEASE = BT02_RELEASES[BT02_CURRENT_RELEASE];
 export const EXPLORATORY_MANIFEST_PATH = BT02_RELEASE.exploratoryManifest;
 export const BT02_MANIFEST_PATH = BT02_RELEASE.manifest;
 const BT02_EXPECTED_OUTPUT = BT02_RELEASE.artifact;
