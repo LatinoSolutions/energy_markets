@@ -14,6 +14,7 @@ import {
 } from "../../src/ui/canonical-inputs.mjs";
 import { buildUiViewModels, createUiServer } from "../../src/ui/server.mjs";
 import { SURFACES_LIST } from "../../src/ui/view-models.mjs";
+import { EXPLORATORY_MISSIONS } from "../../src/exploratory/missions.mjs";
 
 test("UI-04: el loader acredita el manifest temporal con el sha del receipt aceptado", () => {
   const { backend } = loadCanonicalUiInputs();
@@ -73,10 +74,14 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
   const { renderSurfacePage } = await import("../../src/ui/render.mjs");
   const canonical = loadCanonicalUiInputs();
   assert.equal(canonical.backend.exploratory.loaded, true, JSON.stringify(canonical.backend.exploratory));
-  // TR-07: el selector de misión muestra una misión a la vez. Para cubrir los dos
-  // productos Gas canónicos se renderiza cada misión y se concatenan sus páginas.
+  // TR-07: el selector de misión muestra una misión a la vez. Para cubrir cada
+  // producto del release cargado (gas v2 y, desde ad8531b, Power v3) se renderiza
+  // la misión de cada producto de la comparación y se concatenan sus páginas.
   const backtestsVm = buildUiViewModels(canonical.inputs).backtests;
-  const pages = ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"].map((missionId) => renderSurfacePage("backtests", backtestsVm, { missionId }));
+  const comparedProducts = Object.keys(canonical.inputs.exploratoryBacktest.results.comparison);
+  const missionIds = Object.values(EXPLORATORY_MISSIONS).filter((mission) => comparedProducts.includes(mission.product)).map((mission) => mission.missionId);
+  assert.equal(missionIds.length, comparedProducts.length);
+  const pages = missionIds.map((missionId) => renderSurfacePage("backtests", backtestsVm, { missionId }));
   const html = pages.join("");
   assert.match(html, /data-exploratory="true"/);
   assert.match(html, /EXPLORATORY/);
@@ -92,8 +97,7 @@ test("UI-04: Backtests muestra el backtest exploratorio verificado por hash y et
 
 test("UI-04: un resultado exploratorio sin el hash del manifest no se muestra", async () => {
   const { loadExploratoryBacktestAt, EXPLORATORY_MANIFEST_PATH } = await import("../../src/ui/canonical-inputs.mjs");
-  const { mkdtempSync, mkdirSync, writeFileSync, cpSync } = await import("node:fs");
-  const { tmpdir } = await import("node:os");
+  const { mkdirSync, writeFileSync, cpSync } = await import("node:fs");
   const path = await import("node:path");
   const root = createTempDir("ui04-");
   const manifest = JSON.parse(readFileSync(new URL("../../" + EXPLORATORY_MANIFEST_PATH, import.meta.url), "utf8"));
