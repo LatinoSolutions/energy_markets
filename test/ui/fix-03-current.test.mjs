@@ -5,6 +5,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { assessBenchmarkFreshness } from "../../src/ui/benchmark-freshness.mjs";
+import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../../src/exploratory/reconciliation.mjs";
+import { BT02_MANIFEST_PATH, loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const P = {
@@ -74,4 +76,13 @@ test("FIX-03: matching release hashes cannot bless a day selected from the wrong
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("FIX-03: the published v3 release is current in the UI and backend", () => {
+  assert.equal(BT02_CURRENT_RELEASE, "v3");
+  assert.equal(BT02_MANIFEST_PATH, BT02_RELEASES.v3.manifest);
+  const canonical = loadCanonicalUiInputs();
+  assert.equal(canonical.backend.backtestReadiness.loaded, true);
+  assert.equal(canonical.backend.exploratory.sourceStatus, "CURRENT");
+  assert.equal(canonical.inputs.backtestReadiness.sourceFreshness.status, "CURRENT");
 });

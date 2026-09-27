@@ -71,7 +71,7 @@ export const BT02_RELEASES = Object.freeze({
     supersedes: "operations/exploratory/v2/reconciled-results-BT-02.json",
   }),
 });
-export const BT02_CURRENT_RELEASE = "v2";
+export const BT02_CURRENT_RELEASE = "v3";
 
 export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha256, resultsManifestSha256, benchmarkSha256, benchmarkManifestSha256, release = BT02_RELEASES.v1, supersededSha256 = null }) {
   if (results?.artifactKind !== "EXPLORATORY_BACKTEST_RESULTS") throw new Error("unexpected exploratory results artifact kind");

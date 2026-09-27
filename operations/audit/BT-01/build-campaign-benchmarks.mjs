@@ -45,7 +45,7 @@ export const VERSIONS = Object.freeze({
     supersedes: `${BT01}/v2/campaign-provisional-benchmarks-BT-01.json`,
   }),
 });
-export const CURRENT_VERSION = "v2";
+export const CURRENT_VERSION = "v3";
 const absolute = (relativePath) => `${repoRoot}${relativePath}`;
 export const rowsArtifactPath = absolute(VERSIONS.v1.rowsArtifact);
 export const artifactPath = absolute(VERSIONS.v1.artifact);

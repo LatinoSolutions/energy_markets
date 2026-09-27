@@ -1,0 +1,28 @@
+{
+  "artifactKind": "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION_MANIFEST",
+  "schemaVersion": "1.0",
+  "status": "EXPLORATORY_PROVISIONAL",
+  "artifact": {
+    "path": "operations/exploratory/v3/reconciled-results-BT-02.json",
+    "sha256": "aa53521e4166402bedf73c657b361d1837275f5d58deab4f7dc0331683998a41"
+  },
+  "inputs": {
+    "exploratoryResults": {
+      "path": "operations/exploratory/v2/backtest-results.json",
+      "sha256": "660d14a0f7c5131f21366f160f6deee3529b2c2f4de0096c9b2df105a9b077f8"
+    },
+    "exploratoryManifest": {
+      "path": "operations/exploratory/v2/MANIFEST.json",
+      "sha256": "3114f2ffb939db6100da7c313453c91a51be4e7bf717ef5c8f5e724f9197625c"
+    },
+    "bt01Benchmark": {
+      "path": "operations/audit/BT-01/v3/campaign-provisional-benchmarks-BT-01.json",
+      "sha256": "102de8ee0972e4788ef6acbd1f7d50ff493b8b7cf7eba2a6c708083c6d8212e6"
+    },
+    "bt01Manifest": {
+      "path": "operations/audit/BT-01/v3/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+      "sha256": "7dc2a6cd4614a110e0541c57ff1c35ebdc4866ef19a1e507c002032520dbafa2"
+    }
+  },
+  "producer": "src/exploratory/reconciliation.mjs"
+}
