@@ -9,19 +9,22 @@
 import { contractKey } from "./coverage.mjs";
 import { legacyMaturityFor } from "../oos-reservation/trades-windows.mjs";
 
-export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-5";
+export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-6";
 
-// Umbrales de ingeniería predeclarados. La mediana de tres o más días vecinos
-// amortigua un pull cortado aislado. El mínimo absoluto evita aprobar una sola
-// fila cuando la muestra normal del contrato es muy tenue.
+// Calibración DATA-02: leave-one-out de los días sellados de Development de
+// TR-01, por misión y año (test/trades-source/period-coverage.test.mjs). Un
+// mínimo absoluto de dos trades rechazaba días completos de Gas 2021 con un
+// único trade; el umbral proporcional y tres pares sellados siguen detectando
+// días cortados.
 export const PATCH_COMPLETENESS_RULE = Object.freeze({
-  version: "DATA-02-patch-completeness-3",
+  version: "DATA-02-patch-completeness-4",
+  peerDateCalendarDays: 14,
   peerDistanceCalendarDays: 14,
   minPositivePeerDays: 3,
-  minDailyEligibleTrades: 2,
+  minDailyEligibleTrades: 1,
   minFractionOfPeerMedian: 0.5,
-  peerScope: "same ShortCode across maturities, within calendar-day distance to each contract's delivery; positive eligible trades measured in the archive, archive trades SEALED and, when required, archive TOB SEALED; only pre-delivery days",
-  statistic: "median of positive eligible-trade counts; candidate >= max(2, ceil(0.5 * median))",
+  peerScope: "same ShortCode across maturities, within 14 calendar days of both the candidate date and distance to each contract's delivery; positive eligible trades measured in the archive, archive trades SEALED and, when required, archive TOB SEALED; only pre-delivery days",
+  statistic: "median of positive archive eligible-trade counts; candidate >= max(1, ceil(0.5 * median))",
 });
 
 export const PARTITION_TABLES = Object.freeze({
@@ -238,6 +241,48 @@ function marketCalendarDays(exchangeDays, campaign) {
 
 const utcDay = (day) => Date.parse(`${day}T00:00:00Z`);
 
+// El archivo sellado proporciona el conteo de referencia. Un pull excluido no
+// se convierte en par aunque el lago tenga trades en ese día.
+export function normalArchivePeers({ shortCode, archiveIndex, archivePartitions, archiveTobPartitions,
+  archiveRange, tobRequired = false }) {
+  const peers = [];
+  for (const [peerContract, peerDays] of archiveIndex) {
+    const [peerShortCode, maturity] = peerContract.split("|");
+    if (peerShortCode !== shortCode || !/^\d{6}$/.test(maturity)) continue;
+    const delivery = utcDay(`${maturity.slice(0, 4)}-${maturity.slice(4, 6)}-01`);
+    if (!Number.isFinite(delivery)) continue;
+    for (const [day, count] of peerDays) {
+      const time = utcDay(day);
+      if (count <= 0 || !Number.isFinite(time) || time >= delivery
+        || classifyDay({ day, partitions: archivePartitions, range: archiveRange }) !== DAY_STATUS.SEALED
+        || (tobRequired && classifyDay({ day, partitions: archiveTobPartitions, range: archiveRange }) !== DAY_STATUS.SEALED)) continue;
+      peers.push({ contract: peerContract, day, count, distance: delivery - time, time });
+    }
+  }
+  return peers;
+}
+
+export function verifyPatchCompleteness({ day, delivery, contract, count, peers }) {
+  const time = utcDay(day);
+  const distance = delivery - time;
+  const counts = peers.filter((peer) =>
+    !(peer.contract === contract && peer.day === day)
+    && distance > 0
+    && Math.abs(peer.time - time) <= PATCH_COMPLETENESS_RULE.peerDateCalendarDays * 86400000
+    && Math.abs(peer.distance - distance) <= PATCH_COMPLETENESS_RULE.peerDistanceCalendarDays * 86400000)
+    .map((peer) => peer.count).sort((a, b) => a - b);
+  if (counts.length < PATCH_COMPLETENESS_RULE.minPositivePeerDays) {
+    return { source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: count, peerDays: counts.length };
+  }
+  const median = counts.length % 2 ? counts[(counts.length - 1) / 2]
+    : (counts[counts.length / 2 - 1] + counts[counts.length / 2]) / 2;
+  const threshold = Math.max(PATCH_COMPLETENESS_RULE.minDailyEligibleTrades,
+    Math.ceil(PATCH_COMPLETENESS_RULE.minFractionOfPeerMedian * median));
+  return count >= threshold
+    ? { source: "EEX_LAKE_PATCH", eligibleTrades: count, peerDays: counts.length, peerMedian: median, threshold }
+    : { source: "DATA_INCOMPLETE", reason: "BELOW_COMPLETENESS_THRESHOLD", eligibleTrades: count, peerDays: counts.length, peerMedian: median, threshold };
+}
+
 // Un día con cualquier pull excluido no está completo en el archivo, incluso
 // si otros pulls del mismo día sí están sellados. Se evalúa el día entero del
 // lago con la misma regla predeclarada; nunca se suman ambas fuentes.
@@ -257,26 +302,8 @@ export function resolveVerifiedPatchDays({ campaign, windowDays, archivePartitio
   const archiveTobStatus = (day) => tobRequired
     ? classifyDay({ day, partitions: archiveTobPartitions, range: archiveRange }) : DAY_STATUS.SEALED;
   const normalArchiveDay = (day) => archiveTradeStatus(day) === DAY_STATUS.SEALED && archiveTobStatus(day) === DAY_STATUS.SEALED;
-  // Las rachas excluidas pueden abarcar toda la ventana de un contrato. Los
-  // pares son observaciones de la misma familia (ShortCode) en otras
-  // maturities, alineadas por distancia a su propia entrega. Sólo días
-  // sellados del archivo sirven de referencia; los pulls sospechosos no se
-  // rehabilitan por tener conteos positivos en el lago.
-  const normalPeers = [];
-  for (const [peerContract, peerDays] of eligibleIndex ?? []) {
-    const [shortCode, maturity] = peerContract.split("|");
-    if (shortCode !== campaign.shortCode || !/^\d{6}$/.test(maturity)) continue;
-    const peerDelivery = utcDay(`${maturity.slice(0, 4)}-${maturity.slice(4, 6)}-01`);
-    if (!Number.isFinite(peerDelivery)) continue;
-    for (const [peerDay, peerCount] of peerDays) {
-      const peerTime = utcDay(peerDay);
-      if (peerCount <= 0 || (archiveIndex.get(peerContract)?.get(peerDay) ?? 0) <= 0
-        || !Number.isFinite(peerTime) || peerTime >= peerDelivery || !normalArchiveDay(peerDay)
-        || classifyDay({ day: peerDay, partitions: lakePartitions, range: lakeRange }) !== DAY_STATUS.SEALED
-        || (tobRequired && classifyDay({ day: peerDay, partitions: lakeTobPartitions, range: lakeRange }) !== DAY_STATUS.SEALED)) continue;
-      normalPeers.push({ contract: peerContract, day: peerDay, count: peerCount, distance: peerDelivery - peerTime });
-    }
-  }
+  const normalPeers = normalArchivePeers({ shortCode: campaign.shortCode, archiveIndex,
+    archivePartitions, archiveTobPartitions, archiveRange, tobRequired });
   return windowDays.map((day) => {
     if (normalArchiveDay(day)) return { day, source: "CLIENT_SEALED_ARCHIVE" };
     if (byDay === null) return { day, source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" };
@@ -286,21 +313,7 @@ export function resolveVerifiedPatchDays({ campaign, windowDays, archivePartitio
     if (tobRequired && classifyDay({ day, partitions: lakeTobPartitions, range: lakeRange }) !== DAY_STATUS.SEALED) {
       return { day, source: "DATA_INCOMPLETE", reason: "LAKE_TOB_PARTITION_ABSENT" };
     }
-    const count = byDay.get(day) ?? 0;
-    const distance = delivery - utcDay(day);
-    const peers = normalPeers.filter((peer) =>
-      !(peer.contract === contract && peer.day === day)
-      && distance > 0
-      && Math.abs(peer.distance - distance) <= PATCH_COMPLETENESS_RULE.peerDistanceCalendarDays * 86400000)
-      .map((peer) => peer.count).sort((a, b) => a - b);
-    if (peers.length < PATCH_COMPLETENESS_RULE.minPositivePeerDays) {
-      return { day, source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: count, peerDays: peers.length };
-    }
-    const median = peers.length % 2 ? peers[(peers.length - 1) / 2] : (peers[peers.length / 2 - 1] + peers[peers.length / 2]) / 2;
-    const threshold = Math.max(PATCH_COMPLETENESS_RULE.minDailyEligibleTrades, Math.ceil(PATCH_COMPLETENESS_RULE.minFractionOfPeerMedian * median));
-    return count >= threshold
-      ? { day, source: "EEX_LAKE_PATCH", eligibleTrades: count, peerDays: peers.length, peerMedian: median, threshold }
-      : { day, source: "DATA_INCOMPLETE", reason: "BELOW_COMPLETENESS_THRESHOLD", eligibleTrades: count, peerDays: peers.length, peerMedian: median, threshold };
+    return { day, ...verifyPatchCompleteness({ day, delivery, contract, count: byDay.get(day) ?? 0, peers: normalPeers }) };
   });
 }
 
