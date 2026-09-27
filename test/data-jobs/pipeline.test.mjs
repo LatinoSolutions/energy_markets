@@ -60,11 +60,12 @@ test("DATA-01 pipeline: el hash declarado del archivo coincide con descargar.sh"
   }
 });
 
-test("DATA-01 pipeline: los jobs corren en el orden del owner (descomprimir, TR-01, TR-03, BT-06 extract, BT-06 backtest)", () => {
+test("DATA-01 pipeline: el escaneo DATA-02 corre en cola tras TR-01", () => {
   const steps = buildDataQueueSteps(ctx);
   assert.deepEqual(steps.map((step) => step.jobKind), [
     DATA_JOB_KIND.DECOMPRESS,
     DATA_JOB_KIND.TR01_SCAN,
+    DATA_JOB_KIND.DATA02_LAKE_SCAN,
     DATA_JOB_KIND.TR03_BRIDGE,
     DATA_JOB_KIND.BT06_EXTRACT,
     DATA_JOB_KIND.BT06_BACKTEST,
@@ -87,6 +88,24 @@ test("DATA-01 pipeline: los jobs corren en el orden del owner (descomprimir, TR-
   const extract = steps.find((step) => step.jobKind === DATA_JOB_KIND.BT06_EXTRACT);
   assert.deepEqual(extract.command, ["bash", "operations/data-jobs/jobs/bt06-extract.sh"]);
   assert.equal(extract.env.DATA_BT06_SLOTS, POWER_EXPLORATORY_RELEASE.slots);
+});
+
+test("DATA-02: el job del lago publica ambas mediciones y sus manifests con recursos acotados", () => {
+  const step = buildDataQueueSteps(ctx).find((item) => item.jobKind === DATA_JOB_KIND.DATA02_LAKE_SCAN);
+  const script = readFileSync(`${repoRoot}/operations/data-jobs/jobs/data02-lake-scan.sh`, "utf8");
+  assert.deepEqual(step.command, ["bash", "operations/data-jobs/jobs/data02-lake-scan.sh"]);
+  assert.equal(step.publishes.length, 6);
+  assert.ok(step.publishes.slice(0, 4).every((path) => path.startsWith("operations/trades/DATA-02/TRADES_MEASUREMENT-lake-")));
+  assert.deepEqual(step.publishes.slice(4), [
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json",
+  ]);
+  assert.ok(step.memoryMaxBytes > 0 && step.timeoutMs > 0);
+  assert.match(script, /extract-trades-rows\.py/);
+  assert.match(script, /--source lake/);
+  assert.match(script, /aggregate-trades-rows\.mjs/);
+  assert.match(script, /build-source-period-coverage\.mjs\nnode operations\/trades\/DATA-02\/build-source-period-coverage\.mjs --check/);
+  assert.doesNotMatch(script, /--max-days|--start|--end/);
 });
 
 test("DATA-01 pipeline: el backtest de BT-06 publica en los paths que la UI carga como release Power v3", () => {

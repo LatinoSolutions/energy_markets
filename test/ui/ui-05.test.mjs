@@ -320,6 +320,8 @@ test("UI-05 Campaigns rail: el view model agrupa por misión con recuentos, entr
   }
   // Cada campaign del artifact aparece exactamente una vez.
   assert.equal(groups.reduce((sum, group) => sum + group.total, 0), results.campaigns.length);
+  assert.equal(groups[2].total + groups[3].total, results.campaigns.filter((campaign) => ["DEBQ", "DEBM"].includes(campaign.product)).length);
+  assert.ok(groups[2].total + groups[3].total > 0, "el release v3 incluye Power en el artifact");
   // Cada misión agrupa sólo su producto (gas v2 y Power v3 desde ad8531b).
   assert.deepEqual(groups.map((group) => group.product), ["G0BQ", "G0BM", "DEBQ", "DEBM"]);
   // Formato de entrega pedido por Bru: "Q1-2026" y "Oct 2025".

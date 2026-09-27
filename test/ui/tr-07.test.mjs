@@ -44,6 +44,56 @@ test("TR-07: los artifacts de panel se cargan y atan por hash a su manifest", ()
   }
 });
 
+test("DATA-02: la UI muestra los días del lago de una campaign verificada", () => {
+  const fixture = {
+    ok: true,
+    json: { campaigns: [{ missionKey: "GAS_QUARTERLY", campaignId: "GAS-Q-2021Q3", patch: {
+      status: "COMPLETE", days: [
+        { day: "2021-03-04", source: "EEX_LAKE_PATCH" },
+        { day: "2021-03-05", source: "CLIENT_SEALED_ARCHIVE" },
+      ],
+    } }] },
+    provenance: { sha256: "a".repeat(64) },
+  };
+  const projected = projectTradesPanels({ ...loaded, sourcePeriodCoverage: fixture });
+  const row = projected.coverage.missions.find((mission) => mission.missionId === "GAS_QUARTERLY")
+    .zones.flatMap((zone) => zone.campaigns).find((campaign) => campaign.campaignId === "GAS-Q-2021Q3");
+  assert.deepEqual(row.sourcePeriod.patch.days.map((day) => day.source), ["EEX_LAKE_PATCH", "CLIENT_SEALED_ARCHIVE"]);
+  const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: projected },
+    { mode: "TRADES", missionId: "GAS_QUARTERLY", period: "DEVELOPMENT" });
+  assert.match(html, /EEX_LAKE_PATCH 1 d: 2021-03-04/);
+  assert.match(html, /data-tr07-period-sha="a{64}"/);
+  const unavailable = projectTradesPanels({ ...loaded, sourcePeriodCoverage: { ok: false, code: "DATA02_COVERAGE_STALE" } });
+  assert.equal(unavailable.coverage.missions[0].zones[0].campaigns[0].sourcePeriod.status, "UNAVAILABLE");
+});
+
+test("DATA-02: la UI expone la fecha del hueco de TOB Power como DATA_INCOMPLETE", () => {
+  const fixture = { ok: true, json: { campaigns: [{
+    missionKey: "POWER_QUARTERLY", campaignId: "POW-Q-2026Q3",
+    patch: { status: "DATA_INCOMPLETE", days: [{ day: "2026-04-17", source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" }] },
+  }] }, provenance: { sha256: "b".repeat(64) } };
+  const projected = projectTradesPanels({ ...loaded, sourcePeriodCoverage: fixture });
+  const row = projected.coverage.missions.find((mission) => mission.missionId === "POWER_QUARTERLY")
+    .zones.flatMap((zone) => zone.campaigns).find((campaign) => campaign.campaignId === "POW-Q-2026Q3");
+  assert.deepEqual(row.sourcePeriod.patch.days, fixture.json.campaigns[0].patch.days);
+  const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: projected },
+    { mode: "TRADES", missionId: "POWER_QUARTERLY", period: "PUENTE" });
+  assert.match(html, /DATA_INCOMPLETE 1 d: 2026-04-17/);
+  assert.match(html, /data-tr07-period-sha="b{64}"/);
+});
+
+test("DATA-02: el artefacto real muestra el hueco TOB Power con procedencia ligada al manifest", () => {
+  assert.equal(loaded.sourcePeriodCoverage.ok, true, loaded.sourcePeriodCoverage.code);
+  const row = panels.coverage.missions.find((mission) => mission.missionId === "POWER_QUARTERLY")
+    .zones.flatMap((zone) => zone.campaigns).find((campaign) => campaign.campaignId === "POW-Q-2026Q3");
+  assert.deepEqual(row.sourcePeriod.patch.days.find((entry) => entry.day === "2026-04-17"),
+    { day: "2026-04-17", source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" });
+  const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: panels },
+    { mode: "TRADES", missionId: "POWER_QUARTERLY", period: "PUENTE" });
+  assert.match(html, /DATA_INCOMPLETE [^<]*2026-04-17/);
+  assert.match(html, /data-tr07-period-sha="[0-9a-f]{64}"/);
+});
+
 test("TR-07: el selector ofrece las 4 misiones y los modos TOB/TRADES", () => {
   assert.deepEqual([...panels.selector.modes], ["TOB", "TRADES"]);
   assert.deepEqual([...TRADES_MODES], ["TOB", "TRADES"]);

@@ -56,7 +56,7 @@ function powerResultsFromRunner() {
   return results;
 }
 
-test("BT-06 UI: sin release v3 el loader Power falla cerrado y el release gas sigue solo", () => {
+test("BT-06 UI: sin release v3 el loader Power falla cerrado; el repo real conserva procedencia separada", () => {
   const workspace = createTempDir("bt06-ui-empty-");
   try {
     const power = loadPowerExploratoryBacktestAt(workspace);

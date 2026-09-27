@@ -150,7 +150,7 @@ print(json.dumps({"consumed": consumed["n"], "series": list(series), "counts": d
   }
 });
 
-test("BT-06 loader: una decisión provisional de TR-01 no acredita la fuente y falla cerrada", () => {
+test("BT-06 loader: una fuente distinta de la decisión de TR-01 falla cerrada", () => {
   const workspace = createTempDir("bt06-source-");
   try {
     const args = (decision, out) => [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--source-decision", decision, "--out", path.join(workspace, out)];

@@ -40,6 +40,7 @@ export const DATA_ARCHIVE = Object.freeze({
 export const DATA_JOB_KIND = Object.freeze({
   DECOMPRESS: "DECOMPRESS",
   TR01_SCAN: "TR01_SCAN",
+  DATA02_LAKE_SCAN: "DATA02_LAKE_SCAN",
   TR03_BRIDGE: "TR03_BRIDGE",
   BT06_EXTRACT: "BT06_EXTRACT",
   BT06_BACKTEST: "BT06_BACKTEST",
@@ -52,6 +53,7 @@ export const DATA_JOB_KIND = Object.freeze({
 export const PROVISIONAL_MEMORY_MAX_BYTES = Object.freeze({
   [DATA_JOB_KIND.DECOMPRESS]: 1 * GIB,
   [DATA_JOB_KIND.TR01_SCAN]: 2 * GIB,
+  [DATA_JOB_KIND.DATA02_LAKE_SCAN]: 4 * GIB, // provisional; recalibrar con memory.peak del primer scan
   // 2 GiB mató por OOM la extracción TOB de gas del puente (2026-09-26 11:12Z, anon-rss
   // 2.044.240 kB en dmesg). 8 GiB es el siguiente techo acotado; se recalibra con el
   // memory.peak de este run.
@@ -65,6 +67,7 @@ export const PROVISIONAL_MEMORY_MAX_BYTES = Object.freeze({
 export const PROVISIONAL_TIMEOUT_MS = Object.freeze({
   [DATA_JOB_KIND.DECOMPRESS]: 6 * 60 * 60 * 1000,
   [DATA_JOB_KIND.TR01_SCAN]: 12 * 60 * 60 * 1000,
+  [DATA_JOB_KIND.DATA02_LAKE_SCAN]: 12 * 60 * 60 * 1000,
   [DATA_JOB_KIND.TR03_BRIDGE]: 12 * 60 * 60 * 1000,
   [DATA_JOB_KIND.BT06_EXTRACT]: 12 * 60 * 60 * 1000,
   [DATA_JOB_KIND.BT06_BACKTEST]: 6 * 60 * 60 * 1000,
@@ -84,6 +87,14 @@ export const STEP_ARTIFACTS = Object.freeze({
     "operations/trades/TR-01/TRADES_MEASUREMENT-power-de.json.MANIFEST.json",
     "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
     "operations/trades/TR-01/DATA_SOURCE_DECISION.MANIFEST.json",
+  ],
+  [DATA_JOB_KIND.DATA02_LAKE_SCAN]: [
+    "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json",
+    "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-gas-the.json.MANIFEST.json",
+    "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json",
+    "operations/trades/DATA-02/TRADES_MEASUREMENT-lake-power-de.json.MANIFEST.json",
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
+    "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json",
   ],
   // El manifest de la medición vive en `bridge-measurement.MANIFEST.json` (misma
   // convención que el status de TR-03 y la UI, src/ui/trades-panels.mjs:96).
@@ -139,6 +150,7 @@ export function buildDataQueueSteps({ repoRoot, archive = DATA_ARCHIVE, scratchD
     // job; se conserva porque el owner lo pidió explícito.
     step(DATA_JOB_KIND.DECOMPRESS, ["bash", "operations/data-jobs/jobs/decompress-archive.sh"]),
     step(DATA_JOB_KIND.TR01_SCAN, ["bash", "operations/data-jobs/jobs/tr01-scan.sh"]),
+    step(DATA_JOB_KIND.DATA02_LAKE_SCAN, ["bash", "operations/data-jobs/jobs/data02-lake-scan.sh"]),
     step(DATA_JOB_KIND.TR03_BRIDGE, ["bash", "operations/data-jobs/jobs/tr03-bridge.sh"]),
     // La fuente la decide TR-01 (PLAN_STATUS BT-06): el script lee
     // DATA_SOURCE_DECISION.json y extrae del lago o del archivo sellado, el que
