@@ -68,8 +68,10 @@ test("dip10State distingue falta de historia, por debajo y por encima de la medi
 });
 
 test("ageBucketOf etiqueta contra la grilla candidata declarada", () => {
-  assert.equal(ageBucketOf(0), "LE_15M");
-  assert.equal(ageBucketOf(FRESHNESS_LIMIT_CANDIDATES_SECONDS[0]), "LE_15M");
-  assert.equal(ageBucketOf(FRESHNESS_LIMIT_CANDIDATES_SECONDS[1]), "LE_30M");
-  assert.equal(ageBucketOf(FRESHNESS_LIMIT_CANDIDATES_SECONDS.at(-1) + 1), "GT_24H");
+  assert.equal(ageBucketOf(0), "0-15 min");
+  assert.equal(ageBucketOf(FRESHNESS_LIMIT_CANDIDATES_SECONDS[0]), "0-15 min");
+  assert.equal(ageBucketOf(FRESHNESS_LIMIT_CANDIDATES_SECONDS[1]), "15-30 min");
+  assert.equal(ageBucketOf(3601), "1-4 h");
+  assert.equal(ageBucketOf(14401), "4-24 h");
+  assert.equal(ageBucketOf(FRESHNESS_LIMIT_CANDIDATES_SECONDS.at(-1) + 1), ">24 h");
 });

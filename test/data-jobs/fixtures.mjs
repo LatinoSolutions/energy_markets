@@ -2,7 +2,8 @@
 // test corre la cola con estos pasos, no con los jobs reales del pipeline.
 
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "../support/temp-dir.mjs";
+import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 // Uso: node fixture-job.mjs <outPath> <mode> [marker]
@@ -30,7 +31,7 @@ if (process.env.FIXTURE_COUNTER) appendFileSync(process.env.FIXTURE_COUNTER, mar
 `;
 
 export function makeDataFixtureRepo() {
-  const root = mkdtempSync(path.join(tmpdir(), "data01-repo-"));
+  const root = createTempDir("data01-repo-");
   const fixture = path.join(root, "fixture-job.mjs");
   writeFileSync(fixture, FIXTURE_JOB_SOURCE);
   const counter = path.join(root, "counter.log");

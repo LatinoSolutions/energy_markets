@@ -24,6 +24,7 @@ import path from "node:path";
 import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 import { freezeApprovalProblem } from "../execution-contract/trades-contract.mjs";
 import { TRADES_MISSIONS } from "../oos-reservation/trades-windows.mjs";
+import { FRESHNESS_LIMIT_CANDIDATES_SECONDS } from "../trades-bridge/constants.mjs";
 
 // Modos del mismo backtest (patch 03 §2). El control TOB no se reescribe.
 export const TRADES_MODES = Object.freeze(["TOB", "TRADES"]);
@@ -97,6 +98,11 @@ export const TRADES_PANEL_ARTIFACTS = Object.freeze({
   tradesFreeze: {
     artifact: "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json",
     manifest: "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.MANIFEST.json",
+    manifestRef: "artifact",
+  },
+  tradesRuns: {
+    artifact: "operations/trades/TR-06/trades-runs.json",
+    manifest: "operations/trades/TR-06/trades-runs.MANIFEST.json",
     manifestRef: "artifact",
   },
 });
@@ -180,8 +186,9 @@ export function loadTradesPanelsAt(repoRoot = DEFAULT_REPO_ROOT) {
   // Sin el job de TR-03 la medición no existe: es un estado, no un error.
   const bridgeMeasurement = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.bridgeMeasurement);
   const tradesFreeze = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.tradesFreeze);
+  const tradesRuns = loadVerified(repoRoot, TRADES_PANEL_ARTIFACTS.tradesRuns);
   const ownerApproval = loadOwnerApproval(repoRoot);
-  return { sourceDecision, zonePlan, bridgeStatus, bridgeMeasurement, tradesFreeze, ownerApproval };
+  return { sourceDecision, zonePlan, bridgeStatus, bridgeMeasurement, tradesFreeze, tradesRuns, ownerApproval };
 }
 
 // Sin medición de TR-01 el artifact de TR-02 declara cada campaign NO_COVERAGE con
@@ -321,7 +328,7 @@ function candidateFor(tradesFreeze, bridgeMeasurement) {
 // Por misión y regla de observación: frescura elegida, su cobertura en la mitad de
 // calibración y la penalización trade->ask por grupo agresor, tal como las publica
 // el candidato de TR-04 desde la medición de TR-03 (patch 03 §3.3–§3.4).
-function calibrationMissions(candidate) {
+function calibrationMissions(candidate, measurement) {
   return Object.values(candidate.markets ?? {}).flatMap((market) =>
     Object.entries(market.missions ?? {}).map(([missionId, mission]) => ({
       missionId,
@@ -331,8 +338,9 @@ function calibrationMissions(candidate) {
         rule,
         freshness: {
           status: observation.freshness?.status ?? "UNAVAILABLE",
-          limitSeconds: observation.freshness?.value ?? null,
-          coverage: observation.freshness?.coverage ?? null,
+          gridSeconds: observation.freshness?.candidatesSeconds ?? [],
+          limitSeconds: observation.freshness?.selectedSeconds ?? null,
+          coverage: observation.freshness?.selectedSeconds === null ? null : measurement?.markets?.[market.market]?.missions?.[missionId]?.summary?.coverage?.[rule]?.byHalf?.CALIBRATION?.coverageByLimit?.[String(observation.freshness.selectedSeconds)]?.coverage ?? null,
           reason: observation.freshness?.reason ?? null,
         },
         penalty: {
@@ -373,6 +381,7 @@ function gapDistributions(measurement) {
         rule,
         overall: gaps.overall ?? null,
         byHalf: gaps.byHalf ?? null,
+        byAgeBucket: JSON.stringify(measurement.freshnessLimitsSeconds) === JSON.stringify(FRESHNESS_LIMIT_CANDIDATES_SECONDS) ? gaps.byAgeBucket ?? null : null,
       })),
     })));
 }
@@ -389,6 +398,7 @@ function projectCalibration(bridgeStatus, bridgeMeasurement, tradesFreeze) {
     reason: status.reason ?? null,
     window: status.window ?? null,
     freshnessLimitsSeconds: status.freshnessLimitsSeconds ?? [],
+    gridStatus: JSON.stringify(status.freshnessLimitsSeconds) === JSON.stringify(FRESHNESS_LIMIT_CANDIDATES_SECONDS) ? "CURRENT" : "STALE_REMEASURE_REQUIRED",
     observationRules: status.observationRules ?? [],
     bridgeCampaigns: status.bridgeCampaigns ?? null,
     measurementArtifact: status.measurementArtifact ?? null,
@@ -414,7 +424,7 @@ function projectCalibration(bridgeStatus, bridgeMeasurement, tradesFreeze) {
     halves: measurement.halves ?? null,
     measurement: { status: "MEASURED", sha256: bridgeMeasurement.provenance.sha256 },
     parameters: candidate.ok
-      ? { status: "MEASURED", source: TRADES_PANEL_ARTIFACTS.tradesFreeze.artifact, missions: calibrationMissions(candidate.candidate) }
+      ? { status: "MEASURED", source: TRADES_PANEL_ARTIFACTS.tradesFreeze.artifact, missions: calibrationMissions(candidate.candidate, measurement) }
       : { status: "UNAVAILABLE", code: candidate.code, missions: [] },
     gate: candidate.ok ? bridgeGateOf(candidate.candidate) : null,
     gapDistributions: gapDistributions(measurement),
@@ -458,6 +468,7 @@ function projectFrozenContract(tradesFreeze, bridgeMeasurement, ownerApproval) {
     observationRules: contract.observationRules ?? null,
     sharedParameters: (contract.sharedParameters ?? []).map((entry) => ({ key: entry.key, status: entry.status, value: entry.value, unit: entry.unit })),
     sensitivityGrid: contract.sensitivityGrid ?? null,
+    freshnessSelection: contract.freshnessSelection ?? null,
   };
   if (freeze.decision === "FROZEN") {
     const problem = approvalProblem(tradesFreeze, ownerApproval, contract.configHash);
@@ -489,7 +500,16 @@ function projectFrozenContract(tradesFreeze, bridgeMeasurement, ownerApproval) {
 
 // Panel de resultados (TR-06). Depende de BT-05/TR-04/TR-05: sin runs no hay
 // resultados, y un backtest no se inventa.
-function projectResults() {
+function projectResults(tradesRuns, tradesFreeze) {
+  if (tradesRuns?.ok === true && tradesFreeze?.ok === true
+    && tradesRuns.json?.inputs?.freeze?.sha256 === tradesFreeze.provenance.sha256
+    && !tradesRuns.json?.blockedBy?.includes("RUN_ARTIFACTS_MIXED_VERSIONS")) {
+    const bridge = (tradesRuns.json.runs ?? []).filter((run) => run.phase === "BRIDGE" && run.bridgeGate?.gateId === "TRADES_BRIDGE_CONTRAST_V2");
+    if (bridge.length > 0) return {
+      status: "REPORTED",
+      bridge: bridge.map((run) => ({ missionKey: run.missionKey, observationRule: run.observationRule, perArm: run.bridgeGate.perArm, deltaV: run.bridgeGate.deltaV, decision: run.bridgeGate.decision })),
+    };
+  }
   return {
     status: "UNAVAILABLE",
     reason: "No hay runs TRADES de las 4 misiones (TR-06 los lanza Bru desde BT-05, después del freeze de TR-04). Ningún resultado se fabrica.",
@@ -523,7 +543,7 @@ export function projectTradesPanels(loaded, selection = {}) {
     zones: projectZones(loaded?.zonePlan),
     calibration: projectCalibration(loaded?.bridgeStatus, loaded?.bridgeMeasurement, loaded?.tradesFreeze),
     frozenContract: projectFrozenContract(loaded?.tradesFreeze, loaded?.bridgeMeasurement, loaded?.ownerApproval),
-    results: projectResults(),
+    results: projectResults(loaded?.tradesRuns, loaded?.tradesFreeze),
     provenance: {
       sourceDecision: loaded?.sourceDecision?.ok === true ? loaded.sourceDecision.provenance : null,
       zonePlan: loaded?.zonePlan?.ok === true ? loaded.zonePlan.provenance : null,

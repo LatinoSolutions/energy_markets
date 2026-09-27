@@ -82,7 +82,7 @@ export function dip10State({ previousValues, value, lookback = DIP10.LOOKBACK, m
   return value < reference ? DIP10.BELOW_MEAN : DIP10.NOT_BELOW_MEAN;
 }
 
-export const AGE_BUCKET_LABELS = Object.freeze(["LE_15M", "LE_30M", "LE_1H", "LE_2H", "LE_24H", "GT_24H"]);
+export const AGE_BUCKET_LABELS = Object.freeze(["0-15 min", "15-30 min", "30-60 min", "1-4 h", "4-24 h", ">24 h"]);
 
 // Etiqueta de antigüedad contra la grilla candidata. `GT_24H` agrupa todo lo más
 // viejo que el último candidato (incluido "sin trade previo").

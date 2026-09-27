@@ -18,14 +18,17 @@ import {
   TRADES_CONTRACT_ID,
   TRADES_FREEZE_SCOPE,
   TRADES_VERSION_LABEL,
+  buildTradesFreezeCandidate,
   contentHashOf,
   evaluateTradesFreeze,
 } from "../../../src/execution-contract/index.mjs";
 import { TRADES_PATCH_IDENTITY } from "../../../src/oos-reservation/trades-zones.mjs";
+import { selectDevelopmentFreshness } from "../../../src/trades-engine/freshness-selection.mjs";
 
 export const MEASUREMENT_PATH = "operations/trades/TR-03/bridge-measurement.json";
 export const MEASUREMENT_STATUS_PATH = "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json";
 export const SOURCE_DECISION_PATH = "operations/trades/TR-01/DATA_SOURCE_DECISION.json";
+export const DEVELOPMENT_SELECTION_PATH = "operations/trades/TR-09/DEVELOPMENT_SELECTION.json";
 export const OWNER_APPROVAL_PATH = "operations/trades/TR-04/OWNER_FREEZE_APPROVAL.json";
 export const OUT_PATH = "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.json";
 export const MANIFEST_PATH = "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.MANIFEST.json";
@@ -39,22 +42,35 @@ export const MANIFEST_PATH = "operations/trades/TR-04/TRADES_CONTRACT_V1_FREEZE.
 // rutas. `generatedFrom.bridgeMeasurementSha256` ata el hash del config a los
 // bytes de la medición de TR-03; si se pasa explícito (main lo calcula del
 // archivo), se usa ese sha; si no, se deriva del objeto de medición.
-export function buildTradesFreezeArtifact({ measurement = null, sourceDecision = null, ownerApproval = null, inputsPresent = {}, bridgeMeasurementSha256 = null } = {}) {
+export function buildTradesFreezeArtifact({ measurement = null, sourceDecision = null, developmentResults = null, zonePlan = null, ownerApproval = null, inputsPresent = {}, bridgeMeasurementSha256 = null, sourceDecisionSha256 = null, zonePlanSha256 = null, developmentSelectionSha256 = null } = {}) {
   const deleteTmSemantics = sourceDecision?.measurements?.deleteTmSemantics?.value
     ?? sourceDecision?.deleteTmSemantics
     ?? null;
 
   const measurementSha256 = bridgeMeasurementSha256
     ?? (measurement && typeof measurement === "object" ? contentHashOf(measurement) : null);
+  const baseCandidate = measurement && typeof measurement === "object" ? buildTradesFreezeCandidate({
+    measurement, sourceDecision, deleteTmSemantics,
+    generatedFrom: { bridgeMeasurement: inputsPresent.measurement ? MEASUREMENT_PATH : null, bridgeMeasurementSha256: measurementSha256, sourceDecision: inputsPresent.sourceDecision ? SOURCE_DECISION_PATH : null, developmentSelectionSha256: null },
+  }) : null;
+  const selectionBound = developmentResults?.sources?.measurement?.sha256 === measurementSha256
+    && developmentResults?.sources?.sourceDecision?.sha256 === (sourceDecisionSha256 ?? (sourceDecision ? contentHashOf(sourceDecision) : null))
+    && developmentResults?.sources?.zonePlan?.sha256 === zonePlanSha256
+    && developmentResults?.candidateConfigHash === baseCandidate?.configHash;
+  const developmentSelection = selectionBound && zonePlan?.decision === "RESERVED" && developmentResults?.byMission && typeof developmentResults.byMission === "object"
+    ? Object.fromEntries(Object.entries(developmentResults.byMission).map(([missionKey, resultsByLimit]) => [missionKey, selectDevelopmentFreshness({ missionKey, resultsByLimit, expectedCampaignIds: (zonePlan.missions?.[missionKey]?.zones?.DEVELOPMENT ?? []).map((campaign) => campaign.campaignId), expectedCandidateHash: baseCandidate.configHash })]))
+    : null;
 
   const outcome = evaluateTradesFreeze({
     measurement,
     sourceDecision,
+    developmentSelection,
     deleteTmSemantics,
     ownerApproval,
     generatedFrom: {
       bridgeMeasurement: inputsPresent.measurement ? MEASUREMENT_PATH : null,
       bridgeMeasurementSha256: measurementSha256,
+      developmentSelectionSha256: selectionBound ? (developmentSelectionSha256 ?? contentHashOf(developmentResults)) : null,
       sourceDecision: inputsPresent.sourceDecision ? SOURCE_DECISION_PATH : null,
     },
   });
@@ -86,6 +102,7 @@ export function buildTradesFreezeArtifact({ measurement = null, sourceDecision =
         brokenSpreadPolicy: measurement?.brokenSpreadPolicy ?? null,
       },
       measurementStatus: { path: MEASUREMENT_STATUS_PATH, present: inputsPresent.measurementStatus === true },
+      developmentSelection: { path: DEVELOPMENT_SELECTION_PATH, present: inputsPresent.developmentSelection === true },
       sourceDecision: {
         path: SOURCE_DECISION_PATH,
         present: inputsPresent.sourceDecision === true,
@@ -107,13 +124,19 @@ function main() {
     measurement: existsSync(MEASUREMENT_PATH),
     measurementStatus: existsSync(MEASUREMENT_STATUS_PATH),
     sourceDecision: existsSync(SOURCE_DECISION_PATH),
+    developmentSelection: existsSync(DEVELOPMENT_SELECTION_PATH),
     ownerApproval: existsSync(OWNER_APPROVAL_PATH),
   };
   const { artifact, outcome } = buildTradesFreezeArtifact({
     measurement: readJson(MEASUREMENT_PATH),
     sourceDecision: readJson(SOURCE_DECISION_PATH),
+    developmentResults: readJson(DEVELOPMENT_SELECTION_PATH),
+    zonePlan: readJson("operations/trades/TR-02/trades-zone-plan.json"),
     ownerApproval: readJson(OWNER_APPROVAL_PATH),
     bridgeMeasurementSha256: inputsPresent.measurement ? hashFile(MEASUREMENT_PATH) : null,
+    developmentSelectionSha256: inputsPresent.developmentSelection ? hashFile(DEVELOPMENT_SELECTION_PATH) : null,
+    sourceDecisionSha256: inputsPresent.sourceDecision ? hashFile(SOURCE_DECISION_PATH) : null,
+    zonePlanSha256: existsSync("operations/trades/TR-02/trades-zone-plan.json") ? hashFile("operations/trades/TR-02/trades-zone-plan.json") : null,
     inputsPresent,
   });
   const outputBytes = Buffer.from(`${JSON.stringify(artifact, null, 1)}\n`);
@@ -134,6 +157,7 @@ function main() {
       spec: { path: TRADES_PATCH_IDENTITY.path, sha256: hashFile(TRADES_PATCH_IDENTITY.path) },
       sourceDecision: inputsPresent.sourceDecision ? { path: SOURCE_DECISION_PATH, sha256: hashFile(SOURCE_DECISION_PATH) } : null,
       measurement: inputsPresent.measurement ? { path: MEASUREMENT_PATH, sha256: hashFile(MEASUREMENT_PATH) } : null,
+      developmentSelection: inputsPresent.developmentSelection ? { path: DEVELOPMENT_SELECTION_PATH, sha256: hashFile(DEVELOPMENT_SELECTION_PATH) } : null,
       ownerApproval: inputsPresent.ownerApproval ? { path: OWNER_APPROVAL_PATH, sha256: hashFile(OWNER_APPROVAL_PATH) } : null,
     },
   };

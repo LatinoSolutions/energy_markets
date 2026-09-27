@@ -79,7 +79,7 @@ export function observationRulesForPhase(phase) {
 }
 
 // Declaración (plan TR-06 "puente -> OOS"): el OOS histórico sólo se abre si el
-// gate del puente dio PASS en TODAS las reglas de observación del puente
+// contraste del puente quedó REPORTED en ambas reglas de observación
 // (LAST_TRADE y SLOT_VWAP). Es MÁS ESTRICTO que exigir sólo la regla primaria:
 // SLOT_VWAP no corre en el OOS (patch 03 §3.2: "en slots sin trades queda
 // vacío"), pero sí en el puente, y el contraste del gate es completo. Se declara
@@ -443,22 +443,16 @@ export function bridgeGateEpisodes({ episodes = [], evaluationStartIso }) {
   return { included, excluded };
 }
 
-// Combina los estados de las métricas del gate de TR-04: FAIL manda; HOLD o
-// NOT_EVALUABLE dejan el gate en HOLD; PASS sólo si todas pasan. El contrato de
-// TR-04 devuelve NOT_EVALUABLE para una métrica no finita (p. ej. ΔV sin los dos
-// brazos completos); sin normalizarlo, NOT_EVALUABLE se colaba hasta PASS
-// (fail-open).
+// Ambas reglas deben tener un reporte ligado a esta versión. Un estado viejo
+// PASS/FAIL o una regla sin reporte no habilitan la apertura OOS.
 export function bridgeDecisionFromStatuses(statuses = []) {
-  const normalized = statuses.map((status) => (status === "NOT_EVALUABLE" ? "HOLD" : status));
-  if (normalized.includes("FAIL")) return "FAIL";
-  if (normalized.includes("HOLD")) return "HOLD";
-  return "PASS";
+  if (statuses.length === 0 || statuses.some((status) => status !== "REPORTED")) return "HOLD";
+  return "REPORTED";
 }
 
-// Evalúa el gate del puente de TR-04 sobre la MITAD DE EVALUACIÓN (plan TR-06):
+// Reporta el contraste del puente sobre la MITAD DE EVALUACIÓN (plan TR-06):
 // BUY_WAIT / BOUGHT_MW / FILL_PRICE / H por brazo y el signo/orden de ΔV a nivel
-// de misión. FAIL si alguna métrica falla; HOLD si ninguna falla pero alguna no
-// es evaluable (no se inventa un PASS parcial); PASS sólo si todas pasan. Sólo
+// de misión. Un valor no evaluable se muestra como tal; no hay umbral automático. Sólo
 // participan las campaigns cuya ventana arranca en la mitad de evaluación
 // (bridgeGateEpisodes); las demás quedan excluidas y publicadas.
 export function evaluateBridgeForMission({ missionKey, tradesResult, campaigns, exchangeDays, tobSeries = new Map(), slotLabels = SLOT_LABELS }) {
@@ -482,11 +476,12 @@ export function evaluateBridgeForMission({ missionKey, tradesResult, campaigns, 
   const deltaV = evaluationDeltaV({ missionKey, tradesEpisodes, tobEpisodes });
   const deltaGate = evaluateBridgeGateMetric(DELTA_V_GATE_METRIC, { tobValue: deltaV.tob, tradesValue: deltaV.trades });
 
-  // El contrato de TR-04 dice "HOLD si ninguna falla pero alguna no es evaluable"
-  // (trades-contract.mjs:292-299). La métrica de ΔV devuelve NOT_EVALUABLE, no
-  // HOLD: sin normalizarlo, NOT_EVALUABLE se colaba hasta PASS (fail-open).
-  const decisions = [...Object.values(perArm).map((entry) => entry.decision), deltaGate.status];
-  const decision = bridgeDecisionFromStatuses(decisions);
+  // El reporte exige al menos un fill pareado por brazo. H o ΔV incompletos
+  // permanecen NOT_EVALUABLE sin crear un PASS/FAIL inventado.
+  const hasPairedFill = included.length > 0 && Object.values(perArm).every((entry) =>
+    entry.decisionDaysCompared > 0 && Number.isFinite(entry.values.tob.FILL_PRICE) && Number.isFinite(entry.values.trades.FILL_PRICE));
+  const decisions = Object.values(perArm).map((entry) => entry.decision);
+  const decision = hasPairedFill ? bridgeDecisionFromStatuses(decisions) : "HOLD";
   return {
     gateId: TRADES_BRIDGE_GATE.id,
     half: HALVES.EVALUATION,
@@ -602,13 +597,13 @@ export function runTradesMissionPhases({
       oos: { ok: false, code: "OOS_SECOND_OPENING_BLOCKED", accessPlan: plan, opening: null, observationRule },
     };
   }
-  // Plan TR-06: el OOS va después del puente; sin PASS no se abre el sello.
-  if (bridgeGateDecision !== "PASS") {
+  // Plan TR-06: el OOS va después del puente; sin reporte ligado no se abre.
+  if (bridgeGateDecision !== "REPORTED") {
     return {
       ok: false,
-      code: "OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS",
+      code: "OOS_NOT_OPENED_BRIDGE_REPORT_MISSING",
       run: null,
-      oos: { ok: false, code: "OOS_NOT_OPENED_BRIDGE_GATE_NOT_PASS", accessPlan: plan, opening: null, bridgeGateDecision: bridgeGateDecision ?? null },
+      oos: { ok: false, code: "OOS_NOT_OPENED_BRIDGE_REPORT_MISSING", accessPlan: plan, opening: null, bridgeGateDecision: bridgeGateDecision ?? null },
     };
   }
   // Identidad del run ANTES de leer: el run_id debe existir para registrar la

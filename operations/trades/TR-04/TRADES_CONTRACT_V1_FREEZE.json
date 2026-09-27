@@ -10,24 +10,19 @@
  "contractId": "EXEC-TRADES-v1",
  "versionLabel": "TRADES-v1",
  "decision": "HOLD",
- "status": "PENDING_OWNER_APPROVAL",
+ "status": "PENDING_MEASUREMENT",
  "humanGate": {
   "scope": "TRADES_V1_FREEZE",
   "requiresOwnerApproval": true,
   "approvalRef": null,
-  "configHash": "7d1aa1e763423114c56d3a93fe86b2e45c74b040202f65dd4256e894ba51b327",
+  "configHash": "47dfcc6e422d2d4b6afe39d402c2efedfe33ca605b7376d2eabce839ac34d98a",
   "rule": "Bru aprueba el freeze antes de cualquier run de estrategia en TRADES (TRADES_MODE_PLAN.md TR-04)."
  },
  "blockedBy": [
-  "MISSING_OWNER_APPROVAL"
+  "BRIDGE_MEASUREMENT_GRID_STALE"
  ],
- "errors": [
-  {
-   "code": "MISSING_OWNER_APPROVAL",
-   "message": "El freeze de TRADES-v1 exige la aprobación explícita de Bru (scope TRADES_V1_FREEZE); el default es no congelar."
-  }
- ],
- "reason": "El freeze de TRADES-v1 exige la aprobación explícita de Bru (scope TRADES_V1_FREEZE); el default es no congelar.",
+ "errors": [],
+ "reason": "TR-03 debe medir la grilla 15m, 30m, 1h, 4h y 24h antes del freeze.",
  "candidate": {
   "artifactKind": "TRADES_CONTRACT_V1",
   "contractId": "EXEC-TRADES-v1",
@@ -51,6 +46,7 @@
    "DELETE_POINT_IN_TIME_DECLARED",
    "WINDOW_FROM_CALENDAR",
    "FRESHNESS_NO_CARRY",
+   "FRESHNESS_DEVELOPMENT_GRID",
    "DATA_INCOMPLETE_DISTINCT"
   ],
   "observationRules": {
@@ -68,7 +64,9 @@
    "calibration": "CALIBRATION",
    "evaluation": "EVALUATION",
    "calibrationUsedFor": [
-    "penaltyEurMwh",
+    "penaltyEurMwh"
+   ],
+   "developmentUsedFor": [
     "freshnessLimitSeconds"
    ],
    "evaluationUsedFor": [
@@ -159,82 +157,322 @@
       "observations": {
        "LAST_TRADE": {
         "freshness": {
-         "status": "LOW_COVERAGE",
-         "value": 86400,
-         "coverage": 0.8314814814814815,
-         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.06634615384615387,
+          "observations": 156,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 45,
+            "meanGapEurMwh": -0.07344444444444459,
+            "penaltyEurMwh": 0.07344444444444459
+           },
+           {
+            "aggressor": "SELL",
+            "count": 74,
+            "meanGapEurMwh": -0.06479729729729741,
+            "penaltyEurMwh": 0.06479729729729741
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 37,
+            "meanGapEurMwh": -0.06081081081081052,
+            "penaltyEurMwh": 0.06081081081081052
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.06749077490774906,
+          "observations": 271,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 75,
+            "meanGapEurMwh": -0.06366666666666665,
+            "penaltyEurMwh": 0.06366666666666665
+           },
+           {
+            "aggressor": "SELL",
+            "count": 125,
+            "meanGapEurMwh": -0.06704000000000002,
+            "penaltyEurMwh": 0.06704000000000002
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 71,
+            "meanGapEurMwh": -0.07232394366197176,
+            "penaltyEurMwh": 0.07232394366197176
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.07752983293556087,
+          "observations": 419,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 109,
+            "meanGapEurMwh": -0.08385321100917412,
+            "penaltyEurMwh": 0.08385321100917412
+           },
+           {
+            "aggressor": "SELL",
+            "count": 195,
+            "meanGapEurMwh": -0.07625641025641035,
+            "penaltyEurMwh": 0.07625641025641035
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 115,
+            "meanGapEurMwh": -0.07369565217391312,
+            "penaltyEurMwh": 0.07369565217391312
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.12654060066740827,
+          "observations": 899,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 217,
+            "meanGapEurMwh": -0.1268202764976958,
+            "penaltyEurMwh": 0.1268202764976958
+           },
+           {
+            "aggressor": "SELL",
+            "count": 412,
+            "meanGapEurMwh": -0.13609223300970885,
+            "penaltyEurMwh": 0.13609223300970885
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 270,
+            "meanGapEurMwh": -0.1117407407407407,
+            "penaltyEurMwh": 0.1117407407407407
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.12654060066740827,
-         "observations": 899,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 217,
-           "meanGapEurMwh": -0.1268202764976958,
-           "penaltyEurMwh": 0.1268202764976958
-          },
-          {
-           "aggressor": "SELL",
-           "count": 412,
-           "meanGapEurMwh": -0.13609223300970885,
-           "penaltyEurMwh": 0.13609223300970885
-          },
-          {
-           "aggressor": "UNKNOWN",
-           "count": 270,
-           "meanGapEurMwh": -0.1117407407407407,
-           "penaltyEurMwh": 0.1117407407407407
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        },
        "SLOT_VWAP": {
         "freshness": {
-         "status": "LOW_COVERAGE",
-         "value": 86400,
-         "coverage": 0.21805555555555556,
-         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.058389417377022954,
+          "observations": 149,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 28,
+            "meanGapEurMwh": -0.04656250000000041,
+            "penaltyEurMwh": 0.04656250000000041
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 56,
+            "meanGapEurMwh": -0.05707237069765909,
+            "penaltyEurMwh": 0.05707237069765909
+           },
+           {
+            "aggressor": "SELL",
+            "count": 44,
+            "meanGapEurMwh": -0.05956940371456449,
+            "penaltyEurMwh": 0.05956940371456449
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 21,
+            "meanGapEurMwh": -0.07519841269841249,
+            "penaltyEurMwh": 0.07519841269841249
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.0562970476025965,
+          "observations": 260,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 52,
+            "meanGapEurMwh": -0.04223557692307732,
+            "penaltyEurMwh": 0.04223557692307732
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 92,
+            "meanGapEurMwh": -0.05303465078797267,
+            "penaltyEurMwh": 0.05303465078797267
+           },
+           {
+            "aggressor": "SELL",
+            "count": 73,
+            "meanGapEurMwh": -0.058803121061848186,
+            "penaltyEurMwh": 0.058803121061848186
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 43,
+            "meanGapEurMwh": -0.07602713178294575,
+            "penaltyEurMwh": 0.07602713178294575
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.0562970476025965,
+          "observations": 260,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 52,
+            "meanGapEurMwh": -0.04223557692307732,
+            "penaltyEurMwh": 0.04223557692307732
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 92,
+            "meanGapEurMwh": -0.05303465078797267,
+            "penaltyEurMwh": 0.05303465078797267
+           },
+           {
+            "aggressor": "SELL",
+            "count": 73,
+            "meanGapEurMwh": -0.058803121061848186,
+            "penaltyEurMwh": 0.058803121061848186
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 43,
+            "meanGapEurMwh": -0.07602713178294575,
+            "penaltyEurMwh": 0.07602713178294575
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.0562970476025965,
+          "observations": 260,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 52,
+            "meanGapEurMwh": -0.04223557692307732,
+            "penaltyEurMwh": 0.04223557692307732
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 92,
+            "meanGapEurMwh": -0.05303465078797267,
+            "penaltyEurMwh": 0.05303465078797267
+           },
+           {
+            "aggressor": "SELL",
+            "count": 73,
+            "meanGapEurMwh": -0.058803121061848186,
+            "penaltyEurMwh": 0.058803121061848186
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 43,
+            "meanGapEurMwh": -0.07602713178294575,
+            "penaltyEurMwh": 0.07602713178294575
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.0562970476025965,
-         "observations": 260,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 52,
-           "meanGapEurMwh": -0.04223557692307732,
-           "penaltyEurMwh": 0.04223557692307732
-          },
-          {
-           "aggressor": "MIXED",
-           "count": 92,
-           "meanGapEurMwh": -0.05303465078797267,
-           "penaltyEurMwh": 0.05303465078797267
-          },
-          {
-           "aggressor": "SELL",
-           "count": 73,
-           "meanGapEurMwh": -0.058803121061848186,
-           "penaltyEurMwh": 0.058803121061848186
-          },
-          {
-           "aggressor": "UNKNOWN",
-           "count": 43,
-           "meanGapEurMwh": -0.07602713178294575,
-           "penaltyEurMwh": 0.07602713178294575
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        }
       },
@@ -247,82 +485,322 @@
       "observations": {
        "LAST_TRADE": {
         "freshness": {
-         "status": "MEASURED",
-         "value": 86400,
-         "coverage": 0.9504761904761905,
-         "reason": null
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.05252049180327855,
+          "observations": 244,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 73,
+            "meanGapEurMwh": -0.04376712328767085,
+            "penaltyEurMwh": 0.04376712328767085
+           },
+           {
+            "aggressor": "SELL",
+            "count": 85,
+            "meanGapEurMwh": -0.046470588235293986,
+            "penaltyEurMwh": 0.046470588235293986
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 86,
+            "meanGapEurMwh": -0.0659302325581396,
+            "penaltyEurMwh": 0.0659302325581396
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.0606188118811881,
+          "observations": 404,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 115,
+            "meanGapEurMwh": -0.055913043478260774,
+            "penaltyEurMwh": 0.055913043478260774
+           },
+           {
+            "aggressor": "SELL",
+            "count": 139,
+            "meanGapEurMwh": -0.05428057553956821,
+            "penaltyEurMwh": 0.05428057553956821
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 150,
+            "meanGapEurMwh": -0.07010000000000018,
+            "penaltyEurMwh": 0.07010000000000018
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.06336792452830182,
+          "observations": 530,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 152,
+            "meanGapEurMwh": -0.05611842105263159,
+            "penaltyEurMwh": 0.05611842105263159
+           },
+           {
+            "aggressor": "SELL",
+            "count": 179,
+            "meanGapEurMwh": -0.058603351955306957,
+            "penaltyEurMwh": 0.058603351955306957
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 199,
+            "meanGapEurMwh": -0.07319095477386946,
+            "penaltyEurMwh": 0.07319095477386946
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.0840975254730715,
+          "observations": 687,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 197,
+            "meanGapEurMwh": -0.06403553299492402,
+            "penaltyEurMwh": 0.06403553299492402
+           },
+           {
+            "aggressor": "SELL",
+            "count": 226,
+            "meanGapEurMwh": -0.0736946902654867,
+            "penaltyEurMwh": 0.0736946902654867
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 264,
+            "meanGapEurMwh": -0.10797348484848523,
+            "penaltyEurMwh": 0.10797348484848523
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.0840975254730715,
-         "observations": 687,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 197,
-           "meanGapEurMwh": -0.06403553299492402,
-           "penaltyEurMwh": 0.06403553299492402
-          },
-          {
-           "aggressor": "SELL",
-           "count": 226,
-           "meanGapEurMwh": -0.0736946902654867,
-           "penaltyEurMwh": 0.0736946902654867
-          },
-          {
-           "aggressor": "UNKNOWN",
-           "count": 264,
-           "meanGapEurMwh": -0.10797348484848523,
-           "penaltyEurMwh": 0.10797348484848523
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        },
        "SLOT_VWAP": {
         "freshness": {
-         "status": "LOW_COVERAGE",
-         "value": 86400,
-         "coverage": 0.5071428571428571,
-         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.05352567252896051,
+          "observations": 186,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 29,
+            "meanGapEurMwh": -0.042935455349248156,
+            "penaltyEurMwh": 0.042935455349248156
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 103,
+            "meanGapEurMwh": -0.04925978287008917,
+            "penaltyEurMwh": 0.04925978287008917
+           },
+           {
+            "aggressor": "SELL",
+            "count": 30,
+            "meanGapEurMwh": -0.03689457671957695,
+            "penaltyEurMwh": 0.03689457671957695
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 24,
+            "meanGapEurMwh": -0.10541883116883193,
+            "penaltyEurMwh": 0.10541883116883193
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.06026990510018623,
+          "observations": 289,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 46,
+            "meanGapEurMwh": -0.05394404960981053,
+            "penaltyEurMwh": 0.05394404960981053
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 145,
+            "meanGapEurMwh": -0.05262729569376963,
+            "penaltyEurMwh": 0.05262729569376963
+           },
+           {
+            "aggressor": "SELL",
+            "count": 53,
+            "meanGapEurMwh": -0.050897480533093654,
+            "penaltyEurMwh": 0.050897480533093654
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 45,
+            "meanGapEurMwh": -0.10240115440115502,
+            "penaltyEurMwh": 0.10240115440115502
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.06026990510018623,
+          "observations": 289,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 46,
+            "meanGapEurMwh": -0.05394404960981053,
+            "penaltyEurMwh": 0.05394404960981053
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 145,
+            "meanGapEurMwh": -0.05262729569376963,
+            "penaltyEurMwh": 0.05262729569376963
+           },
+           {
+            "aggressor": "SELL",
+            "count": 53,
+            "meanGapEurMwh": -0.050897480533093654,
+            "penaltyEurMwh": 0.050897480533093654
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 45,
+            "meanGapEurMwh": -0.10240115440115502,
+            "penaltyEurMwh": 0.10240115440115502
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.06026990510018623,
+          "observations": 289,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 46,
+            "meanGapEurMwh": -0.05394404960981053,
+            "penaltyEurMwh": 0.05394404960981053
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 145,
+            "meanGapEurMwh": -0.05262729569376963,
+            "penaltyEurMwh": 0.05262729569376963
+           },
+           {
+            "aggressor": "SELL",
+            "count": 53,
+            "meanGapEurMwh": -0.050897480533093654,
+            "penaltyEurMwh": 0.050897480533093654
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 45,
+            "meanGapEurMwh": -0.10240115440115502,
+            "penaltyEurMwh": 0.10240115440115502
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.06026990510018623,
-         "observations": 289,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 46,
-           "meanGapEurMwh": -0.05394404960981053,
-           "penaltyEurMwh": 0.05394404960981053
-          },
-          {
-           "aggressor": "MIXED",
-           "count": 145,
-           "meanGapEurMwh": -0.05262729569376963,
-           "penaltyEurMwh": 0.05262729569376963
-          },
-          {
-           "aggressor": "SELL",
-           "count": 53,
-           "meanGapEurMwh": -0.050897480533093654,
-           "penaltyEurMwh": 0.050897480533093654
-          },
-          {
-           "aggressor": "UNKNOWN",
-           "count": 45,
-           "meanGapEurMwh": -0.10240115440115502,
-           "penaltyEurMwh": 0.10240115440115502
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        }
       },
@@ -340,76 +818,298 @@
       "observations": {
        "LAST_TRADE": {
         "freshness": {
-         "status": "MEASURED",
-         "value": 86400,
-         "coverage": 0.9792452830188679,
-         "reason": null
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.058536977491961524,
+          "observations": 622,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 299,
+            "meanGapEurMwh": -0.052040133779264176,
+            "penaltyEurMwh": 0.052040133779264176
+           },
+           {
+            "aggressor": "SELL",
+            "count": 279,
+            "meanGapEurMwh": -0.06498207885304678,
+            "penaltyEurMwh": 0.06498207885304678
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 44,
+            "meanGapEurMwh": -0.06181818181818244,
+            "penaltyEurMwh": 0.06181818181818244
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.05910236220472448,
+          "observations": 635,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 306,
+            "meanGapEurMwh": -0.050718954248365956,
+            "penaltyEurMwh": 0.050718954248365956
+           },
+           {
+            "aggressor": "SELL",
+            "count": 285,
+            "meanGapEurMwh": -0.06768421052631592,
+            "penaltyEurMwh": 0.06768421052631592
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 44,
+            "meanGapEurMwh": -0.06181818181818244,
+            "penaltyEurMwh": 0.06181818181818244
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.059544025157232776,
+          "observations": 636,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 306,
+            "meanGapEurMwh": -0.050718954248365956,
+            "penaltyEurMwh": 0.050718954248365956
+           },
+           {
+            "aggressor": "SELL",
+            "count": 286,
+            "meanGapEurMwh": -0.06863636363636377,
+            "penaltyEurMwh": 0.06863636363636377
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 44,
+            "meanGapEurMwh": -0.06181818181818244,
+            "penaltyEurMwh": 0.06181818181818244
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.07391768292682935,
+          "observations": 656,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 312,
+            "meanGapEurMwh": -0.05330128205128199,
+            "penaltyEurMwh": 0.05330128205128199
+           },
+           {
+            "aggressor": "SELL",
+            "count": 298,
+            "meanGapEurMwh": -0.09436241610738266,
+            "penaltyEurMwh": 0.09436241610738266
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 46,
+            "meanGapEurMwh": -0.08130434782608777,
+            "penaltyEurMwh": 0.08130434782608777
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.07391768292682935,
-         "observations": 656,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 312,
-           "meanGapEurMwh": -0.05330128205128199,
-           "penaltyEurMwh": 0.05330128205128199
-          },
-          {
-           "aggressor": "SELL",
-           "count": 298,
-           "meanGapEurMwh": -0.09436241610738266,
-           "penaltyEurMwh": 0.09436241610738266
-          },
-          {
-           "aggressor": "UNKNOWN",
-           "count": 46,
-           "meanGapEurMwh": -0.08130434782608777,
-           "penaltyEurMwh": 0.08130434782608777
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        },
        "SLOT_VWAP": {
         "freshness": {
-         "status": "LOW_COVERAGE",
-         "value": 86400,
-         "coverage": 0.9113207547169812,
-         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.056891423865550766,
+          "observations": 617,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 9,
+            "meanGapEurMwh": -0.09235762385762945,
+            "penaltyEurMwh": 0.09235762385762945
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 602,
+            "meanGapEurMwh": -0.05653924126853741,
+            "penaltyEurMwh": 0.05653924126853741
+           },
+           {
+            "aggressor": "SELL",
+            "count": 6,
+            "meanGapEurMwh": -0.039027777777773075,
+            "penaltyEurMwh": 0.039027777777773075
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.05774719335816354,
+          "observations": 630,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 12,
+            "meanGapEurMwh": -0.04260155122655599,
+            "penaltyEurMwh": 0.04260155122655599
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 611,
+            "meanGapEurMwh": -0.05693182738831052,
+            "penaltyEurMwh": 0.05693182738831052
+           },
+           {
+            "aggressor": "SELL",
+            "count": 7,
+            "meanGapEurMwh": -0.15488095238094754,
+            "penaltyEurMwh": 0.15488095238094754
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.05774719335816354,
+          "observations": 630,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 12,
+            "meanGapEurMwh": -0.04260155122655599,
+            "penaltyEurMwh": 0.04260155122655599
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 611,
+            "meanGapEurMwh": -0.05693182738831052,
+            "penaltyEurMwh": 0.05693182738831052
+           },
+           {
+            "aggressor": "SELL",
+            "count": 7,
+            "meanGapEurMwh": -0.15488095238094754,
+            "penaltyEurMwh": 0.15488095238094754
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.05774719335816354,
+          "observations": 630,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 12,
+            "meanGapEurMwh": -0.04260155122655599,
+            "penaltyEurMwh": 0.04260155122655599
+           },
+           {
+            "aggressor": "MIXED",
+            "count": 611,
+            "meanGapEurMwh": -0.05693182738831052,
+            "penaltyEurMwh": 0.05693182738831052
+           },
+           {
+            "aggressor": "SELL",
+            "count": 7,
+            "meanGapEurMwh": -0.15488095238094754,
+            "penaltyEurMwh": 0.15488095238094754
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.05774719335816354,
-         "observations": 630,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 12,
-           "meanGapEurMwh": -0.04260155122655599,
-           "penaltyEurMwh": 0.04260155122655599
-          },
-          {
-           "aggressor": "MIXED",
-           "count": 611,
-           "meanGapEurMwh": -0.05693182738831052,
-           "penaltyEurMwh": 0.05693182738831052
-          },
-          {
-           "aggressor": "SELL",
-           "count": 7,
-           "meanGapEurMwh": -0.15488095238094754,
-           "penaltyEurMwh": 0.15488095238094754
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        }
       },
@@ -422,64 +1122,250 @@
       "observations": {
        "LAST_TRADE": {
         "freshness": {
-         "status": "MEASURED",
-         "value": 86400,
-         "coverage": 0.9884615384615385,
-         "reason": null
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.036592427616926264,
+          "observations": 449,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 203,
+            "meanGapEurMwh": -0.03014778325123169,
+            "penaltyEurMwh": 0.03014778325123169
+           },
+           {
+            "aggressor": "SELL",
+            "count": 186,
+            "meanGapEurMwh": -0.043172043010752156,
+            "penaltyEurMwh": 0.043172043010752156
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 60,
+            "meanGapEurMwh": -0.037999999999999305,
+            "penaltyEurMwh": 0.037999999999999305
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.036592427616926264,
+          "observations": 449,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 203,
+            "meanGapEurMwh": -0.03014778325123169,
+            "penaltyEurMwh": 0.03014778325123169
+           },
+           {
+            "aggressor": "SELL",
+            "count": 186,
+            "meanGapEurMwh": -0.043172043010752156,
+            "penaltyEurMwh": 0.043172043010752156
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 60,
+            "meanGapEurMwh": -0.037999999999999305,
+            "penaltyEurMwh": 0.037999999999999305
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.036592427616926264,
+          "observations": 449,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 203,
+            "meanGapEurMwh": -0.03014778325123169,
+            "penaltyEurMwh": 0.03014778325123169
+           },
+           {
+            "aggressor": "SELL",
+            "count": 186,
+            "meanGapEurMwh": -0.043172043010752156,
+            "penaltyEurMwh": 0.043172043010752156
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 60,
+            "meanGapEurMwh": -0.037999999999999305,
+            "penaltyEurMwh": 0.037999999999999305
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.036592427616926264,
+          "observations": 449,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "BUY",
+            "count": 203,
+            "meanGapEurMwh": -0.03014778325123169,
+            "penaltyEurMwh": 0.03014778325123169
+           },
+           {
+            "aggressor": "SELL",
+            "count": 186,
+            "meanGapEurMwh": -0.043172043010752156,
+            "penaltyEurMwh": 0.043172043010752156
+           },
+           {
+            "aggressor": "UNKNOWN",
+            "count": 60,
+            "meanGapEurMwh": -0.037999999999999305,
+            "penaltyEurMwh": 0.037999999999999305
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.036592427616926264,
-         "observations": 449,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "BUY",
-           "count": 203,
-           "meanGapEurMwh": -0.03014778325123169,
-           "penaltyEurMwh": 0.03014778325123169
-          },
-          {
-           "aggressor": "SELL",
-           "count": 186,
-           "meanGapEurMwh": -0.043172043010752156,
-           "penaltyEurMwh": 0.043172043010752156
-          },
-          {
-           "aggressor": "UNKNOWN",
-           "count": 60,
-           "meanGapEurMwh": -0.037999999999999305,
-           "penaltyEurMwh": 0.037999999999999305
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        },
        "SLOT_VWAP": {
         "freshness": {
-         "status": "LOW_COVERAGE",
-         "value": 86400,
-         "coverage": 0.9471153846153846,
-         "reason": "Ningún candidato alcanza la cobertura objetivo 0.95 en la mitad de calibración; se declara el mayor con LOW_COVERAGE."
+         "status": "HYPOTHESIS_GRID",
+         "candidatesSeconds": [
+          900,
+          1800,
+          3600,
+          14400,
+          86400
+         ],
+         "selectedSeconds": null,
+         "selectionZone": "DEVELOPMENT",
+         "metricId": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1"
+        },
+        "penaltiesByFreshness": {
+         "900": {
+          "status": "MEASURED",
+          "value": 0.04604288354281691,
+          "observations": 451,
+          "freshnessLimitSeconds": 900,
+          "byAggressor": [
+           {
+            "aggressor": "MIXED",
+            "count": 451,
+            "meanGapEurMwh": -0.04604288354281691,
+            "penaltyEurMwh": 0.04604288354281691
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "1800": {
+          "status": "MEASURED",
+          "value": 0.04604288354281691,
+          "observations": 451,
+          "freshnessLimitSeconds": 1800,
+          "byAggressor": [
+           {
+            "aggressor": "MIXED",
+            "count": 451,
+            "meanGapEurMwh": -0.04604288354281691,
+            "penaltyEurMwh": 0.04604288354281691
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "3600": {
+          "status": "MEASURED",
+          "value": 0.04604288354281691,
+          "observations": 451,
+          "freshnessLimitSeconds": 3600,
+          "byAggressor": [
+           {
+            "aggressor": "MIXED",
+            "count": 451,
+            "meanGapEurMwh": -0.04604288354281691,
+            "penaltyEurMwh": 0.04604288354281691
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         },
+         "14400": {
+          "status": "UNKNOWN",
+          "value": null,
+          "observations": 0,
+          "freshnessLimitSeconds": 14400,
+          "byAggressor": [],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": "Menos de 30 observaciones BELOW_MEAN dentro del límite de frescura de la mitad de calibración; la penalización trade->ask no se congela con una muestra insuficiente (nunca se sustituye por cero)."
+         },
+         "86400": {
+          "status": "MEASURED",
+          "value": 0.04604288354281691,
+          "observations": 451,
+          "freshnessLimitSeconds": 86400,
+          "byAggressor": [
+           {
+            "aggressor": "MIXED",
+            "count": 451,
+            "meanGapEurMwh": -0.04604288354281691,
+            "penaltyEurMwh": 0.04604288354281691
+           }
+          ],
+          "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
+          "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
+          "reason": null
+         }
         },
         "penalty": {
-         "status": "MEASURED",
-         "value": 0.04604288354281691,
-         "observations": 451,
-         "freshnessLimitSeconds": 86400,
-         "byAggressor": [
-          {
-           "aggressor": "MIXED",
-           "count": 451,
-           "meanGapEurMwh": -0.04604288354281691,
-           "penaltyEurMwh": 0.04604288354281691
-          }
-         ],
-         "aggregationRuleId": "PENALTY_BY_DECLARED_AGGRESSOR_GROUP",
-         "signRuleId": "PENALTY_SIGN_UNRESTRICTED",
-         "reason": null
+         "status": "UNKNOWN",
+         "value": null,
+         "reason": "La penalización depende de la frescura elegida en Development."
         }
        }
       },
@@ -487,6 +1373,30 @@
      }
     }
    }
+  },
+  "freshnessSelection": {
+   "metric": {
+    "id": "DEVELOPMENT_PAIRED_FILL_IMPROVEMENT_V1",
+    "zone": "DEVELOPMENT",
+    "unit": "EUR/MWh per campaign",
+    "objective": "MAXIMIZE_MEAN_BASELINE_MINUS_MEAN_DIP10_HOUR",
+    "tieBreak": [
+     "MORE_COMPLETE_PAIRS",
+     "SHORTER_FRESHNESS_SECONDS"
+    ],
+    "rules": [
+     "LAST_TRADE",
+     "SLOT_VWAP"
+    ]
+   },
+   "gridSeconds": [
+    900,
+    1800,
+    3600,
+    14400,
+    86400
+   ],
+   "results": null
   },
   "sensitivityGrid": {
    "id": "TRADES_V1_SENSITIVITY_GRID",
@@ -502,17 +1412,17 @@
     900,
     1800,
     3600,
-    7200,
+    14400,
     86400
    ],
    "observationRules": [
     "LAST_TRADE",
     "SLOT_VWAP"
    ],
-   "declaration": "DECLARED/PROVISIONAL (REGLA 2): grilla de ingeniería predeclarada antes de cualquier run; no es un valor canónico ni se ajusta mirando resultados de estrategia."
+   "declaration": "Grilla fijada por Bru el 2026-09-26 antes de mirar resultados TRADES; la elección por misión se hace sólo con Development walk-forward."
   },
   "bridgeGate": {
-   "id": "TRADES_BRIDGE_GATE_V1",
+   "id": "TRADES_BRIDGE_CONTRAST_V2",
    "zone": "PUENTE",
    "window": {
     "startIso": "2025-08-12",
@@ -527,77 +1437,37 @@
    ],
    "toBridgeResultsAlreadyKnown": true,
    "independence": "NOT_INDEPENDENT_VALIDATION",
-   "thresholdStatus": "DECLARED/PROVISIONAL",
+   "thresholdStatus": "NO_AUTOMATIC_THRESHOLD",
    "metrics": [
     {
      "id": "BUY_WAIT_AGREEMENT",
-     "section": "plan TR-04",
      "description": "% de decisiones BUY/WAIT iguales entre TOB y TRADES",
-     "definition": "fracción de días-decisión con la misma decisión BUY/WAIT entre TOB y TRADES, por misión y por brazo",
-     "unit": "fraction",
-     "aggregate": "por misión y por brazo",
-     "threshold": {
-      "kind": "min_agreement_fraction_vs_tob",
-      "value": 0.8
-     },
-     "passCriterion": "agreement(TOB, TRADES) >= 0.8",
-     "failCriterion": "agreement(TOB, TRADES) < 0.8"
+     "definition": "fracción pareada de decisiones iguales por misión y brazo",
+     "unit": "fraction"
     },
     {
      "id": "BOUGHT_MW",
-     "section": "plan TR-04",
-     "description": "MW comprados: contraste TOB vs TRADES",
-     "definition": "diferencia absoluta entre la fracción de completion (comprado / target de la obligación) de TRADES y la de TOB, por misión y por brazo; una obligación que no puede completarse por falta de trades se declara DATA_INCOMPLETE, no FAIL",
-     "unit": "fraction_of_target",
-     "threshold": {
-      "kind": "max_abs_delta_vs_tob",
-      "value": 0.05
-     },
-     "passCriterion": "abs(completion(TRADES) - completion(TOB)) <= 0.05",
-     "failCriterion": "abs(completion(TRADES) - completion(TOB)) > 0.05"
+     "description": "MW comprados por modo",
+     "definition": "fracción de la obligación comprada por modo, misión y brazo",
+     "unit": "fraction_of_target"
     },
     {
      "id": "FILL_PRICE",
-     "section": "plan TR-04",
-     "description": "precio de fill: contraste TOB vs TRADES",
-     "definition": "diferencia absoluta entre el precio de fill medio de TRADES (trade observado + penalización trade->ask + 0,15 EUR/MWh, patch 03 §3.3) y el de TOB, por misión y por brazo",
-     "unit": "EUR/MWh",
-     "threshold": {
-      "kind": "max_abs_delta_vs_tob",
-      "value": 0.5
-     },
-     "passCriterion": "abs(fillEurMwh(TRADES) - fillEurMwh(TOB)) <= 0.5",
-     "failCriterion": "abs(fillEurMwh(TRADES) - fillEurMwh(TOB)) > 0.5"
+     "description": "precio de fill medio por modo",
+     "definition": "precio medio de fills por modo, misión y brazo",
+     "unit": "EUR/MWh"
     },
     {
      "id": "H",
-     "section": "plan TR-04 / SPEC §5.5",
-     "description": "H: coste all-in unitario de cubrir la obligación completa; contraste TOB vs TRADES",
-     "definition": "diferencia absoluta entre el coste all-in unitario H de TRADES y el de TOB, derivados del execution ledger (SPEC §5.5); cada coste atribuible entra exactamente una vez y fees UNKNOWN no se representan como cero",
-     "unit": "EUR/MWh",
-     "threshold": {
-      "kind": "max_abs_delta_vs_tob",
-      "value": 0.5
-     },
-     "passCriterion": "abs(h(TRADES) - h(TOB)) <= 0.5",
-     "failCriterion": "abs(h(TRADES) - h(TOB)) > 0.5"
+     "description": "H por modo",
+     "definition": "coste unitario de obligación completa; incompleto = unavailable",
+     "unit": "EUR/MWh"
     },
     {
      "id": "DELTA_V",
-     "section": "plan TR-04",
-     "description": "ΔV entre brazos (sólo con los dos brazos completos; el benchmark se cancela) y contraste con TOB",
-     "definition": "ΔV por brazo respecto de Baseline, sólo con ambos brazos completos (el benchmark se cancela, SPEC §13.7); se compara el signo de cada brazo y el orden Baseline / DIP10 / HOUR contra el puente TOB",
-     "unit": "EUR",
-     "threshold": {
-      "kind": "sign_order_match_vs_tob",
-      "value": [
-       "BASELINE",
-       "DIP10",
-       "HOUR"
-      ]
-     },
-     "passCriterion": "el signo de ΔV de cada brazo y el orden Baseline / DIP10 / HOUR coinciden con el puente TOB",
-     "failCriterion": "una inversión del signo de ΔV o del orden de brazos respecto del puente TOB"
+     "description": "ΔV, signo y orden de brazos",
+     "definition": "ΔV contra Baseline, signo y orden de los tres brazos por modo",
+     "unit": "EUR"
     }
    ],
    "armOrderRule": {
@@ -607,16 +1477,17 @@
      "DIP10",
      "HOUR"
     ],
-    "rule": "se verifica el signo de ΔV y el orden Baseline / DIP10 / HOUR contra el puente TOB; una inversión es fallo del gate."
+    "rule": "Reportar signo y orden de TOB y TRADES; Bru decide con las cifras a la vista."
    },
-   "declaration": "DECLARED: los resultados TOB del puente ya son conocidos; el gate se predeclara sabiéndolo y tiene poca potencia (3 Gas Q con TOB). No es validación independiente (patch 03 §5 riesgo 2)."
+   "declaration": "Contraste descriptivo del puente, ya conocido y no independiente. Sin umbrales automáticos; decisión de Bru con números visibles."
   },
   "generatedFrom": {
    "bridgeMeasurement": "operations/trades/TR-03/bridge-measurement.json",
    "bridgeMeasurementSha256": "533f51aa4c8fbf68f53d297a4b4d870f9b947362ecdfa5d281e81044256fc72e",
+   "developmentSelectionSha256": null,
    "sourceDecision": "operations/trades/TR-01/DATA_SOURCE_DECISION.json"
   },
-  "configHash": "7d1aa1e763423114c56d3a93fe86b2e45c74b040202f65dd4256e894ba51b327"
+  "configHash": "47dfcc6e422d2d4b6afe39d402c2efedfe33ca605b7376d2eabce839ac34d98a"
  },
  "frozenContract": null,
  "inputs": {
@@ -628,6 +1499,10 @@
   "measurementStatus": {
    "path": "operations/trades/TR-03/BRIDGE_MEASUREMENT_STATUS.json",
    "present": true
+  },
+  "developmentSelection": {
+   "path": "operations/trades/TR-09/DEVELOPMENT_SELECTION.json",
+   "present": false
   },
   "sourceDecision": {
    "path": "operations/trades/TR-01/DATA_SOURCE_DECISION.json",
