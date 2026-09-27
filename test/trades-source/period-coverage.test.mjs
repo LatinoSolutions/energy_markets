@@ -181,7 +181,7 @@ test("PARCHE VERIFICADO elige archivo, lago normal y DATA_INCOMPLETE para día c
     archiveRange: { from: days[0], to: "2026-09-11" },
     lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
     lakeRange: { from: days[0], to: days.at(-1) },
-    lakeCoverage: records,
+    lakeCoverage: records, archiveCoverage: records,
   });
   assert.deepEqual(selected.map((row) => row.source), [
     "CLIENT_SEALED_ARCHIVE", "EEX_LAKE_PATCH", "DATA_INCOMPLETE", "DATA_INCOMPLETE",
@@ -194,12 +194,13 @@ test("PARCHE VERIFICADO elige archivo, lago normal y DATA_INCOMPLETE para día c
     windowDays: [days[3]], archivePartitions: { included: {}, excluded: {} },
     archiveRange: { from: days[0], to: days.at(-1) },
     lakePartitions: { included: { [days[3]]: 1 }, excluded: {} },
-    lakeRange: { from: days[0], to: days.at(-1) }, lakeCoverage: records,
+    lakeRange: { from: days[0], to: days.at(-1) }, lakeCoverage: records, archiveCoverage: records,
   })[0].source, "DATA_INCOMPLETE");
 });
 
 test("un día del archivo con pulls incluidos y excluidos usa sólo el lago si supera la regla", () => {
   const days = ["2021-03-01", "2021-03-02", "2021-03-03", "2021-03-04", "2021-03-05"];
+  const records = days.map((trdDate, index) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: index === 4 ? 1 : 10 }));
   const selected = resolveVerifiedPatchDays({
     campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
     windowDays: [days[3], days[4]],
@@ -210,7 +211,7 @@ test("un día del archivo con pulls incluidos y excluidos usa sólo el lago si s
     archiveRange: { from: days[0], to: days.at(-1) },
     lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
     lakeRange: { from: days[0], to: days.at(-1) },
-    lakeCoverage: days.map((trdDate, index) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: index === 4 ? 1 : 10 })),
+    lakeCoverage: records, archiveCoverage: records,
   });
   assert.deepEqual(selected.map((row) => row.source), ["EEX_LAKE_PATCH", "DATA_INCOMPLETE"]);
   assert.equal(selected[1].reason, "BELOW_COMPLETENESS_THRESHOLD");
@@ -218,6 +219,7 @@ test("un día del archivo con pulls incluidos y excluidos usa sólo el lago si s
 
 test("los días con pulls excluidos nunca cuentan como pares normales del contrato", () => {
   const days = ["2021-03-01", "2021-03-02", "2021-03-03", "2021-03-04", "2021-03-05", "2021-03-06"];
+  const records = days.map((trdDate, index) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: index === 4 ? 100 : 3 }));
   const selected = resolveVerifiedPatchDays({
     campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
     windowDays: [days[5]],
@@ -226,9 +228,64 @@ test("los días con pulls excluidos nunca cuentan como pares normales del contra
     archiveRange: { from: days[0], to: days[5] },
     lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
     lakeRange: { from: days[0], to: days[5] },
-    lakeCoverage: days.map((trdDate, index) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: index === 4 ? 100 : 3 })),
+    lakeCoverage: records, archiveCoverage: records,
   });
   assert.deepEqual(selected, [{ day: days[5], source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: 3, peerDays: 1 }]);
+});
+
+test("una partición sellada sin trades del contrato medidos en el archivo no es un par", () => {
+  const days = ["2021-03-01", "2021-03-02", "2021-03-03", "2021-03-04"];
+  const records = days.map((trdDate) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: 10 }));
+  const selected = resolveVerifiedPatchDays({
+    campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
+    windowDays: [days[3]], archivePartitions: { included: Object.fromEntries(days.slice(0, 3).map((day) => [day, 1])), excluded: {} },
+    archiveRange: { from: days[0], to: days[3] },
+    lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    lakeRange: { from: days[0], to: days[3] },
+    lakeCoverage: records, archiveCoverage: records.slice(0, 2),
+  });
+  assert.deepEqual(selected, [{ day: days[3], source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: 10, peerDays: 2 }]);
+});
+
+test("el inventario real permite verificar Development con pares sellados de otras maturities", () => {
+  const inputs = repoInputs();
+  const archive = inputs.sourcePartitions.sources.CLIENT_SEALED_ARCHIVE;
+  const lake = inputs.sourcePartitions.sources.EEX_LAKE;
+  const lakePartitions = indexLakePartitions(lake.listing);
+  const range = (id) => {
+    const { dateMin, dateMax } = inputs.tr01Decision.candidates.find((candidate) => candidate.id === id).inventory;
+    return { from: dateMin, to: dateMax };
+  };
+  const cases = [
+    { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ",
+      day: "2021-03-01", peerMaturity: "202204", peers: ["2021-11-29", "2021-12-03", "2021-12-13"] },
+    { campaignId: "GAS-M-2021-03", mission: "Monthly", maturity: "2021-03", shortCode: "G0BM",
+      day: "2021-02-01", peerMaturity: "202111", peers: ["2021-10-04", "2021-10-05", "2021-10-06"] },
+  ];
+  const archiveMeasurement = JSON.parse(readFileSync("operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json", "utf8"));
+  for (const { day, peers, peerMaturity, ...campaign } of cases) {
+    assert.equal(classifyDay({ day, partitions: archive.partitions[TRADE_GAS], range: range("CLIENT_SEALED_ARCHIVE") }), DAY_STATUS.EXCLUDED_BY_CLIENT);
+    for (const peerDay of peers) {
+      assert.equal(classifyDay({ day: peerDay, partitions: archive.partitions[TRADE_GAS], range: range("CLIENT_SEALED_ARCHIVE") }), DAY_STATUS.SEALED);
+      assert.equal(classifyDay({ day: peerDay, partitions: lakePartitions[TRADE_GAS], range: range("EEX_LAKE") }), DAY_STATUS.SEALED);
+      assert.ok(archiveMeasurement.coverage.some((row) => row.shortCode === campaign.shortCode && row.maturity === peerMaturity
+        && row.trdDate === peerDay && row.eligibleCount > 0));
+    }
+    const records = [
+      { shortCode: campaign.shortCode, maturity: campaign.mission === "Quarterly" ? "202107" : "202103", trdDate: day, eligibleCount: 10 },
+      ...peers.map((trdDate) => ({ shortCode: campaign.shortCode, maturity: peerMaturity, trdDate, eligibleCount: 10 })),
+      // Parecen próximos, pero sus pulls fueron excluidos por el cliente.
+      ...[1, 2, 3].map((offset) => ({ shortCode: campaign.shortCode, maturity: campaign.mission === "Quarterly" ? "202107" : "202103",
+        trdDate: new Date(Date.parse(`${day}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10), eligibleCount: 1 })),
+    ];
+    const resolve = (lakeCoverage) => resolveVerifiedPatchDays({ campaign, windowDays: [day],
+      archivePartitions: archive.partitions[TRADE_GAS], archiveRange: range("CLIENT_SEALED_ARCHIVE"),
+      lakePartitions: lakePartitions[TRADE_GAS], lakeRange: range("EEX_LAKE"), lakeCoverage,
+      archiveCoverage: archiveMeasurement.coverage });
+    assert.deepEqual(resolve(records), [{ day, source: "EEX_LAKE_PATCH", eligibleTrades: 10, peerDays: 3, peerMedian: 10, threshold: 5 }]);
+    assert.deepEqual(resolve([{ ...records[0], eligibleCount: 1 }, ...records.slice(1)]),
+      [{ day, source: "DATA_INCOMPLETE", reason: "BELOW_COMPLETENESS_THRESHOLD", eligibleTrades: 1, peerDays: 3, peerMedian: 10, threshold: 5 }]);
+  }
 });
 
 test("un hueco de TOB requerido selecciona el día entero del lago sólo con TOB y trades completos", () => {
@@ -245,6 +302,7 @@ test("un hueco de TOB requerido selecciona el día entero del lago sólo con TOB
     lakeTobPartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
     lakeRange: { from: days[0], to: days[3] },
     lakeCoverage: days.map((trdDate) => ({ shortCode: "G0BQ", maturity: "202601", trdDate, eligibleCount: 10 })),
+    archiveCoverage: days.map((trdDate) => ({ shortCode: "G0BQ", maturity: "202601", trdDate, eligibleCount: 10 })),
   };
   assert.equal(resolveVerifiedPatchDays(input)[0].source, "EEX_LAKE_PATCH");
   assert.deepEqual(resolveVerifiedPatchDays({ ...input,
@@ -432,6 +490,10 @@ test("tras ambas mediciones del job, el productor reconstruye cobertura y manife
     archiveTrades.included[day] = 1;
     delete archiveTrades.excluded[day];
   }
+  const archiveGas = JSON.parse(parsed.archiveMeasurementGas.toString());
+  archiveGas.coverage = ["2021-03-01", "2021-03-02", "2021-03-03"].map((trdDate) =>
+    ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: 10 }));
+  sealArchiveMeasurement(parsed, "Gas", archiveGas);
   const gas = lakeMeasurementFixture(parsed);
   gas.coverage = [
     { shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-01", eligibleCount: 10 },

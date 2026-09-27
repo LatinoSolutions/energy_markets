@@ -3,7 +3,7 @@
  "schemaVersion": "1.0",
  "artifact": {
   "path": "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json",
-  "sha256": "8a8c253f9de40c6b7c10b24884fb8d91af61abaaf7318fa370974df3b2c23755"
+  "sha256": "3d495cfd5ed64ecdaae5095328fb0467c0a920caeeec10afbe4281415599ec8f"
  },
  "inputs": {
   "sourcePartitions": {
@@ -62,11 +62,11 @@
  "producer": [
   {
    "path": "operations/trades/DATA-02/build-source-period-coverage.mjs",
-   "sha256": "676d0aff63c08e522753eef66899063a62549f3819da94ccca1fcaac26aa3df1"
+   "sha256": "9b17bef510a79cdcdb6f1050ce69e5e48f46a3f14ebf2a4b0fe6a9fdddfb6412"
   },
   {
    "path": "src/trades-source/period-coverage.mjs",
-   "sha256": "0945959b28f895232d66485036aea1df00f3f87d50a0527e3c703778e1447dd1"
+   "sha256": "ddb0e5e840fd82093e48847e1e240656b01b7edb42e19c100ad393bbe288774a"
   }
  ],
  "ownerDecision": "PARCHE_VERIFICADO"
