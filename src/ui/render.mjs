@@ -1767,8 +1767,11 @@ function tr07CoverageHtml(panels, missionId) {
     const patch = campaign.sourcePeriod?.status === "VERIFIED" ? campaign.sourcePeriod.patch : null;
     const lakeDays = patch?.days?.filter((entry) => entry.source === "EEX_LAKE_PATCH").map((entry) => entry.day) ?? [];
     const incompleteDays = patch?.days?.filter((entry) => entry.source === "DATA_INCOMPLETE").map((entry) => entry.day) ?? [];
+    const incompleteDetail = incompleteDays.length <= 5
+      ? (incompleteDays.length ? `: ${esc(incompleteDays.join(", "))}` : "")
+      : `: ${esc(incompleteDays.slice(0, 5).join(", "))} <details><summary>${esc(incompleteDays.length - 5)} more days</summary>${esc(incompleteDays.slice(5).join(", "))}</details>`;
     const sourceNote = patch
-      ? `<div class="tiny muted" data-tr07-period-sha="${esc(campaign.sourcePeriod.provenance.sha256)}">CLIENT_SEALED_ARCHIVE base · EEX_LAKE_PATCH ${esc(lakeDays.length)} d${lakeDays.length ? `: ${esc(lakeDays.join(", "))}` : ""} · DATA_INCOMPLETE ${esc(incompleteDays.length)} d</div>`
+      ? `<div class="tiny muted" data-tr07-period-sha="${esc(campaign.sourcePeriod.provenance.sha256)}">CLIENT_SEALED_ARCHIVE base · EEX_LAKE_PATCH ${esc(lakeDays.length)} d${lakeDays.length ? `: ${esc(lakeDays.join(", "))}` : ""} · DATA_INCOMPLETE ${esc(incompleteDays.length)} d${incompleteDetail}</div>`
       : `<div class="tiny muted">Source period unavailable: ${esc(campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING")}</div>`;
     return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}${rangeNote}${sourceNote}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td><td class="right mono" data-tr07-eligible-trades="${esc(trades)}">${esc(trades)}</td></tr>`;
   })).join("");

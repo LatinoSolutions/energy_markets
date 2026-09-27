@@ -177,7 +177,7 @@ test("PARCHE VERIFICADO elige archivo, lago normal y DATA_INCOMPLETE para día c
   const selected = resolveVerifiedPatchDays({
     campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
     windowDays: [days[0], days[3], days[4], "2021-03-09"],
-    archivePartitions: { included: { [days[0]]: 1 }, excluded: {} },
+    archivePartitions: { included: Object.fromEntries([days[0], days[1], days[2], days[5]].map((day) => [day, 1])), excluded: {} },
     archiveRange: { from: days[0], to: "2026-09-11" },
     lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
     lakeRange: { from: days[0], to: days.at(-1) },
@@ -203,7 +203,7 @@ test("un día del archivo con pulls incluidos y excluidos usa sólo el lago si s
   const selected = resolveVerifiedPatchDays({
     campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
     windowDays: [days[3], days[4]],
-    archivePartitions: { included: { [days[3]]: 1, [days[4]]: 1 }, excluded: {
+    archivePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {
       [days[3]]: { pulls: 1, reasons: ["missing-date-completion-receipt"] },
       [days[4]]: { pulls: 1, reasons: ["missing-date-completion-receipt"] },
     } },
@@ -214,6 +214,45 @@ test("un día del archivo con pulls incluidos y excluidos usa sólo el lago si s
   });
   assert.deepEqual(selected.map((row) => row.source), ["EEX_LAKE_PATCH", "DATA_INCOMPLETE"]);
   assert.equal(selected[1].reason, "BELOW_COMPLETENESS_THRESHOLD");
+});
+
+test("los días con pulls excluidos nunca cuentan como pares normales del contrato", () => {
+  const days = ["2021-03-01", "2021-03-02", "2021-03-03", "2021-03-04", "2021-03-05", "2021-03-06"];
+  const selected = resolveVerifiedPatchDays({
+    campaign: { campaignId: "GAS-Q-2021Q3", mission: "Quarterly", maturity: "2021Q3", shortCode: "G0BQ" },
+    windowDays: [days[5]],
+    archivePartitions: { included: Object.fromEntries(days.slice(0, 5).map((day) => [day, 1])),
+      excluded: Object.fromEntries(days.slice(0, 4).map((day) => [day, { pulls: 1, reasons: ["missing-date-completion-receipt"] }])) },
+    archiveRange: { from: days[0], to: days[5] },
+    lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    lakeRange: { from: days[0], to: days[5] },
+    lakeCoverage: days.map((trdDate, index) => ({ shortCode: "G0BQ", maturity: "202107", trdDate, eligibleCount: index === 4 ? 100 : 3 })),
+  });
+  assert.deepEqual(selected, [{ day: days[5], source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: 3, peerDays: 1 }]);
+});
+
+test("un hueco de TOB requerido selecciona el día entero del lago sólo con TOB y trades completos", () => {
+  const days = ["2025-09-01", "2025-09-02", "2025-09-03", "2025-09-04"];
+  const input = {
+    campaign: { campaignId: "GAS-Q-2026Q1", mission: "Quarterly", maturity: "2026Q1", shortCode: "G0BQ" },
+    windowDays: [days[3]], tobRequired: true,
+    archivePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    archiveTobPartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {
+      [days[3]]: { pulls: 1, reasons: ["missing-date-completion-receipt"] },
+    } },
+    archiveRange: { from: days[0], to: days[3] },
+    lakePartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    lakeTobPartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+    lakeRange: { from: days[0], to: days[3] },
+    lakeCoverage: days.map((trdDate) => ({ shortCode: "G0BQ", maturity: "202601", trdDate, eligibleCount: 10 })),
+  };
+  assert.equal(resolveVerifiedPatchDays(input)[0].source, "EEX_LAKE_PATCH");
+  assert.deepEqual(resolveVerifiedPatchDays({ ...input,
+    lakeTobPartitions: { included: Object.fromEntries(days.slice(0, 3).map((day) => [day, 1])), excluded: {} },
+  })[0], { day: days[3], source: "DATA_INCOMPLETE", reason: "LAKE_TOB_PARTITION_ABSENT" });
+  assert.equal(resolveVerifiedPatchDays({ ...input,
+    archiveTobPartitions: { included: Object.fromEntries(days.map((day) => [day, 1])), excluded: {} },
+  })[0].source, "CLIENT_SEALED_ARCHIVE");
 });
 
 function repoInputs() {
@@ -260,6 +299,15 @@ test("el productor registra PARCHE VERIFICADO sin declarar completos los datos d
     createHash("sha256").update(JSON.stringify(PATCH_COMPLETENESS_RULE)).digest("hex"));
   const gap = artifact.campaigns.find((entry) => entry.campaignId === "GAS-Q-2021Q3");
   assert.ok(gap.patch.days.some((entry) => entry.source === "DATA_INCOMPLETE"));
+});
+
+test("el hueco real de TOB Power del puente no se atribuye al archivo sellado", () => {
+  const artifact = buildSourcePeriodCoverage(repoInputs());
+  const power = artifact.campaigns.find((entry) => entry.campaignId === "POW-Q-2026Q3");
+  assert.equal(power.bySource.CLIENT_SEALED_ARCHIVE.tradePartitions.notSealedDays.some((entry) => entry.day === "2026-04-17"), false);
+  assert.equal(power.bySource.CLIENT_SEALED_ARCHIVE.tobPartitions.notSealedDays.some((entry) => entry.day === "2026-04-17"), true);
+  assert.deepEqual(power.patch.days.find((entry) => entry.day === "2026-04-17"),
+    { day: "2026-04-17", source: "DATA_INCOMPLETE", reason: "LAKE_NOT_MEASURED" });
 });
 
 test("la regla se fija sin consumir resultados de estrategia", () => {
@@ -377,6 +425,13 @@ function sealLakeMeasurement(inputs, measurement) {
 
 test("tras ambas mediciones del job, el productor reconstruye cobertura y manifest con días de parche", () => {
   const parsed = repoInputs();
+  // Fixture contrafactual: tres días sellados del mismo contrato permiten
+  // verificar el cuarto. El inventario real de marzo de 2021 los excluye.
+  const archiveTrades = parsed.sourcePartitions.sources.CLIENT_SEALED_ARCHIVE.partitions[TRADE_GAS];
+  for (const day of ["2021-03-01", "2021-03-02", "2021-03-03"]) {
+    archiveTrades.included[day] = 1;
+    delete archiveTrades.excluded[day];
+  }
   const gas = lakeMeasurementFixture(parsed);
   gas.coverage = [
     { shortCode: "G0BQ", maturity: "202107", trdDate: "2021-03-01", eligibleCount: 10 },

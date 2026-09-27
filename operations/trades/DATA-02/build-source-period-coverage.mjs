@@ -167,7 +167,7 @@ export function buildSourcePeriodCoverage(inputs) {
       eligibleTrades: "Días de la ventana con al menos un trade elegible del contrato de la campaign (ShortCode|YYYYMM), desde el campo coverage de TRADES_MEASUREMENT de TR-01.",
       tobPartitions: "Igual que tradePartitions sobre eex_derivative_top_of_book; required sólo en PUENTE (patch 03 §4).",
       calendar: "La ventana sale del calendario de la misión y del mercado (patch 03 §3.4), nunca de la presencia de data.",
-      noMixing: "Cada fuente se mide por separado; patch.days declara la elección por día y deja los no verificables DATA_INCOMPLETE.",
+      noMixing: "Cada fuente se mide por separado; patch.days elige el día entero (trades y TOB requerido), compara sólo con pares normales sellados del archivo y deja los no verificables DATA_INCOMPLETE.",
     },
     tr01Comparison: {
       decisionStatus: tr01Decision.status,
@@ -182,7 +182,7 @@ export function buildSourcePeriodCoverage(inputs) {
       selectedSource: "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
       baseSource: "CLIENT_SEALED_ARCHIVE",
       patchSource: "EEX_LAKE_PATCH",
-      rule: "Un día ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar su completitud frente a días normales del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
+      rule: "Un día con trades o TOB requerido ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar sus particiones y los trades elegibles frente a días normales sellados del mismo contrato y distancia a entrega; si no se verifica, DATA_INCOMPLETE.",
       verificationStatus: lakeNotMeasured.length > 0 ? "PENDING_LAKE_MEASUREMENT" : "RULE_APPLIED",
       unmeasuredLakeMarkets: lakeNotMeasured,
       completenessRule: PATCH_COMPLETENESS_RULE,
