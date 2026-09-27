@@ -182,7 +182,7 @@ export function buildSourcePeriodCoverage(inputs) {
       selectedSource: "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
       baseSource: "CLIENT_SEALED_ARCHIVE",
       patchSource: "EEX_LAKE_PATCH",
-      rule: "Un día con trades o TOB requerido ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar sus particiones y los trades elegibles frente a días normales sellados del mismo ShortCode, a 14 días o menos tanto de la fecha como de la distancia de cada contrato a su entrega; si no se verifica, DATA_INCOMPLETE.",
+      rule: "Un día con trades o TOB requerido ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar sus particiones y los trades elegibles frente a días normales sellados del mismo ShortCode, a 14 días o menos tanto de la fecha como de la distancia de cada contrato a su entrega; con mediana de pares menor que 3 no se puede verificar y queda DATA_INCOMPLETE. La prueba de calibración reduce el conteo al 30 % conservando al menos un trade; no acredita detección de todo recorte (por ejemplo, uno del 50 %).",
       verificationStatus: lakeNotMeasured.length > 0 ? "PENDING_LAKE_MEASUREMENT" : "RULE_APPLIED",
       unmeasuredLakeMarkets: lakeNotMeasured,
       completenessRule: PATCH_COMPLETENESS_RULE,

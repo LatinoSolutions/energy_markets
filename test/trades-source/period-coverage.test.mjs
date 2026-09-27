@@ -251,10 +251,52 @@ test("una partición sellada sin trades del contrato medidos en el archivo no es
   assert.deepEqual(selected, [{ day: days[3], source: "DATA_INCOMPLETE", reason: "INSUFFICIENT_PEER_DAYS", eligibleTrades: 10, peerDays: 2 }]);
 });
 
-// Límites versionados de calibración: en cada
-// misión y año Development 2021–2024 se admiten como máximo 25 % de rechazos
-// de días sellados y como máximo 35 % de aprobaciones de días recortados a 30 %.
-const MIN_SEALED_ACCEPTANCE = 0.75;
+test("una mediana de pares de 2 o menos no acredita completitud aunque el lago tenga trades", () => {
+  const day = "2021-03-04";
+  const delivery = Date.parse("2021-07-01T00:00:00Z");
+  for (const peerCount of [1, 2]) {
+    const peers = ["2021-03-01", "2021-03-02", "2021-03-03"].map((peerDay) => ({
+      contract: "G0BQ|202107", day: peerDay, count: peerCount,
+      time: Date.parse(`${peerDay}T00:00:00Z`),
+      distance: delivery - Date.parse(`${peerDay}T00:00:00Z`),
+    }));
+    assert.deepEqual(verifyPatchCompleteness({ day, delivery, contract: "G0BQ|202107", count: 100, peers }), {
+      source: "DATA_INCOMPLETE", reason: "LOW_PEER_MEDIAN_UNVERIFIABLE", eligibleTrades: 100,
+      peerDays: 3, peerMedian: peerCount,
+    });
+  }
+  assert.equal(PATCH_COMPLETENESS_RULE.minVerifiablePeerMedian, 3);
+});
+
+test("los huecos reales de G0BQ con pares escasos siguen DATA_INCOMPLETE", () => {
+  const inputs = repoInputs();
+  const archive = inputs.sourcePartitions.sources.CLIENT_SEALED_ARCHIVE;
+  const lake = inputs.sourcePartitions.sources.EEX_LAKE;
+  const ranges = Object.fromEntries(inputs.tr01Decision.candidates.map(({ id, inventory }) =>
+    [id, { from: inventory.dateMin, to: inventory.dateMax }]));
+  const archiveCoverage = JSON.parse(readFileSync("operations/trades/TR-01/TRADES_MEASUREMENT-gas-the.json", "utf8")).coverage;
+  const campaigns = inputs.zonePlan.missions.GAS_QUARTERLY.zones.DEVELOPMENT;
+  for (const day of ["2021-10-26", "2022-03-28", "2022-04-14"]) {
+    const campaign = campaigns.find((item) => day >= item.windowStart && day <= item.windowEnd);
+    assert.ok(campaign, `${day}: falta campaña Development`);
+    const selected = resolveVerifiedPatchDays({ campaign, windowDays: [day],
+      archivePartitions: archive.partitions[TRADE_GAS], archiveRange: ranges.CLIENT_SEALED_ARCHIVE,
+      lakePartitions: indexLakePartitions(lake.listing)[TRADE_GAS], lakeRange: ranges.EEX_LAKE,
+      archiveCoverage,
+      lakeCoverage: [{ shortCode: "G0BQ", maturity: legacyMaturityFor(campaign.mission, campaign.maturity),
+        trdDate: day, eligibleCount: 100 }],
+    })[0];
+    assert.equal(selected.source, "DATA_INCOMPLETE", `${day}: no debe aceptarse por un único trade`);
+    assert.equal(selected.reason, "LOW_PEER_MEDIAN_UNVERIFIABLE", `${day}: motivo explícito`);
+    assert.ok(selected.peerMedian <= 2, `${day}: mediana observada`);
+  }
+});
+
+// Guardias de regresión calibradas con los conteos de TR-01: entre días con
+// pares verificables, al menos 70 % de los sellados debe pasar; entre días que
+// realmente pueden reducirse y conservan un trade, al menos 65 % debe fallar.
+// No se presentan como límites predeclarados antes de observar TR-01.
+const MIN_SEALED_ACCEPTANCE = 0.70;
 const MIN_TRUNCATION_DETECTION = 0.65;
 
 test("leave-one-out de TR-01: la regla local conserva días sellados y detecta cortes por misión y año", (t) => {
@@ -289,12 +331,20 @@ test("leave-one-out de TR-01: la regla local conserva días sellados y detecta c
         const year = day.slice(0, 4);
         if (year < "2021" || year > "2024") continue;
         const key = `${missionKey}|${year}`;
-        const totals = results.get(key) ?? { sealed: 0, accepted: 0, truncatedRejected: 0 };
+        const totals = results.get(key) ?? { sealed: 0, verifiable: 0, accepted: 0, truncatable: 0, truncatedRejected: 0 };
         totals.sealed += 1;
         const normal = verifyPatchCompleteness({ day, delivery, contract, count, peers });
-        const truncated = verifyPatchCompleteness({ day, delivery, contract, count: Math.floor(count * 0.3), peers });
-        totals.accepted += Number(normal.source === "EEX_LAKE_PATCH");
-        totals.truncatedRejected += Number(truncated.source === "DATA_INCOMPLETE");
+        const truncatedCount = Math.max(1, Math.floor(count * 0.3));
+        assert.ok(truncatedCount > 0, `${key}: el recorte no debe convertirse en cero`);
+        const truncated = verifyPatchCompleteness({ day, delivery, contract, count: truncatedCount, peers });
+        if (normal.reason !== "LOW_PEER_MEDIAN_UNVERIFIABLE") {
+          totals.verifiable += 1;
+          totals.accepted += Number(normal.source === "EEX_LAKE_PATCH");
+          if (truncatedCount < count) {
+            totals.truncatable += 1;
+            totals.truncatedRejected += Number(truncated.source === "DATA_INCOMPLETE");
+          }
+        }
         results.set(key, totals);
       }
     }
@@ -303,11 +353,13 @@ test("leave-one-out de TR-01: la regla local conserva días sellados y detecta c
     const key = `${missionKey}|${year}`;
     const totals = results.get(key);
     assert.ok(totals?.sealed >= 30, `${key}: muestra sellada insuficiente`);
-    assert.ok(totals.accepted / totals.sealed >= MIN_SEALED_ACCEPTANCE,
-      `${key}: ${totals.accepted}/${totals.sealed} días completos aprobados`);
-    assert.ok(totals.truncatedRejected / totals.sealed >= MIN_TRUNCATION_DETECTION,
-      `${key}: ${totals.truncatedRejected}/${totals.sealed} días recortados detectados`);
-    t.diagnostic(`${key}: sellados ${totals.accepted}/${totals.sealed}; recortados detectados ${totals.truncatedRejected}/${totals.sealed}`);
+    t.diagnostic(`${key}: sellados ${totals.accepted}/${totals.verifiable} verificables de ${totals.sealed}; recortados detectados ${totals.truncatedRejected}/${totals.truncatable}`);
+    assert.ok(totals.verifiable >= 10, `${key}: muestra verificable insuficiente`);
+    assert.ok(totals.accepted / totals.verifiable >= MIN_SEALED_ACCEPTANCE,
+      `${key}: ${totals.accepted}/${totals.verifiable} días completos verificables aprobados`);
+    assert.ok(totals.truncatable >= 10, `${key}: muestra recortable insuficiente`);
+    assert.ok(totals.truncatedRejected / totals.truncatable >= MIN_TRUNCATION_DETECTION,
+      `${key}: ${totals.truncatedRejected}/${totals.truncatable} días recortados detectados`);
   }
 });
 

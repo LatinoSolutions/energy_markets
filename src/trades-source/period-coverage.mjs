@@ -14,17 +14,18 @@ export const PERIOD_COVERAGE_VERSION = "DATA-02-period-coverage-6";
 // Calibración DATA-02: leave-one-out de los días sellados de Development de
 // TR-01, por misión y año (test/trades-source/period-coverage.test.mjs). Un
 // mínimo absoluto de dos trades rechazaba días completos de Gas 2021 con un
-// único trade; el umbral proporcional y tres pares sellados siguen detectando
-// días cortados.
+// único trade. Una mediana de pares de 2 o menos no permite distinguir un día
+// completo de un recorte que aún conserva un trade: queda incompleto.
 export const PATCH_COMPLETENESS_RULE = Object.freeze({
-  version: "DATA-02-patch-completeness-4",
+  version: "DATA-02-patch-completeness-5",
   peerDateCalendarDays: 14,
   peerDistanceCalendarDays: 14,
   minPositivePeerDays: 3,
   minDailyEligibleTrades: 1,
+  minVerifiablePeerMedian: 3,
   minFractionOfPeerMedian: 0.5,
   peerScope: "same ShortCode across maturities, within 14 calendar days of both the candidate date and distance to each contract's delivery; positive eligible trades measured in the archive, archive trades SEALED and, when required, archive TOB SEALED; only pre-delivery days",
-  statistic: "median of positive archive eligible-trade counts; candidate >= max(1, ceil(0.5 * median))",
+  statistic: "median of positive archive eligible-trade counts; median < 3 is unverifiable; otherwise candidate >= max(1, ceil(0.5 * median))",
 });
 
 export const PARTITION_TABLES = Object.freeze({
@@ -276,6 +277,10 @@ export function verifyPatchCompleteness({ day, delivery, contract, count, peers 
   }
   const median = counts.length % 2 ? counts[(counts.length - 1) / 2]
     : (counts[counts.length / 2 - 1] + counts[counts.length / 2]) / 2;
+  if (median < PATCH_COMPLETENESS_RULE.minVerifiablePeerMedian) {
+    return { source: "DATA_INCOMPLETE", reason: "LOW_PEER_MEDIAN_UNVERIFIABLE", eligibleTrades: count,
+      peerDays: counts.length, peerMedian: median };
+  }
   const threshold = Math.max(PATCH_COMPLETENESS_RULE.minDailyEligibleTrades,
     Math.ceil(PATCH_COMPLETENESS_RULE.minFractionOfPeerMedian * median));
   return count >= threshold

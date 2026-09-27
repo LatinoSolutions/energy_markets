@@ -23,23 +23,24 @@
   "selectedSource": "CLIENT_SEALED_ARCHIVE_WITH_VERIFIED_LAKE_PATCH",
   "baseSource": "CLIENT_SEALED_ARCHIVE",
   "patchSource": "EEX_LAKE_PATCH",
-  "rule": "Un día con trades o TOB requerido ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar sus particiones y los trades elegibles frente a días normales sellados del mismo ShortCode, a 14 días o menos tanto de la fecha como de la distancia de cada contrato a su entrega; si no se verifica, DATA_INCOMPLETE.",
+  "rule": "Un día con trades o TOB requerido ausente, totalmente excluido o con pulls incluidos y excluidos en el archivo sólo puede cubrirse entero con el lago tras verificar sus particiones y los trades elegibles frente a días normales sellados del mismo ShortCode, a 14 días o menos tanto de la fecha como de la distancia de cada contrato a su entrega; con mediana de pares menor que 3 no se puede verificar y queda DATA_INCOMPLETE. La prueba de calibración reduce el conteo al 30 % conservando al menos un trade; no acredita detección de todo recorte (por ejemplo, uno del 50 %).",
   "verificationStatus": "PENDING_LAKE_MEASUREMENT",
   "unmeasuredLakeMarkets": [
    "GAS_THE",
    "POWER_DE"
   ],
   "completenessRule": {
-   "version": "DATA-02-patch-completeness-4",
+   "version": "DATA-02-patch-completeness-5",
    "peerDateCalendarDays": 14,
    "peerDistanceCalendarDays": 14,
    "minPositivePeerDays": 3,
    "minDailyEligibleTrades": 1,
+   "minVerifiablePeerMedian": 3,
    "minFractionOfPeerMedian": 0.5,
    "peerScope": "same ShortCode across maturities, within 14 calendar days of both the candidate date and distance to each contract's delivery; positive eligible trades measured in the archive, archive trades SEALED and, when required, archive TOB SEALED; only pre-delivery days",
-   "statistic": "median of positive archive eligible-trade counts; candidate >= max(1, ceil(0.5 * median))"
+   "statistic": "median of positive archive eligible-trade counts; median < 3 is unverifiable; otherwise candidate >= max(1, ceil(0.5 * median))"
   },
-  "completenessRuleSha256": "cedc33fc46289d25a86ebcf961946478719f0c14885412ec61ed8d26c3133a6b",
+  "completenessRuleSha256": "b739d2b057d7a3544493f7a0bcff68a00b08e760e9290a748a50fb4ab5e52ec4",
   "provenance": "patch.days declara la fuente de cada día de cada campaign; DATA_INCOMPLETE conserva los huecos que no pasan la regla.",
   "blocks": [
    "FIX-03: requiere medición completa del lago antes de reconstruir días faltantes"
