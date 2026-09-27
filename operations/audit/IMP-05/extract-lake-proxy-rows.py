@@ -41,12 +41,20 @@ import glob
 import hashlib
 import json
 import os
+import sys
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 LAKE = os.environ.get("EEX_LAKE_ROOT", "/srv/hot-data/EEX")
+ARCHIVE = os.environ.get("EEX_ARCHIVE_EXTRACTED_ROOT", "/srv/data/eex-client-archive/extraido")
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "operations/trades/DATA-02"))
+from sealed_archive_files import verified_gas_file_index
+COVERAGE = ROOT / "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json"
+COVERAGE_MANIFEST = ROOT / "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json"
 AREA_DIR = "cmdty=NATGAS/area=THE"
 TOB_TABLE = "eex_derivative_top_of_book"
 TRADE_TABLE = "eex_derivative_trade"
@@ -58,6 +66,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RELEASES = {
     "v1": {"output": os.path.join(HERE, "lake-proxy-rows-IMP-05.json"), "dedupRule": "content-tuple"},
     "v2": {"output": os.path.join(HERE, "lake-proxy-rows-IMP-05-v2.json"), "dedupRule": "observation-key"},
+    "v3": {"output": os.path.join(HERE, "source-proxy-rows-IMP-05-v3.json"), "dedupRule": "observation-key"},
 }
 V1_ROWS_PATH = RELEASES["v1"]["output"]
 
@@ -106,9 +115,40 @@ def float_or_none(value):
         return None
 
 
-def list_files(table, trd_date):
-    pattern = os.path.join(LAKE, f"table={table}", AREA_DIR, f"trd_date={trd_date}", "*", "part.parquet")
+def list_files(table, trd_date, selected_source=None):
+    root = os.path.join(ARCHIVE, "data/lake/v1") if selected_source == "CLIENT_SEALED_ARCHIVE" else LAKE
+    pattern = os.path.join(root, f"table={table}", AREA_DIR, f"trd_date={trd_date}", "*", "part.parquet")
     return sorted(glob.glob(pattern))
+
+
+def verified_source_days(dates):
+    coverage_bytes = COVERAGE.read_bytes()
+    manifest_bytes = COVERAGE_MANIFEST.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    digest = hashlib.sha256(coverage_bytes).hexdigest()
+    if manifest.get("artifact", {}).get("path") != COVERAGE.relative_to(ROOT).as_posix() or manifest["artifact"].get("sha256") != digest:
+        raise ValueError("DATA-02 coverage manifest hash mismatch")
+    decision_path = ROOT / "operations/trades/TR-01/DATA_SOURCE_DECISION.json"
+    if manifest.get("inputs", {}).get("tr01Decision", {}).get("sha256") != hashlib.sha256(decision_path.read_bytes()).hexdigest():
+        raise ValueError("DATA-02 coverage is not bound to TR-01 decision")
+    coverage = json.loads(coverage_bytes)
+    if coverage.get("ownerDecision", {}).get("verificationStatus") != "RULE_APPLIED":
+        raise ValueError("DATA-02 lake measurement is pending; cannot publish IMP-05 v3")
+    selection = {}
+    for day in dates:
+        matches = [item for item in coverage.get("campaigns", []) if item.get("market") == "GAS_THE"
+                   and item.get("shortCode") == "G0BQ" and item.get("windowStart", "") <= day <= item.get("windowEnd", "")]
+        if len(matches) != 1:
+            raise ValueError(f"Missing or ambiguous DATA-02 Gas Quarterly window for {day}")
+        day_rows = [item for item in matches[0].get("patch", {}).get("days", []) if item.get("day") == day]
+        if len(day_rows) != 1 or day_rows[0].get("source") not in ("CLIENT_SEALED_ARCHIVE", "EEX_LAKE_PATCH", "DATA_INCOMPLETE"):
+            raise ValueError(f"Missing verified DATA-02 source for {day}")
+        selection[day] = day_rows[0]["source"]
+    partitions_path = ROOT / "operations/trades/DATA-02/source-partitions.json"
+    partitions_bytes = partitions_path.read_bytes()
+    archive_files = verified_gas_file_index(json.loads(partitions_bytes), hashlib.sha256(partitions_bytes).hexdigest(), manifest, ARCHIVE)
+    return selection, {"path": COVERAGE.relative_to(ROOT).as_posix(), "sha256": digest,
+                       "manifestSha256": hashlib.sha256(manifest_bytes).hexdigest()}, archive_files
 
 
 def choose_contract(trd_date, files_by_table):
@@ -165,7 +205,7 @@ def observation_key(row):
 
 def lake_row(table, row, release):
     entry = lake_row_v1(table, row)
-    if release == "v2":
+    if release in ("v2", "v3"):
         entry["observationKey"] = observation_key(row)
     return entry
 
@@ -191,13 +231,29 @@ def lake_row_v1(table, row):
 
 
 def dedup_key(entry, release):
-    if release == "v2":
+    if release in ("v2", "v3"):
         return (entry["source"], entry["observationKey"])
     return (entry["tmUtc"], entry["source"], entry["price"], entry["bid"], entry["ask"])
 
 
-def extract_date(trd_date, release):
-    files_by_table = {table: list_files(table, trd_date) for table in TABLES}
+def extract_date(trd_date, release, selected_source=None, archive_files=None):
+    files_by_table = {table: ([] if selected_source == "DATA_INCOMPLETE" else list_files(table, trd_date, selected_source)) for table in TABLES}
+    excluded_counts = {table: 0 for table in TABLES}
+    if selected_source == "CLIENT_SEALED_ARCHIVE":
+        included, excluded = archive_files
+        for table in TABLES:
+            relative = {path: os.path.relpath(path, ARCHIVE) for path in files_by_table[table]}
+            if any(item not in included and item not in excluded for item in relative.values()):
+                raise ValueError(f"Unlisted archive parquet for {table} {trd_date}")
+            prefix = f"data/lake/v1/table={table}/cmdty=NATGAS/area=THE/trd_date={trd_date}/"
+            if any(item not in relative.values() for item in included if item.startswith(prefix)):
+                raise ValueError(f"Listed sealed archive parquet missing for {table} {trd_date}")
+            excluded_counts[table] = sum(item in excluded for item in relative.values())
+            if table == TRADE_TABLE and excluded_counts[table]:
+                raise ValueError(f"DATA-02 selected archive trade day with excluded pulls: {trd_date}")
+            files_by_table[table] = [] if table == TOB_TABLE and excluded_counts[table] else [path for path in files_by_table[table] if relative[path] in included]
+    if release == "v3" and selected_source != "DATA_INCOMPLETE" and not files_by_table[TRADE_TABLE]:
+        raise ValueError(f"Selected DATA-02 trade partition missing: {selected_source} {trd_date}")
     contract, identity_complete = choose_contract(trd_date, files_by_table)
     record = {
         "trdDate": trd_date,
@@ -206,6 +262,15 @@ def extract_date(trd_date, release):
         "sourceCounts": {},
         "rows": [],
     }
+    if release == "v3":
+        record["selectedSource"] = selected_source
+        record["sourceFiles"] = [{"path": f"{selected_source}/{os.path.relpath(path, ARCHIVE if selected_source == 'CLIENT_SEALED_ARCHIVE' else LAKE)}",
+                                  "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
+                                 for table in TABLES for path in files_by_table[table]]
+        record["excludedByClient"] = excluded_counts
+        if selected_source == "DATA_INCOMPLETE":
+            record["reason"] = "DATA-02 did not verify a complete source for this date."
+            return record
     if contract is None:
         record["reason"] = "Sin instrumento G0BQ con ExpiryDate futura en las tablas de la fecha auditada."
         return record
@@ -275,7 +340,8 @@ def lake_state():
 
 def build_artifact(release):
     audited_dates = select_dates() if release == "v1" else pinned_v1_dates()
-    per_date = [extract_date(date, release) for date in audited_dates]
+    source_days, source_coverage, archive_files = verified_source_days(audited_dates) if release == "v3" else (None, None, None)
+    per_date = [extract_date(date, release, source_days[date] if source_days else None, archive_files) for date in audited_dates]
     artifact = {
         "artifactKind": "IMP-05_LAKE_PROXY_ROWS",
         "schemaVersion": "1.0",
@@ -296,6 +362,17 @@ def build_artifact(release):
         artifact["dedupRule"] = RELEASES["v2"]["dedupRule"]
         artifact["declaration"]["dateRule"] = "las mismas fechas auditadas que lake-proxy-rows-IMP-05.json (v1); la muestra no se mueve con el lago"
         artifact["declaration"]["dedupRule"] = "(source, observationKey); observationKey = sha256 de todas las columnas de mercado (no `_`), misma regla que BT-01 v2 (SPEC v1.1.1 §5.2 «filas deduplicadas»)"
+    if release == "v3":
+        artifact["artifactKind"] = "IMP-05_SOURCE_PROXY_ROWS"
+        artifact.pop("lakeRoot")
+        artifact.pop("lakeState")
+        artifact["sourceRoots"] = {"CLIENT_SEALED_ARCHIVE": ARCHIVE, "EEX_LAKE_PATCH": LAKE}
+        artifact["methodologyVersion"] = 3
+        artifact["dedupRule"] = RELEASES["v3"]["dedupRule"]
+        artifact["sourceCoverage"] = source_coverage
+        artifact["sourceSelection"] = "DATA-02 complete-day patch.days; DATA_INCOMPLETE has no rows"
+        artifact["declaration"]["dateRule"] = "same pinned dates as v1/v2; one complete DATA-02 source per day"
+        artifact["declaration"]["dedupRule"] = "(source, observationKey); same market observation is deduplicated"
     return artifact
 
 

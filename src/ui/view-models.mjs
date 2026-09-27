@@ -218,6 +218,9 @@ export function projectExploratoryBacktest(exploratory) {
 // salida antes de permitir esta proyección. Aquí sólo se seleccionan campos;
 // no se reconstruyen B, H, V, DeltaV ni cobertura.
 export function projectBacktestReadiness(readiness) {
+  if (readiness?.sourceFreshness?.status === "STALE") {
+    return { status: "STALE", reason: readiness.sourceFreshness.reason, staleArtifacts: readiness.sourceFreshness.staleArtifacts, campaigns: [] };
+  }
   const results = readiness?.results;
   if (readiness?.ok !== true
     || results?.artifactKind !== "BT-02_EXPLORATORY_BENCHMARK_RECONCILIATION"
@@ -367,6 +370,7 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     rows: items,
     hasAnyBoundData: items.some((item) => item.status === "BOUND"),
     exploratory: projectExploratoryBacktest(exploratory),
+    sourceFreshness: exploratory?.sourceFreshness ?? backtestReadiness?.sourceFreshness ?? null,
     measurementReadiness: projectBacktestReadiness(backtestReadiness),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.

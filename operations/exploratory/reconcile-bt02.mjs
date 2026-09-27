@@ -1,6 +1,6 @@
 // Uso: node operations/exploratory/reconcile-bt02.mjs [--version v1|v2] [--check]
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import {
   BT02_CURRENT_RELEASE,
   BT02_RELEASES,
@@ -44,6 +44,7 @@ if (process.argv.includes("--check")) {
   }
   console.log(`BT-02 ${versionName} reproducible`);
 } else {
+  mkdirSync(dirname(resolve(root, release.artifact)), { recursive: true });
   writeFileSync(resolve(root, release.artifact), artifactBytes);
   writeFileSync(resolve(root, release.manifest), manifestBytes);
   console.log(`BT-02 ${versionName} reconciled ${artifact.campaigns.length} campaigns`);

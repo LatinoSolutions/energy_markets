@@ -1,7 +1,8 @@
 // BT-01: campaign-scoped B receipts using the accepted IMP-05 daily proxy
 // methodology. Official settlement is deliberately empty and fail-closed.
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -36,8 +37,15 @@ export const VERSIONS = Object.freeze({
     versionTag: "BT-01-IMP-05-campaign-proxy-2",
     supersedes: `${BT01}/campaign-provisional-benchmarks-BT-01.json`,
   }),
+  v3: Object.freeze({
+    rowsArtifact: `${BT01}/v3/campaign-proxy-rows-BT-01.json`,
+    artifact: `${BT01}/v3/campaign-provisional-benchmarks-BT-01.json`,
+    manifest: `${BT01}/v3/campaign-provisional-benchmarks-BT-01.MANIFEST.json`,
+    versionTag: "BT-01-IMP-05-campaign-proxy-3-source-bound",
+    supersedes: `${BT01}/v2/campaign-provisional-benchmarks-BT-01.json`,
+  }),
 });
-export const CURRENT_VERSION = "v2";
+export const CURRENT_VERSION = "v3";
 const absolute = (relativePath) => `${repoRoot}${relativePath}`;
 export const rowsArtifactPath = absolute(VERSIONS.v1.rowsArtifact);
 export const artifactPath = absolute(VERSIONS.v1.artifact);
@@ -55,6 +63,11 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
   }
   if (!Array.isArray(exchangeDays) || calendarSha256 !== rowsArtifact.calendar?.sha256) {
     throw new Error("Se requiere el calendario IMP-09 que coincide con el hash del artefacto de filas.");
+  }
+  if (release === VERSIONS.v3 && (!rowsArtifact.sourceCoverage?.sha256 || !rowsArtifact.sourceCoverage?.manifestSha256
+    || rowsArtifact.sourceSelection !== "DATA-02 complete-day patch.days; DATA_INCOMPLETE has no rows"
+    || rowsArtifact.campaigns.some((campaign) => campaign.perDate?.some((day) => !["CLIENT_SEALED_ARCHIVE", "EEX_LAKE_PATCH", "DATA_INCOMPLETE"].includes(day.selectedSource))))) {
+    throw new Error("BT-01 v3 requires complete DATA-02 daily source provenance");
   }
   const sortedExchangeDays = [...exchangeDays].sort();
   if (new Set(sortedExchangeDays).size !== sortedExchangeDays.length) {
@@ -117,6 +130,7 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
       });
       const record = {
         trdDate: dateRecord.trdDate,
+        ...(release === VERSIONS.v3 ? { selectedSource: dateRecord.selectedSource } : {}),
         maturity: campaign.maturity,
         instrumentISIN: instruments.length === 1 && !campaignIdentityAmbiguous ? instruments[0] : null,
         instrumentIdentityAmbiguous: instrumentAmbiguous,
@@ -137,9 +151,9 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
         windowUsed: proxy.windowUsed,
         fallbackUsed: proxy.fallbackUsed,
         sourceLabel: proxy.sourceLabel,
-        dailyReference: proxy.defined && !instrumentAmbiguous ? proxy.value : null,
-        defined: proxy.defined && !instrumentAmbiguous,
-        reason: instrumentAmbiguous ? `Identidad ambigua para maturity: ${instruments.join(", ")}` : proxy.reason,
+        dailyReference: proxy.defined && !instrumentAmbiguous && dateRecord.selectedSource !== "DATA_INCOMPLETE" ? proxy.value : null,
+        defined: proxy.defined && !instrumentAmbiguous && dateRecord.selectedSource !== "DATA_INCOMPLETE",
+        reason: dateRecord.selectedSource === "DATA_INCOMPLETE" ? "DATA-02 did not verify a complete source for this date." : instrumentAmbiguous ? `Identidad ambigua para maturity: ${instruments.join(", ")}` : proxy.reason,
       };
       perDate.push(record);
       if (record.defined) references.push({ date: record.trdDate, selected: record.dailyReference, source: `proxy:${record.sourceLabel}` });
@@ -200,10 +214,13 @@ export function buildCampaignBenchmarkArtifact({ rowsArtifact, rowsArtifactSha25
     status: "BENCHMARK_PROVISIONAL",
     methodology: "IMP-05 §5.2–§5.3: daily proxy reference, equal daily weight; no official equivalence claim",
     ...(release.supersedes === null ? {} : {
-      methodologyVersion: 2,
-      supersedes: { path: release.supersedes, sha256: supersededSha256, reason: "v1 truncated Tm to whole seconds at the §5.2 window bounds and deduplicated on (Tm, price, bid, ask), merging distinct market rows (BT04-C1-PROXY-WINDOW-DEDUP)" },
+      methodologyVersion: release === VERSIONS.v3 ? 3 : 2,
+      supersedes: { path: release.supersedes, sha256: supersededSha256, reason: release === VERSIONS.v3
+        ? "v2 used the EEX lake before DATA-02 selected the sealed archive with verified complete-day patches"
+        : "v1 truncated Tm to whole seconds at the §5.2 window bounds and deduplicated on (Tm, price, bid, ask), merging distinct market rows (BT04-C1-PROXY-WINDOW-DEDUP)" },
     }),
     sourceArtifact: { path: release.rowsArtifact, sha256: rowsArtifactSha256 },
+    ...(release === VERSIONS.v3 ? { sourceCoverage: rowsArtifact.sourceCoverage } : {}),
     declaration: {
       campaignScope: "Existing exploratory G0BQ/G0BM maturities only; not a client campaign mandate",
       officialSettlement: "UNKNOWN; official references intentionally empty; reconciliation fail-closed",
@@ -225,6 +242,7 @@ export function buildCampaignBenchmarkManifest({ artifact, artifactSha256, rowsA
       campaignPopulation: rowsArtifact.campaignPopulation,
       calendar: rowsArtifact.calendar,
       sourceFileHashes: rowsArtifact.sourceFileHashes,
+      ...(release === VERSIONS.v3 ? { sourceCoverage: rowsArtifact.sourceCoverage } : {}),
     },
     campaigns: artifact.campaigns.map(({ campaignKey, benchmarkVersion, benchmark }) => ({ campaignKey, benchmarkVersion, B: benchmark.B, coverage: benchmark.coverage })),
   };
@@ -257,6 +275,7 @@ function main() {
     console.log(`BT-01 ${versionName} benchmark artifact + manifest reproducibles`);
     return;
   }
+  mkdirSync(dirname(absolute(release.artifact)), { recursive: true });
   writeFileSync(absolute(release.artifact), artifactBytes);
   writeFileSync(absolute(release.manifest), manifestBytes);
   console.log(`${versionName} campaigns=${artifact.campaigns.length} sha256=${artifactSha256}`);

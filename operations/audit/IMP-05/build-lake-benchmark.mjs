@@ -28,6 +28,9 @@ const here = new URL(".", import.meta.url).pathname;
 export const ROWS_ARTIFACT_RELATIVE_PATH = "operations/audit/IMP-05/lake-proxy-rows-IMP-05-v2.json";
 export const rowsArtifactPath = `${here}lake-proxy-rows-IMP-05-v2.json`;
 export const receiptPath = `${here}lake-benchmark-receipt-IMP-05-v2.json`;
+const V3_ROWS_RELATIVE = "operations/audit/IMP-05/source-proxy-rows-IMP-05-v3.json";
+const V3_ROWS = `${here}source-proxy-rows-IMP-05-v3.json`;
+const V3_RECEIPT = `${here}source-benchmark-receipt-IMP-05-v3.json`;
 export const SUPERSEDED_RECEIPT = Object.freeze({
   path: "operations/audit/IMP-05/lake-benchmark-receipt-IMP-05.json",
   sha256: "d977288890d2589d93521b5576969fd7e693e13c3e56639794071019c7f63283",
@@ -55,9 +58,15 @@ function rowAccessiblePerP005(lakeRow, instrument, trdDate) {
 // Recorre fechas auditadas → referencia proxy §5.2 por fecha, B con peso
 // diario igual (§5.3), cobertura por fecha separada, versión del cómputo y
 // reconciliation receipt con la vista oficial vacía y fail-closed (P-007).
-export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) {
+export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256, release = "v2", supersededSha256 = null }) {
+  if (release === "v3" && (!rowsArtifact.sourceCoverage?.sha256
+    || rowsArtifact.artifactKind !== "IMP-05_SOURCE_PROXY_ROWS"
+    || rowsArtifact.sourceSelection !== "DATA-02 complete-day patch.days; DATA_INCOMPLETE has no rows"
+    || rowsArtifact.perDate.some((day) => !["CLIENT_SEALED_ARCHIVE", "EEX_LAKE_PATCH", "DATA_INCOMPLETE"].includes(day.selectedSource)))) {
+    throw new Error("IMP-05 v3 requires verified DATA-02 daily source provenance");
+  }
   const auditedDates = rowsArtifact.perDate
-    .filter((dateRecord) => dateRecord.contract !== null)
+    .filter((dateRecord) => release === "v3" || dateRecord.contract !== null)
     .map((dateRecord) => dateRecord.trdDate);
 
   const perDateSummary = [];
@@ -65,7 +74,8 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
   for (const dateRecord of rowsArtifact.perDate) {
     const trdDate = dateRecord.trdDate;
     if (dateRecord.contract === null) {
-      perDateSummary.push({ trdDate, contract: null, dailyReference: null, defined: false, reason: dateRecord.reason });
+      perDateSummary.push({ trdDate, contract: null, dailyReference: null, defined: false, reason: dateRecord.reason,
+        ...(release === "v3" ? { selectedSource: dateRecord.selectedSource, sourceFiles: dateRecord.sourceFiles } : {}) });
       continue;
     }
     const rows = dateRecord.rows.map((lakeRow) => rowAccessiblePerP005(lakeRow, dateRecord.contract.instrument, trdDate));
@@ -77,6 +87,7 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
     });
     perDateSummary.push({
       trdDate,
+      ...(release === "v3" ? { selectedSource: dateRecord.selectedSource, sourceFiles: dateRecord.sourceFiles } : {}),
       contract: {
         instrument: dateRecord.contract.instrument,
         expiryDate: dateRecord.contract.expiryDate,
@@ -107,7 +118,7 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
   const benchmark = benchmarkB({ references, expectedDates: expectedDatesCount });
   const calendarMissing = benchmarkCalendarMissingDates({ expectedDates: auditedDates, references });
   const status = benchmarkProvisionalStatus({ references });
-  const version = benchmarkVersion({ computation: { B: benchmark.B, count: benchmark.count }, versionTag: "IMP-05-lake-proxy-eval-2" });
+  const version = benchmarkVersion({ computation: { B: benchmark.B, count: benchmark.count }, versionTag: release === "v3" ? "IMP-05-source-proxy-eval-3" : "IMP-05-lake-proxy-eval-2" });
 
   // La lectura de settlement oficial está BLOQUEADA (assessment DEP-10 y
   // P-007: no hay feed Fundamental adicional; el lago no contiene filas
@@ -120,20 +131,23 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
   });
 
   return {
-    artifactKind: "IMP-05_LAKE_PROXY_BENCHMARK_RECEIPT",
+    artifactKind: release === "v3" ? "IMP-05_SOURCE_PROXY_BENCHMARK_RECEIPT" : "IMP-05_LAKE_PROXY_BENCHMARK_RECEIPT",
     schemaVersion: "1.0",
-    benchmarkKind: "proxy-side provisional sobre fechas auditadas del lago",
+    benchmarkKind: release === "v3" ? "proxy-side provisional sobre fechas auditadas y fuente DATA-02" : "proxy-side provisional sobre fechas auditadas del lago",
     declaracion: {
-      unexplainedInputs: "ningún dato inventado: filas reales del lago auditado (IMP-03 ST-03.2) con reglas declaradas en el artefacto de extracción",
+      unexplainedInputs: release === "v3"
+        ? "ningún dato inventado: filas del archivo sellado o parche verificado por día según DATA-02, con hashes en el artefacto de extracción"
+        : "ningún dato inventado: filas reales del lago auditado (IMP-03 ST-03.2) con reglas declaradas en el artefacto de extracción",
       contratoCampana: "NO resuelto: DEP-01/03 DOCUMENTED_ABSENCE; la regla de contrato por fecha es provisional y declarada",
       estadoOficial: "reference.read.official BLOQUEADA (BLOCKED_PENDING_OFFICIAL_SETTLEMENT_SOURCE); P-007: no hay feed Fundamental adicional",
     },
-    supersedes: SUPERSEDED_RECEIPT,
+    supersedes: release === "v3" ? { path: "operations/audit/IMP-05/lake-benchmark-receipt-IMP-05-v2.json", sha256: supersededSha256 } : SUPERSEDED_RECEIPT,
     rowsArtifact: {
-      path: ROWS_ARTIFACT_RELATIVE_PATH,
+      path: release === "v3" ? V3_ROWS_RELATIVE : ROWS_ARTIFACT_RELATIVE_PATH,
       sha256: rowsArtifactSha256,
       auditedDates,
     },
+    ...(release === "v3" ? { sourceCoverage: rowsArtifact.sourceCoverage } : {}),
     perDate: perDateSummary,
     benchmark: {
       B: benchmark.B,
@@ -175,13 +189,24 @@ export function buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 }) 
 }
 
 function main() {
-  const rowsArtifact = JSON.parse(readFileSync(rowsArtifactPath, "utf8"));
-  const rowsArtifactSha256 = createHash("sha256").update(readFileSync(rowsArtifactPath)).digest("hex");
-  const receipt = buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256 });
+  const release = process.argv.includes("--release") ? process.argv[process.argv.indexOf("--release") + 1] : "v2";
+  if (!["v2", "v3"].includes(release)) throw new Error(`Unknown IMP-05 release: ${release}`);
+  const sourceRows = release === "v3" ? V3_ROWS : rowsArtifactPath;
+  const target = release === "v3" ? V3_RECEIPT : receiptPath;
+  const bytes = readFileSync(sourceRows);
+  const rowsArtifact = JSON.parse(bytes);
+  const rowsArtifactSha256 = createHash("sha256").update(bytes).digest("hex");
+  const supersededSha256 = release === "v3" ? createHash("sha256").update(readFileSync(receiptPath)).digest("hex") : null;
+  const receipt = buildLakeBenchmarkReceipt({ rowsArtifact, rowsArtifactSha256, release, supersededSha256 });
   const serialized = JSON.stringify(receipt, null, 2) + "\n";
-  writeFileSync(receiptPath, serialized);
+  if (process.argv.includes("--check")) {
+    if (readFileSync(target, "utf8") !== serialized) throw new Error(`IMP-05 ${release} receipt is not reproducible`);
+    console.log(`IMP-05 ${release} receipt reproducible`);
+    return;
+  }
+  writeFileSync(target, serialized);
   const sha = createHash("sha256").update(serialized).digest("hex");
-  console.log(`Receipt escrito: ${receiptPath}`);
+  console.log(`Receipt escrito: ${target}`);
   console.log(`receipt_sha256: ${sha}`);
   console.log(`B(proxy, ${receipt.benchmark.count}/${receipt.benchmark.expectedDatesCount} fechas auditadas) = ${receipt.benchmark.B}`);
   console.log(`missing: ${receipt.calendarMissingDates.length ? receipt.calendarMissingDates.join(", ") : "ninguna"}`);

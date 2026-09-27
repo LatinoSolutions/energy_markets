@@ -61,8 +61,17 @@ export const BT02_RELEASES = Object.freeze({
     manifest: "operations/exploratory/v2/reconciled-results-BT-02.MANIFEST.json",
     supersedes: "operations/exploratory/reconciled-results-BT-02.json",
   }),
+  v3: Object.freeze({
+    exploratoryResults: "operations/exploratory/v2/backtest-results.json",
+    exploratoryManifest: "operations/exploratory/v2/MANIFEST.json",
+    bt01Benchmark: "operations/audit/BT-01/v3/campaign-provisional-benchmarks-BT-01.json",
+    bt01Manifest: "operations/audit/BT-01/v3/campaign-provisional-benchmarks-BT-01.MANIFEST.json",
+    artifact: "operations/exploratory/v3/reconciled-results-BT-02.json",
+    manifest: "operations/exploratory/v3/reconciled-results-BT-02.MANIFEST.json",
+    supersedes: "operations/exploratory/v2/reconciled-results-BT-02.json",
+  }),
 });
-export const BT02_CURRENT_RELEASE = "v2";
+export const BT02_CURRENT_RELEASE = "v3";
 
 export function buildBt02Reconciliation({ results, benchmarkArtifact, resultsSha256, resultsManifestSha256, benchmarkSha256, benchmarkManifestSha256, release = BT02_RELEASES.v1, supersededSha256 = null }) {
   if (results?.artifactKind !== "EXPLORATORY_BACKTEST_RESULTS") throw new Error("unexpected exploratory results artifact kind");
