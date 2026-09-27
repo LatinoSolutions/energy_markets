@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,7 +80,7 @@ test("DATA-01 TR-01: sin _meta.archiveVerification o con otro sha/tamaño no se 
 });
 
 test("DATA-01 TR-01: readMeta toma la última _meta del NDJSON (va al final del archivo)", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-meta-"));
+  const dir = createTempDir("data01-meta-");
   try {
     const rows = path.join(dir, "rows.ndjson");
     writeFileSync(rows, [
@@ -94,7 +95,7 @@ test("DATA-01 TR-01: readMeta toma la última _meta del NDJSON (va al final del 
 });
 
 test("DATA-01 TR-01: el script actualiza un source-candidates.json de fixture", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-recorder-"));
+  const dir = createTempDir("data01-recorder-");
   try {
     const gasRows = path.join(dir, "gas.ndjson");
     const powerRows = path.join(dir, "power.ndjson");
@@ -113,7 +114,7 @@ test("DATA-01 TR-01: el script actualiza un source-candidates.json de fixture", 
 });
 
 test("DATA-01 TR-01: el script falla cerrado si el _meta no acredita el archivo y no lo marca", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-recorder-fail-"));
+  const dir = createTempDir("data01-recorder-fail-");
   try {
     const gasRows = path.join(dir, "gas.ndjson");
     const powerRows = path.join(dir, "power.ndjson");

@@ -144,7 +144,8 @@ test("la mitad de EVALUATION no contamina la penalización ni la frescura", () =
   }
   const candidate = buildTradesFreezeCandidate(frozenInput());
   assert.equal(candidate.halves.calibration, "CALIBRATION");
-  assert.deepEqual(candidate.halves.calibrationUsedFor, ["penaltyEurMwh", "freshnessLimitSeconds"]);
+  assert.deepEqual(candidate.halves.calibrationUsedFor, ["penaltyEurMwh"]);
+  assert.deepEqual(candidate.halves.developmentUsedFor, ["freshnessLimitSeconds"]);
   assert.deepEqual(candidate.halves.evaluationUsedFor, ["bridgeGate"]);
 });
 
@@ -157,7 +158,8 @@ test("el candidato congela LAST_TRADE y SLOT_VWAP por misión", () => {
       for (const rule of OBSERVATION_RULE_LIST) {
         assert.ok(entry.observations[rule], `falta ${rule} en ${market}/${missionKey}`);
         assert.equal(entry.observations[rule].penalty.status, "MEASURED", `penalización no congelada en ${market}/${missionKey}/${rule}`);
-        assert.ok(["MEASURED", "LOW_COVERAGE"].includes(entry.observations[rule].freshness.status), `frescura no congelada en ${market}/${missionKey}/${rule}`);
+        assert.equal(entry.observations[rule].freshness.status, "SELECTED_DEVELOPMENT", `frescura no elegida en ${market}/${missionKey}/${rule}`);
+        assert.deepEqual(entry.observations[rule].freshness.candidatesSeconds, [900, 1800, 3600, 14400, 86400]);
       }
     }
   }
@@ -201,25 +203,23 @@ test("el fill admite penalización negativa sin imponer signo", () => {
 
 // --- Defecto 6: gate predeclarado con umbrales ---------------------------
 
-test("cada métrica del gate declara definición y umbral, y el validador los exige", () => {
+test("cada métrica del puente declara definición sin umbrales automáticos", () => {
   const metricIds = TRADES_BRIDGE_GATE.metrics.map((metric) => metric.id);
   assert.deepEqual(metricIds, ["BUY_WAIT_AGREEMENT", "BOUGHT_MW", "FILL_PRICE", "H", "DELTA_V"]);
   for (const metric of TRADES_BRIDGE_GATE.metrics) {
     assert.ok(metric.definition && metric.definition.length > 0, `definición ausente en ${metric.id}`);
-    assert.ok(metric.threshold && metric.threshold.kind, `umbral ausente en ${metric.id}`);
-    assert.ok(BRIDGE_GATE_CONTRAST_THRESHOLD_KINDS.includes(metric.threshold.kind), `umbral no contrasta TOB vs TRADES en ${metric.id}`);
+    assert.equal(metric.threshold, undefined, `umbral inventado en ${metric.id}`);
   }
-  assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "H").threshold.kind, "max_abs_delta_vs_tob");
-  assert.equal(TRADES_BRIDGE_GATE.metrics.find((metric) => metric.id === "BUY_WAIT_AGREEMENT").threshold.value, BRIDGE_GATE_THRESHOLDS.BUY_WAIT_AGREEMENT_MIN);
+  assert.deepEqual(BRIDGE_GATE_THRESHOLDS, {});
 
   const candidate = buildTradesFreezeCandidate(frozenInput());
   candidate.bridgeGate = {
     ...candidate.bridgeGate,
-    metrics: candidate.bridgeGate.metrics.map((metric) => (metric.id === "H" ? { ...metric, threshold: null } : metric)),
+    metrics: candidate.bridgeGate.metrics.map((metric) => (metric.id === "H" ? { ...metric, threshold: { kind: "max_abs_delta_vs_tob", value: 0.5 } } : metric)),
   };
   const outcome = validateTradesContract(candidate);
   assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((error) => error.code === "MISSING_GATE_THRESHOLD"));
+  assert.ok(outcome.errors.some((error) => error.code === "INVENTED_BRIDGE_THRESHOLD"));
 });
 
 // --- Defecto 2 (corrección): el gate es un contraste TOB vs TRADES --------
@@ -234,7 +234,7 @@ test("el validador rechaza una métrica del gate cuyo umbral no compara TOB con 
   };
   const outcome = validateTradesContract(candidate);
   assert.equal(outcome.ok, false);
-  assert.ok(outcome.errors.some((error) => error.code === "NON_CONTRAST_GATE_THRESHOLD"));
+  assert.ok(outcome.errors.some((error) => error.code === "INVENTED_BRIDGE_THRESHOLD"));
 });
 
 test("el gate falla cuando el fill o la H de TRADES difieren mucho de TOB", () => {
@@ -253,7 +253,7 @@ test("el gate falla cuando el fill o la H de TRADES difieren mucho de TOB", () =
     DELTA_V: { BASELINE: 0, DIP10: 2.5, HOUR: 1.5 },
   };
   const pass = evaluateTradesBridgeGate({ tob, trades: same });
-  assert.equal(pass.decision, "PASS", JSON.stringify(pass.metrics));
+  assert.equal(pass.decision, "REPORTED", JSON.stringify(pass.metrics));
 
   const far = {
     BUY_WAIT_AGREEMENT: ["BUY", "BUY", "BUY", "BUY", "WAIT"],
@@ -263,19 +263,18 @@ test("el gate falla cuando el fill o la H de TRADES difieren mucho de TOB", () =
     DELTA_V: { BASELINE: 0, DIP10: -2, HOUR: 1 },
   };
   const fail = evaluateTradesBridgeGate({ tob, trades: far });
-  assert.equal(fail.decision, "FAIL");
-  const failedIds = fail.failed.map((metric) => metric.id);
-  assert.ok(failedIds.includes("FILL_PRICE"));
-  assert.ok(failedIds.includes("H"));
-  assert.ok(failedIds.includes("BOUGHT_MW"));
+  assert.equal(fail.decision, "REPORTED");
+  assert.equal(fail.metrics.find((metric) => metric.id === "FILL_PRICE").delta, 30);
+  assert.equal(fail.metrics.find((metric) => metric.id === "H").delta, 29);
+  assert.equal(fail.metrics.find((metric) => metric.id === "BOUGHT_MW").delta, -0.5);
 });
 
-test("el gate no declara PASS con una métrica no evaluable", () => {
+test("el contraste reporta métricas disponibles y marca explícitamente las no evaluables", () => {
   const outcome = evaluateTradesBridgeGate({
     tob: { BUY_WAIT_AGREEMENT: ["BUY"], BOUGHT_MW: 1, FILL_PRICE: 100, H: 101, DELTA_V: { BASELINE: 0, DIP10: 1, HOUR: 2 } },
     trades: { BUY_WAIT_AGREEMENT: ["BUY"], BOUGHT_MW: 1, FILL_PRICE: 100, H: 101, DELTA_V: { BASELINE: 0, DIP10: 1 } },
   });
-  assert.equal(outcome.decision, "HOLD");
+  assert.equal(outcome.decision, "REPORTED");
   assert.ok(outcome.notEvaluable.some((metric) => metric.id === "DELTA_V"));
 });
 

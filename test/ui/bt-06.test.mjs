@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -15,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { DEFAULT_REPO_ROOT } from "../../src/pit-views/index.mjs";
 import { POWER_EXPLORATORY_RELEASE } from "../../src/exploratory/missions.mjs";
 import { mergeExploratoryResults } from "../../src/exploratory/exploratory-merge.mjs";
-import { loadCanonicalUiInputs, loadExploratoryBacktestAt, loadPowerExploratoryBacktestAt } from "../../src/ui/canonical-inputs.mjs";
+import { EXPLORATORY_MANIFEST_PATH, loadCanonicalUiInputs, loadExploratoryBacktestAt, loadPowerExploratoryBacktestAt } from "../../src/ui/canonical-inputs.mjs";
 import { buildUiViewModels } from "../../src/ui/server.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { powerDeExchangeDaysBetween } from "../../src/trades-source/power-calendar.mjs";
@@ -44,7 +45,7 @@ function powerSlots() {
 // Resultados Power reales del runner v3, para probar la unión y el render sin
 // depender de la extracción real (que lanza DATA-01).
 function powerResultsFromRunner() {
-  const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-run-"));
+  const workspace = createTempDir("bt06-ui-run-");
   const slots = path.join(workspace, "slots.json");
   writeFileSync(slots, JSON.stringify(powerSlots()));
   const out = path.join(workspace, "results.json");
@@ -56,25 +57,33 @@ function powerResultsFromRunner() {
 }
 
 test("BT-06 UI: sin release v3 el loader Power falla cerrado; el repo real conserva procedencia separada", () => {
-  const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-empty-"));
+  const workspace = createTempDir("bt06-ui-empty-");
   try {
     const power = loadPowerExploratoryBacktestAt(workspace);
     assert.equal(power.ok, false);
     assert.equal(power.code, "EXPLORATORY_MANIFEST_MISSING");
 
-    const gas = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
+    // Build a gas-only fixture from the verified v2 manifest. The production
+    // repo now also has v3 Power, so it is not a valid missing-Power fixture.
+    const gasManifest = JSON.parse(readFileSync(path.join(repoRoot, EXPLORATORY_MANIFEST_PATH), "utf8"));
+    for (const relative of [EXPLORATORY_MANIFEST_PATH, gasManifest.results.path, gasManifest.slots.path, ...(gasManifest.generators ?? []).map((entry) => entry.path)]) {
+      const target = path.join(workspace, relative);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(path.join(repoRoot, relative)));
+    }
+    const gas = loadExploratoryBacktestAt(workspace);
     assert.equal(gas.ok, true);
-    assert.equal(gas.power.loaded, true);
-    assert.equal(gas.provenance.releases.length, 2);
+    assert.equal(gas.power.loaded, false);
+    assert.equal(gas.provenance.releases.length, 1);
     assert.equal(gas.provenance.byProduct.G0BQ.release, "v2");
-    assert.equal(gas.provenance.byProduct.DEBQ.release, "v3");
+    assert.equal(gas.provenance.byProduct.DEBQ, undefined);
   } finally {
     rmSync(workspace, { recursive: true, force: true });
   }
 });
 
 test("BT-06 UI: el release v3 se verifica por sha256 y su procedencia no se atribuye al gas", () => {
-  const workspace = mkdtempSync(path.join(os.tmpdir(), "bt06-ui-release-"));
+  const workspace = createTempDir("bt06-ui-release-");
   try {
     const resultsPath = POWER_EXPLORATORY_RELEASE.results;
     const slotsPath = POWER_EXPLORATORY_RELEASE.slots;

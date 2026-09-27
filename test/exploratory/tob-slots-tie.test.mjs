@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 // BT04-H1-TOB-TIE (2026-09-25): varias filas TOB (EXPLICIT / IMPLIED) con el mismo
@@ -39,7 +40,7 @@ pq.write_table(table, os.path.join(folder, "part.parquet"))
 `;
 
 test("build_tob_slots: con Tm empatado gana el best ask, no el orden de archivo", () => {
-  const workspace = mkdtempSync(path.join(tmpdir(), "bt04-tob-tie-"));
+  const workspace = createTempDir("bt04-tob-tie-");
   try {
     const lake = path.join(workspace, "lake");
     const fixture = spawnSync("python3", ["-c", FIXTURE, lake], { encoding: "utf8" });

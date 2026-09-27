@@ -27,7 +27,7 @@ function replayOf(product, maturity) {
 // TR-07: el selector de misión muestra una misión a la vez. Las pruebas que cubren
 // los dos productos Gas renderizan las dos misiones y concatenan sus páginas.
 function renderBothGasMissions(vm = vms.backtests) {
-  return ["GAS_QUARTERLY", "GAS_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vm, { missionId })).join("");
+  return ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vm, { missionId })).join("");
 }
 
 test("UI-06: hay un detalle por cada punto del efecto emparejado, en los dos productos", () => {
@@ -142,10 +142,11 @@ test("UI-06: el tooltip pinta los valores del artifact sin aritmética nueva", (
 
 test("UI-06: una franja de hover por decisión, marcadores y script de click persistente", () => {
   const html = renderBothGasMissions();
-  const total = ["G0BQ", "G0BM"].reduce((sum, product) => sum + pairedPoints[product].length, 0);
+  const products = Object.keys(results.comparison);
+  const total = products.reduce((sum, product) => sum + pairedPoints[product].length, 0);
   assert.equal((html.match(/<rect class="pphit" data-pp="\d+"/g) ?? []).length, total);
-  assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, 2);
-  assert.equal((html.match(/<div class="pptip"/g) ?? []).length, 2);
+  assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, products.length);
+  assert.equal((html.match(/<div class="pptip"/g) ?? []).length, products.length);
   assert.match(html, /Click or tap to pin the tooltip; click again to release\./);
   assert.match(html, /tip\.classList\.add\("pinned"\)/);
   // El script solo inserta texto: nada de innerHTML con datos.
@@ -199,7 +200,7 @@ test("UI-06 fail-closed: sin detalle por punto el chart dice UNAVAILABLE y no pi
   const vm = { ...vms.backtests, exploratory: { ...vms.backtests.exploratory, pairedPoints: null } };
   const html = renderBothGasMissions(vm);
   assert.equal((html.match(/class="pphit"/g) ?? []).length, 0);
-  assert.equal((html.match(/data-paired-detail="UNAVAILABLE"/g) ?? []).length, 2);
+  assert.equal((html.match(/data-paired-detail="UNAVAILABLE"/g) ?? []).length, 4);
 });
 
 test("UI-06: el JSON del tooltip no puede cerrar su <script>", () => {

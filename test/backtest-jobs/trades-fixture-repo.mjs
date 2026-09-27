@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +22,7 @@ import {
   TRADES_SCRATCH_INPUTS,
 } from "../../src/backtest-jobs/index.mjs";
 import { tradesBridgeMeasurement } from "../trades-engine/fixtures.mjs";
+import { syntheticDevelopmentEvidence } from "../trades-engine/development-evidence.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -95,8 +97,9 @@ write({ run: { runId, bridgeGate: phase === "BRIDGE" ? { decision: config.bridge
 export function freezeFixture({ approved = true, approvalConfigHash = null } = {}) {
   const measurement = tradesBridgeMeasurement();
   const sourceDecision = { deleteTmSemantics: "deletion-time" };
+  const evidence = syntheticDevelopmentEvidence(measurement, sourceDecision);
   const inputsPresent = { measurement: true };
-  const candidate = buildTradesFreezeArtifact({ measurement, sourceDecision, inputsPresent }).artifact;
+  const candidate = buildTradesFreezeArtifact({ measurement, sourceDecision, inputsPresent, ...evidence }).artifact;
   const approval = {
     approvalRef: "BRU-TRADES-FREEZE-FIXTURE",
     approvedBy: { authority: "Bru", role: "OWNER" },
@@ -105,7 +108,7 @@ export function freezeFixture({ approved = true, approvalConfigHash = null } = {
     approvedAtUtc: "2026-09-26T00:00:00Z",
     configHash: approvalConfigHash ?? candidate.humanGate.configHash,
   };
-  const { artifact } = buildTradesFreezeArtifact({ measurement, sourceDecision, inputsPresent: { ...inputsPresent, ownerApproval: approved }, ownerApproval: approved ? approval : null });
+  const { artifact } = buildTradesFreezeArtifact({ measurement, sourceDecision, ...evidence, inputsPresent: { ...inputsPresent, ownerApproval: approved }, ownerApproval: approved ? approval : null });
   return { artifact, approval };
 }
 
@@ -122,8 +125,8 @@ export function writeFreeze(repo, { approved = true, approvalConfigHash = null, 
 }
 
 export function makeTradesFixtureRepo({ approved = true, realEntry = false, scratch = null } = {}) {
-  const root = mkdtempSync(path.join(tmpdir(), "bt07-repo-"));
-  const scratchDir = mkdtempSync(path.join(tmpdir(), "bt07-scratch-"));
+  const root = createTempDir("bt07-repo-");
+  const scratchDir = createTempDir("bt07-scratch-");
   const write = (relative, content) => {
     const target = path.join(root, relative);
     mkdirSync(path.dirname(target), { recursive: true });

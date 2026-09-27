@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 import { EXPLORATORY_MANIFEST_PATH, EXPLORATORY_OUTPUT, JOB_STATUS, OUTPUT_DIR, REGISTRY_EVENT, WORKSPACE_DIR, WORKSPACE_RETENTION, claimJobLock, createBacktestJobRunner, readJobLock } from "../../src/backtest-jobs/index.mjs";
@@ -59,7 +60,7 @@ test("OPS-01: un run exitoso no deja workspace; sólo receipt, log, rusage y res
 test("OPS-01 reproducibilidad: mismo commit + datos + parámetros, sin el workspace anterior, da el mismo run_id y el mismo resultado", async () => {
   const repo = makeFixtureRepo();
   const first = await createBacktestJobRunner({ repoRoot: repo.root }).start({ requestedBy: "ui" }).done;
-  const otherRunsDir = mkdtempSync(path.join(tmpdir(), "ops01-rerun-"));
+  const otherRunsDir = createTempDir("ops01-rerun-");
   const second = await createBacktestJobRunner({ repoRoot: repo.root, runsDir: otherRunsDir }).start({ requestedBy: "mcp" }).done;
 
   assert.equal(second.status, JOB_STATUS.SUCCEEDED, JSON.stringify(second.failure));

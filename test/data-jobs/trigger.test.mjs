@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 
 import {
@@ -74,7 +75,7 @@ test("DATA-01 trigger: la misma línea terminal no se reprocesa (SKIP)", () => {
 });
 
 test("DATA-01 trigger: el estado persistido sobrevive el reinicio y uno corrupto no marca nada como manejado", () => {
-  const runsDir = mkdtempSync(path.join(tmpdir(), "data01-state-"));
+  const runsDir = createTempDir("data01-state-");
   try {
     assert.equal(readTriggerState(runsDir).lastHandled, null);
     writeTriggerState(runsDir, { lastHandled: { fingerprint: "CHECKSUM_OK:x", kind: "CHECKSUM_OK" } });

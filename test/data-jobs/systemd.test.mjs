@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createTempDir } from "../helpers/tmpdir.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,7 +54,7 @@ test("DATA-01 CLI: existe, usa el pipeline de src/data-jobs y no corre jobs real
 });
 
 test("DATA-01 CLI: un log sin línea de checksum no lanza nada (WAIT)", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-cli-"));
+  const dir = createTempDir("data01-cli-");
   try {
     const log = path.join(dir, "descarga.log");
     writeFileSync(log, "2026-09-25T17:00:43Z intento 1, llevo 0 bytes\n");
@@ -71,7 +72,7 @@ test("DATA-01 CLI: un log sin línea de checksum no lanza nada (WAIT)", () => {
 });
 
 test("DATA-01 CLI: una cola fallida no se relanza ni reavisa cada 15 min (disparador procesado)", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-cli-retry-"));
+  const dir = createTempDir("data01-cli-retry-");
   try {
     const log = path.join(dir, "descarga.log");
     writeFileSync(log, `2026-09-25T23:31:00Z CHECKSUM OK ${DATA_ARCHIVE.expectedSha256}\n`);
@@ -109,7 +110,7 @@ test("DATA-01 CLI: una cola fallida no se relanza ni reavisa cada 15 min (dispar
 });
 
 test("DATA-01 CLI: con otra cola corriendo el disparador NO se marca procesado (no se pierde el evento)", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-cli-busy-"));
+  const dir = createTempDir("data01-cli-busy-");
   try {
     const log = path.join(dir, "descarga.log");
     writeFileSync(log, `2026-09-25T23:31:00Z CHECKSUM OK ${DATA_ARCHIVE.expectedSha256}\n`);
@@ -139,7 +140,7 @@ test("DATA-01 CLI: con otra cola corriendo el disparador NO se marca procesado (
 });
 
 test("DATA-01 CLI: CHECKSUM FALLA no lanza nada, avisa (aunque no haya Telegram) y lo registra", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "data01-cli-"));
+  const dir = createTempDir("data01-cli-");
   try {
     const log = path.join(dir, "descarga.log");
     writeFileSync(log, `2026-09-25T23:31:00Z CHECKSUM FALLA ${"a".repeat(64)}\n`);

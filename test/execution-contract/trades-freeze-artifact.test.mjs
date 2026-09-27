@@ -14,6 +14,7 @@ import {
   buildTradesFreezeArtifact,
 } from "../../operations/trades/TR-04/build-trades-freeze.mjs";
 import { approvalFor, measurementFixture, sourceDecisionFixture } from "./trades-fixtures.mjs";
+import { syntheticDevelopmentEvidence } from "../trades-engine/development-evidence.mjs";
 
 const committedArtifactBytes = readFileSync(OUT_PATH);
 const committedArtifact = JSON.parse(committedArtifactBytes.toString("utf8"));
@@ -22,13 +23,14 @@ const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 // Tras la cola DATA-01 (2026-09-26) la medición del puente existe: el artefacto
 // publica el candidato y queda HOLD sólo por la aprobación de Bru (gate humano).
-test("el artefacto committeado queda HOLD pendiente de la aprobación de Bru", () => {
+test("el artefacto committeado queda HOLD hasta medir la nueva grilla en TR-03", () => {
   assert.equal(committedArtifact.decision, "HOLD");
-  assert.equal(committedArtifact.status, "PENDING_OWNER_APPROVAL");
+  assert.equal(committedArtifact.status, "PENDING_MEASUREMENT");
   assert.equal(committedArtifact.contractId, "EXEC-TRADES-v1");
   assert.equal(committedArtifact.frozenContract, null);
   assert.equal(committedArtifact.humanGate.requiresOwnerApproval, true);
-  assert.deepEqual(committedArtifact.blockedBy, ["MISSING_OWNER_APPROVAL"]);
+  assert.deepEqual(committedArtifact.blockedBy, ["BRIDGE_MEASUREMENT_GRID_STALE"]);
+  assert.deepEqual(committedArtifact.candidate.freshnessSelection.gridSeconds, [900, 1800, 3600, 14400, 86400]);
   assert.equal(committedArtifact.humanGate.configHash, committedArtifact.candidate.configHash);
 });
 
@@ -53,9 +55,12 @@ test("el manifest ata el artefacto por hash", () => {
 });
 
 test("con medición pero sin aprobación publica el candidato y su configHash", () => {
+  const measurement = measurementFixture();
+  const sourceDecision = sourceDecisionFixture();
   const { artifact } = buildTradesFreezeArtifact({
-    measurement: measurementFixture(),
-    sourceDecision: sourceDecisionFixture(),
+    measurement,
+    sourceDecision,
+    ...syntheticDevelopmentEvidence(measurement, sourceDecision, { measurement: true, sourceDecision: true }),
     ownerApproval: null,
     inputsPresent: { measurement: true, measurementStatus: true, sourceDecision: true, ownerApproval: false },
   });
@@ -84,16 +89,20 @@ test("cambiar los bytes de la medición cambia el configHash del candidato", () 
 
 test("con medición y aprobación de Bru el artefacto queda FROZEN", () => {
   const measurement = measurementFixture();
+  const sourceDecision = sourceDecisionFixture();
+  const evidence = syntheticDevelopmentEvidence(measurement, sourceDecision, { measurement: true, sourceDecision: true });
   const candidateOutcome = buildTradesFreezeArtifact({
     measurement,
-    sourceDecision: sourceDecisionFixture(),
+    sourceDecision,
+    ...evidence,
     ownerApproval: null,
     inputsPresent: { measurement: true, sourceDecision: true },
   });
   const configHash = candidateOutcome.artifact.humanGate.configHash;
   const { artifact } = buildTradesFreezeArtifact({
     measurement,
-    sourceDecision: sourceDecisionFixture(),
+    sourceDecision,
+    ...evidence,
     ownerApproval: approvalFor(configHash),
     inputsPresent: { measurement: true, sourceDecision: true, ownerApproval: true },
   });
