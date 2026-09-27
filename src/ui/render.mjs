@@ -23,6 +23,7 @@
 //   - procedencia (recordKey, revisionId, valueSha256) y relojes visibles.
 
 import { SURFACES } from "./view-models.mjs";
+import { EXPLORATORY_MISSIONS } from "../exploratory/missions.mjs";
 import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
 import {
@@ -593,7 +594,14 @@ function hourProfileSvg(profile, width = 380) {
 // calcula src/exploratory/comparison.mjs. La UI no calcula: dibuja lo que llega.
 const EXP_ARM_SWATCH = { BASELINE: "var(--arm-base)", ARM_A: "var(--arm-a)", ARM_B: "var(--arm-b)" };
 const EXP_ARM_SHORT = { BASELINE: "Baseline", ARM_A: "Arm A", ARM_B: "Arm B" };
-const PRODUCT_TITLE = { G0BQ: "Gas Quarterly (THE)", G0BM: "Gas Monthly (THE)" };
+// La identidad de producto, mercado y cadencia sale del registro canónico de
+// misiones; el release Power no hereda el hub THE ni los títulos de Gas.
+const PRODUCT_META = Object.fromEntries(Object.values(EXPLORATORY_MISSIONS).map((mission) => {
+  const title = mission.missionId.split("_").map((part) => part[0] + part.slice(1).toLowerCase()).join(" ");
+  return [mission.product, { title, area: mission.area, market: mission.market }];
+}));
+const PRODUCT_TITLE = Object.fromEntries(Object.entries(PRODUCT_META).map(([product, meta]) => [product, `${meta.title} (${meta.area})`]));
+const productArea = (product) => PRODUCT_META[product]?.area ?? UNAVAILABLE_TEXT;
 const CHECK_CHIP = {
   PASS: ["pass", "✓", "Pass"],
   SIMULATED: ["warn", "!", "Simulated"],
@@ -1015,7 +1023,7 @@ const RUN_CHIP = {
   INCOMPLETE: ["fail", "✕", "Incomplete"],
   NOT_RUN: ["unk", "?", "Not run"],
 };
-const MISSION_TITLE = { G0BQ: "Gas Quarterly", G0BM: "Gas Monthly" };
+const missionTitle = (product) => PRODUCT_META[product]?.title ?? product;
 const OWNER_PATCH_02 = "EM-SPEC-OWNER-PATCH-2026-09-24-02";
 const RAIL_ON = "background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink)";
 
@@ -1059,6 +1067,20 @@ function exploratoryReceipts(provenance) {
   ]);
   receipts.push({ id: OWNER_PATCH_02, kind: "OWNER DECISION", what: "exploratory phase authorised (owner patch 02)", href: null });
   return receipts;
+}
+
+// FIX-04 (PLAN_STATUS 2026-09-26): una campaign es de un solo producto, así que sólo la
+// respalda el release que produjo ese producto (byProduct, BT-06); con gas v2 + Power
+// v3 cargados, una campaign gas no lista los artifacts de Power ni al revés.
+function campaignReceipts(campaign, provenance) {
+  const productRelease = provenance?.byProduct?.[campaign.product];
+  const expectedMarket = PRODUCT_META[campaign.product]?.market;
+  if (!expectedMarket || productRelease?.market !== expectedMarket
+    || !["resultsSha256", "slotsSha256"].every((key) => /^[a-f0-9]{64}$/i.test(productRelease[key]))
+    || !["resultsPath", "manifestPath"].every((key) => typeof productRelease[key] === "string" && productRelease[key].length > 0)) {
+    return [];
+  }
+  return exploratoryReceipts({ releases: [productRelease] });
 }
 
 const NOT_RECORDED = '<span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span>';
@@ -1140,7 +1162,7 @@ function candidateByArm(research, armId) {
 
 function campaignDetailHtml(campaign, pages, isDefault) {
   const { campaignUnknowns: unknowns, provenance, research } = pages;
-  const receipts = exploratoryReceipts(provenance);
+  const receipts = campaignReceipts(campaign, provenance);
   const gates = campaign.gates.map((gate) => {
     const [kind, glyph, label] = GATE_CHIP[gate.status] ?? ["unk", "?", gate.status];
     return `<div class="chk"><span>${esc(gate.label)}</span>${chip(kind, glyph, label)}<span class="d">${esc(gate.detail)}</span></div>`;
@@ -1178,12 +1200,14 @@ function campaignDetailHtml(campaign, pages, isDefault) {
   // Receipts bind runs; a campaign without runs has nothing they could back (review UI05-RCP-01, same rule as Research NO RECEIPTS).
   const ledger = campaign.runs.length === 0
     ? '<span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this campaign</span>'
-    : receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
+    : receipts.length === 0
+      ? '<span class="withheld">NO RECEIPTS</span> <span class="small muted">product release provenance unavailable</span>'
+      : receipts.map((receipt) => `<div class="receipt">${NOT_RECORDED}<span><span class="ev">${esc(receipt.kind)}</span> ${esc(receipt.what)}</span><span class="mono small">${esc(receipt.id)}</span></div>`).join("");
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="cmp-${esc(campaign.id)}" data-campaign="${esc(campaign.id)}">
     <div class="row" style="align-items:flex-end">
       <div class="grow">
-        <div class="mono muted small">${esc(campaign.id)} · THE ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
-        <h1 class="page">${esc(MISSION_TITLE[campaign.product])} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
+        <div class="mono muted small">${esc(campaign.id)} · ${esc(productArea(campaign.product))} ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
+        <h1 class="page">${esc(missionTitle(campaign.product))} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
         <p class="lede">${campaign.firstDay
           ? `Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, client calendar rule), paying the real best ask. Which arm buys cheaper than the client's 11:00 practice?`
           : `Procure ${campaign.targetMw} MW on the client calendar. No quoted day of this window is inside the data period.`}</p>
@@ -1338,15 +1362,16 @@ function knownAtT0Svg(episode, item) {
   return `${svg}</svg>`;
 }
 
-function decisionSectionHtml(episode, item, isDefault) {
+function decisionSectionHtml(episode, item, isDefault, campaignId) {
   const product = episode.product;
-  const campaignId = `GAS-${product === "G0BQ" ? "Q" : "M"}-${episode.maturity}`;
+  const campaignLabel = campaignId ?? UNAVAILABLE_TEXT;
+  const runLabel = campaignId ? `EXP-${campaignId}-ARM_A` : UNAVAILABLE_TEXT;
   const others = episode.inspector.map((other) => {
     const active = other.index === item.index;
     return `<a class="btn${active ? " on" : ""}" href="#${esc(replaySectionId(episode, other))}">${decisionNumber(other.index)} · BUY ${other.filledMw} MW</a>`;
   }).join("");
   const closes = evaluationCloses(episode);
-  const contract = `THE ${esc(product)} ${esc(deliveryLabel(episode.maturity))}`;
+  const contract = `${esc(productArea(product))} ${esc(product)} ${esc(deliveryLabel(episode.maturity))}`;
   const quoteClock = `${esc(item.quoteTm.slice(11, 19))}Z`;
 
   const rec = objCard("asof", "◆", "Recommendation", "T₀ 11:00", `
@@ -1388,7 +1413,7 @@ function decisionSectionHtml(episode, item, isDefault) {
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(replaySectionId(episode, item))}" data-decision="${esc(product)}-${esc(episode.maturity)}-${item.index}">
   <div class="dechead">
     <div class="grow">
-      <div class="mono muted small">${esc(campaignId)} · run EXP-${esc(campaignId)}-ARM_A · ${expArmTag("ARM_A")} DIP10 · 11:00 Europe/Berlin</div>
+      <div class="mono muted small">${esc(campaignLabel)} · run ${esc(runLabel)} · ${expArmTag("ARM_A")} DIP10 · 11:00 Europe/Berlin</div>
       <h1 class="page">Decision ${decisionNumber(item.index)} — BUY at ${esc(item.day)} 11:00 Berlin</h1>
       <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p>
     </div>
@@ -1446,8 +1471,9 @@ function decisionSectionHtml(episode, item, isDefault) {
 export function exploratoryReplayBody(exploratory) {
   const episodes = exploratory.replay.filter((episode) => episode.inspector.length > 0);
   const firstQuarterly = episodes.find((episode) => episode.product === "G0BQ") ?? episodes[0];
-  const picker = episodes.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(MISSION_TITLE[episode.product])} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ");
-  const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly))).join("");
+  const campaignIds = new Map(exploratory.campaigns.map((campaign) => [`${campaign.product}|${campaign.maturity}`, campaign.id]));
+  const picker = episodes.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(missionTitle(episode.product))} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ");
+  const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly, campaignIds.get(`${episode.product}|${episode.maturity}`)))).join("");
   return `${TARGET_SWITCH_CSS}
 <section class="surface replay" data-surface="replay" data-exploratory="true">
   <div class="row small" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="caps muted">Campaigns with Arm A purchases</span>${picker}</div>

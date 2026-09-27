@@ -74,6 +74,7 @@ test("BT-06 UI: sin release v3 el loader Power falla cerrado; el repo real conse
     const gas = loadExploratoryBacktestAt(workspace);
     assert.equal(gas.ok, true);
     assert.equal(gas.power.loaded, false);
+    assert.equal(gas.power.code, "EXPLORATORY_MANIFEST_MISSING");
     assert.equal(gas.provenance.releases.length, 1);
     assert.equal(gas.provenance.byProduct.G0BQ.release, "v2");
     assert.equal(gas.provenance.byProduct.DEBQ, undefined);

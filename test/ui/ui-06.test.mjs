@@ -9,6 +9,7 @@ import { buildUiViewModels } from "../../src/ui/server.mjs";
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { projectPairedPoints } from "../../src/ui/view-models.mjs";
+import { EXPLORATORY_MISSIONS } from "../../src/exploratory/missions.mjs";
 
 const canonical = loadCanonicalUiInputs();
 const results = canonical.inputs.exploratoryBacktest?.results;
@@ -25,9 +26,13 @@ function replayOf(product, maturity) {
 }
 
 // TR-07: el selector de misión muestra una misión a la vez. Las pruebas que cubren
-// los dos productos Gas renderizan las dos misiones y concatenan sus páginas.
-function renderBothGasMissions(vm = vms.backtests) {
-  return ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"].map((missionId) => renderSurfacePage("backtests", vm, { missionId })).join("");
+// todos los productos cargados (gas v2 y, desde ad8531b, Power v3) renderizan la
+// misión de cada producto de la comparación y concatenan sus páginas.
+const loadedProducts = Object.keys(results.comparison);
+const loadedMissionIds = Object.values(EXPLORATORY_MISSIONS).filter((mission) => loadedProducts.includes(mission.product)).map((mission) => mission.missionId);
+
+function renderLoadedMissions(vm = vms.backtests) {
+  return loadedMissionIds.map((missionId) => renderSurfacePage("backtests", vm, { missionId })).join("");
 }
 
 test("UI-06: hay un detalle por cada punto del efecto emparejado, en los dos productos", () => {
@@ -55,8 +60,13 @@ test("UI-06: fecha, campaña, target y ledger salen del replay del mismo episodi
       assert.equal(detail.day, baseline.day);
       assert.equal(detail.campaignId, campaign.id);
       assert.equal(detail.targetMw, campaign.targetMw);
-      assert.equal(detail.bestAsk?.eurMwh ?? null, typeof armA.ask === "number" ? armA.ask : null);
-      assert.equal(detail.bestAsk?.quoteTm ?? null, typeof armA.ask === "number" ? armA.quoteTm ?? null : null);
+      // Un día NO_QUOTE (p. ej. Power, ad8531b) no trae ask: el detalle no lo inventa.
+      if (typeof armA.ask === "number") {
+        assert.equal(detail.bestAsk.eurMwh, armA.ask);
+        assert.equal(detail.bestAsk.quoteTm, armA.quoteTm);
+      } else {
+        assert.equal(detail.bestAsk, null, `${product} ${detail.day}`);
+      }
       for (const [armId, ledger] of [["BASELINE", baseline], ["ARM_A", armA]]) {
         const row = detail.arms[armId];
         assert.equal(row.status, ledger.status);
@@ -107,7 +117,7 @@ test("UI-06: ΔV acumulado es el punto del artifact y ΔV por decisión solo exi
 });
 
 test("UI-06: Arm B sin ledger diario queda UNAVAILABLE en el tooltip, con su slot", () => {
-  const html = renderBothGasMissions();
+  const html = renderLoadedMissions();
   const models = tipModels(html);
   for (const [product, list] of Object.entries(models)) {
     assert.equal(list.length, pairedPoints[product].length);
@@ -122,7 +132,7 @@ test("UI-06: Arm B sin ledger diario queda UNAVAILABLE en el tooltip, con su slo
 });
 
 test("UI-06: el tooltip pinta los valores del artifact sin aritmética nueva", () => {
-  const html = renderBothGasMissions();
+  const html = renderLoadedMissions();
   const models = tipModels(html);
   const detail = pairedPoints.G0BQ.find((item) => item.day === "2025-12-08" && item.maturity === "202604");
   const model = models.G0BQ[detail.index];
@@ -141,12 +151,12 @@ test("UI-06: el tooltip pinta los valores del artifact sin aritmética nueva", (
 });
 
 test("UI-06: una franja de hover por decisión, marcadores y script de click persistente", () => {
-  const html = renderBothGasMissions();
-  const products = Object.keys(results.comparison);
-  const total = products.reduce((sum, product) => sum + pairedPoints[product].length, 0);
+  const html = renderLoadedMissions();
+  const total = Object.values(pairedPoints).reduce((sum, list) => sum + list.length, 0);
   assert.equal((html.match(/<rect class="pphit" data-pp="\d+"/g) ?? []).length, total);
-  assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, products.length);
-  assert.equal((html.match(/<div class="pptip"/g) ?? []).length, products.length);
+  assert.equal(loadedMissionIds.length, loadedProducts.length);
+  assert.equal((html.match(/<line class="ppcursor"/g) ?? []).length, loadedProducts.length);
+  assert.equal((html.match(/<div class="pptip"/g) ?? []).length, loadedProducts.length);
   assert.match(html, /Click or tap to pin the tooltip; click again to release\./);
   assert.match(html, /tip\.classList\.add\("pinned"\)/);
   // El script solo inserta texto: nada de innerHTML con datos.
@@ -189,7 +199,7 @@ test("UI-06 fail-closed: sin ledger alineado el punto no inventa fecha, fills ni
   assert.equal(projectPairedPoints(shifted)[product][0].ledgerAvailable, false);
 
   const vm = { ...vms.backtests, exploratory: { ...vms.backtests.exploratory, pairedPoints: projectPairedPoints(tampered) } };
-  const model = tipModels(renderBothGasMissions(vm))[product][0];
+  const model = tipModels(renderLoadedMissions(vm))[product][0];
   assert.equal(model.head.startsWith("UNAVAILABLE · decision 1 of"), true);
   assert.deepEqual(model.rows.map((row) => row.arm), ["ALL"]);
   assert.match(model.rows[0].unavailable, /daily ledger UNAVAILABLE/);
@@ -198,14 +208,25 @@ test("UI-06 fail-closed: sin ledger alineado el punto no inventa fecha, fills ni
 
 test("UI-06 fail-closed: sin detalle por punto el chart dice UNAVAILABLE y no pinta hover", () => {
   const vm = { ...vms.backtests, exploratory: { ...vms.backtests.exploratory, pairedPoints: null } };
-  const html = renderBothGasMissions(vm);
+  const html = renderLoadedMissions(vm);
   assert.equal((html.match(/class="pphit"/g) ?? []).length, 0);
-  assert.equal((html.match(/data-paired-detail="UNAVAILABLE"/g) ?? []).length, 4);
+  assert.equal((html.match(/data-paired-detail="UNAVAILABLE"/g) ?? []).length, loadedProducts.length);
 });
 
 test("UI-06: el JSON del tooltip no puede cerrar su <script>", () => {
-  const html = renderBothGasMissions();
+  const html = renderLoadedMissions();
   for (const [, json] of html.matchAll(/<script type="application\/json" class="ppdata">([\s\S]*?)<\/script>/g)) {
     assert.equal(json.includes("<"), false);
   }
+});
+
+// FIX-04: la data Power real (ad8531b) trae días NO_QUOTE sin ask; el tooltip dice
+// UNAVAILABLE en vez de romperse o inventar un precio.
+test("UI-06 fail-closed: un punto sin best ask pinta UNAVAILABLE en el tooltip", () => {
+  const product = "G0BQ";
+  const withoutAsk = pairedPoints[product].map((detail, index) => (index === 0 ? { ...detail, bestAsk: null } : detail));
+  const vm = { ...vms.backtests, exploratory: { ...vms.backtests.exploratory, pairedPoints: { ...pairedPoints, [product]: withoutAsk } } };
+  const model = tipModels(renderLoadedMissions(vm))[product][0];
+  assert.equal(model.facts[0][0], "best ask 11:00 Berlin");
+  assert.equal(model.facts[0][1], "UNAVAILABLE");
 });

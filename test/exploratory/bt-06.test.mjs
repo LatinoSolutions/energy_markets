@@ -155,12 +155,25 @@ test("BT-06 loader: una fuente distinta de la decisión de TR-01 falla cerrada",
   try {
     const args = (decision, out) => [loader, "--source", "lake", "--market", "POWER_DE", "--products", "DEBQ", "--source-decision", decision, "--out", path.join(workspace, out)];
 
-    // La decisión real ahora elige el archivo sellado; extraer del lago sigue
-    // fallando cerrado porque no coincide con la fuente declarada.
-    const decisionPath = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
-    const decisionRun = spawnSync("python3", args(decisionPath, "decision.json"), { encoding: "utf8" });
-    assert.notEqual(decisionRun.status, 0);
-    assert.match(decisionRun.stderr, /CLIENT_SEALED_ARCHIVE.*EEX_LAKE/);
+    // Forma de la decisión provisional de TR-01 anterior a 41be9ce (fixture propio):
+    // el job no arranca sobre una fuente provisional.
+    const provisional = path.join(workspace, "provisional.json");
+    writeFileSync(provisional, JSON.stringify({ status: "PENDING_ARCHIVE_VERIFICATION", selectedSource: "EEX_LAKE", selectedSourceRole: "PROVISIONAL_ONLY", failClosed: true }));
+    const provisionalRun = spawnSync("python3", args(provisional, "provisional-out.json"), { encoding: "utf8" });
+    assert.notEqual(provisionalRun.status, 0);
+    assert.match(provisionalRun.stderr, /no cerró la decisión|provisional|fuente canónica/);
+
+    // Decisión REAL vigente de TR-01 (41be9ce: DECIDED / CLIENT_SEALED_ARCHIVE):
+    // mientras no elija el lago como canónico, el job sobre el lago falla cerrado.
+    // Si algún día lo elige, este caso no corre el job real (leería el lago entero).
+    const real = path.join(repoRoot, "operations/trades/TR-01/DATA_SOURCE_DECISION.json");
+    const realDecision = JSON.parse(readFileSync(real, "utf8"));
+    const realChoosesLake = realDecision.selectedSource === "EEX_LAKE" && realDecision.failClosed === false;
+    if (!realChoosesLake) {
+      const realRun = spawnSync("python3", args(real, "real-out.json"), { encoding: "utf8" });
+      assert.notEqual(realRun.status, 0);
+      assert.match(realRun.stderr, /no cerró la decisión|decisión definitiva|eligió/);
+    }
 
     // failClosed true aunque el status y la fuente parezcan definitivos.
     const failClosed = path.join(workspace, "fail-closed.json");
