@@ -677,6 +677,9 @@ function withheldReason(value, reason) {
 }
 
 function backtestMeasurementHtml(readiness, productFilter = null) {
+  if (readiness?.status === "STALE") {
+    return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="STALE"><div class="hd"><h3>Campaign measurements · stale source</h3>${chip("warn", "!", "Stale")}</div><div class="bd"><span class="small muted">${esc(readiness.reason)}. ${esc(readiness.staleArtifacts.join(", "))}. B, V and ΔV are withheld pending FIX-03 reconstruction.</span></div></section>`;
+  }
   if (readiness == null) {
     return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="UNAVAILABLE"><div class="hd"><h3>Backend measurement readiness</h3>${chip("unk", "?", "Unavailable")}</div><div class="bd">${unknownValue()} <span class="small muted">Verified BT-02 measurement artifact is unavailable; no values are inferred.</span></div></section>`;
   }
@@ -2118,8 +2121,9 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
     <div class="chk"><span><b>Pairing · look-ahead · execution · closure</b></span>${chip("unk", "?", "Not exposed")}<span class="d">no method or integrity receipt is exposed by the boundary; no check is presumed to pass</span></div>`;
 
   return `
-<section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${validated ? "" : ' data-state="ERROR"'}>
+<section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${vm?.sourceFreshness ? ` data-source-status="${esc(vm.sourceFreshness.status)}"` : ""}${validated ? "" : ' data-state="ERROR"'}>
   ${validated ? "" : errorBarHtml(errors)}
+  ${vm?.sourceFreshness?.status === "STALE" ? `<div class="card" data-status="STALE"><div class="hd"><h3>Source stale · FIX-03</h3>${chip("warn", "!", "Stale")}</div><div class="bd">${esc(vm.sourceFreshness.reason)}. Historical exploratory figures below are stale and must not be treated as current. ${esc(vm.sourceFreshness.staleArtifacts.join(", "))}.</div></div>` : ""}
   <div class="row" style="align-items:flex-end">
     <div class="grow">${hasExploratory ? `
       <div class="mono muted small">economic comparison · exploratory · ${esc(observationSourceLabel(mode))}</div>

@@ -18,6 +18,7 @@ import { BT02_CURRENT_RELEASE, BT02_RELEASES } from "../exploratory/reconciliati
 import { POWER_EXPLORATORY_RELEASE } from "../exploratory/missions.mjs";
 import { mergeExploratoryResults, productsOfResults } from "../exploratory/exploratory-merge.mjs";
 import { loadTradesPanels } from "./trades-panels.mjs";
+import { assessBenchmarkFreshness } from "./benchmark-freshness.mjs";
 
 export const TEMPORAL_MANIFEST_RECEIPT = "operations/receipts/IMP-03-IMP_RECEIPT.json";
 export const TEMPORAL_MANIFEST_PATH = "operations/audit/IMP-03/temporal-manifest.json";
@@ -239,21 +240,26 @@ export function loadBacktestReadinessAt(repoRoot) {
 function withExploratory(result) {
   const exploratory = loadExploratoryBacktestAt(DEFAULT_REPO_ROOT);
   const backtestReadiness = loadBacktestReadinessAt(DEFAULT_REPO_ROOT);
+  let bt02Manifest = null;
+  try {
+    bt02Manifest = JSON.parse(readFileSync(path.join(DEFAULT_REPO_ROOT, BT02_MANIFEST_PATH), "utf8"));
+  } catch { /* Source gate below fails closed. */ }
+  const sourceFreshness = assessBenchmarkFreshness(DEFAULT_REPO_ROOT, bt02Manifest);
   // TR-07: paneles TRADES de Backtests, atados por SHA-256 a los manifests de
   // TR-01/TR-02/TR-03 (trades-panels.mjs). Su ausencia/desajuste queda fail-closed.
   const tradesPanels = loadTradesPanels(DEFAULT_REPO_ROOT);
   return {
     inputs: {
       ...result.inputs,
-      exploratoryBacktest: exploratory.ok ? exploratory : null,
-      backtestReadiness: backtestReadiness.ok ? backtestReadiness : null,
+      exploratoryBacktest: exploratory.ok && sourceFreshness.status !== "UNAVAILABLE" ? { ...exploratory, sourceFreshness } : null,
+      backtestReadiness: backtestReadiness.ok && sourceFreshness.status !== "UNAVAILABLE" ? { ...backtestReadiness, sourceFreshness } : null,
       tradesPanels,
     },
     backend: {
       ...result.backend,
-      exploratory: exploratory.ok ? { loaded: true, ...exploratory.provenance } : { loaded: false, code: exploratory.code },
+      exploratory: exploratory.ok ? { loaded: true, ...exploratory.provenance, sourceStatus: sourceFreshness.status } : { loaded: false, code: exploratory.code },
       powerExploratory: exploratory.ok ? exploratory.power ?? { loaded: false, code: "POWER_RELEASE_NOT_LOADED" } : { loaded: false, code: exploratory.code },
-      backtestReadiness: backtestReadiness.ok ? { loaded: true, ...backtestReadiness.provenance } : { loaded: false, code: backtestReadiness.code },
+      backtestReadiness: backtestReadiness.ok && sourceFreshness.status === "CURRENT" ? { loaded: true, ...backtestReadiness.provenance } : { loaded: false, code: sourceFreshness.status, reason: sourceFreshness.reason },
     },
   };
 }
