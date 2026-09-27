@@ -17,6 +17,7 @@ import gc
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -25,8 +26,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "operations/trades/DATA-02"))
+from sealed_archive_files import verified_gas_file_index
 LAKE = Path(os.environ.get("EEX_LAKE_ROOT", "/srv/hot-data/EEX"))
 OUTPUT = ROOT / "operations/audit/BT-01/v2/campaign-proxy-rows-BT-01.json"
+V3_OUTPUT = ROOT / "operations/audit/BT-01/v3/campaign-proxy-rows-BT-01.json"
+ARCHIVE = Path(os.environ.get("EEX_ARCHIVE_EXTRACTED_ROOT", "/srv/data/eex-client-archive/extraido"))
+COVERAGE = ROOT / "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.json"
+COVERAGE_MANIFEST = ROOT / "operations/trades/DATA-02/SOURCE_PERIOD_COVERAGE.MANIFEST.json"
 PROXY_WORKER = ROOT / "operations/audit/BT-01/calculate-campaign-daily-proxies.mjs"
 RESULTS = ROOT / "operations/exploratory/v2/backtest-results.json"
 CALENDAR = ROOT / "operations/audit/IMP-09/eex-exchange-calendar.json"
@@ -95,7 +102,38 @@ def campaigns_from_results(results):
     return campaigns
 
 
-def extract(campaigns, exchange_days):
+def source_plan(campaigns, coverage, exchange_days):
+    """Bind each campaign/date to DATA-02's complete-day decision, fail closed."""
+    if coverage.get("ownerDecision", {}).get("verificationStatus") != "RULE_APPLIED":
+        raise ValueError("DATA-02 lake measurement is pending; cannot publish v3")
+    index = {}
+    for record in coverage.get("campaigns", []):
+        if record.get("market") != "GAS_THE":
+            continue
+        key = (record.get("shortCode"), record.get("windowStart"), record.get("windowEnd"))
+        if key in index:
+            raise ValueError(f"Ambiguous DATA-02 campaign window: {key}")
+        index[key] = record
+    plan = {}
+    for campaign in campaigns:
+        end_inclusive = (__import__("datetime").date.fromisoformat(campaign["windowEnd"])
+                         - __import__("datetime").timedelta(days=1)).isoformat()
+        record = index.get((campaign["product"], campaign["windowStart"], end_inclusive))
+        if record is None:
+            raise ValueError(f"Missing DATA-02 campaign window: {campaign['campaignKey']}")
+        expected = [day for day in exchange_days if campaign["windowStart"] <= day < campaign["windowEnd"]]
+        days = record.get("patch", {}).get("days", [])
+        if [item.get("day") for item in days] != expected:
+            raise ValueError(f"DATA-02 dates differ from calendar: {campaign['campaignKey']}")
+        for item in days:
+            source = item.get("source")
+            if source not in ("CLIENT_SEALED_ARCHIVE", "EEX_LAKE_PATCH", "DATA_INCOMPLETE"):
+                raise ValueError(f"Unverified DATA-02 source: {source}")
+            plan[(campaign["campaignKey"], item["day"])] = source
+    return plan
+
+
+def extract(campaigns, exchange_days, plan=None, archive_files=None):
     source_hashes = {}
     expected_by_campaign = {}
     proxies_by_campaign_date = {}
@@ -113,6 +151,14 @@ def extract(campaigns, exchange_days):
     )
     try:
       for day, active_campaigns in sorted(active_by_date.items()):
+        selected_source = None
+        source_root = LAKE
+        if plan is not None:
+            choices = {plan[(item["campaignKey"], day)] for item in active_campaigns}
+            if len(choices) != 1:
+                raise ValueError(f"Mixed DATA-02 sources for {day}; extract campaigns separately")
+            selected_source = choices.pop()
+            source_root = ARCHIVE if selected_source == "CLIENT_SEALED_ARCHIVE" else LAKE
         # Read each partition once per date. Raw observations are sent in small
         # chunks per exact product/maturity; the previous version retained all
         # campaign rows for a whole date and could exhaust BruNode RAM.
@@ -129,11 +175,37 @@ def extract(campaigns, exchange_days):
             worker.stdin.write(json.dumps({"type": "begin", "campaignKey": key, "trdDate": day}) + "\n")
         worker.stdin.flush()
         for table, (price_col, bid_col, ask_col) in TABLES.items():
-            folder = LAKE / f"table={table}/cmdty=NATGAS/area=THE/trd_date={day}"
-            files = sorted(folder.glob("*/part.parquet")) if folder.is_dir() else []
+            folder = (source_root / "data/lake/v1" if selected_source == "CLIENT_SEALED_ARCHIVE" else source_root) / f"table={table}/cmdty=NATGAS/area=THE/trd_date={day}"
+            files = sorted(folder.glob("*/part.parquet")) if folder.is_dir() and selected_source != "DATA_INCOMPLETE" else []
+            if selected_source == "CLIENT_SEALED_ARCHIVE":
+                included, excluded = archive_files
+                relative = {path: path.relative_to(ARCHIVE).as_posix() for path in files}
+                if any(item not in included and item not in excluded for item in relative.values()):
+                    raise ValueError(f"Unlisted archive parquet for {table} {day}")
+                prefix = f"data/lake/v1/table={table}/cmdty=NATGAS/area=THE/trd_date={day}/"
+                if any(item not in relative.values() for item in included if item.startswith(prefix)):
+                    raise ValueError(f"Listed sealed archive parquet missing for {table} {day}")
+                excluded_count = sum(item in excluded for item in relative.values())
+                if table == "eex_derivative_trade" and excluded_count:
+                    raise ValueError(f"DATA-02 selected archive trade day with excluded pulls: {day}")
+                # TOB is not required by DATA-02 outside PUENTE; an excluded
+                # TOB pull makes that table unusable for proxy fallback.
+                files = [] if table == "eex_derivative_top_of_book" and excluded_count else [path for path in files if relative[path] in included]
+            else:
+                excluded_count = 0
+            if plan is not None and table == "eex_derivative_trade" and selected_source != "DATA_INCOMPLETE" and not files:
+                raise ValueError(f"Selected DATA-02 trade partition missing: {selected_source} {day}")
             for campaign_state in state.values():
                 campaign_state["sourceCounts"][table]["filesAvailable"] = len(files)
+                if plan is not None:
+                    campaign_state["sourceCounts"][table]["excludedByClient"] = excluded_count
             for path in files:
+                relative_path = path.relative_to(source_root).as_posix()
+                if plan is not None:
+                    relative_path = f"{selected_source}/{relative_path}"
+                    source_hashes[relative_path] = sha256_file(path)
+                    for campaign_state in state.values():
+                        campaign_state["sourceFiles"].append({"path": relative_path, "sha256": source_hashes[relative_path]})
                 needed = {"ShortCode", "Maturity", "InstrumentISIN", "InstrumentType", "Currency", "UOM", "Tm", "TrdDate", "_row_sha256"}
                 if price_col:
                     needed.add(price_col)
@@ -144,7 +216,6 @@ def extract(campaigns, exchange_days):
                 if not needed.issubset(schema_names):
                     continue
                 read_columns = sorted(name for name in schema_names if not name.startswith("_")) + ["_row_sha256"]
-                relative_path = path.relative_to(LAKE).as_posix()
                 matched_campaigns = set()
                 for batch in parquet.iter_batches(batch_size=4096, columns=read_columns, use_threads=False):
                     code_index = batch.schema.get_field_index("ShortCode")
@@ -204,11 +275,13 @@ def extract(campaigns, exchange_days):
                     gc.collect()
                     pa.default_memory_pool().release_unused()
                 if matched_campaigns:
-                    source_hashes[relative_path] = sha256_file(path)
+                    if plan is None:
+                        source_hashes[relative_path] = sha256_file(path)
                     for key in matched_campaigns:
                         target = state[key]
                         target["sourceCounts"][table]["filesWithMaturityRows"] += 1
-                        target["sourceFiles"].append({"path": relative_path, "sha256": source_hashes[relative_path]})
+                        if plan is None:
+                            target["sourceFiles"].append({"path": relative_path, "sha256": source_hashes[relative_path]})
         for campaign in active_campaigns:
             key = campaign["campaignKey"]
             target = state[key]
@@ -227,6 +300,10 @@ def extract(campaigns, exchange_days):
             if not result:
                 raise RuntimeError(f"El cálculo proxy terminó sin respuesta para {key} {day}.")
             proxies_by_campaign_date[(key, day)] = json.loads(result)
+            if plan is not None:
+                proxies_by_campaign_date[(key, day)]["selectedSource"] = selected_source
+                if selected_source == "DATA_INCOMPLETE":
+                    proxies_by_campaign_date[(key, day)]["reason"] = "DATA-02 did not verify a complete source for this date."
         del state
         gc.collect()
     finally:
@@ -261,12 +338,32 @@ def extract(campaigns, exchange_days):
 
 
 def main():
+    release = "v3" if "--release" in sys.argv and sys.argv[sys.argv.index("--release") + 1] == "v3" else "v2"
     results_bytes = RESULTS.read_bytes()
     calendar_bytes = CALENDAR.read_bytes()
     results = json.loads(results_bytes)
     calendar = json.loads(calendar_bytes)
     campaigns = campaigns_from_results(results)
-    per_campaign, source_hashes = extract(campaigns, calendar["exchangeDays"])
+    coverage_binding = None
+    if release == "v3":
+        coverage_bytes = COVERAGE.read_bytes()
+        coverage_manifest_bytes = COVERAGE_MANIFEST.read_bytes()
+        coverage_manifest = json.loads(coverage_manifest_bytes)
+        if coverage_manifest.get("artifact", {}).get("path") != COVERAGE.relative_to(ROOT).as_posix() or coverage_manifest["artifact"].get("sha256") != sha256_bytes(coverage_bytes):
+            raise ValueError("DATA-02 coverage manifest hash mismatch")
+        decision_path = ROOT / "operations/trades/TR-01/DATA_SOURCE_DECISION.json"
+        if coverage_manifest.get("inputs", {}).get("tr01Decision", {}).get("sha256") != sha256_file(decision_path):
+            raise ValueError("DATA-02 coverage is not bound to TR-01 decision")
+        coverage_binding = {"path": COVERAGE.relative_to(ROOT).as_posix(), "sha256": sha256_bytes(coverage_bytes), "manifestSha256": sha256_bytes(coverage_manifest_bytes)}
+        plan = source_plan(campaigns, json.loads(coverage_bytes), calendar["exchangeDays"])
+        partitions_path = ROOT / "operations/trades/DATA-02/source-partitions.json"
+        partitions_bytes = partitions_path.read_bytes()
+        archive_files = verified_gas_file_index(json.loads(partitions_bytes), sha256_bytes(partitions_bytes), coverage_manifest, ARCHIVE)
+        extracted = [extract([campaign], calendar["exchangeDays"], plan, archive_files) for campaign in campaigns]
+        per_campaign = [record for records, _hashes in extracted for record in records]
+        source_hashes = dict(sorted((key, value) for _records, hashes in extracted for key, value in hashes.items()))
+    else:
+        per_campaign, source_hashes = extract(campaigns, calendar["exchangeDays"])
     artifact = {
         "artifactKind": "BT-01_CAMPAIGN_PROXY_ROWS",
         "schemaVersion": "1.0",
@@ -275,16 +372,18 @@ def main():
         "dedupRule": "observationKey = sha256 of every non-underscore market column",
         "windowTimeResolution": "fractional seconds from Tm",
         "sourceLakeRoot": str(LAKE),
-        "sourceRule": "EEX gas trade and top-of-book; exact product + maturity; EUR/MWh Simple Instrument; strict and IMP-05 fallback windows only",
+        **({"sourceCoverage": coverage_binding, "sourceArchiveRoot": str(ARCHIVE), "sourceSelection": "DATA-02 complete-day patch.days; DATA_INCOMPLETE has no rows"} if release == "v3" else {}),
+        "sourceRule": "DATA-02 complete-day archive or verified lake patch; exact product + maturity; EUR/MWh Simple Instrument; strict and IMP-05 fallback windows only" if release == "v3" else "EEX gas trade and top-of-book; exact product + maturity; EUR/MWh Simple Instrument; strict and IMP-05 fallback windows only",
         "calendar": {"path": "operations/audit/IMP-09/eex-exchange-calendar.json", "sha256": sha256_bytes(calendar_bytes)},
         "campaignPopulation": {"path": RESULTS.relative_to(ROOT).as_posix(), "sha256": sha256_bytes(results_bytes)},
         "sourceFileHashes": dict(sorted(source_hashes.items())),
         "campaigns": per_campaign,
     }
     serialized = json.dumps(artifact, indent=2, ensure_ascii=False) + "\n"
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(serialized, encoding="utf-8")
-    print(f"artifact={OUTPUT}")
+    output = V3_OUTPUT if release == "v3" else OUTPUT
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(serialized, encoding="utf-8")
+    print(f"artifact={output}")
     print(f"campaigns={len(per_campaign)} sourceFiles={len(source_hashes)} sha256={sha256_bytes(serialized.encode())}")
     for campaign in per_campaign:
         rows = sum(date["sourceRows"] for date in campaign["perDate"])
