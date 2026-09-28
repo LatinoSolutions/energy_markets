@@ -17,6 +17,7 @@ import {
   verifyTradesMeasurement,
 } from "../../src/trades-source/measurement-artifacts.mjs";
 import { TRADES_PANEL_ARTIFACTS, loadTradesPanelsAt, projectTradesPanels } from "../../src/ui/trades-panels.mjs";
+import { TRADES_BRIDGE_GATE } from "../../src/execution-contract/trades-contract.mjs";
 import { verifyBridgeMeasurement } from "../../operations/trades/TR-03/build-bridge-status.mjs";
 import { buildManifest, repoRelativeArtifactPath } from "../../operations/trades/TR-01/aggregate-trades-rows.mjs";
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
@@ -184,7 +185,9 @@ test("UI-07 (3): el gate del puente predeclarado sale del candidato, métrica po
   assert.equal(gate.id, freeze.candidate.bridgeGate.id);
   assert.equal(gate.thresholdStatus, "NO_AUTOMATIC_THRESHOLD");
   assert.deepEqual(gate.metrics.map((metric) => metric.id), freeze.candidate.bridgeGate.metrics.map((metric) => metric.id));
-  assert.deepEqual(gate.metrics.map((metric) => metric.description), freeze.candidate.bridgeGate.metrics.map((metric) => metric.description));
+  // SEM2-07: descriptions come from the current canonical contract by metric id
+  // (the persisted artifact keeps its own wording, hash-bound).
+  assert.deepEqual(gate.metrics.map((metric) => metric.description), TRADES_BRIDGE_GATE.metrics.map((metric) => metric.description));
 });
 
 test("UI-07 (3): un candidato derivado de otra medición no alimenta la calibración", () => {
@@ -220,7 +223,9 @@ test("UI-07 (4): el candidato real sale con su configHash y pendiente de aprobac
   assert.equal(panels.frozenContract.status, "PENDING_MEASUREMENT");
   assert.equal(panels.frozenContract.candidate.configHash, freeze.humanGate.configHash);
   assert.match(panels.frozenContract.candidate.configHash, /^[0-9a-f]{64}$/);
-  assert.match(panels.frozenContract.reason, /TR-03 debe medir la grilla/);
+  // SEM2-07: primary reason in English, derived from the typed status (the
+  // artifact keeps its own wording, hash-bound).
+  assert.match(panels.frozenContract.reason, /Pending the TR-03 bridge measurement job/);
   assert.deepEqual(panels.frozenContract.blockedBy, ["BRIDGE_MEASUREMENT_GRID_STALE"]);
   // Sin OWNER_FREEZE_APPROVAL.json en el repo.
   assert.equal(loaded.ownerApproval.present, false);
@@ -274,7 +279,9 @@ test("UI-07 (5): la UI dibuja las cifras medidas tal cual las trae el view model
     assert.ok(html.includes(`data-tr07-contrast-metric="${metric.id}"`), metric.id);
   }
   assert.ok(html.includes(`data-tr07-config-hash="${configHash}"`));
-  assert.ok(html.includes("TR-03 debe medir la grilla"));
+  // SEM2-07: the frozen-contract reason rendered by the UI is the panel's
+  // English typed description; the artifact wording stays hash-bound on disk.
+  assert.ok(html.includes("Pending the TR-03 bridge measurement job"));
   assert.ok(html.includes(`data-tr07-measurement-sha="${loaded.bridgeMeasurement.provenance.sha256}"`));
 });
 

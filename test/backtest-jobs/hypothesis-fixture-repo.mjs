@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createTempDir } from "../helpers/tmpdir.mjs";
-import { predeclareHS1SearchSpace, createHS1Candidate } from "../../src/s1-strategy/h-s1-01.mjs";
+import { predeclareHS1SearchSpace, createHS1Candidate, H_S1_01 } from "../../src/s1-strategy/h-s1-01.mjs";
 import { contentHashOf } from "../../src/sizing-controller/versioning.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -169,7 +169,7 @@ export function fixtureMissionConfiguration(missionId, candidate, searchSpace, o
   const core = {
     artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION",
     hypothesisId: candidate.hypothesisId,
-    hypothesisVersion: "H-S1-01/phase-A/v1",
+    hypothesisVersion: H_S1_01.version,
     missionId,
     dataMode: "TOB",
     candidateMission: MISSION_LABELS[missionId],
@@ -205,7 +205,7 @@ export function hypothesisJobRequest(repo, {
   };
   const base = {
     hypothesisId: "H-S1-01",
-    hypothesisVersion: "H-S1-01/phase-A/v1",
+    hypothesisVersion: H_S1_01.version,
     missionId,
     phase: "DEVELOPMENT",
     dataMode: "TOB",

@@ -98,9 +98,9 @@ test("ID01: identity schema rejects missing/conflicting bindings and consumes th
   assert.equal(narrowedScope.ok, false);
   assert.ok(narrowedScope.errors.some((error) => error.code === "PUBLISHED_SCOPE_COLLISION"));
   // …but a recalibration that keeps the accepted question and the full
-  // accepted mission scope may advance version.
+  // accepted mission scope may advance version (past the published v2).
   const recalibration = createHypothesisIdentity({
-    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1, version: "H-S1-01/phase-A/v2",
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1, version: "H-S1-01/phase-A/v3",
     name: H_S1_01.name, question: H_S1_01.question, missions: [...H_S1_01.missions],
     provenance: { authority: "x", locator: "y" },
   });
@@ -451,7 +451,7 @@ test("ID07: versioning separates recalibration from a materially different propo
   // HYP-1 source cannot authorize a new version's mission/run binding.
   const proposedH1 = createHypothesisIdentity({
     originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1,
-    name: H_S1_01.name, question: H_S1_01.question, version: "H-S1-01/phase-A/v2",
+    name: H_S1_01.name, question: H_S1_01.question, version: "H-S1-01/phase-A/v3",
     missions: [...H_S1_01.missions], provenance: H_S1_01.provenance,
   }).identity;
   assert.equal(isCanonicalHypothesisRecord(proposedH1).ok, true);

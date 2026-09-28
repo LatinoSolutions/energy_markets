@@ -347,9 +347,8 @@ test("UI-03: la capa visual preserva los contratos del Operator Interface Bounda
   });
   const campaignsHtml = renderCampaignsPage(campaigns);
   assert.ok(campaignsHtml.includes('data-status="BOUND"'));
-  for (const target of ["replay", "backtests", "research"]) {
-    assert.ok(campaignsHtml.includes(`data-drilldown="${target}"`), target);
-  }
+  // SEM2-T12: sin scope declarado por el registro, el handoff se retiene.
+  assert.ok(campaignsHtml.includes("data-drilldown-withheld"), "drilldown withheld without scope");
   const research = buildResearchViewModel({ backendIndex: null, records: [] });
   const researchHtml = renderResearchPage(research);
   for (const strategyId of ["S1", "S2", "S3", "S4", "S5", "Z"]) {

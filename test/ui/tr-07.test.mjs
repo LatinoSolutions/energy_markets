@@ -112,7 +112,9 @@ test("TR-07: el selector ofrece las 4 misiones y los modos TOB/TRADES", () => {
 
 test("TR-07 cobertura: cada fila sale del artifact y conserva su zona", () => {
   assert.equal(panels.coverage.status, zonePlan.coverageStatus.status);
-  assert.equal(panels.coverage.reason, zonePlan.coverageStatus.reason);
+  // SEM2-07: the primary reason is the panel's English description derived from
+  // the typed status; the artifact wording stays immutable (hash-bound).
+  assert.match(panels.coverage.reason, /projected from the TR-01 measurements/);
   assert.equal(panels.coverage.status, "MEASURED");
   assert.equal(panels.coverage.sourceDecisionStatus, sourceDecision.status);
   assert.equal(panels.coverage.missions.length, Object.keys(zonePlan.missions).length);
@@ -177,7 +179,9 @@ test("TR-07 calibración: estado, ventana, límites y reglas salen del artifact 
 
 test("TR-07 contrato y resultados: candidato HOLD de TR-04 y ningún run fabricado", () => {
   assert.equal(panels.frozenContract.status, "PENDING_MEASUREMENT");
-  assert.match(panels.frozenContract.reason, /TR-03 debe medir la grilla/);
+  // SEM2-07: primary reason in English, derived from the typed status (the
+  // artifact keeps its own wording, hash-bound).
+  assert.match(panels.frozenContract.reason, /Pending the TR-03 bridge measurement job/);
   assert.deepEqual(panels.frozenContract.candidate.freshnessSelection.gridSeconds, [900, 1800, 3600, 14400, 86400]);
   assert.equal(panels.results.status, "UNAVAILABLE");
   assert.match(panels.results.reason, /TR-06/);

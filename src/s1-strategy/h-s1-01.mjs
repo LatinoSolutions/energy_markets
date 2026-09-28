@@ -7,14 +7,21 @@ export const H_S1_01_MISSIONS = Object.freeze([
 ]);
 export const H_S1_01_N_GRID = Object.freeze([3, 5, 10, 20]);
 
+// SEM-2 (T10): the canonical definition is English-language per the owner
+// clarification (intake D-20260928T181604-148d, revision 20260928-english-v2,
+// §"English-language naming — owner clarification, 2026-09-28": hypothesis
+// names/questions must be English in the backend contract). The v1 Spanish
+// wording stays immutable history in the v1 artifacts; this version advance
+// (v1 → v2, recalibration: same name/ID) is the controlled regeneration of
+// the affected hash-bound definition.
 const definition = {
   artifactKind: "HYPOTHESIS_DEFINITION",
   hypothesisId: "H-S1-01",
-  version: "H-S1-01/phase-A/v1",
+  version: "H-S1-01/phase-A/v2",
   parentStrategy: "S1 — Relative Price Location",
   name: "Session-Anchored Rolling Reference",
-  question: "¿Una señal causal de ubicación relativa del precio, calculada contra una referencia móvil anclada al mismo momento de sesión, mejora el timing y el resultado económico de procurement frente a CONTROL, manteniendo constantes sizing y execution?",
-  refutation: "Se refuta o simplifica si una comparación OOS válida y congelada no muestra mejora estable frente a CONTROL, o si el efecto depende de una zona extremadamente estrecha o inestable de tau o N. Development no es evidencia final.",
+  question: "Does a causal relative-price-location signal, computed against a rolling reference anchored to the same session moment, improve procurement timing and the economic outcome versus CONTROL, holding sizing and execution constant?",
+  refutation: "It is refuted or simplified if a valid, frozen OOS comparison does not show a stable improvement versus CONTROL, or if the effect depends on an extremely narrow or unstable region of tau or N. Development is not final evidence.",
   missions: H_S1_01_MISSIONS,
   comparator: "CONTROL",
   referenceMethod: "ARITHMETIC_ROLLING_MEAN_OF_N_PRIOR_SAME_ANCHOR_OBSERVATIONS",

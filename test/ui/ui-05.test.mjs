@@ -187,7 +187,10 @@ test("FIX-04: campañas y Replay Power muestran identidad de Power DE del artifa
     const replayCampaign = results.campaigns.find((entry) => entry.product === product && entry.maturity === replay.maturity);
     assert.ok(replayCampaign);
     const replaySection = replayHtml.split(`id="rep-${product}-${replay.maturity}"`)[1].split("</section>")[0];
-    assert.ok(replaySection.includes(`${replayCampaign.id} · run EXP-${replayCampaign.id}-ARM_A`));
+    // SEM2-T07: el run mostrado es el source-bound del mapping verificado del
+    // release del producto (Power v3), no un EXP-…-ARM_A fabricado.
+    assert.ok(replaySection.includes(`${replayCampaign.id} · run LEGACY_EXPLORATORY/`));
+    assert.ok(replaySection.includes(`run LEGACY_EXPLORATORY/v3/`));
     assert.ok(replaySection.includes(`DE ${product} `));
     assert.equal(replaySection.includes(`THE ${product}`), false);
     assert.ok(replayHtml.includes(`${title} ${replay.maturity.slice(0, 4)}-${replay.maturity.slice(4, 6)}`));

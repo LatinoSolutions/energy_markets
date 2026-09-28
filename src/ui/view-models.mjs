@@ -17,7 +17,7 @@ import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import { containsOfficialStatus } from "./canonical-inputs.mjs";
-import { MISSIONS, H_S1_01, clientFor, benchmarkFor } from "../backtesting-semantics/contract.mjs";
+import { buildCanonicalSemanticsProjection } from "../backtesting-semantics/projection.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
@@ -333,13 +333,13 @@ export function projectExploratoryPages(exploratory) {
   };
 }
 
-export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null, backtestReadiness = null } = {}) {
+export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null, backtestReadiness = null, hypothesisResults = [] } = {}) {
   if (!Array.isArray(rows)) {
-    return unexpectedTimeline([{ field: "rows", code: "INVALID_ROWS", message: "rows debe ser una lista." }]);
+    return unexpectedTimeline([{ field: "rows", code: "INVALID_ROWS", message: "rows must be a list." }]);
   }
   const items = rows.map((row) => {
     if (typeof row?.label !== "string" || row.label.trim().length === 0) {
-      return unavailableItem("(fila sin etiqueta)", "fila de comparación sin etiqueta; no se rinde valor anónimo");
+      return unavailableItem("(row without label)", "comparison row without a label; an anonymous value is not rendered");
     }
     const bound = bindRecord(backendIndex, row);
     if (!bound.ok) {
@@ -360,11 +360,17 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
       const armBacked = typeof declaredArm === "string" && declaredArm === recordArm;
       const measureBacked = typeof declaredMeasure === "string" && declaredMeasure === recordMeasure;
       if (!armBacked || !measureBacked) {
-        return unavailableItem(row.label, `el arm/measure declarado ("${declaredArm ?? "ausente"}"/"${declaredMeasure ?? "ausente"}") no coincide con el que expone el registro canónico del manifest verificado; una etiqueta sin respaldo del boundary no se rinde como factual (§26.5)`);
+        return unavailableItem(row.label, `the declared arm/measure ("${declaredArm ?? "missing"}"/"${declaredMeasure ?? "missing"}") does not match the one exposed by the verified manifest canonical record; a label without boundary backing is not rendered as factual (§26.5)`);
       }
     }
     return boundItem(row.label, bound.bound, { arm: declaredArm, measure: declaredMeasure });
   });
+  // SEM-2: una sola proyección backend comparte las identidades canónicas con
+  // las cuatro superficies. H-S1-01 aplica por separado a las cuatro misiones
+  // (mismo ID y pregunta, evidencia/configuración independiente; FIX-07 ID02/ID04).
+  // SEM2-T01: los resultados BT-08 publicados viajan dentro de la MISMA
+  // proyección, con su binding real hipótesis/versión/misión/run (fail-closed).
+  const canonicalSemantics = buildCanonicalSemanticsProjection({ exploratory, backtestReadiness, hypothesisResults });
   return {
     ok: true,
     surface: SURFACES.BACKTESTS,
@@ -373,21 +379,25 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     exploratory: projectExploratoryBacktest(exploratory),
     sourceFreshness: exploratory?.sourceFreshness ?? backtestReadiness?.sourceFreshness ?? null,
     measurementReadiness: projectBacktestReadiness(backtestReadiness),
-    semanticComparison: MISSIONS.map((mission) => ({
-      mission,
-      client: clientFor(mission.id),
-      benchmark: benchmarkFor(mission.id),
-      // H-S1-01 applies separately to all four missions: same canonical ID and
-      // question, independent per-mission configuration/evidence (FIX-07 ID02/ID04).
-      hypotheses: [H_S1_01],
+    canonicalSemantics,
+    // La tabla primaria de Backtests compara la hipótesis Strategy-derived (H-S1-01)
+    // con CLIENT/BENCHMARK; Research Discovery (H-RD-01) viaja en canonicalSemantics
+    // y en la superficie Research, no como segundo resultado en Results (SEM-1).
+    semanticComparison: canonicalSemantics.missions.map((mission) => ({
+      mission: { id: mission.missionId, cadence: mission.cadence },
+      client: mission.client,
+      benchmark: mission.benchmark,
+      benchmarkByCampaign: mission.benchmarkByCampaign,
+      hypotheses: mission.hypotheses.filter((hypothesis) => hypothesis.originType !== "RESEARCH_DISCOVERY"),
+      hypothesisResults: mission.hypothesisResults,
     })),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
     pendingComparisons: [
-      { label: "B / H / V / ΔV · official/canonical", status: "UNAVAILABLE", reason: "sin reconciliación de settlement oficial ni mediciones canónicas de run real P5/P6; las mediciones provisionales/partial de BT-02 se exponen por campaña en la tabla backend cuando su artifact verificado está disponible" },
-      { label: "Efectos emparejados por campaña", status: "UNAVAILABLE", reason: "sin pares A0/A1 registrados en el backend" },
-      { label: "Distribuciones", status: "UNAVAILABLE", reason: "sin distribución de resultados canónica; no se fabrica (§26.5)" },
-      { label: "Contexto de integridad/método", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14 ni reserva OOS sellada en disco (IMP-09: HOLD, 0 sellados)" },
+      { label: "B / H / V / ΔV · official/canonical", status: "UNAVAILABLE", reason: "no official settlement reconciliation and no canonical measurements of a real P5/P6 run; BT-02 provisional/partial measurements are exposed per campaign in the backend table when their verified artifact is available" },
+      { label: "Paired effects per campaign", status: "UNAVAILABLE", reason: "no A0/A1 pairs registered in the backend" },
+      { label: "Distributions", status: "UNAVAILABLE", reason: "no canonical result distribution; it is not fabricated (§26.5)" },
+      { label: "Method / integrity context", status: "UNAVAILABLE", reason: "no IMP-14 run receipt and no sealed OOS reserve on disk (IMP-09: HOLD, 0 sealed)" },
     ],
   };
 }
@@ -397,7 +407,7 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
 // admission. Lo esperado por la pila S1–S5/Z que no entra se declara.
 export function buildResearchViewModel({ backendIndex = null, records = [] } = {}) {
   if (!Array.isArray(records)) {
-    return unexpectedTimeline([{ field: "records", code: "INVALID_RECORDS", message: "records debe ser una lista." }]);
+    return unexpectedTimeline([{ field: "records", code: "INVALID_RECORDS", message: "records must be a list." }]);
   }
   const byId = new Map();
   for (const record of records) {
@@ -405,7 +415,7 @@ export function buildResearchViewModel({ backendIndex = null, records = [] } = {
       continue;
     }
     if (byId.has(record.strategyId)) {
-      return unexpectedTimeline([{ field: "records", code: "DUPLICATE_STRATEGY_ID", message: `"${record.strategyId}" declarado dos veces; dos verdades sobre lo mismo (§26.5).` }]);
+      return unexpectedTimeline([{ field: "records", code: "DUPLICATE_STRATEGY_ID", message: `"${record.strategyId}" declared twice; two truths about the same thing (§26.5).` }]);
     }
     byId.set(record.strategyId, record);
   }
@@ -415,7 +425,7 @@ export function buildResearchViewModel({ backendIndex = null, records = [] } = {
       return {
         strategyId,
         status: "UNAVAILABLE",
-        reason: "sin registro canónico del backend en este scope; no se presume hipótesis ni readiness",
+        reason: "no canonical backend record in this scope; neither hypothesis nor readiness is presumed",
       };
     }
     const bound = bindRecord(backendIndex, candidate);
@@ -437,8 +447,8 @@ export function buildResearchViewModel({ backendIndex = null, records = [] } = {
     unexpectedStrategyIds: unexpectedIds,
     hasAnyBoundData: strategies.some((item) => item.status === "BOUND"),
     pendingSections: [
-      { label: "Experiment / version lineage", status: "UNAVAILABLE", reason: "sin lineage canónico proveniente del backend" },
-      { label: "Evidence / receipts", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14 persistido en disco; el productor existe como código" },
+      { label: "Experiment / version lineage", status: "UNAVAILABLE", reason: "no canonical lineage from the backend" },
+      { label: "Evidence / receipts", status: "UNAVAILABLE", reason: "no IMP-14 run receipt persisted on disk; the producer exists as code" },
     ],
   };
 }
@@ -449,26 +459,26 @@ export function buildResearchViewModel({ backendIndex = null, records = [] } = {
 // { replay: "<recordKey>@<revisionId>", backtests: ..., research: ... }.
 export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], runs = [] } = {}) {
   if (!Array.isArray(campaigns) || !Array.isArray(runs)) {
-    return unexpectedTimeline([{ field: "campaigns", code: "INVALID_INPUT", message: "campaigns y runs deben ser listas." }]);
+    return unexpectedTimeline([{ field: "campaigns", code: "INVALID_INPUT", message: "campaigns and runs must be lists." }]);
   }
   const seenCampaigns = new Set();
   for (const campaign of campaigns) {
     if (campaign?.campaignId === undefined || seenCampaigns.has(campaign.campaignId)) {
-      return unexpectedTimeline([{ field: "campaigns", code: "DUPLICATE_CAMPAIGN_ID", message: "cada campaña se declara una vez (§26.5)." }]);
+      return unexpectedTimeline([{ field: "campaigns", code: "DUPLICATE_CAMPAIGN_ID", message: "each campaign is declared once (§26.5)." }]);
     }
     seenCampaigns.add(campaign.campaignId);
   }
   const seenRuns = new Set();
   for (const run of runs) {
     if (run?.runId === undefined || seenRuns.has(run.runId)) {
-      return unexpectedTimeline([{ field: "runs", code: "DUPLICATE_RUN_ID", message: "cada run se declara una vez (§26.5)." }]);
+      return unexpectedTimeline([{ field: "runs", code: "DUPLICATE_RUN_ID", message: "each run is declared once (§26.5)." }]);
     }
     seenRuns.add(run.runId);
   }
   const campaignItems = campaigns
     .map((campaign) => {
       if (typeof campaign?.campaignId !== "string" || campaign.campaignId.trim().length === 0) {
-        return unavailableItem("(campaña sin id)", "campaña sin identidad; no se rinde");
+        return unavailableItem("(campaign without id)", "campaign without identity; not rendered");
       }
       const bound = bindRecord(backendIndex, campaign);
       if (!bound.ok) {
@@ -476,18 +486,47 @@ export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], r
       }
       return boundItem(campaign.campaignId, bound.bound, { kind: "CAMPAIGN" });
     });
+  // SEM2-T12: every cross-tab link preserves the scope it was bound to (run,
+  // campaign, mission, hypothesis/version). A drilldown without scope cannot
+  // guarantee continuity, so it is withheld fail-closed instead of navigating
+  // to a destination that would silently default to another run/mission.
+  const scopeFromValue = (value) => {
+    if (value === null || typeof value !== "object") return {};
+    const scope = {};
+    if (typeof value.campaignId === "string" && value.campaignId.trim() !== "") scope.campaign = value.campaignId;
+    if (typeof value.missionId === "string" && value.missionId.trim() !== "") scope.mission = value.missionId;
+    if (typeof value.hypothesisVersion === "string" && value.hypothesisVersion.trim() !== "") scope.version = value.hypothesisVersion;
+    return scope;
+  };
+  const scopedDrilldowns = (runId, scope) => {
+    const params = new URLSearchParams({ run: runId });
+    for (const [key, value] of Object.entries(scope)) params.set(key, value);
+    const query = params.toString();
+    return [
+      { href: `/replay?${query}` },
+      { href: `/backtests?${query}` },
+      { href: `/research?${query}` },
+    ];
+  };
   const runItems = runs
     .map((run) => {
       if (typeof run?.runId !== "string" || run.runId.trim().length === 0) {
-        return unavailableItem("(run sin id)", "run sin identidad; no se rinde");
+        return unavailableItem("(run without id)", "run without identity; not rendered");
       }
       const record = run.record ?? run;
       const bound = bindRecord(backendIndex, record);
       if (!bound.ok) {
         return unavailableItem(run.runId, bound.reason);
       }
-      const drilldowns = [`#${SURFACES.REPLAY}`, `#${SURFACES.BACKTESTS}`, `#${SURFACES.RESEARCH}`].map((href) => ({ href }));
-      return boundItem(run.runId, bound.bound, { kind: "RUN", drilldowns });
+      const scope = scopeFromValue(bound.bound.value);
+      if (Object.keys(scope).length === 0) {
+        return boundItem(run.runId, bound.bound, {
+          kind: "RUN",
+          drilldowns: [],
+          drilldownWithheld: "the canonical record declares no campaign/mission/version scope; the cross-tab handoff is withheld (fail-closed, SEM2-08)",
+        });
+      }
+      return boundItem(run.runId, bound.bound, { kind: "RUN", drilldowns: scopedDrilldowns(run.runId, scope), scope });
     });
   return {
     ok: true,
@@ -501,7 +540,7 @@ export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], r
     // backend no respalda.
     drilldownTargets: Object.freeze(["replay", "backtests", "research"]),
     pendingRunReceipts: [
-      { label: "Receipts de run", status: "UNAVAILABLE", reason: "ningún run receipt IMP-14/IMP-16 persistido en disco; no se fabrican" },
+      { label: "Run receipts", status: "UNAVAILABLE", reason: "no IMP-14/IMP-16 run receipt persisted on disk; none is fabricated" },
     ],
   };
 }
@@ -523,21 +562,21 @@ export function buildCampaignsViewModel({ backendIndex = null, campaigns = [], r
 // error: valor no coincide con el manifest = dato no factual (§26.5).
 export function buildReplayViewModel({ timeline = null, exposure = null, backendIndex = null } = {}) {
   if (timeline === null || timeline?.ok !== true || timeline?.timeline === undefined) {
-    return unexpectedTimeline([{ field: "timeline", code: "TIMELINE_NOT_VALIDATED", message: "Replay exige el timeline validado de buildOperatorTimeline; sin él no se renderiza (§26.3)." }]);
+    return unexpectedTimeline([{ field: "timeline", code: "TIMELINE_NOT_VALIDATED", message: "Replay requires the buildOperatorTimeline-validated timeline; without it nothing renders (§26.3)." }]);
   }
   // UI01-10 (review de cambio 2026-09-23): un `exposure.exposure === null`
   // no salta el guard anterior (null !== undefined) y revientaba más abajo;
   // se degrada a ERROR sin excepción (§26.5 / estados de error fail-closed).
   if (exposure === null || exposure?.ok !== true || exposure?.exposure === undefined || exposure?.exposure === null) {
-    return unexpectedTimeline([{ field: "exposure", code: "EXPOSURE_NOT_VALIDATED", message: "Replay exige la exposición validada de buildExposure; sin ella no se renderiza (§26.2)." }]);
+    return unexpectedTimeline([{ field: "exposure", code: "EXPOSURE_NOT_VALIDATED", message: "Replay requires the buildExposure-validated exposure; without it nothing renders (§26.2)." }]);
   }
   // UI01-04a (review 2026-09-23): una exposición sin fields no es una
   // exposición renderizable; se degrada a ERROR, nunca a una excepción.
   if (!Array.isArray(exposure.exposure.fields)) {
-    return unexpectedTimeline([{ field: "exposure.fields", code: "EXPOSURE_MALFORMED", message: "La exposición declarada no tiene la lista de campos del boundary (§26.2)." }]);
+    return unexpectedTimeline([{ field: "exposure.fields", code: "EXPOSURE_MALFORMED", message: "The declared exposure lacks the boundary field list (§26.2)." }]);
   }
   if (backendIndex === null || backendIndex.byIdentity === undefined) {
-    return unexpectedTimeline([{ field: "backendIndex", code: "BACKEND_NOT_VERIFIED", message: "Replay sólo muestra datos del manifest backend verificado; sin él el timeline no se puede atar a un dato factual (§26.5)." }]);
+    return unexpectedTimeline([{ field: "backendIndex", code: "BACKEND_NOT_VERIFIED", message: "Replay only shows verified backend manifest data; without it the timeline cannot be bound to factual data (§26.5)." }]);
   }
   const reconciliation = reconcileOperatorTimeline(timeline.timeline);
   if (!reconciliation.ok) {
@@ -557,7 +596,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   const exposureBoundaryUtc = toUtcTimestamp(exposure.exposure.boundaryUtc);
   const decisionBoundaryUtc = toUtcTimestamp(t.decision.boundary);
   if (!exposureBoundaryUtc.ok || !decisionBoundaryUtc.ok || exposureBoundaryUtc.utc !== decisionBoundaryUtc.utc) {
-    errors.push({ field: "exposure.exposure.boundaryUtc", code: "EXPOSURE_BOUNDARY_NOT_ALIGNED", message: "la exposición declarada no usa el mismo boundary de decisión del timeline; la página de Replay no puede presentar como conocido al decidir lo que cerró después (§26.3/§25.1)" });
+    errors.push({ field: "exposure.exposure.boundaryUtc", code: "EXPOSURE_BOUNDARY_NOT_ALIGNED", message: "the declared exposure does not use the timeline decision boundary; the Replay page cannot present as known-at-decision what closed later (§26.3/§25.1)" });
   }
   const decisionBoundaryMs = decisionBoundaryUtc.ok ? Date.parse(decisionBoundaryUtc.utc) : Number.NaN;
   const bindPoint = (point, landmark, expectedLane, expectedViewScope, expectedClockOf, expectedClockKind) => {
@@ -565,12 +604,12 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     // (lane-<lane>) se deriva de la lane conciliada; una etiqueta distinta del
     // llamador no renombra la semántica temporal (§26.3).
     if (point?.lane !== expectedLane) {
-      errors.push({ field: `${landmark}.${point?.key ?? "(sin key)"}`, code: "POINT_LANE_MISMATCH", message: `el punto declara lane "${point?.lane ?? "ausente"}" y concilia en la lane ${expectedLane}; la semántica temporal la fija el boundary (§26.3)` });
+      errors.push({ field: `${landmark}.${point?.key ?? "(no key)"}`, code: "POINT_LANE_MISMATCH", message: `the point declares lane "${point?.lane ?? "missing"}" and reconciles in lane ${expectedLane}; the boundary fixes the temporal semantics (§26.3)` });
       return;
     }
     const bound = bindRecord(backendIndex, { recordKey: point.key, revisionId: point.revisionId, value: point.value });
     if (!bound.ok) {
-      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `el punto no se concilia con el manifest backend verificado: ${bound.reason} (§26.5); un valor no registrado no es factual` });
+      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `the point does not reconcile with the verified backend manifest: ${bound.reason} (§26.5); an unregistered value is not factual` });
       return;
     }
     // UI01-01c (review 2026-09-23): la lane decision sólo puede contener keys
@@ -579,7 +618,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     // lane evaluation es exploratoria y puede llevar keys de ambos scopes.
     const record = resolveBackendRecord(backendIndex, point.key, point.revisionId);
     if (expectedViewScope !== null && record?.viewScope !== expectedViewScope) {
-      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_SCOPE_MISMATCH", message: `el punto "${point.key}" proviene de la vista "${record?.viewScope ?? "sin scope"}" y no encuadra en la lane ${expectedViewScope} del replay (§6.1/§26.3)` });
+      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_SCOPE_MISMATCH", message: `the point "${point.key}" comes from view "${record?.viewScope ?? "no scope"}" and does not fit replay lane ${expectedViewScope} (§6.1/§26.3)` });
       return;
     }
     if (record !== null) {
@@ -588,14 +627,14 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       // evaluation: reloj de contenido; §6.1/§26.3).
       const canonicalClock = expectedClockOf(record);
       if (typeof canonicalClock !== "string" || point.clock !== canonicalClock) {
-        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_NOT_FROM_RECORD", message: `el reloj del punto "${point.key}" debe derivarse del registro verificado del manifest; un clock declarado no informa el boundary (§26.3/§26.5)` });
+        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_NOT_FROM_RECORD", message: `the clock of point "${point.key}" must derive from the verified manifest record; a declared clock does not inform the boundary (§26.3/§26.5)` });
       }
       // UI01-05b: el tipo de reloj exhibido (data-clock-kind) también se deriva
       // de la lane canónica; decision consume (policy-consumable), evaluation
       // recibe contenido por su reloj efectivo (evaluation-effective). Un
       // clockKind declarado que contradiga la lane no se muestra (§26.3).
       if (point.clockKind !== expectedClockKind) {
-        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_KIND_NOT_DERIVED", message: `el tipo de reloj del punto "${point.key}" debe derivarse de la lane canónica (${expectedClockKind}); un clockKind declarado por el llamador no informa el boundary (§26.3/§26.5)` });
+        errors.push({ field: `${landmark}.${point.key}`, code: "POINT_CLOCK_KIND_NOT_DERIVED", message: `the clock kind of point "${point.key}" must derive from the canonical lane (${expectedClockKind}); a caller-declared clockKind does not inform the boundary (§26.3/§26.5)` });
       }
     }
   };
@@ -607,13 +646,13 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       // UI01-01b (review 2026-09-23): un campo con valor y sin procedencia
       // declarada no es mostrable; el valor no remite a ninguna versión.
       if (field?.value !== undefined) {
-        errors.push({ field: landmark, code: "EXPOSURE_VALUE_WITHOUT_PROVENANCE", message: `el campo "${field?.specLabel ?? landmark}" ofrece un valor sin procedencia; sin registro canónico no es factual (§26.5)` });
+        errors.push({ field: landmark, code: "EXPOSURE_VALUE_WITHOUT_PROVENANCE", message: `the field "${field?.specLabel ?? landmark}" offers a value without provenance; without a canonical record it is not factual (§26.5)` });
       }
       return;
     }
     const resolved = resolveBackendRecord(backendIndex, provenance.recordKey, provenance.revisionId);
     if (resolved === null) {
-      errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_NOT_IN_BACKEND", message: `la procedencia "${provenance.recordKey}"/"${provenance.revisionId}" no existe en el manifest verificado del mismo backend (§26.5)` });
+      errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_NOT_IN_BACKEND", message: `the provenance "${provenance.recordKey}"/"${provenance.revisionId}" does not exist in the same backend verified manifest (§26.5)` });
       return;
     }
     // UI01-08 (review de cambio 2026-09-23): las condiciones value-less con
@@ -624,7 +663,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     // declara uno; cuando hay valor, el bloque siguiente re-hashea el valor
     // expuesto contra el propio registro (§26.5).
     if (provenance.valueSha256 !== null && resolved.valueSha256 !== provenance.valueSha256) {
-      errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_MISMATCH", message: `el hash de la procedencia no coincide con el contenido registrado por "${provenance.recordKey}"/"${provenance.revisionId}" (§26.5)` });
+      errors.push({ field: landmark, code: "EXPOSURE_PROVENANCE_MISMATCH", message: `the provenance hash does not match the content recorded by "${provenance.recordKey}"/"${provenance.revisionId}" (§26.5)` });
       return;
     }
     // UI01-01b: el valueSha256 declarado puede coincidir por accidente; el
@@ -632,9 +671,9 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     if (field.value !== undefined && field.value !== null) {
       const valueHash = canonicalValueSha256(field.value);
       if (!valueHash.ok) {
-        errors.push({ field: landmark, code: "EXPOSURE_VALUE_NOT_CANONICAL", message: `el valor del campo "${field?.specLabel ?? landmark}" no es dato canónico serializable (§26.5)` });
+        errors.push({ field: landmark, code: "EXPOSURE_VALUE_NOT_CANONICAL", message: `the value of field "${field?.specLabel ?? landmark}" is not canonical serializable data (§26.5)` });
       } else if (valueHash.sha256 !== resolved.valueSha256) {
-        errors.push({ field: landmark, code: "EXPOSURE_VALUE_HASH_MISMATCH", message: `el valor expuesto por "${field?.specLabel ?? landmark}" no es el registrado por "${provenance.recordKey}"/"${provenance.revisionId}"; no se calcula otra verdad económica (§26.5)` });
+        errors.push({ field: landmark, code: "EXPOSURE_VALUE_HASH_MISMATCH", message: `the value exposed by "${field?.specLabel ?? landmark}" is not the one recorded by "${provenance.recordKey}"/"${provenance.revisionId}"; no second economic truth is computed (§26.5)` });
       }
     }
   };
@@ -654,7 +693,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     }
     const definition = EXPOSURE_FIELDS.find((canonical) => canonical.key === field.field);
     if (definition !== undefined && (field.specLabel !== definition.specLabel || field.section !== definition.section)) {
-      errors.push({ field: landmark, code: "EXPOSURE_SECTION_MISMATCH", message: `la sección "${field.field}" no es su definición canónica de §26.2; la etiqueta del llamador no se presenta como factual` });
+      errors.push({ field: landmark, code: "EXPOSURE_SECTION_MISMATCH", message: `section "${field.field}" is not its canonical §26.2 definition; the caller label is not presented as factual` });
     }
     // UI01-06a (review de cambio 2026-09-23): buildExposureField no conoce el
     // boundary, así que un AVAILABLE forjado (o proyectado a un boundary
@@ -668,7 +707,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       const projectedRecord = resolveBackendRecord(backendIndex, field.provenance.recordKey, field.provenance.revisionId);
       const availabilityUtc = availabilityClockOf(projectedRecord);
       if (availabilityUtc === null || Number.isNaN(decisionBoundaryMs) || Date.parse(availabilityUtc) > decisionBoundaryMs) {
-        errors.push({ field: landmark, code: "EXPOSURE_NOT_PROJECTED_TO_BOUNDARY", message: `la versión canónica referida (disponibilidad ${availabilityUtc ?? "sin demostrar"}) es posterior o no demostrada al boundary de decisión; buildExposure habría degradado esta sección a NOT_YET_CLOSED y no se rinde con valor como factual (§26.3/§25.1)` });
+        errors.push({ field: landmark, code: "EXPOSURE_NOT_PROJECTED_TO_BOUNDARY", message: `the referred canonical version (available ${availabilityUtc ?? "undemonstrated"}) is later than or not demonstrated at the decision boundary; buildExposure would have degraded this section to NOT_YET_CLOSED and it is not rendered with a value as factual (§26.3/§25.1)` });
       }
     }
   }
@@ -685,11 +724,11 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
   }
   const missingSections = EXPOSURE_FIELD_KEYS.filter((canonicalKey) => !declaredKeys.includes(canonicalKey));
   if (missingSections.length > 0) {
-    errors.push({ field: "exposure.fields", code: "EXPOSURE_NOT_STRUCTURALLY_COMPLETE", message: `la exposición declarada omite las secciones canónicas de §26.2 (${missingSections.join(", ")}); una parcial ocurre sin declarar lo ausente y no se rinde como completa (§26.2)` });
+    errors.push({ field: "exposure.fields", code: "EXPOSURE_NOT_STRUCTURALLY_COMPLETE", message: `the declared exposure omits the canonical §26.2 sections (${missingSections.join(", ")}); a partial one omits without declaring the absence and is not rendered as complete (§26.2)` });
   }
   const duplicateSections = declaredKeys.filter((key, index) => declaredKeys.indexOf(key) !== index);
   if (duplicateSections.length > 0) {
-    errors.push({ field: "exposure.fields", code: "EXPOSURE_SECTION_DUPLICATE", message: `la exposición declara "${[...new Set(duplicateSections)].join(", ")}" más de una vez; dos verdades sobre lo mismo (§26.5)` });
+    errors.push({ field: "exposure.fields", code: "EXPOSURE_SECTION_DUPLICATE", message: `the exposure declares "${[...new Set(duplicateSections)].join(", ")}" more than once; two truths about the same thing (§26.5)` });
   }
   // UI01-01a (review 2026-09-23): una actuación REAL no se rinde con una
   // autorización "declarada"; su origen (authority + receipt) se re-ata al
@@ -701,12 +740,12 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     const authorization = event?.authorization;
     const origin = authorization?.origin;
     if (origin === undefined || origin === null) {
-      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin`, code: "REAL_AUTHORITY_ORIGIN_MISSING", message: "el acto REAL declara autorización sin origen resuelto; la autoridad y el receipt deben re-atar al manifest backend verificado (§26.5/§16–18)" });
+      errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.origin`, code: "REAL_AUTHORITY_ORIGIN_MISSING", message: "the REAL act declares authorization without a resolved origin; authority and receipt must re-bind to the verified backend manifest (§26.5/§16–18)" });
       return;
     }
     const originAuthority = resolveBackendRecord(backendIndex, origin.authority?.recordKey, origin.authority?.revisionId);
     if (originAuthority === null) {
-      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.authority`, code: "REAL_AUTHORITY_NOT_IN_BACKEND", message: "la autoridad del acto REAL no resuelve a una versión del manifest backend verificado; un acto REAL exige autoridad aplicable resuelta (§26.5/§16–18)" });
+      errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.origin.authority`, code: "REAL_AUTHORITY_NOT_IN_BACKEND", message: "the REAL act authority does not resolve to a verified backend manifest version; a REAL act requires a resolved applicable authority (§26.5/§16–18)" });
     } else {
       // UI01-01a-r (review 2026-09-23): además del origen, los refs exhibidos
       // por el render (authorityRef / receiptRef / receiptSha256) se re-atan al
@@ -717,24 +756,24 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
         ? null
         : resolveBackendRecord(backendIndex, authorityParsed.recordKey, authorityParsed.revisionId);
       if (authorityResolved === null || authorityResolved !== originAuthority) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.authorityRef`, code: "REAL_AUTHORITY_REF_NOT_BOUND", message: "el authorityRef exhibido no remite a la autoridad resuelta en el manifest backend verificado; no se dibuja como factual (§26.5)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.authorityRef`, code: "REAL_AUTHORITY_REF_NOT_BOUND", message: "the displayed authorityRef does not point at the authority resolved in the verified backend manifest; it is not drawn as factual (§26.5)" });
       }
     }
     const receipt = authorization.receipt;
     const originReceipt = resolveBackendRecord(backendIndex, origin.receipt?.recordKey, origin.receipt?.revisionId);
     if (originReceipt === null) {
-      errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "el receipt del acto REAL no resuelve a una versión del manifest backend verificado; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+      errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "the REAL act receipt does not resolve to a verified backend manifest version; no receipt is declared that the backend does not back (§26.5/§25.2)" });
     } else {
       const receiptParsed = parseBackendRef(receipt?.receiptRef);
       const receiptResolved = receiptParsed === null
         ? null
         : resolveBackendRecord(backendIndex, receiptParsed.recordKey, receiptParsed.revisionId);
       if (receiptResolved === null) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "el receipt del acto REAL no resuelve a una versión del manifest backend verificado; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.origin.receipt`, code: "REAL_RECEIPT_NOT_IN_BACKEND", message: "the REAL act receipt does not resolve to a verified backend manifest version; no receipt is declared that the backend does not back (§26.5/§25.2)" });
       } else if (receiptResolved !== originReceipt) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.receipt.receiptRef`, code: "REAL_RECEIPT_REF_NOT_BOUND", message: "el receiptRef exhibido no remite al receipt resuelto en el manifest backend verificado; no se dibuja como factual (§26.5)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.receipt.receiptRef`, code: "REAL_RECEIPT_REF_NOT_BOUND", message: "the displayed receiptRef does not point at the receipt resolved in the verified backend manifest; it is not drawn as factual (§26.5)" });
       } else if (typeof receipt?.receiptSha256 !== "string" || receiptResolved.valueSha256 !== receipt.receiptSha256.toLowerCase()) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization.receipt.receiptSha256`, code: "REAL_RECEIPT_MISMATCH", message: "el hash del receipt exhibido no es el contenido registrado por su versión canónica; no se declara un receipt que el backend no respalda (§26.5/§25.2)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization.receipt.receiptSha256`, code: "REAL_RECEIPT_MISMATCH", message: "the displayed receipt hash is not the content recorded by its canonical version; no receipt is declared that the backend does not back (§26.5/§25.2)" });
       }
     }
   };
@@ -752,16 +791,16 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       // equivalente a validateExecution del boundary (§26.3): un class fuera
       // de las clases canónicas o un eventId vacío no se rinde como evento.
       if (typeof event?.eventId !== "string" || event.eventId.trim().length === 0) {
-        errors.push({ field: `${lane}.(sin id).eventId`, code: "MISSING_EVENT_ID", message: "la actuación no declara su identidad; un evento sin id no se muestra (§26.3/§26.5)" });
+        errors.push({ field: `${lane}.(sin id).eventId`, code: "MISSING_EVENT_ID", message: "the act does not declare its identity; an event without an id is not shown (§26.3/§26.5)" });
       }
       if (event?.lane !== expectedEventLane) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.lane`, code: "EVENT_LANE_MISMATCH", message: `el evento declara lane "${event?.lane ?? "ausente"}" en el contenedor ${lane}; la lane canónica "execution"/"intervention" del boundary separa la ejecución de la intervención humana (§26.3)` });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.lane`, code: "EVENT_LANE_MISMATCH", message: `the event declares lane "${event?.lane ?? "missing"}" in the ${lane} container; the boundary canonical lane "execution"/"intervention" separates execution from human intervention (§26.3)` });
       }
       if (lane === "interventions" && event?.class !== HUMAN_INTERVENTION_CLASS) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.class`, code: "INVALID_INTERVENTION_CLASS", message: `una intervención humana es ${HUMAN_INTERVENTION_CLASS} y no una clase de ejecución; el resultado tocado por un humano no se rinde como fill simulado ni se atribuye en silencio (§26.3)` });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.class`, code: "INVALID_INTERVENTION_CLASS", message: `a human intervention is ${HUMAN_INTERVENTION_CLASS} and not an execution class; a human-touched result is not rendered as a simulated fill nor silently attributed (§26.3)` });
       }
       if (lane === "executions" && !EXECUTION_CLASSES.includes(event?.class)) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.class`, code: "UNKNOWN_EXECUTION_CLASS", message: `class debe ser ${EXECUTION_CLASSES.join(", ")}: un fill hipotético no se muestra como Real ni una clase desconocida se muestra como factual (§26.3)` });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.class`, code: "UNKNOWN_EXECUTION_CLASS", message: `class must be ${EXECUTION_CLASSES.join(", ")}: a hypothetical fill is not shown as Real and an unknown class is not shown as factual (§26.3)` });
       }
       // UI01-07 (review de cambio 2026-09-23): el reloj exhibido del evento
       // (render.mjs .event-clock) se re-valida como timestamp UTC canónico del
@@ -770,7 +809,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       // silencia el caso inválido, así que aquí se constata la forma canónica.
       const eventClock = toUtcTimestamp(event?.clock);
       if (!eventClock.ok || eventClock.utc !== event.clock) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.clock`, code: "EVENT_CLOCK_NOT_CANONICAL", message: "el reloj del evento debe ser un timestamp UTC canónico con zona explícita y forma normalizada; un clock no canónico no se muestra (§6.1/§26.3)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.clock`, code: "EVENT_CLOCK_NOT_CANONICAL", message: "the event clock must be a canonical UTC timestamp with explicit zone and normalized form; a non-canonical clock is not shown (§6.1/§26.3)" });
       }
       // UI01-01a-r2 (review de cambio 2026-09-23): el ref exhibido por el
       // render (relatedRecommendationRef) se ata al vínculo canónico
@@ -782,7 +821,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       if (displayedParsed === null
         || displayedParsed.recordKey !== canonical?.recordKey
         || displayedParsed.revisionId !== canonical?.revisionId) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedRecommendationRef`, code: "RECOMMENDATION_REF_NOT_BOUND", message: "el ref de recomendación exhibido no es el que resuelve el vínculo canónico verificado del boundary; no se dibuja como factual (§26.5/§26.3)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.relatedRecommendationRef`, code: "RECOMMENDATION_REF_NOT_BOUND", message: "the displayed recommendation ref is not the one resolved by the verified canonical boundary link; it is not drawn as factual (§26.5/§26.3)" });
       }
       const ref = event?.relatedCanonicalRef;
       const refIsUsable = ref !== undefined && ref !== null;
@@ -790,9 +829,9 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
         ? resolveBackendRecord(backendIndex, ref.recordKey, ref.revisionId)
         : null;
       if (resolved === null) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_IN_BACKEND", message: "el vínculo a la recomendación no resuelve a una versión del decision view del manifest verificado (§26.3/§26.5)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_IN_BACKEND", message: "the recommendation link does not resolve to a decision view version of the verified manifest (§26.3/§26.5)" });
       } else if (refIsUsable && resolved.viewScope !== "decision") {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_DECISION_SCOPE", message: "la actuación se vincula a la recomendación conocida al decidir; la referee no es una versión del decision view (§26.3)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.relatedCanonicalRef`, code: "RECOMMENDATION_LINK_NOT_DECISION_SCOPE", message: "the act links to the recommendation known at decision time; the referee is not a decision view version (§26.3)" });
       }
       bindAuthorizationOrigin(lane, event);
       // UI01-11 (review de cambio 2026-09-23): una intervención humana nunca
@@ -801,7 +840,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
       // por el boundary; pasada cruda al render exponía refs
       // data-authority/data-receipt-* factuales sin respaldo (§26.5).
       if (lane === "interventions" && event?.authorization !== undefined && event.authorization !== null) {
-        errors.push({ field: `${lane}.${event?.eventId ?? "(sin id)"}.authorization`, code: "INTERVENTION_AUTHORIZATION_NOT_BOUND", message: "una intervención humana no es un acto REAL; su authorization no fue validada por el boundary y no se exhibe como factual (§26.3/§26.5)" });
+        errors.push({ field: `${lane}.${event?.eventId ?? "(no id)"}.authorization`, code: "INTERVENTION_AUTHORIZATION_NOT_BOUND", message: "a human intervention is not a REAL act; its authorization was not validated by the boundary and is not displayed as factual (§26.3/§26.5)" });
       }
     }
   }

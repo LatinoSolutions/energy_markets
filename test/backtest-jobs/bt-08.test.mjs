@@ -181,13 +181,13 @@ test("BT08-01: hipótesis desconocida, versión/hash inválidos, fase/modo impos
   const cases = [
     ["UNKNOWN_HYPOTHESIS", { ...base, hypothesisId: "H-RD-01" }],
     ["UNKNOWN_HYPOTHESIS", { ...base, hypothesisId: "DIP10" }],
-    ["HYPOTHESIS_VERSION_MISMATCH", { ...base, hypothesisVersion: "H-S1-01/phase-A/v2" }],
+    ["HYPOTHESIS_VERSION_MISMATCH", { ...base, hypothesisVersion: "H-S1-01/phase-A/v1" }],
     ["PHASE_NOT_DEVELOPMENT", { ...base, phase: "OOS" }],
     ["PHASE_NOT_DEVELOPMENT", { ...base, phase: "BRIDGE" }],
     ["INVALID_DATA_MODE", { ...base, dataMode: "TRADES" }],
     ["CANDIDATE_INTEGRITY", { ...base, candidate: { ...base.candidate, contentHash: "0".repeat(64) } }],
     ["OUTSIDE_PREDECLARED_SPACE", { ...base, candidate: { ...base.candidate, N: 7 } }],
-    ["PARAMETER_CANDIDATE_MISMATCH", { ...base, configuration: { artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION", hypothesisId: "H-S1-01", hypothesisVersion: "H-S1-01/phase-A/v1", missionId: "GAS_MONTHLY", candidateHash: base.candidate.contentHash, searchSpaceHash: base.searchSpace.contentHash, N: 5 } }],
+    ["PARAMETER_CANDIDATE_MISMATCH", { ...base, configuration: { artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION", hypothesisId: "H-S1-01", hypothesisVersion: base.hypothesisVersion, missionId: "GAS_MONTHLY", candidateHash: base.candidate.contentHash, searchSpaceHash: base.searchSpace.contentHash, N: 5 } }],
     ["BINDING_INVALID", { ...base, evaluation: { ...base.evaluation, benchmark: { ...base.evaluation.benchmark, unit: "EUR/MW" } } }],
     ["MISSION_INPUT_MISMATCH", { ...base, inputManifest: { ...base.inputManifest, benchmark: { ...base.inputManifest.benchmark, path: "src/evil.json" } } }],
     // Hallazgo BT08-T12: un benchmark declarado de otra campaña no ata esta campaña.

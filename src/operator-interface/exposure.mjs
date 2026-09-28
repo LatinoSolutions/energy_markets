@@ -79,21 +79,24 @@ export const EXPOSURE_SOURCE_KIND = Object.freeze({
 
 // Filas de la tabla §26.2, en su orden, con la clase de fuente admitida. La
 // recomendación, la ejecución y el outcome tienen clases separadas: una no se
-// muestra como otra.
+// muestra como otra. Las specLabels son las etiquetas primarias de la UI
+// (owner 2026-09-28, "English-language product naming": los rótulos primarios
+// del producto van en inglés; las citas históricas de fuente conservan su
+// idioma original en provenance).
 export const EXPOSURE_FIELDS = Object.freeze([
   { key: "marketContext", specLabel: "Market context", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.MARKET_CONTEXT] },
-  { key: "campaignProductMission", specLabel: "Campaign, product y Mission", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.CAMPAIGN_IDENTITY] },
+  { key: "campaignProductMission", specLabel: "Campaign, product and Mission", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.CAMPAIGN_IDENTITY] },
   { key: "procurementWindowAndDeadline", specLabel: "Procurement window and deadline", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.PROCUREMENT_WINDOW] },
-  { key: "policyAndAuthority", specLabel: "Policy y autoridad", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.POLICY_AUTHORITY] },
+  { key: "policyAndAuthority", specLabel: "Policy and authority", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.POLICY_AUTHORITY] },
   { key: "procurementState", specLabel: "Procurement State", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.PROCUREMENT_STATE] },
-  { key: "recommendation", specLabel: "Recomendación", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.RECOMMENDATION] },
+  { key: "recommendation", specLabel: "Recommendation", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.RECOMMENDATION] },
   { key: "strategyEvidence", specLabel: "Strategy evidence", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.STRATEGY_EVIDENCE] },
-  { key: "qualityAndProvenance", specLabel: "Calidad y procedencia", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.QUALITY_PROVENANCE] },
+  { key: "qualityAndProvenance", specLabel: "Quality and provenance", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.QUALITY_PROVENANCE] },
   { key: "proxyBenchmarkStatus", specLabel: "Proxy / benchmark status", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.PROXY_BENCHMARK] },
-  { key: "workingMode", specLabel: "Modo de trabajo", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.WORKING_MODE] },
-  { key: "humanIntervention", specLabel: "Intervención humana", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.HUMAN_INTERVENTION] },
+  { key: "workingMode", specLabel: "Working mode", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.WORKING_MODE] },
+  { key: "humanIntervention", specLabel: "Human intervention", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.HUMAN_INTERVENTION] },
   { key: "outcomes", specLabel: "Outcomes", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.OUTCOME] },
-  { key: "controlAndGovernance", specLabel: "Control y governance", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.GOVERNANCE_STATE] },
+  { key: "controlAndGovernance", specLabel: "Control and governance", section: "§26.2", sourceKinds: [EXPOSURE_SOURCE_KIND.GOVERNANCE_STATE] },
 ]);
 
 export const EXPOSURE_FIELD_KEYS = Object.freeze(EXPOSURE_FIELDS.map((field) => field.key));
