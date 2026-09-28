@@ -61,4 +61,8 @@ Para HYP-1, FIX-07, BT-08, UI-08 y su reparación de tests FIX-09, leer `docs/pr
 
 ## Semántica transversal — decisión de Bru, 28-sep-2026
 
-El alcance global y visual de SEM-2/UI-08 está en `docs/product/CROSS_SURFACE_SEMANTIC_AUDIT_2026-09-28.md` y la revisión operativa v3 de UI-08. Mismo contrato de backend para Campaigns & Runs, Replay, Backtests y Research; aliases históricos no acreditan CLIENT ni resultados nuevos. Conservar la interfaz clara/editorial aprobada. El mockup oscuro generado en el chat no es una especificación de diseño, métricas ni parámetros. Esta aclaración no cambia el contrato congelado del FIX-07 en curso; SEM-2 integra su resultado.
+El alcance global y visual de SEM-2/UI-08 está en `docs/product/CROSS_SURFACE_SEMANTIC_AUDIT_2026-09-28.md` y la revisión operativa vigente de UI-08. Mismo contrato de backend para Campaigns & Runs, Replay, Backtests y Research; aliases históricos no acreditan CLIENT ni resultados nuevos. Conservar la interfaz clara/editorial aprobada. El mockup oscuro generado en el chat no es una especificación de diseño, métricas ni parámetros. Esta aclaración no cambia el contrato congelado del FIX-07 en curso; SEM-2 integra su resultado.
+
+## Energy Markets product language — Bru, 2026-09-28
+
+All Energy Markets canonical domain names, field/enum names, hypothesis and mission names, and user-visible navigation, labels, statuses, tooltips and blocker descriptions must be in English in the backend contract and every UI tab. Consume the shared canonical English metadata; do not implement only a frontend label translation or invent another registry. Use the current operative English-language revisions for BT-08, SEM-2 and UI-08. Preserve stable IDs and immutable raw history/source quotations with explicit provenance. This is not an instruction to translate Oficina scheduler states, historical evidence or the conversation. Existing light/editorial visual design stays unchanged.
