@@ -60,3 +60,16 @@ export {
   evaluateImp11Acceptance,
   materializeGasQuarterlyS1,
 } from "./acceptance.mjs";
+
+// HYP-1 phase A is a separate, four-mission hypothesis contract. The IMP-11
+// Gas Quarterly replay exports above remain historical and unchanged.
+export {
+  H_S1_01,
+  H_S1_01_MISSIONS,
+  H_S1_01_N_GRID,
+  predeclareHS1SearchSpace,
+  createHS1Candidate,
+  evaluateHS1Location,
+  decideHS1AgainstControl,
+  materializeHS1MissionRegistry,
+} from "./h-s1-01.mjs";
