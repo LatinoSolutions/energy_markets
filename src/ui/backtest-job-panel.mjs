@@ -72,7 +72,7 @@ export function renderBacktestJobControl(status, { mode = "TOB" } = {}) {
   const locked = trades && view?.gate?.ok !== true;
   const disabled = running || locked;
   return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="${trades ? "TRADES" : "TOB"}" data-running="${running ? "true" : "false"}"${locked ? ' data-locked="true"' : ""} style="text-align:right">
-  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run backtest</button>
+  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run ${trades ? "TRADES" : "TOB"} backtest</button>
   <div class="mono small muted" style="margin-top:4px" data-job-line>${esc(line)}</div>
   <div class="small" data-job-message></div>
 </div>
@@ -81,6 +81,8 @@ ${JOB_CONTROL_SCRIPT}`;
 
 // Zona: la cabecera de la página de Backtests, junto a las etiquetas de brazos.
 export function withBacktestJobControl(html, status, { mode = "TOB" } = {}) {
+  const slot = '<div data-job-control-slot></div>';
+  if (html.includes(slot)) return html.replace(slot, renderBacktestJobControl(status, { mode }));
   const marker = '<div class="armhead">';
   const index = html.indexOf(marker);
   if (index === -1) return html;

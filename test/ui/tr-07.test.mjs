@@ -263,6 +263,12 @@ function renderBacktests(selection) {
 
 test("TR-07 UI: la pantalla de Backtests dibuja selector y paneles con los estados reales", () => {
   const html = renderBacktests({ mode: "TRADES", missionId: "GAS_QUARTERLY", period: "PUENTE" });
+  const historicalStart = html.indexOf('<details data-semantic="legacy-provenance"');
+  assert.ok(historicalStart > 0);
+  for (const marker of ['data-tr07="selector"', 'data-tr07="coverage"', 'data-tr07="calibration"', 'data-tr07="frozenContract"', 'data-tr07="results"']) {
+    const at = html.indexOf(marker);
+    assert.ok(at > 0 && at < historicalStart, `${marker} remains a current, accessible panel`);
+  }
   // Selector de mercado/misión y modo TOB · TRADES (TRADES_MODE_PLAN.md TR-07:73).
   assert.match(html, /data-tr07="selector"/);
   assert.match(html, /data-tr07-mode="TOB"/);

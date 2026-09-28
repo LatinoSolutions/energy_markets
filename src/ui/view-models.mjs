@@ -17,6 +17,7 @@ import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import { containsOfficialStatus } from "./canonical-inputs.mjs";
+import { MISSIONS, H_S1_01, clientFor, benchmarkFor } from "../backtesting-semantics/contract.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
@@ -372,6 +373,12 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     exploratory: projectExploratoryBacktest(exploratory),
     sourceFreshness: exploratory?.sourceFreshness ?? backtestReadiness?.sourceFreshness ?? null,
     measurementReadiness: projectBacktestReadiness(backtestReadiness),
+    semanticComparison: MISSIONS.map((mission) => ({
+      mission,
+      client: clientFor(mission.id),
+      benchmark: benchmarkFor(mission.id),
+      hypotheses: mission.id === "GAS_QUARTERLY" ? [H_S1_01] : [],
+    })),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
     pendingComparisons: [
