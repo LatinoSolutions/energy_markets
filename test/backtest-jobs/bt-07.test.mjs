@@ -483,11 +483,11 @@ test("BT-07 endpoint: POST mode TRADES sin freeze aprobado responde el motivo; G
     const tradesPage = await (await fetch(`${base}/backtests?mode=TRADES`)).text();
     assert.equal((tradesPage.match(/<button type="button" class="btn" data-job-start/g) ?? []).length, 1);
     assert.match(tradesPage, /data-mode="TRADES"[^>]*data-locked="true"/);
-    assert.match(tradesPage, /<button type="button" class="btn" data-job-start disabled>Run backtest<\/button>/);
+    assert.match(tradesPage, /<button type="button" class="btn" data-job-start disabled>Run TRADES backtest<\/button>/);
     assert.ok(tradesPage.includes(`TRADES runs locked · ${FAILURE_WORDS.TRADES_FREEZE_NOT_APPROVED}`));
     const tobPage = await (await fetch(`${base}/backtests`)).text();
     assert.match(tobPage, /data-mode="TOB"/);
-    assert.match(tobPage, /<button type="button" class="btn" data-job-start>Run backtest<\/button>/);
+    assert.match(tobPage, /<button type="button" class="btn" data-job-start>Run TOB backtest<\/button>/);
   });
   assert.equal(repo.calls().length, 0);
 });
@@ -498,7 +498,7 @@ test("BT-07 endpoint: con el freeze aprobado POST mode TRADES lanza; GET /<TR-RU
   const tradesJobRunner = newRunner(repo, { runsDir: jobRunner.runsRoot });
   await withServer({ jobRunner, tradesJobRunner }, async (base) => {
     const page = await (await fetch(`${base}/backtests?mode=TRADES`)).text();
-    assert.match(page, /<button type="button" class="btn" data-job-start>Run backtest<\/button>/);
+    assert.match(page, /<button type="button" class="btn" data-job-start>Run TRADES backtest<\/button>/);
     assert.ok(page.includes("No TRADES run has been launched yet"));
     const post = await fetch(`${base}${BACKTEST_JOBS_PATH}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestedBy: "ui", mode: "TRADES" }) });
     assert.equal(post.status, 202);
@@ -530,7 +530,7 @@ test("BT-07 UI: el control es el mismo botón; en TRADES copia la línea del bac
   // Sin estado TRADES publicado, fail-closed.
   assert.match(renderBacktestJobControl({ running: false }, { mode: "TRADES" }), /data-job-start disabled/);
   // TOB sigue igual que en BT-05.
-  assert.match(renderBacktestJobControl(status), /data-mode="TOB"[\s\S]*data-job-start>Run backtest/);
+  assert.match(renderBacktestJobControl(status), /data-mode="TOB"[\s\S]*data-job-start>Run TOB backtest/);
 });
 
 test("BT-07 endpoint: sin ejecutor TRADES configurado el modo TRADES queda bloqueado con motivo", async () => {

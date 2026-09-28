@@ -30,10 +30,24 @@ export function missionById(id) {
   return MISSIONS.find((mission) => mission.id === id) ?? null;
 }
 
-export function clientFor(missionId, { campaignId = null, obligationId = null } = {}) {
+export function clientFor(missionId, { campaignId = null, obligationId = null, behaviorEvidence = null } = {}) {
   const mission = missionById(missionId);
   if (!mission) return { ok: false, code: "UNKNOWN_MISSION" };
   if ((campaignId === null) !== (obligationId === null)) return { ok: false, code: "INCOMPLETE_CLIENT_SCOPE" };
+  // The owner confirmed a current Gas Quarterly timing fact, not historical
+  // executions or an identified current campaign. A scoped claim needs its own
+  // matching evidence; campaign rules about strategy invocation do not suffice.
+  const currentMandate = missionId === "GAS_QUARTERLY" && campaignId === null;
+  const scopedEvidence = campaignId !== null && behaviorEvidence?.kind === "CLIENT_PURCHASE_TIME"
+    && behaviorEvidence.missionId === missionId && behaviorEvidence.campaignId === campaignId
+    && behaviorEvidence.obligationId === obligationId && /^([01]\d|2[0-3]):[0-5]\d$/.test(behaviorEvidence.purchaseTime ?? "")
+    && behaviorEvidence.timezone === "Europe/Berlin"
+    && typeof behaviorEvidence.provenance === "string" && behaviorEvidence.provenance.trim() !== "";
+  const confirmed = currentMandate
+    ? { purchaseTime: "11:00", timezone: "Europe/Berlin", provenance: source.owner, scope: "CURRENT_MANDATE_UNSCOPED" }
+    : scopedEvidence
+      ? { purchaseTime: behaviorEvidence.purchaseTime, timezone: "Europe/Berlin", provenance: behaviorEvidence.provenance, scope: "CAMPAIGN_EVIDENCE" }
+      : {};
   return {
     ok: true,
     kind: IDENTITY.CLIENT,
@@ -41,8 +55,8 @@ export function clientFor(missionId, { campaignId = null, obligationId = null } 
     campaignId,
     obligationId,
     scopeStatus: campaignId === null ? "UNAVAILABLE" : "BOUND",
-    confirmed: { purchaseTime: "11:00", timezone: "Europe/Berlin", provenance: source.owner },
-    unknown: { sizing: "UNKNOWN", fillLogic: "UNKNOWN", executionModel: "UNKNOWN", fullCost: "UNKNOWN", policy: "UNKNOWN" },
+    confirmed,
+    unknown: { ...(confirmed.purchaseTime ? {} : { purchaseTime: "UNKNOWN" }), sizing: "UNKNOWN", fillLogic: "UNKNOWN", executionModel: "UNKNOWN", fullCost: "UNKNOWN", policy: "UNKNOWN" },
     economics: null,
     version: SEMANTIC_VERSION,
   };
@@ -56,7 +70,7 @@ export function benchmarkFor(missionId, { campaignId = null, obligationId = null
   if (status !== "UNAVAILABLE" && (!campaignId || !obligationId || !referenceVersion || !provenance)) {
     return { ok: false, code: "UNBOUND_BENCHMARK_VALUE" };
   }
-  if (value !== null && (!Number.isFinite(value) || status === "UNAVAILABLE")) {
+  if ((status === "UNAVAILABLE" && value !== null) || (status !== "UNAVAILABLE" && !Number.isFinite(value))) {
     return { ok: false, code: "UNBOUND_BENCHMARK_VALUE" };
   }
   return {
@@ -78,9 +92,10 @@ export function benchmarkFor(missionId, { campaignId = null, obligationId = null
   };
 }
 
-export function controlFor({ hypothesisId, runId, populationId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion } = {}) {
-  const fields = { hypothesisId, runId, populationId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion };
+export function controlFor({ hypothesisId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, artifactSha256 } = {}) {
+  const fields = { hypothesisId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, artifactSha256 };
   if (Object.values(fields).some((value) => typeof value !== "string" || value.trim() === "")) return { ok: false, code: "CONTROL_BINDING_INCOMPLETE" };
+  if (!/^[a-f0-9]{64}$/.test(artifactSha256)) return { ok: false, code: "CONTROL_BINDING_INCOMPLETE" };
   if (!/^H-(?:S\d+(?:S\d+)*|RD)-\d{2}$/.test(hypothesisId)) return { ok: false, code: "INVALID_HYPOTHESIS_ID" };
   return {
     ok: true, kind: IDENTITY.CONTROL, ...fields,
@@ -100,6 +115,8 @@ export function resolveLegacyAlias({ alias, artifactSha256, protocolVersion, map
   }
   if (mapping.alias !== alias || mapping.artifactSha256 !== artifactSha256 || mapping.protocolVersion !== protocolVersion
     || ![IDENTITY.CONTROL, IDENTITY.HYPOTHESIS].includes(mapping.kind)
+    || (alias === "A0" && mapping.kind !== IDENTITY.CONTROL)
+    || (alias === "A1" && mapping.kind !== IDENTITY.HYPOTHESIS)
     || (mapping.kind === IDENTITY.HYPOTHESIS && !/^H-(?:S\d+(?:S\d+)*|RD)-\d{2}$/.test(mapping.hypothesisId ?? ""))
     || (mapping.kind === IDENTITY.CONTROL && !mapping.hypothesisId)
     || !mapping.runId || !mapping.provenance) {
@@ -113,12 +130,21 @@ export function compareAblation({ control, active, controlEconomics, activeEcono
     || active.id !== control.hypothesisId || !active.runId || active.runId !== control.runId) {
     return { ok: false, verdict: "HOLD", code: "PAIR_NOT_BOUND" };
   }
-  const parity = ["populationId", "obligationId", "calendarVersion", "sizingVersion", "executionVersion", "benchmarkVersion"];
+  const parity = ["populationId", "campaignId", "obligationId", "calendarVersion", "sizingVersion", "executionVersion", "benchmarkVersion"];
   if (parity.some((field) => !active[field] || active[field] !== control[field])) return { ok: false, verdict: "HOLD", code: "PAIR_NOT_COMPARABLE" };
+  if (!/^[a-f0-9]{64}$/.test(control.artifactSha256) || !/^[a-f0-9]{64}$/.test(active.artifactSha256)) {
+    return { ok: false, verdict: "HOLD", code: "PAIR_NOT_COMPARABLE" };
+  }
   const c = controlEconomics;
   const a = activeEconomics;
+  const boundEconomics = (e, arm) => e?.campaignId === arm.campaignId && e?.obligationId === arm.obligationId
+    && e?.runId === arm.runId && e?.artifactSha256 === arm.artifactSha256
+    && e?.benchmarkVersion === arm.benchmarkVersion && e?.unit === "EUR/MWh"
+    && /^[a-f0-9]{64}$/.test(e?.benchmarkArtifactSha256 ?? "");
   if (!c || !a || c.status !== "VALID_RUN" || a.status !== "VALID_RUN" || c.benchmarkStatus !== "RECONCILED_OFFICIAL"
     || a.benchmarkStatus !== "RECONCILED_OFFICIAL" || c.costCompleteness !== "FULL" || a.costCompleteness !== "FULL"
+    || !boundEconomics(c, control) || !boundEconomics(a, active)
+    || c.benchmarkArtifactSha256 !== a.benchmarkArtifactSha256
     || !Number.isFinite(c.B) || !Number.isFinite(a.B) || c.B !== a.B
     || !Number.isFinite(c.H) || !Number.isFinite(a.H) || !Number.isFinite(c.V) || !Number.isFinite(a.V)
     || Math.abs((c.B - c.H) - c.V) > 1e-9 || Math.abs((a.B - a.H) - a.V) > 1e-9) {
