@@ -14,6 +14,21 @@ import path from "node:path";
 // en paralelo, y no confunde las carpetas viejas de /tmp (sin ficha) con fugas.
 export const REGISTRY_DIR = path.join(tmpdir(), "em-test-tmpdir-registry");
 
+// All workers launched by one `node --test` process share its pid and kernel
+// start time. The start time prevents pid reuse from attributing an old marker
+// to a new run. Nested fixture processes can inherit an explicit identifier.
+export function currentTestRunId() {
+  if (process.env.EM_TEST_RUN_ID) return process.env.EM_TEST_RUN_ID;
+  let parentStart = "unknown";
+  try {
+    const stat = readFileSync(`/proc/${process.ppid}/stat`, "utf8");
+    parentStart = stat.slice(stat.lastIndexOf(")") + 2).trim().split(/\s+/)[19];
+  } catch {
+    // The verifier still isolates its TMPDIR if procfs is unavailable.
+  }
+  return `${process.ppid}-${parentStart}`;
+}
+
 const activeDirs = new Map(); // dir -> markerPath
 const leaks = new Map(); // dir -> error string
 let exitHookInstalled = false;
@@ -39,7 +54,7 @@ function markerPathFor(dir) {
 function writeMarker(dir, prefix) {
   mkdirSync(REGISTRY_DIR, { recursive: true });
   const markerPath = markerPathFor(dir);
-  writeFileSync(markerPath, JSON.stringify({ dir, prefix, pid: process.pid, createdAt: Date.now() }));
+  writeFileSync(markerPath, JSON.stringify({ dir, prefix, pid: process.pid, runId: currentTestRunId(), createdAt: Date.now() }));
   return markerPath;
 }
 
@@ -124,7 +139,9 @@ export function isProcessAlive(pid) {
 }
 
 // Fugas reales = fichas cuyo proceso ya murió y cuya carpeta sigue en tmpdir.
-export function findLeakedTempDirs() {
+// Without a runId this is an operational inventory, including old markers.
+// The current-run guard passes its runId so a previous crash cannot fail it.
+export function findLeakedTempDirs({ runId } = {}) {
   let names;
   try {
     names = readdirSync(REGISTRY_DIR);
@@ -141,12 +158,13 @@ export function findLeakedTempDirs() {
       continue;
     }
     if (!marker || typeof marker.dir !== "string") continue;
+    if (runId !== undefined && marker.runId !== runId) continue;
     if (marker.pid === process.pid || isProcessAlive(marker.pid)) continue;
     if (!existsSync(marker.dir)) {
-      removeMarker(markerPath);
+      // Preserve historical markers for separate operational inspection.
       continue;
     }
-    leaked.push({ dir: marker.dir, prefix: marker.prefix, pid: marker.pid, markerPath });
+    leaked.push({ dir: marker.dir, prefix: marker.prefix, pid: marker.pid, runId: marker.runId, markerPath });
   }
   return leaked;
 }

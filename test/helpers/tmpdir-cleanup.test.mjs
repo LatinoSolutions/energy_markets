@@ -5,7 +5,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { existsSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -16,6 +17,7 @@ import {
   cleanupAllTempDirs,
   cleanupTempDir,
   createTempDir,
+  currentTestRunId,
   findLeakedTempDirs,
   isProcessAlive,
 } from "./tmpdir.mjs";
@@ -23,6 +25,7 @@ import {
 const HELPER_URL = new URL("./tmpdir.mjs", import.meta.url).href;
 const VERIFIER_PATH = new URL("./verify-tmpdir-run.mjs", import.meta.url).pathname;
 const SUITE_PREFIX = "bt05-repo-";
+const RUN_ID = currentTestRunId();
 
 function runnerTestFiles() {
   // Node runs each test file in a worker process. The parent runner retains
@@ -32,7 +35,10 @@ function runnerTestFiles() {
 }
 
 function runChild(source, env = process.env) {
-  return spawnSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8", env });
+  return spawnSync(process.execPath, ["--input-type=module", "-e", source], {
+    encoding: "utf8",
+    env: { ...env, EM_TEST_RUN_ID: env.EM_TEST_RUN_ID ?? RUN_ID },
+  });
 }
 
 function helperImport() {
@@ -66,6 +72,7 @@ test("FIX-05: una fuga real con prefijo de la suite se detecta como fuga", () =>
   const detected = findLeakedTempDirs().filter((entry) => entry.dir === leakedDir);
   try {
     assert.equal(detected.length, 1, `el guard no detectó la fuga ${leakedDir}`);
+    assert.equal(findLeakedTempDirs({ runId: RUN_ID }).filter((entry) => entry.dir === leakedDir).length, 1);
     assert.equal(detected[0].prefix, SUITE_PREFIX);
     assert.equal(isProcessAlive(detected[0].pid), false);
   } finally {
@@ -80,6 +87,47 @@ test("FIX-05: una fuga real con prefijo de la suite se detecta como fuga", () =>
     findLeakedTempDirs().filter((entry) => entry.dir === leakedDir),
     [],
   );
+});
+
+test("FIX-09: una fuga de una corrida anterior se informa aparte sin fallar la actual", () => {
+  const priorRunId = `prior-${process.pid}-${Date.now()}`;
+  const child = runChild(
+    helperImport() + `process.stdout.write(createTempDir(${JSON.stringify(SUITE_PREFIX)}));\n` +
+      `process.kill(process.pid, "SIGKILL");\n`,
+    { ...process.env, EM_TEST_RUN_ID: priorRunId },
+  );
+  assert.equal(child.signal, "SIGKILL", child.stderr);
+  const leakedDir = child.stdout.trim();
+  try {
+    assert.equal(findLeakedTempDirs().filter((entry) => entry.dir === leakedDir).length, 1);
+    assert.deepEqual(findLeakedTempDirs({ runId: RUN_ID }).filter((entry) => entry.dir === leakedDir), []);
+  } finally {
+    // Only the directory and marker created by this fixture are removed.
+    rmSync(leakedDir, { recursive: true, force: true });
+    unlinkSync(path.join(REGISTRY_DIR, `${path.basename(leakedDir)}.${child.pid}.json`));
+  }
+});
+
+test("FIX-09: una carpeta de otro proceso vivo no es una fuga de la corrida", async () => {
+  const child = spawn(process.execPath, ["--input-type=module", "-e",
+    helperImport() + `process.stdout.write(createTempDir(${JSON.stringify(SUITE_PREFIX)}));\n` +
+      `setInterval(() => {}, 1000);\n`,
+  ], { env: { ...process.env, EM_TEST_RUN_ID: `concurrent-${process.pid}` }, stdio: ["ignore", "pipe", "pipe"] });
+  let dir;
+  try {
+    const [chunk] = await once(child.stdout, "data");
+    dir = chunk.toString().trim();
+    assert.equal(existsSync(dir), true);
+    assert.deepEqual(findLeakedTempDirs().filter((entry) => entry.dir === dir), []);
+    assert.deepEqual(findLeakedTempDirs({ runId: RUN_ID }).filter((entry) => entry.dir === dir), []);
+  } finally {
+    child.kill("SIGKILL");
+    await once(child, "exit");
+    if (dir) {
+      rmSync(dir, { recursive: true, force: true });
+      unlinkSync(path.join(REGISTRY_DIR, `${path.basename(dir)}.${child.pid}.json`));
+    }
+  }
 });
 
 test("FIX-05: una carpeta viva no se reporta como fuga", () => {
@@ -210,8 +258,12 @@ test("FIX-05: cleanupAllTempDirs vacía lo registrado por el helper", () => {
   assert.deepEqual(activeTempDirs(), []);
 });
 
-test("FIX-05: no hay fugas registradas durante este archivo", () => {
-  assert.deepEqual(findLeakedTempDirs(), [], "hay carpetas temporales de tests EM sin borrar");
+test("FIX-05: no hay fugas registradas durante este archivo", (t) => {
+  const historical = findLeakedTempDirs().filter((entry) => entry.runId !== RUN_ID);
+  if (historical.length) {
+    t.diagnostic(`[FIX-09] fugas históricas fuera de esta corrida: ${historical.length}`);
+  }
+  assert.deepEqual(findLeakedTempDirs({ runId: RUN_ID }), [], "hay carpetas temporales de la corrida actual sin borrar");
 });
 
 test("FIX-05: el runner verifica los remanentes al terminar todos sus archivos", {
