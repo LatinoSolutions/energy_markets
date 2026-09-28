@@ -27,9 +27,9 @@ export {
   verifyExploratoryInputs,
 } from "./runner.mjs";
 
-export { BACKTEST_JOBS_PATH, backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath, tradesJobStatusPayload } from "./http.mjs";
+export { BACKTEST_JOBS_PATH, backtestJobStatusPayload, handleBacktestJobsRequest, hypothesisJobStatusPayload, isBacktestJobsPath, tradesJobStatusPayload } from "./http.mjs";
 
-export { FAILURE_WORDS, describeJobStatus, describeLaunch, describeTradesLaunch, describeTradesStatus, elapsedSeconds, failureInWords } from "./display.mjs";
+export { FAILURE_WORDS, describeHypothesisLaunch, describeHypothesisStatus, describeJobStatus, describeLaunch, describeTradesLaunch, describeTradesStatus, elapsedSeconds, failureInWords } from "./display.mjs";
 
 // BT-07 — runs TRADES de TR-06 desde el mismo botón (owner goal 2026-09-26).
 export {
@@ -50,4 +50,39 @@ export {
   verifyTradesInputs,
 } from "./trades-runner.mjs";
 
+// BT-08 — jobs de hipótesis H-S1-01 por la misma ruta (intake
+// D-20260928T161943-70c6, Bru 2026-09-28). Development-only, fail-closed.
+export {
+  BLOCKED_EXIT_CODE,
+  HYPOTHESIS_DEVELOPMENT_DATA_ROOT,
+  HYPOTHESIS_DATA_MODES,
+  HYPOTHESIS_ENTRY,
+  HYPOTHESIS_JOB_KIND,
+  HYPOTHESIS_JOB_VERSION,
+  HYPOTHESIS_MANIFEST_PATH,
+  HYPOTHESIS_RECEIPT_KIND,
+  HYPOTHESIS_REGISTRY_FILE,
+  HYPOTHESIS_RESULTS_PATH,
+  HYPOTHESIS_TIMEOUT_MS,
+  canonicalSpecOf,
+  computeHypothesisRunIdentity,
+  createHypothesisJobRunner,
+  familyKeyOf,
+  hypothesisReadiness,
+  hypothesisReadinessForMission,
+  publicHypothesisJobView,
+  readHypothesisCodeCommit,
+  validateHypothesisJobRequest,
+} from "./hypothesis-runner.mjs";
+
 export { MCP_TOOLS, handleMcpMessage, runStdioServer } from "./mcp-server.mjs";
+
+// BT-08: adaptación producer→motor de las fuentes Development.
+export {
+  DEVELOPMENT_INPUT_KINDS,
+  adaptAvailabilitySource,
+  adaptBenchmarkSource,
+  adaptDevelopmentInputs,
+  adaptDeliveryHoursSource,
+  adaptObservationsSource,
+} from "./hypothesis-inputs.mjs";

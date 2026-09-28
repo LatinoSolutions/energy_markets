@@ -529,7 +529,8 @@ test("BT-05: las tools MCP lanzan y consultan por el mismo endpoint HTTP", async
     assert.equal(init.result.capabilities.tools !== undefined, true);
     assert.equal(await handleMcpMessage({ jsonrpc: "2.0", method: "notifications/initialized" }, { baseUrl }), null);
     const list = await handleMcpMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" }, { baseUrl });
-    assert.deepEqual(list.result.tools.map((tool) => tool.name), ["start_backtest", "backtest_status"]);
+    // BT-08 añade la tool de hipótesis al mismo catálogo MCP.
+    assert.deepEqual(list.result.tools.map((tool) => tool.name), ["start_backtest", "start_hypothesis_development", "backtest_status"]);
 
     const started = await handleMcpMessage({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "start_backtest", arguments: {} } }, { baseUrl });
     assert.equal(started.result.isError, false);
@@ -578,7 +579,8 @@ test("BT-05: el servidor MCP por stdio responde tools/list y llama al endpoint",
     child.kill();
     const byId = new Map(responses.map((response) => [response.id, response]));
     assert.equal(byId.get(1).result.serverInfo.name, "energy-markets-backtests");
-    assert.equal(byId.get(2).result.tools.length, 2);
+    // BT-08 añade la tool de hipótesis al mismo catálogo MCP.
+    assert.equal(byId.get(2).result.tools.length, 3);
     assert.equal(byId.get(3).result.structuredContent.running, false);
   });
 });

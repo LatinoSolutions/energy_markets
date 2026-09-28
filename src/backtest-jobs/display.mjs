@@ -56,6 +56,28 @@ export const FAILURE_WORDS = Object.freeze({
   OOS_ACCESS_REGISTRY_CORRUPT: "the OOS access registry is corrupt",
   OOS_OPENED_MORE_THAN_ONCE: "the historical OOS was opened more than once",
   SEQUENCE_INCOMPLETE: "the TRADES sequence ended without assembling",
+  // BT-08: ruta de hipótesis (Development-only, fail-closed).
+  HYPOTHESIS_NOT_CONFIGURED: "this server has no hypothesis job launcher",
+  UNKNOWN_HYPOTHESIS: "the requested hypothesis is not registered on the hypothesis path",
+  HYPOTHESIS_VERSION_MISMATCH: "the hypothesis version does not match the accepted definition",
+  UNKNOWN_MISSION: "the requested mission is not a canonical mission",
+  MISSION_NOT_APPLICABLE: "the hypothesis does not apply to the requested mission",
+  PHASE_NOT_DEVELOPMENT: "only the Development phase is allowed on the hypothesis path",
+  INVALID_DATA_MODE: "the data mode is not supported on the hypothesis path",
+  SEARCH_SPACE_INTEGRITY: "the search space does not bind the accepted hypothesis definition",
+  CANDIDATE_INTEGRITY: "the candidate does not match the candidate rebuilt from the predeclared search space",
+  OUTSIDE_PREDECLARED_SPACE: "the candidate is outside the predeclared search space",
+  CONFIGURATION_INTEGRITY: "the mission configuration does not bind this hypothesis, mission and candidate",
+  PARAMETER_CANDIDATE_MISMATCH: "the declared parameters do not match the bound candidate",
+  BINDING_INVALID: "a binding of the hypothesis request is missing or invalid",
+  INVALID_HYPOTHESIS_REQUEST: "the hypothesis request is malformed",
+  MISSION_INPUT_MISMATCH: "the declared inputs do not belong to the requested mission",
+  HASH_MISMATCH: "a reference does not match its content hash",
+  RUN_SPEC_MISSING: "the run produced no experiment spec",
+  SPEC_CHANGED_DURING_RUN: "the experiment spec changed during the run",
+  SPEC_BINDING_MISMATCH: "the results are not bound to the run identity",
+  INPUT_BINDING_MISMATCH: "the run manifest does not bind the verified inputs",
+  DEVELOPMENT_BLOCKED: "the mission's Development inputs are blocked (see blockers)",
 });
 
 export function failureInWords(code) {
@@ -188,5 +210,58 @@ export function describeTradesLaunch(started, now) {
   if (started?.ok === true && started.reused === true) return "Last TRADES run: reused existing result";
   if (started?.ok === true) return tradesRunningLine(started.job, now);
   if (started?.code === "JOB_ALREADY_RUNNING") return tradesRunningLine(started.job, now);
+  return `Not started · ${failureInWords(started?.code)}`;
+}
+
+// ---------- BT-08: línea del modo HYPOTHESIS ----------
+
+function hypothesisWhat(job) {
+  const parameters = job?.identity?.parameters;
+  if (!parameters) return "hypothesis run";
+  const mission = parameters.missionId ?? "unknown mission";
+  const tested = job?.result?.validComparison === true ? " · comparison recorded" : "";
+  return `${parameters.hypothesisId ?? "hypothesis"} · ${mission} · ${String(parameters.phase ?? "").toLowerCase()}${tested}`;
+}
+
+function hypothesisRunningLine(job, now) {
+  if (job?.jobKind !== undefined && job.jobKind !== "HYPOTHESIS_DEVELOPMENT") {
+    return `Another backtest is running · ${runningLine(job, now).replace(/^Running · /, "")}`;
+  }
+  const started = parseInstant(job?.startedAt);
+  const elapsed = started === null ? "start time unavailable"
+    : `started ${utcTime(started)} · ${Math.max(0, Math.floor(elapsedSeconds(job.startedAt, now) / 60))} min elapsed`;
+  return `Running hypothesis development · ${hypothesisWhat(job)} · ${elapsed}`;
+}
+
+function hypothesisLastLine(job) {
+  if (job == null) return "No hypothesis run has been launched yet";
+  if (job.status === JOB_STATUS.SUCCEEDED) {
+    const finished = parseInstant(job.finishedAt);
+    const when = finished === null ? "finish time unavailable" : utcDateTime(finished);
+    const state = job.retention?.state;
+    let result = "result status unavailable";
+    if (state === RESULT_STATE.CURRENT) result = "current result";
+    if (state === RESULT_STATE.SUPERSEDED) result = "superseded by a newer result";
+    if (state === RESULT_STATE.NONE) result = "result not registered as current";
+    return `Last hypothesis run: succeeded · ${hypothesisWhat(job)} · ${when} · ${result}`;
+  }
+  const blockers = job.failure?.blockers?.length ?? 0;
+  const blockedWords = blockers > 0 ? ` · ${blockers} blocker${blockers === 1 ? "" : "s"} recorded` : "";
+  if (job.status === JOB_STATUS.FAILED) return `Last hypothesis run: failed · ${failureInWords(job.failure?.code)}${blockedWords}`;
+  if (job.status === JOB_STATUS.INTERRUPTED) return `Last hypothesis run: interrupted · ${failureInWords(job.failure?.code ?? "INTERRUPTED")}`;
+  if (job.status === JOB_STATUS.RUNNING) return "Last hypothesis run: did not finish · its process is no longer running";
+  return "Last hypothesis run: status unavailable";
+}
+
+export function describeHypothesisStatus(status, now) {
+  if (status == null) return "Hypothesis jobs are not configured on this server";
+  if (status.running === true) return hypothesisRunningLine(status.current, now);
+  return hypothesisLastLine(status.latest ?? null);
+}
+
+export function describeHypothesisLaunch(started, now) {
+  if (started?.ok === true && started.reused === true) return "Last hypothesis run: reused existing result";
+  if (started?.ok === true) return hypothesisRunningLine(started.job, now);
+  if (started?.code === "JOB_ALREADY_RUNNING") return hypothesisRunningLine(started.job, now);
   return `Not started · ${failureInWords(started?.code)}`;
 }

@@ -195,7 +195,9 @@ function jobStatusForPage(jobRunner, tradesJobRunner) {
 // `jobRunner` (BT-05) es el ejecutor de ../backtest-jobs/runner.mjs; null = sin
 // comando de backtest (el endpoint responde 503). `tradesJobRunner` (BT-07) es el de
 // ../backtest-jobs/trades-runner.mjs; null = el modo TRADES del botón queda bloqueado.
-export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null, tradesJobRunner = null } = {}) {
+// `hypothesisJobRunner` (BT-08) es el de ../backtest-jobs/hypothesis-runner.mjs;
+// null = la ruta de hipótesis del endpoint queda bloqueada con el motivo.
+export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null, tradesJobRunner = null, hypothesisJobRunner = null } = {}) {
   const viewModels = buildUiViewModels(inputs);
 
   const server = createServer((req, res) => {
@@ -210,7 +212,7 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
       pathname = null;
     }
     if (isBacktestJobsPath(pathname)) {
-      handleBacktestJobsRequest(req, res, pathname, jobRunner, tradesJobRunner).catch((error) => {
+      handleBacktestJobsRequest(req, res, pathname, jobRunner, tradesJobRunner, hypothesisJobRunner).catch((error) => {
         if (!res.headersSent) {
           res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
         }
