@@ -10,6 +10,7 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
 import { BACKTEST_JOBS_PATH } from "./http.mjs";
+import { H_S1_01 } from "../s1-strategy/h-s1-01.mjs";
 
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
 export const MCP_SERVER_INFO = Object.freeze({ name: "energy-markets-backtests", version: "1.0.0" });
@@ -20,7 +21,7 @@ const HYPOTHESIS_JOB_SCHEMA = {
   required: ["hypothesisId", "hypothesisVersion", "missionId", "phase", "dataMode", "searchSpace", "candidate", "campaign", "sizing", "execution", "fees", "evaluation", "inputManifest"],
   properties: {
     hypothesisId: { type: "string", description: 'Canonical hypothesis id, e.g. "H-S1-01"' },
-    hypothesisVersion: { type: "string", description: 'Accepted hypothesis version, e.g. "H-S1-01/phase-A/v1"' },
+    hypothesisVersion: { type: "string", description: `Accepted hypothesis version, e.g. "${H_S1_01.version}"` },
     missionId: { type: "string", enum: ["GAS_MONTHLY", "GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"], description: "Canonical mission id" },
     phase: { type: "string", enum: ["DEVELOPMENT"], description: "Only Development is accessible on the hypothesis path" },
     dataMode: { type: "string", enum: ["TOB"], description: "Data mode of the Development inputs" },

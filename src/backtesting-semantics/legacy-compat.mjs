@@ -14,6 +14,8 @@
 //   - DIP10/ARM_A resolve to H-S1-01 and HOUR/ARM_B to H-RD-01 as PROVENANCE_ONLY,
 //     never as a tested/runnable result and never carrying sizing parity;
 //   - an unknown or ambiguous id stays explicitly unresolved (fail-closed).
+import { createHash } from "node:crypto";
+
 import {
   IDENTITY,
   resolveLegacyAlias,
@@ -23,6 +25,13 @@ import {
 // The only protocol this adapter is allowed to classify. A different version string
 // is rejected, so the mapping stays scoped to the exact artifact protocol.
 export const LEGACY_EXPLORATORY_PROTOCOL = "EXPLORATORY_OWNER_PATCH_02/v1";
+
+// The only legacy exploratory releases this adapter is allowed to classify.
+// Source: src/ui/canonical-inputs.mjs loads exactly these verified releases
+// (GAS_EXPLORATORY_RELEASE.release = "v2", POWER_EXPLORATORY_RELEASE.release
+// = "v3"); any other release string is unverified history and stays unresolved
+// (SEM-2 T02: a release is matched, never accepted by format).
+export const LEGACY_EXPLORATORY_RELEASES = Object.freeze(["v2", "v3"]);
 
 const sha256Pattern = /^[a-f0-9]{64}$/;
 
@@ -69,6 +78,11 @@ function provenanceScope(provenance) {
   }
   if (typeof release !== "string" || release.trim() === "") {
     return { ok: false, code: "LEGACY_RELEASE_MISSING" };
+  }
+  // SEM-2 T02: the release must be one of the verified legacy exploratory
+  // releases. An unknown release does not resolve roles by having a format.
+  if (!LEGACY_EXPLORATORY_RELEASES.includes(release)) {
+    return { ok: false, code: "LEGACY_RELEASE_UNKNOWN" };
   }
   return { ok: true, resultsSha256, resultsPath, release };
 }
@@ -147,19 +161,24 @@ function resolveArm(legacyId, scope) {
 }
 
 // Public entry point: classify a verified exploratory artifact. The result is a
-// frozen, source-scoped mapping. Without valid provenance every entry stays
-// unresolved instead of guessing a semantic role.
-export function adaptLegacyExploratoryArtifact({ provenance = null } = {}) {
+// frozen, source-scoped mapping. The `artifact` argument is the raw bytes of the
+// results file the provenance refers to: the adapter re-hashes them and rejects
+// any mismatch, so a syntactically valid sha256 that does not match the bytes
+// resolves nothing (SEM-2 T02). Without valid provenance or unverified bytes
+// every entry stays unresolved instead of guessing a semantic role.
+export function adaptLegacyExploratoryArtifact({ provenance = null, artifact = null } = {}) {
   const scope = provenanceScope(provenance);
   if (!scope.ok) {
-    return Object.freeze({
-      ok: false,
-      code: scope.code,
-      protocolVersion: LEGACY_EXPLORATORY_PROTOCOL,
-      artifactSha256: null,
-      roles: Object.freeze({}),
-      candidates: Object.freeze({}),
-    });
+    return failureAdapter(scope.code);
+  }
+  // The declared hash is only a claim until it is checked against the artifact
+  // bytes themselves (SEM-2 T02: compat is bound to the verified source).
+  if (typeof artifact !== "string" && !Buffer.isBuffer(artifact)) {
+    return failureAdapter("LEGACY_ARTIFACT_BYTES_MISSING");
+  }
+  const artifactSha256 = createHash("sha256").update(artifact).digest("hex");
+  if (artifactSha256 !== scope.resultsSha256) {
+    return failureAdapter("LEGACY_ARTIFACT_HASH_MISMATCH");
   }
   const roles = Object.freeze(Object.fromEntries(
     LEGACY_ARM_TABLE.map((entry) => [entry.legacyId, resolveArm(entry.legacyId, scope)]),
@@ -176,6 +195,17 @@ export function adaptLegacyExploratoryArtifact({ provenance = null } = {}) {
     release: scope.release,
     roles,
     candidates,
+  });
+}
+
+function failureAdapter(code) {
+  return Object.freeze({
+    ok: false,
+    code,
+    protocolVersion: LEGACY_EXPLORATORY_PROTOCOL,
+    artifactSha256: null,
+    roles: Object.freeze({}),
+    candidates: Object.freeze({}),
   });
 }
 

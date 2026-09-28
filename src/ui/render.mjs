@@ -156,10 +156,14 @@ function provenanceHtml(provenance, label = "", value = undefined) {
 }
 
 // Handoff de navegación declarado en el view model: sólo apunta a superficies
-// del boundary que aplican sus propios fail-closed; nunca copia datos.
-function drilldownHtml(drilldowns) {
+// del boundary que aplican sus propios fail-closed; nunca copia datos. Los
+// hrefs que llegan ya llevan el scope del run (SEM2-T12); un handoff retenido
+// por falta de scope se muestra como retenido, no como enlace.
+function drilldownHtml(item) {
+  const drilldowns = Array.isArray(item) ? item : item?.drilldowns;
   if (!Array.isArray(drilldowns) || drilldowns.length === 0) {
-    return "";
+    const withheld = !Array.isArray(item) && typeof item?.drilldownWithheld === "string" ? item.drilldownWithheld : null;
+    return withheld === null ? "" : `<span class="muted small" data-drilldown-withheld>${esc(withheld)}</span>`;
   }
   return `<span class="drill drilldowns">${drilldowns.map((drilldown) => `<a class="drilldown" data-drilldown="${esc(drilldown.href.slice(1))}" href="${esc(drilldown.href)}">${esc(drilldown.href.slice(1).replace(/^./, (c) => c.toUpperCase()))}</a>`).join("")}</span>`;
 }
@@ -1179,17 +1183,44 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
         <div class="small"><span class="muted">Blocks:</span> ${esc(unknown.blocks)}</div>
       </div>`).join("");
   const replayEpisode = pages.replay.find((episode) => episode.product === campaign.product && episode.maturity === campaign.maturity);
+  // SEM2-T04/T12: cada enlace conserva misión y campaña; sin misión canónica
+  // para el producto, el handoff se retiene en vez de navegar sin scope.
+  const missionIdOf = (product) => semantics?.missions?.find((mission) => mission.product === product)?.missionId ?? null;
+  const scopeQuery = (product, extra = {}) => {
+    const params = new URLSearchParams({ campaign: campaign.id, ...extra });
+    const missionId = missionIdOf(product);
+    if (missionId === null) {
+      return null;
+    }
+    params.set("mission", missionId);
+    return params.toString();
+  };
   const runs = campaign.runs.map((run) => {
     const [kind, glyph, label] = RUN_CHIP[run.status] ?? ["unk", "?", run.status];
     const candidate = candidateByArm(research, run.armId);
+    // SEM2-T04: la identidad primaria de la fila es canónica (del mapping
+    // source-bound); el brazo técnico queda como provenance, nunca como identidad.
+    const legacyView = candidate ? semantics?.legacyCandidates?.[candidate.id] ?? null : null;
+    const identity = legacyView?.canonicalName ?? "UNAVAILABLE";
+    const identityEvidence = legacyView
+      ? legacyView.authorityLabel
+      : "canonical identity unavailable — no verified source-bound mapping";
+    const runExpId = `EXP-${campaign.id}-${run.armId}`;
+    const replayScope = scopeQuery(campaign.product, { run: runExpId });
     const drills = [
-      run.armId === "ARM_A" && replayEpisode?.inspector?.length > 0 ? `<a href="/replay#rep-${esc(campaign.product)}-${esc(campaign.maturity)}">Replay</a>` : "",
-      '<a href="/backtests">Backtest</a>',
-      candidate ? `<a href="/research#res-${esc(candidate.id)}">Research</a>` : "",
+      run.armId === "ARM_A" && replayEpisode?.inspector?.length > 0 && replayScope !== null
+        ? `<a href="/replay?${esc(replayScope)}#rep-${esc(campaign.product)}-${esc(campaign.maturity)}">Replay</a>`
+        : '<span class="muted small">no decision detail</span>',
+      scopeQuery(campaign.product) !== null
+        ? `<a href="/backtests?${esc(scopeQuery(campaign.product))}">Backtest</a>`
+        : '<span class="muted small">scope unavailable</span>',
+      candidate && scopeQuery(campaign.product) !== null
+        ? `<a href="/research?${esc(scopeQuery(campaign.product))}#res-${esc(candidate.id)}">Research</a>`
+        : '<span class="muted small">no candidate</span>',
     ].join("");
-    return `<tr data-status="EXPLORATORY" data-run="${esc(campaign.id)}-${esc(run.armId)}">
-        <td><div class="mono">EXP-${esc(campaign.id)}-${esc(run.armId)}</div><div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td>
-        <td>${expArmTag(run.armId)}<div class="small muted">${esc(candidate ? (semantics?.legacyCandidates?.[candidate.id]?.canonicalName ?? candidate.name) : "")}</div></td>
+    return `<tr data-status="EXPLORATORY" data-run="${esc(runExpId)}">
+        <td><div class="mono">${esc(runExpId)}</div><div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td>
+        <td><span data-canonical-identity="${esc(run.armId)}">${esc(identity)}</span><div class="small muted">${esc(identityEvidence)}</div><div class="small muted">technical arm ${esc(run.armId)} · provenance</div></td>
         <td>${chip(kind, glyph, label)}</td>
         <td style="min-width:190px">${decisionsBarHtml(run, campaign)}</td>
         <td title="the artifact carries no per-run determinism; the only check is global (Research · Replay determinism)">${chip("unk", "?", "UNKNOWN")}</td>
@@ -1199,7 +1230,7 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
   }).join("");
   const runsTable = campaign.runs.length === 0
     ? `<div class="bd"><span class="withheld">NO RUNS</span> <span class="small muted">the procurement window is not fully inside the data period; nothing is imputed</span></div>`
-    : `<table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table>`;
+    : `<div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table></div>`;
   const legend = (cls, text) => `<span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="${cls}" style="width:100%"></span></span> ${text}</span>`;
   // Receipts bind runs; a campaign without runs has nothing they could back (review UI05-RCP-01, same rule as Research NO RECEIPTS).
   const ledger = campaign.runs.length === 0
@@ -1239,27 +1270,37 @@ function canonicalSemanticsStrip(semantics) {
     return "";
   }
   const identityCell = (mission, identity, detail) => `<td data-identity="${esc(identity)}">${esc(semantics.labels.identities[identity === "HYPOTHESIS" ? "HYPOTHESES" : identity])}<div class="tiny muted">${esc(detail)}</div></td>`;
+  const benchmarkDetail = (mission) => {
+    const bound = Object.values(mission.benchmarkByCampaign ?? {});
+    if (bound.length === 0) {
+      return `${mission.benchmark.economicReference} · ${mission.benchmark.window} · official settlement UNAVAILABLE · no campaign reference bound`;
+    }
+    return `${mission.benchmark.economicReference} · ${mission.benchmark.window} · ${bound.length} campaign reference(s): ${bound.map((benchmark) => `${benchmark.campaignId} ${benchmark.status}`).join(", ")}`;
+  };
   const rows = semantics.missions.map((mission) => {
-    const benchmark = mission.benchmark;
-    const benchmarkDetail = benchmark.status === "UNAVAILABLE"
-      ? `${benchmark.economicReference} · ${benchmark.window} · official settlement UNAVAILABLE`
-      : `${benchmark.economicReference} · ${benchmark.window} · ${benchmark.status}`;
-    const hypotheses = mission.hypotheses.map((hypothesis) => `${hypothesis.hypothesisId} · ${hypothesis.name}<div class="tiny muted">${hypothesis.version} · ${hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED}</div>`).join("");
+    const hypotheses = mission.hypotheses.map((hypothesis) => `${hypothesis.hypothesisId} · ${hypothesis.name} <span class="tiny muted">(${esc(hypothesis.role)})</span><div class="tiny muted">${hypothesis.version} · ${hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED}</div>`).join("");
     return `<tr data-mission="${esc(mission.missionId)}">
       <td>${esc(mission.label)}</td>
       ${identityCell(mission, "CLIENT", mission.client.confirmed.purchaseTime
         ? `${esc(mission.client.confirmed.purchaseTime)} ${esc(mission.client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified; sizing, fills and full cost UNKNOWN`
         : "purchase timing UNKNOWN for this mission; sizing, fills and full cost UNKNOWN")}
-      ${identityCell(mission, "BENCHMARK", benchmarkDetail)}
+      ${identityCell(mission, "BENCHMARK", benchmarkDetail(mission))}
       <td data-identity="HYPOTHESIS">${hypotheses}</td>
       ${identityCell(mission, "CONTROL", mission.control.historicalComparator
         ? "experiment metadata · historical calendar comparator is provenance, not the active protocol"
         : "experiment metadata · no active CONTROL is claimed on this surface")}
     </tr>`;
   }).join("");
+  // H-RD-01 (Research Discovery) belongs to the HYPOTHESES collection, not to any
+  // mission row: it declares no mission scope (SEM2-T05).
+  const rd = (semantics.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === "H-RD-01");
+  const rdNote = rd
+    ? `<p class="tiny muted" data-hypothesis-id="H-RD-01">${esc(rd.hypothesisId)} · ${esc(rd.name)} — ${esc(rd.role)} · declared mission scope: none (UNDECLARED) · ${esc(semantics.labels.statuses.PROVENANCE_ONLY)}</p>`
+    : "";
   return `<div class="card" data-semantic="SEM-2/canonical-projection" data-semantic-version="${esc(semantics.semanticVersion)}">
     <div class="hd"><h3>${esc(semantics.labels.identities.CLIENT)} / ${esc(semantics.labels.identities.BENCHMARK)} / ${esc(semantics.labels.identities.HYPOTHESES)}</h3><span class="small muted">one shared backend projection · ${esc(semantics.labels.identities.CONTROL)} is experiment metadata</span></div>
-    <div class="bd"><table class="t"><thead><tr><th>Mission</th><th>${esc(semantics.labels.identities.CLIENT)}</th><th>${esc(semantics.labels.identities.BENCHMARK)}</th><th>${esc(semantics.labels.identities.HYPOTHESES)}</th><th>${esc(semantics.labels.identities.CONTROL)}</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>${esc(semantics.labels.identities.CLIENT)}</th><th>${esc(semantics.labels.identities.BENCHMARK)}</th><th>${esc(semantics.labels.identities.HYPOTHESES)}</th><th>${esc(semantics.labels.identities.CONTROL)}</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${rdNote}
     <p class="tiny muted">Canonical English identities from the backend. Historical ARM_A/DIP10/ARM_B/HOUR and A0/BASELINE remain technical aliases and provenance only; they never establish CLIENT, an active CONTROL protocol or a tested hypothesis.</p></div>
   </div>`;
 }
@@ -1344,7 +1385,7 @@ function runTimelineSvg(episode, item) {
 // Gráfico "known at T₀" del mockup (priceSvg). Serie: ask de 11:00 de cada día de la
 // ventana (artifact replay[].ask11). A la derecha de T₀ queda sellado; el overlay de
 // hindsight dibuja allí, y sólo allí, lo que se conoció después.
-function knownAtT0Svg(episode, item) {
+function knownAtT0Svg(episode, item, slot = "11:00") {
   const width = 760;
   const height = 250;
   const L = 44;
@@ -1374,7 +1415,7 @@ function knownAtT0Svg(episode, item) {
   };
   const cut = x(item.index);
   const midLater = (cut + x(count - 1)) / 2;
-  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="11:00 best ask as known at decision time">`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${esc(slot)} best ask as known at decision time">`;
   svg += `<g class="sealed-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="var(--surface-2)"/>`;
   svg += `<text x="${midLater}" y="${height / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
   svg += `<text x="${midLater}" y="${height / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
@@ -1396,15 +1437,21 @@ function knownAtT0Svg(episode, item) {
   svg += `<text x="${cut + 5}" y="${T + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
   const selectedAsk = points[item.index]?.ask;
   if (typeof selectedAsk === "number") {
-    svg += `<circle cx="${cut}" cy="${y(selectedAsk)}" r="4.5" fill="var(--asof)" stroke="var(--surface)" stroke-width="2" data-tip="${esc(`11:00 best ask ${eur(selectedAsk)} €/MWh · known at T₀`)}"/>`;
+    svg += `<circle cx="${cut}" cy="${y(selectedAsk)}" r="4.5" fill="var(--asof)" stroke="var(--surface)" stroke-width="2" data-tip="${esc(`${slot} best ask ${eur(selectedAsk)} €/MWh · known at T₀`)}"/>`;
   }
   return `${svg}</svg>`;
 }
 
-function decisionSectionHtml(episode, item, isDefault, campaignId) {
+function decisionSectionHtml(episode, item, isDefault, campaignId, context = {}) {
   const product = episode.product;
   const campaignLabel = campaignId ?? UNAVAILABLE_TEXT;
-  const runLabel = campaignId ? `EXP-${campaignId}-ARM_A` : UNAVAILABLE_TEXT;
+  // SEM2-T05/T07: run, productor y anchor son source-bound (del mapping
+  // verificado y del run del artifact), nunca un EXP-…-ARM_A fabricado ni un
+  // DIP10/11:00 permanente.
+  const slot = context.runSlot ?? UNAVAILABLE_TEXT;
+  const runLabel = context.runId ?? UNAVAILABLE_TEXT;
+  const producerLabel = context.producerLabel ?? UNAVAILABLE_TEXT;
+  const identityLabel = context.identityLabel ?? UNAVAILABLE_TEXT;
   const others = episode.inspector.map((other) => {
     const active = other.index === item.index;
     return `<a class="btn${active ? " on" : ""}" href="#${esc(replaySectionId(episode, other))}">${decisionNumber(other.index)} · BUY ${other.filledMw} MW</a>`;
@@ -1413,12 +1460,12 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
   const contract = `${esc(productArea(product))} ${esc(product)} ${esc(deliveryLabel(episode.maturity))}`;
   const quoteClock = `${esc(item.quoteTm.slice(11, 19))}Z`;
 
-  const rec = objCard("asof", "◆", "Recommendation", "T₀ 11:00", `
+  const rec = objCard("asof", "◆", "Recommendation", `T₀ ${esc(slot)}`, `
     <div class="big">BUY ${item.requestedMw} MW <span class="muted" style="font-size:13px">${contract}</span></div>
-    <dl class="kv"><dt>Produced by</dt><dd class="mono">DIP10 v1-exp</dd>
-      <dt>11:00 best ask</dt><dd class="mono">${eur(item.ask)} €/MWh</dd>
+    <dl class="kv"><dt>Produced by</dt><dd class="mono">${esc(producerLabel)}</dd>
+      <dt>${esc(slot)} best ask</dt><dd class="mono">${eur(item.ask)} €/MWh</dd>
       <dt>Trigger mean</dt><dd>${unknownValue()} <span class="tiny muted">mean of previous ${item.pastAsksUsed} asks not emitted</span></dd></dl>
-    <div class="tiny muted" style="margin-top:6px">Rule: buy the day's cap when the ask is below the mean of the previous 11:00 asks, otherwise the feasibility floor Lₜ. Rule-based output. Not an instruction, not an order.</div>`);
+    <div class="tiny muted" style="margin-top:6px">Rule: buy the day's cap when the ask is below the mean of the previous ${esc(slot)} asks, otherwise the feasibility floor Lₜ. Rule-based output. Not an instruction, not an order.</div>`);
   const ord = objCard("exec", "▲", "Requested action", "T₀", `
     <div class="big">BUY ${item.requestedMw} MW</div>
     <dl class="kv"><dt>Time in force</dt><dd>${unknownValue()}</dd><dt>Requested by</dt><dd>simulated desk (validator)</dd><dt>Remaining after</dt><dd class="mono">${item.remainingMwAfter} MW</dd></dl>
@@ -1444,7 +1491,7 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
     inputRow("Best ask", `${eur(item.ask)} €/MWh`, esc(item.quoteTm), "≤ 15 min", fresh),
     inputRow("Ask size (visible)", `${esc(item.askSz ?? "—")} MW`, esc(item.quoteTm), "≤ 15 min", fresh),
     inputRow("Best bid", typeof item.bid === "number" ? `${eur(item.bid)} €/MWh` : unknownValue(), esc(item.quoteTm), "≤ 15 min", typeof item.bid === "number" ? fresh : chip("unk", "?", "One-sided book")),
-    inputRow("Previous 11:00 asks used", String(item.pastAsksUsed), "prior days only", "past", chip("pass", "✓", "Past only")),
+    inputRow(`Previous ${esc(slot)} asks used`, String(item.pastAsksUsed), "prior days only", "past", chip("pass", "✓", "Past only")),
     inputRow("Trigger mean (previous asks)", unknownValue(), "—", "—", chip("unk", "?", "Not emitted")),
     inputRow("Execution fees", unknownValue(), "—", "—", chip("unk", "?", "Unknown")),
   ].join("");
@@ -1452,8 +1499,8 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(replaySectionId(episode, item))}" data-decision="${esc(product)}-${esc(episode.maturity)}-${item.index}">
   <div class="dechead">
     <div class="grow">
-      <div class="mono muted small">${esc(campaignLabel)} · run ${esc(runLabel)} · ${expArmTag("ARM_A")} DIP10 · 11:00 Europe/Berlin</div>
-      <h1 class="page">Decision ${decisionNumber(item.index)} — BUY at ${esc(item.day)} 11:00 Berlin</h1>
+      <div class="mono muted small">${esc(campaignLabel)} · run ${esc(runLabel)} · <span data-canonical-identity="ARM_A">${esc(identityLabel)}</span> · ${esc(slot)} Europe/Berlin</div>
+      <h1 class="page">Decision ${decisionNumber(item.index)} — BUY at ${esc(item.day)} ${esc(slot)} Berlin</h1>
       <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p>
     </div>
     <div class="row">${others}</div>
@@ -1481,7 +1528,7 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
         <button type="button" class="btn" data-hind-toggle title="Draws post-T₀ asks on the right of the horizon only">Hindsight overlay: off</button></div>
       <div class="zbd">
         <div class="row small"><b>${contract} · 11:00 best ask</b><span class="muted">€/MWh · every exchange day of the campaign window</span></div>
-        <div class="chartwrap">${knownAtT0Svg(episode, item)}</div>
+        <div class="chartwrap">${knownAtT0Svg(episode, item, typeof slot === "string" ? slot : "11:00")}</div>
         <table class="t" style="margin-top:6px">
           <thead><tr><th>Inputs in decision snapshot</th><th>Value at T₀</th><th>Observed at</th><th>Age at T₀</th><th>State</th></tr></thead>
           <tbody>${inputs}</tbody>
@@ -1494,7 +1541,7 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
       <div class="zbd">
         <div class="metric">
           <span class="lbl">Evaluation window</span><span class="mono">${esc(episode.ask11[0].day)} → ${esc(closes)}</span>
-          <span class="lbl">Benchmark B* (window mean 11:00 ask)</span><span class="val">${eur(episode.benchmark)}</span>
+          <span class="lbl">Benchmark B* (window mean ${esc(slot)} ask)</span><span class="val">${eur(episode.benchmark)}</span>
           <span class="lbl">Hedge price H · ${expArmTag("ARM_A")}</span><span class="val">${eur(episode.hArmA)}</span>
           <span class="lbl">Hedge price H · ${expArmTag("BASELINE")}</span><span class="val">${eur(episode.hBaseline)}</span>
           <span class="lbl"><b>ΔV this decision</b></span><span class="val">${kEur(item.deltaVEur / 1000)} k€</span>
@@ -1510,9 +1557,31 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
 export function exploratoryReplayBody(exploratory, semantics = null) {
   const episodes = exploratory.replay.filter((episode) => episode.inspector.length > 0);
   const firstQuarterly = episodes.find((episode) => episode.product === "G0BQ") ?? episodes[0];
-  const campaignIds = new Map(exploratory.campaigns.map((campaign) => [`${campaign.product}|${campaign.maturity}`, campaign.id]));
+  const campaigns = new Map(exploratory.campaigns.map((campaign) => [`${campaign.product}|${campaign.maturity}`, campaign]));
+  // SEM2-T07: run/producer/anchor source-bound por episodio, desde el mapping
+  // verificado y el run del artifact; nunca un EXP-…-ARM_A ni un 11:00 fijo.
+  const contextFor = (episode) => {
+    const campaign = campaigns.get(`${episode.product}|${episode.maturity}`) ?? null;
+    const armARun = campaign?.runs?.find((run) => run.armId === "ARM_A") ?? null;
+    // SEM2-T03: el mapping viene del adaptador del MISMO producto/artefacto,
+    // nunca del adaptador primario de otro release.
+    const mission = semantics?.missions?.find((entry) => entry.product === episode.product) ?? null;
+    const role = mission?.legacyAdapter?.roles?.ARM_A ?? null;
+    return {
+      runId: role?.runId ?? `EXP-${campaign?.id ?? "UNAVAILABLE"}`,
+      runSlot: armARun?.slot ?? exploratory.rules?.clientSlotBerlin ?? null,
+      producerLabel: role
+        ? `${role.hypothesisId} ${role.hypothesisVersion} · legacy arm DIP10 (provenance only)`
+        : "producer unavailable — no verified source-bound mapping",
+      identityLabel: role ? `${role.hypothesisId} · ${semantics?.legacyCandidates?.DIP10?.canonicalName ?? "provenance only"}` : "identity unavailable",
+    };
+  };
   const picker = episodes.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(missionTitle(episode.product))} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ");
-  const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly, campaignIds.get(`${episode.product}|${episode.maturity}`)))).join("");
+  const sections = episodes.flatMap((episode) => {
+    const context = contextFor(episode);
+    const campaignId = campaigns.get(`${episode.product}|${episode.maturity}`)?.id ?? null;
+    return episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly, campaignId, context));
+  }).join("");
   return `${TARGET_SWITCH_CSS}
 <section class="surface replay" data-surface="replay" data-exploratory="true">
   ${canonicalSemanticsStrip(semantics)}
@@ -1548,14 +1617,14 @@ function candidateReceipts(candidate, provenance) {
   return candidate.armId ? exploratoryReceipts(provenance) : [];
 }
 
-// SEM-2: la autoridad NUNCA se deriva de un alias histórico. Un candidato que sólo
-// existe como mapeo legacy (A0/DIP10/HOUR) se rinde como provenance, no como
-// "current client practice" (SEM-1; audit CS-01/CS-03).
+// SEM-2: la autoridad NUNCA se deriva de un alias histórico y nunca del texto
+// del artifact ("Current client practice"): un candidato que sólo existe como
+// mapeo legacy (A0/DIP10/HOUR) se rinde como provenance (SEM-1; CS-01/CS-03).
 function authorityChip(candidate, legacyView = null) {
   if (legacyView) {
     return chip("na", "—", esc(legacyView.authorityLabel));
   }
-  return chip("na", "—", esc(candidate.authority));
+  return chip("na", "—", "Authority unavailable — no verified source-bound mapping");
 }
 
 function candidateName(candidate, semantics) {
@@ -1599,12 +1668,24 @@ function candidateLineageSvg(candidate) {
 
 function candidateDetailHtml(candidate, research, provenance, isDefault, semantics = null) {
   const legacyView = semantics?.legacyCandidates?.[candidate.id] ?? null;
+  // SEM2-T06: sin evidencia de la versión nueva, la hipótesis canónica sigue
+  // UNTESTED; los criterios históricos (DIP10/HOUR v1-exp) son procedencia,
+  // no criterios de la hipótesis canónica.
+  const canonicalHypothesis = legacyView?.hypothesisId
+    ? (semantics?.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === legacyView.hypothesisId) ?? null
+    : null;
+  const canonicalEvidenceNote = canonicalHypothesis
+    ? `<div class="chk" data-canonical-evidence="${esc(canonicalHypothesis.hypothesisId)}"><span><b>${esc(canonicalHypothesis.hypothesisId)} · ${esc(canonicalHypothesis.name)}</b> <span class="tiny muted">(${esc(canonicalHypothesis.role)}, ${esc(canonicalHypothesis.version)})</span></span>${chip("unk", "?", canonicalHypothesis.evidenceStatus === "PROVENANCE_ONLY" ? "Provenance only" : "Untested")}<span class="d">${esc(canonicalHypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED)} This historical candidate does not test the current hypothesis version.</span></div>`
+    : "";
   const criteria = candidate.criteria.length === 0
     ? '<div class="small muted">No success criteria measured: no run for this candidate.</div>'
     : candidate.criteria.map((group) => `<div class="mono tiny muted" style="margin-top:8px">${esc(group.product)}</div>${group.items.map((item) => {
       const [, glyph] = CRITERION_CHIP[item.status] ?? ["unk", "?"];
       return `<div class="crit"><span class="mono">${glyph}</span><div><div style="font-weight:600">${esc(item.label)}</div><div class="small ink2">${esc(item.detail)}</div></div>${chipFrom(CRITERION_CHIP, item.status)}</div>`;
     }).join("")}`).join("");
+  const criteriaHeader = legacyView
+    ? '<div class="caps muted" data-historical-provenance="true">Historical success criteria · provenance of the legacy run, not criteria of the canonical hypothesis</div>'
+    : '<div class="caps muted">Success criteria</div>';
   const integrity = research.integrity.map((item) => `<div class="chk"><span>${esc(item.label)}</span>${chipFrom(INTEGRITY_CHIP, item.status)}<span class="d">${esc(item.detail)}</span></div>`).join("");
   const receipts = candidateReceipts(candidate, provenance);
   const receiptRows = receipts.length === 0
@@ -1618,7 +1699,7 @@ function candidateDetailHtml(candidate, research, provenance, isDefault, semanti
   </div>
   <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
     <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered ${NOT_RECORDED} · exploratory phase (${OWNER_PATCH_02})</span></div>
-      <div class="bd"><p class="hyp">${esc(candidate.hypothesis)}</p><div class="caps muted">Success criteria</div>${criteria}</div></div>
+      <div class="bd">${canonicalEvidenceNote}<p class="hyp">${esc(candidate.hypothesis)}</p>${criteriaHeader}${criteria}</div></div>
     <div>
       <div class="auth-box">
         <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span>${authorityChip(candidate, legacyView)}</div>
@@ -2133,9 +2214,9 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   const pending = validated ? vm.pendingComparisons ?? [] : [];
   const reasonNotValidated = "view model not validated (fail-closed, §26.5)";
   const bhv = pendingOr(findPending(pending, "B / H / V"), "B / H / V / ΔV", reasonNotValidated);
-  const paired = pendingOr(findPending(pending, "Efectos"), "Paired effects", reasonNotValidated);
+  const paired = pendingOr(findPending(pending, "Paired"), "Paired effects", reasonNotValidated);
   const distributions = pendingOr(findPending(pending, "Distrib"), "Distributions", reasonNotValidated);
-  const integrity = pendingOr(findPending(pending, "Contexto"), "Method / integrity context", reasonNotValidated);
+  const integrity = pendingOr(findPending(pending, "Method"), "Method / integrity context", reasonNotValidated);
 
   const boundRows = rows.filter((row) => row.status === "BOUND");
   const arms = [...new Set(boundRows.map((row) => row.arm).filter((arm) => typeof arm === "string"))];
@@ -2172,15 +2253,24 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   const checks = `<div class="chk" data-status="UNAVAILABLE"><span><b>${esc(integrity.label)}</b></span>${chip("unk", "?", "Unknown")}<span class="d">${esc(integrity.reason)}</span></div>
     <div class="chk"><span><b>Pairing · look-ahead · execution · closure</b></span>${chip("unk", "?", "Not exposed")}<span class="d">no method or integrity receipt is exposed by the boundary; no check is presumed to pass</span></div>`;
 
-  const semanticRows = (validated ? vm.semanticComparison ?? [] : []).map(({ mission, client, benchmark, hypotheses }) => `<tr data-mission="${esc(mission.id)}">
+  const semanticRows = (validated ? vm.semanticComparison ?? [] : []).map(({ mission, client, benchmarkByCampaign, hypotheses, hypothesisResults }) => {
+    const boundBenchmarks = Object.values(benchmarkByCampaign ?? {});
+    const benchmarkCell = boundBenchmarks.length === 0
+      ? `BENCHMARK<div class="tiny muted">B · official settlement UNAVAILABLE · no campaign reference bound</div>`
+      : `BENCHMARK<div class="tiny muted">${boundBenchmarks.map((benchmark) => `${esc(benchmark.campaignId)} · ${esc(benchmark.status)}`).join("<br>")}</div>`;
+    const resultsCell = (hypothesisResults ?? []).length === 0
+      ? '<span class="tiny muted">no BT-08 result published for this mission</span>'
+      : hypothesisResults.map((result) => `<span class="tiny muted" data-hypothesis-run="${esc(result.runId)}">${esc(result.hypothesisId)} run ${esc(result.runId.slice(0, 16))}… · ${esc(result.state)} · comparison ${result.validComparison ? "valid" : "not valid"}</span>`).join("<br>");
+    return `<tr data-mission="${esc(mission.id)}">
     <td>${esc(mission.id.replaceAll("_", " "))}</td>
     <td data-identity="CLIENT">CLIENT<div class="tiny muted">${client.confirmed.purchaseTime ? `${esc(client.confirmed.purchaseTime)} ${esc(client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified` : "purchase timing UNKNOWN for this mission"}; sizing, fills and full cost UNKNOWN</div></td>
-    <td data-identity="BENCHMARK">BENCHMARK<div class="tiny muted">B · ${esc(benchmark.window)} · ${esc(benchmark.status)}; official settlement UNAVAILABLE</div></td>
+    <td data-identity="BENCHMARK">${benchmarkCell}</td>
     <td data-identity="HYPOTHESIS">${hypotheses.length
       ? hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}<div class="tiny muted">${esc(hypothesis.version)} · research question · no comparable result</div></span>`).join("")
-      : 'UNAVAILABLE<div class="tiny muted">no canonical hypothesis</div>'}</td>
-  </tr>`).join("");
-  const semanticTable = `<div class="card" data-semantic="SEM-1/2026-09-28/v1"><div class="hd"><h3>Client / Benchmark / Hypotheses</h3><span class="small muted">one obligation and campaign per mission · CONTROL is experiment metadata</span></div><div class="bd"><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${semanticRows}</tbody></table><p class="tiny muted">H-S1-01 is a research question from S1; no comparable run result is presented. Client economics and hypothesis PASS are HOLD until comparable backend evidence exists. No economic value is inferred from the client's confirmed 11:00 timing.</p></div></div>`;
+      : 'UNAVAILABLE<div class="tiny muted">no canonical hypothesis</div>'}<div style="margin-top:4px">${resultsCell}</div></td>
+  </tr>`;
+  }).join("");
+  const semanticTable = `<div class="card" data-semantic="SEM-1/2026-09-28/v1"><div class="hd"><h3>Client / Benchmark / Hypotheses</h3><span class="small muted">one obligation and campaign per mission · CONTROL is experiment metadata</span></div><div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${semanticRows}</tbody></table></div><p class="tiny muted">H-S1-01 is a research question from S1; no comparable run result is presented. Client economics and hypothesis PASS are HOLD until comparable backend evidence exists. No economic value is inferred from the client's confirmed 11:00 timing.</p></div></div>`;
 
   return `
 <section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${vm?.sourceFreshness ? ` data-source-status="${esc(vm.sourceFreshness.status)}"` : ""}${validated ? "" : ' data-state="ERROR"'}>
@@ -2200,7 +2290,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   ${hasExploratory ? "" : `
   <div class="card" style="margin-top:14px">
     <div class="hd"><h3>Economic measures</h3><span class="small muted">B · H · V · ΔV as published by the canonical producer; definitions belong to the backend method</span><span class="grow"></span>${boundRows.length > 0 ? chip("run", "✓", `${boundRows.length} canonical row(s)`) : chip("unk", "?", "No canonical producer")}</div>
-    ${table}
+    <div style="overflow-x:auto" data-overflow-container>${table}</div>
   </div>
 
   <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
@@ -2333,17 +2423,17 @@ function campaignsBody(vm, { errors = null } = {}) {
     : `<div class="it data-item data-unavailable${index === 0 && selected === null ? " on" : ""}" data-status="UNAVAILABLE"><div class="mono muted small">${esc(campaign.label)}</div><div class="ttl">${unavailableReasonHtml(campaign)}</div><div style="margin-bottom:4px"><span class="unkv">UNKNOWN</span></div></div>`);
   const rail = campaigns.length > 0
     ? campaigns.map(railItem).join("")
-    : `<div class="it on empty-state" data-empty="true"><div class="mono muted small">campaign</div><div class="ttl">No canonical campaign exposed</div><div style="margin-bottom:4px"><span class="unkv">UNKNOWN</span></div><div class="small muted">sin campañas canónicas expuestas por el backend en este scope; no se fabrican</div></div>`;
+    : `<div class="it on empty-state" data-empty="true"><div class="mono muted small">campaign</div><div class="ttl">No canonical campaign exposed</div><div style="margin-bottom:4px"><span class="unkv">UNKNOWN</span></div><div class="small muted">no canonical campaigns exposed by the backend in this scope; none is fabricated</div></div>`;
 
   const unknownItems = [];
   if (campaigns.length === 0) {
-    unknownItems.push({ q: "No canonical campaign is exposed", why: "sin campañas canónicas expuestas por el backend en este scope; no se fabrican", blocks: "campaign identity, readiness and window" });
+    unknownItems.push({ q: "No canonical campaign is exposed", why: "no canonical campaigns exposed by the backend in this scope; none is fabricated", blocks: "campaign identity, readiness and window" });
   }
   for (const campaign of campaigns.filter((item) => item.status !== "BOUND")) {
     unknownItems.push({ q: `${campaign.label}: not bound`, why: campaign.reason, blocks: "this campaign's facts" });
   }
   if (runs.length === 0) {
-    unknownItems.push({ q: "No canonical run is exposed", why: "sin runs canónicas expuestas por el backend en este scope; no se fabrican", blocks: "run navigation and drill-downs" });
+    unknownItems.push({ q: "No canonical run is exposed", why: "no canonical runs exposed by the backend in this scope; none is fabricated", blocks: "run navigation and drill-downs" });
   }
   for (const run of runs.filter((item) => item.status !== "BOUND")) {
     unknownItems.push({ q: `${run.label}: not bound`, why: run.reason, blocks: "this run's facts and drill-downs" });
@@ -2363,11 +2453,11 @@ function campaignsBody(vm, { errors = null } = {}) {
       </div>`).join("");
 
   const runRow = (run) => (run.status === "BOUND"
-    ? `<tr class="data-item data-bound" data-status="BOUND"><td><div class="mono">${provenanceHtml(run.provenance, run.label, run.value)}</div><div class="small muted item-label">${esc(run.label)}</div></td><td>${unknownValue()}</td><td>${chip("run", "✓", "canonical")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="value" data-value="${esc(valueText(run.value))}">${valueHtml(run.value)}</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td>${drilldownHtml(run.drilldowns)}</td></tr>`
+    ? `<tr class="data-item data-bound" data-status="BOUND"><td><div class="mono">${provenanceHtml(run.provenance, run.label, run.value)}</div><div class="small muted item-label">${esc(run.label)}</div></td><td>${unknownValue()}</td><td>${chip("run", "✓", "canonical")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="value" data-value="${esc(valueText(run.value))}">${valueHtml(run.value)}</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td>${drilldownHtml(run)}</td></tr>`
     : `<tr class="data-item data-unavailable" data-status="UNAVAILABLE"><td>${unavailableReasonHtml(run)}</td><td>${unknownValue()}</td><td>${chip("unk", "?", "Unavailable")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="unkv" style="font-size:10.5px;line-height:15px">NOT EXPOSED</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td><span class="muted small">no handoff on unbound data</span></td></tr>`);
   const runRows = runs.length > 0
     ? runs.map(runRow).join("")
-    : `<tr class="empty-state" data-empty="true"><td colspan="7"><div class="row">${unknownValue("UNAVAILABLE")}<span class="small muted">sin runs canónicas expuestas por el backend en este scope; no se fabrican</span></div><div class="bar" style="margin-top:8px"><span class="notrun" style="width:100%"></span></div></td></tr>`;
+    : `<tr class="empty-state" data-empty="true"><td colspan="7"><div class="row">${unknownValue("UNAVAILABLE")}<span class="small muted">no canonical runs exposed by the backend in this scope; none is fabricated</span></div><div class="bar" style="margin-top:8px"><span class="notrun" style="width:100%"></span></div></td></tr>`;
 
   const receipts = (pendingReceipts.length > 0 ? pendingReceipts : [{ label: "Receipts", reason: "view model not validated (fail-closed, §26.5)" }])
     .map((receipt) => `<div class="receipt data-item data-unavailable" data-status="UNAVAILABLE"><span class="mono small muted">—</span><span>${unavailableReasonHtml(receipt)}</span><span class="unkv">UNAVAILABLE</span></div>`).join("");
@@ -2410,10 +2500,12 @@ function campaignsBody(vm, { errors = null } = {}) {
       <h2 class="sec">Runs</h2>
       <section class="runs" data-kind="runs">
       <div class="card">
+        <div style="overflow-x:auto" data-overflow-container>
         <table class="t">
           <thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead>
           <tbody>${runRows}</tbody>
         </table>
+        </div>
       </div>
       </section>
       <div class="row small muted" style="margin-top:6px;gap:16px">
@@ -2442,14 +2534,46 @@ const SURFACE_BODIES = {
   [SURFACES.CAMPAIGNS]: campaignsBody,
 };
 
-function renderErrorState(surface, vm) {
+// SEM2-T12: banner de continuidad entre pestañas. El servidor valida el scope
+// declarado por el enlace (misión canónica, valores acotados) y aquí sólo se
+// dibuja: BOUND conserva misión/campaña/run/versión; UNAVAILABLE declara el
+// scope inválido sin atar nada (fail-closed).
+function scopeBannerHtml(selection) {
+  const scope = selection?.scope;
+  if (scope === null || typeof scope !== "object") {
+    return "";
+  }
+  const labels = { mission: "mission", campaign: "campaign", run: "run", version: "hypothesis/version" };
+  const invalid = scope.invalid ?? [];
+  if (invalid.length > 0) {
+    return `<div class="card" data-scope-banner data-scope-state="UNAVAILABLE" style="margin-bottom:10px"><b>Cross-tab scope unavailable.</b> The link declared ${esc(invalid.map((name) => labels[name] ?? name).join(", "))} outside the canonical vocabulary; nothing on this surface is bound to it (fail-closed).</div>`;
+  }
+  const entries = Object.entries(scope.params ?? {});
+  if (entries.length === 0) {
+    return "";
+  }
+  const chips = entries.map(([key, value]) => `<span class="mono">${esc(labels[key] ?? key)}: ${esc(value)}</span>`).join(" · ");
+  return `<div class="card" data-scope-banner data-scope-state="BOUND" style="margin-bottom:10px"><b>Cross-tab scope</b> · ${chips}</div>`;
+}
+
+// SEM2-T05/SEM2-08: sin frontera canónica validada, la página declarada
+// EXPLORATORY lleva el aviso explícito: nada de lo de abajo es decisión
+// canónica; es procedencia histórica. La ausencia no se disimula con datos.
+function canonicalUnavailableBanner(surface, vm) {
+  if (vm?.ok === true) {
+    return "";
+  }
+  return `<div class="card" data-canonical-state="UNAVAILABLE" data-canonical-surface="${esc(surface)}" style="margin-bottom:10px"><b>Canonical ${esc(SURFACE_TITLES[surface])} boundary unavailable.</b> No validated canonical timeline, exposure or data is published for this surface; nothing below is a canonical decision, measurement or result — the exploratory rows are historical provenance only.</div>`;
+}
+
+function renderErrorState(surface, vm, selection = {}) {
   const errors = Array.isArray(vm?.errors) ? vm.errors : [];
-  const body = SURFACE_BODIES[surface](null, { errors });
+  const body = scopeBannerHtml(selection) + SURFACE_BODIES[surface](null, { errors });
   return renderDocument({ active: surface, title: "Energy Markets — error", body, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st fail"><span class="g">✕</span>ERROR · fail-closed</span>'] });
 }
 
 function renderValidated(surface, vm, selection = {}) {
-  const body = SURFACE_BODIES[surface](vm, { selection });
+  const body = scopeBannerHtml(selection) + SURFACE_BODIES[surface](vm, { selection });
   const clock = surface === SURFACES.REPLAY
     ? { asOfLabel: "evaluation as-of", asOf: vm.evaluation.asOf ?? null, sub: `T₀ ${vm.decision.boundary}` }
     : exploratoryClock(vm.exploratory);
@@ -2476,7 +2600,7 @@ function exploratoryClock(exploratory) {
 }
 
 function renderExploratory(surface, vm) {
-  const body = EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
+  const body = canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 
@@ -2485,7 +2609,7 @@ function renderPageFor(surface) {
     if (EXPLORATORY_BODIES[surface] !== undefined && vm?.exploratory != null) {
       return renderExploratory(surface, vm, selection);
     }
-    return vm?.ok !== true ? renderErrorState(surface, vm) : renderValidated(surface, vm, selection);
+    return vm?.ok !== true ? renderErrorState(surface, vm, selection) : renderValidated(surface, vm, selection);
   };
 }
 
@@ -2496,7 +2620,7 @@ export const renderCampaignsPage = renderPageFor(SURFACES.CAMPAIGNS);
 
 export const renderSurfacePage = (surface, vm, selection = {}) => {
   if (SURFACE_BODIES[surface] === undefined) {
-    throw new TypeError(`"${surface}" no es una superficie de UI-01.`);
+    throw new TypeError(`"${surface}" is not a UI-01 surface.`);
   }
   return renderPageFor(surface)(vm, selection);
 };

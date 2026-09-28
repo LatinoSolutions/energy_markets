@@ -59,7 +59,7 @@ export function backtestJobStatusPayload(runner) {
 // BT-07: estado del modo TRADES con su línea. Sin ejecutor TRADES, el motivo.
 export function tradesJobStatusPayload(tradesRunner) {
   if (tradesRunner == null) {
-    const gate = { ok: false, code: "TRADES_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de runs TRADES" };
+    const gate = { ok: false, code: "TRADES_NOT_CONFIGURED", message: "this server has no TRADES run launcher" };
     return { configured: false, running: null, gate, display: { line: describeTradesStatus({ running: false, gate }, new Date()) } };
   }
   const now = tradesRunner.now();
@@ -112,7 +112,7 @@ export function isBacktestJobsPath(pathname) {
   return pathname === BACKTEST_JOBS_PATH || pathname?.startsWith(`${BACKTEST_JOBS_PATH}/`) === true;
 }
 
-export async function handleBacktestJobsRequest(req, res, pathname, runner, tradesRunner = null, hypothesisRunner = null) {
+export async function handleBacktestJobsRequest(req, res, pathname, runner, tradesRunner = null, hypothesisRunner = null, sharedSemantics = null) {
   const method = req.method ?? "GET";
   // BT-08 (hallazgo BT08-T03): el base path es el único POST; un run path es
   // de consulta y no inicia jobs.
@@ -124,7 +124,7 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner, trad
   if (method === "POST") {
     const contentType = String(req.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
     if (contentType !== "application/json") {
-      sendJson(res, 415, { ok: false, code: "JSON_REQUIRED", message: "POST requiere Content-Type: application/json" });
+      sendJson(res, 415, { ok: false, code: "JSON_REQUIRED", message: "POST requires Content-Type: application/json" });
       return;
     }
     const raw = await readBody(req);
@@ -182,18 +182,18 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner, trad
       return;
     }
     if (runner == null) {
-      sendJson(res, 503, { ok: false, code: "JOB_RUNNER_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de backtests" });
+      sendJson(res, 503, { ok: false, code: "JOB_RUNNER_NOT_CONFIGURED", message: "this server has no backtest launcher" });
       return;
     }
     const mode = body.mode ?? "TOB";
     if (mode !== "TOB" && mode !== "TRADES") {
-      sendJson(res, 400, { ok: false, code: "INVALID_MODE", message: 'mode debe ser "TOB" o "TRADES" (o "HYPOTHESIS" para la ruta de hipótesis)' });
+      sendJson(res, 400, { ok: false, code: "INVALID_MODE", message: 'mode must be "TOB" or "TRADES" (or "HYPOTHESIS" for the hypothesis path)' });
       return;
     }
     const trades = mode === "TRADES";
     const describe = trades ? describeTradesLaunch : describeLaunch;
     const started = trades
-      ? tradesRunner?.start({ requestedBy: body.requestedBy }) ?? { ok: false, code: "TRADES_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de runs TRADES" }
+      ? tradesRunner?.start({ requestedBy: body.requestedBy }) ?? { ok: false, code: "TRADES_NOT_CONFIGURED", message: "this server has no TRADES run launcher" }
       : runner.start({ requestedBy: body.requestedBy });
     const clock = trades && tradesRunner != null ? tradesRunner.now() : runner.now();
     if (started.ok) {
@@ -212,8 +212,12 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner, trad
   if (pathname === BACKTEST_JOBS_PATH) {
     sendJson(res, 200, {
       ok: true,
+      // SEM2-T01: the shared canonical semantics travel with the job payload so
+      // backend/HTTP/MCP consumers read the same identities, version and result
+      // states the four surfaces render.
+      canonicalSemantics: sharedSemantics ?? null,
       ...(runner == null
-        ? { configured: false, running: false, current: null, latest: null, currentResult: null, gate: { ok: false, code: "JOB_RUNNER_NOT_CONFIGURED", message: "este servidor no tiene ejecutor de backtests" } }
+        ? { configured: false, running: false, current: null, latest: null, currentResult: null, gate: { ok: false, code: "JOB_RUNNER_NOT_CONFIGURED", message: "this server has no backtest launcher" } }
         : backtestJobStatusPayload(runner)),
       trades: tradesJobStatusPayload(tradesRunner),
       hypothesis: hypothesisJobStatusPayload(hypothesisRunner),

@@ -14,6 +14,7 @@ import {
   createUiServer,
   DEFAULT_UI_HOST,
   DEFAULT_UI_PORT,
+  hypothesisResultsFromRunner,
 } from "./server.mjs";
 import { loadCanonicalUiInputs } from "./canonical-inputs.mjs";
 import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
@@ -63,9 +64,17 @@ const tradesJobRunner = createTradesJobRunner({ repoRoot: DEFAULT_REPO_ROOT, run
 // ruta canónica; sin el runner inyectado, GET decía configured=false y el
 // POST devolvía 503.
 const hypothesisJobRunner = createHypothesisJobRunner({ repoRoot: DEFAULT_REPO_ROOT, runsDir: jobRunner.runsRoot });
+// SEM2-T01: los resultados BT-08 ya promovidos entran al snapshot publicado.
+canonical.inputs.hypothesisResults = hypothesisResultsFromRunner(hypothesisJobRunner);
+// SEM2-T09: tras una promoción BT-08 el snapshot se re-publica releyendo los
+// artifacts verificados; el reload fallido conserva el snapshot bueno.
+const reloadInputs = () => {
+  const reloaded = loadCanonicalUiInputs();
+  return { ...reloaded.inputs, hypothesisResults: hypothesisResultsFromRunner(hypothesisJobRunner) };
+};
 // SEM2-10: identidad del build servido capturada al arrancar, no por request.
 const build = captureBuildIdentity(DEFAULT_REPO_ROOT);
-const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner, tradesJobRunner, hypothesisJobRunner, build });
+const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner, tradesJobRunner, hypothesisJobRunner, build, reloadInputs });
 const served = await ready;
 console.log(`Energy Markets Operator UI: ${served.url}`);
 console.log("rutas: / (navegación) · /replay · /backtests · /research · /campaigns · /health · /api/backtest-jobs");

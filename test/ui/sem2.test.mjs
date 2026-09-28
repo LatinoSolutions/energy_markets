@@ -21,9 +21,14 @@ test("SEM-2: one backend projection feeds English canonical identities to all fo
       assert.equal(mission.client.kind, "CLIENT");
       assert.equal(mission.benchmark.kind, "BENCHMARK");
       assert.equal(mission.control.kind, "CONTROL");
+      // SEM2-T05: only hypotheses that declare the mission sit on its row.
       assert.ok(mission.hypotheses.some((hypothesis) => hypothesis.hypothesisId === "H-S1-01"));
-      assert.ok(mission.hypotheses.some((hypothesis) => hypothesis.hypothesisId === "H-RD-01"));
+      assert.ok(mission.hypotheses.every((hypothesis) => hypothesis.hypothesisId !== "H-RD-01"));
     }
+    // H-RD-01 stays in the HYPOTHESES collection with no declared mission scope.
+    const rd = semantics.hypotheses.find((hypothesis) => hypothesis.hypothesisId === "H-RD-01");
+    assert.equal(rd.role, "Research Discovery");
+    assert.deepEqual(rd.missions, []);
   }
 });
 

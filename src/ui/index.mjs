@@ -44,6 +44,7 @@ export {
   UI_ROUTES,
   buildUiViewModels,
   createUiServer,
+  hypothesisResultsFromRunner,
 } from "./server.mjs";
 
 // TR-07 — soporte backend de los paneles TRADES de Backtests. El render productivo

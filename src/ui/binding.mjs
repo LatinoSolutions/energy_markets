@@ -14,21 +14,21 @@ import { resolveBackendRecord } from "../operator-interface/backend-records.mjs"
 
 function bindRecord(backendIndex, { recordKey, revisionId, value }) {
   if (backendIndex === null) {
-    return { ok: false, condition: "UNAVAILABLE", reason: "sin manifest backend verificado no hay dato que mostrar (§26.5)" };
+    return { ok: false, condition: "UNAVAILABLE", reason: "no verified backend manifest; there is no data to show (§26.5)" };
   }
   const resolved = resolveBackendRecord(backendIndex, recordKey, revisionId);
   if (resolved === null) {
-    return { ok: false, condition: "UNAVAILABLE", reason: `"${recordKey}"/"${revisionId}" no existe en el manifest backend verificado` };
+    return { ok: false, condition: "UNAVAILABLE", reason: `"${recordKey}"/"${revisionId}" does not exist in the verified backend manifest` };
   }
   if (value === undefined || value === null) {
-    return { ok: false, condition: "UNAVAILABLE", reason: `"${recordKey}"/"${revisionId}" está referido pero no aporta valor canónico` };
+    return { ok: false, condition: "UNAVAILABLE", reason: `"${recordKey}"/"${revisionId}" is referenced but carries no canonical value` };
   }
   const hash = canonicalValueSha256(value);
   if (!hash.ok) {
-    return { ok: false, condition: "UNAVAILABLE", reason: "el valor candidato no es dato canónico serializable" };
+    return { ok: false, condition: "UNAVAILABLE", reason: "the candidate value is not canonical serializable data" };
   }
   if (resolved.valueSha256 !== hash.sha256) {
-    return { ok: false, condition: "UNAVAILABLE", reason: `el valor candidato no coincide con el contenido registrado por "${recordKey}"/"${revisionId}" (§26.5)` };
+    return { ok: false, condition: "UNAVAILABLE", reason: `the candidate value does not match the content recorded by "${recordKey}"/"${revisionId}" (§26.5)` };
   }
   return { ok: true, bound: { recordKey, revisionId, value, valueSha256: hash.sha256 } };
 }

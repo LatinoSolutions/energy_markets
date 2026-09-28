@@ -508,7 +508,7 @@ test("backtests: un dato entra sólo si el manifest verificado respalda su hash"
   });
   assert.equal(forged.ok, true);
   assert.equal(forged.rows[0].status, "UNAVAILABLE");
-  assert.match(forged.rows[0].reason, /no coincide con el contenido registrado/);
+  assert.match(forged.rows[0].reason, /does not match the content recorded/);
   const renderHtml = renderBacktestsPage(good);
   assert.match(renderHtml, /provenance/);
   // sin etiquetas declaradas no se imprimen atributos de brazo ni comparador
@@ -619,15 +619,16 @@ test("campaigns: un run canónico ofrece drill-downs visibles y sección de rece
   assert.equal(vm.ok, true);
   const runItem = vm.runs[0];
   assert.equal(runItem.status, "BOUND");
-  assert.deepEqual(runItem.drilldowns.map((drilldown) => drilldown.href), ["#replay", "#backtests", "#research"]);
+  // SEM2-T12: un registro sin scope declarado (campaña/misión/versión) retiene
+  // el handoff fail-closed en vez de navegar a un destino sin continuidad.
+  assert.deepEqual(runItem.drilldowns, []);
+  assert.match(runItem.drilldownWithheld, /declares no campaign\/mission\/version scope/);
   const html = renderCampaignsPage(vm);
   assert.match(html, /data-kind="runs"/);
-  for (const target of vm.drilldownTargets) {
-    assert.match(html, new RegExp(`data-drilldown="${target}"`), target);
-  }
+  assert.match(html, /data-drilldown-withheld/);
   // los receipts del run sin productor aceptado quedan declarados, no impresos como valor
   assert.match(html, /data-kind="pending"/);
-  assert.match(html, /ningún run receipt IMP-14\/IMP-16 persistido/);
+  assert.match(html, /no IMP-14\/IMP-16 run receipt persisted/);
 });
 
 // OI79-UI01-04 (review 2026-09-23): todos los renderers de página exportados
@@ -718,7 +719,7 @@ test("replay: una exposición parcial (subconjunto de secciones §26.2) queda fa
   assert.ok(vm.errors.some((error) => error.code === "EXPOSURE_NOT_STRUCTURALLY_COMPLETE"));
   const html = renderReplayPage(vm);
   assert.match(html, /data-state="ERROR"/);
-  assert.match(html, /omite las secciones canónicas/);
+  assert.match(html, /omits the canonical §26.2 sections/);
   assert.ok(!html.includes("<li class=\"exposure-field"));
 });
 
@@ -874,7 +875,7 @@ test("backtests: las etiquetas arm/measure sólo se rinden si el registro canón
   });
   assert.equal(forgedLabels.ok, true);
   assert.equal(forgedLabels.rows[0].status, "UNAVAILABLE");
-  assert.match(forgedLabels.rows[0].reason, /no coincide con el que expone el registro canónico/);
+  assert.match(forgedLabels.rows[0].reason, /does not match the one exposed by the verified manifest canonical record/);
   const forgedHtml = renderBacktestsPage(forgedLabels);
   // la etiqueta forjada sólo aparece citada dentro de la razón visible (state
   // UNAVAILABLE), nunca como atributo factual de brazo/comparador

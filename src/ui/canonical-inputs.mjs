@@ -98,9 +98,14 @@ function verifiedExploratoryRelease(repoRoot, spec) {
   if (results.status !== "EXPLORATORY" || results.inputs?.slots?.sha256 !== manifest.slots.sha256) {
     return { ok: false, code: "EXPLORATORY_INPUT_MISMATCH" };
   }
+  // SEM-2 T02: the raw results bytes travel with the release so the legacy
+  // compatibility adapter can re-verify the declared sha256 against the exact
+  // bytes it classifies (the hash is checked here too; both gates must agree).
+  const resultsBytes = readFileSync(path.join(repoRoot, manifest.results.path), "utf8");
   return {
     ok: true,
     results,
+    resultsBytes,
     provenance: {
       release: spec.release,
       market: manifest.market ?? spec.market ?? null,
@@ -133,9 +138,14 @@ export function loadExploratoryBacktestAt(repoRoot) {
     releases: [gas.provenance],
     byProduct: byProductProvenance(gas.provenance, productsOfResults(gas.results)),
   };
+  // SEM-2 T02/T03: per-product raw bytes of the exact verified artifact. The
+  // legacy adapter re-hashes these before resolving any historical role.
+  const gasLegacyArtifacts = Object.fromEntries(
+    productsOfResults(gas.results).map((product) => [product, gas.resultsBytes]),
+  );
   const power = loadPowerExploratoryBacktestAt(repoRoot);
   if (!power.ok) {
-    return { ok: true, results: gas.results, provenance: gasProvenance, power: { loaded: false, code: power.code } };
+    return { ok: true, results: gas.results, provenance: gasProvenance, legacyArtifacts: gasLegacyArtifacts, power: { loaded: false, code: power.code } };
   }
   const merged = mergeExploratoryResults(gas.results, power.results);
   if (!merged.ok) {
@@ -145,10 +155,15 @@ export function loadExploratoryBacktestAt(repoRoot) {
     ...byProductProvenance(gas.provenance, productsOfResults(gas.results)),
     ...byProductProvenance(power.provenance, productsOfResults(power.results)),
   };
+  const legacyArtifacts = {
+    ...gasLegacyArtifacts,
+    ...Object.fromEntries(productsOfResults(power.results).map((product) => [product, power.resultsBytes])),
+  };
   return {
     ok: true,
     results: merged.results,
     provenance: { ...gas.provenance, releases: [gas.provenance, power.provenance], byProduct },
+    legacyArtifacts,
     power: { loaded: true, ...power.provenance },
   };
 }
