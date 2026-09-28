@@ -207,6 +207,19 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
   assert.equal(parameterSubstitution.ok, false);
   assert.equal(parameterSubstitution.code, "PARAMETER_CANDIDATE_MISMATCH");
 
+  // A candidate whose N was altered while keeping its original content hash is
+  // not a source of truth: the configuration must reject it instead of
+  // restating the tampered N (FIX07-PARAMETER-CANDIDATE).
+  const validCandidate = candidateFixture("GAS_QUARTERLY");
+  const tamperedCandidate = { ...validCandidate, N: 10 };
+  const tamperedParameter = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", N: 10 },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: tamperedCandidate,
+  });
+  assert.equal(tamperedParameter.ok, false);
+  assert.equal(tamperedParameter.code, "CANDIDATE_INTEGRITY");
+
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter }).state, "UNTESTED");
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: null }).reason, "NO_EVIDENCE");
 
@@ -217,6 +230,20 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
   // is not evidence for this campaign (FIX07-CONTROL-CAMPAIGN).
   const otherCampaignControl = controlFor({ hypothesisId: "H-S1-01", runId: "run-1", populationId: "pop-1", campaignId: "other-campaign", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
   assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration: quarter, experimentId: "exp-1", campaignId: "target-campaign", runId: "run-1", technicalArmId: "arm-1", control: otherCampaignControl }).code, "INVALID_CONTROL_BINDING");
+
+  // A hypothesis experiment is always paired with its CONTROL: a binding
+  // without CONTROL is rejected, and even a forged binding without CONTROL
+  // cannot prove TESTED (FIX07-MISSING-CONTROL).
+  const missingControl = createExperimentBinding({ hypothesis: H_S1_01, configuration: quarter, experimentId: "exp-1", campaignId: "camp-1", runId: "run-1", technicalArmId: "arm-1" });
+  assert.equal(missingControl.ok, false);
+  assert.equal(missingControl.code, "MISSING_CONTROL_BINDING");
+  const forgedBinding = {
+    ok: true,
+    binding: { experimentId: "exp-1", runId: "run-1", hypothesisId: "H-S1-01", missionId: "GAS_QUARTERLY", configurationHash: quarter.configurationHash, campaignId: "camp-1", control: null },
+  };
+  const noControl = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: evidenceFixture(quarter), experiment: forgedBinding });
+  assert.equal(noControl.state, "HOLD");
+  assert.ok(noControl.mismatched.includes("control"));
 
   // An unbound run with a shape-valid SHA is not tested evidence (FIX07-EVIDENCE-RUN).
   const unbound = evaluateHypothesisStatus({
@@ -321,6 +348,11 @@ test("ID07: versioning separates recalibration from a materially different propo
   assert.equal(classifyHypothesisChange({ prior: v1, next: v1 }).code, "NO_VERSION_ADVANCE");
   // A version rollback is not a recalibration either (FIX07-BACKWARD-VERSION).
   assert.equal(classifyHypothesisChange({ prior: recalculated, next: v1 }).code, "VERSION_ROLLBACK");
+  // Two spellings with the same ordinal do not advance the version
+  // (FIX07-EQUAL-VERSION-ORDINAL).
+  const sameOrdinal = identityFixture({ version: "H-S2-01/phase-A/v02" });
+  assert.equal(classifyHypothesisChange({ prior: recalculated, next: sameOrdinal }).code, "NO_VERSION_ADVANCE");
+  assert.notEqual(classifyHypothesisChange({ prior: recalculated, next: sameOrdinal }).kind, "RECALIBRATION");
 
   const sameIdDifferentQuestion = identityFixture({ version: "H-S2-01/phase-A/v2", question: "A materially different question?" });
   assert.equal(classifyHypothesisChange({ prior: v1, next: sameIdDifferentQuestion }).code, "MATERIAL_CHANGE_NEEDS_NEW_ID");

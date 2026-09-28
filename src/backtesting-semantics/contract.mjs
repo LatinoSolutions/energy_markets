@@ -417,6 +417,14 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
     || !isSha256(candidate.contentHash)) {
     return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field: "candidate" };
   }
+  // The candidate is the source of truth for tau/N, and its own hash must match
+  // its contents. A candidate whose N was altered without rehashing cannot feed
+  // a configuration, so a declared tau/N can never come from a stale hash
+  // (FIX07-PARAMETER-CANDIDATE).
+  const { contentHash: candidateContentHash, ...candidateCore } = candidate;
+  if (contentHashOf(candidateCore) !== candidateContentHash) {
+    return { ok: false, code: "CANDIDATE_INTEGRITY", field: "candidate" };
+  }
   // The configuration declares tau/N, but the candidate is the source of truth:
   // a configuration may not restate parameters other than the bound candidate's
   // (FIX07-PARAMETER-CANDIDATE).
@@ -475,10 +483,11 @@ export function evaluateHypothesisStatus({ hypothesis, configuration, evidence, 
     || binding.configurationHash !== configuration.configurationHash) {
     mismatched.push("experiment");
   }
-  // The paired CONTROL must belong to the same campaign as the experiment
-  // binding; a run proven against another campaign's CONTROL is not evidence
-  // for this one (FIX07-CONTROL-CAMPAIGN).
-  if (binding?.control && binding.control.campaignId !== undefined && binding.control.campaignId !== binding.campaignId) {
+  // A hypothesis experiment is always paired with its CONTROL: without a bound
+  // CONTROL of the same campaign there is no ablation, so the run cannot be
+  // TESTED (FIX07-MISSING-CONTROL).
+  if (!binding?.control || binding.control.kind !== IDENTITY.CONTROL
+    || !isSha256(binding.control.artifactSha256) || binding.control.campaignId !== binding.campaignId) {
     mismatched.push("control");
   }
   if (mismatched.length) return { ok: true, state: "HOLD", reason: "EVIDENCE_BINDING_MISMATCH", mismatched };
@@ -507,6 +516,9 @@ export function classifyHypothesisChange({ prior, next } = {}) {
     if (prior.version === next.version || priorOrdinal === null || nextOrdinal === null) {
       return { ok: false, code: "NO_VERSION_ADVANCE" };
     }
+    // Two spellings with the same ordinal (`v2` vs `v02`) do not advance the
+    // version, so they are not a recalibration (FIX07-EQUAL-VERSION-ORDINAL).
+    if (nextOrdinal === priorOrdinal) return { ok: false, code: "NO_VERSION_ADVANCE" };
     if (nextOrdinal < priorOrdinal) return { ok: false, code: "VERSION_ROLLBACK" };
     return {
       ok: true, kind: "RECALIBRATION", hypothesisId: prior.hypothesisId,
@@ -583,13 +595,16 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
   if (!isNonEmptyString(technicalArmId)) return { ok: false, code: "MISSING_TECHNICAL_ARM_ID" };
   if ([hypothesis.hypothesisId, experimentId, runId].includes(technicalArmId)) return { ok: false, code: "IDENTITY_COLLISION" };
   if (hypothesis.hypothesisId === runId || experimentId === runId) return { ok: false, code: "IDENTITY_COLLISION" };
-  if (control !== undefined && control !== null) {
-    const missionMismatch = control.missionId !== undefined && control.missionId !== configuration.missionId;
-    const campaignMismatch = control.campaignId !== undefined && control.campaignId !== campaignId;
-    if (control.ok !== true || control.kind !== IDENTITY.CONTROL || control.hypothesisId !== hypothesis.hypothesisId
-      || !isSha256(control.artifactSha256) || control.runId !== runId || missionMismatch || campaignMismatch) {
-      return { ok: false, code: "INVALID_CONTROL_BINDING" };
-    }
+  // A hypothesis experiment is always paired with its CONTROL. A binding without
+  // a CONTROL for the same hypothesis, run and campaign is incomplete, so the
+  // schema rejects it instead of minting evidence without an ablation
+  // (FIX07-MISSING-CONTROL).
+  if (control === undefined || control === null) return { ok: false, code: "MISSING_CONTROL_BINDING" };
+  const missionMismatch = control.missionId !== undefined && control.missionId !== configuration.missionId;
+  if (control.ok !== true || control.kind !== IDENTITY.CONTROL || control.hypothesisId !== hypothesis.hypothesisId
+    || !isSha256(control.artifactSha256) || control.runId !== runId || missionMismatch
+    || control.campaignId !== campaignId) {
+    return { ok: false, code: "INVALID_CONTROL_BINDING" };
   }
   return {
     ok: true,
@@ -600,7 +615,7 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
       missionId: configuration.missionId, campaignId, configurationHash: configuration.configurationHash,
       candidateMission: configuration.candidateMission, searchSpaceMission: configuration.searchSpaceMission,
       candidateHash: configuration.candidateHash, searchSpaceHash: configuration.searchSpaceHash,
-      experimentId, runId, technicalArmId, control: control ?? null, semanticContract: SEMANTIC_VERSION,
+      experimentId, runId, technicalArmId, control, semanticContract: SEMANTIC_VERSION,
     }),
   };
 }
