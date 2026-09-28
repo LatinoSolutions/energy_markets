@@ -58,3 +58,7 @@ Notas de interpretación obligatorias:
 ## Research / Backtesting — decisiones explícitas de Bru, 28-sep-2026
 
 Para HYP-1, FIX-07, BT-08, UI-08 y su reparación de tests FIX-09, leer `docs/product/RESEARCH_BACKTESTING_PIPELINE_2026-09-28.md` y el `task.md` operativo enlazado en la fila vigente de `PLAN_STATUS.md`. Los intakes originales y las poblaciones históricas de P5 no restringen H-S1-01 a Gas Quarterly: aplica a las cuatro misiones por separado. La semántica vigente es CLIENT / BENCHMARK / HYPOTHESES, con CONTROL en ablation. FIX-06 está retirado. Las revisiones operativas contienen la aceptación explícita; no regenerar criterios de una taxonomía anterior. Esta precedencia es limitada al alcance y naming acordados: no autoriza modificar evidencia histórica, fórmulas económicas, gates OOS, freezes o límites de recursos.
+
+## Semántica transversal — decisión de Bru, 28-sep-2026
+
+El alcance global y visual de SEM-2/UI-08 está en `docs/product/CROSS_SURFACE_SEMANTIC_AUDIT_2026-09-28.md` y la revisión operativa v3 de UI-08. Mismo contrato de backend para Campaigns & Runs, Replay, Backtests y Research; aliases históricos no acreditan CLIENT ni resultados nuevos. Conservar la interfaz clara/editorial aprobada. El mockup oscuro generado en el chat no es una especificación de diseño, métricas ni parámetros. Esta aclaración no cambia el contrato congelado del FIX-07 en curso; SEM-2 integra su resultado.

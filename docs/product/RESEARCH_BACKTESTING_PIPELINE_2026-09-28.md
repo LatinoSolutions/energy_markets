@@ -1,6 +1,6 @@
 # Energy Markets — Research / Backtesting delivery contract
 
-Version: 2026-09-28/pipeline-v2. Authority: Bru's decisions in the Energy Markets conversation on 2026-09-28, including approval to implement the discovered backtesting integration and address immediate blockers. This document is an assistant-authored consolidation, not a verbatim user quotation.
+Version: 2026-09-28/pipeline-v3 (cross-surface clarification). Authority: Bru's decisions in the Energy Markets conversation on 2026-09-28, including approval to implement the discovered backtesting integration and address immediate blockers. This document is an assistant-authored consolidation, not a verbatim user quotation.
 
 ## Frozen scientific and product scope
 
@@ -17,9 +17,10 @@ Method: CONTROL ↔ H-S1-01, with the same sizing/execution policy within each m
 - FIX-09: parallel repair of lifecycle-sensitive plan tests and temporary-file test isolation; full safety intent retained. Independent of new research logic.
 - FIX-07: canonical identity/metadata and source-bound historical compatibility, after HYP-1 and test repair. Active operative revision is the task.md referenced in its current plan row.
 - BT-08: executable H-S1-01 Development integration through the existing EM job path; real-input preflight, four-mission adapters, shared-controller ablation, source-bound economic output/receipts and HTTP/MCP coverage.
-- UI-08: consumes the accepted identity/execution contract, updates Scope → Hypotheses → Results, wires the single run control and verifies the served version. Active operative revision is the task.md referenced in its current plan row.
+- SEM-2: integrates the shared canonical backend projection across Campaigns & Runs, Replay, Backtests and Research; preserves legacy evidence, exact drilldowns, snapshot freshness and truthful running build identity. Depends on accepted FIX-07 and BT-08, not a new identity registry.
+- UI-08: consumes the accepted identity/execution and SEM-2 shared projection, updates Scope → Hypotheses → Results, wires the single run control and verifies the integrated served version on all four tabs. Active operative revision is the task.md referenced in its current plan row.
 
-The main delivery chain is SEM-1 → HYP-1 → FIX-07 → BT-08 → UI-08. FIX-09 repairs tests in parallel before FIX-07. Read PLAN_STATUS.md for all explicit prerequisites. FIX-06 remains retired, not accepted, with its history intact. BT-08 owns the useful producer/receipt/comparability integration needed for the new experiment; no task depends on reviving FIX-06.
+The main delivery chain is SEM-1 → HYP-1 → FIX-07 → BT-08 → SEM-2 → UI-08. FIX-09 repairs tests in parallel before FIX-07. Read PLAN_STATUS.md for all explicit prerequisites. FIX-06 remains retired, not accepted, with its history intact. BT-08 owns the useful producer/receipt/comparability integration needed for the new experiment; no task depends on reviving FIX-06.
 
 ## Execution boundary and first real run
 
@@ -38,3 +39,7 @@ Use canonical economic producers. Paired deltas require compatible mission/campa
 This explicit owner-approved scope and the current operative task revisions supersede prior Gas-Quarterly-only HYP-1 population limits and old first-class naming/dependencies from the retired FIX-06. Older SPEC sections and original intakes remain historical evidence; they must not be silently rewritten. This is a narrow change of research/product scope, not permission to alter economic formulas, source evidence, OOS protection, resource limits or unrelated normative requirements. Conflicts outside this scope must be reported, not guessed away.
 
 Current task revisions contain explicit acceptance criteria so the acceptance preparer and reviewer do not infer a new task from old general specifications. Changing a contract requires a new visible revision; no regeneration may shrink the four-mission scope or reinterpret legacy outputs as new-version results.
+
+## Cross-surface and visual clarification — 28 September 2026
+
+Bru requested canonical concepts across backend and every tab, not page-local relabeling. Read `CROSS_SURFACE_SEMANTIC_AUDIT_2026-09-28.md`. SEM-2 closes the audited propagation gap; UI-08 performs the final integrated release and four-route smoke. The light/editorial approved visual language remains authoritative. The generated dark mockup is not an approved design, data source, new metrics list or parameter specification. Preserve canonical-data versus historical exploratory-data status. Source/version-scoped legacy compatibility must not mark current H-S1-01 as tested. Do not mutate the frozen acceptance of active FIX-07; its output is consumed by SEM-2.
