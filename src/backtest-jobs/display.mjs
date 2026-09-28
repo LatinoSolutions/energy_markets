@@ -71,6 +71,7 @@ export const FAILURE_WORDS = Object.freeze({
   PARAMETER_CANDIDATE_MISMATCH: "the declared parameters do not match the bound candidate",
   BINDING_INVALID: "a binding of the hypothesis request is missing or invalid",
   INVALID_HYPOTHESIS_REQUEST: "the hypothesis request is malformed",
+  MISSION_INPUT_MISMATCH: "the declared inputs do not belong to the requested mission",
   HASH_MISMATCH: "a reference does not match its content hash",
   RUN_SPEC_MISSING: "the run produced no experiment spec",
   SPEC_CHANGED_DURING_RUN: "the experiment spec changed during the run",

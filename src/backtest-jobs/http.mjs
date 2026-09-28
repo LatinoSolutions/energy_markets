@@ -114,6 +114,13 @@ export function isBacktestJobsPath(pathname) {
 
 export async function handleBacktestJobsRequest(req, res, pathname, runner, tradesRunner = null, hypothesisRunner = null) {
   const method = req.method ?? "GET";
+  // BT-08 (hallazgo BT08-T03): el base path es el único POST; un run path es
+  // de consulta y no inicia jobs.
+  if (method === "POST" && pathname !== BACKTEST_JOBS_PATH) {
+    res.setHeader("Allow", "GET, HEAD");
+    sendJson(res, 405, { ok: false, code: "METHOD_NOT_ALLOWED", message: "this run path is read-only; POST the base /api/backtest-jobs" });
+    return;
+  }
   if (method === "POST") {
     const contentType = String(req.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
     if (contentType !== "application/json") {
@@ -134,6 +141,14 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner, trad
     // BT-08: la ruta de hipótesis comparte endpoint y validación, y fail-closed
     // en hipótesis desconocida, hash mismatch, fase/modo inválidos o petición
     // malformada. Sin ejecutor de hipótesis, el motivo y nada se lanza.
+    // Hallazgo BT08-T02: un payload de hipótesis sin mode HYPOTHESIS no cae
+    // en el runner TOB legacy — se rechaza sin fallback.
+    if (body.job !== undefined || body.jobs !== undefined || body.hypothesisId !== undefined) {
+      if (body.mode !== "HYPOTHESIS") {
+        sendJson(res, 400, { ok: false, code: "INVALID_MODE", message: 'a hypothesis job request requires mode "HYPOTHESIS"; it is never executed as a legacy backtest' });
+        return;
+      }
+    }
     if (body.mode === "HYPOTHESIS") {
       if (hypothesisRunner == null) {
         sendJson(res, 503, { ok: false, code: "HYPOTHESIS_NOT_CONFIGURED", message: "this server has no hypothesis job launcher" });
@@ -154,7 +169,11 @@ export async function handleBacktestJobsRequest(req, res, pathname, runner, trad
         sendJson(res, started.reused ? 200 : 202, {
           ok: true, mode: "HYPOTHESIS", reused: started.reused === true,
           job: started.job ?? null,
-          batch: Array.isArray(started.batch) ? started.batch.map((entry) => ({ ok: entry.ok, reused: entry.reused === true, job: entry.job })) : null,
+          batch: Array.isArray(started.batch) ? started.batch.map((entry) => ({ ok: true, reused: entry.reused === true, job: entry.job })) : null,
+          // Estado final por misión (hallazgo BT08-T16): un lote con una
+          // misión bloqueada no anuncia éxito completo.
+          outcomes: started.outcomes ?? null,
+          complete: started.complete === true,
           display,
         });
         return;

@@ -97,12 +97,24 @@ export function predeclareHS1SearchSpace({ mission, developmentEndUtc, session, 
   const candidates = session.anchors.flatMap((anchor) => H_S1_01_N_GRID
     .filter((N) => days.get(anchor).size >= N + 1)
     .map((N) => ({ tau: { zone: session.zone, localTime: anchor }, N, supportedDays: days.get(anchor).size })));
+  // BT-08 (revisión 2026-09-28, hallazgo objetivo/folds nulos): el contrato de
+  // evaluación es parte de la predeclaración — objetivo y pliegues quedan
+  // vinculados al espacio ANTES del run; el veredicto sigue HOLD aquí.
+  const evaluationContract = {
+    objective: {
+      metric: "PAIRED_INCREMENTAL_DELTA_V_VS_CONTROL",
+      unit: "EUR/MWh",
+      evidencePolicy: { benchmarkStatus: "RECONCILED_OFFICIAL", fees: "KNOWN", bothArms: "OBLIGATION_COMPLETE" },
+      decisionAuthority: "NONE",
+    },
+    foldRule: { kind: "EXPANDING_WINDOW_SAME_ANCHOR", warmUpDays: "N", horizon: "DEVELOPMENT_END" },
+  };
   const core = {
     artifactKind: "HYPOTHESIS_SEARCH_SPACE", hypothesisId: H_S1_01.hypothesisId,
     hypothesisHash: H_S1_01.contentHash, version: "H-S1-01/search-space/v1",
     mission, developmentEndUtc, session: { mission, zone: session.zone, anchors: [...session.anchors], sourceHash: session.sourceHash },
     availabilityHash: contentHashOf(availability), provenance, nGrid: [...H_S1_01_N_GRID],
-    candidates, outcomeInputsUsed: false, status: candidates.length ? "PREDECLARED_UNCALIBRATED" : "DATA_BLOCKED",
+    candidates, evaluationContract, outcomeInputsUsed: false, status: candidates.length ? "PREDECLARED_UNCALIBRATED" : "DATA_BLOCKED",
   };
   return { ok: true, searchSpace: { ...core, contentHash: contentHashOf(core) } };
 }

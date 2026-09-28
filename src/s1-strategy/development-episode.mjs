@@ -112,6 +112,21 @@ export function assessDevelopmentInputs({ session, availability, observations, b
     if (!row || !isIsoDate(row.date) || !isFiniteNumber(row.price) || !isUtc(row.availableAtUtc) || !isHash(row.sourceHash)) {
       return blocker("PROVENANCE_INVALID", "an observation row is malformed or carries unverified provenance", { date: row?.date ?? null });
     }
+    // Contrato de ejecución TOB (hallazgo BT08-T09): el precio de decisión no
+    // es un best ask ejecutable. Sin ask válido (ambos campos null) el día no
+    // ejecuta; un ask malformado o asimétrico es dato corrupto, no un no-fill.
+    const askSeen = "bestAskEurMwh" in row;
+    const askVolumeSeen = "bestAskVolumeMw" in row;
+    if (!askSeen || !askVolumeSeen) {
+      return blocker("PROVENANCE_INVALID", "an observation row is missing the TOB ask execution evidence (bestAskEurMwh and bestAskVolumeMw)", { date: row.date });
+    }
+    const askPresent = row.bestAskEurMwh !== null;
+    const askVolumePresent = row.bestAskVolumeMw !== null;
+    if (askPresent !== askVolumePresent
+      || (askPresent && (!isFiniteNumber(row.bestAskEurMwh) || row.bestAskEurMwh < 0
+        || !isFiniteNumber(row.bestAskVolumeMw) || row.bestAskVolumeMw <= 0))) {
+      return blocker("PROVENANCE_INVALID", "an observation row carries a malformed TOB best ask", { date: row.date });
+    }
     if (byDate.has(row.date)) return blocker("PROVENANCE_INVALID", "duplicate observation date", { date: row.date });
     byDate.set(row.date, row);
   }
@@ -146,7 +161,9 @@ export function assessDevelopmentInputs({ session, availability, observations, b
 
 // Economía de un brazo a partir de su ledger. H es el all-in unitario
 // (EUR/MWh); los fees unknown dejan H unavailable, nunca cero (SPEC §5.5).
-function armEconomics({ ledger, targetVolumeMw, fees, benchmark, deliveryHours, tradingDates }) {
+// La conversión MW→MWh es PER-ROW (hallazgo BT08-T13): cada fila llena usa las
+// horas de entrega evidenciadas de SU día, no la suma de todo el calendario.
+function armEconomics({ ledger, targetVolumeMw, fees, benchmark, deliveryHours, campaign = null }) {
   const boughtMw = ledger.reduce((sum, row) => sum + row.filledMw, 0);
   const costEur = ledger.reduce((sum, row) => sum + row.filledMw * (row.fillPriceEurMwh ?? 0), 0);
   const avgFillPriceEurMwh = boughtMw > 0 ? costEur / boughtMw : null;
@@ -159,16 +176,24 @@ function armEconomics({ ledger, targetVolumeMw, fees, benchmark, deliveryHours, 
       ? computeAllInH({ base: avgFillPriceEurMwh, unit: "EUR/MWh", costs, costsComplete: true })
       : { H: null, unit: "EUR/MWh", defined: false, rejected: true, reason: "no volume was bought; H is undefined" };
   const absolute = computeV({ B: benchmark.value, BUnit: benchmark.unit, H: allIn.H, HUnit: allIn.unit ?? "EUR/MWh" });
-  const deliveryHoursValue = deliveryHours.mode === DELIVERY_HOURS_MODES.FIXED
-    ? deliveryHours.hours
-    : tradingDates.reduce((sum, date) => sum + (deliveryHours.perDay?.[date] ?? 0), 0);
-  const boughtMwh = boughtMw * deliveryHoursValue;
+  const boughtMwh = ledger.reduce((sum, row) => {
+    if (row.filledMw === 0) return sum;
+    const hours = deliveryHours.mode === DELIVERY_HOURS_MODES.FIXED
+      ? deliveryHours.hours
+      : deliveryHours.perDay?.[row.date] ?? 0;
+    return sum + row.filledMw * hours;
+  }, 0);
   const total = boughtMw > 0
     ? computeTotalEur({ V: absolute.V, VUnit: "EUR/MWh", volume: boughtMwh, volumeUnit: "MWh" })
     : { totalEur: null, defined: false, reason: "no volume was bought" };
   return {
     boughtMw,
     remainingMw: targetVolumeMw - boughtMw,
+    // Binding de campaña para el consumo externo (hallazgo BT08-T15): la
+    // economía publicada queda atada a la misma campaña poblacional.
+    campaignId: campaign?.campaignId ?? null,
+    populationId: campaign?.populationId ?? null,
+    obligationId: campaign?.obligationId ?? null,
     avgFillPriceEurMwh,
     H: allIn.H,
     hReason: allIn.reason ?? null,
@@ -267,9 +292,16 @@ export function runHS1DevelopmentEpisode(spec) {
       if (!active.ok) return blocker("BINDING_INVALID", "the ablation context was rejected", { code: active.code, date: day });
     }
 
-    const fillPriceEurMwh = observation === null ? null : observation.price + execution.slippageEurMwh;
+    // Contrato de ejecución TOB (hallazgo BT08-T09): sólo el best ask
+    // evidenciado es ejecutable. Su volumen limita el fill (FULL/PARTIAL/
+    // NO_FILL); sin ask ejecutable no hay fill y la obligación sigue viva.
+    const bestAskEurMwh = observation === null ? null : observation.bestAskEurMwh;
+    const bestAskVolumeMw = observation === null ? null : observation.bestAskVolumeMw;
+    const executableAsk = bestAskEurMwh !== null && bestAskVolumeMw !== null;
+    const fillStatusOf = (requestedMw, filledMw) => (requestedMw === 0 ? "NONE" : filledMw === 0 ? "NO_FILL" : filledMw < requestedMw ? "PARTIAL" : "FULL");
+
     const controlRequested = controlDecision.action === "BUY" ? controlDecision.requestedQuantityMw : 0;
-    const controlFilled = controlDecision.action === "BUY" && observation !== null ? controlRequested : 0;
+    const controlFilled = executableAsk && controlRequested > 0 ? Math.min(controlRequested, bestAskVolumeMw) : 0;
     controlRemaining -= controlFilled;
     controlFilledMw += controlFilled;
     controlLedger.push({
@@ -277,7 +309,10 @@ export function runHS1DevelopmentEpisode(spec) {
       action: controlDecision.action === "BUY" && observation === null ? "WAIT" : controlDecision.action,
       requestedMw: controlRequested,
       filledMw: controlFilled,
-      fillPriceEurMwh,
+      fillStatus: fillStatusOf(controlRequested, controlFilled),
+      fillPriceEurMwh: controlFilled > 0 ? bestAskEurMwh + execution.slippageEurMwh : null,
+      bestAskEurMwh,
+      bestAskVolumeMw,
       remainingMw: controlRemaining,
       decisionPriceEurMwh: observation?.price ?? null,
       priceSourceHash: observation?.sourceHash ?? null,
@@ -285,7 +320,7 @@ export function runHS1DevelopmentEpisode(spec) {
     });
 
     const activeRequested = activeControllerDecision.requestedQuantityMw;
-    const activeFilled = active.action === "BUY" && observation !== null ? activeRequested : 0;
+    const activeFilled = executableAsk && active.action === "BUY" && activeRequested > 0 ? Math.min(activeRequested, bestAskVolumeMw) : 0;
     activeRemaining -= activeFilled;
     activeFilledMw += activeFilled;
     activeLedger.push({
@@ -293,7 +328,10 @@ export function runHS1DevelopmentEpisode(spec) {
       action: active.action === "BUY" && observation === null ? "ABSTAIN" : active.action,
       requestedMw: activeRequested,
       filledMw: activeFilled,
-      fillPriceEurMwh,
+      fillStatus: fillStatusOf(active.action === "BUY" ? activeRequested : 0, activeFilled),
+      fillPriceEurMwh: activeFilled > 0 ? bestAskEurMwh + execution.slippageEurMwh : null,
+      bestAskEurMwh,
+      bestAskVolumeMw,
       remainingMw: activeRemaining,
       decisionPriceEurMwh: observation?.price ?? null,
       priceSourceHash: observation?.sourceHash ?? null,
@@ -313,7 +351,7 @@ export function runHS1DevelopmentEpisode(spec) {
   }
 
   const episodeStatus = (remaining, gaps) => (remaining === 0 ? EPISODE_STATUS.COMPLETE : gaps ? EPISODE_STATUS.DATA_INCOMPLETE : EPISODE_STATUS.OPEN_OBLIGATION);
-  const economics = (ledger) => armEconomics({ ledger, targetVolumeMw: campaign.targetVolumeMw, fees, benchmark: evaluation.benchmark, deliveryHours: evaluation.deliveryHours, tradingDates: sortedDates });
+  const economics = (ledger) => armEconomics({ ledger, targetVolumeMw: campaign.targetVolumeMw, fees, benchmark: evaluation.benchmark, deliveryHours: evaluation.deliveryHours, campaign });
   const controlEconomics = economics(controlLedger);
   const activeEconomics = economics(activeLedger);
   const controlGaps = controlLedger.some((row) => row.decisionPriceEurMwh === null);
@@ -375,7 +413,12 @@ export function pairedAblation({ runId, campaign, missionId, controllerHash, cal
     artifactSha256: activeEpisode.artifactSha256,
   };
   const economicsOf = (episode) => ({
-    status: "VALID_RUN",
+    // Estado honesto por brazo (hallazgos BT08-T10/T11): un brazo que no sirve
+    // la obligación completa no es VALID_RUN para la comparación económica.
+    status: episode.summary.status === "COMPLETE" ? "VALID_RUN" : "OPEN_OBLIGATION",
+    coverageStatus: episode.summary.status,
+    boughtMw: episode.summary.boughtMw,
+    remainingMw: episode.summary.remainingMw,
     campaignId: parity.campaignId,
     obligationId: parity.obligationId,
     runId,
@@ -389,6 +432,23 @@ export function pairedAblation({ runId, campaign, missionId, controllerHash, cal
     H: episode.economics.H,
     V: episode.economics.V,
   });
+  // Puerta de cobertura emparejada (hallazgo BT08-T10): el delta incremental
+  // compara el MISMO contrato de campaña; si algún brazo no sirve la
+  // obligación completa (compró menos que el objetivo/CONTROL) no hay delta
+  // válido: HOLD explícito, nunca medio delta.
+  const equalCoverage = controlEpisode.summary.status === "COMPLETE"
+    && activeEpisode.summary.status === "COMPLETE"
+    && controlEpisode.summary.boughtMw === campaign.targetVolumeMw
+    && activeEpisode.summary.boughtMw === campaign.targetVolumeMw;
+  if (!equalCoverage) {
+    return {
+      paired: true, ok: false, verdict: "HOLD", code: "COVERAGE_MISMATCH",
+      reason: "the paired ablation requires both arms to serve the same campaign obligation; no delta is published",
+      controlBoughtMw: controlEpisode.summary.boughtMw,
+      activeBoughtMw: activeEpisode.summary.boughtMw,
+      targetVolumeMw: campaign.targetVolumeMw,
+    };
+  }
   const outcome = compareAblation({
     control: controlBinding,
     active: activeBinding,

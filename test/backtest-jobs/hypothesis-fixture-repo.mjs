@@ -1,8 +1,9 @@
 // Repo mínimo para los tests de BT-08. Copia el src/ REAL (el child corre el
 // HYP-1 real desde el commit staged) y deja, bajo
-// operations/hypothesis/H-S1-01/development/<MISSION>/, fixtures pequeñas en el
-// formato fuente (availability/observations/benchmark/delivery-hours) atadas
-// por sha256 en el inputManifest de la petición. Nunca corre un run real.
+// operations/hypothesis/H-S1-01/development/<MISSION>/, fixtures pequeñas en
+// el formato de los productores Development (artifactKind + provenance por
+// documento, filas propias, evidencia TOB en observaciones) atadas por sha256
+// en el inputManifest de la petición. Nunca corre un run real.
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -12,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { createTempDir } from "../helpers/tmpdir.mjs";
 import { predeclareHS1SearchSpace, createHS1Candidate } from "../../src/s1-strategy/h-s1-01.mjs";
+import { contentHashOf } from "../../src/sizing-controller/versioning.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -30,10 +32,18 @@ export const MISSION_LABELS = Object.freeze({
   POWER_MONTHLY: "Power Monthly",
 });
 
+const MISSION_WINDOWS = Object.freeze({
+  GAS_QUARTERLY: "3-1-3",
+  GAS_MONTHLY: "1-0-1",
+  POWER_QUARTERLY: "3-1-3",
+  POWER_MONTHLY: "1-0-1",
+});
+
 const DATA_ROOT = "operations/hypothesis/H-S1-01/development";
 export const ANCHOR = "10:00";
 export const ZONE = "UTC";
 const ROW_HASH = "b".repeat(64);
+const DOC_PROVENANCE = Object.freeze({ authority: "SYNTHETIC_FIXTURE (BT-01-style reference)", locator: "test/backtest-jobs/hypothesis-fixture-repo.mjs" });
 
 // Cinco días hábiles: los tres primeros alimentan la referencia y warm-up de
 // N=3; los dos últimos son días de decisión con señal identificable.
@@ -42,7 +52,12 @@ const DEVELOPMENT_END = "2025-03-10T00:00:00Z";
 
 // Precios al ancla: day4 40 < media(35,30,40)=35 → no; ajustamos para tener
 // BUY y WAIT explícitos en los días con señal.
-const OBSERVED_PRICES = { "2025-03-03": 35, "2025-03-04": 30, "2025-03-05": 40, "2025-03-06": 20, "2025-03-07": 45 };
+export const OBSERVED_PRICES = { "2025-03-03": 35, "2025-03-04": 30, "2025-03-05": 40, "2025-03-06": 20, "2025-03-07": 45 };
+
+// Evidencia TOB por defecto del fixture: el best ask ejecutable del ancla es
+// el propio precio observado con volumen holgado (fills completos).
+const OBSERVED_ASKS = { "2025-03-03": 35, "2025-03-04": 30, "2025-03-05": 40, "2025-03-06": 20, "2025-03-07": 45 };
+const DEFAULT_ASK_VOLUME_MW = 50;
 
 const write = (root, relativePath, content) => {
   const target = path.join(root, relativePath);
@@ -71,20 +86,37 @@ function availabilityFile(missionId, { rows = 5, corruptRow = false, futurePit =
     session: { mission: label, zone: ZONE, anchors: [ANCHOR], sourceHash: "a".repeat(64) },
     availability,
     sourceHash: "a".repeat(64),
+    provenance: DOC_PROVENANCE,
   };
 }
 
-function observationsFile() {
-  return TRADING_DATES.map((day) => ({
-    date: day,
-    price: OBSERVED_PRICES[day],
-    availableAtUtc: `${day}T${ANCHOR}:00Z`,
-    sourceHash: ROW_HASH,
-  }));
+function observationsFile({ prices = {}, askVolumes = {}, noAskDates = [] } = {}) {
+  const rows = TRADING_DATES.map((day) => {
+    const price = prices[day] ?? OBSERVED_PRICES[day];
+    if (noAskDates.includes(day)) {
+      // Sin best ask ejecutable: día no ejecutable (no-fill), no dato corrupto.
+      return { date: day, price, bestAskEurMwh: null, bestAskVolumeMw: null, availableAtUtc: `${day}T${ANCHOR}:00Z`, sourceHash: ROW_HASH };
+    }
+    return {
+      date: day,
+      price,
+      bestAskEurMwh: price,
+      bestAskVolumeMw: askVolumes[day] ?? DEFAULT_ASK_VOLUME_MW,
+      availableAtUtc: `${day}T${ANCHOR}:00Z`,
+      sourceHash: ROW_HASH,
+    };
+  });
+  return {
+    artifactKind: "HYPOTHESIS_DEVELOPMENT_OBSERVATIONS",
+    observations: rows,
+    sourceHash: "f".repeat(64),
+    provenance: DOC_PROVENANCE,
+  };
 }
 
-function benchmarkFile({ status = "BENCHMARK_PROVISIONAL", value = 34, unit = "EUR/MWh", version = null } = {}) {
+function benchmarkFile(missionId, { status = "BENCHMARK_PROVISIONAL", value = 34, unit = "EUR/MWh", version = null, campaignId = null, obligationId = null } = {}) {
   return {
+    artifactKind: "HYPOTHESIS_DEVELOPMENT_BENCHMARK",
     identity: "BENCHMARK",
     version: version ?? "B-FIXTURE-v1",
     status,
@@ -92,15 +124,18 @@ function benchmarkFile({ status = "BENCHMARK_PROVISIONAL", value = 34, unit = "E
     unit,
     artifactSha256: "c".repeat(64),
     sourceHash: "d".repeat(64),
+    campaignId: campaignId ?? `FIXTURE-${missionId}`,
+    obligationId: obligationId ?? `OBL-${missionId}`,
+    window: MISSION_WINDOWS[missionId],
     provenance: { authority: "SYNTHETIC_FIXTURE (BT-01-style reference)", locator: "test/backtest-jobs/hypothesis-fixture-repo.mjs" },
   };
 }
 
-function deliveryHoursFile({ mode = "FIXED", hours = 24, requiresFreeze = false, oosReservation = null, perDayGap = false } = {}) {
-  const file = { mode, sourceHash: "e".repeat(64) };
+function deliveryHoursFile({ mode = "FIXED", hours = 24, requiresFreeze = false, oosReservation = null, perDayGap = false, perDay = null } = {}) {
+  const file = { artifactKind: "HYPOTHESIS_DEVELOPMENT_DELIVERY_HOURS", mode, sourceHash: "e".repeat(64), provenance: DOC_PROVENANCE };
   if (mode === "FIXED") file.hours = hours;
   if (mode === "PER_TRADING_DAY") {
-    file.perDay = Object.fromEntries(TRADING_DATES.slice(0, perDayGap ? TRADING_DATES.length - 1 : TRADING_DATES.length).map((day) => [day, 24]));
+    file.perDay = perDay ?? Object.fromEntries(TRADING_DATES.slice(0, perDayGap ? TRADING_DATES.length - 1 : TRADING_DATES.length).map((day) => [day, 24]));
   }
   if (requiresFreeze) file.requiresFreeze = true;
   if (oosReservation !== null) file.oosReservation = oosReservation;
@@ -128,6 +163,26 @@ export function fixtureCandidate(missionId, { N = 3, rows = 5 } = {}) {
   return outcome.candidate;
 }
 
+// Configuración de misión íntegra (hallazgo BT08-T08): las peticiones la
+// generan con su configurationHash real; los tests de integridad lo alteran.
+export function fixtureMissionConfiguration(missionId, candidate, searchSpace, overrides = {}) {
+  const core = {
+    artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION",
+    hypothesisId: candidate.hypothesisId,
+    hypothesisVersion: "H-S1-01/phase-A/v1",
+    missionId,
+    dataMode: "TOB",
+    candidateMission: MISSION_LABELS[missionId],
+    searchSpaceMission: MISSION_LABELS[missionId],
+    candidateHash: candidate.contentHash,
+    searchSpaceHash: searchSpace.contentHash,
+    candidateTau: candidate.tau.localTime,
+    candidateN: candidate.N,
+    ...overrides,
+  };
+  return { ...core, configurationHash: contentHashOf(core) };
+}
+
 // Petición canónica de job de hipótesis para una misión del fixture.
 export function hypothesisJobRequest(repo, {
   missionId = "GAS_MONTHLY",
@@ -140,6 +195,7 @@ export function hypothesisJobRequest(repo, {
   jobOverrides = {},
 } = {}) {
   const candidate = fixtureCandidate(missionId, { N });
+  const space = fixtureSearchSpace(missionId);
   const dataDir = `${DATA_ROOT}/${missionId}`;
   const manifest = {
     availability: { path: `${dataDir}/availability.json`, sha256: sha(readFileSync(path.join(repo.root, `${dataDir}/availability.json`))) },
@@ -153,7 +209,7 @@ export function hypothesisJobRequest(repo, {
     missionId,
     phase: "DEVELOPMENT",
     dataMode: "TOB",
-    searchSpace: fixtureSearchSpace(missionId),
+    searchSpace: space,
     candidate,
     campaign: {
       campaignId: `FIXTURE-${missionId}`,
@@ -178,7 +234,7 @@ export function hypothesisJobRequest(repo, {
       provenance: { authority: "SYNTHETIC_FIXTURE", locator: "test/backtest-jobs/hypothesis-fixture-repo.mjs" },
     },
     evaluation: {
-      benchmark: { ...benchmarkFile(), ...benchmarkOverrides },
+      benchmark: { ...benchmarkFile(missionId), ...benchmarkOverrides },
       // Las horas de entrega viven en el archivo hash-bound; el request sólo
       // lo referencia (una sola verdad).
       deliveryHours: manifest.deliveryHours,
@@ -189,7 +245,13 @@ export function hypothesisJobRequest(repo, {
   return { ...base, ...jobOverrides };
 }
 
-export function makeHypothesisFixtureRepo({ missions = ["GAS_MONTHLY"], availabilityOptions = {}, deliveryOptions = {}, benchmarkOptions = {} } = {}) {
+export function makeHypothesisFixtureRepo({
+  missions = ["GAS_MONTHLY"],
+  availabilityOptions = {},
+  deliveryOptions = {},
+  benchmarkOptions = {},
+  observationOptions = {},
+} = {}) {
   const root = createTempDir("bt08-repo-");
   cpSync(path.join(REPO_ROOT, "src"), path.join(root, "src"), { recursive: true });
   write(root, ".gitignore", "operations/backtest-runs/\n");
@@ -197,8 +259,8 @@ export function makeHypothesisFixtureRepo({ missions = ["GAS_MONTHLY"], availabi
     const dataDir = `${DATA_ROOT}/${missionId}`;
     const availability = availabilityFile(missionId, availabilityOptions[missionId] ?? {});
     write(root, `${dataDir}/availability.json`, `${JSON.stringify(availability, null, 1)}\n`);
-    write(root, `${dataDir}/observations.json`, `${JSON.stringify(observationsFile(), null, 1)}\n`);
-    write(root, `${dataDir}/benchmark.json`, `${JSON.stringify(benchmarkFile(benchmarkOptions[missionId] ?? {}), null, 1)}\n`);
+    write(root, `${dataDir}/observations.json`, `${JSON.stringify(observationsFile(observationOptions[missionId] ?? {}), null, 1)}\n`);
+    write(root, `${dataDir}/benchmark.json`, `${JSON.stringify(benchmarkFile(missionId, benchmarkOptions[missionId] ?? {}), null, 1)}\n`);
     write(root, `${dataDir}/delivery-hours.json`, `${JSON.stringify(deliveryHoursFile(deliveryOptions[missionId] ?? {}), null, 1)}\n`);
   }
   const git = (...args) => execFileSync("git", ["-c", "user.name=bt08", "-c", "user.email=bt08@test", ...args], { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();

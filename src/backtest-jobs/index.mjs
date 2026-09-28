@@ -76,3 +76,13 @@ export {
 } from "./hypothesis-runner.mjs";
 
 export { MCP_TOOLS, handleMcpMessage, runStdioServer } from "./mcp-server.mjs";
+
+// BT-08: adaptación producer→motor de las fuentes Development.
+export {
+  DEVELOPMENT_INPUT_KINDS,
+  adaptAvailabilitySource,
+  adaptBenchmarkSource,
+  adaptDevelopmentInputs,
+  adaptDeliveryHoursSource,
+  adaptObservationsSource,
+} from "./hypothesis-inputs.mjs";

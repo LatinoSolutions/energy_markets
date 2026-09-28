@@ -31,9 +31,9 @@ const HYPOTHESIS_JOB_SCHEMA = {
     sizing: { type: "object", description: "Shared sizing controller configuration (lotSizeMw, dailyCapMw, provenance)" },
     execution: { type: "object", description: "Shared execution model (TOB_ASK_SLIPPAGE_V1, slippageEurMwh, provenance)" },
     fees: { type: "object", description: "Fees policy: status KNOWN with labeled costs, or UNKNOWN (never zero)" },
-    evaluation: { type: "object", description: "Evaluation reference: one BENCHMARK (version/status/unit/artifact hash) and evidenced delivery hours" },
+    evaluation: { type: "object", description: "Evaluation reference: one BENCHMARK (version/status/unit/artifact hash and this campaign's campaignId/obligationId) plus hash-bound evidenced delivery hours" },
     search: { type: "boolean", description: "Run the whole predeclared tau/N grid without selecting a winner" },
-    inputManifest: { type: "object", description: "Hash-bound Development input files (availability, observations, benchmark, deliveryHours)" },
+    inputManifest: { type: "object", description: "Hash-bound Development input files under the mission's data root (availability, observations, benchmark, deliveryHours); files of another mission are rejected" },
   },
 };
 

@@ -23,12 +23,20 @@ import { fileURLToPath } from "node:url";
 
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { MISSIONS as SEM_MISSIONS, MISSION_LABELS } from "../backtesting-semantics/contract.mjs";
+import { contentHashOf } from "../sizing-controller/versioning.mjs";
 import {
   DEVELOPMENT_PHASE,
   EPISODE_SCHEMA_VERSION,
   EXECUTION_MODEL,
   assessAvailabilityRows,
+  assessDevelopmentInputs,
 } from "../s1-strategy/development-episode.mjs";
+import {
+  adaptAvailabilitySource,
+  adaptBenchmarkSource,
+  adaptDeliveryHoursSource,
+  adaptObservationsSource,
+} from "./hypothesis-inputs.mjs";
 import { createHS1Candidate, H_S1_01, H_S1_01_MISSIONS, H_S1_01_N_GRID } from "../s1-strategy/h-s1-01.mjs";import {
   JOB_STATUS,
   REGISTRY_EVENT,
@@ -101,10 +109,12 @@ function validateProvenance(provenance, field) {
   return null;
 }
 
-function validateInputEntry(entry, field) {
+function validateInputEntry(entry, field, missionId) {
+  // Las entradas de la misión son de la misión pedida (hallazgo BT08-T06):
+  // archivos de otra misión no pueden atar este run.
   if (!entry || !isNonEmptyString(entry.path) || path.isAbsolute(entry.path)
-    || entry.path.includes("..") || !entry.path.startsWith(`${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/`)) {
-    return requestError("BINDING_INVALID", `${field} must reference a file under ${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/`, field);
+    || entry.path.includes("..") || !entry.path.startsWith(`${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/${missionId}/`)) {
+    return requestError("MISSION_INPUT_MISMATCH", `${field} must reference a file under ${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/${missionId}/`, field);
   }
   if (!isHash(entry.sha256)) {
     return requestError("HASH_MISMATCH", `${field}.sha256 is not a sha256 binding`, field);
@@ -171,6 +181,13 @@ export function validateHypothesisJobRequest(job) {
     if (configuration.N !== undefined && configuration.N !== candidate.N) {
       return requestError("PARAMETER_CANDIDATE_MISMATCH", "the declared N does not match the bound candidate");
     }
+    // Íntegridad completa (hallazgo BT08-T08): el configurationHash declarado
+    // se recalcula contra el contenido; un campo alterado conservando el hash
+    // no entra al run.
+    const { configurationHash, ...configurationCore } = configuration;
+    if (!isHash(configurationHash) || contentHashOf(configurationCore) !== configurationHash) {
+      return requestError("CONFIGURATION_INTEGRITY", "the mission configuration content does not match its declared configurationHash");
+    }
   }
   const campaign = job.campaign;
   if (!campaign || !isNonEmptyString(campaign.campaignId) || !Array.isArray(campaign.tradingDates)
@@ -216,6 +233,12 @@ export function validateHypothesisJobRequest(job) {
     || !isFiniteNumber(benchmark.value) || benchmark.unit !== "EUR/MWh" || !isHash(benchmark.artifactSha256)) {
     return requestError("BINDING_INVALID", "evaluation.benchmark must bind one BENCHMARK identity with version, status, unit EUR/MWh and artifact hash");
   }
+  // Un benchmark declarado ata ESTA campaña y obligación (hallazgo BT08-T12):
+  // una referencia oficial de otra campaña o revisión no publica nada aquí.
+  if (!isNonEmptyString(benchmark.campaignId) || !isNonEmptyString(benchmark.obligationId)
+    || benchmark.campaignId !== campaign.campaignId || benchmark.obligationId !== campaign.obligationId) {
+    return requestError("BINDING_INVALID", "evaluation.benchmark must bind the campaign's own campaignId and obligationId");
+  }
   const benchmarkProvenance = validateProvenance(benchmark.provenance, "evaluation.benchmark.provenance");
   if (benchmarkProvenance) return benchmarkProvenance;
   if (job.search !== undefined && typeof job.search !== "boolean") {
@@ -227,7 +250,7 @@ export function validateHypothesisJobRequest(job) {
   }
   const requiredInputs = ["availability", "observations", "benchmark", "deliveryHours"];
   for (const field of requiredInputs) {
-    const problem = validateInputEntry(manifest[field], `inputManifest.${field}`);
+    const problem = validateInputEntry(manifest[field], `inputManifest.${field}`, job.missionId);
     if (problem) return problem;
   }
   const paths = requiredInputs.map((field) => manifest[field].path);
@@ -340,15 +363,15 @@ function git(repoRoot, args) {
 export function readHypothesisCodeCommit(repoRoot) {
   const head = git(repoRoot, ["rev-parse", "--verify", "HEAD"])?.trim() ?? "";
   if (!/^[0-9a-f]{40}$/.test(head)) {
-    return { ok: false, code: "CODE_COMMIT_UNKNOWN", message: "no se pudo leer el commit git del código" };
+    return { ok: false, code: "CODE_COMMIT_UNKNOWN", message: "the git commit of the code could not be read" };
   }
   const dirty = git(repoRoot, ["status", "--porcelain", "--untracked-files=all", "--", ...PINNED_CODE_PATHS]);
   if (dirty === null) {
-    return { ok: false, code: "CODE_COMMIT_UNKNOWN", message: "no se pudo leer git status del código" };
+    return { ok: false, code: "CODE_COMMIT_UNKNOWN", message: "git status of the code could not be read" };
   }
   if (dirty.trim().length > 0) {
     const paths = dirty.trim().split("\n").slice(0, 5).map((line) => line.slice(3));
-    return { ok: false, code: "CODE_NOT_COMMITTED", message: `código con cambios sin commitear: ${paths.join(", ")}` };
+    return { ok: false, code: "CODE_NOT_COMMITTED", message: `the code has uncommitted changes: ${paths.join(", ")}` };
   }
   return { ok: true, commit: head };
 }
@@ -364,7 +387,13 @@ function readJsonOrNull(repoRoot, relativePath) {
 }
 
 // Readiness de UNA misión en modo lectura: nunca corre el backtest ni consume
-// nada. Códigos en inglés para UI-08; el estado real del repo manda.
+const hypothesisReadinessBlockerShape = (adapterBlockers) => adapterBlockers.map(({ ok, ...blocker }) => blocker);
+
+// Readiness de UNA misión en modo lectura: nunca corre el backtest ni consume
+// nada. Códigos en inglés para UI-08; el estado real del repo manda. Ya no
+// basta la presencia de archivos (hallazgo BT08-T05): cada fuente pasa por el
+// adaptador de productores y el gate de inputs completo (contenido, freeze,
+// reserva y horas de entrega) sin ejecutar nada.
 export function hypothesisReadinessForMission(repoRoot, missionId) {
   const missionLabel = missionLabelOf(missionId);
   if (!missionLabel) {
@@ -372,24 +401,60 @@ export function hypothesisReadinessForMission(repoRoot, missionId) {
   }
   const blockers = [];
   const base = `${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/${missionId}`;
-  const availability = readJsonOrNull(repoRoot, `${base}/availability.json`);
-  if (availability === null) {
-    blockers.push({ code: "SOURCE_MISSING", message: `no Development availability source is committed under ${base}/availability.json; the mission stays blocked until real data are adapted through verified producers` });
-  } else if (!availability || availability.artifactKind !== "HYPOTHESIS_DEVELOPMENT_AVAILABILITY" || availability.mission !== missionLabel) {
-    blockers.push({ code: "BINDING_INVALID", message: `the availability source under ${base}/availability.json does not bind mission ${missionLabel}` });
-  } else {
-    const assessment = assessAvailabilityRows({ session: availability.session, availability: availability.availability });
-    if (!assessment.ok) blockers.push({ code: assessment.code, message: assessment.message });
-    const warmUp = warmUpBlocker(availability);
-    if (warmUp) blockers.push(warmUp);
-    if (availability.availability?.some?.((row) => row.requiresFreeze === true) && !isHash(availability.freezeArtifactSha256)) {
-      blockers.push({ code: "FREEZE_PENDING", message: "the availability source declares a required freeze that is not bound" });
+  const loaded = new Map();
+  for (const [field, file] of [["availability", "availability.json"], ["observations", "observations.json"], ["benchmark", "benchmark.json"], ["deliveryHours", "delivery-hours.json"]]) {
+    const document = readJsonOrNull(repoRoot, `${base}/${file}`);
+    if (document === null) {
+      blockers.push({ code: "SOURCE_MISSING", message: `no ${field} source is committed under ${base}/${file}` });
+    } else {
+      loaded.set(field, document);
     }
   }
-  for (const [field, file] of [["observations", "observations.json"], ["benchmark", "benchmark.json"], ["deliveryHours", "delivery-hours.json"]]) {
-    if (readJsonOrNull(repoRoot, `${base}/${file}`) === null) {
-      blockers.push({ code: "SOURCE_MISSING", message: `no ${field} source is committed under ${base}/${file}` });
+  let availabilityOutcome = null;
+  if (loaded.has("availability")) {
+    // Diagnóstico semántico por fila también en readiness: un documento con
+    // filas inválidas sigue reportando el código exacto (PROVENANCE_INVALID).
+    const document = loaded.get("availability");
+    if (Array.isArray(document?.availability)) {
+      const assessment = assessAvailabilityRows({ session: document.session, availability: document.availability });
+      if (!assessment.ok) blockers.push({ code: assessment.code, message: assessment.message });
     }
+    availabilityOutcome = adaptAvailabilitySource(document, missionId);
+    if (!availabilityOutcome.ok) {
+      blockers.push(...hypothesisReadinessBlockerShape(availabilityOutcome.blockers));
+    } else {
+      const warmUp = warmUpBlocker(document);
+      if (warmUp) blockers.push(warmUp);
+      if (document.availability?.some?.((row) => row.requiresFreeze === true) && !isHash(document.freezeArtifactSha256)) {
+        blockers.push({ code: "FREEZE_PENDING", message: "the availability source declares a required freeze that is not bound" });
+      }
+    }
+  }
+  const adaptedOk = new Map([["availability", Boolean(availabilityOutcome?.ok)], ["observations", false], ["benchmark", false], ["deliveryHours", false]]);
+  for (const field of ["observations", "benchmark", "deliveryHours"]) {
+    if (!loaded.has(field)) continue;
+    const outcome = field === "deliveryHours"
+      ? adaptDeliveryHoursSource(loaded.get(field))
+      : field === "benchmark"
+        ? adaptBenchmarkSource(loaded.get(field), missionId)
+        : adaptObservationsSource(loaded.get(field), missionId);
+    adaptedOk.set(field, outcome.ok);
+    if (!outcome.ok) blockers.push(...hypothesisReadinessBlockerShape(outcome.blockers));
+  }
+  // Contenido completo (hallazgo BT08-T05): con las cuatro fuentes presentes,
+  // adaptadas y la disponibilidad con filas válidas, el mismo gate del child
+  // (sin campaña para la ventana por día) evalúa rows, benchmark, freeze y
+  // reserva; aquí no corre el run.
+  if (availabilityOutcome?.ok === true && [...adaptedOk.values()].every(Boolean)) {
+    const assessment = assessDevelopmentInputs({
+      session: availabilityOutcome.session,
+      availability: availabilityOutcome.availability,
+      observations: adaptObservationsSource(loaded.get("observations"), missionId).observations,
+      benchmark: adaptBenchmarkSource(loaded.get("benchmark"), missionId).benchmark,
+      deliveryHours: adaptDeliveryHoursSource(loaded.get("deliveryHours")).deliveryHours,
+      campaign: null,
+    });
+    if (!assessment.ok) blockers.push({ code: assessment.code, message: assessment.message, ...(assessment.detail ? { detail: assessment.detail } : {}) });
   }
   return {
     missionId,
@@ -466,7 +531,7 @@ function stageWorkspace(repoRoot, workspace, commit, files) {
     mkdirSync(path.dirname(target), { recursive: true });
     copyFileSync(path.join(repoRoot, file.path), target);
     if (sha256Of(readFileSync(target)) !== file.sha256) {
-      throw new Error(`copia distinta a la verificada: ${file.path}`);
+      throw new Error(`staged copy differs from the verified input: ${file.path}`);
     }
   }
   return stagedCodeSeal(workspace);
@@ -475,12 +540,12 @@ function stageWorkspace(repoRoot, workspace, commit, files) {
 function preserveOutput(workspace, outputDir, relativePath, sha256) {
   const inWorkspace = path.relative(workspace, path.resolve(workspace, relativePath));
   const escapes = inWorkspace === "" || inWorkspace === ".." || inWorkspace.startsWith(`..${path.sep}`) || path.isAbsolute(inWorkspace);
-  if (escapes) throw new Error(`ruta fuera del workspace: ${relativePath}`);
+  if (escapes) throw new Error(`path outside the workspace: ${relativePath}`);
   const source = path.join(workspace, inWorkspace);
   const target = path.join(outputDir, inWorkspace);
   mkdirSync(path.dirname(target), { recursive: true });
   copyFileSync(source, target);
-  if (sha256Of(readFileSync(target)) !== sha256) throw new Error(`copia distinta al original: ${relativePath}`);
+  if (sha256Of(readFileSync(target)) !== sha256) throw new Error(`preserved copy differs from the original: ${relativePath}`);
   return target;
 }
 
@@ -606,7 +671,7 @@ export function createHypothesisJobRunner({
       try {
         events.push(JSON.parse(lines[index]));
       } catch {
-        return { ok: false, code: "REGISTRY_CORRUPT", message: `${HYPOTHESIS_REGISTRY_FILE} línea ${index + 1} no es JSON` };
+        return { ok: false, code: "REGISTRY_CORRUPT", message: `${HYPOTHESIS_REGISTRY_FILE} line ${index + 1} is not JSON` };
       }
     }
     return { ok: true, events };
@@ -676,7 +741,7 @@ export function createHypothesisJobRunner({
           ...receipt,
           status: JOB_STATUS.INTERRUPTED,
           finishedAt: now().toISOString(),
-          failure: { code: "INTERRUPTED", message: "el proceso que corría el job de hipótesis ya no existe; el run no se completó" },
+          failure: { code: "INTERRUPTED", message: "the process running the hypothesis job no longer exists; the run did not complete" },
           workspace: receipt.workspace?.retention === WORKSPACE_RETENTION
             ? { ...receipt.workspace, ...discardWorkspace(path.join(attemptDir(runId, attempt), WORKSPACE_DIR)) }
             : receipt.workspace,
@@ -731,7 +796,7 @@ export function createHypothesisJobRunner({
     const view = receipt === null ? null
       : receipt.jobKind === HYPOTHESIS_JOB_KIND ? publicHypothesisJobView(receipt)
         : { runId: receipt.runId, jobKind: receipt.jobKind, status: receipt.status, startedAt: receipt.startedAt };
-    return { ok: false, code: "JOB_ALREADY_RUNNING", message: "hay un job en curso (lock de backtests tomado)", job: view };
+    return { ok: false, code: "JOB_ALREADY_RUNNING", message: "a job is already running (the shared backtests lock is held)", job: view };
   }
 
   function planRun(runId, registry) {
@@ -777,7 +842,7 @@ export function createHypothesisJobRunner({
       sealAfter = null;
     }
     if (sealAfter?.sha256 !== receipt.code.staged.sha256) {
-      return { error: { code: "CODE_CHANGED_DURING_RUN", message: "el código del workspace no coincide con el extraído del commit" } };
+      return { error: { code: "CODE_CHANGED_DURING_RUN", message: "the workspace code does not match the code extracted from the commit" } };
     }
     let specSha256;
     let spec;
@@ -787,16 +852,16 @@ export function createHypothesisJobRunner({
       // El hash de la identidad es el del spec canónico (sin timestamps).
       specSha256 = sha256Of(Buffer.from(canonicalSpecOf(spec.job)));
     } catch {
-      return { error: { code: "RUN_SPEC_MISSING", message: "el spec del experimento no se pudo releer en el workspace" } };
+      return { error: { code: "RUN_SPEC_MISSING", message: "the experiment spec could not be re-read from the workspace" } };
     }
     if (specSha256 !== receipt.identity.specSha256) {
-      return { error: { code: "SPEC_CHANGED_DURING_RUN", message: "el spec del experimento cambió durante el run" } };
+      return { error: { code: "SPEC_CHANGED_DURING_RUN", message: "the experiment spec changed during the run" } };
     }
     const dataDrift = receipt.inputs.files
       .filter((file) => !file.path.startsWith("src/") && sha256Of(readFileSync(path.join(workspace, file.path))) !== file.sha256)
       .map((file) => file.path);
     if (dataDrift.length > 0) {
-      return { error: { code: "INPUT_CHANGED_DURING_RUN", message: `datos distintos a los verificados: ${dataDrift.join(", ")}` } };
+      return { error: { code: "INPUT_CHANGED_DURING_RUN", message: `input data differs from the verified inputs: ${dataDrift.join(", ")}` } };
     }
     let manifestBytes;
     let manifest;
@@ -804,7 +869,7 @@ export function createHypothesisJobRunner({
       manifestBytes = readFileSync(path.join(workspace, HYPOTHESIS_MANIFEST_PATH));
       manifest = JSON.parse(manifestBytes);
     } catch {
-      return { error: { code: "RUN_MANIFEST_MISSING", message: "el hijo no escribió su MANIFEST" } };
+      return { error: { code: "RUN_MANIFEST_MISSING", message: "the child did not write its MANIFEST" } };
     }
     const resultsPath = path.join(workspace, manifest?.results?.path ?? "");
     let resultsBytes;
@@ -813,14 +878,14 @@ export function createHypothesisJobRunner({
       resultsBytes = readFileSync(resultsPath);
       results = JSON.parse(resultsBytes);
     } catch {
-      return { error: { code: "RUN_RESULTS_MISSING", message: "el MANIFEST del run apunta a resultados inexistentes o ilegibles" } };
+      return { error: { code: "RUN_RESULTS_MISSING", message: "the run MANIFEST points at missing or unreadable results" } };
     }
     const resultsSha256 = sha256Of(resultsBytes);
     if (resultsSha256 !== manifest.results.sha256) {
-      return { error: { code: "RUN_RESULTS_HASH_MISMATCH", message: "los resultados no coinciden con el MANIFEST del run" } };
+      return { error: { code: "RUN_RESULTS_HASH_MISMATCH", message: "the results do not match their run MANIFEST" } };
     }
     if (results.specSha256 !== receipt.identity.specSha256) {
-      return { error: { code: "SPEC_BINDING_MISMATCH", message: "los resultados no están atados al spec de la identidad del run" } };
+      return { error: { code: "SPEC_BINDING_MISMATCH", message: "the results are not bound to the identity spec of the run" } };
     }
     // Los generadores declarados tienen que ser el código staged del commit.
     const pinned = new Map(listFilesUnder(workspace, "src").map((file) => [file, sha256Of(readFileSync(path.join(workspace, file)))]));
@@ -828,13 +893,13 @@ export function createHypothesisJobRunner({
       .filter((entry) => !entry.path.startsWith("src/") || pinned.get(entry.path) !== entry.sha256)
       .map((entry) => entry.path);
     if (generatorDrift.length > 0) {
-      return { error: { code: "GENERATOR_CHANGED_DURING_RUN", message: `código distinto al verificado: ${generatorDrift.join(", ")}` } };
+      return { error: { code: "GENERATOR_CHANGED_DURING_RUN", message: `generator code differs from the verified code: ${generatorDrift.join(", ")}` } };
     }
     const declaredInputs = receipt.inputs.files.filter((file) => !file.path.startsWith("src/"));
     const manifestInputs = (manifest.inputs ?? []).map((entry) => `${entry.path}:${entry.sha256}`).sort();
     const expectedInputs = declaredInputs.map((file) => `${file.path}:${file.sha256}`).sort();
     if (JSON.stringify(manifestInputs) !== JSON.stringify(expectedInputs)) {
-      return { error: { code: "INPUT_BINDING_MISMATCH", message: "el MANIFEST no liga exactamente los inputs verificados del run" } };
+      return { error: { code: "INPUT_BINDING_MISMATCH", message: "the run MANIFEST does not bind exactly the verified inputs" } };
     }
     const producedManifestSha256 = sha256Of(manifestBytes);
     let preservedResults;
@@ -852,6 +917,11 @@ export function createHypothesisJobRunner({
         validComparison: results.validComparison === true,
         scientificConclusion: null,
         researchPass: false,
+        // Comparación y ablation producidas, ligadas por hash al MANIFEST
+        // (hallazgo BT08-T15): el consumidor HTTP/MCP obtiene los datos, no
+        // sólo el puntero al archivo.
+        comparison: results.comparison ?? null,
+        ablation: results.comparison?.ablation ?? null,
         results: { path: relative(repoRoot, preservedResults), sha256: resultsSha256 },
         manifest: { path: relative(repoRoot, preservedManifest), sha256: producedManifestSha256 },
       },
@@ -860,7 +930,7 @@ export function createHypothesisJobRunner({
 
   function start({ requestedBy, job } = {}) {
     if (requestedBy !== "ui" && requestedBy !== "mcp") {
-      return { ok: false, code: "INVALID_REQUESTER", message: 'requestedBy debe ser "ui" o "mcp"' };
+      return { ok: false, code: "INVALID_REQUESTER", message: 'requestedBy must be "ui" or "mcp"' };
     }
     const validated = validateHypothesisJobRequest(job);
     if (!validated.ok) {
@@ -874,7 +944,7 @@ export function createHypothesisJobRunner({
     const files = inputFilesOf(validated.request);
     const verified = verifyInputFiles(repoRoot, files);
     if (!verified.ok) {
-      return { ok: false, code: verified.code, message: `${verified.code === "INPUT_MISSING" ? "falta" : "no coincide el hash de"} ${verified.path}`, detail: verified };
+      return { ok: false, code: verified.code, message: `${verified.code === "INPUT_MISSING" ? "missing verified input" : "verified input does not match its hash"}: ${verified.path}`, detail: verified };
     }
     const specSha256 = sha256Of(Buffer.from(canonicalSpecOf(validated.request)));
     const { runId, identity } = computeHypothesisRunIdentity({ codeCommit: code.commit, files: verified.files, specSha256, request: validated.request });
@@ -919,7 +989,7 @@ export function createHypothesisJobRunner({
       receiptPath: relative(repoRoot, receiptFile(runId, attempt)),
       code: { gitHead: code.commit, entry: HYPOTHESIS_ENTRY },
       inputs: { files: verified.files },
-      authority: "BT-08 owner intake D-20260928T161943-70c6 (Bru, 2026-09-28); comando autorizado con receipt (SPEC v1.1.1 §26.5). Development-only: la ruta de hipótesis nunca abre ni consume OOS.",
+      authority: "BT-08 owner intake D-20260928T161943-70c6 (Bru, 2026-09-28); command authorized with receipt (SPEC v1.1.1 §26.5). Development-only: the hypothesis path never opens or consumes OOS.",
       workspace: { path: relative(repoRoot, workspace), retention: WORKSPACE_RETENTION, removed: false },
     };
     let seal;
@@ -930,7 +1000,7 @@ export function createHypothesisJobRunner({
       writeJsonAtomic(path.join(workspace, HYPOTHESIS_SPEC_FILE), spec);
       const writtenSpec = readJson(path.join(workspace, HYPOTHESIS_SPEC_FILE));
       if (sha256Of(Buffer.from(canonicalSpecOf(writtenSpec.job))) !== specSha256) {
-        throw new Error("el spec escrito no coincide con el hash de la identidad");
+        throw new Error("the written spec does not match the identity spec hash");
       }
       receipt = { ...receipt, code: { ...receipt.code, source: "git archive del commit", staged: seal } };
       writeJsonAtomic(receiptFile(runId, attempt), receipt);
@@ -993,15 +1063,15 @@ export function createHypothesisJobRunner({
         };
         const exit = { code: exitCode, signal };
         if (timedOut) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "TIMEOUT", message: `superó ${timeoutMs} ms (techo provisional)` } }));
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "TIMEOUT", message: `the run exceeded ${timeoutMs} ms (provisional ceiling)` } }));
           return;
         }
         if (exitCode !== 0 && memory.cgroupOomKillsDuringRun > 0) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "OOM_KILLED", message: `el cgroup ${memory.cgroup} mató el job por memoria (MemoryMax del servicio)` } }));
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "OOM_KILLED", message: `cgroup ${memory.cgroup} killed the job for memory (service MemoryMax)` } }));
           return;
         }
         if (exitCode !== 0 && exitCode !== BLOCKED_EXIT_CODE) {
-          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "RUN_FAILED", message: `el entry de hipótesis terminó con code=${exitCode} signal=${signal}; ver job.log` } }));
+          resolve(finish(receipt, { status: JOB_STATUS.FAILED, exit, memory, failure: { code: "RUN_FAILED", message: `the hypothesis entry exited with code=${exitCode} signal=${signal}; see job.log` } }));
           return;
         }
         const collected = collectResult(workspace, path.join(runDir, OUTPUT_DIR), receipt);
@@ -1039,19 +1109,31 @@ export function createHypothesisJobRunner({
   }
 
   // Lote de misiones (BT08-02): secuenciales bajo el MISMO lock compartido,
-  // con registro separado por misión. Un fallo corta el lote.
+  // con registro separado por misión. Un fallo corta el lote; el resultado del
+  // lote no anuncia éxito completo salvo que TODAS las misiones hayan
+  // terminado en éxito (hallazgo BT08-T16): outcomes distingue el estado final
+  // por misión y `complete` lo resume.
   async function startBatch({ requestedBy, jobs } = {}) {
     if (!Array.isArray(jobs) || jobs.length === 0 || jobs.length > SEM_MISSIONS.length) {
       return { ok: false, code: "INVALID_HYPOTHESIS_REQUEST", message: `jobs must list between 1 and ${SEM_MISSIONS.length} hypothesis job requests` };
     }
     const batch = [];
+    const outcomes = [];
     for (const job of jobs) {
       const started = start({ requestedBy, job });
-      if (!started.ok) return { ok: false, code: started.code, message: started.message, detail: started.detail ?? null, batch };
+      if (!started.ok) return { ok: false, code: started.code, message: started.message, detail: started.detail ?? null, batch, outcomes };
       batch.push(started);
-      await started.done;
+      const receipt = await started.done;
+      outcomes.push({
+        ok: receipt.status === JOB_STATUS.SUCCEEDED,
+        reused: started.reused === true,
+        runId: receipt.runId,
+        status: receipt.status,
+        failure: receipt.failure ?? null,
+        result: receipt.result ?? null,
+      });
     }
-    return { ok: true, reused: false, batch };
+    return { ok: true, reused: false, batch, outcomes, complete: outcomes.every((outcome) => outcome.ok) };
   }
 
   // Al arrancar el servicio: si nadie tiene el lock, cierra los HYP-RUN huérfanos.
