@@ -194,6 +194,7 @@ export function decideHS1AgainstControl({ mission, candidate, control, controlDe
     || !hash(control?.calendarHash) || !hash(control?.executionContractHash)
     || controlDecision?.ok !== true || !["BUY", "WAIT", "NO_OPPORTUNITY"].includes(controlDecision.action)
     || !Number.isFinite(controlDecision.requestedQuantityMw) || controlDecision.requestedQuantityMw < 0
+    || (controlDecision.action === "BUY") !== (controlDecision.requestedQuantityMw > 0)
     || (controlDecision.action === "BUY" && controlDecision.controllerVersion !== control.controllerHash)
     || !utc(asOfUtc) || location?.ok !== true || location.asOfUtc !== asOfUtc
     || location.candidateHash !== candidate.contentHash

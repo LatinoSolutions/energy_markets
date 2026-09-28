@@ -162,6 +162,14 @@ test("H07: all four missions reuse CONTROL's sizing and execution, only timing c
     assert.equal(decideHS1AgainstControl({ mission, candidate, control,
       controlDecision: { ...a0.decideAtOpportunity({ currentDate: "2025-01-04", remainingVolumeMw: 9 }), controllerVersion: z },
       location, asOfUtc: inputs.asOfUtc }).code, "INVALID_ABLATION_CONTEXT");
+    for (const invalidDecision of [
+      { ok: true, action: "WAIT", requestedQuantityMw: 1, controllerVersion: control.controllerHash },
+      { ok: true, action: "NO_OPPORTUNITY", requestedQuantityMw: 1 },
+      { ok: true, action: "BUY", requestedQuantityMw: 0, controllerVersion: control.controllerHash },
+    ]) {
+      assert.equal(decideHS1AgainstControl({ mission, candidate, control,
+        controlDecision: invalidDecision, location, asOfUtc: inputs.asOfUtc }).code, "INVALID_ABLATION_CONTEXT");
+    }
     assert.equal(decideHS1AgainstControl({ mission, candidate, control,
       controlDecision: a0.decideAtOpportunity({ currentDate: "2025-01-04", remainingVolumeMw: 9 }),
       location, asOfUtc: "2025-01-05T10:00:00Z" }).code, "INVALID_ABLATION_CONTEXT");
