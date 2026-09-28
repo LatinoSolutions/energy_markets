@@ -254,6 +254,8 @@ function hypothesisResultView(entry) {
     researchPass: false,
     retention: null,
     resultPointer: null,
+    ablation: null,
+    comparison: null,
   });
   if (!published || typeof entry !== "object") return invalid("HYPOTHESIS_RESULT_INVALID");
   if (entry.hypothesisVersion !== published.version) return invalid("HYPOTHESIS_VERSION_MISMATCH");
@@ -286,6 +288,11 @@ function hypothesisResultView(entry) {
     researchPass: false,
     retention: retentionState,
     resultPointer,
+    // UI-08: the backend-produced ablation (CONTROL ↔ active hypothesis) and the
+    // CLIENT/BENCHMARK/HYPOTHESIS comparison travel with the result so the final
+    // workspace reads the same economics the run produced, with no UI arithmetic.
+    ablation: entry.ablation ?? null,
+    comparison: entry.comparison ?? null,
   });
 }
 

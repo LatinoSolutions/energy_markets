@@ -42,7 +42,7 @@ import {
 import { renderNavigationPage, renderSurfacePage } from "./render.mjs";
 import { observationFor, TRADES_MISSION_IDS } from "./trades-panels.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
-import { backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath, tradesJobStatusPayload } from "../backtest-jobs/http.mjs";
+import { backtestJobStatusPayload, handleBacktestJobsRequest, hypothesisJobStatusPayload, isBacktestJobsPath, tradesJobStatusPayload } from "../backtest-jobs/http.mjs";
 import { withBacktestJobControl } from "./backtest-job-panel.mjs";
 import { unknownBuildIdentity } from "./build-identity.mjs";
 import { MISSIONS } from "../backtesting-semantics/contract.mjs";
@@ -98,6 +98,7 @@ function pickInputs(inputs) {
     runs: campaignInput("runs"),
     tradesPanels: inputs?.tradesPanels ?? null,
     hypothesisResults: Array.isArray(inputs?.hypothesisResults) ? inputs.hypothesisResults : [],
+    hypothesisLaunch: inputs?.hypothesisLaunch ?? null,
   };
 }
 
@@ -106,7 +107,7 @@ function pickInputs(inputs) {
 // otra verdad por request, §26.5).
 export function buildUiViewModels(inputs = {}) {
   const pouring = pickInputs(inputs);
-  const backtests = buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest, backtestReadiness: pouring.backtestReadiness, hypothesisResults: pouring.hypothesisResults });
+  const backtests = buildBacktestsViewModel({ backendIndex: pouring.backendIndex, rows: pouring.backtestsRows, exploratory: pouring.exploratoryBacktest, backtestReadiness: pouring.backtestReadiness, hypothesisResults: pouring.hypothesisResults, hypothesisLaunch: pouring.hypothesisLaunch });
   // TR-07: los paneles TRADES viajan dentro del view model de Backtests; el render los
   // dibuja fail-closed y sin cálculo (trades-panels.mjs).
   backtests.tradesPanels = pouring.tradesPanels;
@@ -151,7 +152,7 @@ export function scopeFromSearchParams(searchParams) {
 export function selectionFromSearchParams(searchParams) {
   const selection = {};
   const mode = searchParams?.get?.("mode");
-  if (mode === "TOB" || mode === "TRADES") {
+  if (mode === "TOB" || mode === "TRADES" || mode === "HYPOTHESIS") {
     selection.mode = mode;
   }
   const mission = searchParams?.get?.("mission");
@@ -232,9 +233,10 @@ function sendResponse(res, { status, contentType, body }) {
 
 // Si el estado del job no se puede leer, el control se sirve igual con la línea
 // "Backtest status unavailable": la página no cae y no se inventa un estado.
-function jobStatusForPage(jobRunner, tradesJobRunner) {
+function jobStatusForPage(jobRunner, tradesJobRunner, hypothesisJobRunner) {
   try {
-    return { ...backtestJobStatusPayload(jobRunner), trades: tradesJobStatusPayload(tradesJobRunner) };
+    const base = jobRunner === null ? {} : backtestJobStatusPayload(jobRunner);
+    return { ...base, trades: tradesJobStatusPayload(tradesJobRunner), hypothesis: hypothesisJobStatusPayload(hypothesisJobRunner) };
   } catch {
     return null;
   }
@@ -278,10 +280,31 @@ export function hypothesisResultsFromRunner(runner) {
         retention: family.retention ?? null,
         resultPath: job?.result?.results?.path ?? null,
         resultSha256: job?.result?.results?.sha256 ?? null,
+        ablation: job?.result?.ablation ?? null,
+        comparison: job?.result?.comparison ?? null,
       }];
     });
   } catch {
     return [];
+  }
+}
+
+// UI-08: the run control reads the SAME backend truth as the served panels:
+// hypothesis metadata, per-mission readiness and the validated canonical
+// Development request. No runner = no launch data (fail-closed, no request).
+export function hypothesisLaunchFromRunner(runner) {
+  if (runner == null) return null;
+  try {
+    const launch = runner.launch();
+    let runningMissionId = null;
+    try {
+      runningMissionId = runner.status()?.current?.missionId ?? null;
+    } catch {
+      runningMissionId = null;
+    }
+    return { ...launch, runningMissionId };
+  } catch {
+    return null;
   }
 }
 
@@ -295,7 +318,10 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
   let lastPublication = { publishedAt: published.publishedAt, rejected: null, reason: "startup" };
 
   function publish(nextInputs) {
-    const viewModels = buildUiViewModels(nextInputs);
+    const effective = hypothesisJobRunner != null && nextInputs.hypothesisLaunch === undefined
+      ? { ...nextInputs, hypothesisLaunch: hypothesisLaunchFromRunner(hypothesisJobRunner) }
+      : nextInputs;
+    const viewModels = buildUiViewModels(effective);
     const revision = snapshotRevisionOf(viewModels);
     for (const vm of Object.values(viewModels)) {
       vm.snapshotRevision = revision;
@@ -403,9 +429,9 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
     }
     // SEM2-14: cada lectura declara la revisión del snapshot que está sirviendo.
     html = html.replace("<body ", `<body data-snapshot-revision="${published.revision ?? ""}" `);
-    if (route.surface === SURFACES.BACKTESTS && jobRunner !== null) {
-      const mode = selection.mode === "TRADES" ? "TRADES" : "TOB";
-      html = withBacktestJobControl(html, jobStatusForPage(jobRunner, tradesJobRunner), { mode });
+    if (route.surface === SURFACES.BACKTESTS && (jobRunner !== null || hypothesisJobRunner !== null)) {
+      const mode = selection.mode === "TRADES" ? "TRADES" : selection.mode === "HYPOTHESIS" ? "HYPOTHESIS" : "TOB";
+      html = withBacktestJobControl(html, jobStatusForPage(jobRunner, tradesJobRunner, wrappedHypothesisRunner), { mode, launch: hypothesisLaunchFromRunner(wrappedHypothesisRunner), missionId: selection.missionId });
     }
     sendResponse(res, { status: 200, contentType: "text/html; charset=utf-8", body: adaptLinksForServing(html) });
   });

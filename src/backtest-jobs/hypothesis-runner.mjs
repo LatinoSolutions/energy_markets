@@ -57,6 +57,12 @@ export const HYPOTHESIS_SPEC_FILE = "spec.json";
 export const HYPOTHESIS_RESULTS_PATH = "output/hypothesis-development-results.json";
 export const HYPOTHESIS_MANIFEST_PATH = "output/hypothesis-development-results.MANIFEST.json";
 export const HYPOTHESIS_DEVELOPMENT_DATA_ROOT = "operations/hypothesis/H-S1-01/development";
+// UI-08 (execution integration): the single run control does not compose a job
+// from UI-side assumptions. The canonical Development request per mission is
+// committed by the first-run prep (BT-08 handoff prerequisite 3) next to the
+// mission's four source files; here it is re-validated with the SAME validator
+// BT-08 uses. Absent/invalid request = fail-closed, never a fabricated job.
+export const HYPOTHESIS_LAUNCH_REQUEST_FILE = "launch-request.json";
 export const HYPOTHESIS_DATA_MODES = Object.freeze(["TOB"]);
 // PROVISIONAL (REGLA 2): techo de tiempo para que un job colgado no bloquee el
 // lock. Recalibrar con la duración medida del primer run real de Bru.
@@ -496,6 +502,37 @@ export function hypothesisMetadata() {
     dataModes: [...HYPOTHESIS_DATA_MODES],
     nGrid: [...H_S1_01_N_GRID],
   };
+}
+
+// UI-08: per-mission launch availability for the single run control. Read-only:
+// readiness first (source/provenance/freeze/reservation gates), then the
+// committed canonical request if any. The request is validated with the same
+// BT-08 validator; anything missing or inconsistent stays BLOCKED with its exact
+// code, so the UI never enables a run on a request the backend would reject.
+export function hypothesisLaunchRequestForMission(repoRoot, missionId) {
+  const readiness = hypothesisReadinessForMission(repoRoot, missionId);
+  if (readiness.status !== "RUNNABLE") {
+    return { ...readiness, request: null };
+  }
+  const relativePath = `${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/${missionId}/${HYPOTHESIS_LAUNCH_REQUEST_FILE}`;
+  const raw = readJsonOrNull(repoRoot, relativePath);
+  if (raw === null) {
+    return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: "LAUNCH_REQUEST_MISSING", message: `no canonical Development request is committed under ${relativePath}` }] };
+  }
+  const validated = validateHypothesisJobRequest(raw);
+  if (!validated.ok) {
+    return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: validated.code, message: validated.message ?? "the committed Development request is invalid" }] };
+  }
+  // The request must target the mission it is stored under; a request file that
+  // resolves to another mission is not a launchable request for this mission.
+  if (validated.request.missionId !== missionId) {
+    return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: "MISSION_REQUEST_MISMATCH", message: `the committed request targets ${validated.request.missionId}, not ${missionId}` }] };
+  }
+  return { ...readiness, status: "READY", request: raw };
+}
+
+export function hypothesisLaunch(repoRoot, missionIds = SEM_MISSIONS.map((mission) => mission.id)) {
+  return missionIds.map((missionId) => hypothesisLaunchRequestForMission(repoRoot, missionId));
 }
 
 // ---------- runner ----------
@@ -1153,6 +1190,9 @@ export function createHypothesisJobRunner({
     status,
     get,
     readiness: (missionIds) => hypothesisReadiness(repoRoot, missionIds),
+    // UI-08: same backend truth the run control consumes (metadata + per-mission
+    // readiness + the validated canonical request when one is committed).
+    launch: () => ({ metadata: hypothesisMetadata(), missions: hypothesisLaunch(repoRoot) }),
     now,
     waitForIdle: () => (active?.done ?? Promise.resolve(null)),
   };

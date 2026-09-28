@@ -333,7 +333,118 @@ export function projectExploratoryPages(exploratory) {
   };
 }
 
-export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null, backtestReadiness = null, hypothesisResults = [] } = {}) {
+// ---------- UI-08 · Backtesting workspace (Scope → Hypotheses → Results) ----------
+// All of it reads the SEM-2 shared projection and the BT-08 launch/readiness
+// metadata; nothing here recalculates economics or invents a request. Unknown
+// stays UNAVAILABLE with a reason; a mission is never omitted because data is
+// missing (UI08-02).
+
+function launchMissionsById(hypothesisLaunch) {
+  return Object.fromEntries((hypothesisLaunch?.missions ?? []).map((entry) => [entry.missionId, entry]));
+}
+
+// Per-mission scope row: mission identity, benchmark window/calendar, the
+// applicable observation modes (TOB/TRADES are universal; a mission is first
+// class even without data), obligation/sizing/execution from the committed
+// Development request when one exists, and the source-bound readiness gate.
+function backtestScopeEntry(mission, launchEntry) {
+  const campaigns = mission.campaigns ?? [];
+  const request = launchEntry?.request ?? null;
+  const window = campaigns.length > 0
+    ? { status: "BOUND", campaignId: campaigns[0].campaignKey, maturity: campaigns[0].maturity, firstDay: campaigns[0].firstDay ?? null, lastDay: campaigns[0].lastDay ?? null }
+    : { status: "UNAVAILABLE", reason: "no campaign reference is bound for this mission in the verified backend artifacts" };
+  const obligation = request?.campaign
+    ? { status: "BOUND", targetVolumeMw: request.campaign.targetVolumeMw, unit: "MW", campaignId: request.campaign.campaignId, obligationId: request.campaign.obligationId ?? null }
+    : { status: "UNAVAILABLE", reason: "the mission obligation is not evidenced in this workspace; no committed Development request defines it" };
+  const sizing = request?.sizing
+    ? { status: "BOUND", lotSizeMw: request.sizing.lotSizeMw, dailyCapMw: request.sizing.dailyCapMw }
+    : { status: "UNAVAILABLE", reason: "no committed Development sizing contract for this mission" };
+  const execution = request?.execution
+    ? { status: "BOUND", model: request.execution.model, slippageEurMwh: request.execution.slippageEurMwh }
+    : { status: "UNAVAILABLE", reason: "no committed Development execution contract for this mission" };
+  const readiness = launchEntry
+    ? { status: launchEntry.status, blockers: launchEntry.blockers ?? [] }
+    : { status: "UNAVAILABLE", blockers: [] };
+  return {
+    missionId: mission.missionId,
+    label: mission.label,
+    product: mission.product,
+    cadence: mission.cadence,
+    benchmarkWindow: mission.benchmark.window ?? null,
+    observationModes: ["TOB", "TRADES"],
+    client: mission.client,
+    benchmark: mission.benchmark,
+    benchmarkByCampaign: mission.benchmarkByCampaign,
+    campaignWindow: window,
+    obligation,
+    sizing,
+    execution,
+    readiness,
+  };
+}
+
+// Dynamic canonical hypotheses collection (UI08-03): identity/version/question
+// and origin come from the shared projection; applicability, runnable/running/
+// completed state and configuration references come from the backend launch
+// metadata. Adding a hypothesis needs no renderer branch.
+function hypothesisCollectionEntry(hypothesis, { launchByMission, results, runningMissionIds }) {
+  const applicable = (hypothesis.missions ?? []).map((missionId) => {
+    const launchEntry = launchByMission[missionId] ?? null;
+    const request = launchEntry?.request ?? null;
+    return {
+      missionId,
+      status: launchEntry?.status ?? "UNAVAILABLE",
+      blockers: launchEntry?.blockers ?? [],
+      running: runningMissionIds.includes(missionId),
+      configuration: request ? {
+        candidateHash: request.candidate?.contentHash ?? null,
+        searchSpaceHash: request.searchSpace?.contentHash ?? null,
+        configurationHash: request.configuration?.configurationHash ?? null,
+        tau: request.candidate?.tau?.localTime ?? null,
+        N: request.candidate?.N ?? null,
+      } : null,
+    };
+  });
+  const current = (results ?? []).find((result) => result.state === "CURRENT") ?? null;
+  return {
+    kind: "HYPOTHESIS",
+    hypothesisId: hypothesis.hypothesisId,
+    name: hypothesis.name,
+    question: hypothesis.question,
+    version: hypothesis.version,
+    originType: hypothesis.originType,
+    role: hypothesis.role,
+    strategyRefs: hypothesis.strategyRefs,
+    applicabilityStatus: hypothesis.applicabilityStatus,
+    missions: applicable,
+    state: {
+      registered: true,
+      runnable: applicable.some((entry) => entry.status === "READY"),
+      running: applicable.some((entry) => entry.running),
+      completed: current !== null,
+      // A Development result is evidence, never a scientific validation; the
+      // BT-08 contract keeps researchPass false and no PASS is shown here.
+      scientificallyEvaluated: false,
+    },
+    results: results ?? [],
+  };
+}
+
+// Result identity/history stay scoped per hypothesis/version/mission/phase/mode
+// (UI08-09). A published result's own ablation and comparison travel with it.
+function ablationViewFor(results) {
+  const result = (results ?? []).find((entry) => entry.state === "CURRENT") ?? (results ?? [])[0] ?? null;
+  if (result === null) {
+    return { status: "UNAVAILABLE", reason: "no comparable Development run is published for this mission", ablation: null, result: null };
+  }
+  const ablation = result.ablation ?? null;
+  if (result.validComparison !== true || ablation === null) {
+    return { status: "HOLD", reason: ablation?.reason ?? "the paired ablation has no valid comparison for this mission", ablation, result };
+  }
+  return { status: ablation.ok === true ? "EFFECT" : (ablation.verdict ?? "HOLD"), reason: ablation.reason ?? null, ablation, result };
+}
+
+export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null, backtestReadiness = null, hypothesisResults = [], hypothesisLaunch = null } = {}) {
   if (!Array.isArray(rows)) {
     return unexpectedTimeline([{ field: "rows", code: "INVALID_ROWS", message: "rows must be a list." }]);
   }
@@ -371,6 +482,22 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
   // SEM2-T01: los resultados BT-08 publicados viajan dentro de la MISMA
   // proyección, con su binding real hipótesis/versión/misión/run (fail-closed).
   const canonicalSemantics = buildCanonicalSemanticsProjection({ exploratory, backtestReadiness, hypothesisResults });
+  // UI-08 workspace: Scope → Hypotheses → Results/Comparison + ablation. Scope
+  // keeps all four missions first-class (a missing mission is a reason, not an
+  // omission); the hypotheses collection is dynamic; comparison is CLIENT / one
+  // BENCHMARK / canonical HYPOTHESES; CONTROL is the ablation counterfactual.
+  const launchByMission = launchMissionsById(hypothesisLaunch);
+  const runningMissionIds = typeof hypothesisLaunch?.runningMissionId === "string" ? [hypothesisLaunch.runningMissionId] : [];
+  const scope = canonicalSemantics.missions.map((mission) => backtestScopeEntry(mission, launchByMission[mission.missionId] ?? null));
+  const hypotheses = canonicalSemantics.hypotheses.map((hypothesis) => hypothesisCollectionEntry(hypothesis, {
+    launchByMission,
+    results: canonicalSemantics.results[hypothesis.hypothesisId] ?? [],
+    runningMissionIds,
+  }));
+  const ablation = canonicalSemantics.missions.map((mission) => ({
+    mission: { id: mission.missionId, label: mission.label },
+    ...ablationViewFor(mission.hypothesisResults),
+  }));
   return {
     ok: true,
     surface: SURFACES.BACKTESTS,
@@ -380,6 +507,10 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     sourceFreshness: exploratory?.sourceFreshness ?? backtestReadiness?.sourceFreshness ?? null,
     measurementReadiness: projectBacktestReadiness(backtestReadiness),
     canonicalSemantics,
+    hypothesisLaunch,
+    scope,
+    hypotheses,
+    ablation,
     // La tabla primaria de Backtests compara la hipótesis Strategy-derived (H-S1-01)
     // con CLIENT/BENCHMARK; Research Discovery (H-RD-01) viaja en canonicalSemantics
     // y en la superficie Research, no como segundo resultado en Results (SEM-1).

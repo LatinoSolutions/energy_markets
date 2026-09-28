@@ -249,7 +249,11 @@ test("UI-05 Backtests: leyenda de brazos, tabla de datos, histogramas con eje y 
   assert.equal(missionIds.length, products.length);
   const html = missionIds.map((missionId) => renderSurfacePage("backtests", vms.backtests, { missionId })).join("");
   assert.match(html, /<div class="armhead"><span class="arm"><span class="sw" style="background:var\(--arm-base\)"><\/span>Baseline<\/span><span class="arm">[^]*?Arm A<\/span><span class="arm">[^]*?Arm B<\/span><\/div>/);
-  assert.match(html, /Does another hour or a dip rule buy cheaper than the client's 11:00\?/);
+  // UI-08: the workspace defines no global DIP/HOUR/11:00 question; the legacy
+  // exploratory question lives only as source-bound provenance, and the canonical
+  // research questions come from the backend hypothesis cards.
+  assert.doesNotMatch(html, /Does another hour or a dip rule buy cheaper than the client's 11:00\?/);
+  assert.match(html, /Legacy exploratory evidence is preserved as source-bound historical provenance only/);
   assert.equal(count(html, /<details class="tbl"><summary>Show data table/g), products.length);
   for (const product of products) {
     assert.ok(html.includes(`Show data table (${results.comparison[product].perEpisode.length} episodes, every arm)`));

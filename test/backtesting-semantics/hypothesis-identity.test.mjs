@@ -397,8 +397,10 @@ test("ID05: legacy aliases are provenance-bound and cannot fabricate new-version
 test("ID06: CLIENT/BENCHMARK/hypotheses boundaries hold and legacy names are not primary", () => {
   const vm = buildBacktestsViewModel();
   const html = renderBacktestsPage(vm);
-  const start = html.indexOf('data-semantic="SEM-1/2026-09-28/v1"');
-  const end = html.indexOf('data-kind="current-backtest-panels"');
+  // UI-08: primary identities live in the Results/Comparison section; legacy
+  // aliases stay only inside the historical provenance details below.
+  const start = html.indexOf('data-section="results"');
+  const end = html.indexOf('<details data-semantic="legacy-provenance"');
   const primary = html.slice(start, end);
   assert.doesNotMatch(primary, /Arm A|Arm B|ARM_A|ARM_B|ARM_C|BASELINE|B\*/);
   assert.doesNotMatch(primary, /DIP10(?! ·)|HOUR/);
