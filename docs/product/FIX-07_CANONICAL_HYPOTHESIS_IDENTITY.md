@@ -12,7 +12,7 @@ Single backend contract: `src/backtesting-semantics/contract.mjs` (SEM-1 extende
 | Multiple Strategies (deterministically ordered refs) | `H-S<...><...>-<nn>` | `H-S1S3-01` |
 | Research Discovery, no evidenced Strategy parent | `H-RD-<nn>` | `H-RD-01` |
 
-The suffix is sequential within its family. The ID never encodes performance, phase, campaign or mission, and a published ID is not recycled for another question. `canonicalHypothesisId()` is a pure function of origin family, canonical Strategy refs and sequence; `verifyCanonicalHypothesisId()` re-derives it.
+The suffix is sequential within its family. The ID never encodes performance, phase, campaign or mission, and a published ID is not recycled for another question or a narrower mission scope. A published identity keeps its accepted applicability: a recalibration that declares only a subset of the accepted missions is rejected (`PUBLISHED_SCOPE_COLLISION`). `canonicalHypothesisId()` is a pure function of origin family, canonical Strategy refs and sequence; `verifyCanonicalHypothesisId()` re-derives it.
 
 ## Identity fields
 
@@ -31,18 +31,19 @@ H-S1-01 consumes the accepted HYP-1 `name`/`question`/`version`/`contentHash`; l
 
 - Strategy refs (`strategyRefs`), Hypothesis (`hypothesisId`/`hypothesisVersion`), mission (`missionId`) and campaign (`campaignId`), configuration (`configurationHash`), candidate/search-space references (`candidateMission`/`searchSpaceMission`, `candidateHash`/`searchSpaceHash`), experiment (`experimentId`), CONTROL (bound `control`), technical arm (`technicalArmId`), Run (`runId`).
 - The `configurationHash` is re-derived from the configuration core; an altered hash fails as `CONFIGURATION_INTEGRITY`. Campaign and mission-bound candidate/search-space references are required (`MISSING_CAMPAIGN_ID`/`MISSING_CANDIDATE_BINDING`).
+- Declared `tau`/`N` must equal the bound candidate's `candidateTau`/`candidateN` (`PARAMETER_CANDIDATE_MISMATCH`).
 - `technicalArmId` and `runId` may not equal the hypothesis or experiment id (`IDENTITY_COLLISION`).
-- CONTROL must be a bound `controlFor()` record for the same hypothesis and run (`INVALID_CONTROL_BINDING`).
+- CONTROL must be a bound `controlFor()` record for the same hypothesis, run and campaign (`INVALID_CONTROL_BINDING`).
 
 ## Mission configurations and evidence
 
-`createMissionConfiguration()` binds one `H-S1-01` ID to one mission, one candidate and one search space (tau/N, data mode, calibration) with a content hash. Candidate and search-space references are mission-scoped: a Power configuration cannot borrow a Gas candidate/search space (`CROSS_MISSION_CONFIGURATION`). The same ID supports four independent configurations; mission is never encoded in the ID.
+`createMissionConfiguration()` binds one `H-S1-01` ID to one mission, one candidate and one search space (tau/N, data mode, calibration) with a content hash. Candidate and search-space references are mission-scoped: a Power configuration cannot borrow a Gas candidate/search space (`CROSS_MISSION_CONFIGURATION`), and declared `tau`/`N` must match the candidate's values (`PARAMETER_CANDIDATE_MISMATCH`). The same ID supports four independent configurations; mission is never encoded in the ID.
 
 `evaluateHypothesisStatus()` returns `UNTESTED` without evidence. A version/config/run/mission mismatch cannot yield `TESTED` — it stays `HOLD` with the mismatched fields, and tampered configuration hashes fail as `CONFIGURATION_INTEGRITY`. Cross-mission substitution is rejected. Evidence cannot prove itself: a `TESTED` state additionally requires a verified experiment binding (`experiment`) for the same hypothesis, mission, configuration and run, plus traceable provenance (`authority`/`locator`/`artifactSha256`).
 
 ## Versioning and history
 
-`classifyHypothesisChange()` distinguishes `RECALIBRATION` (same ID, same question, version advances, `supersedes`/`canonical` lineage) from `NEW_PROPOSITION` (new ID). A transition without a version advance is rejected (`NO_VERSION_ADVANCE`); the same question may not be split across new IDs (`RECALIBRATION_MUST_KEEP_ID`). A published ID cannot be redefined with another name/question (`PUBLISHED_IDENTITY_COLLISION`), though a recalibration may advance its version.
+`classifyHypothesisChange()` distinguishes `RECALIBRATION` (same ID, same question, version advances, `supersedes`/`canonical` lineage) from `NEW_PROPOSITION` (new ID). A transition without a version advance is rejected (`NO_VERSION_ADVANCE`) and so is a version rollback (`VERSION_ROLLBACK`); the same question may not be split across new IDs (`RECALIBRATION_MUST_KEEP_ID`). A published ID cannot be redefined with another name/question (`PUBLISHED_IDENTITY_COLLISION`) nor lose its accepted mission scope (`PUBLISHED_SCOPE_COLLISION`), though a recalibration may advance its version while preserving that scope.
 
 Legacy `DIP10`/`HOUR`/`ARM_A`/`ARM_B` resolve only through `resolveLegacyHypothesisAlias()` to `PROVENANCE_ONLY` (`tested:false`, `runnable:false`, `sizingParityClaim:false`). The mapping must be run-scoped (`runId` + `provenance`); a bare alias with a hash is rejected. Wrong artifact/version, a CLIENT claim, or a fabricated evidence status is rejected. `A0`/`A1` keep their SEM-1 replay-arm semantics (`resolveLegacyAlias`) and never become the active hypothesis or CLIENT.
 

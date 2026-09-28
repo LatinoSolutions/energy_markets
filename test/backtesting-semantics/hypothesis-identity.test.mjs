@@ -88,10 +88,20 @@ test("ID01: identity schema rejects missing/conflicting bindings and consumes th
   });
   assert.equal(collision.ok, false);
   assert.ok(collision.errors.some((error) => error.code === "PUBLISHED_IDENTITY_COLLISION"));
-  // …but a recalibration that keeps the accepted question may advance version.
-  const recalibration = createHypothesisIdentity({
+  // A recalibration cannot silently narrow the accepted four-mission scope
+  // (FIX07-PUBLISHED-SCOPE).
+  const narrowedScope = createHypothesisIdentity({
     originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1, version: "H-S1-01/phase-A/v2",
     name: H_S1_01.name, question: H_S1_01.question, missions: ["GAS_QUARTERLY"],
+    provenance: { authority: "x", locator: "y" },
+  });
+  assert.equal(narrowedScope.ok, false);
+  assert.ok(narrowedScope.errors.some((error) => error.code === "PUBLISHED_SCOPE_COLLISION"));
+  // …but a recalibration that keeps the accepted question and the full
+  // accepted mission scope may advance version.
+  const recalibration = createHypothesisIdentity({
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1, version: "H-S1-01/phase-A/v2",
+    name: H_S1_01.name, question: H_S1_01.question, missions: [...H_S1_01.missions],
     provenance: { authority: "x", locator: "y" },
   });
   assert.equal(recalibration.ok, true);
@@ -187,11 +197,26 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
   assert.equal(declaredSubstitution.ok, false);
   assert.equal(declaredSubstitution.code, "CROSS_MISSION_CONFIGURATION");
 
+  // A configuration cannot declare tau/N other than the bound candidate's
+  // (FIX07-PARAMETER-CANDIDATE).
+  const parameterSubstitution = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "11:00", N: 20 },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: candidateFixture("GAS_QUARTERLY"),
+  });
+  assert.equal(parameterSubstitution.ok, false);
+  assert.equal(parameterSubstitution.code, "PARAMETER_CANDIDATE_MISMATCH");
+
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter }).state, "UNTESTED");
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: null }).reason, "NO_EVIDENCE");
 
   const experiment = experimentFixture(quarter);
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: evidenceFixture(quarter), experiment }).state, "TESTED");
+
+  // CONTROL must belong to the same campaign as the binding, otherwise the run
+  // is not evidence for this campaign (FIX07-CONTROL-CAMPAIGN).
+  const otherCampaignControl = controlFor({ hypothesisId: "H-S1-01", runId: "run-1", populationId: "pop-1", campaignId: "other-campaign", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration: quarter, experimentId: "exp-1", campaignId: "target-campaign", runId: "run-1", technicalArmId: "arm-1", control: otherCampaignControl }).code, "INVALID_CONTROL_BINDING");
 
   // An unbound run with a shape-valid SHA is not tested evidence (FIX07-EVIDENCE-RUN).
   const unbound = evaluateHypothesisStatus({
@@ -294,6 +319,8 @@ test("ID07: versioning separates recalibration from a materially different propo
 
   // A transition with no version advance is not a recalibration (FIX07-VERSION-ADVANCE).
   assert.equal(classifyHypothesisChange({ prior: v1, next: v1 }).code, "NO_VERSION_ADVANCE");
+  // A version rollback is not a recalibration either (FIX07-BACKWARD-VERSION).
+  assert.equal(classifyHypothesisChange({ prior: recalculated, next: v1 }).code, "VERSION_ROLLBACK");
 
   const sameIdDifferentQuestion = identityFixture({ version: "H-S2-01/phase-A/v2", question: "A materially different question?" });
   assert.equal(classifyHypothesisChange({ prior: v1, next: sameIdDifferentQuestion }).code, "MATERIAL_CHANGE_NEEDS_NEW_ID");

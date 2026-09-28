@@ -363,6 +363,16 @@ export function createHypothesisIdentity({
     if (published && (published.name !== name || published.question !== question)) {
       errors.push({ field: "hypothesisId", code: "PUBLISHED_IDENTITY_COLLISION", message: `El ID publicado "${idOutcome.id}" no puede redefinirse con otro nombre o pregunta.` });
     }
+    // The accepted HYP-1 applicability is part of the published identity: a
+    // recalibration advances the version, it cannot silently narrow the four
+    // accepted missions to a subset (FIX07-PUBLISHED-SCOPE).
+    if (published && Array.isArray(missions)) {
+      const publishedScope = [...published.missions].sort().join(",");
+      const declaredScope = [...new Set(missions)].sort().join(",");
+      if (publishedScope !== declaredScope) {
+        errors.push({ field: "missions", code: "PUBLISHED_SCOPE_COLLISION", message: `El ID publicado "${idOutcome.id}" conserva su alcance aceptado de misiones.` });
+      }
+    }
   }
   if (!isNonEmptyString(name)) errors.push({ field: "name", code: "MISSING_REQUIRED", message: "Falta el nombre canónico de la hipótesis." });
   if (!isNonEmptyString(question)) errors.push({ field: "question", code: "MISSING_REQUIRED", message: "Falta la pregunta falsable de la hipótesis." });
@@ -407,6 +417,14 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
     || !isSha256(candidate.contentHash)) {
     return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field: "candidate" };
   }
+  // The configuration declares tau/N, but the candidate is the source of truth:
+  // a configuration may not restate parameters other than the bound candidate's
+  // (FIX07-PARAMETER-CANDIDATE).
+  for (const [field, declared, bound] of [["tau", configuration.tau, candidate.tau?.localTime], ["N", configuration.N, candidate.N]]) {
+    if (declared !== undefined && declared !== bound) {
+      return { ok: false, code: "PARAMETER_CANDIDATE_MISMATCH", field };
+    }
+  }
   const core = {
     ...configuration,
     artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION",
@@ -417,6 +435,8 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
     searchSpaceMission: missionLabel,
     candidateHash: candidate.contentHash,
     searchSpaceHash: searchSpace.contentHash,
+    candidateTau: candidate.tau?.localTime ?? null,
+    candidateN: candidate.N ?? null,
   };
   return { ok: true, configuration: deepFreeze({ ...core, configurationHash: contentHashOf(core) }) };
 }
@@ -455,6 +475,12 @@ export function evaluateHypothesisStatus({ hypothesis, configuration, evidence, 
     || binding.configurationHash !== configuration.configurationHash) {
     mismatched.push("experiment");
   }
+  // The paired CONTROL must belong to the same campaign as the experiment
+  // binding; a run proven against another campaign's CONTROL is not evidence
+  // for this one (FIX07-CONTROL-CAMPAIGN).
+  if (binding?.control && binding.control.campaignId !== undefined && binding.control.campaignId !== binding.campaignId) {
+    mismatched.push("control");
+  }
   if (mismatched.length) return { ok: true, state: "HOLD", reason: "EVIDENCE_BINDING_MISMATCH", mismatched };
   if (evidence.comparabilityStatus !== "COMPARABLE") return { ok: true, state: "HOLD", reason: "EVIDENCE_NOT_COMPARABLE" };
   return { ok: true, state: "TESTED", runId: evidence.runId, artifactSha256: evidence.artifactSha256 };
@@ -462,6 +488,11 @@ export function evaluateHypothesisStatus({ hypothesis, configuration, evidence, 
 
 // Recalibration keeps the ID and advances the version; a materially different
 // question/strategy reaches a new ID. Neither mutates lineage silently.
+function versionOrdinal(version) {
+  const match = /\/v(\d+)$/i.exec(typeof version === "string" ? version : "");
+  return match ? Number(match[1]) : null;
+}
+
 export function classifyHypothesisChange({ prior, next } = {}) {
   if (!isCanonicalHypothesisRecord(prior).ok || !isCanonicalHypothesisRecord(next).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
   const sameQuestion = prior.question === next.question;
@@ -469,9 +500,14 @@ export function classifyHypothesisChange({ prior, next } = {}) {
   const sameOrigin = prior.originType === next.originType;
   if (prior.hypothesisId === next.hypothesisId) {
     if (!sameQuestion || !sameRefs || !sameOrigin) return { ok: false, code: "MATERIAL_CHANGE_NEEDS_NEW_ID" };
-    // A recalibration must actually advance the version; an unchanged
-    // proposition is not a new version (FIX07-VERSION-ADVANCE).
-    if (prior.version === next.version) return { ok: false, code: "NO_VERSION_ADVANCE" };
+    // A recalibration must advance the version; an unchanged or earlier
+    // proposition is not a new version (FIX07-VERSION-ADVANCE/BACKWARD-VERSION).
+    const priorOrdinal = versionOrdinal(prior.version);
+    const nextOrdinal = versionOrdinal(next.version);
+    if (prior.version === next.version || priorOrdinal === null || nextOrdinal === null) {
+      return { ok: false, code: "NO_VERSION_ADVANCE" };
+    }
+    if (nextOrdinal < priorOrdinal) return { ok: false, code: "VERSION_ROLLBACK" };
     return {
       ok: true, kind: "RECALIBRATION", hypothesisId: prior.hypothesisId,
       supersedes: { hypothesisId: prior.hypothesisId, version: prior.version },
@@ -536,6 +572,12 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
     || configuration.candidateMission !== missionLabel || configuration.searchSpaceMission !== missionLabel) {
     return { ok: false, code: "MISSING_CANDIDATE_BINDING" };
   }
+  // Declared tau/N must stay consistent with the bound candidate values
+  // captured by the configuration (FIX07-PARAMETER-CANDIDATE).
+  if ((configuration.tau !== undefined && configuration.tau !== configuration.candidateTau)
+    || (configuration.N !== undefined && configuration.N !== configuration.candidateN)) {
+    return { ok: false, code: "PARAMETER_CANDIDATE_MISMATCH" };
+  }
   if (!isNonEmptyString(experimentId)) return { ok: false, code: "MISSING_EXPERIMENT_ID" };
   if (!isNonEmptyString(runId)) return { ok: false, code: "MISSING_RUN_ID" };
   if (!isNonEmptyString(technicalArmId)) return { ok: false, code: "MISSING_TECHNICAL_ARM_ID" };
@@ -543,8 +585,9 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
   if (hypothesis.hypothesisId === runId || experimentId === runId) return { ok: false, code: "IDENTITY_COLLISION" };
   if (control !== undefined && control !== null) {
     const missionMismatch = control.missionId !== undefined && control.missionId !== configuration.missionId;
+    const campaignMismatch = control.campaignId !== undefined && control.campaignId !== campaignId;
     if (control.ok !== true || control.kind !== IDENTITY.CONTROL || control.hypothesisId !== hypothesis.hypothesisId
-      || !isSha256(control.artifactSha256) || control.runId !== runId || missionMismatch) {
+      || !isSha256(control.artifactSha256) || control.runId !== runId || missionMismatch || campaignMismatch) {
       return { ok: false, code: "INVALID_CONTROL_BINDING" };
     }
   }
