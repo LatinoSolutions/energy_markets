@@ -48,6 +48,20 @@ function validateGraph(tasks) {
   for (const id of tasks.keys()) visit(id);
 }
 
+function requireDirectPrerequisites(tasks, id, prerequisites) {
+  for (const prerequisite of prerequisites) {
+    assert.ok(tasks.get(id)?.requires.includes(prerequisite), `${id} lacks direct prerequisite ${prerequisite}`);
+  }
+}
+
+function validatePipeline(tasks) {
+  validateGraph(tasks);
+  requireDirectPrerequisites(tasks, "HYP-1", ["SEM-1"]);
+  requireDirectPrerequisites(tasks, "FIX-07", ["SEM-1", "HYP-1"]);
+  requireDirectPrerequisites(tasks, "BT-08", ["HYP-1", "FIX-07", "BT-07"]);
+  requireDirectPrerequisites(tasks, "UI-08", ["SEM-1", "HYP-1", "FIX-07", "BT-08"]);
+}
+
 function withRow(tasks, id, changes) {
   const copy = new Map(tasks);
   copy.set(id, { ...tasks.get(id), ...changes });
@@ -56,15 +70,9 @@ function withRow(tasks, id, changes) {
 
 test("FIX-09: active plan accepts lifecycle progress and has no missing, retired or cyclic prerequisites", () => {
   const tasks = rows(plan);
-  validateGraph(tasks);
+  validatePipeline(tasks);
   assert.equal(tasks.get("SEM-1")?.status, "aceptado");
   assert.equal(tasks.get("FIX-08")?.status, "aceptado");
-  assert.deepEqual(tasks.get("HYP-1")?.requires, ["SEM-1"]);
-  assert.deepEqual(tasks.get("FIX-07")?.requires, ["SEM-1", "HYP-1"]);
-  assert.deepEqual(tasks.get("BT-08")?.requires, ["HYP-1", "FIX-07", "BT-07"]);
-  for (const prerequisite of ["SEM-1", "HYP-1", "FIX-07"]) {
-    assert.ok(tasks.get("UI-08")?.requires.includes(prerequisite), `UI-08 lacks ${prerequisite}`);
-  }
   assert.match(tasks.get("BT-08").note, /UI-08 consume este contrato/);
   assert.match(tasks.get("HYP-1").objective, /H-S1-01: Session-Anchored Rolling Reference/);
   assert.match(tasks.get("FIX-07").note, /H-S1-01.*precede/);
@@ -74,27 +82,27 @@ test("FIX-09: active plan accepts lifecycle progress and has no missing, retired
 test("FIX-09: pending, in-progress and accepted states remain valid after later acceptance", () => {
   const tasks = rows(plan);
   for (const status of ["pendiente", "en_curso", "aceptado"]) {
-    validateGraph(withRow(tasks, "FIX-08", { status }));
-    validateGraph(withRow(tasks, "UI-08", { status }));
+    for (const id of ["FIX-08", "FIX-09", "FIX-07", "UI-08"]) {
+      validatePipeline(withRow(tasks, id, { status }));
+    }
   }
+  validatePipeline(withRow(tasks, "FIX-07", {
+    requires: [...tasks.get("FIX-07").requires, "FIX-08"],
+  }));
   for (const status of ["done", "", "accepted", "en curso"]) {
     assert.throws(() => validateGraph(withRow(tasks, "FIX-08", { status })), /invalid status/);
   }
 });
 
-test("FIX-09: planned Development integration path and graph failures are checked on fixtures", () => {
+test("FIX-09: active Development integration path and graph failures are checked on fixtures", () => {
   const tasks = rows(plan);
-  // The UI-08 dependency update belongs to the pipeline owner. Exercise the
-  // intended chain without changing PLAN_STATUS in this test-reliability task.
-  const integrated = withRow(tasks, "UI-08", {
-    requires: [...new Set([...tasks.get("UI-08").requires, "BT-08"])],
-  });
-  validateGraph(integrated);
-  assert.ok(integrated.get("BT-08").requires.includes("FIX-07"));
-  assert.ok(integrated.get("UI-08").requires.includes("BT-08"));
-  assert.throws(() => validateGraph(withRow(integrated, "UI-08", { requires: ["UNKNOWN"] })), /unknown prerequisite UNKNOWN/);
-  assert.throws(() => validateGraph(withRow(integrated, "UI-08", { requires: ["FIX-06"] })), /retired prerequisite FIX-06/);
-  assert.throws(() => validateGraph(withRow(integrated, "HYP-1", { requires: ["UI-08"] })), /dependency cycle/);
+  validatePipeline(tasks);
+  assert.throws(() => validatePipeline(withRow(tasks, "UI-08", {
+    requires: tasks.get("UI-08").requires.filter((id) => id !== "BT-08"),
+  })), /UI-08 lacks direct prerequisite BT-08/);
+  assert.throws(() => validateGraph(withRow(tasks, "UI-08", { requires: ["UNKNOWN"] })), /unknown prerequisite UNKNOWN/);
+  assert.throws(() => validateGraph(withRow(tasks, "UI-08", { requires: ["FIX-06"] })), /retired prerequisite FIX-06/);
+  assert.throws(() => validateGraph(withRow(tasks, "HYP-1", { requires: ["UI-08"] })), /dependency cycle/);
 });
 
 test("FIX-08: retired work and semantic handoff retain provenance without an acceptance claim", () => {
