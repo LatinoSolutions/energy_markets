@@ -220,6 +220,22 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
   assert.equal(tamperedParameter.ok, false);
   assert.equal(tamperedParameter.code, "CANDIDATE_INTEGRITY");
 
+  // A candidate created from the valid HYP-1 search space cannot authorize a
+  // later mutation of that space under the same content hash.
+  const validSearchSpace = searchSpaceFixture("GAS_QUARTERLY");
+  const linkedCandidate = createHS1Candidate({
+    searchSpace: validSearchSpace, tau: { zone: "UTC", localTime: "10:00" }, N: 3,
+  });
+  assert.equal(linkedCandidate.ok, true);
+  const tamperedSearchSpace = { ...validSearchSpace, nGrid: [999] };
+  const tamperedSpaceConfiguration = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: tamperedSearchSpace, candidate: linkedCandidate.candidate,
+  });
+  assert.equal(tamperedSpaceConfiguration.ok, false);
+  assert.equal(tamperedSpaceConfiguration.code, "SEARCH_SPACE_INTEGRITY");
+
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter }).state, "UNTESTED");
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: null }).reason, "NO_EVIDENCE");
 

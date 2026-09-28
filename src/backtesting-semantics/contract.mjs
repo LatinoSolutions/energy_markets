@@ -412,6 +412,12 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
     || searchSpace.hypothesisId !== hypothesis.hypothesisId || !isSha256(searchSpace.contentHash)) {
     return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field: "searchSpace" };
   }
+  // A candidate links the search space by content hash. Verify the referenced
+  // artifact itself before accepting that link (FIX07-SEARCH-SPACE-INTEGRITY).
+  const { contentHash: searchSpaceContentHash, ...searchSpaceCore } = searchSpace;
+  if (contentHashOf(searchSpaceCore) !== searchSpaceContentHash) {
+    return { ok: false, code: "SEARCH_SPACE_INTEGRITY", field: "searchSpace" };
+  }
   if (!candidate || candidate.artifactKind !== "HYPOTHESIS_CANDIDATE" || candidate.mission !== missionLabel
     || candidate.hypothesisId !== hypothesis.hypothesisId || candidate.searchSpaceHash !== searchSpace.contentHash
     || !isSha256(candidate.contentHash)) {
