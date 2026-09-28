@@ -1993,7 +1993,7 @@ function tr07GateHtml(gate) {
   const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}"><span class="mono small">${esc(metric.id)}</span> · ${esc(metric.description ?? "—")}</li>`).join("");
   return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted">${esc(gate.independence)}</span>
     <ul class="small" style="margin:4px 0 0 16px">${metrics}</ul>
-    <div class="tiny muted">${esc(gate.declaration)}</div></div>`;
+    <div class="tiny muted" data-tr07-gate-declaration>${esc(gate.declaration)}</div></div>`;
 }
 
 function tr07CalibrationHtml(panels, missionId) {
@@ -2053,7 +2053,7 @@ function tr07ContrastHtml(panels, missionId) {
     return `<tr data-tr09-contrast="${esc(missionId)}|${esc(run.observationRule)}|${esc(arm)}|${esc(metric.id)}"><td>${esc(run.observationRule)} · ${esc(arm)} · ${esc(metric.id)}</td><td class="mono small">${esc(details)}</td><td>${tr07StatusChip(metric.status)}</td></tr>`;
   })));
   const rows = reportedRows.length > 0 ? reportedRows.join("") : metrics.length > 0
-    ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description)}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">report by mission and arm</td></tr>`).join("")
+    ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description ?? "—")}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">report by mission and arm</td></tr>`).join("")
     : `<tr><td colspan="3">${chip("unk", "?", "UNAVAILABLE")} <span class="small muted">no bridge gate declared by a verified TR-04 candidate</span></td></tr>`;
   return `<details class="card tr07side" style="margin-top:14px" data-tr07="contrast">
     <summary class="hd" style="cursor:pointer;list-style:none"><h3>Contrast · TOB vs TRADES</h3><span class="small muted">bridge only · ${metrics.length} measures · ${reportedRows.length ? "reported" : "not run yet"} · click to open</span><span class="grow"></span>${tr07StatusChip(panels.frozenContract.status)}</summary>
@@ -2599,8 +2599,11 @@ function exploratoryClock(exploratory) {
   return { asOfLabel: "data as-of", asOf: lastDataDay, sub: `EEX best-ask snapshot · sha ${exploratory.provenance.slotsSha256.slice(0, 12)}` };
 }
 
-function renderExploratory(surface, vm) {
-  const body = canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
+function renderExploratory(surface, vm, selection = {}) {
+  // SEM2-T12: the cross-tab scope survives in the production exploratory state
+  // too — the server validates it (canonical mission vocabulary) and the banner
+  // declares it BOUND or fails closed as UNAVAILABLE, on every path.
+  const body = scopeBannerHtml(selection) + canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 

@@ -249,7 +249,7 @@ test("replay: un valor de punto que el manifest no registró queda fail-closed",
   const vm = buildReplayViewModel({ timeline: forged, exposure, backendIndex });
   assert.equal(vm.ok, false);
   assert.equal(vm.errors[0].code, "POINT_NOT_IN_BACKEND");
-  assert.match(vm.errors[0].message, /no es factual/);
+  assert.match(vm.errors[0].message, /not factual/);
 });
 
 test("replay: una exposición con procedencia de otro hash queda fail-closed", () => {

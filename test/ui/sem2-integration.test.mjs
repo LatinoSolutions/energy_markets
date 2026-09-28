@@ -134,6 +134,40 @@ test("SEM2-T12: run drilldowns preserve run/campaign/mission/version, and destin
   }
 });
 
+// SEM2-T12 (review round): the production state has the exploratory backtest
+// loaded, so Replay/Campaigns/Research render through the exploratory path; the
+// scope must survive there too — BOUND keeps mission/campaign/run/version and a
+// non-canonical scope fails closed with the UNAVAILABLE banner.
+test("SEM2-T12: with the exploratory state loaded, cross-tab scope survives or fails closed on the exploratory path", async () => {
+  const inputs = loadCanonicalUiInputs().inputs;
+  assert.ok(inputs.exploratoryBacktest, "the canonical inputs carry the verified exploratory backtest");
+  const server = createUiServer({ port: 0, inputs });
+  const served = await server.ready;
+  try {
+    // Invalid mission scope fails closed instead of being silently dropped.
+    const invalid = await (await fetch(`${served.url.slice(0, -1)}/replay?mission=NOT_A_MISSION`)).text();
+    assert.match(invalid, /data-scope-banner data-scope-state="UNAVAILABLE"/);
+    assert.match(invalid, /Cross-tab scope unavailable/);
+    for (const surface of ["campaigns", "research"]) {
+      const html = await (await fetch(`${served.url.slice(0, -1)}/${surface}?mission=NOT_A_MISSION`)).text();
+      assert.match(html, /data-scope-banner data-scope-state="UNAVAILABLE"/, surface);
+    }
+    // A declared scope is kept and announced (BOUND) on the exploratory path.
+    const bound = await (await fetch(`${served.url.slice(0, -1)}/replay?mission=GAS_QUARTERLY&campaign=G0BQ-202604&run=LEGACY_EXPLORATORY/G0BQ-202604&version=H-S1-01%2Fphase-A%2Fv2`)).text();
+    assert.match(bound, /data-scope-banner data-scope-state="BOUND"/);
+    assert.match(bound, /mission: GAS_QUARTERLY/);
+    assert.match(bound, /campaign: G0BQ-202604/);
+    assert.match(bound, /run: LEGACY_EXPLORATORY\/G0BQ-202604/);
+    for (const surface of ["campaigns", "research"]) {
+      const html = await (await fetch(`${served.url.slice(0, -1)}/${surface}?campaign=G0BQ-202604&mission=GAS_QUARTERLY&version=H-S1-01%2Fphase-A%2Fv2`)).text();
+      assert.match(html, /data-scope-banner data-scope-state="BOUND"/, surface);
+      assert.match(html, /version: H-S1-01\/phase-A\/v2/, surface);
+    }
+  } finally {
+    await new Promise((resolve) => server.server.close(resolve));
+  }
+});
+
 // ---------- SEM2-T13/T14: atomic publication after a BT-08 job + shared revision ----------
 
 test("SEM2-T13/T14: a completed BT-08 job republishes all four routes and /health; a malformed reload never replaces the good snapshot; moving HEAD does not change the served build", async () => {
@@ -317,6 +351,23 @@ const SPANISH_PRIMARY = [
   "el servidor sólo sirve", "ruta no canónica", "método no admitido",
 ];
 
+// SEM2-T11 (review round): TRADES panel primary labels/descriptions/statuses
+// (backtests). These are the strings the review caught in the live panel: the
+// bridge-gate metric descriptions and declaration from the TRADES-v1 contract,
+// the results reason, and the artifact-sourced reasons the panel used to pass
+// through verbatim.
+const SPANISH_TRADES_PANEL = [
+  "% de decisiones BUY/WAIT", "MW comprados por modo", "precio de fill medio por modo",
+  "H por modo", "Contraste descriptivo", "decisión de Bru", "Ningún resultado se fabrica",
+  "ningún run", "sin plan de zonas", "cobertura no declarada",
+  "Medición del puente atada", "TR-03 debe medir la grilla",
+  "Cobertura por campaign proyectada", "no hay calibración que mostrar",
+  "no hay cobertura que mostrar", "no hay zonas que mostrar",
+  "declara FROZEN sin una", "congelado con la aprobación",
+  "pendiente de aprobación de Bru", "La penalización trade->ask",
+  "el punto no se concilia", "la penalización depende de la frescura",
+];
+
 test("SEM2-T11: error, empty, blocked and unavailable states render English primary labels on all four surfaces and HTTP fail-closed pages", async () => {
   const errorVm = { ok: false, errors: [{ field: "timeline", code: "TIMELINE_NOT_VALIDATED", message: "Replay requires the buildOperatorTimeline-validated timeline; without it nothing renders (§26.3)." }] };
   const states = [
@@ -351,6 +402,31 @@ test("SEM2-T11: error, empty, blocked and unavailable states render English prim
     for (const phrase of SPANISH_PRIMARY) {
       assert.equal(body.includes(phrase), false, `405 page: "${phrase}"`);
     }
+  } finally {
+    await new Promise((resolve) => server.server.close(resolve));
+  }
+});
+
+// SEM2-T11 (review repro): the production /backtests page — canonical inputs
+// with the verified exploratory backtest and the real TR-01..TR-04 artifacts —
+// must render the whole TRADES panel with English primary text only.
+test("SEM2-T11: the served Backtests TRADES panel (production state) shows no Spanish primary labels", async () => {
+  const inputs = loadCanonicalUiInputs().inputs;
+  assert.ok(inputs.tradesPanels?.ok === true, "the TRADES panels load the verified artifacts");
+  const server = createUiServer({ port: 0, inputs });
+  const served = await server.ready;
+  try {
+    const html = await (await fetch(`${served.url.slice(0, -1)}/backtests`)).text();
+    for (const phrase of SPANISH_TRADES_PANEL) {
+      assert.equal(html.includes(phrase), false, `backtests TRADES panel: Spanish primary text "${phrase}"`);
+    }
+    // English primary descriptions are rendered from the canonical contract
+    // (gate metrics by id), not from the persisted artifact copy.
+    assert.match(html, /% of BUY\/WAIT decisions shared by TOB and TRADES/);
+    assert.match(html, /MW bought by mode/);
+    assert.match(html, /average fill price by mode/);
+    assert.match(html, /No result is fabricated/);
+    assert.match(html, /Pending the TR-03 bridge measurement job/);
   } finally {
     await new Promise((resolve) => server.server.close(resolve));
   }

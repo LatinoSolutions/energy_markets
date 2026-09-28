@@ -609,7 +609,7 @@ export function buildReplayViewModel({ timeline = null, exposure = null, backend
     }
     const bound = bindRecord(backendIndex, { recordKey: point.key, revisionId: point.revisionId, value: point.value });
     if (!bound.ok) {
-      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `el punto no se concilia con el manifest backend verificado: ${bound.reason} (§26.5); un valor no registrado no es factual` });
+      errors.push({ field: `${landmark}.${point.key}`, code: "POINT_NOT_IN_BACKEND", message: `the point does not reconcile with the verified backend manifest: ${bound.reason} (§26.5); an unregistered value is not factual` });
       return;
     }
     // UI01-01c (review 2026-09-23): la lane decision sólo puede contener keys

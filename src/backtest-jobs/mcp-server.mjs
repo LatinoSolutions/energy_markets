@@ -41,8 +41,10 @@ const HYPOTHESIS_JOB_SCHEMA = {
 export const MCP_TOOLS = Object.freeze([
   {
     name: "start_backtest",
-    description: "Lanza el backtest de Energy Markets en el backend EM (un job a la vez). mode TOB (default): backtest exploratorio. mode TRADES: secuencia TR-06 de las 4 misiones (Development, puente, OOS histórico con una sola apertura); sin el freeze de TR-04 aprobado por Bru no lanza nada y devuelve el motivo. Si ya existe un resultado para el mismo commit, datos, parámetros y versión lo devuelve sin recalcular (reused). Si no, devuelve el run creado o JOB_ALREADY_RUNNING con el job en curso.",
-    inputSchema: { type: "object", properties: { mode: { type: "string", enum: ["TOB", "TRADES"], description: "TOB por defecto" } }, additionalProperties: false },
+    // SEM2-07 (owner clarification 2026-09-28): tool descriptions to MCP
+    // consumers use the shared English vocabulary.
+    description: "Launches the Energy Markets backtest in the EM backend (one job at a time). mode TOB (default): exploratory backtest. mode TRADES: TR-06 sequence of the 4 missions (Development, bridge, historical OOS with a single opening); without Bru's approved TR-04 freeze nothing launches and the reason is returned. If a result already exists for the same commit, data, parameters and version, it is returned without recomputing (reused). Otherwise it returns the created run or JOB_ALREADY_RUNNING with the job in progress.",
+    inputSchema: { type: "object", properties: { mode: { type: "string", enum: ["TOB", "TRADES"], description: "TOB by default" } }, additionalProperties: false },
   },
   {
     name: "start_hypothesis_development",
@@ -55,8 +57,8 @@ export const MCP_TOOLS = Object.freeze([
   },
   {
     name: "backtest_status",
-    description: "Estado de los backtests de Energy Markets: job en curso, último run y resultado vigente; con runId devuelve el RUN_RECEIPT completo.",
-    inputSchema: { type: "object", properties: { runId: { type: "string", description: "BT-RUN-<sha256> opcional" } }, additionalProperties: false },
+    description: "State of the Energy Markets backtests: running job, latest run and current result; with runId returns the full RUN_RECEIPT.",
+    inputSchema: { type: "object", properties: { runId: { type: "string", description: "optional BT-RUN-<sha256>" } }, additionalProperties: false },
   },
 ]);
 
@@ -108,17 +110,17 @@ export async function handleMcpMessage(message, { baseUrl }) {
   if (method === "tools/call") {
     const name = params?.name;
     if (!MCP_TOOLS.some((tool) => tool.name === name)) {
-      return fail(-32602, `tool desconocida: ${name}`);
+      return fail(-32602, `unknown tool: ${name}`);
     }
     try {
       const called = await callTool(baseUrl, name, params?.arguments ?? {});
       const isError = called.httpStatus >= 400;
       return reply({ content: [{ type: "text", text: JSON.stringify(called.payload) }], structuredContent: called.payload, isError });
     } catch (error) {
-      return reply({ content: [{ type: "text", text: `endpoint EM inalcanzable en ${baseUrl}: ${String(error?.message ?? error)}` }], isError: true });
+      return reply({ content: [{ type: "text", text: `EM endpoint unreachable at ${baseUrl}: ${String(error?.message ?? error)}` }], isError: true });
     }
   }
-  return fail(-32601, `método no soportado: ${method}`);
+  return fail(-32601, `unsupported method: ${method}`);
 }
 
 function resolveBaseUrl(argv) {

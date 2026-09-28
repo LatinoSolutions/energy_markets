@@ -119,7 +119,7 @@ export function resolveFrozenConfig(frozenResult) {
     return {
       ok: false,
       code: "INVALID_FROZEN_CONTRACT",
-      reason: "El contrato congelado no satisface su schema; el run queda bloqueado para no correr con un contrato alterado.",
+      reason: "The frozen contract does not satisfy its schema; the run stays blocked so it never runs with an altered contract.",
       errors: validation.errors,
     };
   }
