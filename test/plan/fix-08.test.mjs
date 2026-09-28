@@ -57,7 +57,7 @@ function requireDirectPrerequisites(tasks, id, prerequisites) {
 function validatePipeline(tasks) {
   validateGraph(tasks);
   requireDirectPrerequisites(tasks, "HYP-1", ["SEM-1"]);
-  requireDirectPrerequisites(tasks, "FIX-07", ["SEM-1", "HYP-1"]);
+  requireDirectPrerequisites(tasks, "FIX-07", ["SEM-1", "HYP-1", "FIX-09"]);
   requireDirectPrerequisites(tasks, "BT-08", ["HYP-1", "FIX-07", "BT-07"]);
   requireDirectPrerequisites(tasks, "UI-08", ["SEM-1", "HYP-1", "FIX-07", "BT-08"]);
 }
@@ -100,6 +100,9 @@ test("FIX-09: active Development integration path and graph failures are checked
   assert.throws(() => validatePipeline(withRow(tasks, "UI-08", {
     requires: tasks.get("UI-08").requires.filter((id) => id !== "BT-08"),
   })), /UI-08 lacks direct prerequisite BT-08/);
+  assert.throws(() => validatePipeline(withRow(tasks, "FIX-07", {
+    requires: tasks.get("FIX-07").requires.filter((id) => id !== "FIX-09"),
+  })), /FIX-07 lacks direct prerequisite FIX-09/);
   assert.throws(() => validateGraph(withRow(tasks, "UI-08", { requires: ["UNKNOWN"] })), /unknown prerequisite UNKNOWN/);
   assert.throws(() => validateGraph(withRow(tasks, "UI-08", { requires: ["FIX-06"] })), /retired prerequisite FIX-06/);
   assert.throws(() => validateGraph(withRow(tasks, "HYP-1", { requires: ["UI-08"] })), /dependency cycle/);
