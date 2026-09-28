@@ -22,15 +22,17 @@ For comparable arms with the same B, `Delta V = V_active − V_CONTROL = H_CONTR
 
 The SPEC's `A0/A1` remain names of the frozen P5 replay arms (§13), and other old artifacts use `BASELINE`, `ARM_A/B/C`, `DIP10`, `HOUR`, `A0@11:00/CLIENT` and `B*`. Those are technical aliases only. An alias requires an explicit artifact hash, protocol version, run ID, target hypothesis and provenance; A0 maps only to CONTROL and A1 only to the active HYPOTHESIS. Even a bound alias does not establish observed CLIENT behavior. Historical DIP10 quantity/fill choices and `A0@11:00/CLIENT` are preserved as historical assumptions; they cannot be silently recast as `H-S1-01` or actual CLIENT. The main comparison uses CLIENT / BENCHMARK / canonical HYPOTHESIS identities, and displays hypothesis results only after backend comparability gates. Legacy replay is accessible as secondary provenance and is labelled exploratory; current TRADES scope/results stay outside that historical detail. Economic values come from backend artifacts only (§26.5).
 
-## Change control and paused work
+## Change control and task handoff
 
 Any change to population, baseline/CONTROL, BENCHMARK, criteria, hypothesis signal or protocol requires a new explicit version with `Supersedes / Canonical` and preserved old receipts (§0.4). This contract supersedes earlier *product labels* that presented A0 as CLIENT or B/B* as separate visible benchmarks. It does not supersede the SPEC's historical replay formulas or fabricate a new experiment.
 
-| Paused task | Disposition before resume |
+The following table records the classification made when SEM-1 was accepted. FIX-08 subsequently retired FIX-06 and replaced the temporary pauses and dependency edges in `PLAN_STATUS.md`; this historical handoff is not an active work queue.
+
+| Task at SEM-1 acceptance | Classification at that time |
 |---|---|
 | FIX-06 | REWRITE taxonomy around these identities; keep valid backend economic calculation and historical replay. |
 | FIX-07 | REWRITE visible naming to CONTROL and canonical H IDs; keep historical aliases with explicit provenance. |
 | UI-08 | REWRITE workspace presentation to consume this contract; keep Scope → Hypotheses → Results as layout direction. |
 | HYP-1 | REWRITE first H-S1-01 configuration/isolation to this conceptual definition; do not tune tau/N or silently migrate DIP10. |
 
-This row-level classification is the prerequisite from Bru's intake; implementation of those four paused tasks remains in their own tickets. No OOS opening, long run, production action or destructive rewrite is part of SEM-1.
+The active sequence is SEM-1 → HYP-1 (define H-S1-01) → FIX-07 (canonical visible naming) → UI-08 (Scope → Hypotheses → Results); UI-08 also depends explicitly on SEM-1 and HYP-1. FIX-06 is retired without an acceptance claim. Its original intake and runs remain historical provenance, as recorded in `PLAN_STATUS.md`. The later tickets implement their own scope; SEM-1 and FIX-08 do not perform those implementations. No OOS opening, long run, production action or destructive rewrite is part of SEM-1.
