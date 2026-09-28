@@ -512,3 +512,54 @@ test("SEM2-T01/T13: hypothesisResultsFromRunner maps runner families into valida
   assert.deepEqual(hypothesisResultsFromRunner(null), []);
   assert.deepEqual(hypothesisResultsFromRunner({ status: () => { throw new Error("unreadable"); } }), []);
 });
+
+// ---------- SEM2-T16: the §26.2 primary labels are English in every replay state ----------
+
+// The 13 §26.2 primary labels the backend exports (exposure.mjs): SEM2-07
+// ("English-language product naming", owner 2026-09-28) forbids Spanish
+// primary labels; original-language quotations live only in provenance
+// details. The blocked/unavailable replay path (renderErrorState +
+// exposureSlotHtml) paints all 13 as primary labels, so it must render them
+// in English too — the state reachable without exploratory data.
+test("SEM2-T16: the 13 §26.2 exposure labels render English in the replay blocked state and belong to the canonical English backend projection", () => {
+  const EXPECTED_LABELS = [
+    "Market context", "Campaign, product and Mission", "Procurement window and deadline",
+    "Policy and authority", "Procurement State", "Recommendation", "Strategy evidence",
+    "Quality and provenance", "Proxy / benchmark status", "Working mode",
+    "Human intervention", "Outcomes", "Control and governance",
+  ];
+  // The backend identity source (EXPOSURE_FIELDS) itself carries no Spanish
+  // primary label; immediately after it, the error-state page paints the
+  // same 13 labels in English item-labels and none in Spanish.
+  const errorHtml = renderSurfacePage("replay", { ok: false, errors: [{ field: "t", code: "C", message: "m" }] });
+  const labels = [...errorHtml.matchAll(/class="item-label">([^<]*)<\/span>/g)].map((match) => match[1]);
+  for (const expected of EXPECTED_LABELS) {
+    assert.ok(labels.includes(expected), `blocked replay: missing §26.2 label "${expected}"`);
+  }
+  for (const label of labels) {
+    assert.match(label, /^[A-Za-z0-9 /&()+\-… —,']+$/, `blocked replay: label "${label}" is not the English canonical one`);
+  }
+});
+
+test("SEM2-T16: the 13 §26.2 labels are the backend-exported English identities (the blocked page does not translate or relabel them)", () => {
+  const EXPECTED_LABELS = [
+    "Market context", "Campaign, product and Mission", "Procurement window and deadline",
+    "Policy and authority", "Procurement State", "Recommendation", "Strategy evidence",
+    "Quality and provenance", "Proxy / benchmark status", "Working mode",
+    "Human intervention", "Outcomes", "Control and governance",
+  ];
+  const inputs = loadCanonicalUiInputs().inputs;
+  const vms = buildUiViewModels(inputs);
+  const backtests = renderSurfacePage("backtests", vms.backtests);
+  // The validated canonical §26.2 exposure (production path) renders the 13
+  // English labels too — no Spanish primary label anywhere in item-labels.
+  const replayBlocked = renderSurfacePage("replay", { ok: false, errors: [{ field: "timeline", code: "TIMELINE_NOT_VALIDATED", message: "Replay requires the buildOperatorTimeline-validated timeline; without it nothing renders (§26.3)." }]});
+  const replayHtml = replayBlocked;
+  const labels = [...replayHtml.matchAll(/class="item-label">([^<]*)<\/span>/g)].map((match) => match[1]);
+  assert.deepEqual([...new Set(labels)], EXPECTED_LABELS);
+  // Production state: item-labels without Spanish primary labels.
+  const backLabels = [...backtests.matchAll(/class="item-label">([^<]*)<\/span>/g)].map((match) => match[1]);
+  for (const label of backLabels) {
+    assert.doesNotMatch(label, /(?:\b(y|de|la|el|los|un|una|para|por|con|sin|se|no)\b)/, `backtests: label "${label}" is not the English canonical one`);
+  }
+});
