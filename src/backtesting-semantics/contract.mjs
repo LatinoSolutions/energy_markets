@@ -1,5 +1,12 @@
 // SEM-1 · Owner decision 2026-09-28. Product identities are separate from
 // historical replay arm IDs. The latter require a run-scoped provenance mapping.
+// FIX-07 · operative revision 2026-09-28 (intake D-20260928T135440-85ac):
+// canonical Hypothesis identity/naming (H-Sx-nn / H-S1S3-nn / H-RD-nn) that
+// consumes the accepted HYP-1 definition instead of redefining it. One contract,
+// no second registry.
+import { H_S1_01 as HYP1_H_S1_01 } from "../s1-strategy/h-s1-01.mjs";
+import { contentHashOf } from "../sizing-controller/versioning.mjs";
+
 export const SEMANTIC_VERSION = "SEM-1/2026-09-28/v1";
 export const IDENTITY = Object.freeze({ CLIENT: "CLIENT", BENCHMARK: "BENCHMARK", HYPOTHESIS: "HYPOTHESIS", CONTROL: "CONTROL" });
 export const MISSIONS = Object.freeze([
@@ -8,17 +15,131 @@ export const MISSIONS = Object.freeze([
   Object.freeze({ id: "POWER_QUARTERLY", product: "POWER", cadence: "QUARTERLY", benchmarkWindow: "3-1-3" }),
   Object.freeze({ id: "POWER_MONTHLY", product: "POWER", cadence: "MONTHLY", benchmarkWindow: "1-0-1" }),
 ]);
-export const H_S1_01 = Object.freeze({
-  kind: IDENTITY.HYPOTHESIS,
-  id: "H-S1-01",
-  strategy: "S1",
-  name: "Session-Anchored Rolling Reference",
-  question: "Does a causal relative-price-location signal against a rolling session-anchored reference improve procurement versus CONTROL with identical sizing and execution?",
-  parameters: Object.freeze({ tau: "CONFIGURABLE", N: "CONFIGURABLE", referenceMethod: "VERSIONED", favorabilityRule: "VERSIONED" }),
-  status: "HOLD",
-  result: null,
-  version: SEMANTIC_VERSION,
+// Canonical hypothesis origin families (FIX-07, naming convention preserved
+// from intake D-20260928T135440-85ac).
+export const ORIGIN_TYPE = Object.freeze({
+  STRATEGY_DERIVED: "STRATEGY_DERIVED",
+  MULTI_STRATEGY: "MULTI_STRATEGY",
+  RESEARCH_DISCOVERY: "RESEARCH_DISCOVERY",
 });
+
+// H-Sx-nn (single Strategy), H-S1S3-nn (deterministically ordered multi-
+// Strategy) and H-RD-nn (Research Discovery without an evidenced Strategy
+// parent). The ID never encodes performance, phase, campaign, mission or version.
+export const HYPOTHESIS_ID_PATTERN = /^H-(?:S\d+(?:S\d+)*|RD)-\d{2}$/;
+
+// Display labels mirror the accepted HYP-1 mission scope. Backend scope keeps
+// the MISSIONS ids; this mapping is only for provenance checks/presentation.
+export const MISSION_LABELS = Object.freeze({
+  GAS_QUARTERLY: "Gas Quarterly",
+  GAS_MONTHLY: "Gas Monthly",
+  POWER_QUARTERLY: "Power Quarterly",
+  POWER_MONTHLY: "Power Monthly",
+});
+
+function deepFreeze(value) {
+  if (value && typeof value === "object") {
+    for (const child of Object.values(value)) deepFreeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isSha256(value) {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+// Canonical hypothesis record. `strategy`/`parameters`/`status`/`result` are
+// retained for the SEM-1 consumers; the identity fields are the canonical ones.
+function hypothesisRecord({
+  hypothesisId, originType, strategyRefs, name, question, version, missions,
+  provenance, aliases = [], legacy = null, strategy = null, parameters = null,
+  status = "HOLD", result = null, hypothesisHash = null,
+}) {
+  return deepFreeze({
+    kind: IDENTITY.HYPOTHESIS,
+    id: hypothesisId,
+    hypothesisId,
+    originType,
+    strategyRefs: [...strategyRefs],
+    strategy,
+    name,
+    question,
+    version,
+    missions: [...missions],
+    applicabilityStatus: missions.length ? "DECLARED" : "UNDECLARED",
+    provenance: { ...provenance },
+    aliases: [...aliases],
+    legacy,
+    parameters,
+    status,
+    result,
+    hypothesisHash,
+    semanticContract: SEMANTIC_VERSION,
+  });
+}
+
+// H-S1-01 consumes the accepted HYP-1 name/question/version; it is NOT a
+// redefinition of legacy DIP10, which stays provenance only.
+export const H_S1_01 = hypothesisRecord({
+  hypothesisId: HYP1_H_S1_01.hypothesisId,
+  originType: ORIGIN_TYPE.STRATEGY_DERIVED,
+  strategyRefs: ["S1"],
+  strategy: "S1",
+  name: HYP1_H_S1_01.name,
+  question: HYP1_H_S1_01.question,
+  version: HYP1_H_S1_01.version,
+  missions: MISSIONS.map(({ id }) => id),
+  provenance: {
+    authority: HYP1_H_S1_01.provenance.authority,
+    locator: HYP1_H_S1_01.provenance.locator,
+    semantics: HYP1_H_S1_01.provenance.semantics,
+  },
+  aliases: ["DIP10", "ARM_A"],
+  legacy: HYP1_H_S1_01.legacy,
+  parameters: { tau: "CONFIGURABLE", N: "CONFIGURABLE", referenceMethod: "VERSIONED", favorabilityRule: "VERSIONED" },
+  hypothesisHash: HYP1_H_S1_01.contentHash,
+});
+
+// H-RD-01 · Execution Hour: legacy HOUR research identity kept as Research
+// Discovery, without inventing Strategy affiliation. Applicability is left
+// undeclared because no source-bound mission scope exists for it.
+export const H_RD_01 = hypothesisRecord({
+  hypothesisId: "H-RD-01",
+  originType: ORIGIN_TYPE.RESEARCH_DISCOVERY,
+  strategyRefs: [],
+  strategy: null,
+  name: "Execution Hour",
+  question: "Does the procurement execution hour improve the economic outcome versus CONTROL, as a research question not yet assignable to a canonical Strategy parent?",
+  version: "H-RD-01/phase-A/v1",
+  missions: [],
+  provenance: {
+    authority: "D-20260928T135440-85ac/task.md (owner naming convention, 2026-09-28)",
+    locator: "/srv/hot-data/oficina-data/intake/energy-markets/D-20260928T135440-85ac/task.md",
+    semantics: "docs/product/SEM-1_BACKTESTING_SEMANTICS.md",
+  },
+  aliases: ["HOUR", "ARM_B"],
+});
+
+export const HYPOTHESIS_BY_ID = Object.freeze({
+  [H_S1_01.hypothesisId]: H_S1_01,
+  [H_RD_01.hypothesisId]: H_RD_01,
+});
+
+// Legacy research names -> canonical hypothesis. A0/A1 remain SEM-1 replay-arm
+// aliases (resolveLegacyAlias); ARM_A/ARM_B/DIP10/HOUR are bound here only as
+// provenance to the canonical hypothesis, never as primary identity.
+export const LEGACY_HYPOTHESIS_ALIASES = Object.freeze({
+  DIP10: H_S1_01.hypothesisId,
+  ARM_A: H_S1_01.hypothesisId,
+  HOUR: H_RD_01.hypothesisId,
+  ARM_B: H_RD_01.hypothesisId,
+});
+
 export const LEGACY_ALIAS_IDS = Object.freeze(["A0", "A1", "BASELINE", "ARM_A", "ARM_B", "ARM_C", "DIP10", "HOUR"]);
 
 const source = Object.freeze({
@@ -96,7 +217,7 @@ export function controlFor({ hypothesisId, runId, populationId, campaignId, obli
   const fields = { hypothesisId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, artifactSha256 };
   if (Object.values(fields).some((value) => typeof value !== "string" || value.trim() === "")) return { ok: false, code: "CONTROL_BINDING_INCOMPLETE" };
   if (!/^[a-f0-9]{64}$/.test(artifactSha256)) return { ok: false, code: "CONTROL_BINDING_INCOMPLETE" };
-  if (!/^H-(?:S\d+(?:S\d+)*|RD)-\d{2}$/.test(hypothesisId)) return { ok: false, code: "INVALID_HYPOTHESIS_ID" };
+  if (!HYPOTHESIS_ID_PATTERN.test(hypothesisId)) return { ok: false, code: "INVALID_HYPOTHESIS_ID" };
   return {
     ok: true, kind: IDENTITY.CONTROL, ...fields,
     timing: "CALENDAR_ONLY_PRICE_BLIND",
@@ -117,7 +238,7 @@ export function resolveLegacyAlias({ alias, artifactSha256, protocolVersion, map
     || ![IDENTITY.CONTROL, IDENTITY.HYPOTHESIS].includes(mapping.kind)
     || (alias === "A0" && mapping.kind !== IDENTITY.CONTROL)
     || (alias === "A1" && mapping.kind !== IDENTITY.HYPOTHESIS)
-    || (mapping.kind === IDENTITY.HYPOTHESIS && !/^H-(?:S\d+(?:S\d+)*|RD)-\d{2}$/.test(mapping.hypothesisId ?? ""))
+    || (mapping.kind === IDENTITY.HYPOTHESIS && !HYPOTHESIS_ID_PATTERN.test(mapping.hypothesisId ?? ""))
     || (mapping.kind === IDENTITY.CONTROL && !mapping.hypothesisId)
     || !mapping.runId || !mapping.provenance) {
     return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
@@ -153,4 +274,226 @@ export function compareAblation({ control, active, controlEconomics, activeEcono
   const deltaV = a.V - c.V;
   if (Math.abs(deltaV - (c.H - a.H)) > 1e-9) return { ok: false, verdict: "INVALID", code: "DELTA_V_INCONSISTENT" };
   return { ok: true, deltaV, equivalentCostDifference: c.H - a.H, verdict: "HOLD", reason: "ABSOLUTE_CRITERIA_NOT_EVALUATED", absolutePass: false };
+}
+
+// ---------------------------------------------------------------------------
+// FIX-07 · canonical Hypothesis identity. Source: intake D-20260928T135440-85ac
+// (owner naming convention) + operative revision 2026-09-28-pipeline-v2 + SEM-1.
+// ---------------------------------------------------------------------------
+
+// Deterministic, canonical ordering of Strategy refs (S1S3, never S3S1).
+export function canonicalStrategyRefs(refs) {
+  if (!Array.isArray(refs) || refs.length === 0) return { ok: false, code: "MISSING_STRATEGY_REFS" };
+  if (refs.some((ref) => typeof ref !== "string" || !/^S[1-9]\d*$/.test(ref))) return { ok: false, code: "INVALID_STRATEGY_REF" };
+  if (new Set(refs).size !== refs.length) return { ok: false, code: "DUPLICATE_STRATEGY_REF" };
+  const ordered = [...refs].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)) || a.localeCompare(b));
+  return { ok: true, refs: ordered };
+}
+
+// The ID is a pure function of origin family, canonical Strategy refs and the
+// sequential suffix. It never encodes mission, phase, campaign or performance.
+export function canonicalHypothesisId({ originType, strategyRefs = [], sequence } = {}) {
+  if (!Number.isInteger(sequence) || sequence < 1 || sequence > 99) return { ok: false, code: "INVALID_SEQUENCE" };
+  const nn = String(sequence).padStart(2, "0");
+  if (originType === ORIGIN_TYPE.RESEARCH_DISCOVERY) {
+    if (strategyRefs.length !== 0) return { ok: false, code: "RD_WITH_STRATEGY_PARENT" };
+    return { ok: true, id: `H-RD-${nn}` };
+  }
+  if (![ORIGIN_TYPE.STRATEGY_DERIVED, ORIGIN_TYPE.MULTI_STRATEGY].includes(originType)) {
+    return { ok: false, code: "INVALID_ORIGIN_TYPE" };
+  }
+  const refsOutcome = canonicalStrategyRefs(strategyRefs);
+  if (!refsOutcome.ok) return refsOutcome;
+  if (originType === ORIGIN_TYPE.STRATEGY_DERIVED && refsOutcome.refs.length !== 1) {
+    return { ok: false, code: "STRATEGY_DERIVED_NEEDS_ONE_REF" };
+  }
+  if (originType === ORIGIN_TYPE.MULTI_STRATEGY && refsOutcome.refs.length < 2) {
+    return { ok: false, code: "MULTI_STRATEGY_NEEDS_MULTIPLE_REFS" };
+  }
+  return { ok: true, id: `H-${refsOutcome.refs.join("")}-${nn}` };
+}
+
+export function verifyCanonicalHypothesisId(hypothesis) {
+  const id = hypothesis?.hypothesisId;
+  if (typeof id !== "string" || !HYPOTHESIS_ID_PATTERN.test(id)) return { ok: false, code: "INVALID_HYPOTHESIS_ID" };
+  const refsOutcome = hypothesis.originType === ORIGIN_TYPE.RESEARCH_DISCOVERY
+    ? { ok: true, refs: [] }
+    : canonicalStrategyRefs(hypothesis.strategyRefs);
+  if (!refsOutcome.ok) return refsOutcome;
+  const expected = canonicalHypothesisId({ originType: hypothesis.originType, strategyRefs: refsOutcome.refs, sequence: Number(id.slice(-2)) });
+  if (!expected.ok) return expected;
+  if (expected.id !== id) return { ok: false, code: "NON_CANONICAL_HYPOTHESIS_ID", expected: expected.id };
+  return { ok: true, id };
+}
+
+export function isCanonicalHypothesisRecord(hypothesis) {
+  if (hypothesis?.kind !== IDENTITY.HYPOTHESIS) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
+  if (!isNonEmptyString(hypothesis.name) || !isNonEmptyString(hypothesis.question)) return { ok: false, code: "MISSING_HYPOTHESIS_QUESTION" };
+  if (!Object.values(ORIGIN_TYPE).includes(hypothesis.originType)) return { ok: false, code: "INVALID_ORIGIN_TYPE" };
+  if (!Array.isArray(hypothesis.strategyRefs)) return { ok: false, code: "INVALID_STRATEGY_REFS" };
+  if (hypothesis.originType === ORIGIN_TYPE.RESEARCH_DISCOVERY && hypothesis.strategyRefs.length > 0) return { ok: false, code: "FAKE_STRATEGY_PARENT" };
+  if (hypothesis.originType !== ORIGIN_TYPE.RESEARCH_DISCOVERY && canonicalStrategyRefs(hypothesis.strategyRefs).ok === false) return { ok: false, code: "INVALID_STRATEGY_REFS" };
+  if (!Array.isArray(hypothesis.missions) || hypothesis.missions.some((mission) => !missionById(mission))) return { ok: false, code: "INVALID_MISSION_SCOPE" };
+  if (!isNonEmptyString(hypothesis.provenance?.authority) || !isNonEmptyString(hypothesis.provenance?.locator)) return { ok: false, code: "MISSING_HYPOTHESIS_PROVENANCE" };
+  return verifyCanonicalHypothesisId(hypothesis);
+}
+
+// Build/validate a canonical hypothesis identity. Missing, conflicting or non-
+// deterministic fields are rejected fail-closed; no partial identity is minted.
+export function createHypothesisIdentity({
+  hypothesisId = undefined, originType, strategyRefs = [], sequence, name, question, version, missions, provenance, aliases = [],
+} = {}) {
+  const errors = [];
+  const refsOutcome = originType === ORIGIN_TYPE.RESEARCH_DISCOVERY
+    ? (strategyRefs.length === 0 ? { ok: true, refs: [] } : { ok: false, code: "RD_WITH_STRATEGY_PARENT" })
+    : canonicalStrategyRefs(strategyRefs);
+  if (!refsOutcome.ok) errors.push({ field: "strategyRefs", code: refsOutcome.code, message: "strategyRefs no es válido para el tipo de origen." });
+  const idOutcome = refsOutcome.ok
+    ? canonicalHypothesisId({ originType, strategyRefs: refsOutcome.refs, sequence })
+    : { ok: false, code: "UNRESOLVED_HYPOTHESIS_ID" };
+  if (!idOutcome.ok) {
+    errors.push({ field: "hypothesisId", code: idOutcome.code, message: "No puede derivarse un hypothesisId determinista." });
+  } else if (hypothesisId !== undefined && hypothesisId !== idOutcome.id) {
+    errors.push({ field: "hypothesisId", code: "NON_CANONICAL_HYPOTHESIS_ID", message: `hypothesisId "${hypothesisId}" no coincide con el canónico "${idOutcome.id}".` });
+  }
+  if (!isNonEmptyString(name)) errors.push({ field: "name", code: "MISSING_REQUIRED", message: "Falta el nombre canónico de la hipótesis." });
+  if (!isNonEmptyString(question)) errors.push({ field: "question", code: "MISSING_REQUIRED", message: "Falta la pregunta falsable de la hipótesis." });
+  if (!isNonEmptyString(version)) errors.push({ field: "version", code: "MISSING_VERSION", message: "Falta la versión de la proposición/configuración." });
+  if (!Array.isArray(missions) || missions.some((mission) => !missionById(mission)) || new Set(missions).size !== missions.length) {
+    errors.push({ field: "missions", code: "INVALID_MISSION_SCOPE", message: "missions debe ser un subconjunto sin duplicados de las misiones canónicas." });
+  }
+  if (!provenance || typeof provenance !== "object" || !isNonEmptyString(provenance.authority) || !isNonEmptyString(provenance.locator)) {
+    errors.push({ field: "provenance", code: "MISSING_REQUIRED", message: "Falta provenance con authority/locator." });
+  }
+  if (errors.length) return { ok: false, errors };
+  return {
+    ok: true,
+    identity: hypothesisRecord({
+      hypothesisId: idOutcome.id, originType, strategyRefs: refsOutcome.refs, name, question, version,
+      missions, provenance, aliases,
+    }),
+  };
+}
+
+// Mission-specific configuration. The same H-S1-01 ID supports four independent
+// configurations: mission is bound here, never encoded in the ID.
+export function createMissionConfiguration({ hypothesis, missionId, configuration } = {}) {
+  if (!isCanonicalHypothesisRecord(hypothesis).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
+  if (typeof missionId !== "string" || !hypothesis.missions.includes(missionId)) return { ok: false, code: "MISSION_NOT_APPLICABLE" };
+  if (!configuration || typeof configuration !== "object" || Array.isArray(configuration) || Object.keys(configuration).length === 0) {
+    return { ok: false, code: "MISSING_CONFIGURATION" };
+  }
+  if (!isNonEmptyString(configuration.dataMode)) return { ok: false, code: "MISSING_DATA_MODE" };
+  const core = {
+    ...configuration,
+    artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION",
+    hypothesisId: hypothesis.hypothesisId,
+    hypothesisVersion: hypothesis.version,
+    missionId,
+  };
+  return { ok: true, configuration: deepFreeze({ ...core, configurationHash: contentHashOf(core) }) };
+}
+
+// Status is untested without evidence. Version/config/run/mission mismatches
+// cannot yield tested or runnable status; they stay HOLD.
+export function evaluateHypothesisStatus({ hypothesis, configuration, evidence } = {}) {
+  if (!isCanonicalHypothesisRecord(hypothesis).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
+  if (!configuration || configuration.artifactKind !== "HYPOTHESIS_MISSION_CONFIGURATION"
+    || configuration.hypothesisId !== hypothesis.hypothesisId || configuration.hypothesisVersion !== hypothesis.version
+    || !hypothesis.missions.includes(configuration.missionId)) return { ok: false, code: "INVALID_CONFIGURATION_BINDING" };
+  const { configurationHash, ...core } = configuration;
+  if (!isSha256(configurationHash) || contentHashOf(core) !== configurationHash) return { ok: false, code: "CONFIGURATION_INTEGRITY" };
+  if (evidence === null || evidence === undefined) return { ok: true, state: "UNTESTED", reason: "NO_EVIDENCE" };
+  const mismatched = [];
+  if (evidence.hypothesisId !== hypothesis.hypothesisId) mismatched.push("hypothesisId");
+  if (evidence.hypothesisVersion !== hypothesis.version) mismatched.push("hypothesisVersion");
+  if (evidence.missionId !== configuration.missionId) mismatched.push("missionId");
+  if (evidence.configurationHash !== configuration.configurationHash) mismatched.push("configurationHash");
+  if (!isNonEmptyString(evidence.runId)) mismatched.push("runId");
+  if (!isSha256(evidence.artifactSha256)) mismatched.push("artifactSha256");
+  if (mismatched.length) return { ok: true, state: "HOLD", reason: "EVIDENCE_BINDING_MISMATCH", mismatched };
+  if (evidence.comparabilityStatus !== "COMPARABLE") return { ok: true, state: "HOLD", reason: "EVIDENCE_NOT_COMPARABLE" };
+  return { ok: true, state: "TESTED", runId: evidence.runId, artifactSha256: evidence.artifactSha256 };
+}
+
+// Recalibration keeps the ID and advances the version; a materially different
+// question/strategy reaches a new ID. Neither mutates lineage silently.
+export function classifyHypothesisChange({ prior, next } = {}) {
+  if (!isCanonicalHypothesisRecord(prior).ok || !isCanonicalHypothesisRecord(next).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
+  const sameQuestion = prior.question === next.question;
+  const sameRefs = prior.strategyRefs.join(",") === next.strategyRefs.join(",");
+  const sameOrigin = prior.originType === next.originType;
+  if (prior.hypothesisId === next.hypothesisId) {
+    if (!sameQuestion || !sameRefs || !sameOrigin) return { ok: false, code: "MATERIAL_CHANGE_NEEDS_NEW_ID" };
+    return {
+      ok: true, kind: "RECALIBRATION", hypothesisId: prior.hypothesisId,
+      supersedes: { hypothesisId: prior.hypothesisId, version: prior.version },
+      canonical: { hypothesisId: next.hypothesisId, version: next.version },
+    };
+  }
+  if (sameQuestion) return { ok: false, code: "RECALIBRATION_MUST_KEEP_ID" };
+  return {
+    ok: true, kind: "NEW_PROPOSITION",
+    supersedes: { hypothesisId: prior.hypothesisId, version: prior.version },
+    canonical: { hypothesisId: next.hypothesisId, version: next.version },
+  };
+}
+
+// DIP10/HOUR/ARM_A/ARM_B resolve to a canonical hypothesis only as provenance.
+// Wrong artifact/version, a CLIENT claim or a fabricated evidence status is
+// rejected; the result can never be tested/runnable and never transfers sizing.
+export function resolveLegacyHypothesisAlias({ alias, artifactSha256, protocolVersion, mapping } = {}) {
+  const targetId = LEGACY_HYPOTHESIS_ALIASES[alias];
+  if (targetId === undefined) return { ok: false, code: "UNKNOWN_LEGACY_ALIAS" };
+  if (!isSha256(artifactSha256) || !isNonEmptyString(protocolVersion) || !mapping || typeof mapping !== "object") {
+    return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
+  }
+  const hypothesis = HYPOTHESIS_BY_ID[targetId];
+  if (mapping.alias !== alias || mapping.artifactSha256 !== artifactSha256
+    || mapping.protocolVersion !== protocolVersion || mapping.hypothesisId !== targetId) {
+    return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
+  }
+  if (mapping.kind === IDENTITY.CLIENT || mapping.identity === IDENTITY.CLIENT) return { ok: false, code: "LEGACY_ALIAS_CANNOT_BE_CLIENT" };
+  if (mapping.evidenceStatus !== undefined && mapping.evidenceStatus !== "PROVENANCE_ONLY") {
+    return { ok: false, code: "LEGACY_ALIAS_CANNOT_FABRICATE_EVIDENCE" };
+  }
+  return {
+    ok: true, kind: "LEGACY_HYPOTHESIS_PROVENANCE", alias, artifactSha256, protocolVersion,
+    hypothesisId: targetId, hypothesisName: hypothesis.name, hypothesisVersion: hypothesis.version,
+    evidenceStatus: "PROVENANCE_ONLY", tested: false, runnable: false, sizingParityClaim: false,
+    provenance: mapping.provenance ?? null,
+  };
+}
+
+// Single backend binding for BT-08/UI-08: keeps Strategy, Hypothesis, CONTROL,
+// technical arm, configuration, experiment, mission and Run as distinct entities.
+export function createExperimentBinding({ hypothesis, configuration, experimentId, control, technicalArmId, runId } = {}) {
+  if (!isCanonicalHypothesisRecord(hypothesis).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
+  if (!configuration || configuration.artifactKind !== "HYPOTHESIS_MISSION_CONFIGURATION"
+    || configuration.hypothesisId !== hypothesis.hypothesisId || configuration.hypothesisVersion !== hypothesis.version
+    || !hypothesis.missions.includes(configuration.missionId) || !isSha256(configuration.configurationHash)) {
+    return { ok: false, code: "INVALID_CONFIGURATION_BINDING" };
+  }
+  if (!isNonEmptyString(experimentId)) return { ok: false, code: "MISSING_EXPERIMENT_ID" };
+  if (!isNonEmptyString(runId)) return { ok: false, code: "MISSING_RUN_ID" };
+  if (!isNonEmptyString(technicalArmId)) return { ok: false, code: "MISSING_TECHNICAL_ARM_ID" };
+  if ([hypothesis.hypothesisId, experimentId, runId].includes(technicalArmId)) return { ok: false, code: "IDENTITY_COLLISION" };
+  if (hypothesis.hypothesisId === runId || experimentId === runId) return { ok: false, code: "IDENTITY_COLLISION" };
+  if (control !== undefined && control !== null) {
+    const missionMismatch = control.missionId !== undefined && control.missionId !== configuration.missionId;
+    if (control.ok !== true || control.kind !== IDENTITY.CONTROL || control.hypothesisId !== hypothesis.hypothesisId
+      || !isSha256(control.artifactSha256) || control.runId !== runId || missionMismatch) {
+      return { ok: false, code: "INVALID_CONTROL_BINDING" };
+    }
+  }
+  return {
+    ok: true,
+    binding: deepFreeze({
+      artifactKind: "HYPOTHESIS_EXPERIMENT_BINDING",
+      hypothesisId: hypothesis.hypothesisId, hypothesisName: hypothesis.name, hypothesisVersion: hypothesis.version,
+      originType: hypothesis.originType, strategyRefs: [...hypothesis.strategyRefs],
+      missionId: configuration.missionId, configurationHash: configuration.configurationHash,
+      experimentId, runId, technicalArmId, control: control ?? null, semanticContract: SEMANTIC_VERSION,
+    }),
+  };
 }
