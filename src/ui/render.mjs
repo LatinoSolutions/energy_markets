@@ -23,6 +23,7 @@
 //   - procedencia (recordKey, revisionId, valueSha256) y relojes visibles.
 
 import { SURFACES } from "./view-models.mjs";
+import { H_S1_01, H_RD_01 } from "../backtesting-semantics/contract.mjs";
 import { EXPLORATORY_MISSIONS } from "../exploratory/missions.mjs";
 import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
@@ -1982,10 +1983,13 @@ function tr07TobUnavailableHtml(mission) {
   </div>`;
 }
 
+// FIX-07 ID06: the current TRADES panels show canonical identity, not the
+// legacy technical aliases (Arm A/B, DIP10, hour). CONTROL is the paired
+// experimental counterpart; the hypotheses keep their canonical IDs/names.
 const TR07_ARMS = [
-  Object.freeze({ label: "Baseline · A0 11:00", color: "var(--arm-base)" }),
-  Object.freeze({ label: "Arm A · DIP10", color: "var(--arm-a)" }),
-  Object.freeze({ label: "Arm B · hour", color: "var(--arm-b)" }),
+  Object.freeze({ label: "CONTROL · 11:00", color: "var(--arm-base)" }),
+  Object.freeze({ label: `${H_S1_01.hypothesisId} · ${H_S1_01.name}`, color: "var(--arm-a)" }),
+  Object.freeze({ label: `${H_RD_01.hypothesisId} · ${H_RD_01.name}`, color: "var(--arm-b)" }),
 ];
 
 // Tabla de brazos del prototipo tradesView: sin runs TRADES, todo queda NOT RUN YET.

@@ -1,17 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  IDENTITY, MISSIONS, H_S1_01, H_RD_01, HYPOTHESIS_BY_ID, ORIGIN_TYPE,
+  IDENTITY, MISSIONS, H_S1_01, H_RD_01, HYPOTHESIS_BY_ID, ORIGIN_TYPE, MISSION_LABELS,
   canonicalHypothesisId, canonicalStrategyRefs, verifyCanonicalHypothesisId,
   isCanonicalHypothesisRecord, createHypothesisIdentity, createMissionConfiguration,
   evaluateHypothesisStatus, classifyHypothesisChange, resolveLegacyAlias,
   resolveLegacyHypothesisAlias, createExperimentBinding, controlFor,
 } from "../../src/backtesting-semantics/contract.mjs";
-import { H_S1_01 as HYP1_H_S1_01, H_S1_01_MISSIONS } from "../../src/s1-strategy/h-s1-01.mjs";
+import { H_S1_01 as HYP1_H_S1_01, H_S1_01_MISSIONS, predeclareHS1SearchSpace, createHS1Candidate } from "../../src/s1-strategy/h-s1-01.mjs";
 import { buildBacktestsViewModel } from "../../src/ui/view-models.mjs";
-import { renderBacktestsPage } from "../../src/ui/render.mjs";
+import { renderBacktestsPage, renderSurfacePage } from "../../src/ui/render.mjs";
+import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
+import { buildUiViewModels } from "../../src/ui/server.mjs";
+import { contentHashOf } from "../../src/sizing-controller/versioning.mjs";
 
 const sha = (char) => char.repeat(64);
+const FIXTURE_HASH = "a".repeat(64);
+const FIXTURE_ZONE_HASH = "b".repeat(64);
+const fixtureDays = Array.from({ length: 21 }, (_, index) => `2025-01-${String(index + 1).padStart(2, "0")}`);
+
+function availabilityFor(mission, count = 11) {
+  return fixtureDays.slice(0, count).map((day) => ({
+    mission, atUtc: `${day}T10:00:00Z`, sessionDate: day, anchor: "10:00",
+    available: true, pitAvailableAtUtc: `${day}T10:00:00Z`, sourceHash: FIXTURE_HASH,
+  }));
+}
+function searchSpaceFixture(missionId) {
+  const mission = MISSION_LABELS[missionId];
+  return predeclareHS1SearchSpace({
+    mission, developmentEndUtc: "2025-02-01T00:00:00Z",
+    session: { mission, zone: "UTC", anchors: ["10:00"], sourceHash: FIXTURE_ZONE_HASH },
+    availability: availabilityFor(mission),
+    provenance: { authority: "SYNTHETIC_FIXTURE", locator: "test/backtesting-semantics/hypothesis-identity.test.mjs", sourceHash: FIXTURE_HASH },
+  }).searchSpace;
+}
+function candidateFixture(missionId) {
+  return createHS1Candidate({
+    searchSpace: searchSpaceFixture(missionId), tau: { zone: "UTC", localTime: "10:00" }, N: 3,
+  }).candidate;
+}
 
 function identityFixture({ strategyRefs = ["S2"], sequence = 1, name = "Second Strategy Hypothesis", question = "Does the second Strategy improve timing?", version = "H-S2-01/phase-A/v1", missions = ["GAS_QUARTERLY"] } = {}) {
   return createHypothesisIdentity({
@@ -20,8 +47,27 @@ function identityFixture({ strategyRefs = ["S2"], sequence = 1, name = "Second S
   }).identity;
 }
 
-function quoteConfig(hypothesis = H_S1_01, missionId = "GAS_QUARTERLY", configuration = { dataMode: "DEVELOPMENT", tau: "11:00", N: 10 }) {
-  return createMissionConfiguration({ hypothesis, missionId, configuration }).configuration;
+function quoteConfig(hypothesis = H_S1_01, missionId = "GAS_QUARTERLY", configuration = { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 }) {
+  return createMissionConfiguration({
+    hypothesis, missionId, configuration,
+    searchSpace: searchSpaceFixture(missionId), candidate: candidateFixture(missionId),
+  }).configuration;
+}
+
+function experimentFixture(configuration, { runId = "run-1", campaignId = "camp-1", experimentId = "exp-1" } = {}) {
+  const artifactSha256 = sha("c");
+  const control = controlFor({ hypothesisId: "H-S1-01", runId, populationId: "pop-1", campaignId, obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256 });
+  return createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId, campaignId, runId, technicalArmId: "arm-1", control });
+}
+
+function evidenceFixture(configuration, { runId = "run-1", experimentId = "exp-1", artifactSha256 = sha("d"), ...overrides } = {}) {
+  return {
+    hypothesisId: "H-S1-01", hypothesisVersion: H_S1_01.version, missionId: configuration.missionId,
+    configurationHash: configuration.configurationHash, experimentId, runId, artifactSha256,
+    comparabilityStatus: "COMPARABLE",
+    provenance: { authority: "receipt", locator: `${runId}/receipt.json`, artifactSha256 },
+    ...overrides,
+  };
 }
 
 test("ID01: identity schema rejects missing/conflicting bindings and consumes the accepted HYP-1 source", () => {
@@ -32,6 +78,23 @@ test("ID01: identity schema rejects missing/conflicting bindings and consumes th
   assert.equal(createHypothesisIdentity({ ...base, name: "n", missions: ["NOT_A_MISSION"] }).ok, false);
   assert.equal(createHypothesisIdentity({ ...base, name: "n", provenance: null }).ok, false);
   assert.equal(createHypothesisIdentity({ ...base, name: "n", hypothesisId: "H-S9-99" }).ok, false);
+
+  // A published ID is not recycled: H-S1-01 cannot become DIP10 with a
+  // different question (FIX07-ID-COLLISION)…
+  const collision = createHypothesisIdentity({
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1, version: "H-S1-01/phase-A/v2",
+    name: "DIP10", question: "¿Otra pregunta distinta?", missions: ["GAS_QUARTERLY"],
+    provenance: { authority: "x", locator: "y" },
+  });
+  assert.equal(collision.ok, false);
+  assert.ok(collision.errors.some((error) => error.code === "PUBLISHED_IDENTITY_COLLISION"));
+  // …but a recalibration that keeps the accepted question may advance version.
+  const recalibration = createHypothesisIdentity({
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1, version: "H-S1-01/phase-A/v2",
+    name: H_S1_01.name, question: H_S1_01.question, missions: ["GAS_QUARTERLY"],
+    provenance: { authority: "x", locator: "y" },
+  });
+  assert.equal(recalibration.ok, true);
 
   // The active identity consumes the accepted HYP-1 name/question/version.
   assert.equal(H_S1_01.name, HYP1_H_S1_01.name);
@@ -98,19 +161,53 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
     assert.equal(byMission[mission.id].hypothesisId, "H-S1-01");
     assert.equal(byMission[mission.id].hypothesisVersion, H_S1_01.version);
     assert.equal(byMission[mission.id].missionId, mission.id);
+    assert.equal(byMission[mission.id].candidateMission, MISSION_LABELS[mission.id]);
+    assert.equal(byMission[mission.id].searchSpaceMission, MISSION_LABELS[mission.id]);
     assert.match(byMission[mission.id].configurationHash, /^[a-f0-9]{64}$/);
+    assert.match(byMission[mission.id].candidateHash, /^[a-f0-9]{64}$/);
+    assert.match(byMission[mission.id].searchSpaceHash, /^[a-f0-9]{64}$/);
   }
-  const quarter = quoteConfig(H_S1_01, "GAS_QUARTERLY", { dataMode: "DEVELOPMENT", tau: "11:00", N: 10 });
-  const month = quoteConfig(H_S1_01, "GAS_MONTHLY", { dataMode: "DEVELOPMENT", tau: "11:00", N: 10 });
+  const quarter = quoteConfig(H_S1_01, "GAS_QUARTERLY", { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 });
+  const month = quoteConfig(H_S1_01, "GAS_MONTHLY", { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 });
   assert.notEqual(quarter.configurationHash, month.configurationHash);
+
+  // Cross-mission substitution is rejected at configuration time: a Power
+  // configuration cannot bind a Gas candidate/search space.
+  const crossConfig = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "POWER_MONTHLY", configuration: { dataMode: "DEVELOPMENT" },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: candidateFixture("GAS_QUARTERLY"),
+  });
+  assert.equal(crossConfig.ok, false);
+  assert.equal(crossConfig.code, "CROSS_MISSION_CONFIGURATION");
+  const declaredSubstitution = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "POWER_MONTHLY",
+    configuration: { dataMode: "DEVELOPMENT", candidateMission: "Gas Quarterly", searchSpaceMission: "Gas Quarterly" },
+    searchSpace: searchSpaceFixture("POWER_MONTHLY"), candidate: candidateFixture("POWER_MONTHLY"),
+  });
+  assert.equal(declaredSubstitution.ok, false);
+  assert.equal(declaredSubstitution.code, "CROSS_MISSION_CONFIGURATION");
 
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter }).state, "UNTESTED");
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: null }).reason, "NO_EVIDENCE");
 
-  const evidence = (overrides = {}) => ({ hypothesisId: "H-S1-01", hypothesisVersion: H_S1_01.version, missionId: "GAS_QUARTERLY", configurationHash: quarter.configurationHash, runId: "run-1", artifactSha256: sha("d"), comparabilityStatus: "COMPARABLE", ...overrides });
-  assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: evidence() }).state, "TESTED");
-  // Cross-mission substitution is rejected: Gas evidence cannot test Power.
-  const crossMission = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quoteConfig(H_S1_01, "POWER_QUARTERLY"), evidence: evidence() });
+  const experiment = experimentFixture(quarter);
+  assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: evidenceFixture(quarter), experiment }).state, "TESTED");
+
+  // An unbound run with a shape-valid SHA is not tested evidence (FIX07-EVIDENCE-RUN).
+  const unbound = evaluateHypothesisStatus({
+    hypothesis: H_S1_01, configuration: quarter,
+    evidence: { hypothesisId: "H-S1-01", hypothesisVersion: H_S1_01.version, missionId: "GAS_QUARTERLY", configurationHash: quarter.configurationHash, runId: "unbound-run", artifactSha256: sha("d"), comparabilityStatus: "COMPARABLE" },
+  });
+  assert.equal(unbound.state, "HOLD");
+  assert.ok(unbound.mismatched.includes("experimentId"));
+  assert.ok(unbound.mismatched.includes("provenance"));
+  // Evidence whose experiment binding does not match the run stays HOLD.
+  const wrongExperiment = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: evidenceFixture(quarter, { runId: "other-run" }), experiment });
+  assert.equal(wrongExperiment.state, "HOLD");
+  assert.ok(wrongExperiment.mismatched.includes("experiment"));
+
+  // Cross-mission evidence is rejected: Gas evidence cannot test Power.
+  const crossMission = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quoteConfig(H_S1_01, "POWER_QUARTERLY"), evidence: evidenceFixture(quarter), experiment });
   assert.equal(crossMission.state, "HOLD");
   assert.ok(crossMission.mismatched.includes("configurationHash"));
   assert.ok(crossMission.mismatched.includes("missionId"));
@@ -122,16 +219,19 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
 
 test("ID05: legacy aliases are provenance-bound and cannot fabricate new-version evidence", () => {
   const artifactSha256 = sha("e");
-  const mapping = { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01", provenance: "receipt" };
+  const mapping = { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01", runId: "legacy-run", provenance: "receipt" };
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1" }).code, "UNBOUND_LEGACY_ALIAS");
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256: sha("f"), protocolVersion: "P5-v1", mapping }).code, "UNBOUND_LEGACY_ALIAS");
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P6", mapping }).code, "UNBOUND_LEGACY_ALIAS");
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, hypothesisId: "H-RD-01" } }).code, "UNBOUND_LEGACY_ALIAS");
+  // A bare alias with a hash and no run-scoped provenance is not provenance.
+  assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01" } }).code, "UNBOUND_LEGACY_ALIAS");
+  assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01", runId: "legacy-run" } }).code, "UNBOUND_LEGACY_ALIAS");
   assert.equal(resolveLegacyHypothesisAlias({ alias: "HOUR", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "HOUR", hypothesisId: "H-RD-01" } }).hypothesisId, "H-RD-01");
 
   // A0 must never map to the active hypothesis or CLIENT; it stays a replay arm.
-  assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "A0", kind: "HYPOTHESIS", runId: "r1" } }).ok, false);
-  assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "A0", kind: "CLIENT", runId: "r1" } }).ok, false);
+  assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "A0", kind: "HYPOTHESIS" } }).ok, false);
+  assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "A0", kind: "CLIENT" } }).ok, false);
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, kind: IDENTITY.CLIENT } }).code, "LEGACY_ALIAS_CANNOT_BE_CLIENT");
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, evidenceStatus: "TESTED" } }).code, "LEGACY_ALIAS_CANNOT_FABRICATE_EVIDENCE");
 
@@ -140,13 +240,14 @@ test("ID05: legacy aliases are provenance-bound and cannot fabricate new-version
   assert.equal(resolved.tested, false);
   assert.equal(resolved.runnable, false);
   assert.equal(resolved.sizingParityClaim, false);
+  assert.equal(resolved.runId, "legacy-run");
   // The mapping is read-only provenance: no mutation of the source.
-  assert.deepEqual(mapping, { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01", provenance: "receipt" });
+  assert.deepEqual(mapping, { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01", runId: "legacy-run", provenance: "receipt" });
 
   // Legacy DIP10 evidence with different sizing cannot test the new version.
   const quarter = quoteConfig();
   const legacyEvidence = { hypothesisId: "H-S1-01", hypothesisVersion: "DIP10", missionId: "GAS_QUARTERLY", runId: "legacy-run", artifactSha256, comparabilityStatus: "COMPARABLE", sizingMw: 12 };
-  const status = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: legacyEvidence });
+  const status = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: legacyEvidence, experiment: experimentFixture(quarter) });
   assert.equal(status.state, "HOLD");
   assert.ok(status.mismatched.includes("hypothesisVersion"));
   assert.ok(status.mismatched.includes("configurationHash"));
@@ -165,7 +266,20 @@ test("ID06: CLIENT/BENCHMARK/hypotheses boundaries hold and legacy names are not
   assert.match(primary, /data-identity="HYPOTHESIS"/);
   assert.match(html, /<details data-semantic="legacy-provenance"/);
 
-  const rd = resolveLegacyHypothesisAlias({ alias: "ARM_B", artifactSha256: sha("a"), protocolVersion: "P5-v1", mapping: { alias: "ARM_B", artifactSha256: sha("a"), protocolVersion: "P5-v1", hypothesisId: "H-RD-01" } });
+  // The current TRADES panels themselves must carry canonical identity, not
+  // legacy arm names (FIX07-PRIMARY-LABELS).
+  const canonicalVms = buildUiViewModels(loadCanonicalUiInputs().inputs);
+  const trades = renderSurfacePage("backtests", canonicalVms.backtests, { mode: "TRADES", missionId: "GAS_QUARTERLY", period: "PUENTE" });
+  const panelsStart = trades.indexOf('data-kind="current-backtest-panels"');
+  const legacyStart = trades.indexOf('<details data-semantic="legacy-provenance"', panelsStart);
+  const currentPanels = trades.slice(panelsStart, legacyStart);
+  assert.ok(currentPanels.includes('data-tr07="arms"'), "arms table remains a current panel");
+  assert.doesNotMatch(currentPanels, /Arm A|Arm B|DIP10|· hour/);
+  assert.match(currentPanels, /CONTROL · 11:00/);
+  assert.match(currentPanels, /H-S1-01 · Session-Anchored Rolling Reference/);
+  assert.match(currentPanels, /H-RD-01 · Execution Hour/);
+
+  const rd = resolveLegacyHypothesisAlias({ alias: "ARM_B", artifactSha256: sha("a"), protocolVersion: "P5-v1", mapping: { alias: "ARM_B", artifactSha256: sha("a"), protocolVersion: "P5-v1", hypothesisId: "H-RD-01", runId: "r", provenance: "receipt" } });
   assert.equal(rd.kind, "LEGACY_HYPOTHESIS_PROVENANCE");
   assert.equal(rd.hypothesisId, "H-RD-01");
 });
@@ -177,6 +291,9 @@ test("ID07: versioning separates recalibration from a materially different propo
   assert.equal(recalibration.kind, "RECALIBRATION");
   assert.equal(recalibration.hypothesisId, "H-S2-01");
   assert.equal(recalibration.supersedes.version, "H-S2-01/phase-A/v1");
+
+  // A transition with no version advance is not a recalibration (FIX07-VERSION-ADVANCE).
+  assert.equal(classifyHypothesisChange({ prior: v1, next: v1 }).code, "NO_VERSION_ADVANCE");
 
   const sameIdDifferentQuestion = identityFixture({ version: "H-S2-01/phase-A/v2", question: "A materially different question?" });
   assert.equal(classifyHypothesisChange({ prior: v1, next: sameIdDifferentQuestion }).code, "MATERIAL_CHANGE_NEEDS_NEW_ID");
@@ -197,23 +314,35 @@ test("ID07: versioning separates recalibration from a materially different propo
 
   const tampered = { ...quarter, configurationHash: sha("0") };
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: tampered }).code, "CONFIGURATION_INTEGRITY");
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration: tampered, experimentId: "exp-1", campaignId: "camp-1", runId: "run-1", technicalArmId: "arm-1" }).code, "CONFIGURATION_INTEGRITY");
 });
 
 test("ID08: single experiment binding keeps every entity distinct for BT-08/UI-08", () => {
   const configuration = quoteConfig(H_S1_01, "GAS_QUARTERLY");
   const runId = "run-1";
   const control = controlFor({ hypothesisId: "H-S1-01", runId, populationId: "pop-1", campaignId: "camp-1", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
-  const bound = createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", control, technicalArmId: "arm-1", runId });
+  const bound = createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", campaignId: "camp-1", control, technicalArmId: "arm-1", runId });
   assert.equal(bound.ok, true);
-  for (const field of ["hypothesisId", "hypothesisVersion", "strategyRefs", "originType", "missionId", "configurationHash", "experimentId", "runId", "technicalArmId", "control"]) {
+  for (const field of ["hypothesisId", "hypothesisVersion", "strategyRefs", "originType", "missionId", "campaignId", "configurationHash", "candidateMission", "searchSpaceMission", "candidateHash", "searchSpaceHash", "experimentId", "runId", "technicalArmId", "control"]) {
     assert.ok(Object.hasOwn(bound.binding, field), `missing ${field}`);
   }
   assert.equal(bound.binding.hypothesisId, "H-S1-01");
+  assert.equal(bound.binding.campaignId, "camp-1");
   assert.equal(bound.binding.control.kind, IDENTITY.CONTROL);
 
-  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", runId, technicalArmId: "H-S1-01" }).code, "IDENTITY_COLLISION");
-  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", runId, technicalArmId: "arm-1", control: { ok: true, kind: IDENTITY.CONTROL, hypothesisId: "H-RD-01", runId, artifactSha256: sha("c") } }).code, "INVALID_CONTROL_BINDING");
+  // A shape-valid but wrong configuration hash is rejected, and campaign and
+  // candidate references are required (FIX07-EXPERIMENT-BINDING).
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration: { ...configuration, configurationHash: sha("9") }, experimentId: "exp-1", campaignId: "camp-1", runId, technicalArmId: "arm-1" }).code, "CONFIGURATION_INTEGRITY");
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", runId, technicalArmId: "arm-1" }).code, "MISSING_CAMPAIGN_ID");
+  const { configurationHash: _unused, ...configCore } = configuration;
+  const noCandidateCore = { ...configCore };
+  delete noCandidateCore.candidateHash;
+  const noCandidate = { ...noCandidateCore, configurationHash: contentHashOf(noCandidateCore) };
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration: noCandidate, experimentId: "exp-1", campaignId: "camp-1", runId, technicalArmId: "arm-1" }).code, "MISSING_CANDIDATE_BINDING");
+
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", campaignId: "camp-1", runId, technicalArmId: "H-S1-01" }).code, "IDENTITY_COLLISION");
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", campaignId: "camp-1", runId, technicalArmId: "arm-1", control: { ok: true, kind: IDENTITY.CONTROL, hypothesisId: "H-RD-01", runId, artifactSha256: sha("c") } }).code, "INVALID_CONTROL_BINDING");
   const orphanConfiguration = { artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION", hypothesisId: H_RD_01.hypothesisId, hypothesisVersion: H_RD_01.version, missionId: "GAS_QUARTERLY", configurationHash: sha("1") };
-  assert.equal(createExperimentBinding({ hypothesis: H_RD_01, configuration: orphanConfiguration, experimentId: "exp-1", runId, technicalArmId: "arm-1" }).code, "INVALID_CONFIGURATION_BINDING");
-  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", runId: "", technicalArmId: "arm-1" }).code, "MISSING_RUN_ID");
+  assert.equal(createExperimentBinding({ hypothesis: H_RD_01, configuration: orphanConfiguration, experimentId: "exp-1", campaignId: "camp-1", runId, technicalArmId: "arm-1" }).code, "INVALID_CONFIGURATION_BINDING");
+  assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", campaignId: "camp-1", runId: "", technicalArmId: "arm-1" }).code, "MISSING_RUN_ID");
 });

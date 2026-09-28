@@ -418,7 +418,7 @@ test("TR-07 UI: el botón de expandir abre los caminos sin runs y la calibració
 test("TR-07 UI: en TRADES salen la tabla de brazos NOT RUN YET y el efecto pareado (plan :78,81)", () => {
   const html = renderBacktests({ mode: "TRADES", period: "PUENTE" });
   assert.match(html, /data-tr07="arms"/);
-  for (const arm of ["Baseline · A0 11:00", "Arm A · DIP10", "Arm B · hour"]) {
+  for (const arm of ["CONTROL · 11:00", "H-S1-01 · Session-Anchored Rolling Reference", "H-RD-01 · Execution Hour"]) {
     assert.ok(html.includes(arm), arm);
   }
   assert.match(html, /data-tr07="trades-paired"/);

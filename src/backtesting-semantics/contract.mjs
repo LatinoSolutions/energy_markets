@@ -355,6 +355,14 @@ export function createHypothesisIdentity({
     errors.push({ field: "hypothesisId", code: idOutcome.code, message: "No puede derivarse un hypothesisId determinista." });
   } else if (hypothesisId !== undefined && hypothesisId !== idOutcome.id) {
     errors.push({ field: "hypothesisId", code: "NON_CANONICAL_HYPOTHESIS_ID", message: `hypothesisId "${hypothesisId}" no coincide con el canónico "${idOutcome.id}".` });
+  } else {
+    // A published ID is not recycled: the accepted HYP-1 identity (name and
+    // falsifiable question) cannot be redefined under the same ID. A version
+    // advance that keeps the question is still allowed (recalibration).
+    const published = HYPOTHESIS_BY_ID[idOutcome.id];
+    if (published && (published.name !== name || published.question !== question)) {
+      errors.push({ field: "hypothesisId", code: "PUBLISHED_IDENTITY_COLLISION", message: `El ID publicado "${idOutcome.id}" no puede redefinirse con otro nombre o pregunta.` });
+    }
   }
   if (!isNonEmptyString(name)) errors.push({ field: "name", code: "MISSING_REQUIRED", message: "Falta el nombre canónico de la hipótesis." });
   if (!isNonEmptyString(question)) errors.push({ field: "question", code: "MISSING_REQUIRED", message: "Falta la pregunta falsable de la hipótesis." });
@@ -376,27 +384,55 @@ export function createHypothesisIdentity({
 }
 
 // Mission-specific configuration. The same H-S1-01 ID supports four independent
-// configurations: mission is bound here, never encoded in the ID.
-export function createMissionConfiguration({ hypothesis, missionId, configuration } = {}) {
+// configurations: mission is bound here, never encoded in the ID. The candidate
+// and search-space references are mission-scoped, so a Power configuration can
+// never borrow a Gas candidate (FIX07-MISSION-CONFIG).
+export function createMissionConfiguration({ hypothesis, missionId, configuration, searchSpace = null, candidate = null } = {}) {
   if (!isCanonicalHypothesisRecord(hypothesis).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
   if (typeof missionId !== "string" || !hypothesis.missions.includes(missionId)) return { ok: false, code: "MISSION_NOT_APPLICABLE" };
   if (!configuration || typeof configuration !== "object" || Array.isArray(configuration) || Object.keys(configuration).length === 0) {
     return { ok: false, code: "MISSING_CONFIGURATION" };
   }
   if (!isNonEmptyString(configuration.dataMode)) return { ok: false, code: "MISSING_DATA_MODE" };
+  const missionLabel = MISSION_LABELS[missionId];
+  for (const [field, value] of [["candidateMission", configuration.candidateMission], ["searchSpaceMission", configuration.searchSpaceMission]]) {
+    if (value !== undefined && value !== missionLabel) return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field };
+  }
+  if (!searchSpace || searchSpace.artifactKind !== "HYPOTHESIS_SEARCH_SPACE" || searchSpace.mission !== missionLabel
+    || searchSpace.hypothesisId !== hypothesis.hypothesisId || !isSha256(searchSpace.contentHash)) {
+    return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field: "searchSpace" };
+  }
+  if (!candidate || candidate.artifactKind !== "HYPOTHESIS_CANDIDATE" || candidate.mission !== missionLabel
+    || candidate.hypothesisId !== hypothesis.hypothesisId || candidate.searchSpaceHash !== searchSpace.contentHash
+    || !isSha256(candidate.contentHash)) {
+    return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field: "candidate" };
+  }
   const core = {
     ...configuration,
     artifactKind: "HYPOTHESIS_MISSION_CONFIGURATION",
     hypothesisId: hypothesis.hypothesisId,
     hypothesisVersion: hypothesis.version,
     missionId,
+    candidateMission: missionLabel,
+    searchSpaceMission: missionLabel,
+    candidateHash: candidate.contentHash,
+    searchSpaceHash: searchSpace.contentHash,
   };
   return { ok: true, configuration: deepFreeze({ ...core, configurationHash: contentHashOf(core) }) };
 }
 
+function evidenceProvenanceBound(evidence) {
+  const provenance = evidence?.provenance;
+  return Boolean(provenance) && typeof provenance === "object"
+    && isNonEmptyString(provenance.authority) && isNonEmptyString(provenance.locator)
+    && provenance.artifactSha256 === evidence.artifactSha256;
+}
+
 // Status is untested without evidence. Version/config/run/mission mismatches
-// cannot yield tested or runnable status; they stay HOLD.
-export function evaluateHypothesisStatus({ hypothesis, configuration, evidence } = {}) {
+// cannot yield tested or runnable status; they stay HOLD. Evidence cannot prove
+// itself: the referenced run needs a verified experiment binding and traceable
+// provenance (FIX07-EVIDENCE-RUN).
+export function evaluateHypothesisStatus({ hypothesis, configuration, evidence, experiment = null } = {}) {
   if (!isCanonicalHypothesisRecord(hypothesis).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
   if (!configuration || configuration.artifactKind !== "HYPOTHESIS_MISSION_CONFIGURATION"
     || configuration.hypothesisId !== hypothesis.hypothesisId || configuration.hypothesisVersion !== hypothesis.version
@@ -411,6 +447,14 @@ export function evaluateHypothesisStatus({ hypothesis, configuration, evidence }
   if (evidence.configurationHash !== configuration.configurationHash) mismatched.push("configurationHash");
   if (!isNonEmptyString(evidence.runId)) mismatched.push("runId");
   if (!isSha256(evidence.artifactSha256)) mismatched.push("artifactSha256");
+  if (!isNonEmptyString(evidence.experimentId)) mismatched.push("experimentId");
+  if (!evidenceProvenanceBound(evidence)) mismatched.push("provenance");
+  const binding = experiment?.ok === true ? experiment.binding : null;
+  if (!binding || binding.experimentId !== evidence.experimentId || binding.runId !== evidence.runId
+    || binding.hypothesisId !== hypothesis.hypothesisId || binding.missionId !== configuration.missionId
+    || binding.configurationHash !== configuration.configurationHash) {
+    mismatched.push("experiment");
+  }
   if (mismatched.length) return { ok: true, state: "HOLD", reason: "EVIDENCE_BINDING_MISMATCH", mismatched };
   if (evidence.comparabilityStatus !== "COMPARABLE") return { ok: true, state: "HOLD", reason: "EVIDENCE_NOT_COMPARABLE" };
   return { ok: true, state: "TESTED", runId: evidence.runId, artifactSha256: evidence.artifactSha256 };
@@ -425,6 +469,9 @@ export function classifyHypothesisChange({ prior, next } = {}) {
   const sameOrigin = prior.originType === next.originType;
   if (prior.hypothesisId === next.hypothesisId) {
     if (!sameQuestion || !sameRefs || !sameOrigin) return { ok: false, code: "MATERIAL_CHANGE_NEEDS_NEW_ID" };
+    // A recalibration must actually advance the version; an unchanged
+    // proposition is not a new version (FIX07-VERSION-ADVANCE).
+    if (prior.version === next.version) return { ok: false, code: "NO_VERSION_ADVANCE" };
     return {
       ok: true, kind: "RECALIBRATION", hypothesisId: prior.hypothesisId,
       supersedes: { hypothesisId: prior.hypothesisId, version: prior.version },
@@ -449,8 +496,11 @@ export function resolveLegacyHypothesisAlias({ alias, artifactSha256, protocolVe
     return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
   }
   const hypothesis = HYPOTHESIS_BY_ID[targetId];
+  // SEM-1 requires a run-scoped provenance mapping: a bare alias with a hash is
+  // not provenance and cannot resolve (FIX07-LEGACY-PROVENANCE).
   if (mapping.alias !== alias || mapping.artifactSha256 !== artifactSha256
-    || mapping.protocolVersion !== protocolVersion || mapping.hypothesisId !== targetId) {
+    || mapping.protocolVersion !== protocolVersion || mapping.hypothesisId !== targetId
+    || !isNonEmptyString(mapping.runId) || mapping.provenance === undefined || mapping.provenance === null) {
     return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
   }
   if (mapping.kind === IDENTITY.CLIENT || mapping.identity === IDENTITY.CLIENT) return { ok: false, code: "LEGACY_ALIAS_CANNOT_BE_CLIENT" };
@@ -461,18 +511,30 @@ export function resolveLegacyHypothesisAlias({ alias, artifactSha256, protocolVe
     ok: true, kind: "LEGACY_HYPOTHESIS_PROVENANCE", alias, artifactSha256, protocolVersion,
     hypothesisId: targetId, hypothesisName: hypothesis.name, hypothesisVersion: hypothesis.version,
     evidenceStatus: "PROVENANCE_ONLY", tested: false, runnable: false, sizingParityClaim: false,
-    provenance: mapping.provenance ?? null,
+    runId: mapping.runId, provenance: mapping.provenance,
   };
 }
 
 // Single backend binding for BT-08/UI-08: keeps Strategy, Hypothesis, CONTROL,
-// technical arm, configuration, experiment, mission and Run as distinct entities.
-export function createExperimentBinding({ hypothesis, configuration, experimentId, control, technicalArmId, runId } = {}) {
+// technical arm, configuration, experiment, mission/campaign and Run as distinct
+// entities. Campaign, candidate and search-space references are bound, and an
+// altered configurationHash is rejected (FIX07-EXPERIMENT-BINDING).
+export function createExperimentBinding({ hypothesis, configuration, experimentId, control, technicalArmId, runId, campaignId } = {}) {
   if (!isCanonicalHypothesisRecord(hypothesis).ok) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
   if (!configuration || configuration.artifactKind !== "HYPOTHESIS_MISSION_CONFIGURATION"
     || configuration.hypothesisId !== hypothesis.hypothesisId || configuration.hypothesisVersion !== hypothesis.version
-    || !hypothesis.missions.includes(configuration.missionId) || !isSha256(configuration.configurationHash)) {
+    || !hypothesis.missions.includes(configuration.missionId)) {
     return { ok: false, code: "INVALID_CONFIGURATION_BINDING" };
+  }
+  const { configurationHash, ...configurationCore } = configuration;
+  if (!isSha256(configurationHash) || contentHashOf(configurationCore) !== configurationHash) {
+    return { ok: false, code: "CONFIGURATION_INTEGRITY" };
+  }
+  if (!isNonEmptyString(campaignId)) return { ok: false, code: "MISSING_CAMPAIGN_ID" };
+  const missionLabel = MISSION_LABELS[configuration.missionId];
+  if (!isSha256(configuration.candidateHash) || !isSha256(configuration.searchSpaceHash)
+    || configuration.candidateMission !== missionLabel || configuration.searchSpaceMission !== missionLabel) {
+    return { ok: false, code: "MISSING_CANDIDATE_BINDING" };
   }
   if (!isNonEmptyString(experimentId)) return { ok: false, code: "MISSING_EXPERIMENT_ID" };
   if (!isNonEmptyString(runId)) return { ok: false, code: "MISSING_RUN_ID" };
@@ -492,7 +554,9 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
       artifactKind: "HYPOTHESIS_EXPERIMENT_BINDING",
       hypothesisId: hypothesis.hypothesisId, hypothesisName: hypothesis.name, hypothesisVersion: hypothesis.version,
       originType: hypothesis.originType, strategyRefs: [...hypothesis.strategyRefs],
-      missionId: configuration.missionId, configurationHash: configuration.configurationHash,
+      missionId: configuration.missionId, campaignId, configurationHash: configuration.configurationHash,
+      candidateMission: configuration.candidateMission, searchSpaceMission: configuration.searchSpaceMission,
+      candidateHash: configuration.candidateHash, searchSpaceHash: configuration.searchSpaceHash,
       experimentId, runId, technicalArmId, control: control ?? null, semanticContract: SEMANTIC_VERSION,
     }),
   };
