@@ -20,6 +20,7 @@ import { DEFAULT_REPO_ROOT } from "../pit-views/index.mjs";
 import { createBacktestJobRunner } from "../backtest-jobs/runner.mjs";
 import { createTradesJobRunner } from "../backtest-jobs/trades-runner.mjs";
 import { createHypothesisJobRunner } from "../backtest-jobs/hypothesis-runner.mjs";
+import { captureBuildIdentity } from "./build-identity.mjs";
 
 function parseArgs(argv) {
   const options = { host: DEFAULT_UI_HOST, port: DEFAULT_UI_PORT };
@@ -62,11 +63,14 @@ const tradesJobRunner = createTradesJobRunner({ repoRoot: DEFAULT_REPO_ROOT, run
 // ruta canónica; sin el runner inyectado, GET decía configured=false y el
 // POST devolvía 503.
 const hypothesisJobRunner = createHypothesisJobRunner({ repoRoot: DEFAULT_REPO_ROOT, runsDir: jobRunner.runsRoot });
-const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner, tradesJobRunner, hypothesisJobRunner });
+// SEM2-10: identidad del build servido capturada al arrancar, no por request.
+const build = captureBuildIdentity(DEFAULT_REPO_ROOT);
+const { server, ready } = createUiServer({ inputs: canonical.inputs, backend: canonical.backend, host: options.host, port: options.port, jobRunner, tradesJobRunner, hypothesisJobRunner, build });
 const served = await ready;
 console.log(`Energy Markets Operator UI: ${served.url}`);
 console.log("rutas: / (navegación) · /replay · /backtests · /research · /campaigns · /health · /api/backtest-jobs");
 console.log(`backtest runs: ${jobRunner.runsRoot}`);
+console.log(`build servido: commit=${build.commit ?? "UNKNOWN"}${build.dirty === true ? " (código sin commitear)" : ""}`);
 console.log(`backend canónico: manifest=${canonical.backend.manifestLoaded} records=${canonical.backend.recordCount} valores atestados=${canonical.backend.bindableIdentities} errores=${canonical.backend.errors.length}`);
 const stop = () => new Promise((resolve) => server.close(resolve));
 for (const signal of ["SIGINT", "SIGTERM"]) {

@@ -1164,7 +1164,7 @@ function candidateByArm(research, armId) {
   return research?.candidates?.find((candidate) => candidate.armId === armId) ?? null;
 }
 
-function campaignDetailHtml(campaign, pages, isDefault) {
+function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
   const { campaignUnknowns: unknowns, provenance, research } = pages;
   const receipts = campaignReceipts(campaign, provenance);
   const gates = campaign.gates.map((gate) => {
@@ -1189,7 +1189,7 @@ function campaignDetailHtml(campaign, pages, isDefault) {
     ].join("");
     return `<tr data-status="EXPLORATORY" data-run="${esc(campaign.id)}-${esc(run.armId)}">
         <td><div class="mono">EXP-${esc(campaign.id)}-${esc(run.armId)}</div><div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td>
-        <td>${expArmTag(run.armId)}<div class="small muted">${esc(candidate?.name ?? "")}</div></td>
+        <td>${expArmTag(run.armId)}<div class="small muted">${esc(candidate ? (semantics?.legacyCandidates?.[candidate.id]?.canonicalName ?? candidate.name) : "")}</div></td>
         <td>${chip(kind, glyph, label)}</td>
         <td style="min-width:190px">${decisionsBarHtml(run, campaign)}</td>
         <td title="the artifact carries no per-run determinism; the only check is global (Research · Replay determinism)">${chip("unk", "?", "UNKNOWN")}</td>
@@ -1213,7 +1213,7 @@ function campaignDetailHtml(campaign, pages, isDefault) {
         <div class="mono muted small">${esc(campaign.id)} · ${esc(productArea(campaign.product))} ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
         <h1 class="page">${esc(missionTitle(campaign.product))} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
         <p class="lede">${campaign.firstDay
-          ? `Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, client calendar rule), paying the real best ask. Which arm buys cheaper than the client's 11:00 practice?`
+          ? `Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, historical calendar rule), paying the real best ask. Which historical arm bought cheaper than the calendar comparator?`
           : `Procure ${campaign.targetMw} MW on the client calendar. No quoted day of this window is inside the data period.`}</p>
       </div>
       <div style="text-align:right"><div class="caps muted">Campaign readiness</div><div style="margin-top:4px">${campaignReadinessChip(campaign, { detail: true })}</div></div>
@@ -1230,13 +1230,48 @@ function campaignDetailHtml(campaign, pages, isDefault) {
   </section>`;
 }
 
-export function exploratoryCampaignsBody(exploratory) {
+// SEM-2: tira de identidades canónicas compartida por las cuatro superficies. Se
+// dibuja desde la proyección backend (view-models.mjs → projection.mjs): ningún
+// label sale de strings de presentación ni de un segundo registro. Los aliases
+// históricos quedan como provenance, nunca como identidad primaria.
+function canonicalSemanticsStrip(semantics) {
+  if (semantics?.ok !== true || !Array.isArray(semantics.missions)) {
+    return "";
+  }
+  const identityCell = (mission, identity, detail) => `<td data-identity="${esc(identity)}">${esc(semantics.labels.identities[identity === "HYPOTHESIS" ? "HYPOTHESES" : identity])}<div class="tiny muted">${esc(detail)}</div></td>`;
+  const rows = semantics.missions.map((mission) => {
+    const benchmark = mission.benchmark;
+    const benchmarkDetail = benchmark.status === "UNAVAILABLE"
+      ? `${benchmark.economicReference} · ${benchmark.window} · official settlement UNAVAILABLE`
+      : `${benchmark.economicReference} · ${benchmark.window} · ${benchmark.status}`;
+    const hypotheses = mission.hypotheses.map((hypothesis) => `${hypothesis.hypothesisId} · ${hypothesis.name}<div class="tiny muted">${hypothesis.version} · ${hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED}</div>`).join("");
+    return `<tr data-mission="${esc(mission.missionId)}">
+      <td>${esc(mission.label)}</td>
+      ${identityCell(mission, "CLIENT", mission.client.confirmed.purchaseTime
+        ? `${esc(mission.client.confirmed.purchaseTime)} ${esc(mission.client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified; sizing, fills and full cost UNKNOWN`
+        : "purchase timing UNKNOWN for this mission; sizing, fills and full cost UNKNOWN")}
+      ${identityCell(mission, "BENCHMARK", benchmarkDetail)}
+      <td data-identity="HYPOTHESIS">${hypotheses}</td>
+      ${identityCell(mission, "CONTROL", mission.control.historicalComparator
+        ? "experiment metadata · historical calendar comparator is provenance, not the active protocol"
+        : "experiment metadata · no active CONTROL is claimed on this surface")}
+    </tr>`;
+  }).join("");
+  return `<div class="card" data-semantic="SEM-2/canonical-projection" data-semantic-version="${esc(semantics.semanticVersion)}">
+    <div class="hd"><h3>${esc(semantics.labels.identities.CLIENT)} / ${esc(semantics.labels.identities.BENCHMARK)} / ${esc(semantics.labels.identities.HYPOTHESES)}</h3><span class="small muted">one shared backend projection · ${esc(semantics.labels.identities.CONTROL)} is experiment metadata</span></div>
+    <div class="bd"><table class="t"><thead><tr><th>Mission</th><th>${esc(semantics.labels.identities.CLIENT)}</th><th>${esc(semantics.labels.identities.BENCHMARK)}</th><th>${esc(semantics.labels.identities.HYPOTHESES)}</th><th>${esc(semantics.labels.identities.CONTROL)}</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="tiny muted">Canonical English identities from the backend. Historical ARM_A/DIP10/ARM_B/HOUR and A0/BASELINE remain technical aliases and provenance only; they never establish CLIENT, an active CONTROL protocol or a tested hypothesis.</p></div>
+  </div>`;
+}
+
+export function exploratoryCampaignsBody(exploratory, semantics = null) {
   const campaigns = exploratory.campaigns;
   const complete = campaigns.filter((campaign) => campaign.readiness === "EXPLORATORY_COMPLETE");
   const firstComplete = complete.find((campaign) => campaign.product === "G0BQ") ?? complete[0] ?? campaigns[0];
-  const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory, campaign === firstComplete)).join("");
+  const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory, campaign === firstComplete, semantics)).join("");
   return `${TARGET_SWITCH_CSS}${railSelectionCss(campaigns.map((campaign) => `cmp-${campaign.id}`), `cmp-${firstComplete.id}`)}
 <section class="surface campaigns" data-surface="campaigns" data-exploratory="true">
+  ${canonicalSemanticsStrip(semantics)}
   <div class="split xwrap">
     <div class="xlist">
       <div class="card crail">
@@ -1472,7 +1507,7 @@ function decisionSectionHtml(episode, item, isDefault, campaignId) {
 </section>`;
 }
 
-export function exploratoryReplayBody(exploratory) {
+export function exploratoryReplayBody(exploratory, semantics = null) {
   const episodes = exploratory.replay.filter((episode) => episode.inspector.length > 0);
   const firstQuarterly = episodes.find((episode) => episode.product === "G0BQ") ?? episodes[0];
   const campaignIds = new Map(exploratory.campaigns.map((campaign) => [`${campaign.product}|${campaign.maturity}`, campaign.id]));
@@ -1480,7 +1515,8 @@ export function exploratoryReplayBody(exploratory) {
   const sections = episodes.flatMap((episode) => episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly, campaignIds.get(`${episode.product}|${episode.maturity}`)))).join("");
   return `${TARGET_SWITCH_CSS}
 <section class="surface replay" data-surface="replay" data-exploratory="true">
-  <div class="row small" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="caps muted">Campaigns with Arm A purchases</span>${picker}</div>
+  ${canonicalSemanticsStrip(semantics)}
+  <div class="row small" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="caps muted">Campaigns with historical candidate-arm purchases</span>${picker}</div>
   <div class="xwrap">${sections}</div>
 </section>`;
 }
@@ -1512,16 +1548,26 @@ function candidateReceipts(candidate, provenance) {
   return candidate.armId ? exploratoryReceipts(provenance) : [];
 }
 
-function authorityChip(candidate) {
-  return candidate.armId === "BASELINE" ? chip("pass", "✓", esc(candidate.authority)) : chip("na", "—", esc(candidate.authority));
+// SEM-2: la autoridad NUNCA se deriva de un alias histórico. Un candidato que sólo
+// existe como mapeo legacy (A0/DIP10/HOUR) se rinde como provenance, no como
+// "current client practice" (SEM-1; audit CS-01/CS-03).
+function authorityChip(candidate, legacyView = null) {
+  if (legacyView) {
+    return chip("na", "—", esc(legacyView.authorityLabel));
+  }
+  return chip("na", "—", esc(candidate.authority));
 }
 
-function candidateListHtml(candidates, provenance) {
+function candidateName(candidate, semantics) {
+  return semantics?.legacyCandidates?.[candidate.id]?.canonicalName ?? candidate.name;
+}
+
+function candidateListHtml(candidates, provenance, semantics = null) {
   return candidates.map((candidate) => `<a class="it" href="#res-${esc(candidate.id)}">
       <div class="row"><span class="stage">${esc(candidate.stage)}</span><span class="grow"></span><span class="mono tiny muted">${esc(candidate.version)}</span></div>
-      <div style="font-weight:600;margin:3px 0 5px">${esc(candidate.name)}</div>
+      <div style="font-weight:600;margin:3px 0 5px">${esc(candidateName(candidate, semantics))}</div>
       <div class="row small" style="gap:6px"><span class="muted">Readiness</span>${chipFrom(READINESS_CHIP, candidate.readiness)}</div>
-      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE ${candidateReceipts(candidate, provenance).length}</span><span class="muted">Authority</span>${authorityChip(candidate)}</div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE ${candidateReceipts(candidate, provenance).length}</span><span class="muted">Authority</span>${authorityChip(candidate, semantics?.legacyCandidates?.[candidate.id] ?? null)}</div>
     </a>`).join("");
 }
 
@@ -1539,19 +1585,20 @@ function candidateLineageSvg(candidate) {
     return `${svg}</svg>`;
   }
   if (candidate.armId === "BASELINE") {
-    svg += node(450, 70, `${candidate.id} ${candidate.version}`, true) + caption(450, 102, "current client practice · reference");
+    svg += node(450, 70, `${candidate.id} ${candidate.version}`, true) + caption(450, 102, "historical calendar comparator · provenance");
     return `${svg}</svg>`;
   }
   const products = candidate.criteria.map((group) => group.product).join(" · ");
   svg += `<text x="600" y="30" text-anchor="middle" font-size="10" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · ${esc(products)}</text>`;
   svg += node(600, 70, `${candidate.id} ${candidate.version}`, true) + caption(600, 102, "exploratory · owner patch 02");
-  svg += node(220, 70, "A0 v1", false) + caption(220, 102, "client 11:00 · reference");
+  svg += node(220, 70, "A0 v1", false) + caption(220, 102, "historical calendar comparator · provenance");
   svg += '<path d="M518 70 L302 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
   svg += '<text x="410" y="62" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">paired against</text>';
   return `${svg}</svg>`;
 }
 
-function candidateDetailHtml(candidate, research, provenance, isDefault) {
+function candidateDetailHtml(candidate, research, provenance, isDefault, semantics = null) {
+  const legacyView = semantics?.legacyCandidates?.[candidate.id] ?? null;
   const criteria = candidate.criteria.length === 0
     ? '<div class="small muted">No success criteria measured: no run for this candidate.</div>'
     : candidate.criteria.map((group) => `<div class="mono tiny muted" style="margin-top:8px">${esc(group.product)}</div>${group.items.map((item) => {
@@ -1566,7 +1613,7 @@ function candidateDetailHtml(candidate, research, provenance, isDefault) {
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="res-${esc(candidate.id)}" data-candidate="${esc(candidate.id)}">
   <div class="row" style="align-items:flex-end">
     <div class="grow"><div class="mono muted small">${esc(candidate.id)} ${esc(candidate.version)} · owner Bru</div>
-      <h1 class="page">${esc(candidate.name)} <span class="muted">${esc(candidate.version)}</span></h1></div>
+      <h1 class="page">${esc(candidateName(candidate, semantics))} <span class="muted">${esc(candidate.version)}</span></h1></div>
     <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px">${chipFrom(READINESS_CHIP, candidate.readiness)}</div></div>
   </div>
   <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
@@ -1574,7 +1621,7 @@ function candidateDetailHtml(candidate, research, provenance, isDefault) {
       <div class="bd"><p class="hyp">${esc(candidate.hypothesis)}</p><div class="caps muted">Success criteria</div>${criteria}</div></div>
     <div>
       <div class="auth-box">
-        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span>${authorityChip(candidate)}</div>
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span>${authorityChip(candidate, legacyView)}</div>
         <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
         <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
       </div>
@@ -1587,16 +1634,17 @@ function candidateDetailHtml(candidate, research, provenance, isDefault) {
 </section>`;
 }
 
-export function exploratoryResearchBody(exploratory) {
+export function exploratoryResearchBody(exploratory, semantics = null) {
   const research = exploratory.research;
   const firstEvidence = research.candidates.find((candidate) => candidate.stage === "EVIDENCE GATHERING") ?? research.candidates[0];
-  const details = research.candidates.map((candidate) => candidateDetailHtml(candidate, research, exploratory.provenance, candidate === firstEvidence)).join("");
+  const details = research.candidates.map((candidate) => candidateDetailHtml(candidate, research, exploratory.provenance, candidate === firstEvidence, semantics)).join("");
   return `${TARGET_SWITCH_CSS}${railSelectionCss(research.candidates.map((candidate) => `res-${candidate.id}`), `res-${firstEvidence.id}`)}
 <section class="surface research" data-surface="research" data-exploratory="true">
+  ${canonicalSemanticsStrip(semantics)}
   <div class="split xwrap">
     <div class="xlist">
       <div class="caps muted" style="margin:4px 0 8px">Candidate stack</div>
-      <div class="card stack">${candidateListHtml(research.candidates, exploratory.provenance)}</div>
+      <div class="card stack">${candidateListHtml(research.candidates, exploratory.provenance, semantics)}</div>
       <div class="small muted" style="margin-top:8px">Evidence count and authority are separate columns on purpose: more evidence never turns into approval by itself.</div>
     </div>
     <div>${details}</div>
@@ -2428,7 +2476,7 @@ function exploratoryClock(exploratory) {
 }
 
 function renderExploratory(surface, vm) {
-  const body = EXPLORATORY_BODIES[surface](vm.exploratory);
+  const body = EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 

@@ -43,6 +43,7 @@ import { observationFor, TRADES_MISSION_IDS } from "./trades-panels.mjs";
 import { VISUAL_LANGUAGE_ID } from "./visual-language.mjs";
 import { backtestJobStatusPayload, handleBacktestJobsRequest, isBacktestJobsPath, tradesJobStatusPayload } from "../backtest-jobs/http.mjs";
 import { withBacktestJobControl } from "./backtest-job-panel.mjs";
+import { unknownBuildIdentity } from "./build-identity.mjs";
 
 export const DEFAULT_UI_HOST = "127.0.0.1";
 export const DEFAULT_UI_PORT = 8787;
@@ -104,11 +105,14 @@ export function buildUiViewModels(inputs = {}) {
   // TR-07: los paneles TRADES viajan dentro del view model de Backtests; el render los
   // dibuja fail-closed y sin cálculo (trades-panels.mjs).
   backtests.tradesPanels = pouring.tradesPanels;
+  // SEM-2: la MISMA proyección canónica viaja a las cuatro superficies. Replay,
+  // Research y Campaigns la reciben aquí; Backtests la construye con sus entradas.
+  const canonicalSemantics = backtests.canonicalSemantics;
   return {
-    [SURFACES.REPLAY]: { ...buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
+    [SURFACES.REPLAY]: { ...buildReplayViewModel({ timeline: pouring.timeline, exposure: pouring.exposure, backendIndex: pouring.backendIndex }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest), canonicalSemantics },
     [SURFACES.BACKTESTS]: backtests,
-    [SURFACES.RESEARCH]: { ...buildResearchViewModel({ backendIndex: pouring.backendIndex, records: pouring.researchRecords }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
-    [SURFACES.CAMPAIGNS]: { ...buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest) },
+    [SURFACES.RESEARCH]: { ...buildResearchViewModel({ backendIndex: pouring.backendIndex, records: pouring.researchRecords }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest), canonicalSemantics },
+    [SURFACES.CAMPAIGNS]: { ...buildCampaignsViewModel({ backendIndex: pouring.backendIndex, campaigns: pouring.campaigns, runs: pouring.runs }), exploratory: projectExploratoryPages(pouring.exploratoryBacktest), canonicalSemantics },
   };
 }
 
@@ -136,7 +140,7 @@ export function selectionFromSearchParams(searchParams) {
 
 const NO_BACKEND = Object.freeze({ manifestLoaded: false, recordCount: 0, bindableIdentities: 0, sources: [], gaps: [], errors: [] });
 
-function healthPayload(viewModels, backend, jobRunner) {
+function healthPayload(viewModels, backend, jobRunner, build) {
   const surfaces = {};
   for (const surface of SURFACES_LIST) {
     const vm = viewModels[surface];
@@ -146,10 +150,18 @@ function healthPayload(viewModels, backend, jobRunner) {
       exploratoryData: vm.exploratory != null,
     };
   }
+  const semantics = viewModels[SURFACES.BACKTESTS]?.canonicalSemantics ?? null;
   return {
     ok: true,
     service: "energy-markets-operator-ui",
     visualLanguage: VISUAL_LANGUAGE_ID,
+    // SEM2-10: la identidad del código CARGADO, capturada al arrancar. No se lee el
+    // HEAD del checkout por request, así que un checkout que cambia detrás del
+    // proceso no cambia lo que el servicio declara servir.
+    build: build ?? unknownBuildIdentity(),
+    semanticSnapshot: semantics?.ok === true
+      ? { semanticVersion: semantics.semanticVersion, source: semantics.source }
+      : { semanticVersion: null, source: { status: "UNAVAILABLE" } },
     surfaces,
     backend,
     backtestJobs: backtestJobsHealth(jobRunner),
@@ -197,8 +209,10 @@ function jobStatusForPage(jobRunner, tradesJobRunner) {
 // ../backtest-jobs/trades-runner.mjs; null = el modo TRADES del botón queda bloqueado.
 // `hypothesisJobRunner` (BT-08) es el de ../backtest-jobs/hypothesis-runner.mjs;
 // null = la ruta de hipótesis del endpoint queda bloqueada con el motivo.
-export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null, tradesJobRunner = null, hypothesisJobRunner = null } = {}) {
+export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAULT_UI_HOST, port = DEFAULT_UI_PORT, jobRunner = null, tradesJobRunner = null, hypothesisJobRunner = null, build = null } = {}) {
   const viewModels = buildUiViewModels(inputs);
+  // Identidad de build capturada una sola vez para todo el proceso (SEM2-10).
+  const servedBuild = build ?? unknownBuildIdentity();
 
   const server = createServer((req, res) => {
     const method = req.method ?? "GET";
@@ -232,7 +246,7 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
       return;
     }
     if (route.kind === "health") {
-      sendResponse(res, { status: 200, contentType: "application/json; charset=utf-8", body: JSON.stringify(healthPayload(viewModels, backend, jobRunner)) });
+      sendResponse(res, { status: 200, contentType: "application/json; charset=utf-8", body: JSON.stringify(healthPayload(viewModels, backend, jobRunner, servedBuild)) });
       return;
     }
     if (route.kind === "navigation") {

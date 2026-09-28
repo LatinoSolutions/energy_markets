@@ -17,7 +17,7 @@ import { toUtcTimestamp } from "../pit-views/time.mjs";
 import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import { containsOfficialStatus } from "./canonical-inputs.mjs";
-import { MISSIONS, H_S1_01, clientFor, benchmarkFor } from "../backtesting-semantics/contract.mjs";
+import { buildCanonicalSemanticsProjection } from "../backtesting-semantics/projection.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
@@ -365,6 +365,10 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     }
     return boundItem(row.label, bound.bound, { arm: declaredArm, measure: declaredMeasure });
   });
+  // SEM-2: una sola proyección backend comparte las identidades canónicas con
+  // las cuatro superficies. H-S1-01 aplica por separado a las cuatro misiones
+  // (mismo ID y pregunta, evidencia/configuración independiente; FIX-07 ID02/ID04).
+  const canonicalSemantics = buildCanonicalSemanticsProjection({ exploratory, backtestReadiness });
   return {
     ok: true,
     surface: SURFACES.BACKTESTS,
@@ -373,13 +377,15 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     exploratory: projectExploratoryBacktest(exploratory),
     sourceFreshness: exploratory?.sourceFreshness ?? backtestReadiness?.sourceFreshness ?? null,
     measurementReadiness: projectBacktestReadiness(backtestReadiness),
-    semanticComparison: MISSIONS.map((mission) => ({
-      mission,
-      client: clientFor(mission.id),
-      benchmark: benchmarkFor(mission.id),
-      // H-S1-01 applies separately to all four missions: same canonical ID and
-      // question, independent per-mission configuration/evidence (FIX-07 ID02/ID04).
-      hypotheses: [H_S1_01],
+    canonicalSemantics,
+    // La tabla primaria de Backtests compara la hipótesis Strategy-derived (H-S1-01)
+    // con CLIENT/BENCHMARK; Research Discovery (H-RD-01) viaja en canonicalSemantics
+    // y en la superficie Research, no como segundo resultado en Results (SEM-1).
+    semanticComparison: canonicalSemantics.missions.map((mission) => ({
+      mission: { id: mission.missionId, cadence: mission.cadence },
+      client: mission.client,
+      benchmark: mission.benchmark,
+      hypotheses: mission.hypotheses.filter((hypothesis) => hypothesis.originType !== "RESEARCH_DISCOVERY"),
     })),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
