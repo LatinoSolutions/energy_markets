@@ -117,6 +117,26 @@ test("ID01: identity schema rejects missing/conflicting bindings and consumes th
   assert.equal(isCanonicalHypothesisRecord(H_S1_01).ok, true);
   assert.equal(isCanonicalHypothesisRecord(H_RD_01).ok, true);
   assert.deepEqual(Object.keys(HYPOTHESIS_BY_ID).sort(), ["H-RD-01", "H-S1-01"]);
+
+  // A directly supplied record must pass the same published-identity guard as
+  // the constructor; a valid ID alone cannot rename the accepted HYP-1.
+  const redefined = { ...H_S1_01, name: "DIP10", question: "Otra pregunta", version: "H-S1-01/phase-A/v2" };
+  assert.equal(isCanonicalHypothesisRecord(redefined).code, "PUBLISHED_IDENTITY_COLLISION");
+  assert.equal(createMissionConfiguration({
+    hypothesis: redefined, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: candidateFixture("GAS_QUARTERLY"),
+  }).code, "NOT_CANONICAL_HYPOTHESIS");
+  assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, missions: ["GAS_QUARTERLY"] }).code, "PUBLISHED_SCOPE_COLLISION");
+  assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, hypothesisHash: sha("e") }).code, "PUBLISHED_DEFINITION_MISMATCH");
+  const rebuiltPublished = createHypothesisIdentity({
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1,
+    name: H_S1_01.name, question: H_S1_01.question, version: H_S1_01.version,
+    missions: [...H_S1_01.missions], provenance: H_S1_01.provenance,
+  });
+  assert.equal(rebuiltPublished.ok, true);
+  assert.equal(rebuiltPublished.identity.hypothesisHash, HYP1_H_S1_01.contentHash);
+  assert.equal(isCanonicalHypothesisRecord(rebuiltPublished.identity).ok, true);
 });
 
 test("ID02: H-S1-01 is Session-Anchored Rolling Reference from Strategy S1 across all four missions", () => {
@@ -235,6 +255,33 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
   });
   assert.equal(tamperedSpaceConfiguration.ok, false);
   assert.equal(tamperedSpaceConfiguration.code, "SEARCH_SPACE_INTEGRITY");
+
+  // Rehashing both artifacts after replacing the search space's source hash
+  // preserves their internal integrity, but no longer links them to HYP-1.
+  const { contentHash: _spaceHash, ...spaceCore } = validSearchSpace;
+  const wrongSpaceCore = { ...spaceCore, hypothesisHash: sha("e") };
+  const wrongSpace = { ...wrongSpaceCore, contentHash: contentHashOf(wrongSpaceCore) };
+  const { contentHash: _candidateHash, ...candidateCore } = linkedCandidate.candidate;
+  const relinkedCandidateCore = { ...candidateCore, searchSpaceHash: wrongSpace.contentHash };
+  const relinkedCandidate = { ...relinkedCandidateCore, contentHash: contentHashOf(relinkedCandidateCore) };
+  const wrongSourceConfiguration = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: wrongSpace, candidate: relinkedCandidate,
+  });
+  assert.equal(wrongSourceConfiguration.code, "HYPOTHESIS_DEFINITION_MISMATCH");
+  assert.equal(wrongSourceConfiguration.field, "searchSpace");
+
+  // The candidate must independently claim the same accepted definition.
+  const wrongCandidateCore = { ...candidateCore, hypothesisHash: sha("e") };
+  const wrongCandidate = { ...wrongCandidateCore, contentHash: contentHashOf(wrongCandidateCore) };
+  const wrongCandidateConfiguration = createMissionConfiguration({
+    hypothesis: H_S1_01, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: validSearchSpace, candidate: wrongCandidate,
+  });
+  assert.equal(wrongCandidateConfiguration.code, "HYPOTHESIS_DEFINITION_MISMATCH");
+  assert.equal(wrongCandidateConfiguration.field, "candidate");
 
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter }).state, "UNTESTED");
   assert.equal(evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: null }).reason, "NO_EVIDENCE");
@@ -374,6 +421,20 @@ test("ID07: versioning separates recalibration from a materially different propo
   assert.equal(classifyHypothesisChange({ prior: v1, next: sameIdDifferentQuestion }).code, "MATERIAL_CHANGE_NEEDS_NEW_ID");
   assert.equal(classifyHypothesisChange({ prior: v1, next: recalculated }).ok, true);
 
+  // A proposed H-S1-01 recalibration may keep its identity, but the current
+  // HYP-1 source cannot authorize a new version's mission/run binding.
+  const proposedH1 = createHypothesisIdentity({
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1,
+    name: H_S1_01.name, question: H_S1_01.question, version: "H-S1-01/phase-A/v2",
+    missions: [...H_S1_01.missions], provenance: H_S1_01.provenance,
+  }).identity;
+  assert.equal(isCanonicalHypothesisRecord(proposedH1).ok, true);
+  assert.equal(createMissionConfiguration({
+    hypothesis: proposedH1, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: candidateFixture("GAS_QUARTERLY"),
+  }).code, "UNBOUND_HYPOTHESIS_DEFINITION");
+
   const otherQuestion = identityFixture({ strategyRefs: ["S3"], version: "H-S3-01/phase-A/v1", question: "A different question from S3?" });
   const newProposition = classifyHypothesisChange({ prior: v1, next: otherQuestion });
   assert.equal(newProposition.kind, "NEW_PROPOSITION");
@@ -383,6 +444,16 @@ test("ID07: versioning separates recalibration from a materially different propo
   assert.equal(classifyHypothesisChange({ prior: v1, next: sameQuestionNewId }).code, "RECALIBRATION_MUST_KEEP_ID");
 
   const quarter = quoteConfig();
+  const { configurationHash: _oldConfigurationHash, ...quarterCore } = quarter;
+  const unsupportedVersionCore = { ...quarterCore, hypothesisVersion: proposedH1.version };
+  const unsupportedVersionConfig = {
+    ...unsupportedVersionCore, configurationHash: contentHashOf(unsupportedVersionCore),
+  };
+  assert.equal(evaluateHypothesisStatus({ hypothesis: proposedH1, configuration: unsupportedVersionConfig }).code, "UNBOUND_HYPOTHESIS_DEFINITION");
+  assert.equal(createExperimentBinding({
+    hypothesis: proposedH1, configuration: unsupportedVersionConfig,
+    experimentId: "exp-1", campaignId: "camp-1", runId: "run-1", technicalArmId: "arm-1",
+  }).code, "UNBOUND_HYPOTHESIS_DEFINITION");
   const mismatchedVersion = evaluateHypothesisStatus({ hypothesis: H_S1_01, configuration: quarter, evidence: { hypothesisId: "H-S1-01", hypothesisVersion: "H-S1-01/phase-A/v0", missionId: "GAS_QUARTERLY", runId: "r", artifactSha256: sha("d"), comparabilityStatus: "COMPARABLE" } });
   assert.equal(mismatchedVersion.state, "HOLD");
   assert.ok(mismatchedVersion.mismatched.includes("hypothesisVersion"));

@@ -326,6 +326,21 @@ export function verifyCanonicalHypothesisId(hypothesis) {
   return { ok: true, id };
 }
 
+function publishedIdentityConflict(hypothesis) {
+  const published = HYPOTHESIS_BY_ID[hypothesis.hypothesisId];
+  if (!published) return null;
+  if (hypothesis.name !== published.name || hypothesis.question !== published.question
+    || hypothesis.originType !== published.originType
+    || hypothesis.strategyRefs.join(",") !== published.strategyRefs.join(",")) return "PUBLISHED_IDENTITY_COLLISION";
+  if ([...hypothesis.missions].sort().join(",") !== [...published.missions].sort().join(",")) return "PUBLISHED_SCOPE_COLLISION";
+  // The accepted definition hash belongs to its published version only. A
+  // later version needs a new source artifact before it can be bound to a run.
+  if ((hypothesis.version === published.version && hypothesis.hypothesisHash !== published.hypothesisHash)
+    || (hypothesis.version !== published.version && published.hypothesisHash !== null
+      && hypothesis.hypothesisHash === published.hypothesisHash)) return "PUBLISHED_DEFINITION_MISMATCH";
+  return null;
+}
+
 export function isCanonicalHypothesisRecord(hypothesis) {
   if (hypothesis?.kind !== IDENTITY.HYPOTHESIS) return { ok: false, code: "NOT_CANONICAL_HYPOTHESIS" };
   if (!isNonEmptyString(hypothesis.name) || !isNonEmptyString(hypothesis.question)) return { ok: false, code: "MISSING_HYPOTHESIS_QUESTION" };
@@ -335,7 +350,17 @@ export function isCanonicalHypothesisRecord(hypothesis) {
   if (hypothesis.originType !== ORIGIN_TYPE.RESEARCH_DISCOVERY && canonicalStrategyRefs(hypothesis.strategyRefs).ok === false) return { ok: false, code: "INVALID_STRATEGY_REFS" };
   if (!Array.isArray(hypothesis.missions) || hypothesis.missions.some((mission) => !missionById(mission))) return { ok: false, code: "INVALID_MISSION_SCOPE" };
   if (!isNonEmptyString(hypothesis.provenance?.authority) || !isNonEmptyString(hypothesis.provenance?.locator)) return { ok: false, code: "MISSING_HYPOTHESIS_PROVENANCE" };
-  return verifyCanonicalHypothesisId(hypothesis);
+  if (!isNonEmptyString(hypothesis.version)) return { ok: false, code: "MISSING_VERSION" };
+  const id = verifyCanonicalHypothesisId(hypothesis);
+  if (!id.ok) return id;
+  const conflict = publishedIdentityConflict(hypothesis);
+  return conflict ? { ok: false, code: conflict } : id;
+}
+
+function hasAcceptedDefinition(hypothesis) {
+  const published = HYPOTHESIS_BY_ID[hypothesis.hypothesisId];
+  return Boolean(published && isSha256(published.hypothesisHash)
+    && hypothesis.version === published.version && hypothesis.hypothesisHash === published.hypothesisHash);
 }
 
 // Build/validate a canonical hypothesis identity. Missing, conflicting or non-
@@ -389,6 +414,8 @@ export function createHypothesisIdentity({
     identity: hypothesisRecord({
       hypothesisId: idOutcome.id, originType, strategyRefs: refsOutcome.refs, name, question, version,
       missions, provenance, aliases,
+      hypothesisHash: HYPOTHESIS_BY_ID[idOutcome.id]?.version === version
+        ? HYPOTHESIS_BY_ID[idOutcome.id].hypothesisHash : null,
     }),
   };
 }
@@ -404,6 +431,7 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
     return { ok: false, code: "MISSING_CONFIGURATION" };
   }
   if (!isNonEmptyString(configuration.dataMode)) return { ok: false, code: "MISSING_DATA_MODE" };
+  if (!hasAcceptedDefinition(hypothesis)) return { ok: false, code: "UNBOUND_HYPOTHESIS_DEFINITION" };
   const missionLabel = MISSION_LABELS[missionId];
   for (const [field, value] of [["candidateMission", configuration.candidateMission], ["searchSpaceMission", configuration.searchSpaceMission]]) {
     if (value !== undefined && value !== missionLabel) return { ok: false, code: "CROSS_MISSION_CONFIGURATION", field };
@@ -418,6 +446,9 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
   if (contentHashOf(searchSpaceCore) !== searchSpaceContentHash) {
     return { ok: false, code: "SEARCH_SPACE_INTEGRITY", field: "searchSpace" };
   }
+  if (searchSpace.hypothesisHash !== hypothesis.hypothesisHash) {
+    return { ok: false, code: "HYPOTHESIS_DEFINITION_MISMATCH", field: "searchSpace" };
+  }
   if (!candidate || candidate.artifactKind !== "HYPOTHESIS_CANDIDATE" || candidate.mission !== missionLabel
     || candidate.hypothesisId !== hypothesis.hypothesisId || candidate.searchSpaceHash !== searchSpace.contentHash
     || !isSha256(candidate.contentHash)) {
@@ -430,6 +461,9 @@ export function createMissionConfiguration({ hypothesis, missionId, configuratio
   const { contentHash: candidateContentHash, ...candidateCore } = candidate;
   if (contentHashOf(candidateCore) !== candidateContentHash) {
     return { ok: false, code: "CANDIDATE_INTEGRITY", field: "candidate" };
+  }
+  if (candidate.hypothesisHash !== hypothesis.hypothesisHash) {
+    return { ok: false, code: "HYPOTHESIS_DEFINITION_MISMATCH", field: "candidate" };
   }
   // The configuration declares tau/N, but the candidate is the source of truth:
   // a configuration may not restate parameters other than the bound candidate's
@@ -473,6 +507,7 @@ export function evaluateHypothesisStatus({ hypothesis, configuration, evidence, 
     || !hypothesis.missions.includes(configuration.missionId)) return { ok: false, code: "INVALID_CONFIGURATION_BINDING" };
   const { configurationHash, ...core } = configuration;
   if (!isSha256(configurationHash) || contentHashOf(core) !== configurationHash) return { ok: false, code: "CONFIGURATION_INTEGRITY" };
+  if (!hasAcceptedDefinition(hypothesis)) return { ok: false, code: "UNBOUND_HYPOTHESIS_DEFINITION" };
   if (evidence === null || evidence === undefined) return { ok: true, state: "UNTESTED", reason: "NO_EVIDENCE" };
   const mismatched = [];
   if (evidence.hypothesisId !== hypothesis.hypothesisId) mismatched.push("hypothesisId");
@@ -584,6 +619,7 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
   if (!isSha256(configurationHash) || contentHashOf(configurationCore) !== configurationHash) {
     return { ok: false, code: "CONFIGURATION_INTEGRITY" };
   }
+  if (!hasAcceptedDefinition(hypothesis)) return { ok: false, code: "UNBOUND_HYPOTHESIS_DEFINITION" };
   if (!isNonEmptyString(campaignId)) return { ok: false, code: "MISSING_CAMPAIGN_ID" };
   const missionLabel = MISSION_LABELS[configuration.missionId];
   if (!isSha256(configuration.candidateHash) || !isSha256(configuration.searchSpaceHash)

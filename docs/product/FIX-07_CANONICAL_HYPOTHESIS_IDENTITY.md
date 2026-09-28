@@ -23,7 +23,7 @@ The suffix is sequential within its family. The ID never encodes performance, ph
 - `missions` (canonical mission ids) + `applicabilityStatus` (`DECLARED`/`UNDECLARED`).
 - `provenance` (`authority` + `locator`), `aliases`, `legacy`, `hypothesisHash`.
 
-H-S1-01 consumes the accepted HYP-1 `name`/`question`/`version`/`contentHash`; legacy `DIP10` is provenance only, never its identity or evidence.
+H-S1-01 consumes the accepted HYP-1 `name`/`question`/`version`/`contentHash`; legacy `DIP10` is provenance only, never its identity or evidence. The record validator also checks a directly supplied H-S1-01 against this published name, question, Strategy refs, four-mission scope and definition hash. Recreating the published version through `createHypothesisIdentity()` retains that hash. A proposed later version remains unbound until its new source definition is accepted; the current HYP-1 hash cannot authorize its configuration or run.
 
 ## Separation of entities
 
@@ -37,7 +37,7 @@ H-S1-01 consumes the accepted HYP-1 `name`/`question`/`version`/`contentHash`; l
 
 ## Mission configurations and evidence
 
-`createMissionConfiguration()` binds one `H-S1-01` ID to one mission, one candidate and one search space (tau/N, data mode, calibration) with a content hash. Candidate and search-space references are mission-scoped: a Power configuration cannot borrow a Gas candidate/search space (`CROSS_MISSION_CONFIGURATION`), and declared `tau`/`N` must match the candidate's values (`PARAMETER_CANDIDATE_MISMATCH`). Both source artifacts must match their own content hashes: an altered search space is rejected (`SEARCH_SPACE_INTEGRITY`), and a candidate whose `N` was altered without rehashing is rejected (`CANDIDATE_INTEGRITY`). The same ID supports four independent configurations; mission is never encoded in the ID.
+`createMissionConfiguration()` binds one `H-S1-01` ID to one mission, one candidate and one search space (tau/N, data mode, calibration) with a content hash. Candidate and search-space references are mission-scoped: a Power configuration cannot borrow a Gas candidate/search space (`CROSS_MISSION_CONFIGURATION`), and declared `tau`/`N` must match the candidate's values (`PARAMETER_CANDIDATE_MISMATCH`). Both source artifacts must match their own content hashes: an altered search space is rejected (`SEARCH_SPACE_INTEGRITY`), and a candidate whose `N` was altered without rehashing is rejected (`CANDIDATE_INTEGRITY`). Rehashing either artifact cannot replace its `hypothesisHash`: search space and candidate must both refer to the accepted HYP-1 definition (`HYPOTHESIS_DEFINITION_MISMATCH`). An unaccepted definition/version fails as `UNBOUND_HYPOTHESIS_DEFINITION`. The same ID supports four independent configurations; mission is never encoded in the ID.
 
 `evaluateHypothesisStatus()` returns `UNTESTED` without evidence. A version/config/run/mission mismatch cannot yield `TESTED` — it stays `HOLD` with the mismatched fields, and tampered configuration hashes fail as `CONFIGURATION_INTEGRITY`. Cross-mission substitution is rejected. Evidence cannot prove itself: a `TESTED` state additionally requires a verified experiment binding (`experiment`) for the same hypothesis, mission, configuration and run, a paired CONTROL of the same campaign, plus traceable provenance (`authority`/`locator`/`artifactSha256`).
 
