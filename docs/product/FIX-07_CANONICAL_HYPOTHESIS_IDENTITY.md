@@ -23,7 +23,7 @@ The suffix is sequential within its family. The ID never encodes performance, ph
 - `missions` (canonical mission ids) + `applicabilityStatus` (`DECLARED`/`UNDECLARED`).
 - `provenance` (`authority` + `locator`), `aliases`, `legacy`, `hypothesisHash`.
 
-H-S1-01 consumes the accepted HYP-1 `name`/`question`/`version`/`contentHash`; legacy `DIP10` is provenance only, never its identity or evidence. The record validator also checks a directly supplied H-S1-01 against this published name, question, Strategy refs, four-mission scope and definition hash. Recreating the published version through `createHypothesisIdentity()` retains that hash. A proposed later version remains unbound until its new source definition is accepted; the current HYP-1 hash cannot authorize its configuration or run.
+H-S1-01 consumes the accepted HYP-1 `name`/`question`/`version`/`contentHash`; legacy `DIP10` is provenance only, never its identity or evidence. The record validator requires `id === hypothesisId` and checks a directly supplied H-S1-01 against its published name, question, Strategy refs, four-mission scope, provenance and definition hash. Recreating the published version through `createHypothesisIdentity()` retains that hash only with the accepted provenance; contradictory provenance is rejected (`PUBLISHED_PROVENANCE_MISMATCH`). A proposed later version remains unbound until its new source definition is accepted; the current HYP-1 hash cannot authorize its configuration or run.
 
 ## Separation of entities
 

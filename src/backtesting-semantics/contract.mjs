@@ -316,6 +316,7 @@ export function canonicalHypothesisId({ originType, strategyRefs = [], sequence 
 export function verifyCanonicalHypothesisId(hypothesis) {
   const id = hypothesis?.hypothesisId;
   if (typeof id !== "string" || !HYPOTHESIS_ID_PATTERN.test(id)) return { ok: false, code: "INVALID_HYPOTHESIS_ID" };
+  if (hypothesis.id !== id) return { ok: false, code: "HYPOTHESIS_ID_MISMATCH" };
   const refsOutcome = hypothesis.originType === ORIGIN_TYPE.RESEARCH_DISCOVERY
     ? { ok: true, refs: [] }
     : canonicalStrategyRefs(hypothesis.strategyRefs);
@@ -326,6 +327,14 @@ export function verifyCanonicalHypothesisId(hypothesis) {
   return { ok: true, id };
 }
 
+function hasPublishedProvenance(hypothesis, published) {
+  const actual = hypothesis.provenance;
+  const accepted = published.provenance;
+  return actual && typeof actual === "object" && !Array.isArray(actual)
+    && Object.keys(actual).sort().join(",") === Object.keys(accepted).sort().join(",")
+    && Object.keys(accepted).every((key) => actual[key] === accepted[key]);
+}
+
 function publishedIdentityConflict(hypothesis) {
   const published = HYPOTHESIS_BY_ID[hypothesis.hypothesisId];
   if (!published) return null;
@@ -333,6 +342,7 @@ function publishedIdentityConflict(hypothesis) {
     || hypothesis.originType !== published.originType
     || hypothesis.strategyRefs.join(",") !== published.strategyRefs.join(",")) return "PUBLISHED_IDENTITY_COLLISION";
   if ([...hypothesis.missions].sort().join(",") !== [...published.missions].sort().join(",")) return "PUBLISHED_SCOPE_COLLISION";
+  if (hypothesis.version === published.version && !hasPublishedProvenance(hypothesis, published)) return "PUBLISHED_PROVENANCE_MISMATCH";
   // The accepted definition hash belongs to its published version only. A
   // later version needs a new source artifact before it can be bound to a run.
   if ((hypothesis.version === published.version && hypothesis.hypothesisHash !== published.hypothesisHash)
@@ -387,6 +397,9 @@ export function createHypothesisIdentity({
     const published = HYPOTHESIS_BY_ID[idOutcome.id];
     if (published && (published.name !== name || published.question !== question)) {
       errors.push({ field: "hypothesisId", code: "PUBLISHED_IDENTITY_COLLISION", message: `El ID publicado "${idOutcome.id}" no puede redefinirse con otro nombre o pregunta.` });
+    }
+    if (published && version === published.version && !hasPublishedProvenance({ provenance }, published)) {
+      errors.push({ field: "provenance", code: "PUBLISHED_PROVENANCE_MISMATCH", message: `La versión publicada "${idOutcome.id}" conserva la procedencia aceptada.` });
     }
     // The accepted HYP-1 applicability is part of the published identity: a
     // recalibration advances the version, it cannot silently narrow the four

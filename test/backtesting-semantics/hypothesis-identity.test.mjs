@@ -129,6 +129,32 @@ test("ID01: identity schema rejects missing/conflicting bindings and consumes th
   }).code, "NOT_CANONICAL_HYPOTHESIS");
   assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, missions: ["GAS_QUARTERLY"] }).code, "PUBLISHED_SCOPE_COLLISION");
   assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, hypothesisHash: sha("e") }).code, "PUBLISHED_DEFINITION_MISMATCH");
+  const mismatchedId = { ...H_S1_01, id: "H-RD-01" };
+  assert.equal(verifyCanonicalHypothesisId(mismatchedId).code, "HYPOTHESIS_ID_MISMATCH");
+  assert.equal(isCanonicalHypothesisRecord(mismatchedId).code, "HYPOTHESIS_ID_MISMATCH");
+  assert.equal(createMissionConfiguration({
+    hypothesis: mismatchedId, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: candidateFixture("GAS_QUARTERLY"),
+  }).code, "NOT_CANONICAL_HYPOTHESIS");
+  assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, id: undefined }).code, "HYPOTHESIS_ID_MISMATCH");
+  const forgedProvenance = { authority: "forged", locator: "forged" };
+  const forgedRecord = { ...H_S1_01, provenance: forgedProvenance };
+  assert.equal(isCanonicalHypothesisRecord(forgedRecord).code, "PUBLISHED_PROVENANCE_MISMATCH");
+  assert.equal(createMissionConfiguration({
+    hypothesis: forgedRecord, missionId: "GAS_QUARTERLY",
+    configuration: { dataMode: "DEVELOPMENT", tau: "10:00", N: 3 },
+    searchSpace: searchSpaceFixture("GAS_QUARTERLY"), candidate: candidateFixture("GAS_QUARTERLY"),
+  }).code, "NOT_CANONICAL_HYPOTHESIS");
+  const forgedPublished = createHypothesisIdentity({
+    originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1,
+    name: H_S1_01.name, question: H_S1_01.question, version: H_S1_01.version,
+    missions: [...H_S1_01.missions], provenance: forgedProvenance,
+  });
+  assert.equal(forgedPublished.ok, false);
+  assert.ok(forgedPublished.errors.some((error) => error.code === "PUBLISHED_PROVENANCE_MISMATCH"));
+  assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, provenance: { ...H_S1_01.provenance, locator: "forged" } }).code, "PUBLISHED_PROVENANCE_MISMATCH");
+  assert.equal(isCanonicalHypothesisRecord({ ...H_S1_01, provenance: { ...H_S1_01.provenance, extra: "forged" } }).code, "PUBLISHED_PROVENANCE_MISMATCH");
   const rebuiltPublished = createHypothesisIdentity({
     originType: ORIGIN_TYPE.STRATEGY_DERIVED, strategyRefs: ["S1"], sequence: 1,
     name: H_S1_01.name, question: H_S1_01.question, version: H_S1_01.version,
