@@ -23,6 +23,7 @@
 //   - procedencia (recordKey, revisionId, valueSha256) y relojes visibles.
 
 import { SURFACES } from "./view-models.mjs";
+import { H_S1_01, H_RD_01 } from "../backtesting-semantics/contract.mjs";
 import { EXPLORATORY_MISSIONS } from "../exploratory/missions.mjs";
 import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
@@ -1982,10 +1983,13 @@ function tr07TobUnavailableHtml(mission) {
   </div>`;
 }
 
+// FIX-07 ID06: the current TRADES panels show canonical identity, not the
+// legacy technical aliases (Arm A/B, DIP10, hour). CONTROL is the paired
+// experimental counterpart; the hypotheses keep their canonical IDs/names.
 const TR07_ARMS = [
-  Object.freeze({ label: "Baseline · A0 11:00", color: "var(--arm-base)" }),
-  Object.freeze({ label: "Arm A · DIP10", color: "var(--arm-a)" }),
-  Object.freeze({ label: "Arm B · hour", color: "var(--arm-b)" }),
+  Object.freeze({ label: "CONTROL · 11:00", color: "var(--arm-base)" }),
+  Object.freeze({ label: `${H_S1_01.hypothesisId} · ${H_S1_01.name}`, color: "var(--arm-a)" }),
+  Object.freeze({ label: `${H_RD_01.hypothesisId} · ${H_RD_01.name}`, color: "var(--arm-b)" }),
 ];
 
 // Tabla de brazos del prototipo tradesView: sin runs TRADES, todo queda NOT RUN YET.
@@ -2124,7 +2128,9 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
     <td>${esc(mission.id.replaceAll("_", " "))}</td>
     <td data-identity="CLIENT">CLIENT<div class="tiny muted">${client.confirmed.purchaseTime ? `${esc(client.confirmed.purchaseTime)} ${esc(client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified` : "purchase timing UNKNOWN for this mission"}; sizing, fills and full cost UNKNOWN</div></td>
     <td data-identity="BENCHMARK">BENCHMARK<div class="tiny muted">B · ${esc(benchmark.window)} · ${esc(benchmark.status)}; official settlement UNAVAILABLE</div></td>
-    <td data-identity="HYPOTHESIS">UNAVAILABLE<div class="tiny muted">no comparable hypothesis result${hypotheses.length ? "; research question remains in Research" : ""}</div></td>
+    <td data-identity="HYPOTHESIS">${hypotheses.length
+      ? hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}<div class="tiny muted">${esc(hypothesis.version)} · research question · no comparable result</div></span>`).join("")
+      : 'UNAVAILABLE<div class="tiny muted">no canonical hypothesis</div>'}</td>
   </tr>`).join("");
   const semanticTable = `<div class="card" data-semantic="SEM-1/2026-09-28/v1"><div class="hd"><h3>Client / Benchmark / Hypotheses</h3><span class="small muted">one obligation and campaign per mission · CONTROL is experiment metadata</span></div><div class="bd"><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${semanticRows}</tbody></table><p class="tiny muted">H-S1-01 is a research question from S1; no comparable run result is presented. Client economics and hypothesis PASS are HOLD until comparable backend evidence exists. No economic value is inferred from the client's confirmed 11:00 timing.</p></div></div>`;
 

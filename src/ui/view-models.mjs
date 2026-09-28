@@ -377,7 +377,9 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
       mission,
       client: clientFor(mission.id),
       benchmark: benchmarkFor(mission.id),
-      hypotheses: mission.id === "GAS_QUARTERLY" ? [H_S1_01] : [],
+      // H-S1-01 applies separately to all four missions: same canonical ID and
+      // question, independent per-mission configuration/evidence (FIX-07 ID02/ID04).
+      hypotheses: [H_S1_01],
     })),
     // Los comparadores canónicos del brief que este boundary aún no expose:
     // honestamente declarados, no simulados.
