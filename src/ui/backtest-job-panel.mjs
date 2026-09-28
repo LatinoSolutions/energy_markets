@@ -81,6 +81,8 @@ ${JOB_CONTROL_SCRIPT}`;
 
 // Zona: la cabecera de la página de Backtests, junto a las etiquetas de brazos.
 export function withBacktestJobControl(html, status, { mode = "TOB" } = {}) {
+  const slot = '<div data-job-control-slot></div>';
+  if (html.includes(slot)) return html.replace(slot, renderBacktestJobControl(status, { mode }));
   const marker = '<div class="armhead">';
   const index = html.indexOf(marker);
   if (index === -1) return html;

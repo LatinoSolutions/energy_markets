@@ -2120,21 +2120,23 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   const checks = `<div class="chk" data-status="UNAVAILABLE"><span><b>${esc(integrity.label)}</b></span>${chip("unk", "?", "Unknown")}<span class="d">${esc(integrity.reason)}</span></div>
     <div class="chk"><span><b>Pairing · look-ahead · execution · closure</b></span>${chip("unk", "?", "Not exposed")}<span class="d">no method or integrity receipt is exposed by the boundary; no check is presumed to pass</span></div>`;
 
+  const semanticRows = (validated ? vm.semanticComparison ?? [] : []).map(({ mission, client, benchmark, hypotheses }) => `<tr data-mission="${esc(mission.id)}">
+    <td>${esc(mission.id.replaceAll("_", " "))}</td>
+    <td data-identity="CLIENT">CLIENT<div class="tiny muted">${client.confirmed.purchaseTime} ${client.confirmed.timezone} · timing only; sizing, fills and full cost UNKNOWN</div></td>
+    <td data-identity="BENCHMARK">BENCHMARK<div class="tiny muted">B · ${esc(benchmark.window)} · ${esc(benchmark.status)}; official settlement UNAVAILABLE</div></td>
+    <td data-identity="HYPOTHESIS">UNAVAILABLE<div class="tiny muted">no comparable hypothesis result${hypotheses.length ? "; research question remains in Research" : ""}</div></td>
+  </tr>`).join("");
+  const semanticTable = `<div class="card" data-semantic="SEM-1/2026-09-28/v1"><div class="hd"><h3>Client / Benchmark / Hypotheses</h3><span class="small muted">one obligation and campaign per mission · CONTROL is experiment metadata</span></div><div class="bd"><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${semanticRows}</tbody></table><p class="tiny muted">H-S1-01 is a research question from S1; no comparable run result is presented. Client economics and hypothesis PASS are HOLD until comparable backend evidence exists. No economic value is inferred from the client's confirmed 11:00 timing.</p></div></div>`;
+
   return `
 <section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${vm?.sourceFreshness ? ` data-source-status="${esc(vm.sourceFreshness.status)}"` : ""}${validated ? "" : ' data-state="ERROR"'}>
   ${validated ? "" : errorBarHtml(errors)}
   ${vm?.sourceFreshness?.status === "STALE" ? `<div class="card" data-status="STALE"><div class="hd"><h3>Source stale · FIX-03</h3>${chip("warn", "!", "Stale")}</div><div class="bd">${esc(vm.sourceFreshness.reason)}. Historical exploratory figures below are stale and must not be treated as current. ${esc(vm.sourceFreshness.staleArtifacts.join(", "))}.</div></div>` : ""}
-  <div class="row" style="align-items:flex-end">
-    <div class="grow">${hasExploratory ? `
-      <div class="mono muted small">economic comparison · exploratory · ${esc(observationSourceLabel(mode))}</div>
-      <h1 class="page">Does another hour or a dip rule buy cheaper than the client's 11:00?</h1>
-      <p class="lede">Paired comparison of two exploratory arms against the Baseline, on the same days and the same ${esc(observationSourceLabel(mode))} data. Figures are <b>exploratory</b>: B* is a proxy and fees are UNKNOWN (excluded, never zero).</p>` : `
-      <div class="mono muted small">economic comparison · canonical producers only</div>
-      <h1 class="page">Economic comparison of experimental arms</h1>
-      <p class="lede">Measures are shown only as published by canonical producers and bound to the verified backend manifest. Without a producer, the slot stays explicit: no comparison is fabricated.</p>`}
-    </div>
-    <div class="armhead">${armHeadHtml(arms, hasExploratory ? vm.exploratory.comparison : null)}</div>
-  </div>
+  <div class="row" style="align-items:flex-end"><div class="grow"><div class="mono muted small">economic comparison · semantic contract v1</div><h1 class="page">Client, Benchmark and Hypotheses</h1><p class="lede">Four missions are evaluated separately. Results appear only with comparable backend evidence.</p></div><div data-job-control-slot></div></div>
+  ${semanticTable}
+  <details data-semantic="legacy-provenance" style="margin-top:14px"><summary>Historical exploratory replay and technical aliases · provenance</summary>
+  <p class="tiny muted">Superseded historical research question: Does another hour or a dip rule buy cheaper than the client's 11:00? It modeled an exploratory arm, not evidenced CLIENT behavior.</p>
+  <div class="armhead">${armHeadHtml(arms, hasExploratory ? vm.exploratory.comparison : null)}</div>
 
   ${validated ? tr07ScopeHtml(vm.tradesPanels, selection) : ""}
   ${validated ? tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness, selectedMission?.shortCode ?? null)) : ""}
@@ -2168,6 +2170,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
       <div class="tiny muted" style="margin-top:4px">◆ closed · ◇ interim · hatched = no estimate (not zero)</div></div></div>
   </div>
 `}
+  </details>
 </section>`;
 }
 
