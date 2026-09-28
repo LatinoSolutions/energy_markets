@@ -54,3 +54,7 @@ Notas de interpretación obligatorias:
 - Las maturities históricas son episodios de validación bajo el mandato actual; no prueban que Fundamental tuviera ese mandato históricamente.
 - No se observa en este paquete un Campaign ID único/current maturity record; IMP-02 debe demostrar si puede materializar su campaña conforme a §25.1/§25.2 sin inventarlo.
 - Ejecución backtest: latest TOB best ask <= 11:00 + 0.15 EUR/MWh provisional, full fill; otros fees unknown/excluded pending evidence.
+
+## Research / Backtesting — decisiones explícitas de Bru, 28-sep-2026
+
+Para HYP-1, FIX-07, BT-08, UI-08 y su reparación de tests FIX-09, leer `docs/product/RESEARCH_BACKTESTING_PIPELINE_2026-09-28.md` y el `task.md` operativo enlazado en la fila vigente de `PLAN_STATUS.md`. Los intakes originales y las poblaciones históricas de P5 no restringen H-S1-01 a Gas Quarterly: aplica a las cuatro misiones por separado. La semántica vigente es CLIENT / BENCHMARK / HYPOTHESES, con CONTROL en ablation. FIX-06 está retirado. Las revisiones operativas contienen la aceptación explícita; no regenerar criterios de una taxonomía anterior. Esta precedencia es limitada al alcance y naming acordados: no autoriza modificar evidencia histórica, fórmulas económicas, gates OOS, freezes o límites de recursos.
