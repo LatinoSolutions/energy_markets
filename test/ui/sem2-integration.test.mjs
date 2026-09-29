@@ -301,7 +301,8 @@ test("SEM2-T07: the inspector shows the source-bound run, producer and anchor; a
   assert.doesNotMatch(html, /run EXP-[^<]*ARM_A/);
   assert.match(html, /BUY at [^<]*09:30 Berlin/);
   assert.doesNotMatch(html, /BUY at [^<]* 11:00 Berlin/);
-  assert.match(html, /legacy arm DIP10 \(provenance only\)/);
+  // UI-10: the producer is the historical run named by its backend lineage.
+  assert.match(html, /DIP10 11:00 · legacy lineage of H-S1-01 \(provenance only\)/);
   // Recommendation/request/fill stay separate objects with their own quantities.
   const episode = patched.replay.find((entry) => entry.inspector.length > 0);
   const item = episode.inspector[0];
@@ -335,7 +336,7 @@ test("SEM2-T09: without new-version evidence H-S1-01 stays UNTESTED and DIP10/HO
   assert.match(html, /Untested/);
   assert.doesNotMatch(html, /TESTED/);
   assert.match(html, /data-historical-provenance="true"/);
-  assert.match(html, /provenance of the legacy run, not criteria of the canonical hypothesis/);
+  assert.match(html, /Historical success criteria of the legacy run · not criteria of the canonical hypothesis/);
   // The canonical H-RD-01 stays Research Discovery provenance only.
   assert.match(html, /data-hypothesis-id="H-RD-01"/);
   // No client-practice authority anywhere.
@@ -473,7 +474,7 @@ test("SEM2-T15: canonical tables live in overflow containers and the composition
   // Without exploratory panels the economic measures table renders and stays
   // horizontally scrollable too.
   const economicHtml = renderSurfacePage("backtests", buildBacktestsViewModel({ backendIndex: null, rows: [] }));
-  assert.match(economicHtml, /data-overflow-container>\s*<table class="t">\s*<thead><tr><th>Arm<\/th>/, "economic table overflow container");
+  assert.match(economicHtml, /data-overflow-container>\s*<table class="t">\s*<thead><tr><th>Run<\/th>/, "economic table overflow container");
   // The canonical strip renders all four missions at both reference widths.
   const strip = exploratoryCampaignsBody(projectExploratoryPages(inputs.exploratoryBacktest), vms.campaigns.canonicalSemantics);
   for (const missionId of ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"]) {

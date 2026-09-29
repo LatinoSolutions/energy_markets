@@ -402,7 +402,87 @@ ul.events-list > li.event:last-child { border-bottom: 0; }
 .nav-card .t { font: 600 18px/1.2 var(--serif); margin: 4px 0 6px; }
 `;
 
-export const UI_STYLESHEET = `${GOLDEN_CSS}${PRODUCT_CSS}`;
+// UI-10 (intake D-20260929T103404-2ec5, PLAN_UI §3 "Direction" and §4.C
+// steps 15-18): readability revision on top of the approved light/editorial
+// base, which stays literal above for its provenance. Base type 16 px / 1.6,
+// nothing under 14 px (SVG included), secondary ink #4a4a4a (≥ 7:1 on the
+// cream surface), status chips as rounded pills, banded table headers,
+// tabular figures, a 4 px bar on the active tab and a dashed card for
+// historical provenance.
+const UI10_CSS = `
+:root { --ink: #111; --ink-2: #4a4a4a; --ink-3: #4a4a4a; --surface: #fffefb; }
+body { font: 16px/1.6 var(--sans); }
+.mono { font-size: 14px; }
+.small { font-size: 15px; }
+.tiny { font-size: 14px; }
+.caps { font-size: 13px; letter-spacing: .07em; }
+.regime { font-size: 13px; }
+.brand .sub { font-size: 13px; }
+nav.ws a { border-bottom-width: 4px; }
+nav.ws a .k { font-size: 13px; }
+nav.ws a .t { font-size: 17px; }
+nav.ws a.on .t { font-weight: 700; }
+.clock { font-size: 14px; }
+.ctx { font-size: 15px; }
+.btn { font-size: 15px; padding: 6px 12px; border-radius: 6px; }
+.jobctl .btn[data-job-start]:not([disabled]) { background: var(--ink); color: #fff; border-color: var(--ink); }
+h1.page { font-size: 34px; line-height: 1.15; }
+h2.sec { font-size: 22px; }
+.lede { font-size: 17px; }
+.card { border-radius: 10px; }
+.card > .hd { padding: 14px 20px; flex-wrap: wrap; }
+.card > .hd h3 { font-size: 18px; }
+.card > .bd { padding: 18px 20px; }
+table.t th { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-bottom: 2px solid var(--ink); padding: 9px 12px; }
+table.t td { font-size: 14px; padding: 10px 12px; }
+table.t td.num, table.t td.right, .num { font-variant-numeric: tabular-nums; }
+table.t td.right, table.t td.num { text-align: right; }
+.st { border-radius: 999px; font-size: 14px; font-weight: 700; padding: 2px 10px 2px 8px; line-height: 20px; border: 1px solid currentColor; }
+.st.na { border-color: var(--rule); }
+.unkv, .openv, .withheld { font-size: 14px; }
+.ev, .stage, .zt, .condition, .event .event-class { font-size: 13px; }
+.chk .d { font-size: 14px; color: var(--ink-2); }
+.obj .kv, .drawer dl, .key .kr, .note-ev, .gapnote, .errbar, .receipt, .drill a, details.tbl summary { font-size: 14px; }
+.crail .cwin, .clegend, .cgrp .csum, .crail-title, .crail .cempty { font-size: 13px; }
+.crail .crow { font-size: 15px; }
+svg text { font-size: 14px; }
+svg .axis text { font-size: 13px; fill: var(--ink-2); }
+.pptip, .pptip table, .pptip .t-sub, .pptip .foot { font-size: 14px; }
+.kvgrid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.kvgrid dt { color: var(--ink-2); font-size: 14px; }
+.kvgrid dd { margin: 0; }
+.alias { font-size: 14px; color: var(--ink-2); }
+details.quote, details.blockers, details.refs, details.picker { margin-top: 4px; }
+details.quote > summary, details.blockers > summary, details.refs > summary { cursor: pointer; font-size: 14px; color: var(--ink-2); }
+details.picker > summary { cursor: pointer; font-size: 15px; }
+details.picker .pgrp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+details.cbh > summary { list-style: none; cursor: pointer; border-bottom: 0; }
+details.cbh > summary::-webkit-details-marker { display: none; }
+details.cbh[open] > summary { border-bottom: 1px solid var(--rule-2); }
+.hist { border: 2px dashed var(--ink-3); border-radius: 10px; background: var(--surface); padding: 0; }
+details.hist { padding: 14px 20px 20px; }
+details.hist > summary { cursor: pointer; display: flex; gap: 10px; align-items: center; font-size: 17px; padding: 4px 0 10px; }
+.histblock { border: 2px dashed var(--ink-3); border-radius: 10px; padding: 14px 20px; margin-top: 14px; background: var(--surface); }
+.histbadge { display: inline-block; font: 700 13px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--ink); border-radius: 3px; padding: 4px 7px; margin-right: 8px; }
+.histnote { border: 2px dashed var(--ink-3); border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 15px; background: var(--surface); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.crit-matrix td:first-child { min-width: 220px; }
+.crit-matrix td { overflow-wrap: anywhere; }
+.split > *, .grid > * { min-width: 0; }
+.cready { display: block; font-size: 13px; color: var(--ink-2); line-height: 1.2; }
+.crail .crow { grid-template-columns: 10px 1fr; align-items: start; row-gap: 0; }
+.crail .crow .cwin, .crail .crow .cready { grid-column: 2; }
+nav.ws a { min-width: 0; padding: 0 14px; }
+.drill { flex-wrap: wrap; }
+.stack .st { white-space: normal; }
+header.top { gap: 16px; }
+.brand { min-width: 170px; }
+.brand .sub { white-space: nowrap; }
+.clock { white-space: normal; max-width: 250px; }
+.dechead > .row { flex-wrap: wrap; }
+`;
+
+export const UI_STYLESHEET = `${GOLDEN_CSS}${PRODUCT_CSS}${UI10_CSS}`;
 
 // Semantics key: misma tarjeta y filas que el mockup (#key). Sólo gramática
 // visual; ninguna definición económica ni regla de evaluación.

@@ -215,3 +215,78 @@ export function legacyRoleOf(adapter, legacyId) {
   }
   return adapter.roles?.[legacyId] ?? unresolved(legacyId, "UNKNOWN_LEGACY_ARM");
 }
+
+// UI-10 (intake D-20260929T103404-2ec5, PLAN_UI §1 and §4.A.1-2): visible names
+// of the historical exploratory runs. The immutable artifacts keep emitting
+// BASELINE / ARM_A / ARM_B; these are the product names shown instead, with the
+// technical alias kept as a secondary provenance line. BASELINE is the
+// historical calendar comparator (A0), never "Baseline" nor CLIENT; the two
+// candidate arms are legacy lineage of their canonical hypothesis, never its
+// result (FIX-07 ID05/ID06, SEM-2 SEM2-04/SEM2-06).
+export const LEGACY_RUN_NAMES = Object.freeze({
+  BASELINE: "Calendar comparator (A0)",
+  ARM_A: "DIP10 11:00",
+  ARM_B: "Out-of-episode hour",
+});
+
+// Whole historical labels that are replaced as a unit (PLAN_UI §1: gate
+// "All arms complete" -> "All runs complete", stage "REFERENCE BASELINE" ->
+// "Historical comparator", strategy entries without H-Sx-nn -> Strategy).
+const LEGACY_PHRASES = Object.freeze({
+  "All arms complete": "All historical runs complete",
+  // v2/v3 rules.feesEurMwh (run-exploratory-backtest.mjs:330 / :375), Spanish in the artifact.
+  "UNKNOWN (no incluidos; pedidos al cliente)": "UNKNOWN (excluded, not zero; requested from the client)",
+  // v2 campaignUnknowns U-EM-3 detail (run-exploratory-backtest.mjs), Spanish in the artifact.
+  "Requested from the client (solicitud de informacion, 2026-09-24).": "Requested from the client (information request, 2026-09-24).",
+  "Arm completeness": "Historical run completeness",
+  "REFERENCE BASELINE": "HISTORICAL COMPARATOR",
+  "HYPOTHESIS ONLY": "STRATEGY · NO HYPOTHESIS DEFINED",
+});
+
+// Legacy tokens inside historical sentences (criteria, gate details, checks).
+// The comparator word "Baseline" becomes "comparator (A0)"; "arm" as a generic
+// word becomes "run" so no legacy experiment vocabulary is primary.
+const LEGACY_TOKENS = Object.freeze([
+  [/\bBASELINE\b/g, LEGACY_RUN_NAMES.BASELINE],
+  [/\bARM_A\b/g, LEGACY_RUN_NAMES.ARM_A],
+  [/\bARM_B\b/g, LEGACY_RUN_NAMES.ARM_B],
+  [/\bH_BASELINE\b/g, "H_comparator"],
+  [/\bH_arm\b/g, "H_run"],
+  [/\bBaseline\b/g, "comparator (A0)"],
+  [/\b([Ee])very arm\b/g, "$1very run"],
+  [/\bP95 arm\b/g, "P95 run"],
+  [/\band arm\b/g, "and run"],
+]);
+
+// BT-02 measures the legacy runs also in a depth-capped execution variant, with
+// ids "<ALIAS>@DEPTH" (operations/exploratory/reconcile-bt02.mjs). The variant
+// keeps the run's name plus its execution variant.
+const LEGACY_RUN_VARIANTS = Object.freeze({ DEPTH: "depth-capped" });
+
+export function legacyRunIdentity(runId) {
+  const [technicalAlias, variant = null] = String(runId ?? "").split("@");
+  const displayName = LEGACY_RUN_NAMES[technicalAlias] ?? null;
+  const variantLabel = variant === null ? null : LEGACY_RUN_VARIANTS[variant] ?? null;
+  const known = displayName !== null && (variant === null || variantLabel !== null);
+  return Object.freeze({
+    runId: String(runId ?? ""),
+    technicalAlias: known ? technicalAlias : null,
+    variant,
+    displayName: known ? (variantLabel === null ? displayName : `${displayName} · ${variantLabel}`) : null,
+  });
+}
+
+// Canonical display text of one immutable historical string. The original is
+// returned verbatim as `historicalQuote` whenever the text changed, so the
+// surfaces keep the quote with its provenance instead of relabelling evidence
+// (OFICINA.md, Semántica transversal; UI10-07). Non-strings stay null.
+export function canonicalHistoricalText(text) {
+  if (typeof text !== "string") {
+    return Object.freeze({ text: null, historicalQuote: null });
+  }
+  let canonical = LEGACY_PHRASES[text] ?? text;
+  for (const [pattern, replacement] of LEGACY_TOKENS) {
+    canonical = canonical.replace(pattern, replacement);
+  }
+  return Object.freeze({ text: canonical, historicalQuote: canonical === text ? null : text });
+}

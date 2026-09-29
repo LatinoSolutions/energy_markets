@@ -32,7 +32,14 @@ function dedupeByLabelAndDetail(items) {
   return result;
 }
 
-function mergeResearch(base, extra) {
+// UI-10 (PLAN_UI §3 item 5): each integrity check keeps the release it came
+// from, so the Research card can head each release's checks instead of
+// repeating "Code pinned / Data snapshot pinned" without a heading.
+function tagRelease(items, release) {
+  return (items ?? []).map((item) => (release ? { ...item, release } : item));
+}
+
+function mergeResearch(base, extra, { baseRelease = null, extraRelease = null } = {}) {
   if (base === undefined) return extra;
   if (extra === undefined) return base;
   const byId = new Map();
@@ -49,11 +56,11 @@ function mergeResearch(base, extra) {
     candidates: [...byId.values()],
     // Se conservan los checks de cada release (p. ej. "Code pinned" apunta a v2 y a
     // v3): deduplicar por etiqueta escondería la procedencia de uno de los mercados.
-    integrity: dedupeByLabelAndDetail([...(base.integrity ?? []), ...(extra.integrity ?? [])]),
+    integrity: dedupeByLabelAndDetail([...tagRelease(base.integrity, baseRelease), ...tagRelease(extra.integrity, extraRelease)]),
   };
 }
 
-export function mergeExploratoryResults(base, extra) {
+export function mergeExploratoryResults(base, extra, { baseRelease = null, extraRelease = null } = {}) {
   if (base === null || base === undefined) return extra === undefined ? { ok: false, code: "NO_RELEASES" } : { ok: true, results: extra };
   if (extra === null || extra === undefined) return { ok: true, results: base };
   if (base.artifactKind !== extra.artifactKind || base.status !== extra.status) {
@@ -84,7 +91,7 @@ export function mergeExploratoryResults(base, extra) {
     replay: [...(base.replay ?? []), ...(extra.replay ?? [])],
     campaigns: [...(base.campaigns ?? []), ...(extra.campaigns ?? [])],
     campaignUnknowns: dedupeById([...(base.campaignUnknowns ?? []), ...(extra.campaignUnknowns ?? [])]),
-    research: mergeResearch(base.research, extra.research),
+    research: mergeResearch(base.research, extra.research, { baseRelease, extraRelease }),
     benchmarkNote: [...new Set([base.benchmarkNote, extra.benchmarkNote].filter(Boolean))].join(" | "),
     episodesSkippedIncomplete: [...(base.episodesSkippedIncomplete ?? []), ...(extra.episodesSkippedIncomplete ?? [])],
     results: [...(base.results ?? []), ...(extra.results ?? [])],

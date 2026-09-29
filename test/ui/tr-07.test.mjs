@@ -429,7 +429,9 @@ test("TR-07 UI: en TRADES salen la tabla de brazos NOT RUN YET y el efecto parea
   assert.ok(html.includes("NOT RUN YET"));
 
   const start = html.indexOf('data-tr07="trades-paired"');
-  const end = html.indexOf('data-kind="backend-measurements"', start);
+  // UI-10: the BT-02 measurements moved to the historical card; the paired box
+  // ends where the next TRADES panel (coverage) starts.
+  const end = html.indexOf('data-tr07="coverage"', start);
   const paired = html.slice(start, end === -1 ? undefined : end);
   assert.equal(/€\/MWh|k€/.test(paired), false, "el recuadro pareado no lleva valores inventados");
 });

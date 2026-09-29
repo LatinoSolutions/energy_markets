@@ -7,6 +7,7 @@
 // Aprobado con cambios por Bru, P-009 (2026-09-25); server.mjs lo sirve en /backtests.
 
 import { BACKTEST_JOBS_PATH } from "../backtest-jobs/http.mjs";
+import { blockerDisplayText } from "../backtesting-semantics/projection.mjs";
 
 function esc(value) {
   return String(value ?? "")
@@ -113,7 +114,7 @@ export function renderBacktestJobControl(status, { mode = "TOB", launch = null, 
   if (!hypothesis) {
     const disabled = running || locked;
     return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="${trades ? "TRADES" : "TOB"}" data-running="${running ? "true" : "false"}"${locked ? ' data-locked="true"' : ""} style="text-align:right">
-  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run ${trades ? "TRADES" : "TOB"} backtest</button>
+  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run ${trades ? "TRADES" : "legacy TOB"} backtest</button>
   <div class="mono small muted" style="margin-top:4px" data-job-line>${esc(line)}</div>
   <div class="small" data-job-message></div>
 </div>
@@ -133,7 +134,7 @@ ${JOB_CONTROL_SCRIPT}`;
   const hypothesisRunning = view?.running === true;
   const disabled = running || !hypothesisAvailable || !ready;
   const blockerText = blockers.length > 0
-    ? blockers.map((blocker) => `${esc(blocker.code)}: ${esc(blocker.message ?? "")}`).join(" · ")
+    ? blockers.map((blocker) => esc(blockerDisplayText(blocker))).join(" · ")
     : "no backend-validated Development request is available for this mission";
   const requestTag = ready
     ? `<script type="application/json" data-hypothesis-request>${JSON.stringify(request).replaceAll("<", "\\u003c")}</script>`

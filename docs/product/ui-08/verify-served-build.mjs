@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { legacyTextFindings } from "../../../src/ui/primary-text.mjs";
 
 const ROUTES = ["/campaigns", "/replay", "/backtests", "/research"];
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -201,6 +202,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       if (nav?.[1] !== htmlText(label)) errors.push(`${path}: navigation differs from backend tab ${route}`);
     }
   };
+  // UI-10 (PLAN_UI §4.D step 19): the served primary text carries no legacy
+  // identity (Baseline / Arm A/B / DIP10), no raw enum or code, and CONTROL only
+  // inside the ablation; legacy history stays inside its provenance containers.
+  const checkPrimaryText = (html, path) => {
+    for (const finding of legacyTextFindings(html)) {
+      errors.push(`${path}: ${finding.check} legacy text in ${finding.kind} content: ${finding.text}`);
+    }
+  };
   const pages = {};
   for (const path of ROUTES) {
     const html = await read(path);
@@ -212,6 +221,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
     checkPageShellAndNavigation(html, path);
+    checkPrimaryText(html, path);
     const stripStart = html.indexOf('data-semantic="SEM-2/canonical-projection"');
     const strip = stripStart >= 0 ? html.slice(stripStart) : "";
     if (path !== "/backtests" && stripStart < 0) {
@@ -240,11 +250,16 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       if (row.match(/<td>([^<]*)<\/td>/)?.[1] !== htmlText(mission.label)) {
         errors.push(`${path}: primary mission label differs from backend: ${mission.missionId}`);
       }
-      for (const identity of ["CLIENT", "BENCHMARK", "CONTROL"]) {
+      for (const identity of ["CLIENT", "BENCHMARK"]) {
         const visible = row.match(new RegExp(`<td data-identity="${identity}">([^<]*)`))?.[1];
         if (visible !== htmlText(semantics.labels.identities[identity])) {
           errors.push(`${path}: primary ${identity} label differs from backend: ${mission.missionId}`);
         }
+      }
+      // UI-10 (decisión de Bru 29-sep-2026, PLAN_STATUS.md fila UI-10): CONTROL is
+      // the ablation comparator, never a column of the shared identity table.
+      if (row.includes('data-identity="CONTROL"')) {
+        errors.push(`${path}: CONTROL shown as a primary identity outside the ablation: ${mission.missionId}`);
       }
       for (const hypothesis of mission.hypotheses ?? []) {
         const statusLabel = hypothesis.evidenceStatus === "PROVENANCE_ONLY"
@@ -285,6 +300,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
     checkPageShellAndNavigation(html, path);
+    checkPrimaryText(html, path);
     const control = html.match(/<div class="jobctl" data-backtest-job[^>]*>/)?.[0] ?? "";
     const button = html.match(/<button\b[^>]*\bdata-job-start[^>]*>[^<]*<\/button>/)?.[0] ?? "";
     const requestTag = html.match(/<script type="application\/json" data-hypothesis-request>([^<]*)<\/script>/)?.[1] ?? null;

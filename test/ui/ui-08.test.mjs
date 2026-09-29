@@ -569,7 +569,7 @@ test("UI08-R03: BENCHMARK keeps source and version visible, and the official BT-
     },
   };
   const html = renderSurfacePage("backtests", buildBacktestsViewModel({ backtestReadiness }), {});
-  assert.match(html, /data-benchmark-reference="G0BM-202509">G0BM-202509 · BENCHMARK_PROVISIONAL · version B-PROV-v1 · source operations\/exploratory\/bt02-prov\.json/);
+  assert.match(html, /data-benchmark-reference="G0BM-202509">G0BM-202509 · Provisional · version B-PROV-v1 · source operations\/exploratory\/bt02-prov\.json/);
   assert.match(html, /version B-PROV-v2/);
   // The BT-08 result's own (official) evaluation reference is presented with the run.
   const official = comparableResultFixture("o", {
@@ -579,7 +579,8 @@ test("UI08-R03: BENCHMARK keeps source and version visible, and the official BT-
     },
   });
   const officialHtml = renderSurfacePage("backtests", buildBacktestsViewModel({ hypothesisResults: [official] }), {});
-  assert.match(officialHtml, /benchmark B-OFFICIAL-v2 \(RECONCILED_OFFICIAL\)/);
+  // UI-10: the reference status is the backend English word, not the raw enum.
+  assert.match(officialHtml, /benchmark B-OFFICIAL-v2 \(Official\)/);
 });
 
 // UI08-R04 · runs without comparable evidence stay out of the main comparison

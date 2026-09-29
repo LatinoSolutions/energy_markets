@@ -631,3 +631,23 @@ test("UI08-R11: backend projection changing without a version change fails the s
     assert.match(report.errors.join("\n"), /served build, snapshot or semantic version changed during the smoke/);
   });
 });
+
+// UI-10 (PLAN_UI §4.D step 19): the served smoke also fails when a legacy
+// identity reaches primary text or CONTROL returns as a shared identity column.
+test("UI-10: served smoke rejects primary legacy text and a CONTROL identity outside the ablation", async () => {
+  await withServer(async (url) => {
+    for (const [corrupt, expected] of [
+      [(html) => html.replace('<h1 class="page">', '<p>Arm A bought cheaper than Baseline</p><h1 class="page">'), /UI10-04 legacy text in primary content: Arm A/],
+      [(html) => html.replace('<td data-identity="BENCHMARK">', '<td data-identity="CONTROL">Control</td><td data-identity="BENCHMARK">'), /CONTROL shown as a primary identity outside the ablation/],
+    ]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/campaigns") return response;
+        return new Response(corrupt(await response.text()), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false);
+      assert.match(report.errors.join("\n"), expected);
+    }
+  });
+});
