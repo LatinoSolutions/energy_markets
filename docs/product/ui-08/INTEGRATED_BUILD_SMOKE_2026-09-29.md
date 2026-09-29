@@ -192,3 +192,23 @@ declara `running:false` para el job conocido, pero no permite acreditar el
 estado de todos los runners del build integrado. UI08-10/R11 permanece
 abierto. Una corrección de etiqueta de rol dentro de la rama no sustituye la
 publicación y la verificación del SHA finalmente servido.
+
+### Relectura de Cierre: metadatos ingleses y proceso activo · 2026-09-29
+
+El commit `c0bb24f00f4156bbb0a196b8dea2d50f2fe39c15` hace que el smoke
+rechace `labels.tabs` ausente o traducido en la proyección backend, aunque el
+HTML tenga navegación inglesa. La prueba `UI08-R11: a served backend with
+missing or translated navigation metadata fails closed` pasa en ambos casos.
+`node --test $(find test -name '*.test.mjs')` terminó **2289 pass / 0 fail**.
+
+Con ese commit esperado, el verificador consultó en solo lectura
+`http://100.92.44.106:8788/` y terminó **exit 1**. Las seis rutas respondieron
+HTTP 200, pero el servicio no declaró commit cargado, versión semántica ni
+revisión de snapshot y `/backtests` conservó el título anterior. Su estado de
+jobs no es legible bajo el contrato nuevo; no se afirma que haya un job
+corriendo. `energy-markets-ui.service` sigue apuntando al checkout
+`/srv/hot-data/energy-markets/app` en `main` `607f426b51638fb3afb993292dbc0ed0743ab7ed`.
+La mejora del verificador es ingeniería de la rama; **UI08-R11 no está
+corregido** mientras el build integrado no sea publicado con autorización y
+verificado con exit 0 contra el SHA efectivamente cargado. Se conserva la
+dependencia de acceso ya registrada, ACTO: ACTUAL, sin un nuevo pedido.
