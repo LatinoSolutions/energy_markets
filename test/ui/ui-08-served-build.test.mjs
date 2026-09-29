@@ -42,6 +42,36 @@ test("UI08-R11: a server without the canonical job runners cannot attest release
   }
 });
 
+test("UI08-R11: a missing health readability attestation cannot pass the served smoke", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health") return response;
+      const health = await response.json();
+      delete health.backtestJobs.statusReadable;
+      return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /idle state is unreadable/);
+  });
+});
+
+test("UI08-R11: an unsuccessful job status payload cannot attest idleness", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/api/backtest-jobs") return response;
+      const jobs = await response.json();
+      jobs.ok = false;
+      return new Response(JSON.stringify(jobs), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /idle state is unreadable/);
+  });
+});
+
 test("UI08-R11: served-build smoke checks the actual HTTP build and four shared snapshots", async () => {
   await withServer(async (url) => {
     const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT });

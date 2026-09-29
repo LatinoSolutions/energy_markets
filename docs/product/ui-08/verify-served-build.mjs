@@ -81,8 +81,8 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   // /health proves the legacy runner is configured and readable; the GET
   // payload additionally covers the TRADES and hypothesis runners.
   const idle = (status) => status?.statusReadable !== false && status?.running === false;
-  if (health?.backtestJobs?.configured !== true || !idle(health.backtestJobs)
-    || !idle(jobs) || jobs?.trades?.configured !== true || !idle(jobs.trades)
+  if (health?.backtestJobs?.configured !== true || health.backtestJobs.statusReadable !== true || !idle(health.backtestJobs)
+    || jobs?.ok !== true || !idle(jobs) || jobs?.trades?.configured !== true || !idle(jobs.trades)
     || jobs?.hypothesis?.configured !== true || !idle(jobs.hypothesis)) {
     errors.push("a backtest job is running, a runner is missing, or its idle state is unreadable");
   }
@@ -222,8 +222,8 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
       || JSON.stringify(lastJobs?.canonicalSemantics) !== JSON.stringify(semantics))) {
     errors.push("served build, snapshot or semantic version changed during the smoke; repeat after the process is stable");
   }
-  if (lastHealth?.backtestJobs?.configured !== true || !idle(lastHealth.backtestJobs)
-    || !idle(lastJobs) || lastJobs?.trades?.configured !== true || !idle(lastJobs.trades)
+  if (lastHealth?.backtestJobs?.configured !== true || lastHealth.backtestJobs.statusReadable !== true || !idle(lastHealth.backtestJobs)
+    || lastJobs?.ok !== true || !idle(lastJobs) || lastJobs?.trades?.configured !== true || !idle(lastJobs.trades)
     || lastJobs?.hypothesis?.configured !== true || !idle(lastJobs.hypothesis)) {
     errors.push("a backtest job started during the smoke, a runner is missing, or its final idle state is unreadable");
   }
