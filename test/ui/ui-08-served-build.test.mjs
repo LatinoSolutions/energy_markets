@@ -237,6 +237,42 @@ test("UI08-R11: the responding process must remain the configured service proces
   });
 });
 
+test("UI08-R11: the loaded process and published snapshot must keep their instance identities throughout the smoke", async () => {
+  await withServer(async (url) => {
+    for (const change of [
+      (health) => { health.build.capturedAt = "2020-01-01T00:00:00.000Z"; },
+      (health) => { health.semanticSnapshot.publishedAt = "2020-01-01T00:00:00.000Z"; },
+    ]) {
+      let healthReads = 0;
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/health" || ++healthReads !== 2) return response;
+        const health = await response.json();
+        change(health);
+        return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false);
+      assert.match(report.errors.join("\n"), /served build, snapshot or semantic version changed during the smoke/);
+    }
+  });
+});
+
+test("UI08-R11: a build without a readable process start identity cannot pass", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health") return response;
+      const health = await response.json();
+      delete health.build.capturedAt;
+      return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /loaded process start identity is unavailable/);
+  });
+});
+
 test("UI08-R11: the configured unit must still own the responding PID after the last HTTP read", async () => {
   await withServer(async (url) => {
     const current = await verifyServedBuild({

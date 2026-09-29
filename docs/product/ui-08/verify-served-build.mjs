@@ -69,8 +69,13 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   const semantics = jobs?.canonicalSemantics;
   const revision = health?.semanticSnapshot?.revision;
   const version = health?.semanticSnapshot?.semanticVersion;
+  const loadedAt = health?.build?.capturedAt;
+  const publishedAt = health?.semanticSnapshot?.publishedAt;
   if (health?.ok !== true || health?.build?.commit !== expectedCommit || health?.build?.dirty !== false) {
     errors.push("/health: loaded clean build does not match expected commit");
+  }
+  if (typeof loadedAt !== "string" || !Number.isFinite(Date.parse(loadedAt))) {
+    errors.push("/health: loaded process start identity is unavailable");
   }
   if (expectedPid !== null && health?.processId !== expectedPid) {
     errors.push("/health: responding process differs from the configured service MainPID");
@@ -277,9 +282,11 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
     && (lastHealth?.build?.commit !== expectedCommit
       || lastHealth?.build?.dirty !== false
+      || lastHealth?.build?.capturedAt !== loadedAt
       || (expectedPid !== null && lastHealth?.processId !== expectedPid)
       || lastHealth?.semanticSnapshot?.revision !== revision
       || lastHealth?.semanticSnapshot?.semanticVersion !== version
+      || lastHealth?.semanticSnapshot?.publishedAt !== publishedAt
       || lastJobs?.canonicalSemantics?.ok !== true
       || lastJobs?.canonicalSemantics?.semanticVersion !== version
       || JSON.stringify(lastJobs?.canonicalSemantics) !== JSON.stringify(semantics))) {

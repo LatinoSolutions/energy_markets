@@ -440,3 +440,24 @@ asignado; esta verificación no solicita una decisión nueva. Conforme a la fila
 UI-08 de `PLAN_STATUS.md`, el smoke servido pertenece a la entrega actual.
 Los `REQUIRES*` de SPEC §25.2 son dependencias consumidas y `RESOLVES_AUDIT` y
 `PRODUCES_EVIDENCE` son salidas; ninguno sustituye este acto de UI08-10.
+
+### Cierre: continuidad de instancia durante el smoke · 2026-09-29
+
+El verificador comprueba ahora que `build.capturedAt` es legible y que tanto
+ese instante de arranque como `semanticSnapshot.publishedAt` permanecen
+idénticos entre las dos lecturas de `/health`. Un proceso reiniciado o un
+snapshot republicado durante la ventana de prueba falla aunque el SHA,
+revisión semántica y PID declarados coincidan. Dos pruebas nuevas fuerzan
+ambos cambios y la ausencia de `capturedAt`.
+
+- `node --test test/ui/ui-08-served-build.test.mjs` → **30 pass, 0 fail**.
+- `node --test $(find test -name '*.test.mjs')` → **2309 pass, 0 fail**.
+- `node docs/product/ui-08/verify-served-build.mjs
+  http://100.92.44.106:8788/ 7155034b3b770ae18aff46b897416a43ae46f707`
+  → **exit 1** antes del commit de esta corrección: doce HTTP 200, pero ninguna
+  respuesta declara commit, versión semántica o revisión de snapshot.
+
+La unidad permanecía `active/running`, `MainPID=796583`, con directorio
+`/srv/hot-data/energy-markets/app` en `main` `607f426`. Esto acredita el
+bloqueo de publicación, no UI08-10. La dependencia de acceso ya registrada,
+ACTO: ACTUAL y sin ID `P-` asignado, conserva su estado.
