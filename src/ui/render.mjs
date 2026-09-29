@@ -985,15 +985,15 @@ function comparisonBlockHtml(block, product, pointDetails = null, provenance = n
       <div class="hd"><h3>Historical economic measures</h3><span class="small muted">B* proxy benchmark · H achieved price · V = (B* − H) × MWh · ΔV = V<sub>run</sub> − V<sub>comparator (A0)</sub></span><span class="grow"></span>${chip("warn", "!", "EXPLORATORY · B* is a proxy")}</div>
       ${comparisonTableHtml(block, runs, labels)}
     </div>
-    <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
-      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ${esc(labels.deltaVsComparator)}, k€, by decision</span></div><div class="bd" data-kind="paired"><div class="legend small">${legend}</div>${pairedChartHtml(block, product, pointDetails, provenance, runs, labels)}${pairedDataTableHtml(block, runs)}</div></div>
-      <div class="card"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend · historical run</span></div><div class="bd">${checks}<div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
-    </div>
+    <div class="card" style="margin-top:14px"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend · historical run</span></div><div class="bd"><div class="chkgrid">${checks}</div><div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
+    <details class="fold" data-fold="historical-charts" style="margin-top:14px"><summary>Charts · paired effect, distributions and campaigns</summary>
+    <div class="card" style="margin-top:10px"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ${esc(labels.deltaVsComparator)}, k€, by decision</span></div><div class="bd" data-kind="paired"><div class="legend small">${legend}</div>${pairedChartHtml(block, product, pointDetails, provenance, runs, labels)}${pairedDataTableHtml(block, runs)}</div></div>
     <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); margin-top:14px">
       <div class="card"><div class="hd"><h3>${expArmTag("BASELINE", runs)}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.BASELINE, "BASELINE")}</div></div>
       <div class="card"><div class="hd"><h3>${expArmTag("ARM_A", runs)}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.ARM_A, "ARM_A")}</div></div>
       <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">${esc(labels.deltaVsComparator)}, k€</span></div><div class="bd" data-kind="campaign-effects">${acrossCampaignsHtml(block, runs, labels)}</div></div>
     </div>
+    </details>
   </div>`;
 }
 
@@ -2350,11 +2350,11 @@ function tr07PanelsHtml(panels, selection) {
   }
   const missions = panels.selector?.marketMissions ?? [];
   const missionId = selection.missionId ?? missions[0]?.missionId ?? null;
-  return `${tr07CoverageHtml(panels, missionId)}
+  return foldHtml("observation-contract", "Data coverage, evidence zones, calibration and frozen contract", `${tr07CoverageHtml(panels, missionId)}
   ${tr07ZonesHtml(panels, missionId)}
   ${tr07CalibrationHtml(panels, missionId)}
   ${tr07FrozenContractHtml(panels)}
-  ${tr07UnavailableCard("results", "Results", "TR-06 · runs of the 4 missions", panels)}`;
+  ${tr07UnavailableCard("results", "Results", "TR-06 · runs of the 4 missions", panels)}`);
 }
 
 // Vista del modo que ocupa la columna izquierda del prototipo aprobado (opción B):
@@ -2370,6 +2370,15 @@ function tr07ModeViewHtml(vm, mode, hasTobData, selectedMission) {
   return vm.tradesPanels?.ok === true ? tr07TradesObservationHtml(vm.tradesPanels, selectedMission) : "";
 }
 
+// Bru 29-sep-2026 (mockups/backtests.png, PLAN_UI §3 item 1): secondary detail
+// stays in the page but folded, so the object of work is above the fold.
+function foldHtml(kind, title, inner) {
+  if (typeof inner !== "string" || inner.trim() === "") {
+    return "";
+  }
+  return `<details class="fold" data-fold="${esc(kind)}" style="margin-top:14px"><summary>${esc(title)}</summary>${inner}</details>`;
+}
+
 // UI-10 (PLAN_UI §3 direction, §4.B.6/8): every legacy exploratory figure sits
 // in one dashed card labelled "Historical · provenance only", after Results.
 // The legacy TOB job control (BT-05: runs the exploratory generator
@@ -2379,9 +2388,9 @@ function historicalBacktestHtml(vm, { mode, selectedMission, hasTobData, legacyF
   const semantics = vm?.canonicalSemantics ?? null;
   const labels = historicalLabels(semantics);
   const productFilter = selectedMission?.shortCode ?? null;
-  const exploratory = mode === "TOB" && hasTobData
-    ? `${exploratoryComparisonHtml(vm?.exploratory, mode, productFilter, semantics)}${exploratoryBacktestHtml(vm?.exploratory, mode, productFilter, semantics)}`
-    : "";
+  const showTob = mode === "TOB" && hasTobData;
+  const exploratory = showTob ? exploratoryComparisonHtml(vm?.exploratory, mode, productFilter, semantics) : "";
+  const exploratoryBacktest = showTob ? exploratoryBacktestHtml(vm?.exploratory, mode, productFilter, semantics) : "";
   const legacyControl = mode === "TOB"
     ? `<div class="row" style="margin-top:12px"><span class="small muted">Legacy route · re-runs the historical exploratory TOB backtest; not a Development run</span><span class="grow"></span><div data-job-control-slot></div></div>`
     : "";
@@ -2390,8 +2399,7 @@ function historicalBacktestHtml(vm, { mode, selectedMission, hasTobData, legacyF
   <p class="small muted">Legacy exploratory evidence is preserved as source-bound historical provenance only, with its original identities and values unchanged; it is not evidence for the canonical hypotheses above and no primary product question is defined here.</p>
   ${legacyControl}
   ${exploratory}
-  ${backtestMeasurementHtml(vm?.measurementReadiness, productFilter, semantics)}
-  ${legacyFrames}
+  ${foldHtml("historical-more", "More historical detail · exploratory backtest, hour profile and campaign measurements", `${exploratoryBacktest}${backtestMeasurementHtml(vm?.measurementReadiness, productFilter, semantics)}${legacyFrames}`)}
   </details>`;
 }
 
@@ -2497,10 +2505,14 @@ function scopeMissionCard(entry) {
 function backtestScopeHtml(vm) {
   const scope = vm?.scope ?? [];
   const cards = scope.map(scopeMissionCard).join("");
-  return `<section data-section="scope" style="margin-top:14px"><div class="card">
-    <div class="hd"><h3>Backtest scope</h3><span class="small muted">four missions, each first-class · Gas Monthly · Gas Quarterly · Power Monthly · Power Quarterly · TOB/TRADES observation</span><span class="grow"></span>${chip("unk", "·", `${scope.length} missions`)}</div>
-    <div class="bd"><div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">${cards}</div></div>
-  </div></section>`;
+  const tiles = scope.map((entry) => {
+    const blockerCount = entry.readiness.blockers.length;
+    return `<div class="mtile" data-scope-tile="${esc(entry.missionId)}"><div class="caps">${esc(entry.label)}</div><div class="mtile-code mono">${esc(entry.product)}</div>${stateChip(entry.readiness.status)}${blockerCount > 0 ? ` <span class="small">${blockerCount} blocker${blockerCount === 1 ? "" : "s"}</span>` : ""}</div>`;
+  }).join("");
+  return `<section data-section="scope" style="margin-top:14px">
+    <div class="mtiles">${tiles}</div>
+    ${foldHtml("scope-missions", "Mission scope · obligation, campaigns, sizing, execution and blockers", `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px">${cards}</div>`)}
+  </section>`;
 }
 
 function hypothesisConfigurationHtml(missionEntry) {
@@ -2539,14 +2551,14 @@ function hypothesisCard(hypothesis) {
   const strategyRefs = hypothesis.strategyRefs.length > 0 ? hypothesis.strategyRefs.join(", ") : "—";
   return `<div class="card" data-hypothesis-id="${esc(hypothesis.hypothesisId)}" data-hypothesis-origin="${esc(hypothesis.originType)}">
     <div class="hd"><h3>${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}</h3><span class="small muted">${esc(origin)} · ${esc(hypothesis.version)}</span><span class="grow"></span>${stateChip(hypothesis.state.running ? "RUNNING" : hypothesis.state.runnable ? "RUNNABLE" : "REGISTERED")}</div>
-    <div class="bd">
+    <details class="bd fold-inline"><summary>Question, applicability and state</summary>
       <div class="small" data-hypothesis-question="${esc(hypothesis.hypothesisId)}" data-context="hypothesis-definition">${esc(hypothesis.question)}</div>
       <div class="tiny muted">Strategy refs: ${esc(strategyRefs)}</div>
       <div class="sp"></div>
       ${hypothesisApplicabilityHtml(hypothesis)}
       <div class="sp"></div>
       ${hypothesisStateHtml(hypothesis.state)}
-    </div>
+    </details>
   </div>`;
 }
 
@@ -2636,12 +2648,46 @@ function ablationRowHtml(ablation) {
   return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>${ablationComparisonLabel(ablation)}</td><td>${stateChip(ablation.status)}</td><td class="mono small">ΔV ${typeof deltaV === "number" ? `${deltaV.toFixed(3)} EUR/MWh` : "—"} · equivalent cost ${typeof equivalent === "number" ? equivalent.toFixed(3) : "—"} · same sizing/execution parity</td></tr>`;
 }
 
-function resultsComparisonHtml(vm) {
+// Bru 29-sep-2026 (mockups/backtests.png, PLAN_UI §3 direction "KPI tiles"):
+// the selected mission reads as 3 tiles. Only backend fields are shown; no
+// figure is taken from the historical run (PLAN_UI open item: B* 37.73 is a
+// historical placeholder, never the Development benchmark).
+function resultTilesHtml(comparison) {
+  if (!comparison) {
+    return "";
+  }
+  const statusLabels = CANONICAL_LABELS.benchmarkStatuses;
+  const boundBenchmarks = Object.values(comparison.benchmarkByCampaign ?? {});
+  const benchmarkStatuses = [...new Set(boundBenchmarks.map((benchmark) => benchmark.status))];
+  // Status keys: projection.mjs:42-47 CANONICAL_LABELS.benchmarkStatuses.
+  const benchmarkChip = (status) => (status === "BENCHMARK_PROVISIONAL"
+    ? chip("warn", "!", statusLabels.BENCHMARK_PROVISIONAL)
+    : status === "RECONCILED_OFFICIAL"
+      ? chip("pass", "✓", statusLabels.RECONCILED_OFFICIAL)
+      : chip("unk", "?", statusLabels.UNAVAILABLE));
+  const benchmarkLine = boundBenchmarks.length === 0
+    ? `${esc(statusLabels.CAMPAIGN_NOT_BOUND)}`
+    : `${boundBenchmarks.length} campaign reference${boundBenchmarks.length === 1 ? "" : "s"}`;
+  const comparable = (comparison.hypothesisResults ?? []).filter((result) => result.state === "CURRENT" && result.validComparison === true);
+  const hypothesis = comparison.hypotheses[0] ?? null;
+  const hypothesisValue = comparable.length === 0
+    ? `<span class="unkv">NO RESULT</span>`
+    : `<b>${comparable.length}</b> comparable run${comparable.length === 1 ? "" : "s"}`;
+  return `<div class="ktiles" data-result-tiles="${esc(comparison.mission.id)}">
+    <div class="ktile" data-tile="CLIENT"><div class="caps">Client</div><div class="kbig"><span class="unkv">UNKNOWN</span></div><div class="small">${esc(comparison.clientSummary ?? "")}</div></div>
+    <div class="ktile" data-tile="BENCHMARK"><div class="caps">Benchmark</div><div class="kbig">${boundBenchmarks.length === 0 ? chip("unk", "?", statusLabels.UNAVAILABLE) : benchmarkStatuses.map(benchmarkChip).join(" ")}</div><div class="small">${benchmarkLine}</div></div>
+    <div class="ktile" data-tile="HYPOTHESIS"><div class="caps">${hypothesis ? esc(hypothesis.hypothesisId) : "Hypothesis"}</div><div class="kbig">${hypothesis ? hypothesisValue : `<span class="unkv">UNAVAILABLE</span>`}</div><div class="small">${hypothesis ? esc(hypothesis.name) : "no canonical hypothesis applies"}</div></div>
+  </div>`;
+}
+
+function resultsComparisonHtml(vm, selectedMissionId = null) {
   const comparisons = vm?.semanticComparison ?? [];
   const ablations = vm?.ablation ?? [];
+  const selectedComparison = comparisons.find((comparison) => comparison.mission.id === selectedMissionId) ?? comparisons[0] ?? null;
   const comparisonTable = `<div class="card" data-semantic="SEM-1/2026-09-28/v1">
-    <div class="hd"><h3>Client / Benchmark / Hypotheses</h3><span class="small muted">one obligation and campaign per mission · backend economics only</span></div>
-    <div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${comparisons.map(comparisonRowHtml).join("")}</tbody></table></div>
+    <div class="hd"><h3>Results · Client / Benchmark / Hypotheses</h3><span class="small muted">${esc(selectedComparison?.mission.label ?? "")} · backend economics only</span></div>
+    <div class="bd">${resultTilesHtml(selectedComparison)}
+    ${foldHtml("results-all-missions", "All 4 missions · client, benchmark references and hypothesis runs", `<div style="overflow-x:auto;margin-top:10px" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${comparisons.map(comparisonRowHtml).join("")}</tbody></table></div>`)}
     <p class="tiny muted">Client economics and hypothesis PASS stay HOLD until comparable backend evidence exists. No value is inferred from the confirmed 11:00 timing.</p></div>
   </div>`;
   const ablationTable = `<div class="card" style="margin-top:14px" data-context="ablation">
@@ -2707,9 +2753,10 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   // backend; no global DIP/HOUR/11:00 question is hardcoded here.
   const observationPanels = validated ? `<div data-kind="current-backtest-panels" aria-label="Current Backtests observation scope and TRADES results">
   ${tr07ScopeHtml(vm.tradesPanels, selection)}
+  ${backtestScopeHtml(vm)}
   ${tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission))}
-  ${tr07PanelsHtml(vm.tradesPanels, selection)}
   </div>` : "";
+  const observationContract = validated ? tr07PanelsHtml(vm.tradesPanels, selection) : "";
 
   const legacyFrames = hasExploratory ? "" : `
   <div class="armhead">${armHeadHtml(arms)}</div>
@@ -2749,10 +2796,10 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   ${validated ? "" : errorBarHtml(errors)}
   ${vm?.sourceFreshness?.status === "STALE" ? `<div class="card" data-status="STALE"><div class="hd"><h3>Source stale · FIX-03</h3>${chip("warn", "!", "Stale")}</div><div class="bd">${esc(vm.sourceFreshness.reason)}. Historical exploratory figures below are stale and must not be treated as current. ${esc(vm.sourceFreshness.staleArtifacts.join(", "))}.</div></div>` : ""}
   <div class="row" style="align-items:flex-end"><div class="grow"><div class="mono muted small">backtesting workspace · Scope → Hypotheses → Results</div><h1 class="page">Backtesting</h1><p class="lede">Four missions evaluated separately. Results appear only with comparable backend evidence.</p></div>${headControl}</div>
-  ${validated ? backtestScopeHtml(vm) : ""}
   ${observationPanels}
   ${validated ? hypothesesHtml(vm) : ""}
-  ${validated ? resultsComparisonHtml(vm) : ""}
+  ${validated ? resultsComparisonHtml(vm, selectedMission?.missionId ?? null) : ""}
+  ${observationContract}
   ${historicalBacktestHtml(validated ? vm : null, { mode, selectedMission, hasTobData, legacyFrames })}
 </section>`;
 }

@@ -469,6 +469,19 @@ details.hist > summary { cursor: pointer; display: flex; gap: 10px; align-items:
 .histblock { border: 2px dashed var(--ink-3); border-radius: 10px; padding: 14px 20px; margin-top: 14px; background: var(--surface); }
 .histbadge { display: inline-block; font: 700 14px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--ink); border-radius: 3px; padding: 4px 7px; margin-right: 8px; }
 .histnote { border: 2px dashed var(--ink-3); border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 15px; background: var(--surface); }
+/* Bru 29-sep-2026 (mockups/backtests.png): mission tiles, KPI tiles and folded detail. */
+.mtiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.mtile, .ktile { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 18px; }
+.mtile-code { font-size: 22px; font-weight: 700; margin: 4px 0 8px; }
+.ktiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.kbig { font-size: 30px; font-weight: 700; margin: 6px 0 8px; font-variant-numeric: tabular-nums; }
+.kbig .unkv { font-size: 22px; }
+details.fold > summary { cursor: pointer; font-size: 16px; font-weight: 600; color: var(--ink-2); padding: 12px 18px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+details.fold[open] > summary { border-radius: 10px 10px 0 0; }
+details.fold-inline > summary { cursor: pointer; font-size: 15px; color: var(--ink-2); }
+details.fold-inline:not([open]) { padding-top: 8px; padding-bottom: 8px; }
+.chkgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+@media (max-width: 1000px) { .mtiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ktiles, .chkgrid { grid-template-columns: minmax(0, 1fr); } }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
 .crit-matrix td:first-child { min-width: 220px; }
 .crit-matrix td { overflow-wrap: anywhere; }
