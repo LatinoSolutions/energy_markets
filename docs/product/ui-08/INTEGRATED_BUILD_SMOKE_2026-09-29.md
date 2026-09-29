@@ -102,3 +102,22 @@ verificador. No se hizo merge ni restart. UI08-10 sigue abierto.
 La verificación de Cierre también exige que las lecturas finales de `/health`
 y `/api/backtest-jobs` mantengan el mismo build limpio, snapshot y versión
 semántica que las lecturas iniciales; un cambio durante el smoke falla cerrado.
+
+### Relectura de Cierre · 2026-09-29T01:50:01Z
+
+El verificador ahora coteja también `health.surfaces[route].snapshotRevision`
+con la revisión publicada al inicio y al final. Una prueba HTTP altera la
+revisión de Replay en `/health` y exige rechazo; el test focalizado pasa 7/7.
+No se usó esta mejora para declarar publicada la rama.
+
+El smoke GET contra `http://100.92.44.106:8788/`, esperando
+`80e5d6e81cf922c9192f4cd25602d3a0d6966532`, terminó con **exit 1**.
+Las seis rutas `/health`, `/api/backtest-jobs`, `/campaigns`, `/replay`,
+`/backtests` y `/research` respondieron HTTP 200. El proceso no declara commit,
+versión semántica ni revisión, y `/backtests` mantiene la pregunta global
+DIP/HOUR. El checkout servido sigue en `main` `607f426b51638fb3afb993292dbc0ed0743ab7ed`.
+El estado antiguo de jobs no basta para acreditar el gate de inactividad al
+inicio y al final. Se conserva UI08-R11 como **NO_CORREGIDO** hasta que la
+Oficina publique el build autorizado sin job en curso y el verificador salga 0
+contra el SHA efectivamente cargado. La solicitud de acceso ya registrada
+permanece abierta (sin ID `P-`); esta relectura no solicita una decisión nueva.

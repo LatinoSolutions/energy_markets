@@ -60,6 +60,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   for (const id of MISSION_IDS) {
     if (!missionIds.has(id)) errors.push(`backend canonical projection omits mission ${id}`);
   }
+  const checkSurfaceRevisions = (payload, stage) => {
+    for (const path of ROUTES) {
+      if (payload?.surfaces?.[path.slice(1)]?.snapshotRevision !== revision) {
+        errors.push(`${stage} /health: ${path} snapshot revision differs from published revision`);
+      }
+    }
+  };
+  checkSurfaceRevisions(health, "initial");
   const pages = {};
   for (const path of ROUTES) {
     const html = await read(path);
@@ -99,6 +107,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   }
   const lastHealth = await read("/health", true);
   const lastJobs = await read("/api/backtest-jobs", true);
+  checkSurfaceRevisions(lastHealth, "final");
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
     && (lastHealth?.build?.commit !== expectedCommit
       || lastHealth?.build?.dirty !== false

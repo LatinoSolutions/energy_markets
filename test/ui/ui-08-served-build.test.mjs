@@ -51,6 +51,21 @@ test("UI08-R11: a route with a different snapshot fails the smoke", async () => 
   });
 });
 
+test("UI08-R11: health cannot claim a different snapshot for one served surface", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health") return response;
+      const health = await response.json();
+      health.surfaces.replay.snapshotRevision = "0".repeat(64);
+      return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /\/health: \/replay snapshot revision differs from published revision/);
+  });
+});
+
 test("UI08-R11: a job starting during the smoke fails final idle verification", async () => {
   await withServer(async (url) => {
     let reads = 0;
