@@ -326,3 +326,33 @@ no afirma que hubiera un job en curso. UI08-R11 permanece abierto para la
 publicación por el cauce de la Oficina y un smoke posterior con **exit 0**
 contra el commit efectivamente cargado y las seis respuestas con identidad
 compartida. No se hizo merge, push ni reinicio del servicio.
+
+### Comprobación de Cierre · 2026-09-29T04:54:20Z
+
+- Rama de UI-08: `run/energy-markets-UI-08-20260928-234414-opencode`,
+  HEAD comprobado `85f53d0b20c9bcd5bd39e8295581870b851fd88b`, árbol limpio
+  antes de registrar esta evidencia.
+- `node --test $(find test -name '*.test.mjs')`: **2301 pass, 0 fail**.
+- `energy-markets-ui.service`: `active/running`, PID `796583`, iniciado
+  `2026-09-26 14:10:22 UTC`. Su `WorkingDirectory` y su `ExecStart` apuntan
+  a `/srv/hot-data/energy-markets/app`; el checkout de esa ruta estaba en
+  `main` (`607f426b51638fb3afb993292dbc0ed0743ab7ed`) con archivos
+  de runtime sin seguimiento. El contrato HTTP antiguo no identifica el
+  commit cargado en memoria; el SHA del checkout **no** se atribuye al proceso.
+- `node docs/product/ui-08/verify-served-build.mjs
+  http://100.92.44.106:8788/ 85f53d0b20c9bcd5bd39e8295581870b851fd88b`:
+  **exit 1**. `/health`, `/api/backtest-jobs`, `/campaigns`, `/replay`,
+  `/backtests` y `/research` respondieron HTTP 200. Ninguna de las ocho
+  lecturas (incluidas las repeticiones de los dos endpoints mutables) declaró
+  commit, revisión de snapshot ni versión semántica. `/backtests` siguió
+  mostrando la pregunta global antigua. El estado de los tres runners no
+  es certificable con este payload; no se afirma que hubiera un job en curso.
+
+**Estado separado:** los tests del código de UI-08 están verdes; la
+aceptación UI08-10 y el hallazgo UI08-R11 siguen pendientes de la publicación
+autorizada y del smoke **exit 0** sobre el PID y SHA realmente servidos.
+La unidad tiene una ruta fija a `main`; este agente tiene prohibido integrar
+la rama y reiniciar el servicio. Los `REQUIRES*` de §25.2 son dependencias
+consumidas; `RESOLVES_AUDIT` y `PRODUCES_EVIDENCE` son salidas. Esta prueba
+servida es un criterio de entrega de la fila UI-08, no una evidencia que pueda
+sustituirse con un checkout o un test local.
