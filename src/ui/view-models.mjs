@@ -393,17 +393,31 @@ function backtestScopeEntry(mission, launchEntry) {
 // UI-08 review R02: the states are this hypothesis's own — `registered` follows
 // its presence in the backend collection, `scientificallyEvaluated` follows its
 // own results (researchPass), and a state the backend declares for the
-// hypothesis overrides the derivation; nothing is fixed per collection and
-// availability no longer hangs off H-S1-01's launch alone.
-export function backtestHypothesisCollectionEntry(hypothesis, { launchByMission, results, runningMissionIds }) {
+// hypothesis may refine the derivation but cannot grant launch readiness;
+// nothing is fixed per collection or inherited across hypothesis identities.
+export function backtestHypothesisCollectionEntry(hypothesis, { hypothesisLaunch = null, results = [] } = {}) {
+  // BT-08 currently publishes one launch contract. Its mission rows belong to
+  // the identity in metadata, not to every hypothesis sharing that mission.
+  // A future hypothesis without its own validated launch remains unavailable.
+  const launch = hypothesisLaunch?.metadata?.hypothesisId === hypothesis.hypothesisId
+    && hypothesisLaunch.metadata.version === hypothesis.version ? hypothesisLaunch : null;
+  const launchByMission = launchMissionsById(launch);
+  const runningJob = hypothesisLaunch?.runningJob;
+  const runningForHypothesis = runningJob?.hypothesisId === hypothesis.hypothesisId
+    && runningJob?.hypothesisVersion === hypothesis.version;
   const applicable = (hypothesis.missions ?? []).map((missionId) => {
-    const launchEntry = launchByMission[missionId] ?? null;
+    const candidateEntry = launchByMission[missionId] ?? null;
+    const candidateRequest = candidateEntry?.request;
+    const requestMatches = candidateRequest?.hypothesisId === hypothesis.hypothesisId
+      && candidateRequest?.hypothesisVersion === hypothesis.version
+      && candidateRequest?.missionId === missionId;
+    const launchEntry = candidateEntry?.status === "READY" && !requestMatches ? null : candidateEntry;
     const request = launchEntry?.request ?? null;
     return {
       missionId,
       status: launchEntry?.status ?? "UNAVAILABLE",
       blockers: launchEntry?.blockers ?? [],
-      running: runningMissionIds.includes(missionId),
+      running: runningForHypothesis && runningJob.missionId === missionId,
       configuration: request ? {
         candidateHash: request.candidate?.contentHash ?? null,
         searchSpaceHash: request.searchSpace?.contentHash ?? null,
@@ -427,6 +441,10 @@ export function backtestHypothesisCollectionEntry(hypothesis, { launchByMission,
   const state = declared !== null && typeof declared === "object"
     ? { ...derivedState, ...Object.fromEntries(Object.entries(declared).filter(([, value]) => typeof value === "boolean")) }
     : derivedState;
+  // A declarative state cannot grant run availability without this
+  // hypothesis/version's validated launch or matching running job.
+  state.runnable = state.runnable && derivedState.runnable;
+  state.running = state.running && derivedState.running;
   return {
     kind: "HYPOTHESIS",
     hypothesisId: hypothesis.hypothesisId,
@@ -502,12 +520,10 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
   // omission); the hypotheses collection is dynamic; comparison is CLIENT / one
   // BENCHMARK / canonical HYPOTHESES; CONTROL is the ablation counterfactual.
   const launchByMission = launchMissionsById(hypothesisLaunch);
-  const runningMissionIds = typeof hypothesisLaunch?.runningMissionId === "string" ? [hypothesisLaunch.runningMissionId] : [];
   const scope = canonicalSemantics.missions.map((mission) => backtestScopeEntry(mission, launchByMission[mission.missionId] ?? null));
   const hypotheses = canonicalSemantics.hypotheses.map((hypothesis) => backtestHypothesisCollectionEntry(hypothesis, {
-    launchByMission,
+    hypothesisLaunch,
     results: canonicalSemantics.results[hypothesis.hypothesisId] ?? [],
-    runningMissionIds,
   }));
   const ablation = canonicalSemantics.missions.map((mission) => ({
     mission: { id: mission.missionId, label: mission.label },

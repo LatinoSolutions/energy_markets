@@ -52,3 +52,14 @@ de publicación fuera de la autorización de la rama. Ningún test nuevo en rojo
 a `main`. Sin merge, sin push, sin tocar el servicio activo. La dependencia humana
 de acceso permanece ACTUAL y sin ID `P-` asignado; no se reemplaza por una
 corrección técnica ni se da por resuelta.
+
+## Cierre técnico UI08-R14 · 2026-09-29
+
+La colección de Hypotheses liga readiness, configuración y estado RUNNING al
+`hypothesisId` y `version` del launch y del job actual, además de la misión.
+Una hipótesis futura que comparta Gas Monthly con H-S1-01 queda UNAVAILABLE
+sin heredar sus hashes ni su estado de ejecución. Un request READY con identidad
+discordante tampoco confiere disponibilidad. El test `UI08-R14` reproduce esos
+casos y el render del card. `node --test $(find test -name '*.test.mjs')`
+terminó **2292 pass / 0 fail**. UI08-R11 conserva por separado su gate de
+publicación y smoke del proceso realmente servido; esta corrección no lo cierra.

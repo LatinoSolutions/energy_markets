@@ -485,14 +485,14 @@ test("UI08-R02: the hypothesis collection entry carries each hypothesis's own st
     missions: ["GAS_MONTHLY"],
     state: { registered: true, runnable: true, running: true, completed: true, scientificallyEvaluated: true },
   };
-  const declared = backtestHypothesisCollectionEntry(third, { launchByMission: {}, results: [], runningMissionIds: [] });
-  assert.deepEqual(declared.state, { registered: true, runnable: true, running: true, completed: true, scientificallyEvaluated: true });
+  const declared = backtestHypothesisCollectionEntry(third, { results: [] });
+  assert.deepEqual(declared.state, { registered: true, runnable: false, running: false, completed: true, scientificallyEvaluated: true });
   // Without a declared state, the derivation follows the hypothesis's own data:
   // a result with researchPass flips scientific evaluation, a CURRENT result
   // completes it — regardless of H-S1-01's launch.
   const derived = backtestHypothesisCollectionEntry(
     { ...third, state: undefined },
-    { launchByMission: {}, results: [{ runId: "R", state: "CURRENT", researchPass: true }], runningMissionIds: [] },
+    { results: [{ runId: "R", state: "CURRENT", researchPass: true }] },
   );
   assert.equal(derived.state.scientificallyEvaluated, true);
   assert.equal(derived.state.completed, true);
@@ -501,6 +501,56 @@ test("UI08-R02: the hypothesis collection entry carries each hypothesis's own st
   const { inputs } = loadCanonicalUiInputs();
   const h1 = buildUiViewModels(inputs).backtests.hypotheses.find((hypothesis) => hypothesis.hypothesisId === H_S1_01.hypothesisId);
   assert.equal(h1.state.scientificallyEvaluated, false);
+});
+
+test("UI08-R14: another hypothesis sharing a mission cannot inherit H-S1-01 launch, configuration or running state", () => {
+  const canonicalH1 = buildBacktestsViewModel().canonicalSemantics.hypotheses.find((hypothesis) => hypothesis.hypothesisId === H_S1_01.hypothesisId);
+  const request = {
+    hypothesisId: H_S1_01.hypothesisId,
+    hypothesisVersion: H_S1_01.version,
+    missionId: "GAS_MONTHLY",
+    candidate: { contentHash: sha256("a"), tau: { localTime: "10:30" }, N: 8 },
+    searchSpace: { contentHash: sha256("b") },
+    configuration: { configurationHash: sha256("c") },
+  };
+  const hypothesisLaunch = {
+    metadata: { hypothesisId: H_S1_01.hypothesisId, version: H_S1_01.version },
+    missions: [{ missionId: "GAS_MONTHLY", status: "READY", request, blockers: [] }],
+    runningJob: { hypothesisId: H_S1_01.hypothesisId, hypothesisVersion: H_S1_01.version, missionId: "GAS_MONTHLY" },
+  };
+  const h1 = backtestHypothesisCollectionEntry(canonicalH1, { hypothesisLaunch });
+  assert.equal(h1.missions.find((entry) => entry.missionId === "GAS_MONTHLY").status, "READY");
+  assert.equal(h1.state.runnable, true);
+  assert.equal(h1.state.running, true);
+
+  const h2 = {
+    ...canonicalH1,
+    hypothesisId: "H-S2-01",
+    version: "H-S2-01/phase-A/v1",
+    name: "Second Strategy Hypothesis",
+    missions: ["GAS_MONTHLY"],
+    state: { runnable: true, running: true },
+  };
+  const isolated = backtestHypothesisCollectionEntry(h2, { hypothesisLaunch });
+  assert.equal(isolated.missions[0].status, "UNAVAILABLE");
+  assert.equal(isolated.missions[0].configuration, null);
+  assert.equal(isolated.missions[0].running, false);
+  assert.equal(isolated.state.runnable, false);
+  assert.equal(isolated.state.running, false);
+  const html = renderSurfacePage("backtests", {
+    ...buildBacktestsViewModel({ hypothesisLaunch }),
+    hypotheses: [h1, isolated],
+  }, {});
+  const h2Card = html.slice(html.indexOf('data-hypothesis-id="H-S2-01"'), html.indexOf('class="tr07bar"'));
+  assert.match(h2Card, /GAS_MONTHLY[\s\S]*?UNAVAILABLE/);
+  assert.doesNotMatch(h2Card, new RegExp(sha256("a").slice(0, 12)));
+
+  const wrongVersion = backtestHypothesisCollectionEntry({ ...canonicalH1, version: "H-S1-01/phase-A/v3" }, { hypothesisLaunch });
+  assert.equal(wrongVersion.missions.find((entry) => entry.missionId === "GAS_MONTHLY").status, "UNAVAILABLE");
+  const wrongRequest = backtestHypothesisCollectionEntry(canonicalH1, {
+    hypothesisLaunch: { ...hypothesisLaunch, missions: [{ missionId: "GAS_MONTHLY", status: "READY", request: { ...request, hypothesisId: "H-S2-01" } }] },
+  });
+  assert.equal(wrongRequest.missions.find((entry) => entry.missionId === "GAS_MONTHLY").status, "UNAVAILABLE");
 });
 
 // UI08-R03 · benchmark source and version metadata stay visible

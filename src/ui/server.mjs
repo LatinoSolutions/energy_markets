@@ -304,13 +304,13 @@ export function hypothesisLaunchFromRunner(runner) {
   if (runner == null) return null;
   try {
     const launch = runner.launch();
-    let runningMissionId = null;
+    let runningJob = null;
     try {
-      runningMissionId = runner.status()?.current?.missionId ?? null;
+      runningJob = runner.status()?.current ?? null;
     } catch {
-      runningMissionId = null;
+      runningJob = null;
     }
-    return { ...launch, runningMissionId };
+    return { ...launch, runningJob };
   } catch {
     return null;
   }
