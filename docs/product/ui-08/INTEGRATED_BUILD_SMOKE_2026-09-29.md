@@ -581,6 +581,6 @@ idéntico al esperado, versión `SEM-1/2026-09-28/v1`, snapshot
 las dos relecturas finales), `errors: []`. El control comprobó runners
 legibles e inactivos al inicio y final. No hubo petición POST ni backtest.
 El arranque del runner dejó un marcador local de lock **liberado** en
-`operations/backtest-runs/.job.lock.3`, con `runId: null` y el PID del
-proceso de smoke; se conserva como estado no versionado, sin confundirlo
-con un run de Development.
+`operations/backtest-runs/.job.lock.*`, con `runId: null` y el PID del
+proceso de smoke. Su generación cambia en arranques posteriores; queda
+como estado no versionado, sin confundirlo con un run de Development.
