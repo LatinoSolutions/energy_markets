@@ -6,8 +6,24 @@ import { createUiServer } from "../../src/ui/server.mjs";
 import { backtestJobStatusPayload, tradesJobStatusPayload, hypothesisJobStatusPayload } from "../../src/backtest-jobs/http.mjs";
 import { hypothesisMetadata } from "../../src/backtest-jobs/hypothesis-runner.mjs";
 import { assertConfiguredServiceTarget, verifyServedBuild } from "../../docs/product/ui-08/verify-served-build.mjs";
+import { assertWorktreeCommand } from "../../docs/product/ui-08/verify-worktree-build.mjs";
 
 const COMMIT = "a".repeat(40);
+
+test("UI08-R11: worktree smoke accepts only the branch server on ephemeral loopback", () => {
+  const root = "/tmp/energy-markets-ui-08";
+  const args = ["/usr/bin/node", `${root}/src/ui/serve.mjs`, "--host", "127.0.0.1", "--port", "0"];
+  const command = (items) => Buffer.from([...items, ""].join("\0"));
+  assert.doesNotThrow(() => assertWorktreeCommand(command(args), root, root));
+  for (const changed of [
+    { args, cwd: "/tmp/other-branch" },
+    { args: [args[0], "/tmp/other-branch/src/ui/serve.mjs", ...args.slice(2)], cwd: root },
+    { args: [...args.slice(0, 3), "0.0.0.0", ...args.slice(4)], cwd: root },
+    { args: [...args.slice(0, 5), "8788"], cwd: root },
+  ]) {
+    assert.throws(() => assertWorktreeCommand(command(changed.args), changed.cwd, root), /not the worktree UI server/);
+  }
+});
 
 test("UI08-R11: release target comes from the configured service process, not an arbitrary URL", () => {
   const root = "/srv/hot-data/energy-markets/app";

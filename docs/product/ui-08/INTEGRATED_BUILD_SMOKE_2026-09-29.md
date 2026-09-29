@@ -537,3 +537,34 @@ permite acreditar los tres runners inactivos y legibles. Este cambio fortalece
 la evidencia de entrega, pero **no cierra UI08-R11/UI08-10**. El gate de
 acceso para integrar y reiniciar sigue ACTO: ACTUAL, ya registrado y sin
 ID `P-`; no se repite ni se da por resuelto.
+
+## Límite de UI-08 actualizado por Bru · 2026-09-29 (T-26)
+
+Bru asignó a UI-08 el código, los tests y el smoke del **build integrado
+levantado desde esta rama**. Asignó a UI-09 la publicación en
+`energy-markets-ui.service` y la comprobación del build y snapshot realmente
+servidos allí. Esta decisión posterior delimita el acto descrito en las
+relecturas históricas de arriba; sus observaciones sobre el servicio anterior
+siguen siendo evidencia de que UI-09 aún no ha publicado esta rama, no un
+fallo del smoke de worktree de UI-08.
+
+El smoke de UI-08 arranca `src/ui/serve.mjs` desde el worktree en un puerto
+efímero de `127.0.0.1`, comprueba `/proc/<pid>/cwd` y el comando del proceso
+durante la verificación, y reutiliza `verifyServedBuild` para `/health`,
+`/api/backtest-jobs`, las cuatro superficies y los cuatro drilldowns
+Development. Exige commit cargado limpio, runners legibles e inactivos,
+metadata en inglés, versión semántica y revisión de snapshot coherentes.
+Sólo hace GET; termina únicamente el proceso hijo que creó. Ejecutarlo
+**después del commit**:
+
+```bash
+node docs/product/ui-08/verify-worktree-build.mjs
+```
+
+El CLI anterior `verify-served-build.mjs <base-url> <sha>` conserva el gate de
+publicación de UI-09 y sólo acepta el proceso configurado de
+`energy-markets-ui.service`. Un exit 0 del smoke de worktree no acredita ese
+acto. Conforme a SPEC §25.1 la aceptación se comprueba por su scope; §25.2
+distingue `REQUIRES*` consumidos de `RESOLVES_AUDIT` y `PRODUCES_EVIDENCE`
+producidos. Ninguna de esas relaciones cambia por sí sola el acto de
+publicación entre filas UI.
