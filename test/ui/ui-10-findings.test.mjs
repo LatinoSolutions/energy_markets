@@ -310,3 +310,58 @@ test("UI10-CONTRACT-01: /api/backtest-jobs preflight gives code, English userMes
     assert.equal(launch.blockers[0].userMessage, "Development request missing");
   });
 });
+
+// ---------- UI10-ALIAS-01 · Campaigns run id only in a collapsed detail ----------
+// PLAN_UI.md:28 (intake D-20260929T103404-2ec5): the technical alias under a
+// Campaigns run is "acceptable only in a collapsed detail, not in the primary row".
+
+// Text a reader sees without expanding anything: the body of a closed
+// <details> is hidden, its <summary> stays visible.
+function textOutsideClosedDetails(html) {
+  const body = String(html).replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "");
+  const stack = [];
+  const hidden = () => stack.some((entry) => entry.closedDetails && !entry.inSummary);
+  let visible = "";
+  let cursor = 0;
+  for (const match of body.matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9-]*)\b([^>]*)>/g)) {
+    if (!hidden()) visible += body.slice(cursor, match.index);
+    cursor = match.index + match[0].length;
+    const [, closing, rawName, attributes] = match;
+    const name = rawName.toLowerCase();
+    if (closing) {
+      const at = stack.map((entry) => entry.name).lastIndexOf(name);
+      if (at >= 0) stack.length = at;
+      if (name === "summary") stack.at(-1) && (stack.at(-1).inSummary = false);
+      continue;
+    }
+    if (name === "summary" && stack.at(-1)?.name === "details") stack.at(-1).inSummary = true;
+    if (/\/\s*$/.test(attributes) || ["br", "hr", "img", "input", "meta", "link", "wbr"].includes(name)) continue;
+    stack.push({ name, closedDetails: name === "details" && !/(?:^|\s)open(?:[\s=]|$)/.test(attributes), inSummary: false });
+  }
+  if (!hidden()) visible += body.slice(cursor);
+  return visible;
+}
+
+const TECHNICAL_RUN_TEXT = /EXP-[A-Z0-9-]+-(?:BASELINE|ARM_[AB])|technical alias (?:BASELINE|ARM_[AB])/;
+
+test("UI10-ALIAS-01: the helper hides only the body of a closed <details>", () => {
+  assert.equal(textOutsideClosedDetails("<p>a<details><summary>b</summary>c</details>d</p>"), "abd");
+  assert.equal(textOutsideClosedDetails("<details open><summary>b</summary>c</details>"), "bc");
+});
+
+test("UI10-ALIAS-01: Campaigns shows each run id and technical alias only inside a closed detail", async () => {
+  const pages = { rendered: renderSurfacePage("campaigns", vms.campaigns), ...(await servedPages(["/campaigns"])) };
+  const runCount = vms.campaigns.exploratory.campaigns.reduce((total, campaign) => total + campaign.runs.length, 0);
+  assert.ok(runCount > 0, "the fixture has historical runs");
+  for (const [name, html] of Object.entries(pages)) {
+    assert.doesNotMatch(textOutsideClosedDetails(html), TECHNICAL_RUN_TEXT, name);
+    const rows = [...html.matchAll(/<tr data-status="EXPLORATORY" data-run="([^"]+)">([\s\S]*?)<\/tr>/g)];
+    assert.equal(rows.length, runCount, name);
+    for (const [, runId, row] of rows) {
+      const detail = row.match(/<details class="refs" data-provenance="alias"><summary>Technical id<\/summary>[\s\S]*?<\/details>/)?.[0] ?? "";
+      assert.ok(detail.includes(runId), `${name} ${runId}: the id is kept in the detail`);
+      assert.match(detail, /technical alias (?:BASELINE|ARM_[AB]) · provenance/, `${name} ${runId}`);
+      assert.doesNotMatch(row.replace(detail, "").replace(/<[^>]*>/g, " "), TECHNICAL_RUN_TEXT, `${name} ${runId}: primary row`);
+    }
+  }
+});

@@ -633,6 +633,13 @@ function aliasHtml(text, tag = "div") {
   return `<${tag} class="alias small muted" data-provenance="alias">${esc(text)}</${tag}>`;
 }
 
+// PLAN_UI.md:28 (intake D-20260929T103404-2ec5, review UI10-ALIAS-01): in a
+// Campaigns row the run id and its technical alias are acceptable only in a
+// collapsed detail, never in the primary row.
+function runTechnicalIdHtml(runExpId, aliasLine) {
+  return `<details class="refs" data-provenance="alias"><summary>Technical id</summary><div class="mono small">${esc(runExpId)}</div><div class="small muted">${esc(aliasLine)}</div></details>`;
+}
+
 // Verbatim historical text kept with its provenance, collapsed (UI10-07).
 function historicalQuoteHtml(quote, source = null) {
   if (!quote) {
@@ -1286,8 +1293,8 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
         : '<span class="muted small">no candidate</span>',
     ].join("");
     return `<tr data-status="EXPLORATORY" data-run="${esc(runExpId)}">
-        <td><div class="mono alias" data-provenance="alias">${esc(runExpId)}</div><div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td>
-        <td><span data-canonical-identity="${esc(run.armId)}">${esc(identity)}</span><div class="small muted">${esc(identityEvidence)}</div>${aliasHtml(`${labels.technicalAlias} ${run.armId} · provenance`)}</td>
+        <td><div class="small">slot ${esc(run.slot ?? "—")} Berlin</div>${runTechnicalIdHtml(runExpId, `${labels.technicalAlias} ${run.armId} · provenance`)}</td>
+        <td><span data-canonical-identity="${esc(run.armId)}">${esc(identity)}</span><div class="small muted">${esc(identityEvidence)}</div></td>
         <td>${chip(kind, glyph, label)}</td>
         <td style="min-width:190px">${decisionsBarHtml(run, campaign)}</td>
         <td title="the artifact carries no per-run determinism; the only check is global (Research · Replay determinism)">${chip("unk", "?", "UNKNOWN")}</td>
