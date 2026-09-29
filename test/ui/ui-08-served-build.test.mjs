@@ -491,14 +491,14 @@ test("UI08-R11: primary mission and identity labels must match the backend proje
       const response = await fetch(target, options);
       if (new URL(target).pathname !== "/replay") return response;
       const html = (await response.text())
-        .replace('<tr data-mission="GAS_MONTHLY">\n      <td>Gas Monthly</td>', '<tr data-mission="GAS_MONTHLY">\n      <td>Gas Mensual</td>')
-        .replace('<td data-identity="CLIENT">Client', '<td data-identity="CLIENT">Cliente');
+        .replace('data-mission-context="GAS_MONTHLY">\n    <div class="hd"><h3>Gas Monthly</h3>', 'data-mission-context="GAS_MONTHLY">\n    <div class="hd"><h3>Gas Mensual</h3>')
+        .replace('<dt data-identity="CLIENT">Client', '<dt data-identity="CLIENT">Cliente');
       return new Response(html, { status: response.status, headers: response.headers });
     };
     const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
     assert.equal(report.ok, false);
     assert.match(report.errors.join("\n"), /\/replay: primary mission label differs from backend: GAS_MONTHLY/);
-    assert.match(report.errors.join("\n"), /\/replay: primary CLIENT label differs from backend: GAS_QUARTERLY/);
+    assert.match(report.errors.join("\n"), /\/replay: primary CLIENT label differs from backend: [A-Z_]+/);
   });
 });
 
@@ -638,7 +638,8 @@ test("UI-10: served smoke rejects primary legacy text and a CONTROL identity out
   await withServer(async (url) => {
     for (const [corrupt, expected] of [
       [(html) => html.replace('<h1 class="page">', '<p>Arm A bought cheaper than Baseline</p><h1 class="page">'), /UI10-04 legacy text in primary content: Arm A/],
-      [(html) => html.replace('<td data-identity="BENCHMARK">', '<td data-identity="CONTROL">Control</td><td data-identity="BENCHMARK">'), /CONTROL shown as a primary identity outside the ablation/],
+      [(html) => html.replace('<dt data-identity="BENCHMARK">', '<dt data-identity="CONTROL">Control</dt><dd>comparator</dd><dt data-identity="BENCHMARK">'), /CONTROL shown as a primary identity outside the ablation/],
+      [(html) => html.replace('<dl class="kvgrid">', '<table><tr data-mission="GAS_MONTHLY"><td>Gas Monthly</td></tr></table><dl class="kvgrid">'), /shared projection is a table of missions instead of the active mission context/],
     ]) {
       const changedFetch = async (target, options) => {
         const response = await fetch(target, options);

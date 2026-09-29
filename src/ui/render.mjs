@@ -23,11 +23,12 @@
 //   - procedencia (recordKey, revisionId, valueSha256) y relojes visibles.
 
 import { SURFACES } from "./view-models.mjs";
-import { H_S1_01, H_RD_01 } from "../backtesting-semantics/contract.mjs";
-import { CANONICAL_LABELS, blockerDisplayText } from "../backtesting-semantics/projection.mjs";
+import { H_S1_01, H_RD_01, MISSION_LABELS } from "../backtesting-semantics/contract.mjs";
+import { CANONICAL_LABELS } from "../backtesting-semantics/projection.mjs";
+import { blockerBriefHtml } from "./backtest-job-panel.mjs";
 import { LEGACY_RUN_NAMES } from "../backtesting-semantics/legacy-compat.mjs";
 import { EXPLORATORY_MISSIONS } from "../exploratory/missions.mjs";
-import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
+import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor, tradesLabel, tradesZoneLabel } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
 import {
   PROVENANCE_INTERACTION_SCRIPT,
@@ -201,8 +202,8 @@ function noEstimateFrameSvg({ width, height, label, reason }) {
   }
   svg += `<line x1="${left}" x2="${left}" y1="${top}" y2="${top + plotH}"/></g>`;
   svg += `<rect x="${left}" y="${top}" width="${plotW}" height="${plotH}" fill="url(#hatchU-${width}-${height})" rx="2"/>`;
-  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 - 4}" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
-  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 + 13}" text-anchor="middle" font-size="10.5" fill="var(--unk)">not produced by a canonical producer · not zero</text>`;
+  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 - 4}" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
+  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 + 13}" text-anchor="middle" font-size="14" fill="var(--unk)">not produced by a canonical producer · not zero</text>`;
   svg += "</svg>";
   return `${svg}<div class="small muted" style="margin-top:4px" data-status="UNAVAILABLE">${esc(reason)}</div>`;
 }
@@ -279,7 +280,7 @@ function timelineSvg(vm) {
   svg += `<line x1="${left}" x2="${width - right}" y1="34" y2="34" stroke="var(--rule)"/>`;
   if (times.length === 0) {
     svg += `<rect x="${left}" y="10" width="${width - left - right}" height="48" fill="url(#tlHatchU)"/>`;
-    svg += `<text x="${width / 2}" y="38" text-anchor="middle" font-size="11" fill="var(--unk)" font-weight="700">TIMELINE UNAVAILABLE · nothing is drawn</text>`;
+    svg += `<text x="${width / 2}" y="38" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">TIMELINE UNAVAILABLE · nothing is drawn</text>`;
     return `${svg}</svg>`;
   }
   const minMs = Math.min(...times);
@@ -290,7 +291,7 @@ function timelineSvg(vm) {
   const x = (ms) => left + ((ms - from) / (to - from)) * (width - left - right);
   if (t0 !== null && asOf !== null && asOf > t0) {
     svg += `<rect x="${x(t0)}" y="42" width="${x(asOf) - x(t0)}" height="8" fill="url(#tlHatchH)" stroke="var(--hind)" stroke-width="1"/>`;
-    svg += `<text x="${x(t0) + 4}" y="61" font-size="10" fill="var(--hind)" font-weight="600">T₀ → evaluation as-of ${esc(vm.evaluation.asOf)}</text>`;
+    svg += `<text x="${x(t0) + 4}" y="61" font-size="14" fill="var(--hind)" font-weight="600">T₀ → evaluation as-of ${esc(vm.evaluation.asOf)}</text>`;
   }
   if (asOf !== null) {
     svg += `<rect x="${x(asOf)}" y="8" width="${width - right - x(asOf)}" height="52" fill="url(#tlHatchU)" opacity=".7"/>`;
@@ -298,12 +299,12 @@ function timelineSvg(vm) {
     const nearRightEdge = x(asOf) > width - right - 150;
     const labelX = nearRightEdge ? x(asOf) - 5 : x(asOf) + 5;
     const anchor = nearRightEdge ? "end" : "start";
-    svg += `<text x="${labelX}" y="14" text-anchor="${anchor}" font-size="10.5" fill="var(--ink)" font-weight="600">evaluation as-of</text>`;
-    svg += `<text x="${labelX}" y="26" text-anchor="${anchor}" font-size="10" fill="var(--ink-3)">beyond · nothing known</text>`;
+    svg += `<text x="${labelX}" y="14" text-anchor="${anchor}" font-size="14" fill="var(--ink)" font-weight="600">evaluation as-of</text>`;
+    svg += `<text x="${labelX}" y="26" text-anchor="${anchor}" font-size="14" fill="var(--ink-3)">beyond · nothing known</text>`;
   }
   if (t0 !== null) {
     svg += `<line x1="${x(t0)}" x2="${x(t0)}" y1="4" y2="64" stroke="var(--asof)" stroke-width="2"/>`;
-    svg += `<text x="${x(t0) - 5}" y="14" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">T₀</text>`;
+    svg += `<text x="${x(t0) - 5}" y="14" text-anchor="end" font-size="14" fill="var(--asof)" font-weight="700">T₀</text>`;
   }
   const shapes = {
     decision: (cx) => `<rect x="${cx - 3.5}" y="27" width="7" height="7" rx="1" fill="var(--asof)" stroke="var(--asof)"/>`,
@@ -315,8 +316,8 @@ function timelineSvg(vm) {
     const cx = x(toMs(mark.clock));
     svg += `<g data-tip="${esc(mark.label)} · ${esc(mark.clock)}"><rect x="${cx - 6}" y="20" width="12" height="28" fill="transparent"/>${shapes[mark.kind](cx)}</g>`;
   }
-  svg += `<text x="${left}" y="72" font-size="10" fill="var(--ink-3)">${esc(new Date(from).toISOString().slice(0, 10))}</text>`;
-  svg += `<text x="${width - right}" y="72" font-size="10" fill="var(--ink-3)" text-anchor="end">${esc(new Date(to).toISOString().slice(0, 10))}</text>`;
+  svg += `<text x="${left}" y="72" font-size="14" fill="var(--ink-3)">${esc(new Date(from).toISOString().slice(0, 10))}</text>`;
+  svg += `<text x="${width - right}" y="72" font-size="14" fill="var(--ink-3)" text-anchor="end">${esc(new Date(to).toISOString().slice(0, 10))}</text>`;
   return `${svg}</svg>`;
 }
 
@@ -352,14 +353,14 @@ function decisionChartSvg(vm) {
   svg += `<text x="${left}" y="${height - 8}" text-anchor="middle">−${days}d</text><text x="${x0}" y="${height - 8}" text-anchor="middle">T₀</text><text x="${width - right}" y="${height - 8}" text-anchor="middle">+${days}d</text>`;
   svg += "</g>";
   svg += `<rect x="${left}" y="${top + 34}" width="${x0 - left - 8}" height="${plotBottom - top - 78}" fill="url(#chHatchU)" rx="2"/>`;
-  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 - 4}" text-anchor="middle" font-size="11.5" fill="var(--unk)" font-weight="700">NO CANONICAL SERIES</text>`;
-  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 + 12}" text-anchor="middle" font-size="10.5" fill="var(--unk)">the boundary exposes no price series · no line is drawn</text>`;
-  svg += `<g class="sealed-layer"><text x="${(x0 + width - right) / 2}" y="${height / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
-  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
-  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 25}" text-anchor="middle" font-size="11" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
+  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 - 4}" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO CANONICAL SERIES</text>`;
+  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 + 12}" text-anchor="middle" font-size="14" fill="var(--unk)">the boundary exposes no price series · no line is drawn</text>`;
+  svg += `<g class="sealed-layer"><text x="${(x0 + width - right) / 2}" y="${height / 2 - 8}" text-anchor="middle" font-size="14" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
+  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 10}" text-anchor="middle" font-size="14" fill="var(--ink-3)">Not known at decision time.</text>`;
+  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 25}" text-anchor="middle" font-size="14" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
   svg += `<line x1="${x0}" x2="${x0}" y1="${top - 6}" y2="${plotBottom}" stroke="var(--hind)" stroke-width="2" stroke-dasharray="4 3"/>`;
-  svg += `<text x="${x0 - 5}" y="${top + 4}" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
-  svg += `<text x="${x0 + 5}" y="${top + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
+  svg += `<text x="${x0 - 5}" y="${top + 4}" text-anchor="end" font-size="14" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
+  svg += `<text x="${x0 + 5}" y="${top + 4}" font-size="14" fill="var(--hind)" font-weight="700">LATER</text>`;
   const markY = plotBottom - 16;
   // Etiquetas escalonadas cuando dos relojes caen casi en la misma x.
   let previousX = null;
@@ -371,17 +372,17 @@ function decisionChartSvg(vm) {
   };
   for (const mark of decisionMarks) {
     const cx = x(mark.ms);
-    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · known at T₀"><rect x="${cx - 5}" y="${markY - 5}" width="10" height="10" rx="1" fill="var(--asof)" stroke="var(--surface)" stroke-width="2"/><text x="${cx - 8}" y="${labelY(cx)}" text-anchor="end" font-size="10" fill="var(--asof)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
+    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · known at T₀"><rect x="${cx - 5}" y="${markY - 5}" width="10" height="10" rx="1" fill="var(--asof)" stroke="var(--surface)" stroke-width="2"/><text x="${cx - 8}" y="${labelY(cx)}" text-anchor="end" font-size="14" fill="var(--asof)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
   }
   previousX = null;
   stagger = 0;
   svg += '<g class="hind-layer">';
   if (laterMarks.length === 0) {
-    svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2}" text-anchor="middle" font-size="11" fill="var(--hind)" font-weight="600">no evaluation point after T₀ exposed</text>`;
+    svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2}" text-anchor="middle" font-size="14" fill="var(--hind)" font-weight="600">no evaluation point after T₀ exposed</text>`;
   }
   for (const mark of laterMarks) {
     const cx = x(mark.ms);
-    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · realised later"><circle cx="${cx}" cy="${markY}" r="5" fill="var(--hind)" stroke="var(--surface)" stroke-width="2"/><text x="${cx}" y="${labelY(cx)}" text-anchor="middle" font-size="10" fill="var(--hind)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
+    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · realised later"><circle cx="${cx}" cy="${markY}" r="5" fill="var(--hind)" stroke="var(--surface)" stroke-width="2"/><text x="${cx}" y="${labelY(cx)}" text-anchor="middle" font-size="14" fill="var(--hind)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
   }
   svg += "</g></svg>";
   return svg;
@@ -474,7 +475,7 @@ function replayBody(vm, { errors = null } = {}) {
   </div>`;
 
   const interventions = validated
-    ? `<div class="interv"><div class="ohd"><span class="glyph" style="background:var(--unk);color:#fff;width:22px;height:22px;display:grid;place-items:center;border-radius:3px;font:700 13px var(--mono)">◆</span><b style="font-size:12.5px">Human intervention</b><span class="muted small">never listed as a fill; attribution kept</span></div><section class="events intervention-events" data-view-scope="intervention" data-zone="intervention" data-events-kind="intervention">${vm.interventions.length > 0 ? `<ul class="data-list events-list">${vm.interventions.map(eventClassHtml).join("")}</ul>` : `<p class="small muted" style="margin:6px 0 0">${chip("na", "—", "None exposed")} no human intervention in this boundary</p>`}</section></div>`
+    ? `<div class="interv"><div class="ohd"><span class="glyph" style="background:var(--unk);color:#fff;width:22px;height:22px;display:grid;place-items:center;border-radius:3px;font:700 14px var(--mono)">◆</span><b style="font-size:14px">Human intervention</b><span class="muted small">never listed as a fill; attribution kept</span></div><section class="events intervention-events" data-view-scope="intervention" data-zone="intervention" data-events-kind="intervention">${vm.interventions.length > 0 ? `<ul class="data-list events-list">${vm.interventions.map(eventClassHtml).join("")}</ul>` : `<p class="small muted" style="margin:6px 0 0">${chip("na", "—", "None exposed")} no human intervention in this boundary</p>`}</section></div>`
     : "";
 
   const exposureRows = validated
@@ -512,7 +513,7 @@ function replayBody(vm, { errors = null } = {}) {
     evaluationInner = `
       <div class="zhd"><span class="zt hind">Later · evaluation</span><b>not visible to the decision</b></div>
       <div class="zbd">
-        <div class="metric"><span class="lbl"><b>Evaluation view</b> · as-of</span><span class="val" style="font-size:13px">${esc(vm.evaluation.asOf ?? "—")}</span><span class="lbl">Clock</span><span class="mono small">evaluation-effective</span></div>
+        <div class="metric"><span class="lbl"><b>Evaluation view</b> · as-of</span><span class="val" style="font-size:14px">${esc(vm.evaluation.asOf ?? "—")}</span><span class="lbl">Clock</span><span class="mono small">evaluation-effective</span></div>
         <div class="sp"></div>
         ${points}${pending}
         <div class="sp"></div>
@@ -593,7 +594,7 @@ function hourProfileSvg(profile, width = 380) {
     return `<rect x="${x}" y="${y}" width="${barWidth - 4}" height="${Math.max(1, h)}" fill="${fill}"><title>${esc(slot.slot)} Berlin: ${slot.meanDiffEurMwh.toFixed(3)} EUR/MWh vs 11:00 (n=${slot.episodes})</title></rect>`;
   });
   const labels = profile.slots
-    .map((slot, index) => (index % 4 === 0 ? `<text x="${index * barWidth + 2}" y="${height - 2}" font-size="9" fill="var(--ink-3)">${esc(slot.slot)}</text>` : ""))
+    .map((slot, index) => (index % 4 === 0 ? `<text x="${index * barWidth + 2}" y="${height - 2}" font-size="14" fill="var(--ink-3)">${esc(slot.slot)}</text>` : ""))
     .join("");
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Mean price difference by hour vs 11:00, ${esc(profile.product)}"><line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="var(--rule)"/>${bars.join("")}${labels}</svg>`;
 }
@@ -780,9 +781,12 @@ function backtestMeasurementHtml(readiness, productFilter = null, semantics = nu
 }
 
 function pairedEffectSvg(block, pointDetails = null, runs = historicalRunsFor(null), labels = CANONICAL_LABELS.historical) {
-  const width = 800;
+  // UI-10 (PLAN_UI §3 "Minimum 14 px anywhere (including SVG)"): the viewBox is
+  // narrower than its card at 1440 px, so the fluid chart never scales its SVG
+  // labels below the floor there.
+  const width = 760;
   const height = 330;
-  const pad = { left: 50, right: 20, top: 20, bottom: 40 };
+  const pad = { left: 70, right: 20, top: 20, bottom: 40 };
   const series = Object.entries(block.paired).filter(([, value]) => value.points.length > 0);
   const all = series.flatMap(([, value]) => value.points).concat([0]);
   const maxAbs = Math.max(1, ...all.map((value) => Math.abs(value)));
@@ -790,14 +794,14 @@ function pairedEffectSvg(block, pointDetails = null, runs = historicalRunsFor(nu
   const x = (index) => pad.left + (index / Math.max(1, count - 1)) * (width - pad.left - pad.right);
   const y = (value) => pad.top + ((maxAbs - value) / (2 * maxAbs)) * (height - pad.top - pad.bottom);
   const grid = `<g class="axis">${[-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" ${value === 0 ? 'stroke="var(--ink-3)"' : 'stroke-dasharray="2 3"'}/><text x="${pad.left - 6}" y="${y(value) + 3.5}" text-anchor="end">${value === 0 ? "0" : kEur(value)}</text>`).join("")}</g>`;
-  const boundaries = (series[0]?.[1].boundaries ?? []).map((boundary) => `<line x1="${x(boundary.index)}" x2="${x(boundary.index)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--rule)" stroke-dasharray="3 3"/><text x="${x(boundary.index) + 3}" y="${height - pad.bottom + 14}" font-size="9" fill="var(--ink-3)">${esc(boundary.maturity)}</text>`).join("");
+  const boundaries = (series[0]?.[1].boundaries ?? []).map((boundary) => `<line x1="${x(boundary.index)}" x2="${x(boundary.index)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--rule)" stroke-dasharray="3 3"/><text x="${x(boundary.index) + 3}" y="${height - pad.bottom + 14}" font-size="14" fill="var(--ink-3)">${esc(boundary.maturity)}</text>`).join("");
   const lines = series.map(([armId, value]) => {
     const path = value.points.map((point, index) => `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point).toFixed(1)}`).join(" ");
     const last = value.points.length - 1;
-    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="4" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2"/><text x="${x(last) - 8}" y="${y(value.points[last]) - 8}" font-size="11" text-anchor="end" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${esc(runs[armId]?.displayName ?? armId)} ${kEur(value.finalKeur)}</text>`;
+    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="4" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2"/><text x="${x(last) - 8}" y="${y(value.points[last]) - 8}" font-size="14" text-anchor="end" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${esc(runs[armId]?.displayName ?? armId)} ${kEur(value.finalKeur)}</text>`;
   }).join("");
   const hover = pairedHoverLayerSvg({ series, pointDetails, count, x, y, top: pad.top, bottom: height - pad.bottom, step: (width - pad.left - pad.right) / Math.max(1, count - 1) });
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ${esc(labels.deltaVsComparator)} by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text>${hover}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ${esc(labels.deltaVsComparator)} by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="14" fill="var(--ink-3)">k€</text>${hover}</svg>`;
 }
 
 // UI-06 (owner request 25-sep-2026, PLAN_STATUS UI-06; prototipo aprobado
@@ -890,8 +894,8 @@ function distributionSvg(dist, armId) {
   }).join("");
   const xOf = (value) => pad.left + ((value - dist.min) / (dist.max - dist.min)) * (width - pad.left - pad.right);
   const zero = `<line x1="${xOf(0)}" x2="${xOf(0)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--ink-3)" stroke-dasharray="2 2"/>`;
-  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)" stroke-width="1.5"/><text x="${xOf(dist.mean) + 4}" y="${pad.top + 4}" font-size="10.5" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
-  const ticks = [dist.min, dist.min / 2, 0, dist.max / 2, dist.max].map((value) => `<text x="${xOf(value)}" y="${height - 6}" font-size="9" text-anchor="middle" fill="var(--ink-3)">${value > 0 ? "+" : ""}${value}</text>`).join("");
+  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)" stroke-width="1.5"/><text x="${xOf(dist.mean) + 4}" y="${pad.top + 4}" font-size="14" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
+  const ticks = [dist.min, dist.min / 2, 0, dist.max / 2, dist.max].map((value) => `<text x="${xOf(value)}" y="${height - 6}" font-size="14" text-anchor="middle" fill="var(--ink-3)">${value > 0 ? "+" : ""}${value}</text>`).join("");
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="H minus B* per decision">${yAxis}${bars}${zero}${mean}${ticks}</svg><div class="tiny muted">n = ${dist.n} decisions with a fill${dist.outside > 0 ? ` · ${dist.outside} outside ±${dist.max}` : ""} · P95 ${eur(dist.p95)}</div>`;
 }
 
@@ -916,10 +920,10 @@ function acrossCampaignsHtml(block, runs, labels) {
   svg += "</g>";
   block.acrossCampaigns.forEach((entry, index) => {
     const cy = top + index * rowH + rowH / 2;
-    svg += `<text x="0" y="${cy + 4}" font-size="11" fill="var(--ink)" font-family="var(--mono)">${esc(entry.maturity)}</text>`;
+    svg += `<text x="0" y="${cy + 4}" font-size="14" fill="var(--ink)" font-family="var(--mono)">${esc(entry.maturity)}</text>`;
     const armValues = Object.entries(entry.arms);
     if (armValues.every(([, value]) => value === null)) {
-      svg += `<rect x="${left}" y="${cy - 8}" width="${width - left - right}" height="16" fill="url(#emHatchU)" rx="2"/><text x="${(left + width - right) / 2}" y="${cy + 4}" text-anchor="middle" font-size="10.5" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
+      svg += `<rect x="${left}" y="${cy - 8}" width="${width - left - right}" height="16" fill="url(#emHatchU)" rx="2"/><text x="${(left + width - right) / 2}" y="${cy + 4}" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
       return;
     }
     for (const [armId, value] of armValues) {
@@ -1002,18 +1006,18 @@ function exploratoryComparisonHtml(exploratory, mode = "TOB", productFilter = nu
 const PAIRED_TIP_CSS = `<style>
 .ppwrap { position: relative; }
 .ppwrap .pphit { cursor: crosshair; }
-.pptip { position: absolute; top: 8px; display: none; z-index: 5; min-width: 320px; max-width: 460px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 9px 11px; font-size: 12px; line-height: 1.5; pointer-events: none; }
+.pptip { position: absolute; top: 8px; display: none; z-index: 5; min-width: 320px; max-width: 460px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 9px 11px; font-size: 14px; line-height: 1.5; pointer-events: none; }
 .pptip.on { display: block; }
 .pptip.pinned { pointer-events: auto; border-color: var(--ink); }
-.pptip .t-head { font: 700 13px var(--serif); }
-.pptip .t-sub { font: 11px var(--mono); color: var(--ink-3); margin-bottom: 6px; }
-.pptip table { border-collapse: collapse; width: 100%; font: 11px var(--mono); }
+.pptip .t-head { font: 700 14px var(--serif); }
+.pptip .t-sub { font: 14px var(--mono); color: var(--ink-3); margin-bottom: 6px; }
+.pptip table { border-collapse: collapse; width: 100%; font: 14px var(--mono); }
 .pptip th { text-align: left; color: var(--ink-3); font-weight: 400; padding: 2px 6px 2px 0; }
 .pptip td { padding: 2px 6px 2px 0; }
 .pptip td:first-child, .pptip th { white-space: nowrap; }
 .pptip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
 .pptip .unav { color: var(--unk); }
-.pptip .foot { margin-top: 6px; font: 10px var(--mono); color: var(--ink-3); }
+.pptip .foot { margin-top: 6px; font: 14px var(--mono); color: var(--ink-3); }
 </style>`;
 
 // Solo presentación: lee los textos ya formateados del JSON y las posiciones de data-*.
@@ -1218,7 +1222,7 @@ function decisionsBarHtml(run, campaign) {
   const allRun = run.decisions === campaign.tradingDays;
   const segment = closed ? '<span class="closed" style="width:100%"></span>' : '<span class="open" style="width:100%"></span>';
   const counts = closed ? `${run.decisions} closed · 0 open` : `0 closed · ${run.decisions} open`;
-  const notRun = allRun ? "0 not run" : '<span class="unkv" style="font-size:10.5px;line-height:15px">NOT RUN count UNKNOWN</span>';
+  const notRun = allRun ? "0 not run" : '<span class="unkv" style="font-size:14px;line-height:20px">NOT RUN count UNKNOWN</span>';
   return `<div class="bar" title="closed / open / not run">${segment}</div>
         <div class="small num" style="margin-top:4px">${counts} · ${notRun}</div>
         <div class="tiny muted mono">${run.boughtMw}/${campaign.targetMw} MW · H ${eur(run.hEurMwh)} €/MWh</div>`;
@@ -1312,6 +1316,7 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
       </div>
       <div style="text-align:right"><div class="caps muted">Campaign readiness</div><div style="margin-top:4px">${campaignReadinessChip(campaign, { detail: true })}</div></div>
     </div>
+    ${missionContextHtml(semantics, missionIdOfProduct(semantics, campaign.product))}
     <div class="grid g2" style="margin-top:16px">
       <div class="card hist" data-provenance="historical"><div class="hd"><span class="histbadge">${esc(labels.badge)}</span><h3>Readiness gates</h3><span class="muted small">from backend · exploratory manifest of the historical runs</span></div><div class="bd">${gates}</div></div>
       <div class="card"><div class="hd"><h3>What we don't know</h3><span class="muted small">${unknowns.length} explicit unknowns · fail-closed</span></div><div class="bd">${unknownItems}</div></div>
@@ -1326,13 +1331,9 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
   </section>`;
 }
 
-// SEM-2: tira de identidades canónicas compartida por las cuatro superficies. Se
-// dibuja desde la proyección backend (view-models.mjs → projection.mjs): ningún
-// label sale de strings de presentación ni de un segundo registro. Los aliases
-// históricos quedan como provenance, nunca como identidad primaria.
-// UI-10 (PLAN_UI §3 item 1, §4.B.12): compact and collapsed so the route opens
-// on its object of work; CONTROL leaves this table (it is the ablation
-// comparator, decisión de Bru 29-sep-2026, PLAN_STATUS.md fila UI-10).
+// SEM-2: the canonical identities come from the backend projection
+// (view-models.mjs → projection.mjs), never from presentation strings or a
+// second registry; historical aliases stay provenance, never primary identity.
 function benchmarkSummary(mission, labels) {
   const references = Object.values(mission.benchmarkByCampaign ?? {});
   const statusLabels = labels.benchmarkStatuses ?? CANONICAL_LABELS.benchmarkStatuses;
@@ -1349,33 +1350,54 @@ function benchmarkSummary(mission, labels) {
   return `${base} · ${references.length} campaign reference${references.length === 1 ? "" : "s"} (${counts})`;
 }
 
-function canonicalSemanticsStrip(semantics) {
+// UI-10 (PLAN_UI §3 "the C/B/H projection appears once per route, compact and
+// contextual (the current mission), not as a table of 4 missions × 5 columns";
+// §4.B.12): one mission — Client, Benchmark and Hypotheses from the shared
+// backend projection. CONTROL is only named in a note pointing to the ablation
+// (decisión de Bru 29-sep-2026, PLAN_STATUS.md fila UI-10). An unknown mission
+// renders nothing (fail-closed): no other mission stands in for it.
+function missionContextHtml(semantics, missionId) {
   if (semantics?.ok !== true || !Array.isArray(semantics.missions)) {
     return "";
   }
+  const mission = semantics.missions.find((entry) => entry.missionId === missionId);
+  if (!mission) {
+    return "";
+  }
   const labels = semantics.labels;
-  const identityCell = (identity, detail) => `<td data-identity="${esc(identity)}">${esc(labels.identities[identity === "HYPOTHESIS" ? "HYPOTHESES" : identity])}<div class="small muted">${esc(detail)}</div></td>`;
-  const rows = semantics.missions.map((mission) => {
-    const hypotheses = mission.hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)} <span class="small muted">(${esc(hypothesis.role)} · ${esc(hypothesis.version)} · ${esc(hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? labels.statuses.PROVENANCE_ONLY : labels.statuses.UNTESTED)})</span></span>`).join("");
-    return `<tr data-mission="${esc(mission.missionId)}">
-      <td>${esc(mission.label)}</td>
-      ${identityCell("CLIENT", mission.clientSummary ?? "")}
-      ${identityCell("BENCHMARK", benchmarkSummary(mission, labels))}
-      <td data-identity="HYPOTHESIS">${hypotheses}</td>
-    </tr>`;
-  }).join("");
-  // H-RD-01 (Research Discovery) belongs to the HYPOTHESES collection, not to any
-  // mission row: it declares no mission scope (SEM2-T05).
-  const rd = (semantics.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === "H-RD-01");
-  const rdNote = rd
-    ? `<p class="small muted" data-hypothesis-id="H-RD-01">${esc(rd.hypothesisId)} · ${esc(rd.name)} — ${esc(rd.role)} · declared mission scope: none · ${esc(labels.statuses.PROVENANCE_ONLY)}</p>`
-    : "";
-  return `<details class="card cbh" data-semantic="SEM-2/canonical-projection" data-semantic-version="${esc(semantics.semanticVersion)}">
-    <summary class="hd"><h3>${esc(labels.identities.CLIENT)} / ${esc(labels.identities.BENCHMARK)} / ${esc(labels.identities.HYPOTHESES)}</h3><span class="small muted">shared backend projection · ${semantics.missions.length} missions · show</span></summary>
-    <div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>${esc(labels.identities.CLIENT)}</th><th>${esc(labels.identities.BENCHMARK)}</th><th>${esc(labels.identities.HYPOTHESES)}</th></tr></thead><tbody>${rows}</tbody></table></div>
-    ${rdNote}
-    <p class="small muted">Canonical English identities from the backend. Historical runs appear only in cards marked historical provenance; they never establish Client or a tested hypothesis.</p></div>
-  </details>`;
+  const hypotheses = mission.hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)} <span class="small muted">(${esc(hypothesis.role)} · ${esc(hypothesis.version)} · ${esc(hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? labels.statuses.PROVENANCE_ONLY : labels.statuses.UNTESTED)})</span></span>`).join("<br>");
+  // H-RD-01 (Research Discovery) belongs to the HYPOTHESES collection, not to
+  // any mission: it declares no mission scope (SEM2-T05), so it is listed apart.
+  const unscoped = (semantics.hypotheses ?? []).filter((hypothesis) => (hypothesis.missions ?? []).length === 0).map((hypothesis) => `<p class="small muted" data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)} — ${esc(hypothesis.role)} · declared mission scope: none · ${esc(labels.statuses.PROVENANCE_ONLY)}</p>`).join("");
+  return `<div class="card mctx" data-provenance="primary" data-semantic="SEM-2/canonical-projection" data-semantic-version="${esc(semantics.semanticVersion)}" data-mission-context="${esc(mission.missionId)}">
+    <div class="hd"><h3>${esc(mission.label)}</h3><span class="small muted">mission context · shared backend projection</span></div>
+    <div class="bd"><dl class="kvgrid">
+      <dt data-identity="CLIENT">${esc(labels.identities.CLIENT)}</dt><dd>${esc(mission.clientSummary ?? "")}</dd>
+      <dt data-identity="BENCHMARK">${esc(labels.identities.BENCHMARK)}</dt><dd>${esc(benchmarkSummary(mission, labels))}</dd>
+      <dt data-identity="HYPOTHESIS">${esc(labels.identities.HYPOTHESES)}</dt><dd>${hypotheses}</dd>
+    </dl>
+    ${unscoped}
+    <p class="small muted" data-context="ablation">${esc(labels.identities.CONTROL)} is the paired comparator of each hypothesis; it is shown only in the <a href="#backtests">Backtests</a> ablation.</p></div>
+  </div>`;
+}
+
+function missionIdOfProduct(semantics, product) {
+  return semantics?.missions?.find((mission) => mission.product === product)?.missionId ?? null;
+}
+
+// Research has no mission of its own: the context follows the mission chosen in
+// the link (?mission=, validated by the server) and defaults to the first
+// backend mission, with the other missions one click away.
+function researchMissionContextHtml(semantics, selection) {
+  const missions = semantics?.ok === true ? semantics.missions ?? [] : [];
+  if (missions.length === 0) {
+    return "";
+  }
+  const missionId = missions.some((mission) => mission.missionId === selection?.missionId) ? selection.missionId : missions[0].missionId;
+  const switcher = missions.map((mission) => mission.missionId === missionId
+    ? `<b aria-current="true">${esc(mission.label)}</b>`
+    : `<a href="?mission=${esc(mission.missionId)}" data-mission-link="${esc(mission.missionId)}">${esc(mission.label)}</a>`).join(" ");
+  return `<div class="row wrap" style="gap:6px;margin-bottom:8px" data-mission-switch><span class="caps muted">Mission</span>${switcher}</div>${missionContextHtml(semantics, missionId)}`;
 }
 
 export function exploratoryCampaignsBody(exploratory, semantics = null) {
@@ -1385,7 +1407,6 @@ export function exploratoryCampaignsBody(exploratory, semantics = null) {
   const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory, campaign === firstComplete, semantics)).join("");
   return `${TARGET_SWITCH_CSS}${railSelectionCss(campaigns.map((campaign) => `cmp-${campaign.id}`), `cmp-${firstComplete.id}`)}
 <section class="surface campaigns" data-surface="campaigns" data-exploratory="true">
-  ${canonicalSemanticsStrip(semantics)}
   <div class="split xwrap">
     <div class="xlist">
       <div class="card crail">
@@ -1418,7 +1439,8 @@ function evaluationCloses(episode) {
 // llena si compró; la seleccionada más alta; el punto negro marca las que tienen detalle.
 function runTimelineSvg(episode, item, runName = "Selected historical run") {
   const width = 1200;
-  const height = 74;
+  // UI-10: room for two rows of 16 px labels (evaluation window, months).
+  const height = 96;
   const left = 20;
   const right = 20;
   const days = episode.decisions?.ARM_A ?? [];
@@ -1432,7 +1454,7 @@ function runTimelineSvg(episode, item, runName = "Selected historical run") {
     const cx = x(item.index);
     svg += `<rect x="${cx}" y="42" width="${Math.max(2, x(count - 1) - cx)}" height="8" fill="var(--hind)" stroke="var(--hind)" stroke-width="1" opacity=".75"/>`;
     const labelRight = cx > width / 2;
-    svg += `<text x="${labelRight ? cx - 6 : cx + 6}" y="61" text-anchor="${labelRight ? "end" : "start"}" font-size="10" fill="var(--hind)" font-weight="600">evaluation closed ${esc(closes)}</text>`;
+    svg += `<text x="${labelRight ? cx - 6 : cx + 6}" y="68" text-anchor="${labelRight ? "end" : "start"}" font-size="14" fill="var(--hind)" font-weight="600">evaluation closed ${esc(closes)}</text>`;
   }
   days.forEach((day, index) => {
     const cx = x(index);
@@ -1450,7 +1472,7 @@ function runTimelineSvg(episode, item, runName = "Selected historical run") {
   });
   days.forEach((day, index) => {
     if (index > 0 && days[index - 1].day.slice(0, 7) === day.day.slice(0, 7)) return;
-    svg += `<text x="${x(index)}" y="72" font-size="10" fill="var(--ink-3)" text-anchor="${index === 0 ? "start" : "middle"}">${esc(day.day.slice(0, 7))}</text>`;
+    svg += `<text x="${x(index)}" y="90" font-size="14" fill="var(--ink-3)" text-anchor="${index === 0 ? "start" : "middle"}">${esc(day.day.slice(0, 7))}</text>`;
   });
   return `${svg}</svg>`;
 }
@@ -1463,7 +1485,8 @@ function knownAtT0Svg(episode, item, slot = "11:00") {
   const height = 250;
   const L = 44;
   const R = 26;
-  const T = 16;
+  // UI-10: the KNOWN AT T₀ / LATER labels sit above the plot, clear of the axis.
+  const T = 34;
   const B = 26;
   const points = episode.ask11;
   const values = points.map((point) => point.ask).filter((value) => typeof value === "number");
@@ -1490,9 +1513,9 @@ function knownAtT0Svg(episode, item, slot = "11:00") {
   const midLater = (cut + x(count - 1)) / 2;
   let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${esc(slot)} best ask as known at decision time">`;
   svg += `<g class="sealed-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="var(--surface-2)"/>`;
-  svg += `<text x="${midLater}" y="${height / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
-  svg += `<text x="${midLater}" y="${height / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
-  svg += `<text x="${midLater}" y="${height / 2 + 25}" text-anchor="middle" font-size="11" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
+  svg += `<text x="${midLater}" y="${height / 2 - 8}" text-anchor="middle" font-size="14" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
+  svg += `<text x="${midLater}" y="${height / 2 + 10}" text-anchor="middle" font-size="14" fill="var(--ink-3)">Not known at decision time.</text>`;
+  svg += `<text x="${midLater}" y="${height / 2 + 25}" text-anchor="middle" font-size="14" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
   svg += `<g class="hind-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="url(#emHatchH)"/></g>`;
   svg += '<g class="axis">';
   const step = Math.max(1, Math.round((hi - lo) / 5));
@@ -1504,10 +1527,10 @@ function knownAtT0Svg(episode, item, slot = "11:00") {
   svg += `<text x="${width - R}" y="${height - 8}" text-anchor="end">${esc(points.at(-1).day)}</text></g>`;
   svg += `<path d="${pathOf(0, item.index)}" fill="none" stroke="var(--asof)" stroke-width="2"/>`;
   svg += `<g class="hind-layer"><path d="${pathOf(item.index, count - 1)}" fill="none" stroke="var(--hind)" stroke-width="2" stroke-dasharray="5 3"/>`;
-  svg += `<text x="${x(count - 1) - 4}" y="${height - B - 8}" text-anchor="end" font-size="10.5" fill="var(--hind)" font-weight="600">realised later</text></g>`;
+  svg += `<text x="${x(count - 1) - 4}" y="${height - B - 8}" text-anchor="end" font-size="14" fill="var(--hind)" font-weight="600">realised later</text></g>`;
   svg += `<line x1="${cut}" x2="${cut}" y1="${T - 6}" y2="${height - B}" stroke="var(--hind)" stroke-width="2" stroke-dasharray="4 3"/>`;
-  svg += `<text x="${cut - 5}" y="${T + 4}" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
-  svg += `<text x="${cut + 5}" y="${T + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
+  svg += `<text x="${cut - 5}" y="${T - 12}" text-anchor="end" font-size="14" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
+  svg += `<text x="${cut + 5}" y="${T - 12}" font-size="14" fill="var(--hind)" font-weight="700">LATER</text>`;
   const selectedAsk = points[item.index]?.ask;
   if (typeof selectedAsk === "number") {
     svg += `<circle cx="${cut}" cy="${y(selectedAsk)}" r="4.5" fill="var(--asof)" stroke="var(--surface)" stroke-width="2" data-tip="${esc(`${slot} best ask ${eur(selectedAsk)} €/MWh · known at T₀`)}"/>`;
@@ -1536,7 +1559,7 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
   const quoteClock = `${esc(item.quoteTm.slice(11, 19))}Z`;
 
   const rec = objCard("asof", "◆", "Recommendation", `T₀ ${esc(slot)}`, `
-    <div class="big">BUY ${item.requestedMw} MW <span class="muted" style="font-size:13px">${contract}</span></div>
+    <div class="big">BUY ${item.requestedMw} MW <span class="muted" style="font-size:14px">${contract}</span></div>
     <dl class="kv"><dt>Produced by</dt><dd class="mono">${esc(producerLabel)}</dd>
       <dt>${esc(slot)} best ask</dt><dd class="mono">${eur(item.ask)} €/MWh</dd>
       <dt>Trigger mean</dt><dd>${unknownValue()} <span class="tiny muted">mean of previous ${item.pastAsksUsed} asks not emitted</span></dd></dl>
@@ -1550,12 +1573,12 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
     : "";
   const fill = objCard("exec", "■", "Execution · fill", `quote ${quoteClock}`, `
     <div class="row" style="margin-bottom:4px"><span class="st warn"><span class="g">⚙</span>SIMULATED · ask + 0.15</span></div>
-    <div class="big">${item.filledMw} of ${item.requestedMw} MW <span class="muted" style="font-size:13px">avg ${eur(item.priceEurMwh)}</span></div>
+    <div class="big">${item.filledMw} of ${item.requestedMw} MW <span class="muted" style="font-size:14px">avg ${eur(item.priceEurMwh)}</span></div>
     <table class="t small"><tbody><tr><td class="mono">${quoteClock}</td><td class="num">${item.filledMw} MW</td><td class="num right mono">${eur(item.priceEurMwh)}</td></tr></tbody></table>
     ${depthNote}`);
   const out = objCard("hind", "●", "Outcome · evaluation", "window end", `
     <div class="row" style="margin-bottom:4px">${chip("pass", "✓", `Evaluation closed ${esc(closes)}`)}</div>
-    <div class="big">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="muted" style="font-size:13px">vs ${esc(comparatorRun.displayName)}</span></div>
+    <div class="big">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="muted" style="font-size:14px">vs ${esc(comparatorRun.displayName)}</span></div>
     <dl class="kv"><dt>B* benchmark</dt><dd class="mono">${eur(episode.benchmark)}</dd><dt>H this fill</dt><dd class="mono">${eur(item.priceEurMwh)}</dd><dt>${esc(comparatorRun.displayName)} same day</dt><dd class="mono">${item.baseline.filledMw} MW${item.baseline.priceEurMwh === null ? "" : ` at ${eur(item.baseline.priceEurMwh)}`}</dd></dl>
     <div class="tiny muted" style="margin-top:6px">Computed after the window closed. B* is a proxy (U-EM-2).</div>`);
 
@@ -1574,12 +1597,13 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(replaySectionId(episode, item))}" data-decision="${esc(product)}-${esc(episode.maturity)}-${item.index}">
   <div class="dechead">
     <div class="grow">
-      <div class="mono muted small">${esc(campaignLabel)} · run ${esc(runLabel)} · <span data-canonical-identity="ARM_A">${esc(identityLabel)}</span> · ${esc(slot)} Europe/Berlin</div>
+      <div class="mono muted small">${esc(campaignLabel)} · run <span class="alias" data-provenance="alias">${esc(runLabel)}</span> · <span data-canonical-identity="ARM_A">${esc(identityLabel)}</span> · ${esc(slot)} Europe/Berlin</div>
       <h1 class="page">Decision ${decisionNumber(item.index)} — BUY at ${esc(item.day)} ${esc(slot)} Berlin</h1>
       <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p>
     </div>
     <div class="row">${others}</div>
   </div>
+  ${context.missionContext ?? ""}
 
   <div class="card" style="margin-top:14px;padding:4px 14px 0">
     <div class="row small" style="padding-top:6px"><span class="caps muted">Run timeline · ${(episode.decisions?.ARM_A ?? []).length} decisions</span><span class="grow"></span>
@@ -1668,13 +1692,12 @@ export function exploratoryReplayBody(exploratory, semantics = null) {
   const pickerGroups = [...byMission.entries()].map(([title, members]) => `<div class="pgrp"><span class="caps muted">${esc(title)}</span>${members.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(title)} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ")}</div>`).join("");
   const picker = `<details class="picker"><summary><span class="caps muted">Campaign</span> <b>${episodes.length} campaigns with historical purchases</b> · choose</summary>${pickerGroups}</details>`;
   const sections = episodes.flatMap((episode) => {
-    const context = contextFor(episode);
+    const context = { ...contextFor(episode), missionContext: missionContextHtml(semantics, missionIdOfProduct(semantics, episode.product)) };
     const campaignId = campaigns.get(`${episode.product}|${episode.maturity}`)?.id ?? null;
     return episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly, campaignId, context));
   }).join("");
   return `${TARGET_SWITCH_CSS}
 <section class="surface replay" data-surface="replay" data-exploratory="true">
-  ${canonicalSemanticsStrip(semantics)}
   <div class="histnote" data-historical-note="replay"><span class="histbadge">${esc(labels.badge)}</span> Decisions below belong to legacy exploratory runs, named by their backend lineage. ${esc(labels.notEvidence)}.</div>
   <div class="row small" style="gap:6px;flex-wrap:wrap;margin:10px 0">${picker}</div>
   <div class="xwrap" data-provenance="historical">${sections}</div>
@@ -1758,12 +1781,12 @@ function candidateListHtml(candidates, provenance, semantics = null) {
 // the legacy run is its lineage, drawn as provenance with its alias as caption.
 function candidateLineageSvg(candidate, semantics = null) {
   const node = (cx, cy, label, current) => `<rect x="${cx - 95}" y="${cy - 18}" width="190" height="36" rx="5" fill="${current ? "var(--ink)" : "var(--surface)"}" stroke="var(--ink-2)"/><text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="${current ? "#fff" : "var(--ink)"}" font-family="var(--mono)">${esc(label)}</text>`;
-  const caption = (cx, cy, text) => `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="13" fill="var(--ink-2)">${esc(text)}</text>`;
+  const caption = (cx, cy, text) => `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="14" fill="var(--ink-2)">${esc(text)}</text>`;
   let svg = '<svg viewBox="0 0 900 160" width="100%" role="img" aria-label="Version lineage">';
   if (!candidate.armId) {
     svg += '<rect x="0" y="10" width="900" height="140" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/>';
     svg += '<text x="450" y="76" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO VERSION RUN · strategy without a defined hypothesis</text>';
-    svg += '<text x="450" y="98" text-anchor="middle" font-size="13" fill="var(--unk)">no experiment is recorded for this entry; nothing is drawn</text>';
+    svg += '<text x="450" y="98" text-anchor="middle" font-size="14" fill="var(--unk)">no experiment is recorded for this entry; nothing is drawn</text>';
     return `${svg}</svg>`;
   }
   const comparator = historicalRunsFor(semantics).BASELINE.displayName;
@@ -1773,15 +1796,15 @@ function candidateLineageSvg(candidate, semantics = null) {
   }
   const hypothesis = canonicalHypothesisOf(candidate, semantics);
   const products = candidate.criteria.map((group) => group.product).join(" · ");
-  svg += `<text x="450" y="24" text-anchor="middle" font-size="13" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · ${esc(products)}</text>`;
+  svg += `<text x="450" y="24" text-anchor="middle" font-size="14" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · ${esc(products)}</text>`;
   svg += node(150, 70, "A0 v1", false) + caption(150, 106, `${comparator} · provenance`);
   svg += node(450, 70, `${candidate.id} ${candidate.version}`, false) + caption(450, 106, "legacy run · owner patch 02");
   svg += '<path d="M353 70 L247 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
-  svg += '<text x="300" y="60" text-anchor="middle" font-size="13" fill="var(--ink-2)">paired against</text>';
+  svg += '<text x="300" y="60" text-anchor="middle" font-size="14" fill="var(--ink-2)">paired against</text>';
   if (hypothesis) {
     svg += node(750, 70, hypothesis.version, true) + caption(750, 106, "current version · untested · no run");
     svg += '<path d="M547 70 L653 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
-    svg += '<text x="600" y="60" text-anchor="middle" font-size="13" fill="var(--ink-2)">lineage of</text>';
+    svg += '<text x="600" y="60" text-anchor="middle" font-size="14" fill="var(--ink-2)">lineage of</text>';
   }
   return `${svg}</svg>`;
 }
@@ -1871,13 +1894,13 @@ function candidateDetailHtml(candidate, research, provenance, isDefault, semanti
 </section>`;
 }
 
-export function exploratoryResearchBody(exploratory, semantics = null) {
+export function exploratoryResearchBody(exploratory, semantics = null, selection = {}) {
   const research = exploratory.research;
   const firstEvidence = research.candidates.find((candidate) => candidate.stage === "EVIDENCE GATHERING") ?? research.candidates[0];
   const details = research.candidates.map((candidate) => candidateDetailHtml(candidate, research, exploratory.provenance, candidate === firstEvidence, semantics)).join("");
   return `${TARGET_SWITCH_CSS}${railSelectionCss(research.candidates.map((candidate) => `res-${candidate.id}`), `res-${firstEvidence.id}`)}
 <section class="surface research" data-surface="research" data-exploratory="true">
-  ${canonicalSemanticsStrip(semantics)}
+  ${researchMissionContextHtml(semantics, selection)}
   <div class="split xwrap">
     <div class="xlist">
       <div class="caps muted" style="margin:4px 0 8px">Candidate stack</div>
@@ -1939,7 +1962,7 @@ function armHeadHtml(canonicalArms) {
 
 const TR07_CSS = `<style>
 .tr07bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-.tr07btn { display:inline-block; border:1px solid var(--rule); border-radius:4px; padding:4px 10px; font:600 12px var(--sans); color:var(--ink-2); text-decoration:none; }
+.tr07btn { display:inline-block; border:1px solid var(--rule); border-radius:4px; padding:4px 10px; font:600 14px var(--sans); color:var(--ink-2); text-decoration:none; }
 .tr07btn.on { background:var(--ink); color:#fff; border-color:var(--ink); }
 .tr07zones { display:flex; gap:3px; margin:8px 0 2px; }
 .tr07zone { flex:1; border:1px solid var(--rule); border-radius:3px; padding:3px 6px; background:var(--surface-2); opacity:.5; }
@@ -1950,11 +1973,11 @@ const TR07_CSS = `<style>
 .tr07side { border-left:3px solid var(--arm-b); }
 .tr07empty { min-height:170px; border:2px dashed var(--rule); border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--ink-3); padding:12px; margin-top:8px; background:repeating-linear-gradient(135deg, transparent 0 10px, var(--surface-2) 10px 20px); }
 .tr07empty b { display:block; color:var(--ink); font-family:var(--serif); }
-.tr07arm { width:100%; border-collapse:collapse; font-size:12px; }
-.tr07arm th { text-align:left; font:10px var(--mono); color:var(--ink-3); padding:6px 8px; border-bottom:1px solid var(--rule); }
+.tr07arm { width:100%; border-collapse:collapse; font-size:14px; }
+.tr07arm th { text-align:left; font:14px var(--mono); color:var(--ink-3); padding:6px 8px; border-bottom:1px solid var(--rule); }
 .tr07arm td { padding:7px 8px; border-bottom:1px solid var(--rule); font-family:var(--mono); }
 .tr07sw { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; }
-.tr07unav { display:inline-block; font:10px var(--mono); color:var(--unk); background:var(--surface-2); border:1px solid var(--rule); border-radius:3px; padding:0 5px; }
+.tr07unav { display:inline-block; font:14px var(--mono); color:var(--unk); background:var(--surface-2); border:1px solid var(--rule); border-radius:3px; padding:0 5px; }
 .tr07expand { display:inline-block; margin-top:14px; }
 </style>`;
 
@@ -2009,12 +2032,21 @@ function tr07Query(selection, overrides = {}) {
   return `?${params.toString()}`;
 }
 
+// UI-10 (PLAN_UI §3): the chip shows the backend English word
+// (trades-panels.mjs TRADES_PANEL_LABELS); the code stays in data-state only.
 function tr07StatusChip(status) {
-  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION" || status === "PENDING_OWNER_APPROVAL") return chip("warn", "!", esc(status));
-  if (status === "LOW_COVERAGE" || status === "PARTIAL_SOURCE_RANGE") return chip("warn", "!", esc(status));
-  if (status === "NO_COVERAGE" || status === "BEFORE_SOURCE_START") return chip("unk", "?", esc(status));
-  if (status === "SEALED" || status === "RESERVED" || status === "MEASURED" || status === "OBSERVED" || status === "DECIDED" || status === "FROZEN") return chip("run", "◆", esc(status));
-  return chip("unk", "?", esc(status));
+  const label = esc(tradesLabel("statuses", status));
+  const tagged = (html) => `<span data-state="${esc(status ?? "UNAVAILABLE")}">${html}</span>`;
+  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION" || status === "PENDING_OWNER_APPROVAL") return tagged(chip("warn", "!", label));
+  if (status === "LOW_COVERAGE" || status === "PARTIAL_SOURCE_RANGE") return tagged(chip("warn", "!", label));
+  if (status === "NO_COVERAGE" || status === "BEFORE_SOURCE_START") return tagged(chip("unk", "?", label));
+  if (status === "SEALED" || status === "RESERVED" || status === "MEASURED" || status === "OBSERVED" || status === "DECIDED" || status === "FROZEN") return tagged(chip("run", "◆", label));
+  return tagged(chip("unk", "?", label));
+}
+
+// Canonical English mission name (backend contract), never the mission id.
+function missionName(missionId) {
+  return MISSION_LABELS[missionId] ?? tradesLabel("statuses", null);
 }
 
 // Presentación de valores que el backend ya trae; nunca se derivan aquí.
@@ -2084,15 +2116,15 @@ function tr07CoverageHtml(panels, missionId) {
       ? (incompleteDays.length ? `: ${esc(incompleteDays.join(", "))}` : "")
       : `: ${esc(incompleteDays.slice(0, 5).join(", "))} <details><summary>${esc(incompleteDays.length - 5)} more days</summary>${esc(incompleteDays.slice(5).join(", "))}</details>`;
     const sourceNote = patch
-      ? `<div class="tiny muted" data-tr07-period-sha="${esc(campaign.sourcePeriod.provenance.sha256)}">CLIENT_SEALED_ARCHIVE base · EEX_LAKE_PATCH ${esc(lakeDays.length)} d${lakeDays.length ? `: ${esc(lakeDays.join(", "))}` : ""} · DATA_INCOMPLETE ${esc(incompleteDays.length)} d${incompleteDetail}</div>`
-      : `<div class="tiny muted">Source period unavailable: ${esc(campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING")}</div>`;
-    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}${rangeNote}${sourceNote}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td><td class="right mono" data-tr07-eligible-trades="${esc(trades)}">${esc(trades)}</td></tr>`;
+      ? `<div class="tiny muted" data-tr07-period-sha="${esc(campaign.sourcePeriod.provenance.sha256)}">${esc(tradesLabel("sources", "CLIENT_SEALED_ARCHIVE"))} base · ${esc(tradesLabel("sources", "EEX_LAKE_PATCH"))} ${esc(lakeDays.length)} d${lakeDays.length ? `: ${esc(lakeDays.join(", "))}` : ""} · ${esc(tradesLabel("sources", "DATA_INCOMPLETE"))} ${esc(incompleteDays.length)} d${incompleteDetail}</div>`
+      : `<div class="tiny muted" data-code="${esc(campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING")}">Source period unavailable: ${esc(tradesLabel("sourcePeriodReasons", campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING"))}</div>`;
+    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td data-zone="${esc(zone.zone)}">${esc(tradesZoneLabel(zone.zone))}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}${rangeNote}${sourceNote}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td><td class="right mono" data-tr07-eligible-trades="${esc(trades)}">${esc(trades)}</td></tr>`;
   })).join("");
   const sources = (coverage.measurements ?? []).filter((entry) => entry.market === mission.market).map((entry) =>
-    `<div class="tiny muted" data-tr07-source-sha="${esc(entry.sha256)}">TR-01 measurement ${esc(entry.market)} · trades ${esc(entry.dateMin)} → ${esc(entry.dateMax)} · sha ${esc(tr07ShortHash(entry.sha256))} · broken spread ${esc(coverage.brokenSpreadPolicy ?? "—")}</div>`).join("");
-  const zoneSummary = mission.zones.map((zone) => `${esc(zone.zone)} ${zone.campaigns.length}`).join(" · ");
+    `<div class="tiny muted" data-tr07-source-sha="${esc(entry.sha256)}">TR-01 measurement ${esc(tradesLabel("markets", entry.market))} · trades ${esc(entry.dateMin)} → ${esc(entry.dateMax)} · sha ${esc(tr07ShortHash(entry.sha256))} · broken spread ${esc(coverage.brokenSpreadPolicy ? tradesLabel("brokenSpread", coverage.brokenSpreadPolicy) : "—")}</div>`).join("");
+  const zoneSummary = mission.zones.map((zone) => `${esc(tradesZoneLabel(zone.zone))} ${zone.campaigns.length}`).join(" · ");
   return `<div class="card" style="margin-top:14px" data-tr07="coverage" data-mission="${esc(mission.missionId)}">
-    <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(mission.market)} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
+    <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(tradesLabel("markets", mission.market))} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
     <div class="bd">
       <div class="small muted">${esc(coverage.reason)}</div>
       <div class="small muted" style="margin-top:6px">TR-01 source decision: ${tr07StatusChip(coverage.sourceDecisionStatus)}</div>
@@ -2112,14 +2144,14 @@ function tr07ZonesHtml(panels, missionId) {
   const rows = (zones.missions ?? []).map((mission) => {
     const byZone = Object.fromEntries((mission.zones ?? []).map((zone) => [zone.zone, zone.count]));
     const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
-    return `<tr data-tr07-zone-mission="${esc(mission.missionId)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td>${esc(mission.market)}</td>${TRADES_ZONE_PLAN.map((zone) => `<td class="right mono">${esc(byZone[zone.id] ?? 0)}</td>`).join("")}</tr>`;
+    return `<tr data-tr07-zone-mission="${esc(mission.missionId)}"${highlight}><td>${esc(missionName(mission.missionId))}</td><td>${esc(tradesLabel("markets", mission.market))}</td>${TRADES_ZONE_PLAN.map((zone) => `<td class="right mono">${esc(byZone[zone.id] ?? 0)}</td>`).join("")}</tr>`;
   }).join("");
-  const openings = Object.entries(registry.oosOpeningsByMission ?? {}).map(([mission, count]) => `${mission} ${count}`).join(" · ");
+  const openings = Object.entries(registry.oosOpeningsByMission ?? {}).map(([mission, count]) => `${missionName(mission)} ${count}`).join(" · ");
   return `<div class="card" style="margin-top:14px" data-tr07="zones">
     <div class="hd"><h3>Evidence zones &amp; OOS access</h3><span class="small muted">TR-02 · reservation ${esc(zones.reservationId)}</span><span class="grow"></span>${tr07StatusChip(registry.oosStatus)}</div>
     <div class="bd">
       <table class="t"><thead><tr><th>Mission</th><th>Market</th>${TRADES_ZONE_PLAN.map((zone) => `<th class="right">${esc(zone.label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
-      <div class="row small muted" style="gap:16px;margin-top:8px"><span>OOS ${esc(registry.oosStatus)}</span><span>openings ${esc(openings)}</span><span>purge ${esc(zones.purge?.length ?? 0)} campaign(s)</span><span>forward ${esc(zones.forward?.status)} · from ${esc(zones.forward?.fromIso ?? "UNAVAILABLE")}</span></div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>OOS ${esc(tradesLabel("statuses", registry.oosStatus).toLowerCase())}</span><span>openings ${esc(openings)}</span><span>purge ${esc(zones.purge?.length ?? 0)} campaign(s)</span><span data-state="${esc(zones.forward?.status ?? "UNAVAILABLE")}">forward ${esc(tradesLabel("statuses", zones.forward?.status).toLowerCase())} · from ${esc(zones.forward?.fromIso ?? "date not set")}</span></div>
     </div>
   </div>`;
 }
@@ -2130,12 +2162,12 @@ function tr07ZonesHtml(panels, missionId) {
 function tr07CalibrationRowsHtml(calibration, missionId) {
   const parameters = calibration.parameters;
   if (parameters?.status !== "MEASURED") {
-    return calibration.status === "MEASURED" ? `<div class="small muted" style="margin-top:6px">TR-04 parameters: ${tr07StatusChip(parameters?.status ?? "UNAVAILABLE")} ${esc(parameters?.code ?? "")}</div>` : "";
+    return calibration.status === "MEASURED" ? `<div class="small muted" style="margin-top:6px" data-code="${esc(parameters?.code ?? "")}">TR-04 parameters: ${tr07StatusChip(parameters?.status ?? "UNAVAILABLE")}</div>` : "";
   }
   const rows = parameters.missions.flatMap((mission) => mission.rules.map((entry) => {
     const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
     const groups = entry.penalty.byAggressor.map((group) => `${group.aggressor} ${tr07Value(group.penaltyEurMwh)} (${group.count})`).join(" · ");
-    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td class="mono small">${esc(entry.rule)}</td><td class="right mono">${esc((entry.freshness.gridSeconds ?? []).join(" / "))} s<div class="tiny muted">selected: ${esc(entry.freshness.limitSeconds ?? "PENDING DEVELOPMENT")} ${tr07StatusChip(entry.freshness.status)}</div></td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
+    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td>${esc(missionName(mission.missionId))}</td><td>${esc(tradesLabel("rules", entry.rule))}</td><td class="right mono">${esc((entry.freshness.gridSeconds ?? []).join(" / "))} s<div class="tiny muted">selected: ${esc(entry.freshness.limitSeconds ?? "pending Development")} ${tr07StatusChip(entry.freshness.status)}</div></td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
   })).join("");
   return `<table class="t" style="margin-top:8px"><thead><tr><th>Mission</th><th>Rule</th><th class="right">Freshness limit</th><th class="right">Coverage (calibration half)</th><th class="right">Penalty trade→ask</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -2144,8 +2176,8 @@ function tr07GateHtml(gate) {
   if (!gate) {
     return "";
   }
-  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}"><span class="mono small">${esc(metric.id)}</span> · ${esc(metric.description ?? "—")}</li>`).join("");
-  return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted">${esc(gate.independence)}</span>
+  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}">${esc(metric.description ?? "—")} <span class="alias" data-provenance="alias">technical id ${esc(metric.id)}</span></li>`).join("");
+  return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted" data-code="${esc(gate.independence ?? "")}">${esc(gate.independence ? tradesLabel("independence", gate.independence) : "—")}</span>
     <ul class="small" style="margin:4px 0 0 16px">${metrics}</ul>
     <div class="tiny muted" data-tr07-gate-declaration>${esc(gate.declaration)}</div></div>`;
 }
@@ -2161,7 +2193,7 @@ function tr07CalibrationHtml(panels, missionId) {
   return `<div class="card" style="margin-top:14px" data-tr07="calibration">
     <div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03 · bridge ${esc(window.startIso ?? "—")} → ${esc(window.endIso ?? "—")}</span><span class="grow"></span>${tr07StatusChip(calibration.status)}</div>
     <div class="bd"><div class="small muted">${esc(calibration.reason)}</div>
-      <div class="row small muted" style="gap:16px;margin-top:8px"><span>measured freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))} · ${tr07StatusChip(calibration.gridStatus)}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>measured freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))} · ${tr07StatusChip(calibration.gridStatus)}</span><span>observation rules: ${esc((calibration.observationRules ?? []).map((rule) => tradesLabel("rules", rule)).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "unavailable")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
       ${tr07CalibrationRowsHtml(calibration, missionId)}
       ${tr07GateHtml(calibration.gate)}
     </div>
@@ -2176,9 +2208,9 @@ function tr07FrozenContractHtml(panels) {
   const parameters = (candidate?.sharedParameters ?? []).map((entry) => `<span>${esc(entry.key)} ${esc(entry.value === null ? "—" : `${entry.value} ${entry.unit ?? ""}`)} ${tr07StatusChip(entry.status)}</span>`).join("");
   const details = candidate
     ? `<div class="row small muted" style="gap:16px;margin-top:8px"><span class="mono">${esc(candidate.contractId)} · ${esc(candidate.versionLabel)} · ${esc(candidate.contractVersion)}</span><span>configHash <span class="mono" data-tr07-config-hash="${esc(candidate.configHash)}">${esc(candidate.configHash)}</span></span></div>
-      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ?? "—")} · ${esc(candidate.observationRules?.secondary ?? "—")}</span><span>freshness grid ${(candidate.freshnessSelection?.gridSeconds ?? []).map((value) => esc(value)).join(" / ")} s</span><span>selection: ${esc(Object.values(candidate.freshnessSelection?.results ?? {}).map((item) => `${item.missionKey} ${item.selectedSeconds ?? "PENDING"}`).join(" · ") || "PENDING DEVELOPMENT")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ?? "—")}</span>${parameters}</div>`
+      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ? tradesLabel("rules", candidate.observationRules.primary) : "—")} · ${esc(candidate.observationRules?.secondary ? tradesLabel("rules", candidate.observationRules.secondary) : "—")}</span><span>freshness grid ${(candidate.freshnessSelection?.gridSeconds ?? []).map((value) => esc(value)).join(" / ")} s</span><span>selection: ${esc(Object.values(candidate.freshnessSelection?.results ?? {}).map((item) => `${missionName(item.missionKey)} ${item.selectedSeconds ?? "pending"}`).join(" · ") || "pending Development")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ? tradesLabel("brokenSpread", candidate.brokenSpreadPolicy) : "—")}</span>${parameters}</div>`
     : "";
-  const blocked = (contract.blockedBy ?? []).length > 0 ? `<div class="tiny muted" style="margin-top:4px">blocked by ${esc(contract.blockedBy.join(", "))}</div>` : "";
+  const blocked = (contract.blockedBy ?? []).length > 0 ? `<div class="tiny muted" style="margin-top:4px" data-code="${esc(contract.blockedBy.join(" "))}">blocked: ${esc(contract.blockedBy.map((code) => tradesLabel("blockedBy", code)).join(", "))}</div>` : "";
   return `<div class="card" style="margin-top:14px" data-tr07="frozenContract" data-state="${esc(contract.status)}">
     <div class="hd"><h3>Frozen contract</h3><span class="small muted">TR-04 · TRADES-v1 execution contract · gate: Bru approves the freeze</span><span class="grow"></span>${tr07StatusChip(contract.status)}</div>
     <div class="bd"><div class="small muted">${esc(contract.reason)}</div>${details}${blocked}</div>
@@ -2203,8 +2235,9 @@ function tr07ContrastHtml(panels, missionId) {
     const details = metric.status === "REPORTED"
       ? metric.id === "BUY_WAIT_AGREEMENT" ? `agreement ${tr07Value(metric.observed)} · n ${metric.compared}`
         : `TOB ${tr07Value(metric.tob)} · TRADES ${tr07Value(metric.trades)} · Δ ${tr07Value(metric.delta)}`
-      : "UNAVAILABLE";
-    return `<tr data-tr09-contrast="${esc(missionId)}|${esc(run.observationRule)}|${esc(arm)}|${esc(metric.id)}"><td>${esc(run.observationRule)} · ${esc(arm)} · ${esc(metric.id)}</td><td class="mono small">${esc(details)}</td><td>${tr07StatusChip(metric.status)}</td></tr>`;
+      : "unavailable";
+    const measure = metrics.find((entry) => entry.id === metric.id)?.description ?? tradesLabel("statuses", "UNKNOWN");
+    return `<tr data-tr09-contrast="${esc(missionId)}|${esc(run.observationRule)}|${esc(arm)}|${esc(metric.id)}"><td>${esc(tradesLabel("rules", run.observationRule))} · <span class="alias" data-provenance="alias">technical arm ${esc(arm)}</span> · ${esc(measure)}</td><td class="mono small">${esc(details)}</td><td>${tr07StatusChip(metric.status)}</td></tr>`;
   })));
   const rows = reportedRows.length > 0 ? reportedRows.join("") : metrics.length > 0
     ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description ?? "—")}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">report by mission and arm</td></tr>`).join("")
@@ -2231,14 +2264,14 @@ function tr07GapDistributionHtml(panels, missionId) {
   if (calibration?.status !== "MEASURED" || !mission) {
     return `<div class="tr07empty"><b>Not measured yet</b>Distribution of (last trade − ask); this is what freezes the fill penalty in TR-04</div>`;
   }
-  const line = (rule, label, stats) => `<tr data-tr07-gap="${esc(missionId)}|${esc(rule)}|${esc(label)}"><td class="mono small">${esc(rule)}</td><td>${esc(label)}</td><td class="right mono">${esc(stats?.count ?? "—")}</td>${["p10", "p50", "mean", "p90"].map((key) => `<td class="right mono">${esc(tr07Value(stats?.[key]))}</td>`).join("")}<td class="right mono">${esc(tr07Value(stats?.shareNegative))}</td></tr>`;
+  const line = (rule, label, stats) => `<tr data-tr07-gap="${esc(missionId)}|${esc(rule)}|${esc(label)}"><td>${esc(tradesLabel("rules", rule))}</td><td>${esc(label)}</td><td class="right mono">${esc(stats?.count ?? "—")}</td>${["p10", "p50", "mean", "p90"].map((key) => `<td class="right mono">${esc(tr07Value(stats?.[key]))}</td>`).join("")}<td class="right mono">${esc(tr07Value(stats?.shareNegative))}</td></tr>`;
   const rows = mission.rules.flatMap((entry) => [
     line(entry.rule, "bridge", entry.overall),
-    ...(entry.byHalf ?? []).map((stats) => line(entry.rule, String(stats.half).toLowerCase(), stats)),
+    ...(entry.byHalf ?? []).map((stats) => line(entry.rule, tradesLabel("halves", stats.half), stats)),
     ...(entry.byAgeBucket ?? []).map((stats) => line(entry.rule, String(stats.ageBucket), stats)),
   ]).join("");
   return `<table class="t" style="margin-top:8px"><thead><tr><th>Rule</th><th>Period</th><th class="right">n</th><th class="right">p10</th><th class="right">p50</th><th class="right">mean</th><th class="right">p90</th><th class="right">share &lt; 0</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="tiny muted">(observation − ask) in €/MWh at decision time, ${esc(missionId)} · TR-03 measurement ${esc(tr07ShortHash(calibration.measurement?.sha256))}</div>`;
+    <div class="tiny muted">(observation − ask) in €/MWh at decision time, ${esc(missionName(missionId))} · TR-03 measurement ${esc(tr07ShortHash(calibration.measurement?.sha256))}</div>`;
 }
 
 // Vista a ancho completo al expandir (prototipo contrastCharts): superposición TOB/
@@ -2412,15 +2445,6 @@ function kvHtml(rows) {
   return `<dl class="kvgrid">${rows.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${value}</dd>`).join("")}</dl>`;
 }
 
-function blockersSummaryHtml(blockers) {
-  const counts = new Map();
-  for (const blocker of blockers) {
-    const title = CANONICAL_LABELS.blockers[blocker.code] ?? CANONICAL_LABELS.blockers.DEFAULT;
-    counts.set(title, (counts.get(title) ?? 0) + 1);
-  }
-  return [...counts.entries()].map(([title, count]) => chip("fail", "×", `${title} · ${count}`)).join(" ");
-}
-
 function scopeMissionCard(entry) {
   const obligation = entry.obligation.status === "BOUND"
     ? `<b>${esc(entry.obligation.targetVolumeMw)} ${esc(entry.obligation.unit)}</b> <span class="tiny muted">campaign ${esc(entry.obligation.campaignId)}</span>`
@@ -2445,7 +2469,7 @@ function scopeMissionCard(entry) {
   ].filter(Boolean).join(" · ") || `<span class="tiny muted">no committed Development sizing/execution contract</span>`;
   const blockerList = entry.readiness.blockers;
   const blockers = blockerList.length > 0
-    ? `<div class="row wrap" style="gap:6px">${blockersSummaryHtml(blockerList)}</div><details class="blockers"><summary>Show ${blockerList.length} blocker detail${blockerList.length === 1 ? "" : "s"} and source paths</summary>${blockerList.map((blocker) => `<div class="small muted" data-scope-blocker="${esc(blocker.code)}">${esc(blockerDisplayText(blocker))}</div>`).join("")}</details>`
+    ? blockerBriefHtml(blockerList, "data-scope-blocker")
     : `<div class="small muted">no blocker reported by the backend</div>`;
   return `<div class="card" data-scope-mission="${esc(entry.missionId)}">
     <div class="hd"><h3>${esc(entry.label)}</h3><span class="small muted">${esc(entry.product)} · ${esc(entry.cadence)}</span><span class="grow"></span>${stateChip(entry.readiness.status)}</div>
@@ -2483,7 +2507,7 @@ function hypothesisConfigurationHtml(missionEntry) {
 
 function hypothesisApplicabilityHtml(hypothesis) {
   if (hypothesis.applicabilityStatus === "UNDECLARED" || hypothesis.missions.length === 0) {
-    return `<div class="small muted" data-hypothesis-applicability="${esc(hypothesis.hypothesisId)}">applicability ${esc(hypothesis.applicabilityStatus)} · belongs to Hypotheses, not to a mission result row</div>`;
+    return `<div class="small muted" data-hypothesis-applicability="${esc(hypothesis.hypothesisId)}">applicability ${esc(CANONICAL_LABELS.applicability[hypothesis.applicabilityStatus] ?? CANONICAL_LABELS.applicability.UNDECLARED)} · belongs to Hypotheses, not to a mission result row</div>`;
   }
   const rows = hypothesis.missions.map((missionEntry) => `<div class="tiny" data-hypothesis-mission="${esc(missionEntry.missionId)}">${esc(missionEntry.label ?? missionEntry.missionId)} ${stateChip(missionEntry.running ? "RUNNING" : missionEntry.status)} ${hypothesisConfigurationHtml(missionEntry)}</div>`).join("");
   return `<div data-hypothesis-applicability="${esc(hypothesis.hypothesisId)}">${rows}</div>`;
@@ -2734,8 +2758,8 @@ function lineageFrameSvg() {
   let svg = '<svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage: unavailable">';
   svg += '<defs><pattern id="lnHatchU" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f3ecf5"/><rect width="1" height="6" fill="#d4c0dc"/></pattern></defs>';
   svg += '<rect x="0" y="10" width="900" height="130" rx="4" fill="url(#lnHatchU)" stroke="#cdb8d6"/>';
-  svg += '<text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">LINEAGE UNAVAILABLE</text>';
-  svg += '<text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no version or experiment is exposed by the boundary · no node is drawn</text>';
+  svg += '<text x="450" y="72" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">LINEAGE UNAVAILABLE</text>';
+  svg += '<text x="450" y="90" text-anchor="middle" font-size="14" fill="var(--unk)">no version or experiment is exposed by the boundary · no node is drawn</text>';
   return `${svg}</svg>`;
 }
 
@@ -2861,7 +2885,7 @@ function campaignsBody(vm, { errors = null } = {}) {
 
   const runRow = (run) => (run.status === "BOUND"
     ? `<tr class="data-item data-bound" data-status="BOUND"><td><div class="mono">${provenanceHtml(run.provenance, run.label, run.value)}</div><div class="small muted item-label">${esc(run.label)}</div></td><td>${unknownValue()}</td><td>${chip("run", "✓", "canonical")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="value" data-value="${esc(valueText(run.value))}">${valueHtml(run.value)}</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td>${drilldownHtml(run)}</td></tr>`
-    : `<tr class="data-item data-unavailable" data-status="UNAVAILABLE"><td>${unavailableReasonHtml(run)}</td><td>${unknownValue()}</td><td>${chip("unk", "?", "Unavailable")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="unkv" style="font-size:10.5px;line-height:15px">NOT EXPOSED</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td><span class="muted small">no handoff on unbound data</span></td></tr>`);
+    : `<tr class="data-item data-unavailable" data-status="UNAVAILABLE"><td>${unavailableReasonHtml(run)}</td><td>${unknownValue()}</td><td>${chip("unk", "?", "Unavailable")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="unkv" style="font-size:14px;line-height:15px">NOT EXPOSED</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td><span class="muted small">no handoff on unbound data</span></td></tr>`);
   const runRows = runs.length > 0
     ? runs.map(runRow).join("")
     : `<tr class="empty-state" data-empty="true"><td colspan="7"><div class="row">${unknownValue("UNAVAILABLE")}<span class="small muted">no canonical runs exposed by the backend in this scope; none is fabricated</span></div><div class="bar" style="margin-top:8px"><span class="notrun" style="width:100%"></span></div></td></tr>`;
@@ -2959,7 +2983,8 @@ function scopeBannerHtml(selection) {
   if (entries.length === 0) {
     return "";
   }
-  const chips = entries.map(([key, value]) => `<span class="mono">${esc(labels[key] ?? key)}: ${esc(value)}</span>`).join(" · ");
+  // UI-10: a mission reads by its canonical English name, never its id.
+  const chips = entries.map(([key, value]) => `<span class="mono" data-scope-${esc(key)}="${esc(value)}">${esc(labels[key] ?? key)}: ${esc(key === "mission" ? MISSION_LABELS[value] ?? value : value)}</span>`).join(" · ");
   return `<div class="card" data-scope-banner data-scope-state="BOUND" style="margin-bottom:10px"><b>Cross-tab scope</b> · ${chips}</div>`;
 }
 
@@ -3010,7 +3035,7 @@ function renderExploratory(surface, vm, selection = {}) {
   // SEM2-T12: the cross-tab scope survives in the production exploratory state
   // too — the server validates it (canonical mission vocabulary) and the banner
   // declares it BOUND or fails closed as UNAVAILABLE, on every path.
-  const body = scopeBannerHtml(selection) + canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
+  const body = scopeBannerHtml(selection) + canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null, selection);
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), semantics: vm.canonicalSemantics, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 

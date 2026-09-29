@@ -218,7 +218,7 @@ test("UI08-07: a blocked mission keeps the run control disabled with its exact b
     assert.match(html, /data-locked="true"/);
     assert.match(html, /data-job-blockers/);
     assert.doesNotMatch(html, /data-hypothesis-request>/);
-    assert.match(html, /Run H-S1-01 Development/);
+    assert.match(html, /Run Development · H-S1-01 · Gas Monthly<\/button>/);
   });
 });
 

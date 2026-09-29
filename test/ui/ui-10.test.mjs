@@ -14,7 +14,7 @@ import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { renderBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
 import { UI_STYLESHEET } from "../../src/ui/visual-language.mjs";
 import { legacyTextFindings, visibleSegments } from "../../src/ui/primary-text.mjs";
-import { buildCanonicalSemanticsProjection, blockerDisplayText, CANONICAL_LABELS } from "../../src/backtesting-semantics/projection.mjs";
+import { buildCanonicalSemanticsProjection, blockerUserMessage, CANONICAL_LABELS } from "../../src/backtesting-semantics/projection.mjs";
 import { canonicalHistoricalText, legacyRunIdentity } from "../../src/backtesting-semantics/legacy-compat.mjs";
 
 const canonical = loadCanonicalUiInputs();
@@ -98,8 +98,8 @@ test("UI-10 projection: Client summary, benchmark statuses and blockers come fro
   }
   assert.equal(semantics.labels.benchmarkStatuses.BENCHMARK_PROVISIONAL, "Provisional");
   assert.equal(semantics.labels.benchmarkStatuses.CAMPAIGN_NOT_BOUND, "campaign not bound");
-  assert.equal(blockerDisplayText({ code: "SOURCE_MISSING", message: "no availability source is committed under x" }), "Development source missing: no availability source is committed under x");
-  assert.equal(blockerDisplayText({ code: "NEW_CODE", message: "m" }), "Development blocker: m");
+  assert.equal(blockerUserMessage({ code: "SOURCE_MISSING", source: "deliveryHours", message: "no deliveryHours source is committed under x/y.json" }), "Development source missing: delivery hours");
+  assert.equal(blockerUserMessage({ code: "NEW_CODE", message: "m" }), "Development blocker");
   assert.equal(CANONICAL_LABELS.identities.CONTROL, "Control");
 });
 
@@ -134,11 +134,12 @@ test("UI10-02..06: the served routes carry no legacy identity, raw enum or CONTR
   });
 });
 
-test("UI10-03: the shared identity table has no CONTROL column; CONTROL is named in the ablation", () => {
+test("UI10-03: the mission context has no CONTROL identity; CONTROL is named in the ablation", () => {
   for (const surface of ["campaigns", "replay", "research"]) {
     const html = renderSurfacePage(surface, vms[surface]);
-    const strip = html.slice(html.indexOf('data-semantic="SEM-2/canonical-projection"'));
-    assert.doesNotMatch(strip.slice(0, strip.indexOf("</details>")), /data-identity="CONTROL"|<th>Control<\/th>/, surface);
+    const start = html.indexOf('data-semantic="SEM-2/canonical-projection"');
+    const grid = html.slice(start, html.indexOf("</dl>", start));
+    assert.doesNotMatch(grid, /data-identity="CONTROL"|>Control</, surface);
   }
   const backtests = renderSurfacePage("backtests", vms.backtests);
   const ablation = backtests.slice(backtests.indexOf('data-context="ablation"'));
@@ -199,7 +200,7 @@ test("UI-10 Backtests: blockers read as English titles with a count; paths stay 
     missions: [{
       missionId: "GAS_QUARTERLY",
       status: "BLOCKED",
-      blockers: ["availability", "observations", "benchmark", "delivery-hours"].map((field) => ({ code: "SOURCE_MISSING", message: `no ${field} source is committed under ${base}/${field}.json` })),
+      blockers: ["availability", "observations", "benchmark", "deliveryHours"].map((field) => ({ code: "SOURCE_MISSING", source: field, path: `${base}/${field}.json`, message: `no ${field} source is committed under ${base}/${field}.json` })),
     }],
   };
   const vm = buildBacktestsViewModel({ exploratory: canonical.inputs.exploratoryBacktest, backtestReadiness: canonical.inputs.backtestReadiness, hypothesisLaunch });
@@ -207,8 +208,11 @@ test("UI-10 Backtests: blockers read as English titles with a count; paths stay 
   const scope = html.slice(html.indexOf('data-scope-mission="GAS_QUARTERLY"'), html.indexOf('data-scope-mission="GAS_MONTHLY"'));
   assert.match(scope, /Development source missing · 4<\/span>/);
   assert.match(scope, /<details class="blockers"><summary>Show 4 blocker details and source paths<\/summary>/);
-  assert.match(scope, /data-scope-blocker="SOURCE_MISSING">Development source missing: no availability source is committed under operations\/hypothesis\//);
+  assert.match(scope, /data-scope-blocker="SOURCE_MISSING">Development source missing: availability<div class="mono">operations\/hypothesis\/development\/GAS_QUARTERLY\/availability.json<\/div>/);
+  assert.match(scope, /data-scope-blocker="SOURCE_MISSING">Development source missing: delivery hours</);
   assert.doesNotMatch(scope.replace(/data-scope-blocker="SOURCE_MISSING"/g, ""), /SOURCE_MISSING/);
+  // Paths only inside the collapsed detail.
+  assert.doesNotMatch(scope.replace(/<details class="blockers">[\s\S]*?<\/details>/g, ""), /operations\//);
   assert.match(scope, /<dl class="kvgrid"><dt>Observed via<\/dt><dd>TOB \/ TRADES<\/dd>/);
 });
 
@@ -229,9 +233,9 @@ test("UI10-01: the UI-10 layer sets readable type and contrast on the approved l
   assert.match(layer, /h1\.page \{ font-size: 34px;/);
   assert.match(layer, /nav\.ws a \{ border-bottom-width: 4px; \}/);
   assert.match(layer, /\.hist \{ border: 2px dashed/);
-  // No font size under 14 px in the layer except 13 px caps/labels (PLAN_UI §4.C.15).
-  for (const [, size] of layer.matchAll(/font-size: (\d+(?:\.\d+)?)px/g)) {
-    assert.ok(Number(size) >= 13, `font-size ${size}px`);
+  // No font size under 14 px anywhere in the layer (PLAN_UI §3, §4.D.20).
+  for (const [, size] of layer.matchAll(/font(?:-size)?:[^;}]*?(\d+(?:\.\d+)?)px/g)) {
+    assert.ok(Number(size) >= 14, `font-size ${size}px`);
   }
   // The approved light/editorial shell stays (no dark theme).
   assert.match(UI_STYLESHEET, /--paper: #f3f1eb;/);

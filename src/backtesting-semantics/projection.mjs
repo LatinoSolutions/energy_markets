@@ -52,11 +52,31 @@ export const CANONICAL_LABELS = Object.freeze({
     SOURCE_MISSING: "Development source missing",
     SOURCE_ARTIFACT_INVALID: "Development source invalid",
     PROVENANCE_INVALID: "Source provenance invalid",
+    INPUT_PROVENANCE_INVALID: "Source provenance invalid",
+    BINDING_INVALID: "Source binding invalid",
     FREEZE_PENDING: "Required freeze not bound",
+    FRESHNESS_BLOCKED: "Source not point-in-time valid",
+    WARM_UP_BLOCKED: "Not enough Development history",
+    RESERVATION_INVALID: "Out-of-sample reservation invalid",
+    MISSING_DELIVERY_HOURS: "Delivery hours missing",
+    COVERAGE_MISMATCH: "Source coverage mismatch",
     LAUNCH_REQUEST_MISSING: "Development request missing",
     MISSION_REQUEST_MISMATCH: "Development request targets another mission",
+    INVALID_HYPOTHESIS_REQUEST: "Development request invalid",
+    INPUT_MISSING: "Bound source missing",
+    INPUT_HASH_MISMATCH: "Bound source changed since the request",
     UNKNOWN_MISSION: "Unknown mission",
     DEFAULT: "Development blocker",
+  }),
+  // UI-10 (PLAN_UI §3 "never raw enums"): hypothesis applicability as words.
+  applicability: Object.freeze({ DECLARED: "declared", UNDECLARED: "not declared" }),
+  // UI-10 (PLAN_UI §4.A.3 "Development source missing: availability"): the
+  // English name of each Development input source in a blocker's userMessage.
+  blockerSources: Object.freeze({
+    availability: "availability",
+    observations: "observations",
+    benchmark: "benchmark",
+    deliveryHours: "delivery hours",
   }),
   // UI-10 (PLAN_UI §3 direction): historical data is shown in a card labelled
   // "Historical · provenance only"; the comparator of legacy runs is the
@@ -72,13 +92,16 @@ export const CANONICAL_LABELS = Object.freeze({
   }),
 });
 
-// UI-10 (PLAN_UI §1 raw codes row, §4.A.3; BT08-10): a Development blocker reads
-// as its English title plus the backend message; the machine code stays with
-// the blocker for data attributes. Scope and the Development control share it.
-export function blockerDisplayText(blocker) {
-  const titles = CANONICAL_LABELS.blockers;
-  return `${titles[blocker?.code] ?? titles.DEFAULT}: ${blocker?.message ?? ""}`;
+// UI-10 (PLAN_UI §4.A.3): the user-facing sentence of a Development blocker —
+// English title plus the input source it concerns, never a file path. The
+// producer (hypothesis-runner.mjs) publishes it as `userMessage` next to `code`
+// and `path`.
+export function blockerUserMessage(blocker) {
+  const title = CANONICAL_LABELS.blockers[blocker?.code] ?? CANONICAL_LABELS.blockers.DEFAULT;
+  const source = CANONICAL_LABELS.blockerSources[blocker?.source];
+  return source ? `${title}: ${source}` : title;
 }
+
 
 // Product code -> canonical mission. Kept here as the backend projection's own
 // mapping so a standalone consumer does not import the exploratory mission file.

@@ -74,12 +74,21 @@ export function visibleSegments(html) {
   return segments;
 }
 
+// UI10-06 (PLAN_UI §3 "never raw enums"; OFICINA.md product language): no
+// machine code in SCREAMING_SNAKE form (PENDING_MEASUREMENT, OOS_HISTORICO…)
+// and no Spanish zone id; stable ids and codes live in alias lines or data
+// attributes only.
+const RAW_CODE = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/;
+const SPANISH_ZONE = /\bPUENTE\b|\bHISTORICO\b/;
+
 const PRIMARY_FORBIDDEN = [
   ["UI10-02", /\bBaseline\b|\bBASELINE\b/],
   ["UI10-02", /client practice/i],
   ["UI10-04", /\bArm [AB]\b|\bARM_[AB]\b/],
   ["UI10-05", /\bDIP10\b/],
-  ["UI10-06", /\bBENCHMARK_PROVISIONAL\b|\bRECONCILED_OFFICIAL\b|\bSOURCE_MISSING\b|\bnull UNAVAILABLE\b/],
+  ["UI10-06", /\bnull UNAVAILABLE\b/],
+  ["UI10-06", RAW_CODE],
+  ["UI10-06", SPANISH_ZONE],
 ];
 
 // Inside a historical card the legacy history is shown, but never under the
@@ -88,7 +97,9 @@ const HISTORICAL_FORBIDDEN = [
   ["UI10-02", /\bBaseline\b|\bBASELINE\b/],
   ["UI10-02", /client practice/i],
   ["UI10-04", /\bArm [AB]\b|\bARM_[AB]\b/],
-  ["UI10-06", /\bBENCHMARK_PROVISIONAL\b|\bSOURCE_MISSING\b|\bnull UNAVAILABLE\b/],
+  ["UI10-06", /\bnull UNAVAILABLE\b/],
+  ["UI10-06", RAW_CODE],
+  ["UI10-06", SPANISH_ZONE],
 ];
 
 const CONTROL = /\bCONTROL\b|\bControl\b/;

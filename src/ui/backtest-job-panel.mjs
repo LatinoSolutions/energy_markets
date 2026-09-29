@@ -7,7 +7,8 @@
 // Aprobado con cambios por Bru, P-009 (2026-09-25); server.mjs lo sirve en /backtests.
 
 import { BACKTEST_JOBS_PATH } from "../backtest-jobs/http.mjs";
-import { blockerDisplayText } from "../backtesting-semantics/projection.mjs";
+import { H_S1_01, MISSION_LABELS } from "../backtesting-semantics/contract.mjs";
+import { blockerUserMessage, CANONICAL_LABELS } from "../backtesting-semantics/projection.mjs";
 
 function esc(value) {
   return String(value ?? "")
@@ -15,6 +16,33 @@ function esc(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+// UI-10 (PLAN_UI §1 "English blocker chip with a count; paths go into a 'Show
+// source paths' detail", §4.B.11): a short blocked line with the count per
+// blocker title; the backend userMessage, path and technical message of each
+// blocker appear only inside the collapsed detail. `attribute` names the data
+// attribute of each detail line (Scope card or the Development control).
+export function blockerBriefHtml(blockers, attribute) {
+  const counts = new Map();
+  for (const blocker of blockers) {
+    const title = CANONICAL_LABELS.blockers[blocker.code] ?? CANONICAL_LABELS.blockers.DEFAULT;
+    counts.set(title, (counts.get(title) ?? 0) + 1);
+  }
+  const chips = [...counts.entries()].map(([title, count]) => `<span class="st fail"><span class="g">×</span>${esc(title)} · ${count}</span>`).join(" ");
+  const plural = blockers.length === 1 ? "" : "s";
+  const lines = blockers.map((blocker) => `<div class="small muted" ${attribute}="${esc(blocker.code)}">${esc(blocker.userMessage ?? blockerUserMessage(blocker))}${blocker.path ? `<div class="mono">${esc(blocker.path)}</div>` : ""}<div>${esc(blocker.message ?? "")}</div></div>`).join("");
+  return `<div class="row wrap" style="gap:6px">${chips}</div><details class="blockers"><summary>Show ${blockers.length} blocker detail${plural} and source paths</summary>${lines}</details>`;
+}
+
+// UI-10 (PLAN_UI §4.B.8 "Run Development · <H> · <mission>"): the control names
+// the hypothesis and the selected mission with backend identities — the launch
+// metadata/readiness when published, else the canonical contract (the control
+// only ever launches H-S1-01 requests; BT-08 validates them against it).
+function developmentButtonLabel(launch, selected, missionId) {
+  const hypothesisId = launch?.metadata?.hypothesisId ?? H_S1_01.hypothesisId;
+  const mission = selected?.missionLabel ?? MISSION_LABELS[missionId] ?? "no mission selected";
+  return `Run Development · ${hypothesisId} · ${mission}`;
 }
 
 // Si el backend no dio línea (estado ilegible), la UI no la inventa: lo dice.
@@ -133,16 +161,16 @@ ${JOB_CONTROL_SCRIPT}`;
   const hypothesisAvailable = view?.configured === true && view?.statusReadable === true && view?.running === false;
   const hypothesisRunning = view?.running === true;
   const disabled = running || !hypothesisAvailable || !ready;
-  const blockerText = blockers.length > 0
-    ? blockers.map((blocker) => esc(blockerDisplayText(blocker))).join(" · ")
+  const blockerHtml = blockers.length > 0
+    ? blockerBriefHtml(blockers, "data-job-blocker")
     : "no backend-validated Development request is available for this mission";
   const requestTag = ready
     ? `<script type="application/json" data-hypothesis-request>${JSON.stringify(request).replaceAll("<", "\\u003c")}</script>`
     : "";
   return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="HYPOTHESIS" data-running="${running || hypothesisRunning ? "true" : "false"}"${ready && hypothesisAvailable ? "" : ' data-locked="true"'} style="text-align:right">
-  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run H-S1-01 Development</button>
+  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>${esc(developmentButtonLabel(launch, selected, missionId))}</button>
   <div class="mono small muted" style="margin-top:4px" data-job-line>${esc(line)}</div>
-  ${ready ? "" : `<div class="small muted" data-job-blockers style="max-width:36ch;margin-left:auto">${blockerText}</div>`}
+  ${ready ? "" : `<div class="small muted" data-job-blockers style="max-width:46ch;margin-left:auto;text-align:left">${blockerHtml}</div>`}
   <div class="small" data-job-message></div>
   ${requestTag}
 </div>

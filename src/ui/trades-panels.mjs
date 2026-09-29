@@ -74,6 +74,72 @@ export const TRADES_ZONE_PLAN = Object.freeze([
   Object.freeze({ id: "FORWARD", label: "Forward", from: "freeze", to: "→" }),
 ]);
 
+// UI-10 (PLAN_UI §3 "statuses as chips with glyph + word, never raw enums";
+// OFICINA.md "Energy Markets product language", Bru 2026-09-28): the English
+// words of every TR-07 code the Backtests panels show. The artifacts keep their
+// machine codes; the UI shows these words and keeps the code only in data
+// attributes. An unlisted code reads UNLABELLED (fail-closed, never the raw code).
+export const TRADES_PANEL_LABELS = Object.freeze({
+  UNLABELLED: "Unlabelled state",
+  statuses: Object.freeze({
+    OK: "OK",
+    ERROR: "Error",
+    UNAVAILABLE: "Unavailable",
+    UNKNOWN: "Unknown",
+    PENDING_SCAN_JOB: "Pending scan job",
+    PENDING_ARCHIVE_VERIFICATION: "Pending archive verification",
+    PENDING_OWNER_APPROVAL: "Pending owner approval",
+    PENDING_MEASUREMENT: "Pending measurement",
+    LOW_COVERAGE: "Low coverage",
+    PARTIAL_SOURCE_RANGE: "Partial source range",
+    NO_COVERAGE: "No coverage",
+    BEFORE_SOURCE_START: "Before source start",
+    SEALED: "Sealed",
+    RESERVED: "Reserved",
+    MEASURED: "Measured",
+    OBSERVED: "Observed",
+    DECIDED: "Decided",
+    FROZEN: "Frozen",
+    VERIFIED: "Verified",
+    COMPLETE: "Complete",
+    CURRENT: "Current",
+    REPORTED: "Reported",
+    PROVISIONAL: "Provisional",
+    HOLD: "Hold",
+    HYPOTHESIS_GRID: "Hypothesis grid",
+    OPEN_PENDING_FREEZE: "Open · pending the TRADES-v1 freeze",
+    STALE_REMEASURE_REQUIRED: "Stale · re-measure required",
+    NO_AUTOMATIC_THRESHOLD: "No automatic threshold",
+    NOT_RUN_YET: "Not run yet",
+  }),
+  sources: Object.freeze({
+    CLIENT_SEALED_ARCHIVE: "client sealed archive",
+    EEX_LAKE_PATCH: "EEX lake patch",
+    DATA_INCOMPLETE: "data incomplete",
+  }),
+  rules: Object.freeze({ LAST_TRADE: "Last trade", SLOT_VWAP: "Slot VWAP" }),
+  markets: Object.freeze({ GAS_THE: "Gas THE", POWER_DE: "Power DE" }),
+  independence: Object.freeze({ NOT_INDEPENDENT_VALIDATION: "not an independent validation" }),
+  blockedBy: Object.freeze({ BRIDGE_MEASUREMENT_GRID_STALE: "the bridge measurement grid is stale" }),
+  brokenSpread: Object.freeze({ INCLUDE: "included", EXCLUDE: "excluded" }),
+  halves: Object.freeze({ CALIBRATION: "calibration half", EVALUATION: "evaluation half" }),
+  sourcePeriodReasons: Object.freeze({ DATA02_COVERAGE_MISSING: "DATA-02 coverage missing" }),
+});
+
+// English word of a TR-07 code in one label group; an unknown code or group
+// yields the UNLABELLED word, never the code itself.
+export function tradesLabel(group, code) {
+  if (code === null || code === undefined) {
+    return TRADES_PANEL_LABELS.statuses.UNAVAILABLE;
+  }
+  return TRADES_PANEL_LABELS[group]?.[code] ?? TRADES_PANEL_LABELS.UNLABELLED;
+}
+
+// Zone label from the zone plan above (DEVELOPMENT … FORWARD); never the id.
+export function tradesZoneLabel(zoneId) {
+  return TRADES_ZONE_PLAN.find((zone) => zone.id === zoneId)?.label ?? TRADES_PANEL_LABELS.UNLABELLED;
+}
+
 export function observationFor(mode) {
   return TRADES_OBSERVATION_MODES[mode] ?? TRADES_OBSERVATION_MODES.TOB;
 }

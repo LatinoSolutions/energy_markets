@@ -415,11 +415,11 @@ body { font: 16px/1.6 var(--sans); }
 .mono { font-size: 14px; }
 .small { font-size: 15px; }
 .tiny { font-size: 14px; }
-.caps { font-size: 13px; letter-spacing: .07em; }
-.regime { font-size: 13px; }
-.brand .sub { font-size: 13px; }
+.caps { font-size: 14px; letter-spacing: .07em; }
+.regime { font-size: 14px; }
+.brand .sub { font-size: 14px; }
 nav.ws a { border-bottom-width: 4px; }
-nav.ws a .k { font-size: 13px; }
+nav.ws a .k { font-size: 14px; }
 nav.ws a .t { font-size: 17px; }
 nav.ws a.on .t { font-weight: 700; }
 .clock { font-size: 14px; }
@@ -433,20 +433,20 @@ h2.sec { font-size: 22px; }
 .card > .hd { padding: 14px 20px; flex-wrap: wrap; }
 .card > .hd h3 { font-size: 18px; }
 .card > .bd { padding: 18px 20px; }
-table.t th { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-bottom: 2px solid var(--ink); padding: 9px 12px; }
+table.t th { font-size: 14px; color: var(--ink-2); background: var(--surface-2); border-bottom: 2px solid var(--ink); padding: 9px 12px; }
 table.t td { font-size: 14px; padding: 10px 12px; }
 table.t td.num, table.t td.right, .num { font-variant-numeric: tabular-nums; }
 table.t td.right, table.t td.num { text-align: right; }
 .st { border-radius: 999px; font-size: 14px; font-weight: 700; padding: 2px 10px 2px 8px; line-height: 20px; border: 1px solid currentColor; }
 .st.na { border-color: var(--rule); }
 .unkv, .openv, .withheld { font-size: 14px; }
-.ev, .stage, .zt, .condition, .event .event-class { font-size: 13px; }
+.ev, .stage, .zt, .condition, .event .event-class { font-size: 14px; }
 .chk .d { font-size: 14px; color: var(--ink-2); }
 .obj .kv, .drawer dl, .key .kr, .note-ev, .gapnote, .errbar, .receipt, .drill a, details.tbl summary { font-size: 14px; }
-.crail .cwin, .clegend, .cgrp .csum, .crail-title, .crail .cempty { font-size: 13px; }
+.crail .cwin, .clegend, .cgrp .csum, .crail-title, .crail .cempty { font-size: 14px; }
 .crail .crow { font-size: 15px; }
-svg text { font-size: 14px; }
-svg .axis text { font-size: 13px; fill: var(--ink-2); }
+svg text { font-size: 16px; }
+svg .axis text { font-size: 16px; fill: var(--ink-2); }
 .pptip, .pptip table, .pptip .t-sub, .pptip .foot { font-size: 14px; }
 .kvgrid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
 .kvgrid dt { color: var(--ink-2); font-size: 14px; }
@@ -456,20 +456,24 @@ details.quote, details.blockers, details.refs, details.picker { margin-top: 4px;
 details.quote > summary, details.blockers > summary, details.refs > summary { cursor: pointer; font-size: 14px; color: var(--ink-2); }
 details.picker > summary { cursor: pointer; font-size: 15px; }
 details.picker .pgrp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
-details.cbh > summary { list-style: none; cursor: pointer; border-bottom: 0; }
-details.cbh > summary::-webkit-details-marker { display: none; }
-details.cbh[open] > summary { border-bottom: 1px solid var(--rule-2); }
+.tl { height: 96px; }
+.mctx { margin: 16px 0 0; }
+.mctx > .hd { padding: 10px 20px; }
+.mctx > .bd { padding: 12px 20px; }
+.mctx .bd p { margin: 8px 0 0; }
+[data-mission-switch] a, [data-mission-switch] b { border: 1px solid var(--rule); border-radius: 6px; padding: 3px 10px; font-size: 15px; text-decoration: none; color: var(--ink-2); }
+[data-mission-switch] b { background: var(--ink); color: #fff; border-color: var(--ink); }
 .hist { border: 2px dashed var(--ink-3); border-radius: 10px; background: var(--surface); padding: 0; }
 details.hist { padding: 14px 20px 20px; }
 details.hist > summary { cursor: pointer; display: flex; gap: 10px; align-items: center; font-size: 17px; padding: 4px 0 10px; }
 .histblock { border: 2px dashed var(--ink-3); border-radius: 10px; padding: 14px 20px; margin-top: 14px; background: var(--surface); }
-.histbadge { display: inline-block; font: 700 13px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--ink); border-radius: 3px; padding: 4px 7px; margin-right: 8px; }
+.histbadge { display: inline-block; font: 700 14px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--ink); border-radius: 3px; padding: 4px 7px; margin-right: 8px; }
 .histnote { border: 2px dashed var(--ink-3); border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 15px; background: var(--surface); }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
 .crit-matrix td:first-child { min-width: 220px; }
 .crit-matrix td { overflow-wrap: anywhere; }
 .split > *, .grid > * { min-width: 0; }
-.cready { display: block; font-size: 13px; color: var(--ink-2); line-height: 1.2; }
+.cready { display: block; font-size: 14px; color: var(--ink-2); line-height: 1.2; }
 .crail .crow { grid-template-columns: 10px 1fr; align-items: start; row-gap: 0; }
 .crail .crow .cwin, .crail .crow .cready { grid-column: 2; }
 nav.ws a { min-width: 0; padding: 0 14px; }
@@ -480,6 +484,16 @@ header.top { gap: 16px; }
 .brand .sub { white-space: nowrap; }
 .clock { white-space: normal; max-width: 250px; }
 .dechead > .row { flex-wrap: wrap; }
+/* Type floor (PLAN_UI §3 "Minimum 14 px anywhere (including SVG)", §4.D.20):
+   the base selectors with a smaller or relative size that no rule above
+   restates, set to 14 px so the computed size never drops under the floor. */
+.auth-box .seal, .cgrp .caret, .obj .otype, .horizon span, .ci, #tip, .foot, .exp-head,
+ul.exposure-list .reason, ul.exposure-list .condition, ul.exposure-list .value,
+ul.ts-points > li, ul.ts-points .point-key, ul.ts-points .value, ul.ts-points .clock,
+.lane-note, .unk-row, ul.events-list > li.event, .event .event-id, .event .event-clock,
+.event .event-ref, .event .attribution, .nodata, .nodata b, .reason, .pv.provenance,
+.kvline .k, .error-code, sub, sup, small, code, kbd, pre, samp { font-size: 14px; }
+button, input, select, textarea { font-size: 15px; }
 `;
 
 export const UI_STYLESHEET = `${GOLDEN_CSS}${PRODUCT_CSS}${UI10_CSS}`;

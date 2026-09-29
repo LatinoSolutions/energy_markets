@@ -273,7 +273,7 @@ test("UI-07 (5): la UI dibuja las cifras medidas tal cual las trae el view model
   const lastTrade = panels.calibration.parameters.missions.find((entry) => entry.missionId === "GAS_QUARTERLY").rules[0];
   assert.match(html, /data-tr07-calibration="GAS_QUARTERLY\|LAST_TRADE"/);
   assert.equal(lastTrade.penalty.valueEurMwh, null);
-  assert.ok(html.includes("PENDING DEVELOPMENT"));
+  assert.ok(html.includes("selected: pending Development"));
   for (const metric of panels.calibration.gate.metrics) {
     assert.ok(html.includes(`data-tr07-gate-metric="${metric.id}"`), metric.id);
     assert.ok(html.includes(`data-tr07-contrast-metric="${metric.id}"`), metric.id);
