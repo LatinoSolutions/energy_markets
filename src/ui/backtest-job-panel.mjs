@@ -120,8 +120,11 @@ export function renderBacktestJobControl(status, { mode = "TOB", launch = null, 
 ${JOB_CONTROL_SCRIPT}`;
   }
   const missions = launch?.missions ?? [];
-  const selected = missions.find((entry) => entry.missionId === missionId) ?? missions[0] ?? null;
-  const request = selected?.status === "READY" ? selected.request ?? null : null;
+  // A selected mission may be absent from an incomplete backend launch. Never
+  // borrow another mission's validated request for this Development control.
+  const selected = missions.find((entry) => entry.missionId === missionId) ?? null;
+  const candidate = selected?.status === "READY" ? selected.request ?? null : null;
+  const request = candidate?.missionId === missionId && candidate?.phase === "DEVELOPMENT" ? candidate : null;
   const ready = request !== null;
   const blockers = selected?.blockers ?? [];
   // The hypothesis runner has its own active attempt and readable status.

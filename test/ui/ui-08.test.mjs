@@ -649,6 +649,22 @@ test("UI08-R06: without READY missions every mission keeps its Development link 
 });
 
 // UI08-R07 · the client refresh never re-enables a blocked control
+test("UI08-R07: a missing or misbound selected mission never borrows another Development request", () => {
+  const status = { running: false, hypothesis: { configured: true, statusReadable: true, running: false } };
+  const launch = { missions: [{ missionId: "GAS_MONTHLY", status: "READY", request: { missionId: "GAS_MONTHLY", phase: "DEVELOPMENT" } }] };
+  for (const [selectedMission, missions] of [
+    ["POWER_MONTHLY", launch.missions],
+    ["GAS_MONTHLY", [{ ...launch.missions[0], request: { missionId: "POWER_MONTHLY", phase: "DEVELOPMENT" } }]],
+    ["GAS_MONTHLY", [{ ...launch.missions[0], request: { missionId: "GAS_MONTHLY", phase: "OOS" } }]],
+  ]) {
+    const page = renderBacktestJobControl(status, { mode: "HYPOTHESIS", missionId: selectedMission, launch: { missions } });
+    assert.match(page, /data-locked="true"/);
+    assert.match(page, /data-job-start disabled/);
+    assert.doesNotMatch(page, /data-hypothesis-request>/);
+    assert.match(page, /no backend-validated Development request is available for this mission/);
+  }
+});
+
 test("UI08-R07: a validated Development request stays locked while its own runner is active or unreadable", async () => {
   const launch = { missions: [{ missionId: "GAS_MONTHLY", status: "READY", request: { missionId: "GAS_MONTHLY", phase: "DEVELOPMENT" } }] };
   const status = { running: false, hypothesis: { configured: true, statusReadable: true, running: true, display: { line: "running" } } };
