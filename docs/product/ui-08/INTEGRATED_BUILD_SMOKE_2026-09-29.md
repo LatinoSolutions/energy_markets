@@ -69,7 +69,10 @@ completo del commit que la Oficina haya publicado, `dirty:false`, ausencia de
 jobs en ejecución con estado legible al inicio y al final del smoke, versión semántica y revisión de snapshot
 coherentes entre `/health`, `/api/backtest-jobs` y las cuatro superficies. También
 comprueba los nombres y versiones de misión e hipótesis del contrato backend,
-el orden Scope → Hypotheses → Results y el título estable. Solo hace GET; no
+el orden Scope → Hypotheses → Results y el título estable. El CLI también
+contrasta el PID de ambas lecturas de `/health` con el `MainPID` de
+`energy-markets-ui.service`, para que un servidor local de fixture no acredite
+la unidad activa. Solo hace GET; no
 lanza backtests ni toca el servicio. Comando para la Oficina, **después** de
 integrar y arrancar el commit aprobado sin un job en curso:
 

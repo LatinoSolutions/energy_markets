@@ -74,10 +74,11 @@ test("UI08-R11: an unsuccessful job status payload cannot attest idleness", asyn
 
 test("UI08-R11: served-build smoke checks the actual HTTP build and four shared snapshots", async () => {
   await withServer(async (url) => {
-    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT });
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid });
     assert.deepEqual(report.errors, []);
     assert.equal(report.ok, true);
     assert.equal(report.loadedCommit, COMMIT);
+    assert.equal(report.loadedPid, process.pid);
     assert.deepEqual(Object.keys(report.routes).sort(), ["/api/backtest-jobs", "/backtests", "/campaigns", "/health", "/replay", "/research"].sort());
     assert.equal(report.responses.length, 8);
     assert.deepEqual(report.responses.map(({ path }) => path), [
@@ -89,6 +90,30 @@ test("UI08-R11: served-build smoke checks the actual HTTP build and four shared 
       assert.equal(response.revision, report.snapshotRevision);
       assert.equal(response.version, report.semanticVersion);
     }
+  });
+});
+
+test("UI08-R11: an otherwise valid fixture cannot impersonate the configured service process", async () => {
+  await withServer(async (url) => {
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid + 1 });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /responding process differs from the configured service MainPID/);
+  });
+});
+
+test("UI08-R11: the responding process must remain the configured service process throughout the smoke", async () => {
+  await withServer(async (url) => {
+    let healthReads = 0;
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health" || ++healthReads !== 2) return response;
+      const health = await response.json();
+      health.processId += 1;
+      return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /served build, snapshot or semantic version changed during the smoke/);
   });
 });
 

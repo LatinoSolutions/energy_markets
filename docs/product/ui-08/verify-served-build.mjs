@@ -2,6 +2,7 @@
 // A checkout or a local fixture server cannot substitute for this check.
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const ROUTES = ["/campaigns", "/replay", "/backtests", "/research"];
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -24,8 +25,9 @@ function attribute(html, name) {
   return html.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? null;
 }
 
-export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = fetch }) {
+export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid = null, fetchImpl = fetch }) {
   if (!COMMIT.test(expectedCommit ?? "")) throw new Error("expectedCommit must be a full Git commit SHA");
+  if (expectedPid !== null && (!Number.isSafeInteger(expectedPid) || expectedPid <= 0)) throw new Error("expectedPid must be a positive process ID");
   const base = new URL(baseUrl);
   if (!/^https?:$/.test(base.protocol) || base.pathname !== "/" || base.search || base.hash) {
     throw new Error("baseUrl must be an HTTP(S) origin with a trailing slash");
@@ -66,6 +68,9 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   const version = health?.semanticSnapshot?.semanticVersion;
   if (health?.ok !== true || health?.build?.commit !== expectedCommit || health?.build?.dirty !== false) {
     errors.push("/health: loaded clean build does not match expected commit");
+  }
+  if (expectedPid !== null && health?.processId !== expectedPid) {
+    errors.push("/health: responding process differs from the configured service MainPID");
   }
   if (!SHA256.test(revision ?? "") || !version || semantics?.ok !== true || semantics.semanticVersion !== version) {
     errors.push("/health and /api/backtest-jobs: semantic version or published revision unavailable/mismatched");
@@ -215,6 +220,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
     && (lastHealth?.build?.commit !== expectedCommit
       || lastHealth?.build?.dirty !== false
+      || (expectedPid !== null && lastHealth?.processId !== expectedPid)
       || lastHealth?.semanticSnapshot?.revision !== revision
       || lastHealth?.semanticSnapshot?.semanticVersion !== version
       || lastJobs?.canonicalSemantics?.ok !== true
@@ -227,7 +233,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
     || lastJobs?.hypothesis?.configured !== true || !idle(lastJobs.hypothesis)) {
     errors.push("a backtest job started during the smoke, a runner is missing, or its final idle state is unreadable");
   }
-  return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, loadedCommit: health?.build?.commit ?? null,
+  return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, expectedPid, loadedPid: health?.processId ?? null, loadedCommit: health?.build?.commit ?? null,
     semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, responses, errors };
 }
 
@@ -238,7 +244,12 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     process.exitCode = 2;
   } else {
     try {
-      const report = await verifyServedBuild({ baseUrl, expectedCommit });
+      // This CLI is the release check for the established Tailscale unit. A
+      // local fixture can exercise the verifier but cannot pass as that unit.
+      const rawPid = execFileSync("systemctl", ["--user", "show", "energy-markets-ui.service", "--property=MainPID", "--value"], { encoding: "utf8" }).trim();
+      const expectedPid = Number(rawPid);
+      if (!/^[1-9][0-9]*$/.test(rawPid) || !Number.isSafeInteger(expectedPid)) throw new Error("energy-markets-ui.service has no readable active MainPID");
+      const report = await verifyServedBuild({ baseUrl, expectedCommit, expectedPid });
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 1;
     } catch (error) {

@@ -190,6 +190,9 @@ function healthPayload(viewModels, backend, jobRunner, build, publication = null
     // HEAD del checkout por request, así que un checkout que cambia detrás del
     // proceso no cambia lo que el servicio declara servir.
     build: build ?? unknownBuildIdentity(),
+    // The delivery smoke binds the HTTP response to the configured systemd
+    // process, rather than accepting an identical local fixture server.
+    processId: process.pid,
     semanticSnapshot: semantics?.ok === true
       ? {
           semanticVersion: semantics.semanticVersion,
