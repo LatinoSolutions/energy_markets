@@ -2511,7 +2511,7 @@ function backtestScopeHtml(vm) {
   }).join("");
   return `<section data-section="scope" style="margin-top:14px">
     <div class="mtiles">${tiles}</div>
-    ${foldHtml("scope-missions", "Mission scope · obligation, campaigns, sizing, execution and blockers", `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px">${cards}</div>`)}
+    ${cards === "" ? "" : foldHtml("scope-missions", "Mission scope · obligation, campaigns, sizing, execution and blockers", `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px">${cards}</div>`)}
   </section>`;
 }
 
@@ -2652,6 +2652,15 @@ function ablationRowHtml(ablation) {
 // the selected mission reads as 3 tiles. Only backend fields are shown; no
 // figure is taken from the historical run (PLAN_UI open item: B* 37.73 is a
 // historical placeholder, never the Development benchmark).
+// contract.mjs:181 publishes client.economics = null today. A non-null value has
+// no agreed display format yet: PLACEHOLDER chip, never a guessed figure.
+function clientEconomicsHtml(client) {
+  if (client?.economics === null || client?.economics === undefined) {
+    return `<span class="unkv">UNKNOWN</span>`;
+  }
+  return chip("warn", "!", "Published · display format not defined");
+}
+
 function resultTilesHtml(comparison) {
   if (!comparison) {
     return "";
@@ -2668,13 +2677,14 @@ function resultTilesHtml(comparison) {
   const benchmarkLine = boundBenchmarks.length === 0
     ? `${esc(statusLabels.CAMPAIGN_NOT_BOUND)}`
     : `${boundBenchmarks.length} campaign reference${boundBenchmarks.length === 1 ? "" : "s"}`;
-  const comparable = (comparison.hypothesisResults ?? []).filter((result) => result.state === "CURRENT" && result.validComparison === true);
   const hypothesis = comparison.hypotheses[0] ?? null;
+  const comparable = (comparison.hypothesisResults ?? []).filter((result) => result.state === "CURRENT" && result.validComparison === true
+    && result.hypothesisId === hypothesis?.hypothesisId);
   const hypothesisValue = comparable.length === 0
     ? `<span class="unkv">NO RESULT</span>`
     : `<b>${comparable.length}</b> comparable run${comparable.length === 1 ? "" : "s"}`;
   return `<div class="ktiles" data-result-tiles="${esc(comparison.mission.id)}">
-    <div class="ktile" data-tile="CLIENT"><div class="caps">Client</div><div class="kbig"><span class="unkv">UNKNOWN</span></div><div class="small">${esc(comparison.clientSummary ?? "")}</div></div>
+    <div class="ktile" data-tile="CLIENT"><div class="caps">Client</div><div class="kbig">${clientEconomicsHtml(comparison.client)}</div><div class="small">${esc(comparison.clientSummary ?? "")}</div></div>
     <div class="ktile" data-tile="BENCHMARK"><div class="caps">Benchmark</div><div class="kbig">${boundBenchmarks.length === 0 ? chip("unk", "?", statusLabels.UNAVAILABLE) : benchmarkStatuses.map(benchmarkChip).join(" ")}</div><div class="small">${benchmarkLine}</div></div>
     <div class="ktile" data-tile="HYPOTHESIS"><div class="caps">${hypothesis ? esc(hypothesis.hypothesisId) : "Hypothesis"}</div><div class="kbig">${hypothesis ? hypothesisValue : `<span class="unkv">UNAVAILABLE</span>`}</div><div class="small">${hypothesis ? esc(hypothesis.name) : "no canonical hypothesis applies"}</div></div>
   </div>`;
@@ -2755,8 +2765,8 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   ${tr07ScopeHtml(vm.tradesPanels, selection)}
   ${backtestScopeHtml(vm)}
   ${tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission))}
+  ${tr07PanelsHtml(vm.tradesPanels, selection)}
   </div>` : "";
-  const observationContract = validated ? tr07PanelsHtml(vm.tradesPanels, selection) : "";
 
   const legacyFrames = hasExploratory ? "" : `
   <div class="armhead">${armHeadHtml(arms)}</div>
@@ -2799,7 +2809,6 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   ${observationPanels}
   ${validated ? hypothesesHtml(vm) : ""}
   ${validated ? resultsComparisonHtml(vm, selectedMission?.missionId ?? null) : ""}
-  ${observationContract}
   ${historicalBacktestHtml(validated ? vm : null, { mode, selectedMission, hasTobData, legacyFrames })}
 </section>`;
 }
