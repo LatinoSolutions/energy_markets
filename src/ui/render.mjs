@@ -24,6 +24,7 @@
 
 import { SURFACES } from "./view-models.mjs";
 import { H_S1_01, H_RD_01 } from "../backtesting-semantics/contract.mjs";
+import { CANONICAL_LABELS } from "../backtesting-semantics/projection.mjs";
 import { EXPLORATORY_MISSIONS } from "../exploratory/missions.mjs";
 import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
@@ -44,10 +45,10 @@ const SURFACE_TITLES = {
 
 // Orden, atajo y subtítulo de las pestañas del mockup (1 Campaigns … 4 Research).
 const NAV_TABS = [
-  [SURFACES.CAMPAIGNS, "1 · navigate", "Campaigns &amp; Runs"],
-  [SURFACES.REPLAY, "2 · decision inspector", "Replay"],
-  [SURFACES.BACKTESTS, "3 · economic comparison", "Backtests"],
-  [SURFACES.RESEARCH, "4 · strategy lab", "Research"],
+  [SURFACES.CAMPAIGNS, "1 · navigate"],
+  [SURFACES.REPLAY, "2 · decision inspector"],
+  [SURFACES.BACKTESTS, "3 · economic comparison"],
+  [SURFACES.RESEARCH, "4 · strategy lab"],
 ];
 
 // Condición value-less del boundary → chip epistémico. La etiqueta del chip es
@@ -94,8 +95,9 @@ function valueHtml(value) {
 
 // ---------- shell (banner, cabecera, franja de contexto) ----------
 
-function navHtml(active) {
-  const links = NAV_TABS.map(([id, key, title]) => `<a href="#${esc(id)}" class="nav-link${id === active ? " on nav-active" : ""}" data-nav="${esc(id)}"><span class="k">${key}</span><span class="t">${title}</span></a>`);
+function navHtml(active, semantics) {
+  const labels = semantics?.labels?.tabs ?? CANONICAL_LABELS.tabs;
+  const links = NAV_TABS.map(([id, key]) => `<a href="#${esc(id)}" class="nav-link${id === active ? " on nav-active" : ""}" data-nav="${esc(id)}"><span class="k">${key}</span><span class="t">${esc(labels[id])}</span></a>`);
   return `<nav class="ws ui-nav" aria-label="Energy Markets">${links.join("")}</nav>`;
 }
 
@@ -106,11 +108,11 @@ function clockHtml(clock) {
   return `<div class="clock">data as-of ${unknownValue("UNAVAILABLE")}<br><span class="muted">no backend clock exposed here</span></div>`;
 }
 
-function renderShellTop(active, clock) {
+function renderShellTop(active, clock, semantics) {
   return `<div class="regime">OPERATOR INTERFACE · runs simulated backtests only · no real trading from this UI · unknown stays <b>UNAVAILABLE</b> / <b>NOT CLOSED</b>, never a value</div>
 <header class="top em-top" role="banner">
   <div class="brand"><div class="name">Energy Markets</div><div class="sub">PROCUREMENT RESEARCH</div></div>
-  ${navHtml(active)}
+  ${navHtml(active, semantics)}
   <div class="tools">
     <button type="button" class="btn" data-key-toggle aria-expanded="false" aria-controls="semantics-key" title="Visual grammar (?)">Semantics key</button>
     ${clockHtml(clock)}
@@ -130,11 +132,11 @@ const SVG_DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidde
 </defs></svg>`;
 
 // Pie sin "read-only": con el botón Run backtest sería falso, igual que la franja (P-009 punto 3, Bru 2026-09-25, PLAN_STATUS.md:60).
-function renderDocument({ active = null, title, body, clock = null, context = [] }) {
+function renderDocument({ active = null, title, body, clock = null, context = [], semantics = null }) {
   const contextParts = context.length > 0 ? context : ['<span class="muted">no canonical context exposed</span>'];
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style data-ui-visual-language="${esc(VISUAL_LANGUAGE_ID)}">${UI_STYLESHEET}</style></head><body class="em-app" data-visual-language="${esc(VISUAL_LANGUAGE_ID)}">
 ${SVG_DEFS}
-${renderShellTop(active, clock)}
+${renderShellTop(active, clock, semantics)}
 ${contextHtml(contextParts)}
 <main id="main" class="em-main">${body}<div class="foot">Energy Markets · Operator Interface · shows what the backend publishes; commands go only through the backend. Every dotted value opens its provenance. Keys: 1–4 workspaces · ? semantics key · Esc close.</div></main>
 ${renderSemanticsKeyHtml()}
@@ -2766,7 +2768,7 @@ function canonicalUnavailableBanner(surface, vm) {
 function renderErrorState(surface, vm, selection = {}) {
   const errors = Array.isArray(vm?.errors) ? vm.errors : [];
   const body = scopeBannerHtml(selection) + SURFACE_BODIES[surface](null, { errors });
-  return renderDocument({ active: surface, title: "Energy Markets — error", body, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st fail"><span class="g">✕</span>ERROR · fail-closed</span>'] });
+  return renderDocument({ active: surface, title: "Energy Markets — error", body, semantics: vm?.canonicalSemantics, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st fail"><span class="g">✕</span>ERROR · fail-closed</span>'] });
 }
 
 function renderValidated(surface, vm, selection = {}) {
@@ -2775,7 +2777,7 @@ function renderValidated(surface, vm, selection = {}) {
     ? { asOfLabel: "evaluation as-of", asOf: vm.evaluation.asOf ?? null, sub: `T₀ ${vm.decision.boundary}` }
     : exploratoryClock(vm.exploratory);
   const context = surface === SURFACES.REPLAY ? replayContext(vm) : [`<span>${esc(SURFACE_TITLES[surface])}</span>`];
-  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock, context });
+  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock, context, semantics: vm.canonicalSemantics });
 }
 
 // Replay y Campaigns: si hay backtest exploratorio verificado, esas superficies lo
@@ -2801,7 +2803,7 @@ function renderExploratory(surface, vm, selection = {}) {
   // too — the server validates it (canonical mission vocabulary) and the banner
   // declares it BOUND or fails closed as UNAVAILABLE, on every path.
   const body = scopeBannerHtml(selection) + canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
-  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
+  return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), semantics: vm.canonicalSemantics, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 
 function renderPageFor(surface) {
@@ -2833,7 +2835,7 @@ const WORKSPACE_BLURB = {
 };
 
 export function renderNavigationPage() {
-  const cards = NAV_TABS.map(([id, key, title]) => `<a href="#${esc(id)}" class="card nav-card" data-nav="${esc(id)}" data-surface-link="${esc(id)}"><div class="bd"><div class="mono tiny muted">${key}</div><div class="t">${title}</div><div class="small ink2">${WORKSPACE_BLURB[id]}</div></div></a>`);
+  const cards = NAV_TABS.map(([id, key]) => `<a href="#${esc(id)}" class="card nav-card" data-nav="${esc(id)}" data-surface-link="${esc(id)}"><div class="bd"><div class="mono tiny muted">${key}</div><div class="t">${esc(CANONICAL_LABELS.tabs[id])}</div><div class="small ink2">${WORKSPACE_BLURB[id]}</div></div></a>`);
   const body = `<div class="mono muted small">operator interface · four workspaces</div><h1 class="page">Energy Markets — Operator Interface</h1><p class="lede">Four workspaces over the Operator Interface Boundary (IMP-29). Only what the backend exposes is drawn; unknown stays UNAVAILABLE / ERROR, fail-closed.</p><div class="surface-index">${cards.join("")}</div>`;
   return renderDocument({ active: null, title: "Energy Markets — Operator Interface", body });
 }

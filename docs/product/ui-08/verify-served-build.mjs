@@ -81,14 +81,45 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
       errors.push(`${path}: approved light/editorial English shell missing`);
     }
     for (const [route, label] of Object.entries(semantics?.labels?.tabs ?? {})) {
-      if (!html.includes(`data-nav="${route}"`) || !html.includes(htmlText(label))) {
-        errors.push(`${path}: navigation differs from backend tab ${route}`);
-      }
+      // Compare the label inside the actual navigation link. A canonical strip
+      // elsewhere on the page must not mask a stale or translated tab label.
+      const nav = html.match(new RegExp(`<a\\b[^>]*\\bdata-nav="${route}"[^>]*>[\\s\\S]*?<span class="t">([^<]*)<\\/span>`));
+      if (nav?.[1] !== htmlText(label)) errors.push(`${path}: navigation differs from backend tab ${route}`);
+    }
+    const stripStart = html.indexOf('data-semantic="SEM-2/canonical-projection"');
+    const strip = stripStart >= 0 ? html.slice(stripStart) : "";
+    if (path !== "/backtests" && stripStart < 0) {
+      errors.push(`${path}: shared canonical projection missing`);
     }
     for (const mission of semantics?.missions ?? []) {
-      if (!html.includes(htmlText(mission.label))) errors.push(`${path}: backend mission label missing: ${mission.missionId}`);
+      if (path === "/backtests") {
+        const scope = html.match(new RegExp(`<div class="card" data-scope-mission="${mission.missionId}">[\\s\\S]*?<h3>([^<]*)<\\/h3>`));
+        if (scope?.[1] !== htmlText(mission.label)) {
+          errors.push(`${path}: primary mission label differs from backend: ${mission.missionId}`);
+        }
+        for (const hypothesis of mission.hypotheses ?? []) {
+          if (!html.includes(`data-hypothesis-id="${hypothesis.hypothesisId}"`) || !html.includes(htmlText(hypothesis.name))
+            || !html.includes(htmlText(hypothesis.version))) {
+            errors.push(`${path}: backend hypothesis identity/name/version missing: ${hypothesis.hypothesisId}`);
+          }
+        }
+        continue;
+      }
+      const row = strip.match(new RegExp(`<tr data-mission="${mission.missionId}">([\\s\\S]*?)<\\/tr>`))?.[1] ?? "";
+      if (row.match(/<td>([^<]*)<\/td>/)?.[1] !== htmlText(mission.label)) {
+        errors.push(`${path}: primary mission label differs from backend: ${mission.missionId}`);
+      }
+      for (const identity of ["CLIENT", "BENCHMARK", "CONTROL"]) {
+        const visible = row.match(new RegExp(`<td data-identity="${identity}">([^<]*)`))?.[1];
+        if (visible !== htmlText(semantics.labels.identities[identity])) {
+          errors.push(`${path}: primary ${identity} label differs from backend: ${mission.missionId}`);
+        }
+      }
       for (const hypothesis of mission.hypotheses ?? []) {
-        if (!html.includes(`data-hypothesis-id="${hypothesis.hypothesisId}"`) || !html.includes(htmlText(hypothesis.name)) || !html.includes(htmlText(hypothesis.version))) {
+        const statusLabel = hypothesis.evidenceStatus === "PROVENANCE_ONLY"
+          ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED;
+        if (!row.includes(`data-hypothesis-id="${hypothesis.hypothesisId}"`) || !row.includes(htmlText(hypothesis.name))
+          || !row.includes(htmlText(hypothesis.version)) || !row.includes(htmlText(statusLabel))) {
           errors.push(`${path}: backend hypothesis identity/name/version missing: ${hypothesis.hypothesisId}`);
         }
       }

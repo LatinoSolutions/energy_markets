@@ -51,6 +51,37 @@ test("UI08-R11: a route with a different snapshot fails the smoke", async () => 
   });
 });
 
+test("UI08-R11: English metadata elsewhere cannot hide a stale primary navigation label", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/campaigns") return response;
+      const html = (await response.text()).replace('<span class="t">Backtests</span>', '<span class="t">Pruebas</span>');
+      return new Response(html, { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /\/campaigns: navigation differs from backend tab backtests/);
+  });
+});
+
+test("UI08-R11: primary mission and identity labels must match the backend projection", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/replay") return response;
+      const html = (await response.text())
+        .replace('<tr data-mission="GAS_MONTHLY">\n      <td>Gas Monthly</td>', '<tr data-mission="GAS_MONTHLY">\n      <td>Gas Mensual</td>')
+        .replace('<td data-identity="CLIENT">Client', '<td data-identity="CLIENT">Cliente');
+      return new Response(html, { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /\/replay: primary mission label differs from backend: GAS_MONTHLY/);
+    assert.match(report.errors.join("\n"), /\/replay: primary CLIENT label differs from backend: GAS_QUARTERLY/);
+  });
+});
+
 test("UI08-R11: health cannot claim a different snapshot for one served surface", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {

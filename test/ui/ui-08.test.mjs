@@ -42,6 +42,22 @@ function canonicalPage(selection = {}) {
   return renderSurfacePage("backtests", vms.backtests, selection);
 }
 
+test("UI08-10: four surface navigation labels come from the shared backend projection", () => {
+  const { inputs } = loadCanonicalUiInputs();
+  const vms = buildUiViewModels(inputs);
+  const projected = {
+    ...vms.backtests.canonicalSemantics,
+    labels: {
+      ...vms.backtests.canonicalSemantics.labels,
+      tabs: { ...vms.backtests.canonicalSemantics.labels.tabs, research: "Research Workspace" },
+    },
+  };
+  for (const surface of ["campaigns", "replay", "backtests", "research"]) {
+    const html = renderSurfacePage(surface, { ...vms[surface], canonicalSemantics: projected });
+    assert.match(html, /data-nav="research"[^>]*><span class="k">[^<]*<\/span><span class="t">Research Workspace<\/span>/, surface);
+  }
+});
+
 // ---------- UI08-01 · stable Backtesting title and vertical layout ----------
 
 test("UI08-01: Backtesting has a stable title and vertical Scope → Hypotheses → Results layout", () => {
