@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 import { createUiServer } from "../../src/ui/server.mjs";
+import { backtestJobStatusPayload, tradesJobStatusPayload, hypothesisJobStatusPayload } from "../../src/backtest-jobs/http.mjs";
 import { verifyServedBuild } from "../../docs/product/ui-08/verify-served-build.mjs";
 
 const COMMIT = "a".repeat(40);
@@ -15,6 +16,13 @@ function idleRunner() {
     launch: () => null,
   };
 }
+
+test("UI08-R11: an explicit unreadable runner state is never promoted to readable", () => {
+  const runner = { ...idleRunner(), status: () => ({ ...idleRunner().status(), statusReadable: null }) };
+  for (const project of [backtestJobStatusPayload, tradesJobStatusPayload, hypothesisJobStatusPayload]) {
+    assert.equal(project(runner).statusReadable, false);
+  }
+});
 
 async function withServer(run) {
   const { inputs, backend } = loadCanonicalUiInputs();
