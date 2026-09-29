@@ -222,3 +222,23 @@ lo cubre el test `UI08-R11: backend projection changing without a version
 change fails the served smoke`. Este control sólo mejora la comprobación de la
 publicación; la aceptación UI08-10 sigue pendiente del smoke con exit 0 en el
 proceso activo tras la publicación autorizada y sin job en curso.
+
+### Gate de vocabulario canónico y estado de entrega · 2026-09-29
+
+El verificador exige ahora que la proyección backend sirva los nombres ingleses
+aprobados de las cuatro misiones y de H-S1-01/H-RD-01, así como las etiquetas
+canónicas de identidad, rol y estado. El render continúa consumiendo esa misma
+proyección; estas aserciones son sólo del smoke de entrega. Una prueba altera
+el payload backend mientras deja el HTML en inglés y exige rechazo explícito.
+`node --test test/ui/ui-08-served-build.test.mjs` pasó 15/15 y
+`node --test $(find test -name '*.test.mjs')` pasó 2291/2291.
+
+El smoke GET del servicio Tailscale aún anterior, esperando el SHA de la rama
+antes de este cambio (`a08c66569acd992923605194c36f9f3c7946a7fd`), terminó
+**exit 1**. Las seis rutas respondieron 200, pero `/health` no declaró build,
+versión semántica ni revisión de snapshot del contrato integrado y `/backtests`
+conservó el título antiguo. La unidad sigue configurada para ejecutar
+`/srv/hot-data/energy-markets/app` en `main`. UI08-R11 continúa abierto:
+después de la integración y publicación por la Oficina, con inactividad de jobs
+verificada, se debe ejecutar el verificador contra el SHA efectivamente cargado
+y exigir **exit 0**. Esta nota no acredita publicación ni aceptación UI08-10.

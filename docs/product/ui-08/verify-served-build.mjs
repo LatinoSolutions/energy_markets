@@ -8,6 +8,13 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const COMMIT = /^[0-9a-f]{40}$/;
 const MISSION_IDS = ["GAS_MONTHLY", "GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"];
 const ENGLISH_TABS = Object.freeze({ campaigns: "Campaigns & Runs", replay: "Replay", backtests: "Backtests", research: "Research" });
+// Owner-approved identities are release assertions, not UI rendering data.
+// The pages must still consume their labels from canonicalSemantics.
+const ENGLISH_MISSIONS = Object.freeze({ GAS_MONTHLY: "Gas Monthly", GAS_QUARTERLY: "Gas Quarterly", POWER_MONTHLY: "Power Monthly", POWER_QUARTERLY: "Power Quarterly" });
+const ENGLISH_HYPOTHESES = Object.freeze({ "H-S1-01": "Session-Anchored Rolling Reference", "H-RD-01": "Execution Hour" });
+const ENGLISH_IDENTITIES = Object.freeze({ CLIENT: "Client", BENCHMARK: "Benchmark", HYPOTHESES: "Hypotheses", CONTROL: "Control" });
+const ENGLISH_ROLES = Object.freeze({ strategy: "Strategy", researchDiscovery: "Research Discovery" });
+const ENGLISH_STATUSES = Object.freeze({ UNTESTED: "Tested? No — no comparable evidence", PROVENANCE_ONLY: "Historical provenance only" });
 
 function htmlText(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -79,8 +86,25 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
       errors.push(`backend canonical navigation missing or non-English: ${route}`);
     }
   }
+  for (const [kind, label] of Object.entries(ENGLISH_IDENTITIES)) {
+    if (semantics?.labels?.identities?.[kind] !== label) errors.push(`backend canonical identity missing or non-English: ${kind}`);
+  }
+  for (const [kind, label] of Object.entries(ENGLISH_ROLES)) {
+    if (semantics?.labels?.hypotheses?.[kind] !== label) errors.push(`backend canonical role missing or non-English: ${kind}`);
+  }
+  for (const [kind, label] of Object.entries(ENGLISH_STATUSES)) {
+    if (semantics?.labels?.statuses?.[kind] !== label) errors.push(`backend canonical status missing or non-English: ${kind}`);
+  }
   for (const id of MISSION_IDS) {
     if (!missionIds.has(id)) errors.push(`backend canonical projection omits mission ${id}`);
+    if (semantics?.missions?.find((mission) => mission.missionId === id)?.label !== ENGLISH_MISSIONS[id]) {
+      errors.push(`backend canonical mission missing or non-English: ${id}`);
+    }
+  }
+  for (const [id, name] of Object.entries(ENGLISH_HYPOTHESES)) {
+    if (semantics?.hypotheses?.find((hypothesis) => hypothesis.hypothesisId === id)?.name !== name) {
+      errors.push(`backend canonical hypothesis missing or non-English: ${id}`);
+    }
   }
   const checkSurfaceRevisions = (payload, stage) => {
     for (const path of ROUTES) {

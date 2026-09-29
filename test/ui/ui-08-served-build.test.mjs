@@ -97,6 +97,29 @@ test("UI08-R11: a served backend with missing or translated navigation metadata 
   });
 });
 
+test("UI08-R11: English HTML cannot conceal translated canonical names and status metadata", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/api/backtest-jobs") return response;
+      const jobs = await response.json();
+      jobs.canonicalSemantics.labels.identities.CLIENT = "Cliente";
+      jobs.canonicalSemantics.labels.hypotheses.strategy = "Estrategia";
+      jobs.canonicalSemantics.labels.statuses.UNTESTED = "Sin probar";
+      jobs.canonicalSemantics.missions.find(({ missionId }) => missionId === "GAS_MONTHLY").label = "Gas Mensual";
+      jobs.canonicalSemantics.hypotheses.find(({ hypothesisId }) => hypothesisId === "H-S1-01").name = "Referencia móvil";
+      return new Response(JSON.stringify(jobs), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /backend canonical identity missing or non-English: CLIENT/);
+    assert.match(report.errors.join("\n"), /backend canonical role missing or non-English: strategy/);
+    assert.match(report.errors.join("\n"), /backend canonical status missing or non-English: UNTESTED/);
+    assert.match(report.errors.join("\n"), /backend canonical mission missing or non-English: GAS_MONTHLY/);
+    assert.match(report.errors.join("\n"), /backend canonical hypothesis missing or non-English: H-S1-01/);
+  });
+});
+
 test("UI08-R11: primary mission and identity labels must match the backend projection", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {
