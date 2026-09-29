@@ -568,3 +568,19 @@ acto. Conforme a SPEC §25.1 la aceptación se comprueba por su scope; §25.2
 distingue `REQUIRES*` consumidos de `RESOLVES_AUDIT` y `PRODUCES_EVIDENCE`
 producidos. Ninguna de esas relaciones cambia por sí sola el acto de
 publicación entre filas UI.
+
+### Evidencia del smoke del commit de implementación
+
+`node --test $(find test -name '*.test.mjs')` terminó con **2316 pass,
+0 fail**. Después del commit `2591b66e5add5a89227aec9cd1175f6791caf6ba`,
+`node docs/product/ui-08/verify-worktree-build.mjs` terminó con **exit 0**:
+proceso iniciado en `127.0.0.1:33663` (`PID 3574434`), commit cargado
+idéntico al esperado, versión `SEM-1/2026-09-28/v1`, snapshot
+`04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288`,
+12 respuestas HTTP 200 para las seis rutas y los cuatro drilldowns (más
+las dos relecturas finales), `errors: []`. El control comprobó runners
+legibles e inactivos al inicio y final. No hubo petición POST ni backtest.
+El arranque del runner dejó un marcador local de lock **liberado** en
+`operations/backtest-runs/.job.lock.3`, con `runId: null` y el PID del
+proceso de smoke; se conserva como estado no versionado, sin confundirlo
+con un run de Development.
