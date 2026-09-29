@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 import { createUiServer } from "../../src/ui/server.mjs";
 import { backtestJobStatusPayload, tradesJobStatusPayload, hypothesisJobStatusPayload } from "../../src/backtest-jobs/http.mjs";
+import { hypothesisMetadata } from "../../src/backtest-jobs/hypothesis-runner.mjs";
 import { verifyServedBuild } from "../../docs/product/ui-08/verify-served-build.mjs";
 
 const COMMIT = "a".repeat(40);
@@ -24,10 +25,10 @@ test("UI08-R11: an explicit unreadable runner state is never promoted to readabl
   }
 });
 
-async function withServer(run) {
+async function withServer(run, { hypothesisRunner = idleRunner() } = {}) {
   const { inputs, backend } = loadCanonicalUiInputs();
   const { server, ready } = createUiServer({ port: 0, inputs, backend,
-    jobRunner: idleRunner(), tradesJobRunner: idleRunner(), hypothesisJobRunner: idleRunner(),
+    jobRunner: idleRunner(), tradesJobRunner: idleRunner(), hypothesisJobRunner: hypothesisRunner,
     build: { service: "energy-markets-operator-ui", commit: COMMIT, dirty: false, capturedAt: new Date().toISOString() } });
   const { url } = await ready;
   try {
@@ -126,10 +127,19 @@ test("UI08-R11: served-build smoke checks the actual HTTP build and four shared 
     assert.equal(report.ok, true);
     assert.equal(report.loadedCommit, COMMIT);
     assert.equal(report.loadedPid, process.pid);
-    assert.deepEqual(Object.keys(report.routes).sort(), ["/api/backtest-jobs", "/backtests", "/campaigns", "/health", "/replay", "/research"].sort());
-    assert.equal(report.responses.length, 8);
+    assert.deepEqual(Object.keys(report.routes).sort(), [
+      "/api/backtest-jobs", "/backtests", "/campaigns", "/health", "/replay", "/research",
+      ...["GAS_MONTHLY", "GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"]
+        .map((mission) => `/backtests?mode=HYPOTHESIS&mission=${mission}`),
+    ].sort());
+    assert.equal(report.responses.length, 12);
     assert.deepEqual(report.responses.map(({ path }) => path), [
-      "/health", "/api/backtest-jobs", "/campaigns", "/replay", "/backtests", "/research", "/health", "/api/backtest-jobs",
+      "/health", "/api/backtest-jobs", "/campaigns", "/replay", "/backtests", "/research",
+      "/backtests?mode=HYPOTHESIS&mission=GAS_MONTHLY",
+      "/backtests?mode=HYPOTHESIS&mission=GAS_QUARTERLY",
+      "/backtests?mode=HYPOTHESIS&mission=POWER_MONTHLY",
+      "/backtests?mode=HYPOTHESIS&mission=POWER_QUARTERLY",
+      "/health", "/api/backtest-jobs",
     ]);
     for (const response of report.responses) {
       assert.equal(response.status, 200);
@@ -137,6 +147,69 @@ test("UI08-R11: served-build smoke checks the actual HTTP build and four shared 
       assert.equal(response.revision, report.snapshotRevision);
       assert.equal(response.version, report.semanticVersion);
     }
+  });
+});
+
+test("UI08-R11: each blocked mission's served Development control stays disabled with a visible reason", async () => {
+  await withServer(async (url) => {
+    const missionPath = "/backtests?mode=HYPOTHESIS&mission=GAS_MONTHLY";
+    for (const corrupt of [
+      (html) => html.replace("data-job-start disabled", "data-job-start"),
+      (html) => html.replace("no backend-validated Development request is available for this mission", ""),
+    ]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (`${new URL(target).pathname}${new URL(target).search}` !== missionPath) return response;
+        return new Response(corrupt(await response.text()), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false);
+      assert.match(report.errors.join("\n"), /blocked Development control is enabled or omits its backend reason/);
+    }
+  });
+});
+
+test("UI08-R11: a READY drilldown carries the selected mission's Development request", async () => {
+  const request = {
+    hypothesisId: "H-S1-01", hypothesisVersion: hypothesisMetadata().version,
+    missionId: "GAS_MONTHLY", phase: "DEVELOPMENT", dataMode: "TOB",
+  };
+  const hypothesisRunner = {
+    ...idleRunner(),
+    launch: () => ({ metadata: hypothesisMetadata(), missions: [
+      { missionId: "GAS_MONTHLY", status: "READY", blockers: [], request },
+      ...["GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"].map((missionId) => ({
+        missionId, status: "UNAVAILABLE", blockers: [{ code: "SOURCE_MISSING", message: "no validated Development source" }], request: null,
+      })),
+    ] }),
+  };
+  await withServer(async (url) => {
+    const valid = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT });
+    assert.equal(valid.ok, true, valid.errors.join("\n"));
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (`${new URL(target).pathname}${new URL(target).search}` !== "/backtests?mode=HYPOTHESIS&mission=GAS_MONTHLY") return response;
+      const html = (await response.text()).replace('"missionId":"GAS_MONTHLY"', '"missionId":"POWER_MONTHLY"');
+      return new Response(html, { status: response.status, headers: response.headers });
+    };
+    const stale = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(stale.ok, false);
+    assert.match(stale.errors.join("\n"), /READY control lacks a validated mission-bound Development request/);
+  }, { hypothesisRunner });
+});
+
+test("UI08-R11: a stale mission drilldown cannot borrow the top-level build identity", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (`${new URL(target).pathname}${new URL(target).search}` !== "/backtests?mode=HYPOTHESIS&mission=POWER_QUARTERLY") return response;
+      const headers = new Headers(response.headers);
+      headers.set("x-em-snapshot-revision", "0".repeat(64));
+      return new Response(await response.text(), { status: response.status, headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /Development drilldown \/backtests\?mode=HYPOTHESIS&mission=POWER_QUARTERLY: HTTP response build\/snapshot\/semantic identity differs/);
   });
 });
 

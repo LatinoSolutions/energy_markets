@@ -382,3 +382,31 @@ reiniciar la unidad; ambas operaciones quedan fuera de la autorización de
 este worktree. Tras la publicación autorizada y con los runners inactivos y
 legibles, el mismo comando debe salir 0 y mostrar identidad compartida en
 las seis respuestas HTTP.
+
+### Corrección de Cierre · 2026-09-29T05:16Z
+
+El verificador ahora lee también los cuatro drilldowns Development por misión
+del proceso servido. Cada lectura debe compartir build, revisión de snapshot y
+versión semántica con los seis endpoints canónicos. Para una misión bloqueada,
+el control debe seguir deshabilitado, no puede incluir un request de ejecución
+y debe mostrar el motivo que Scope recibió del backend. Para una misión READY,
+el request embebido debe ligar hipótesis, versión, misión y fase Development.
+Así el smoke cubre el estado `UNAVAILABLE` del control realmente servido, no
+solo el enlace de la página general. Las pruebas de regresión alteran un botón,
+su motivo y la revisión HTTP de un drilldown para exigir fallo cerrado.
+
+- `node --test test/ui/ui-08-served-build.test.mjs`: **27 pass, 0 fail**.
+- `node --test $(find test -name '*.test.mjs')`: **2304 pass, 0 fail**.
+- `node docs/product/ui-08/verify-served-build.mjs
+  http://100.92.44.106:8788/ d615f9728661e4ce46cd95c620e031b297a07b4f`:
+  **exit 1**. Los seis endpoints y cuatro drilldowns devolvieron HTTP 200
+  (12 lecturas, incluidas las repeticiones finales de los dos endpoints
+  mutables), pero el proceso no declara commit, revisión ni versión semántica.
+  El verificador no afirma que conozca el SHA cargado ni que haya un job activo.
+
+La corrección del verificador queda en esta rama. UI08-R11 permanece abierto:
+un test local y estas respuestas del proceso anterior no acreditan el smoke
+`exit 0` del build integrado. Se conserva la dependencia de acceso ya
+registrada, sin ID `P-` asignado; no se vuelve a solicitar ni se declara
+resuelta. La publicación y el reinicio de la unidad están fuera de la
+autorización de este worktree.

@@ -214,6 +214,57 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   for (const id of MISSION_IDS) {
     if (!backtests.includes(`data-scope-mission="${id}"`)) errors.push(`/backtests: Scope omits ${id}`);
   }
+  // The default Backtests page only links to Development controls. Read each
+  // selected mission from the same served process: a stale drilldown can hide
+  // a backend blocker even when the four top-level pages share one snapshot.
+  for (const id of MISSION_IDS) {
+    const path = `/backtests?mode=HYPOTHESIS&mission=${id}`;
+    const link = backtests.match(new RegExp(`<a\\b[^>]*\\bdata-hypothesis-run-mission="${id}"[^>]*>`))?.[0] ?? "";
+    const status = attribute(link, "data-hypothesis-run-status");
+    if (!status || attribute(link, "href") !== `?mode=HYPOTHESIS&mission=${id}`) {
+      errors.push(`/backtests: Development link missing or inconsistent for ${id}`);
+    }
+    const html = await read(path);
+    checkResponseIdentity(path, "Development drilldown");
+    if (html === null) continue;
+    const versionRendered = html.includes(`data-semantic-version="${version}"`) || html.includes(`data-semantic="${version}"`);
+    if (attribute(html, "data-snapshot-revision") !== revision || !versionRendered) {
+      errors.push(`${path}: served snapshot/semantic version differs from backend`);
+    }
+    const control = html.match(/<div class="jobctl" data-backtest-job[^>]*>/)?.[0] ?? "";
+    const button = html.match(/<button\b[^>]*\bdata-job-start[^>]*>[^<]*<\/button>/)?.[0] ?? "";
+    const requestTag = html.match(/<script type="application\/json" data-hypothesis-request>([^<]*)<\/script>/)?.[1] ?? null;
+    if (attribute(control, "data-mode") !== "HYPOTHESIS" || attribute(control, "data-endpoint") !== "/api/backtest-jobs"
+      || !button.includes("Development")) {
+      errors.push(`${path}: canonical Development control missing`);
+    }
+    if (status === "READY") {
+      let request = null;
+      try { request = JSON.parse(requestTag); } catch { /* Invalid or absent request fails below. */ }
+      const launchMetadata = jobs?.hypothesis?.hypothesisMetadata;
+      const hypothesis = semantics?.hypotheses?.find((entry) => entry.hypothesisId === launchMetadata?.hypothesisId);
+      if (attribute(control, "data-locked") !== null || /\bdisabled\b/.test(button)
+        || !hypothesis || launchMetadata?.version !== hypothesis.version
+        || request?.hypothesisId !== hypothesis.hypothesisId || request?.hypothesisVersion !== hypothesis.version
+        || request?.missionId !== id || request?.phase !== "DEVELOPMENT"
+        || !launchMetadata?.runnablePhases?.includes(request?.phase)
+        || !launchMetadata?.dataModes?.includes(request?.dataMode)
+        || !button.includes(`Run ${hypothesis.hypothesisId} Development`)) {
+        errors.push(`${path}: READY control lacks a validated mission-bound Development request`);
+      }
+    } else {
+      const blockerText = html.match(/<div class="small muted" data-job-blockers[^>]*>([^<]*)<\/div>/)?.[1] ?? "";
+      const scopeStart = backtests.indexOf(`data-scope-mission="${id}"`);
+      const nextScope = backtests.indexOf('data-scope-mission="', scopeStart + 1);
+      const scope = scopeStart < 0 ? "" : backtests.slice(scopeStart, nextScope < 0 ? backtests.indexOf('data-section="hypotheses"', scopeStart) : nextScope);
+      const scopeBlockers = [...scope.matchAll(/data-scope-blocker="[^"]+">([^<]*)<\/div>/g)].map((match) => match[1]);
+      if (attribute(control, "data-locked") !== "true" || !/\bdisabled\b/.test(button)
+        || requestTag !== null || blockerText.trim() === ""
+        || scopeBlockers.some((blocker) => !blockerText.includes(blocker))) {
+        errors.push(`${path}: blocked Development control is enabled or omits its backend reason`);
+      }
+    }
+  }
   const lastHealth = await read("/health", true);
   checkResponseIdentity("/health", "final");
   const lastJobs = await read("/api/backtest-jobs", true);
