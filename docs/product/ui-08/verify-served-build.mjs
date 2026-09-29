@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 const ROUTES = ["/campaigns", "/replay", "/backtests", "/research"];
 const SHA256 = /^[0-9a-f]{64}$/;
 const COMMIT = /^[0-9a-f]{40}$/;
+const SERVICE = "energy-markets-operator-ui";
 const MISSION_IDS = ["GAS_MONTHLY", "GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"];
 const ENGLISH_TABS = Object.freeze({ campaigns: "Campaigns & Runs", replay: "Replay", backtests: "Backtests", research: "Research" });
 // Owner-approved identities are release assertions, not UI rendering data.
@@ -73,6 +74,9 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   const publishedAt = health?.semanticSnapshot?.publishedAt;
   if (health?.ok !== true || health?.build?.commit !== expectedCommit || health?.build?.dirty !== false) {
     errors.push("/health: loaded clean build does not match expected commit");
+  }
+  if (health?.service !== SERVICE || health?.build?.service !== SERVICE) {
+    errors.push("/health: loaded build does not identify the Energy Markets service");
   }
   if (typeof loadedAt !== "string" || !Number.isFinite(Date.parse(loadedAt))) {
     errors.push("/health: loaded process start identity is unavailable");
@@ -280,7 +284,9 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   checkSurfaceRevisions(lastHealth, "final");
   checkPublication(lastHealth, "final");
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
-    && (lastHealth?.build?.commit !== expectedCommit
+    && (lastHealth?.service !== SERVICE
+      || lastHealth?.build?.service !== SERVICE
+      || lastHealth?.build?.commit !== expectedCommit
       || lastHealth?.build?.dirty !== false
       || lastHealth?.build?.capturedAt !== loadedAt
       || (expectedPid !== null && lastHealth?.processId !== expectedPid)

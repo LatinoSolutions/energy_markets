@@ -273,6 +273,40 @@ test("UI08-R11: a build without a readable process start identity cannot pass", 
   });
 });
 
+test("UI08-R11: a matching commit from another service cannot pass the served smoke", async () => {
+  await withServer(async (url) => {
+    for (const field of ["service", "build.service"]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/health") return response;
+        const health = await response.json();
+        if (field === "service") health.service = "another-service";
+        else health.build.service = "another-service";
+        return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false, `${field} must identify the configured service`);
+      assert.match(report.errors.join("\n"), /loaded build does not identify the Energy Markets service/);
+    }
+  });
+});
+
+test("UI08-R11: service identity cannot change during the served smoke", async () => {
+  await withServer(async (url) => {
+    let healthReads = 0;
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health" || ++healthReads !== 2) return response;
+      const health = await response.json();
+      health.build.service = "another-service";
+      return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /served build, snapshot or semantic version changed during the smoke/);
+  });
+});
+
 test("UI08-R11: the configured unit must still own the responding PID after the last HTTP read", async () => {
   await withServer(async (url) => {
     const current = await verifyServedBuild({

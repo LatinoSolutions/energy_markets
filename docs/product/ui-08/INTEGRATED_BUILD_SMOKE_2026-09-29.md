@@ -461,3 +461,13 @@ La unidad permanecía `active/running`, `MainPID=796583`, con directorio
 `/srv/hot-data/energy-markets/app` en `main` `607f426`. Esto acredita el
 bloqueo de publicación, no UI08-10. La dependencia de acceso ya registrada,
 ACTO: ACTUAL y sin ID `P-` asignado, conserva su estado.
+
+### Identidad de servicio en el verificador
+
+Además del SHA, PID y snapshot, el verificador exige que ambos campos
+`/health.service` y `/health.build.service` identifiquen
+`energy-markets-operator-ui` al inicio y al final de la lectura. Los tests
+rechazan otro servicio con el mismo SHA y un cambio de identidad durante el
+smoke. Esta comprobación local no acredita el proceso activo: UI08-R11 sigue
+requiriendo publicación autorizada y salida 0 del verificador contra el SHA
+realmente cargado.
