@@ -85,7 +85,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   // A server without a launcher cannot attest that its job store is idle.
   // /health proves the legacy runner is configured and readable; the GET
   // payload additionally covers the TRADES and hypothesis runners.
-  const idle = (status) => status?.statusReadable !== false && status?.running === false;
+  const idle = (status) => status?.statusReadable === true && status?.running === false;
   if (health?.backtestJobs?.configured !== true || health.backtestJobs.statusReadable !== true || !idle(health.backtestJobs)
     || jobs?.ok !== true || !idle(jobs) || jobs?.trades?.configured !== true || !idle(jobs.trades)
     || jobs?.hypothesis?.configured !== true || !idle(jobs.hypothesis)) {

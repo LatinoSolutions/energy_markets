@@ -57,6 +57,25 @@ test("UI08-R11: a missing health readability attestation cannot pass the served 
   });
 });
 
+test("UI08-R11: every configured runner must attest a readable idle state", async () => {
+  await withServer(async (url) => {
+    for (const runner of ["legacy", "trades", "hypothesis"]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/api/backtest-jobs") return response;
+        const jobs = await response.json();
+        const status = runner === "legacy" ? jobs : jobs[runner];
+        assert.equal(status.statusReadable, true);
+        delete status.statusReadable;
+        return new Response(JSON.stringify(jobs), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false, `${runner} omitted its readability attestation`);
+      assert.match(report.errors.join("\n"), /idle state is unreadable/);
+    }
+  });
+});
+
 test("UI08-R11: an unsuccessful job status payload cannot attest idleness", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {

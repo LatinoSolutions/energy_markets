@@ -246,6 +246,16 @@ change fails the served smoke`. Este control sólo mejora la comprobación de la
 publicación; la aceptación UI08-10 sigue pendiente del smoke con exit 0 en el
 proceso activo tras la publicación autorizada y sin job en curso.
 
+### Legibilidad explícita de los tres ejecutores · Cierre
+
+El endpoint de jobs ahora declara `statusReadable:true` sólo cuando cada
+ejecutor devuelve su estado sin error. El smoke exige esa declaración para
+TOB, TRADES e Hypotheses al principio y al final: `running:false` sin una
+lectura acreditada ya no supera el gate. El test de R11 elimina el campo de
+cada ejecutor por separado y exige rechazo. Esta corrección es verificable
+en la rama; el servicio activo sigue requiriendo publicación autorizada y
+smoke `exit 0` contra el SHA realmente cargado. No se considera R11 cerrado.
+
 ### Gate de vocabulario canónico y estado de entrega · 2026-09-29
 
 El verificador exige ahora que la proyección backend sirva los nombres ingleses

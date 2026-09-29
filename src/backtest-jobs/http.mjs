@@ -53,7 +53,7 @@ export function backtestJobStatusPayload(runner) {
   const status = runner.status();
   const current = status.current === null ? null : { ...status.current, elapsedSeconds: elapsedSeconds(status.current.startedAt, now) };
   const published = { ...status, current };
-  return { ...published, display: { line: describeJobStatus(published, now) } };
+  return { ...published, statusReadable: status.statusReadable !== false, display: { line: describeJobStatus(published, now) } };
 }
 
 // BT-07: estado del modo TRADES con su línea. Sin ejecutor TRADES, el motivo.
@@ -72,7 +72,7 @@ export function tradesJobStatusPayload(tradesRunner) {
   }
   const current = status.current === null ? null : { ...status.current, elapsedSeconds: elapsedSeconds(status.current.startedAt, now) };
   const published = { configured: true, ...status, current };
-  return { ...published, display: { line: describeTradesStatus(published, now) } };
+  return { ...published, statusReadable: status.statusReadable !== false, display: { line: describeTradesStatus(published, now) } };
 }
 
 // BT-08: estado de los jobs de hipótesis con readiness por misión (inglés,
@@ -97,7 +97,7 @@ export function hypothesisJobStatusPayload(hypothesisRunner) {
   } catch (error) {
     readiness = { readable: false, error: String(error?.message ?? error) };
   }
-  return { ...published, hypothesisMetadata: hypothesisMetadata(), readiness, display: { line: describeHypothesisStatus(published, now) } };
+  return { ...published, statusReadable: status.statusReadable !== false, hypothesisMetadata: hypothesisMetadata(), readiness, display: { line: describeHypothesisStatus(published, now) } };
 }
 
 function httpStatusOf(code) {
