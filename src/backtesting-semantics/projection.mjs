@@ -364,6 +364,8 @@ function verifiedExperimentOf(entry) {
     || control.hypothesisId !== entry.hypothesisId || control.hypothesisLayer !== null
     || active?.kind !== IDENTITY.HYPOTHESIS || active.id !== entry.hypothesisId
     || active.hypothesisLayer !== entry.hypothesisId || binding.experimentId !== active.experimentId
+    || active.missionId !== entry.missionId || active.runId !== entry.runId
+    || control.missionId !== entry.missionId || control.runId !== entry.runId
     || !sha256Pattern.test(control.artifactSha256 ?? "") || !sha256Pattern.test(active.artifactSha256 ?? "")
     || parity.some((field) => typeof control[field] !== "string" || !control[field] || control[field] !== active[field])) return null;
   const canonicalControl = controlFor({ ...control, active });

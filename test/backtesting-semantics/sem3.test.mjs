@@ -113,6 +113,27 @@ test("SEM3-BE05/06: forged Control mechanics cannot enter current experiment or 
   }
 });
 
+test("SEM3-BE05/10: mutually consistent arms from another mission or run cannot bind a result", () => {
+  for (const field of ["missionId", "runId"]) {
+    const entry = boundDevelopmentResult();
+    const binding = entry.ablation.experimentBinding;
+    const value = field === "missionId" ? "POWER_MONTHLY" : `HYP-RUN-${"b".repeat(64)}`;
+    const active = { ...binding.active, [field]: value };
+    const control = controlFor({ ...binding.control, [field]: value, active });
+    assert.equal(control.ok, true, "the forged arms retain parity with each other");
+    const tampered = { ...entry, ablation: { ...entry.ablation, experimentBinding: { ...binding, active, control } } };
+    const projection = buildCanonicalSemanticsProjection({ hypothesisResults: [tampered] });
+    assert.equal(projection.results["H-S1-01"][0].state, "UNAVAILABLE", field);
+    assert.equal(projection.results["H-S1-01"][0].code, "HYPOTHESIS_EXPERIMENT_UNBOUND", field);
+    assert.equal(projection.results["H-S1-01"][0].resultPointer, null, field);
+    assert.equal(projection.current.results["H-S1-01"].length, 0, field);
+    assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].status, "UNBOUND", field);
+    assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].control, null, field);
+    assert.equal(projection.missions.find((mission) => mission.missionId === "GAS_MONTHLY")
+      .hypothesisResults.length, 0, field);
+  }
+});
+
 test("SEM3-BE10..12: legacy or cross-bound jobs cannot increment current results or expose ablation", () => {
   const valid = boundDevelopmentResult();
   const invalid = [
