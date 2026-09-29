@@ -237,6 +237,30 @@ test("UI08-R11: the responding process must remain the configured service proces
   });
 });
 
+test("UI08-R11: the configured unit must still own the responding PID after the last HTTP read", async () => {
+  await withServer(async (url) => {
+    const current = await verifyServedBuild({
+      baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid,
+      readConfiguredPid: () => process.pid,
+    });
+    assert.equal(current.ok, true, current.errors.join("\n"));
+
+    const replaced = await verifyServedBuild({
+      baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid,
+      readConfiguredPid: () => process.pid + 1,
+    });
+    assert.equal(replaced.ok, false);
+    assert.match(replaced.errors.join("\n"), /configured service MainPID changed during or immediately after the smoke/);
+
+    const unreadable = await verifyServedBuild({
+      baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid,
+      readConfiguredPid: () => { throw new Error("unit unavailable"); },
+    });
+    assert.equal(unreadable.ok, false);
+    assert.match(unreadable.errors.join("\n"), /configured service MainPID is unreadable after the smoke/);
+  });
+});
+
 test("UI08-R11: an old loaded process fails even when the checkout has the expected commit", async () => {
   await withServer(async (url) => {
     const report = await verifyServedBuild({ baseUrl: url, expectedCommit: "b".repeat(40) });

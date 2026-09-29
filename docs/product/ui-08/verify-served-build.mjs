@@ -25,9 +25,12 @@ function attribute(html, name) {
   return html.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? null;
 }
 
-export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid = null, fetchImpl = fetch }) {
+export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid = null, readConfiguredPid = null, fetchImpl = fetch }) {
   if (!COMMIT.test(expectedCommit ?? "")) throw new Error("expectedCommit must be a full Git commit SHA");
   if (expectedPid !== null && (!Number.isSafeInteger(expectedPid) || expectedPid <= 0)) throw new Error("expectedPid must be a positive process ID");
+  if (readConfiguredPid !== null && (expectedPid === null || typeof readConfiguredPid !== "function")) {
+    throw new Error("readConfiguredPid requires an expectedPid and must be a function");
+  }
   const base = new URL(baseUrl);
   if (!/^https?:$/.test(base.protocol) || base.pathname !== "/" || base.search || base.hash) {
     throw new Error("baseUrl must be an HTTP(S) origin with a trailing slash");
@@ -298,6 +301,18 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       errors.push(`${runner}: completed job history changed during the smoke; repeat after the runners are stable`);
     }
   }
+  // The final HTTP response only proves which process answered that request.
+  // Check the unit again so a restart immediately after the response cannot
+  // certify a build that is no longer the configured service process.
+  if (readConfiguredPid !== null) {
+    try {
+      if (await readConfiguredPid() !== expectedPid) {
+        errors.push("configured service MainPID changed during or immediately after the smoke");
+      }
+    } catch {
+      errors.push("configured service MainPID is unreadable after the smoke");
+    }
+  }
   return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, expectedPid, loadedPid: health?.processId ?? null, loadedCommit: health?.build?.commit ?? null,
     semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, responses, errors };
 }
@@ -311,10 +326,14 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     try {
       // This CLI is the release check for the established Tailscale unit. A
       // local fixture can exercise the verifier but cannot pass as that unit.
-      const rawPid = execFileSync("systemctl", ["--user", "show", "energy-markets-ui.service", "--property=MainPID", "--value"], { encoding: "utf8" }).trim();
-      const expectedPid = Number(rawPid);
-      if (!/^[1-9][0-9]*$/.test(rawPid) || !Number.isSafeInteger(expectedPid)) throw new Error("energy-markets-ui.service has no readable active MainPID");
-      const report = await verifyServedBuild({ baseUrl, expectedCommit, expectedPid });
+      const readConfiguredPid = () => {
+        const rawPid = execFileSync("systemctl", ["--user", "show", "energy-markets-ui.service", "--property=MainPID", "--value"], { encoding: "utf8" }).trim();
+        const pid = Number(rawPid);
+        if (!/^[1-9][0-9]*$/.test(rawPid) || !Number.isSafeInteger(pid)) throw new Error("energy-markets-ui.service has no readable active MainPID");
+        return pid;
+      };
+      const expectedPid = readConfiguredPid();
+      const report = await verifyServedBuild({ baseUrl, expectedCommit, expectedPid, readConfiguredPid });
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 1;
     } catch (error) {

@@ -410,3 +410,33 @@ un test local y estas respuestas del proceso anterior no acreditan el smoke
 registrada, sin ID `P-` asignado; no se vuelve a solicitar ni se declara
 resuelta. La publicación y el reinicio de la unidad están fuera de la
 autorización de este worktree.
+
+### Verificación de Cierre · 2026-09-29T05:31Z
+
+El CLI vuelve a leer `MainPID` de `energy-markets-ui.service` después de la
+última respuesta HTTP. Si la unidad cambia o deja de publicar un PID legible
+durante el smoke, el resultado falla cerrado aunque todas las respuestas
+anteriores procediesen del proceso esperado. La prueba de regresión fuerza
+ambos casos, además del PID estable.
+
+- `node --test test/ui/ui-08-served-build.test.mjs`: **28 pass, 0 fail**.
+- `node --test $(find test -name '*.test.mjs')`: **2305 pass, 0 fail**.
+- `node docs/product/ui-08/verify-served-build.mjs
+  http://100.92.44.106:8788/ 4d505f6c196c1fa9fc3bfd942c3fd720c6d01b5c`:
+  **exit 1**. Las seis rutas canónicas y los cuatro drilldowns devolvieron
+  HTTP 200 (12 lecturas), pero el proceso activo no publicó commit cargado,
+  versión semántica ni revisión de snapshot. El payload antiguo tampoco
+  acredita el estado legible de los tres runners. No se infiere que haya un
+  job activo.
+- La unidad seguía `active/running`, `MainPID=796583`, con
+  `WorkingDirectory=/srv/hot-data/energy-markets/app`; ese checkout continuaba
+  en `main` `607f426b51638fb3afb993292dbc0ed0743ab7ed`. Es evidencia de la
+  ruta configurada, no prueba del SHA cargado por el proceso antiguo.
+
+UI08-R11 continúa abierto. Este smoke no reemplaza la publicación autorizada
+de UI-08 ni el **exit 0** posterior contra el SHA realmente cargado. El gate de
+acceso ya registrado para integrar y reiniciar permanece abierto, sin ID `P-`
+asignado; esta verificación no solicita una decisión nueva. Conforme a la fila
+UI-08 de `PLAN_STATUS.md`, el smoke servido pertenece a la entrega actual.
+Los `REQUIRES*` de SPEC §25.2 son dependencias consumidas y `RESOLVES_AUDIT` y
+`PRODUCES_EVIDENCE` son salidas; ninguno sustituye este acto de UI08-10.
