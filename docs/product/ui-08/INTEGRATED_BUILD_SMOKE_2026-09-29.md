@@ -61,3 +61,27 @@ El servicio Tailscale `energy-markets-ui.service` sirve
 antiguo. Publicar este build ahí requiere integrar la rama a `main` y reiniciar
 el servicio — acto prohibido explícitamente para este agente (OFICINA.md;
 encargo de la tarea). Registrado como `NECESITO_DE_BRU [acceso]` en el resumen.
+
+### Gate reproducible para la publicación autorizada
+
+`verify-served-build.mjs` consulta por HTTP el proceso cargado. Requiere el SHA
+completo del commit que la Oficina haya publicado, `dirty:false`, ausencia de
+jobs en ejecución con estado legible, versión semántica y revisión de snapshot
+coherentes entre `/health`, `/api/backtest-jobs` y las cuatro superficies. También
+comprueba los nombres y versiones de misión e hipótesis del contrato backend,
+el orden Scope → Hypotheses → Results y el título estable. Solo hace GET; no
+lanza backtests ni toca el servicio. Comando para la Oficina, **después** de
+integrar y arrancar el commit aprobado sin un job en curso:
+
+```bash
+node docs/product/ui-08/verify-served-build.mjs http://100.92.44.106:8788/ <sha-completo-del-commit-servido>
+```
+
+El 2026-09-29, ejecutado contra el proceso Tailscale aún anterior con el SHA de
+esta rama `6f79ab46de576f3f89b1bfaf0225f40d8ca485bc`, terminó **exit 1**.
+Las seis lecturas (`/health`, `/api/backtest-jobs` y las cuatro páginas) fueron
+HTTP 200, pero el proceso no declaró build ni revisión semántica; `/backtests`
+seguía mostrando la pregunta DIP/HOUR global. Este resultado es evidencia de
+**NO publicación**, no de aceptación UI08-10. El commit esperado de entrega
+deberá ser el SHA realmente cargado tras la integración, no el checkout de la
+rama leído por separado.
