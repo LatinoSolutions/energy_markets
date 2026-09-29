@@ -471,3 +471,24 @@ rechazan otro servicio con el mismo SHA y un cambio de identidad durante el
 smoke. Esta comprobación local no acredita el proceso activo: UI08-R11 sigue
 requiriendo publicación autorizada y salida 0 del verificador contra el SHA
 realmente cargado.
+
+### Cierre: idioma y navegación en los cuatro drilldowns · 2026-09-29
+
+El verificador aplica ahora a cada drilldown de Development la misma comprobación
+de `lang="en"`, diseño claro/editorial y etiquetas de navegación provenientes
+del backend que ya aplicaba a las cuatro rutas principales. Antes, un drilldown
+traducido podía conservar SHA, snapshot y control válidos y superar el smoke.
+La prueba `UI08-R11: a Development drilldown cannot serve translated navigation
+or shell` altera únicamente ese HTML y exige rechazo. El fixture positivo sigue
+pasando. `node --test test/ui/ui-08-served-build.test.mjs` terminó **33 pass, 0
+fail** y `node --test $(find test -name '*.test.mjs')` terminó **2312 pass, 0
+fail**.
+
+La lectura de solo GET del servicio activo con el SHA anterior de esta rama
+`55ddca9292dfe66b552dd71e25d567dc3d3206fb` terminó **exit 1**: seis rutas
+y cuatro drilldowns respondieron HTTP 200, pero `/health` no declaró commit
+cargado, PID, versión semántica ni revisión de snapshot. Esta lectura no
+acredita la inactividad de los tres runners. UI08-R11 sigue abierto hasta la
+publicación por el cauce autorizado y un smoke **exit 0** contra el SHA
+realmente cargado. El gate de acceso registrado sigue ACTO: ACTUAL, sin ID
+`P-` asignado; no se plantea una necesidad nueva.

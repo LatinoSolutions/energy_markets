@@ -213,6 +213,27 @@ test("UI08-R11: a stale mission drilldown cannot borrow the top-level build iden
   });
 });
 
+test("UI08-R11: a Development drilldown cannot serve translated navigation or shell", async () => {
+  await withServer(async (url) => {
+    const path = "/backtests?mode=HYPOTHESIS&mission=POWER_QUARTERLY";
+    for (const [from, to, expectedError] of [
+      ['<span class="t">Campaigns &amp; Runs</span>', '<span class="t">Campañas</span>', /navigation differs from backend tab campaigns/],
+      ['<html lang="en">', '<html lang="es">', /approved light\/editorial English shell missing/],
+    ]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (`${new URL(target).pathname}${new URL(target).search}` !== path) return response;
+        const html = await response.text();
+        assert.ok(html.includes(from), `fixture must contain ${from}`);
+        return new Response(html.replace(from, to), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false);
+      assert.match(report.errors.join("\n"), expectedError);
+    }
+  });
+});
+
 test("UI08-R11: an otherwise valid fixture cannot impersonate the configured service process", async () => {
   await withServer(async (url) => {
     const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid + 1 });

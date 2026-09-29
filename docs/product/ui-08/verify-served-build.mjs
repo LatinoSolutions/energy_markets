@@ -152,6 +152,17 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   };
   checkSurfaceRevisions(health, "initial");
   checkPublication(health, "initial");
+  const checkPageShellAndNavigation = (html, path) => {
+    if (!html.includes('data-visual-language="claude-blind"') || !html.includes('<html lang="en"')) {
+      errors.push(`${path}: approved light/editorial English shell missing`);
+    }
+    for (const [route, label] of Object.entries(semantics?.labels?.tabs ?? {})) {
+      // Inspect the rendered link itself: an English canonical strip elsewhere
+      // cannot make a translated navigation label pass the served smoke.
+      const nav = html.match(new RegExp(`<a\\b[^>]*\\bdata-nav="${route}"[^>]*>[\\s\\S]*?<span class="t">([^<]*)<\\/span>`));
+      if (nav?.[1] !== htmlText(label)) errors.push(`${path}: navigation differs from backend tab ${route}`);
+    }
+  };
   const pages = {};
   for (const path of ROUTES) {
     const html = await read(path);
@@ -162,15 +173,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
     if (attribute(html, "data-snapshot-revision") !== revision || !versionRendered) {
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
-    if (!html.includes('data-visual-language="claude-blind"') || !html.includes('<html lang="en"')) {
-      errors.push(`${path}: approved light/editorial English shell missing`);
-    }
-    for (const [route, label] of Object.entries(semantics?.labels?.tabs ?? {})) {
-      // Compare the label inside the actual navigation link. A canonical strip
-      // elsewhere on the page must not mask a stale or translated tab label.
-      const nav = html.match(new RegExp(`<a\\b[^>]*\\bdata-nav="${route}"[^>]*>[\\s\\S]*?<span class="t">([^<]*)<\\/span>`));
-      if (nav?.[1] !== htmlText(label)) errors.push(`${path}: navigation differs from backend tab ${route}`);
-    }
+    checkPageShellAndNavigation(html, path);
     const stripStart = html.indexOf('data-semantic="SEM-2/canonical-projection"');
     const strip = stripStart >= 0 ? html.slice(stripStart) : "";
     if (path !== "/backtests" && stripStart < 0) {
@@ -243,6 +246,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
     if (attribute(html, "data-snapshot-revision") !== revision || !versionRendered) {
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
+    checkPageShellAndNavigation(html, path);
     const control = html.match(/<div class="jobctl" data-backtest-job[^>]*>/)?.[0] ?? "";
     const button = html.match(/<button\b[^>]*\bdata-job-start[^>]*>[^<]*<\/button>/)?.[0] ?? "";
     const requestTag = html.match(/<script type="application\/json" data-hypothesis-request>([^<]*)<\/script>/)?.[1] ?? null;
