@@ -273,3 +273,22 @@ comprobaciones de rechazo del verificador siguen vigentes. Así el informe
 permite auditar el intervalo completo sin inferir las identidades a partir de
 un solo valor final. La publicación del servicio Tailscale sigue pendiente y
 este cambio no acredita UI08-10 por sí mismo.
+
+### Revalidación de Cierre · 2026-09-29T03:52:52Z
+
+`node --test test/ui/ui-08-served-build.test.mjs` pasó 16/16 y
+`node --test $(find test -name '*.test.mjs')` pasó 2293/2293, sin fallos.
+Un proceso local de `src/ui/serve.mjs` cargó el commit de código `d87e85d28c6efcb7885b6a8218ba4556d2425e46`:
+el verificador salió 0, las seis rutas respondieron HTTP 200 y las ocho
+lecturas registraron ese commit, `SEM-1/2026-09-28/v1` y el snapshot
+`04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288`.
+
+La lectura de solo GET del servicio activo en `http://100.92.44.106:8788/`,
+esperando ese commit, salió 1. Las seis rutas respondieron 200, pero
+`/health` no declaró build ni revisión y `/backtests` mantuvo el título
+anterior. El checkout de la unidad sigue en `main`
+`607f426b51638fb3afb993292dbc0ed0743ab7ed`. El contrato antiguo no
+permite acreditar la inactividad de todos los runners; no se infiere que
+hubiese un job en curso. No se integró la rama ni se reinició la unidad.
+UI08-R11 y UI08-10 siguen pendientes del acto de publicación autorizado y
+del smoke exit 0 del SHA realmente cargado.
