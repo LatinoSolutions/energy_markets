@@ -125,6 +125,11 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
             || !html.includes(htmlText(hypothesis.version))) {
             errors.push(`${path}: backend hypothesis identity/name/version missing: ${hypothesis.hypothesisId}`);
           }
+          const cardStart = html.indexOf(`<div class="card" data-hypothesis-id="${htmlText(hypothesis.hypothesisId)}"`);
+          const cardHeader = cardStart < 0 ? "" : html.slice(cardStart, html.indexOf("</div>", cardStart));
+          if (!hypothesis.role || !cardHeader.includes(`<span class="small muted">${htmlText(hypothesis.role)} · ${htmlText(hypothesis.version)}</span>`)) {
+            errors.push(`${path}: primary hypothesis role differs from backend: ${hypothesis.hypothesisId}`);
+          }
         }
         continue;
       }

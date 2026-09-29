@@ -97,6 +97,23 @@ test("UI08-R11: primary mission and identity labels must match the backend proje
   });
 });
 
+test("UI08-R11: a translated primary hypothesis role fails the served smoke", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/backtests") return response;
+      const html = (await response.text()).replace(
+        '<span class="small muted">Strategy · H-S1-01/phase-A/v2</span>',
+        '<span class="small muted">Estrategia · H-S1-01/phase-A/v2</span>',
+      );
+      return new Response(html, { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /\/backtests: primary hypothesis role differs from backend: H-S1-01/);
+  });
+});
+
 test("UI08-R11: health cannot claim a different snapshot for one served surface", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {
