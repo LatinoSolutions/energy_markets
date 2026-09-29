@@ -480,6 +480,8 @@ details.fold > summary { cursor: pointer; font-size: 16px; font-weight: 600; col
 details.fold[open] > summary { border-radius: 10px 10px 0 0; }
 details.fold-inline > summary { cursor: pointer; font-size: 15px; color: var(--ink-2); }
 details.fold-inline:not([open]) { padding-top: 8px; padding-bottom: 8px; }
+.auth-box .row { flex-wrap: wrap; row-gap: 6px; }
+.auth-box .row .st { white-space: normal; }
 .chkgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
 @media (max-width: 1000px) { .mtiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ktiles, .chkgrid { grid-template-columns: minmax(0, 1fr); } }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
