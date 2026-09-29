@@ -1,0 +1,115 @@
+# UI-09 served-build smoke receipt (UI08-R11)
+generatedAt: 2026-09-29T07:40:54Z
+expectedCommit: 8b461b5ce707917e40f0861e25d39a8a88ec39f5
+
+```json
+{
+  "ok": true,
+  "baseUrl": "http://100.92.44.106:8788/",
+  "expectedCommit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+  "expectedPid": 3807188,
+  "loadedPid": 3807188,
+  "loadedCommit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+  "semanticVersion": "SEM-1/2026-09-28/v1",
+  "snapshotRevision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+  "routes": {
+    "/health": 200,
+    "/api/backtest-jobs": 200,
+    "/campaigns": 200,
+    "/replay": 200,
+    "/backtests": 200,
+    "/research": 200,
+    "/backtests?mode=HYPOTHESIS&mission=GAS_MONTHLY": 200,
+    "/backtests?mode=HYPOTHESIS&mission=GAS_QUARTERLY": 200,
+    "/backtests?mode=HYPOTHESIS&mission=POWER_MONTHLY": 200,
+    "/backtests?mode=HYPOTHESIS&mission=POWER_QUARTERLY": 200
+  },
+  "responses": [
+    {
+      "path": "/health",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/api/backtest-jobs",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/campaigns",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/replay",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/backtests",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/research",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/backtests?mode=HYPOTHESIS&mission=GAS_MONTHLY",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/backtests?mode=HYPOTHESIS&mission=GAS_QUARTERLY",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/backtests?mode=HYPOTHESIS&mission=POWER_MONTHLY",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/backtests?mode=HYPOTHESIS&mission=POWER_QUARTERLY",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/health",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    },
+    {
+      "path": "/api/backtest-jobs",
+      "status": 200,
+      "commit": "8b461b5ce707917e40f0861e25d39a8a88ec39f5",
+      "revision": "04b5f12591a8077115f6271a233f93d110f4332a56285dfee05a483f963b9288",
+      "version": "SEM-1/2026-09-28/v1"
+    }
+  ],
+  "errors": []
+}
+```
