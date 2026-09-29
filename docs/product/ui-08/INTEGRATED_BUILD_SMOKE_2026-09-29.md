@@ -121,3 +121,22 @@ inicio y al final. Se conserva UI08-R11 como **NO_CORREGIDO** hasta que la
 Oficina publique el build autorizado sin job en curso y el verificador salga 0
 contra el SHA efectivamente cargado. La solicitud de acceso ya registrada
 permanece abierta (sin ID `P-`); esta relectura no solicita una decisión nueva.
+
+### Relectura de Cierre · 2026-09-29T02:03:39Z
+
+El commit `b2b09d5ef87904829841e452f3bd3d78103d1985` vincula los títulos de
+navegación de las cuatro superficies a la proyección canónica del backend. El
+verificador ahora compara la etiqueta dentro de cada enlace de navegación y
+las etiquetas primarias de misión/identidad en su posición visible; una mención
+inglesa secundaria ya no oculta una etiqueta primaria distinta. Los tests
+focales pasaron **42/42** y `node --test $(find test -name '*.test.mjs')` pasó
+**2284/2284**, sin fallos.
+
+El smoke GET con ese SHA esperado contra `http://100.92.44.106:8788/` terminó
+**exit 1**. Las seis rutas respondieron HTTP 200, pero `/health` no declaró
+commit, versión semántica ni revisión de snapshot y `/backtests` conservó el
+título anterior. El servicio siguió `active/running` (PID 796583) sobre `main`
+`607f426b51638fb3afb993292dbc0ed0743ab7ed`. El endpoint antiguo no
+acredita un estado de jobs legible; esto no afirma que hubiese un job en curso.
+No se hizo merge ni reinicio. UI08-R11 sigue abierto hasta publicación
+autorizada sin job en curso y smoke **exit 0** del SHA efectivamente cargado.
