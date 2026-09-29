@@ -112,6 +112,21 @@ test("UI08-R11: health cannot claim a different snapshot for one served surface"
   });
 });
 
+test("UI08-R11: a rejected canonical snapshot refresh cannot pass the served smoke", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health") return response;
+      const health = await response.json();
+      health.semanticSnapshot.lastPublicationRejected = { reason: "BT-08 result promoted", error: "INVALID_RESULT" };
+      return new Response(JSON.stringify(health), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /canonical snapshot publication is missing or its latest refresh was rejected/);
+  });
+});
+
 test("UI08-R11: a job starting during the smoke fails final idle verification", async () => {
   await withServer(async (url) => {
     let reads = 0;

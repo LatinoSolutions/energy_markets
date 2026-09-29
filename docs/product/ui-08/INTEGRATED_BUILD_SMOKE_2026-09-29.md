@@ -160,3 +160,21 @@ antiguo no declaró commit, revisión ni versión semántica, ni los headers nue
 resultó legible bajo el contrato nuevo: no se infiere que hubiera uno corriendo.
 Esta evidencia **no** acredita UI08-10. La publicación y el smoke con el SHA
 final cargado siguen pendientes del acto autorizado ya registrado.
+
+### Corrección del gate de publicación · 2026-09-29
+
+El verificador rechaza ahora un snapshot cuya última republicación fue
+rechazada, aunque el proceso conserve una revisión anterior válida. Comprueba
+`semanticSnapshot.publishedAt` y `lastPublicationRejected` en las lecturas
+inicial y final de `/health`; el test `UI08-R11: a rejected canonical snapshot
+refresh cannot pass the served smoke` reproduce el caso. Esto evita atribuir a
+la versión servida un resultado BT-08 que el backend no llegó a publicar.
+
+La lectura GET de `http://100.92.44.106:8788/` contra el HEAD previo
+`4d164c5d5d4332ba7866db673c64ec54e19e8c49` terminó con **exit 1**.
+Las seis rutas respondieron HTTP 200, pero el servicio aún no expone build,
+versión semántica, revisión ni metadatos de publicación del contrato nuevo;
+`/backtests` mantiene el título anterior. El nuevo error de publicación
+ausente es una señal adicional del servicio antiguo, no evidencia de un
+rechazo real de republish en ese proceso. UI08-R11 sigue abierto hasta la
+publicación autorizada y el smoke exit 0 del SHA cargado.

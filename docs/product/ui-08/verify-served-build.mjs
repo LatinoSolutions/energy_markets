@@ -80,7 +80,16 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
       }
     }
   };
+  const checkPublication = (payload, stage) => {
+    const publication = payload?.semanticSnapshot;
+    if (typeof publication?.publishedAt !== "string"
+      || !Number.isFinite(Date.parse(publication.publishedAt))
+      || publication.lastPublicationRejected !== null) {
+      errors.push(`${stage} /health: canonical snapshot publication is missing or its latest refresh was rejected`);
+    }
+  };
   checkSurfaceRevisions(health, "initial");
+  checkPublication(health, "initial");
   const pages = {};
   for (const path of ROUTES) {
     const html = await read(path);
@@ -155,6 +164,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   const lastJobs = await read("/api/backtest-jobs", true);
   checkResponseIdentity("/api/backtest-jobs", "final");
   checkSurfaceRevisions(lastHealth, "final");
+  checkPublication(lastHealth, "final");
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
     && (lastHealth?.build?.commit !== expectedCommit
       || lastHealth?.build?.dirty !== false
