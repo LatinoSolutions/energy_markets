@@ -51,6 +51,21 @@ test("UI08-R11: a route with a different snapshot fails the smoke", async () => 
   });
 });
 
+test("UI08-R11: each HTTP route must report the loaded build and published revision", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/research") return response;
+      const headers = new Headers(response.headers);
+      headers.set("x-em-build-commit", "b".repeat(40));
+      return new Response(await response.text(), { status: response.status, headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /surface \/research: HTTP response build\/snapshot\/semantic identity differs from \/health/);
+  });
+});
+
 test("UI08-R11: English metadata elsewhere cannot hide a stale primary navigation label", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {

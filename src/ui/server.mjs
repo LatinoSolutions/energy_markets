@@ -385,6 +385,12 @@ export function createUiServer({ inputs = {}, backend = NO_BACKEND, host = DEFAU
   const servedBuild = build ?? unknownBuildIdentity();
 
   const server = createServer((req, res) => {
+    // Bind each HTTP read to the code and published snapshot that answered it.
+    // A release smoke can then detect a mixed process/revision even if /health
+    // itself is coherent. These values are captured from the running process.
+    res.setHeader("X-EM-Build-Commit", servedBuild.commit ?? "UNKNOWN");
+    res.setHeader("X-EM-Snapshot-Revision", published.revision ?? "UNKNOWN");
+    res.setHeader("X-EM-Semantic-Version", published.viewModels[SURFACES.BACKTESTS]?.canonicalSemantics?.semanticVersion ?? "UNKNOWN");
     const method = req.method ?? "GET";
     let pathname = null;
     let searchParams = null;

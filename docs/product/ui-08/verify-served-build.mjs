@@ -24,10 +24,16 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   }
   const errors = [];
   const routes = {};
+  const responseIdentities = {};
   const read = async (path, json = false) => {
     try {
       const response = await fetchImpl(new URL(path.slice(1), base), { method: "GET", signal: AbortSignal.timeout(8000) });
       routes[path] = response.status;
+      responseIdentities[path] = {
+        commit: response.headers.get("x-em-build-commit"),
+        revision: response.headers.get("x-em-snapshot-revision"),
+        version: response.headers.get("x-em-semantic-version"),
+      };
       if (!response.ok) {
         errors.push(`${path}: HTTP ${response.status}`);
         return null;
@@ -50,6 +56,13 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   if (!SHA256.test(revision ?? "") || !version || semantics?.ok !== true || semantics.semanticVersion !== version) {
     errors.push("/health and /api/backtest-jobs: semantic version or published revision unavailable/mismatched");
   }
+  const checkResponseIdentity = (path, stage) => {
+    const identity = responseIdentities[path];
+    if (identity?.commit !== expectedCommit || identity?.revision !== revision || identity?.version !== version) {
+      errors.push(`${stage} ${path}: HTTP response build/snapshot/semantic identity differs from /health`);
+    }
+  };
+  for (const path of ["/health", "/api/backtest-jobs"]) checkResponseIdentity(path, "initial");
   const idle = (status) => status?.statusReadable !== false && (
     status?.configured === false ? status?.running !== true : status?.running === false
   );
@@ -71,6 +84,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   const pages = {};
   for (const path of ROUTES) {
     const html = await read(path);
+    checkResponseIdentity(path, "surface");
     if (html === null) continue;
     pages[path] = html;
     const versionRendered = html.includes(`data-semantic-version="${version}"`) || html.includes(`data-semantic="${version}"`);
@@ -137,7 +151,9 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
     if (!backtests.includes(`data-scope-mission="${id}"`)) errors.push(`/backtests: Scope omits ${id}`);
   }
   const lastHealth = await read("/health", true);
+  checkResponseIdentity("/health", "final");
   const lastJobs = await read("/api/backtest-jobs", true);
+  checkResponseIdentity("/api/backtest-jobs", "final");
   checkSurfaceRevisions(lastHealth, "final");
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
     && (lastHealth?.build?.commit !== expectedCommit

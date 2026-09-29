@@ -140,3 +140,23 @@ título anterior. El servicio siguió `active/running` (PID 796583) sobre `main`
 acredita un estado de jobs legible; esto no afirma que hubiese un job en curso.
 No se hizo merge ni reinicio. UI08-R11 sigue abierto hasta publicación
 autorizada sin job en curso y smoke **exit 0** del SHA efectivamente cargado.
+
+### Cierre técnico del verificador · 2026-09-29
+
+El verificador coteja ahora en **cada una de las seis respuestas HTTP** los
+headers `X-EM-Build-Commit`, `X-EM-Snapshot-Revision` y
+`X-EM-Semantic-Version` con el build y la revisión publicados en `/health`.
+El servidor fija los tres al responder desde el proceso y snapshot cargados;
+una ruta que declara otro commit, snapshot o versión falla cerrada. El test
+`UI08-R11: each HTTP route must report the loaded build and published revision`
+altera sólo el header de `/research` y exige rechazo. La suite completa terminó
+con **2285 pass / 0 fail**.
+
+El smoke de solo lectura contra `http://100.92.44.106:8788/`, esperando el
+HEAD previo a este cambio (`9db31f44eaa946565032d190c8fd2169dfa6b8cf`),
+terminó **exit 1**. Las seis lecturas respondieron HTTP 200, pero el servicio
+antiguo no declaró commit, revisión ni versión semántica, ni los headers nuevos;
+`/backtests` aún sirvió el título global anterior. El estado de jobs tampoco
+resultó legible bajo el contrato nuevo: no se infiere que hubiera uno corriendo.
+Esta evidencia **no** acredita UI08-10. La publicación y el smoke con el SHA
+final cargado siguen pendientes del acto autorizado ya registrado.
