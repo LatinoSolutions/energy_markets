@@ -305,3 +305,24 @@ permite acreditar la inactividad de todos los runners; no se infiere que
 hubiese un job en curso. No se integró la rama ni se reinició la unidad.
 UI08-R11 y UI08-10 siguen pendientes del acto de publicación autorizado y
 del smoke exit 0 del SHA realmente cargado.
+
+### Revalidación de la ventana de entrega · 2026-09-29T04:45:36Z
+
+El verificador rechaza ahora un job que empieza y termina entre sus dos
+lecturas inactivas: compara la última ejecución de TOB, TRADES e Hypotheses,
+y el índice de familias publicado. El test `UI08-R11: a job completing between
+two idle reads invalidates the release smoke` reproduce los tres casos sin
+ejecutar un backtest. `node --test test/ui/ui-08-served-build.test.mjs` pasó
+24/24 y `node --test $(find test -name '*.test.mjs')` pasó 2301/2301.
+
+El smoke de solo lectura del servicio activo, esperando el HEAD previo a este
+commit `de7d2f75693d799042b4c95e339d1a16460d21fb`, devolvió **exit 1**.
+Las seis rutas HTTP respondieron 200, pero `/health` no declaró el commit
+cargado ni la revisión del snapshot; tampoco acreditó el PID de la unidad.
+El servicio sigue configurado para arrancar desde `/srv/hot-data/energy-markets/app`
+en `main` (`607f426b51638fb3afb993292dbc0ed0743ab7ed`). Ese contrato
+anterior no permite certificar la inactividad de los tres runners; la prueba
+no afirma que hubiera un job en curso. UI08-R11 permanece abierto para la
+publicación por el cauce de la Oficina y un smoke posterior con **exit 0**
+contra el commit efectivamente cargado y las seis respuestas con identidad
+compartida. No se hizo merge, push ni reinicio del servicio.

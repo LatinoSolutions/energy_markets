@@ -236,6 +236,17 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
     || lastJobs?.hypothesis?.configured !== true || !idleJob(lastJobs.hypothesis)) {
     errors.push("a backtest job started during the smoke, a runner is missing, or its final idle state is unreadable");
   }
+  // An attempt can start and finish between the two idle reads. Its latest
+  // receipt (or the hypothesis family index) must still reveal that the
+  // release window changed, so the delivery smoke is repeated on a quiet run.
+  const jobHistory = (status) => JSON.stringify({ latest: status?.latest ?? null, families: status?.families ?? null });
+  for (const runner of ["legacy", "trades", "hypothesis"]) {
+    const first = runner === "legacy" ? jobs : jobs?.[runner];
+    const last = runner === "legacy" ? lastJobs : lastJobs?.[runner];
+    if (first && last && jobHistory(first) !== jobHistory(last)) {
+      errors.push(`${runner}: completed job history changed during the smoke; repeat after the runners are stable`);
+    }
+  }
   return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, expectedPid, loadedPid: health?.processId ?? null, loadedCommit: health?.build?.commit ?? null,
     semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, responses, errors };
 }

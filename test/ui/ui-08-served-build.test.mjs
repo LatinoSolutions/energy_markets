@@ -335,6 +335,25 @@ test("UI08-R11: a job starting during the smoke fails final idle verification", 
   });
 });
 
+test("UI08-R11: a job completing between two idle reads invalidates the release smoke", async () => {
+  await withServer(async (url) => {
+    for (const runner of ["legacy", "trades", "hypothesis"]) {
+      let reads = 0;
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/api/backtest-jobs" || ++reads !== 2) return response;
+        const status = await response.json();
+        const selected = runner === "legacy" ? status : status[runner];
+        selected.latest = { runId: `completed-between-reads-${runner}`, status: "COMPLETED" };
+        return new Response(JSON.stringify(status), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false, `${runner} completed a job inside the smoke window`);
+      assert.match(report.errors.join("\n"), new RegExp(`${runner}: completed job history changed during the smoke`));
+    }
+  });
+});
+
 test("UI08-R11: an unreadable final job status fails closed", async () => {
   await withServer(async (url) => {
     let reads = 0;
