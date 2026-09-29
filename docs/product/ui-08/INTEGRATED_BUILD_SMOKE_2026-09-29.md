@@ -262,3 +262,14 @@ conservó el título antiguo. La unidad sigue configurada para ejecutar
 después de la integración y publicación por la Oficina, con inactividad de jobs
 verificada, se debe ejecutar el verificador contra el SHA efectivamente cargado
 y exigir **exit 0**. Esta nota no acredita publicación ni aceptación UI08-10.
+
+### Registro de todas las respuestas del smoke · Cierre
+
+El informe del verificador incluye ahora `responses`: las seis rutas HTTP y
+las lecturas finales repetidas de `/health` y `/api/backtest-jobs`, en orden,
+con código HTTP, commit, revisión del snapshot y versión semántica observados
+en cada respuesta. La prueba positiva exige las ocho identidades iguales; las
+comprobaciones de rechazo del verificador siguen vigentes. Así el informe
+permite auditar el intervalo completo sin inferir las identidades a partir de
+un solo valor final. La publicación del servicio Tailscale sigue pendiente y
+este cambio no acredita UI08-10 por sí mismo.

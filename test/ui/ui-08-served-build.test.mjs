@@ -49,6 +49,16 @@ test("UI08-R11: served-build smoke checks the actual HTTP build and four shared 
     assert.equal(report.ok, true);
     assert.equal(report.loadedCommit, COMMIT);
     assert.deepEqual(Object.keys(report.routes).sort(), ["/api/backtest-jobs", "/backtests", "/campaigns", "/health", "/replay", "/research"].sort());
+    assert.equal(report.responses.length, 8);
+    assert.deepEqual(report.responses.map(({ path }) => path), [
+      "/health", "/api/backtest-jobs", "/campaigns", "/replay", "/backtests", "/research", "/health", "/api/backtest-jobs",
+    ]);
+    for (const response of report.responses) {
+      assert.equal(response.status, 200);
+      assert.equal(response.commit, COMMIT);
+      assert.equal(response.revision, report.snapshotRevision);
+      assert.equal(response.version, report.semanticVersion);
+    }
   });
 });
 

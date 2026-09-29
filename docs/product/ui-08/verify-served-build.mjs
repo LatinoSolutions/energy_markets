@@ -33,21 +33,27 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   const errors = [];
   const routes = {};
   const responseIdentities = {};
+  const responses = [];
   const read = async (path, json = false) => {
     try {
       const response = await fetchImpl(new URL(path.slice(1), base), { method: "GET", signal: AbortSignal.timeout(8000) });
       routes[path] = response.status;
-      responseIdentities[path] = {
+      const identity = {
         commit: response.headers.get("x-em-build-commit"),
         revision: response.headers.get("x-em-snapshot-revision"),
         version: response.headers.get("x-em-semantic-version"),
       };
+      responseIdentities[path] = identity;
+      // Keep both reads of the mutable endpoints. A report containing only
+      // their final values cannot independently substantiate the smoke window.
+      responses.push({ path, status: response.status, ...identity });
       if (!response.ok) {
         errors.push(`${path}: HTTP ${response.status}`);
         return null;
       }
       return json ? await response.json() : await response.text();
     } catch (error) {
+      responses.push({ path, status: null, commit: null, revision: null, version: null, error: String(error?.message ?? error) });
       errors.push(`${path}: ${String(error?.message ?? error)}`);
       return null;
     }
@@ -222,7 +228,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
     errors.push("a backtest job started during the smoke, a runner is missing, or its final idle state is unreadable");
   }
   return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, loadedCommit: health?.build?.commit ?? null,
-    semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, errors };
+    semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, responses, errors };
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
