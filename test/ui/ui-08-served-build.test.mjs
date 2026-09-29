@@ -99,6 +99,26 @@ test("UI08-R11: an unsuccessful job status payload cannot attest idleness", asyn
   });
 });
 
+test("UI08-R11: an active attempt cannot be disguised by running false", async () => {
+  await withServer(async (url) => {
+    for (const runner of ["legacy", "trades", "hypothesis"]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/api/backtest-jobs") return response;
+        const jobs = await response.json();
+        const status = runner === "legacy" ? jobs : jobs[runner];
+        assert.equal(status.running, false);
+        assert.equal(status.current, null);
+        status.current = { runId: "active-attempt" };
+        return new Response(JSON.stringify(jobs), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false, `${runner} published a contradictory current attempt`);
+      assert.match(report.errors.join("\n"), /idle state is unreadable/);
+    }
+  });
+});
+
 test("UI08-R11: served-build smoke checks the actual HTTP build and four shared snapshots", async () => {
   await withServer(async (url) => {
     const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, expectedPid: process.pid });

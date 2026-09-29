@@ -86,9 +86,12 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
   // /health proves the legacy runner is configured and readable; the GET
   // payload additionally covers the TRADES and hypothesis runners.
   const idle = (status) => status?.statusReadable === true && status?.running === false;
+  // A contradictory status cannot certify an idle job store. A lock-backed
+  // runner publishes current only while it has an active attempt.
+  const idleJob = (status) => idle(status) && status.current === null;
   if (health?.backtestJobs?.configured !== true || health.backtestJobs.statusReadable !== true || !idle(health.backtestJobs)
-    || jobs?.ok !== true || !idle(jobs) || jobs?.trades?.configured !== true || !idle(jobs.trades)
-    || jobs?.hypothesis?.configured !== true || !idle(jobs.hypothesis)) {
+    || jobs?.ok !== true || !idleJob(jobs) || jobs?.trades?.configured !== true || !idleJob(jobs.trades)
+    || jobs?.hypothesis?.configured !== true || !idleJob(jobs.hypothesis)) {
     errors.push("a backtest job is running, a runner is missing, or its idle state is unreadable");
   }
   const missionIds = new Set(semantics?.missions?.map((mission) => mission.missionId) ?? []);
@@ -229,8 +232,8 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
     errors.push("served build, snapshot or semantic version changed during the smoke; repeat after the process is stable");
   }
   if (lastHealth?.backtestJobs?.configured !== true || lastHealth.backtestJobs.statusReadable !== true || !idle(lastHealth.backtestJobs)
-    || lastJobs?.ok !== true || !idle(lastJobs) || lastJobs?.trades?.configured !== true || !idle(lastJobs.trades)
-    || lastJobs?.hypothesis?.configured !== true || !idle(lastJobs.hypothesis)) {
+    || lastJobs?.ok !== true || !idleJob(lastJobs) || lastJobs?.trades?.configured !== true || !idleJob(lastJobs.trades)
+    || lastJobs?.hypothesis?.configured !== true || !idleJob(lastJobs.hypothesis)) {
     errors.push("a backtest job started during the smoke, a runner is missing, or its final idle state is unreadable");
   }
   return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, expectedPid, loadedPid: health?.processId ?? null, loadedCommit: health?.build?.commit ?? null,
