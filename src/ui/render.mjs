@@ -2299,7 +2299,10 @@ function hypothesisStateHtml(state) {
 }
 
 function hypothesisCard(hypothesis) {
-  const origin = hypothesis.originType === "RESEARCH_DISCOVERY" ? "Research Discovery" : "Strategy";
+  // The shared backend projection owns the visible role label. An unknown
+  // role remains unavailable instead of being guessed from the origin enum.
+  const origin = typeof hypothesis.role === "string" && hypothesis.role.trim() !== ""
+    ? hypothesis.role : "UNAVAILABLE";
   const strategyRefs = hypothesis.strategyRefs.length > 0 ? hypothesis.strategyRefs.join(", ") : "—";
   return `<div class="card" data-hypothesis-id="${esc(hypothesis.hypothesisId)}" data-hypothesis-origin="${esc(hypothesis.originType)}">
     <div class="hd"><h3>${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}</h3><span class="small muted">${esc(origin)} · ${esc(hypothesis.version)}</span><span class="grow"></span>${stateChip(hypothesis.state.running ? "RUNNING" : hypothesis.state.runnable ? "RUNNABLE" : "REGISTERED")}</div>

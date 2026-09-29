@@ -20,8 +20,7 @@ confirmó los 13 CHECK (11 CUMPLE, UI08-10/R11 pendiente) con suite 2274/0.
 
 ## CONTRATO DE CORRECCIÓN (OFF-29 §3.4) — respuesta por cada hallazgo abierto
 
-CORREGIDO UI08-R11 | 52f4211+0c70894 (los actos de la rama se ejecutaron y registraron ahí;
-commit documental de este turno: ver SHAs finales del log) | La parte de la
+NO_CORREGIDO UI08-R11 | Falta publicar el build integrado en el proceso activo y obtener exit 0 del smoke con su SHA cargado. La parte de la
 rama está ejecutada y registrada (`docs/product/ui-08/INTEGRATED_BUILD_SMOKE_2026-09-29.md`:
 build `52f4211`, revisión semántica SEM-1/2026-09-28/v1, snapshot `f5163b54…`, 6 rutas 200,
 título "Backtesting", 0 preguntas DIP/HOUR). La parte restante es el acto de publicación
@@ -48,7 +47,8 @@ bloqueado fail-closed hasta decisión de Bru/Oficina.
 
 ## Resumen del cierre técnico
 
-Sin defectos técnicos abiertos en el alcance revisado: los 13 CHECK de la revisión quedan
-en CUMPLE o adjudicados al acto de publicación fuera de la autorización de la rama
-(UI08-10). Ningún test nuevo en rojo frente a `main`. Sin merge, sin push, sin tocar el
-servicio activo.
+El código de la rama conserva los demás CHECK; UI08-10/R11 sigue abierto por el acto
+de publicación fuera de la autorización de la rama. Ningún test nuevo en rojo frente
+a `main`. Sin merge, sin push, sin tocar el servicio activo. La dependencia humana
+de acceso permanece ACTUAL y sin ID `P-` asignado; no se reemplaza por una
+corrección técnica ni se da por resuelta.

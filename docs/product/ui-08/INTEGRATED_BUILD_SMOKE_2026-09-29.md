@@ -178,3 +178,17 @@ versión semántica, revisión ni metadatos de publicación del contrato nuevo;
 ausente es una señal adicional del servicio antiguo, no evidencia de un
 rechazo real de republish en ese proceso. UI08-R11 sigue abierto hasta la
 publicación autorizada y el smoke exit 0 del SHA cargado.
+
+### Relectura del mismo gate · 2026-09-29
+
+Con HEAD `06060a96226378ec7f82149e5c38d809f026b250`, el verificador de
+solo lectura volvió a consultar `http://100.92.44.106:8788/` y terminó
+**exit 1**. `/health`, `/api/backtest-jobs`, `/campaigns`, `/replay`,
+`/backtests` y `/research` respondieron 200; el proceso cargado no declaró
+commit, versión semántica ni revisión de snapshot bajo el contrato nuevo, y
+`/backtests` aún mostró el título global anterior. El checkout servido está
+en `main` `607f426b51638fb3afb993292dbc0ed0743ab7ed`. El endpoint antiguo
+declara `running:false` para el job conocido, pero no permite acreditar el
+estado de todos los runners del build integrado. UI08-10/R11 permanece
+abierto. Una corrección de etiqueta de rol dentro de la rama no sustituye la
+publicación y la verificación del SHA finalmente servido.

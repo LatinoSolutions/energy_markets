@@ -127,6 +127,19 @@ test("UI08-03: a third hypothesis renders without a renderer ARM_C branch", () =
   assert.equal((hypothesesSection.match(/data-hypothesis-id="/g) ?? []).length, base.hypotheses.length + 1);
 });
 
+test("UI08-12: hypothesis role label comes from the shared backend projection", () => {
+  const { inputs } = loadCanonicalUiInputs();
+  const base = buildUiViewModels(inputs).backtests;
+  const original = base.hypotheses.find((entry) => entry.hypothesisId === "H-S1-01");
+  const injected = { ...original, role: "Source-bound Strategy" };
+  const html = renderSurfacePage("backtests", { ...base, hypotheses: [injected] }, {});
+  const card = html.match(/<div class="card" data-hypothesis-id="H-S1-01"[\s\S]*?<\/div>\s*<\/div>/)?.[0] ?? "";
+  assert.match(card, /Source-bound Strategy/);
+  assert.doesNotMatch(card, /<span class="small muted">Strategy ·/);
+  const unavailable = renderSurfacePage("backtests", { ...base, hypotheses: [{ ...injected, role: null }] }, {});
+  assert.match(unavailable, /<span class="small muted">UNAVAILABLE · H-S1-01/);
+});
+
 test("UI08-03: an unrun H-S1-01 never appears tested with legacy DIP10 data", () => {
   const html = canonicalPage();
   assert.match(html, new RegExp(`data-hypothesis-id="H-S1-01"`));
