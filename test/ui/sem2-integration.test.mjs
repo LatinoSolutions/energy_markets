@@ -15,23 +15,14 @@ import { captureBuildIdentity } from "../../src/ui/build-identity.mjs";
 import { backendIndexFromManifest } from "../../src/operator-interface/index.mjs";
 import { createTempDir } from "../helpers/tmpdir.mjs";
 import { DECISION_BASE, buildManifest } from "../operator-interface/fixtures.mjs";
+import { boundDevelopmentResult } from "../backtesting-semantics/sem3-fixture.mjs";
 
 const RUN_ID = "HYP-RUN-" + "a1".repeat(32);
 const RESULT_SHA = "d4".repeat(32);
 
 function hypothesisResultEntry(missionId = "GAS_QUARTERLY", overrides = {}) {
-  return {
-    hypothesisId: "H-S1-01",
-    hypothesisVersion: "H-S1-01/phase-A/v2",
-    missionId,
-    runId: RUN_ID,
-    status: "SUCCEEDED",
-    validComparison: true,
-    retention: { state: "CURRENT", supersededBy: null },
-    resultPath: "operations/backtest-runs/x/output/hypothesis-development-results.json",
-    resultSha256: RESULT_SHA,
-    ...overrides,
-  };
+  const { runId = RUN_ID, ...rest } = overrides;
+  return boundDevelopmentResult({ missionId, runId, overrides: { resultSha256: RESULT_SHA, ...rest } });
 }
 
 // ---------- SEM2-T01: BT-08 results inside the shared projection + payloads ----------
@@ -503,9 +494,12 @@ test("SEM2-T01/T13: hypothesisResultsFromRunner maps runner families into valida
     get: (runId) => ({
       job: {
         runId,
+        jobKind: "HYPOTHESIS_DEVELOPMENT",
         hypothesisVersion: "H-S1-01/phase-A/v2",
+        phase: "DEVELOPMENT", dataMode: "TOB",
+        receiptPath: hypothesisResultEntry("GAS_MONTHLY").receiptPath,
         status: "SUCCEEDED",
-        result: { results: { path: "operations/backtest-runs/y/output/r.json", sha256: RESULT_SHA } },
+        result: { results: { path: hypothesisResultEntry("GAS_MONTHLY").resultPath, sha256: RESULT_SHA }, manifest: { path: hypothesisResultEntry("GAS_MONTHLY").manifestPath, sha256: hypothesisResultEntry("GAS_MONTHLY").manifestSha256 }, ablation: hypothesisResultEntry("GAS_MONTHLY").ablation },
       },
     }),
   };

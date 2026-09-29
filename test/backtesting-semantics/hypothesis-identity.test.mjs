@@ -15,6 +15,11 @@ import { buildUiViewModels } from "../../src/ui/server.mjs";
 import { contentHashOf } from "../../src/sizing-controller/versioning.mjs";
 
 const sha = (char) => char.repeat(64);
+function boundControl(fields) {
+  const active = { ok: true, kind: IDENTITY.HYPOTHESIS, id: fields.hypothesisId, ...fields, hypothesisLayer: fields.hypothesisId, artifactSha256: "d".repeat(64) };
+  return controlFor({ ...fields, active });
+}
+
 const FIXTURE_HASH = "a".repeat(64);
 const FIXTURE_ZONE_HASH = "b".repeat(64);
 const fixtureDays = Array.from({ length: 21 }, (_, index) => `2025-01-${String(index + 1).padStart(2, "0")}`);
@@ -56,7 +61,7 @@ function quoteConfig(hypothesis = H_S1_01, missionId = "GAS_QUARTERLY", configur
 
 function experimentFixture(configuration, { runId = "run-1", campaignId = "camp-1", experimentId = "exp-1" } = {}) {
   const artifactSha256 = sha("c");
-  const control = controlFor({ hypothesisId: "H-S1-01", runId, populationId: "pop-1", campaignId, obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256 });
+  const control = boundControl({ hypothesisId: "H-S1-01", experimentId, missionId: configuration.missionId, constraintsVersion: "constraints-1", runId, populationId: "pop-1", campaignId, obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256 });
   return createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId, campaignId, runId, technicalArmId: "arm-1", control });
 }
 
@@ -317,7 +322,7 @@ test("ID04: one H-S1-01 ID with four independent mission configurations/evidence
 
   // CONTROL must belong to the same campaign as the binding, otherwise the run
   // is not evidence for this campaign (FIX07-CONTROL-CAMPAIGN).
-  const otherCampaignControl = controlFor({ hypothesisId: "H-S1-01", runId: "run-1", populationId: "pop-1", campaignId: "other-campaign", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
+  const otherCampaignControl = boundControl({ hypothesisId: "H-S1-01", experimentId: "exp-1", missionId: "GAS_QUARTERLY", constraintsVersion: "constraints-1", runId: "run-1", populationId: "pop-1", campaignId: "other-campaign", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
   assert.equal(createExperimentBinding({ hypothesis: H_S1_01, configuration: quarter, experimentId: "exp-1", campaignId: "target-campaign", runId: "run-1", technicalArmId: "arm-1", control: otherCampaignControl }).code, "INVALID_CONTROL_BINDING");
 
   // A hypothesis experiment is always paired with its CONTROL: a binding
@@ -368,7 +373,7 @@ test("ID05: legacy aliases are provenance-bound and cannot fabricate new-version
   // A bare alias with a hash and no run-scoped provenance is not provenance.
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01" } }).code, "UNBOUND_LEGACY_ALIAS");
   assert.equal(resolveLegacyHypothesisAlias({ alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", mapping: { alias: "DIP10", artifactSha256, protocolVersion: "P5-v1", hypothesisId: "H-S1-01", runId: "legacy-run" } }).code, "UNBOUND_LEGACY_ALIAS");
-  assert.equal(resolveLegacyHypothesisAlias({ alias: "HOUR", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "HOUR", hypothesisId: "H-RD-01" } }).hypothesisId, "H-RD-01");
+  assert.equal(resolveLegacyHypothesisAlias({ alias: "HOUR", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "HOUR", hypothesisId: "H-RD-01" } }).lineageOf, "H-RD-01");
 
   // A0 must never map to the active hypothesis or CLIENT; it stays a replay arm.
   assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "A0", kind: "HYPOTHESIS" } }).ok, false);
@@ -424,7 +429,7 @@ test("ID06: CLIENT/BENCHMARK/hypotheses boundaries hold and legacy names are not
 
   const rd = resolveLegacyHypothesisAlias({ alias: "ARM_B", artifactSha256: sha("a"), protocolVersion: "P5-v1", mapping: { alias: "ARM_B", artifactSha256: sha("a"), protocolVersion: "P5-v1", hypothesisId: "H-RD-01", runId: "r", provenance: "receipt" } });
   assert.equal(rd.kind, "LEGACY_HYPOTHESIS_PROVENANCE");
-  assert.equal(rd.hypothesisId, "H-RD-01");
+  assert.equal(rd.lineageOf, "H-RD-01");
 });
 
 test("ID07: versioning separates recalibration from a materially different proposition", () => {
@@ -494,7 +499,7 @@ test("ID07: versioning separates recalibration from a materially different propo
 test("ID08: single experiment binding keeps every entity distinct for BT-08/UI-08", () => {
   const configuration = quoteConfig(H_S1_01, "GAS_QUARTERLY");
   const runId = "run-1";
-  const control = controlFor({ hypothesisId: "H-S1-01", runId, populationId: "pop-1", campaignId: "camp-1", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
+  const control = boundControl({ hypothesisId: "H-S1-01", experimentId: "exp-1", missionId: "GAS_QUARTERLY", constraintsVersion: "constraints-1", runId, populationId: "pop-1", campaignId: "camp-1", obligationId: "obl-1", calendarVersion: "cal-1", sizingVersion: "sz-1", executionVersion: "ex-1", benchmarkVersion: "bm-1", artifactSha256: sha("c") });
   const bound = createExperimentBinding({ hypothesis: H_S1_01, configuration, experimentId: "exp-1", campaignId: "camp-1", control, technicalArmId: "arm-1", runId });
   assert.equal(bound.ok, true);
   for (const field of ["hypothesisId", "hypothesisVersion", "strategyRefs", "originType", "missionId", "campaignId", "configurationHash", "candidateMission", "searchSpaceMission", "candidateHash", "searchSpaceHash", "experimentId", "runId", "technicalArmId", "control"]) {

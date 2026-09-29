@@ -17,12 +17,11 @@ import {
   IDENTITY,
   MISSIONS,
   SEMANTIC_VERSION,
-  H_S1_01,
-  H_RD_01,
   MISSION_LABELS,
   HYPOTHESIS_BY_ID,
   clientFor,
   benchmarkFor,
+  controlFor,
 } from "./contract.mjs";
 import { adaptLegacyExploratoryArtifact, LEGACY_RUN_NAMES } from "./legacy-compat.mjs";
 
@@ -226,32 +225,6 @@ function missionCampaigns(missionId, campaigns, windowsByProductMaturity) {
   }));
 }
 
-// CONTROL is experiment metadata, never CLIENT nor BENCHMARK. The historical
-// calendar comparator is exposed only through the source-bound legacy adapter of
-// THIS product's verified artifact, and its equivalence to the active protocol
-// is explicitly false.
-function controlView(legacyAdapter) {
-  const historical = legacyAdapter?.ok === true ? legacyAdapter.roles?.BASELINE ?? null : null;
-  return Object.freeze({
-    kind: IDENTITY.CONTROL,
-    role: CANONICAL_LABELS.identities.CONTROL,
-    activeProtocolEquivalent: false,
-    productionFallbackAuthorized: false,
-    historicalComparator: historical === null ? null : Object.freeze({
-      legacyId: historical.legacyId,
-      resolved: historical.resolved,
-      alias: historical.alias ?? null,
-      hypothesisId: historical.hypothesisId ?? null,
-      runId: historical.runId ?? null,
-      artifactSha256: legacyAdapter.artifactSha256,
-      release: legacyAdapter.release,
-      role: IDENTITY.CONTROL,
-      // A calendar comparator is not an active CONTROL just by being A0/BASELINE.
-      activeProtocolEquivalent: false,
-    }),
-  });
-}
-
 // Canonical replacement labels for the historical research candidates. The old
 // artifact names A0 "Client practice" and grants it "Current client practice"
 // authority; neither is a primary product claim (SEM-1, audit CS-01/CS-03). The
@@ -270,12 +243,14 @@ function historicalRunViews(legacyAdapter) {
   return Object.freeze(Object.fromEntries(Object.entries(LEGACY_RUN_NAMES).map(([technicalAlias, displayName]) => {
     const role = legacyAdapter?.ok === true ? legacyAdapter.roles?.[technicalAlias] ?? null : null;
     const comparator = technicalAlias === "BASELINE";
-    const lineageOf = !comparator && role?.resolved === true ? role.hypothesisId ?? null : null;
+    const lineageOf = !comparator && role?.resolved === true ? role.lineageOf ?? null : null;
     const caption = comparator
       ? `${CANONICAL_LABELS.historical.technicalAlias} ${technicalAlias} · historical calendar comparator`
       : `${CANONICAL_LABELS.historical.technicalAlias} ${technicalAlias} · ${lineageOf === null ? "lineage unavailable — no verified source-bound mapping" : `${CANONICAL_LABELS.historical.lineageOf} ${lineageOf}`}`;
     return [technicalAlias, Object.freeze({
       technicalAlias,
+      sourceAlias: role?.alias ?? null,
+      sourceRunId: role?.runId ?? null,
       displayName,
       label: comparator || lineageOf === null ? displayName : `${displayName} · ${CANONICAL_LABELS.historical.lineageOf} ${lineageOf}`,
       caption,
@@ -283,6 +258,15 @@ function historicalRunViews(legacyAdapter) {
       lineageOf,
       resolved: role?.resolved === true,
       tested: false,
+      current: false,
+      runnable: false,
+      activeControlEquivalent: false,
+      clientEquivalent: false,
+      artifactPath: legacyAdapter?.ok === true ? legacyAdapter.artifactPath : null,
+      artifactSha256: legacyAdapter?.ok === true ? legacyAdapter.artifactSha256 : null,
+      release: legacyAdapter?.ok === true ? legacyAdapter.release : null,
+      protocolVersion: legacyAdapter?.ok === true ? legacyAdapter.protocolVersion : null,
+      evidenceStatus: "PROVENANCE_ONLY",
     })];
   })));
 }
@@ -310,8 +294,9 @@ function legacyCandidateViews(primaryAdapter) {
     const role = primaryAdapter?.ok === true ? primaryAdapter.candidates?.[candidateId] ?? null : null;
     return [candidateId, Object.freeze({
       candidateId,
-      role: role?.role ?? null,
-      hypothesisId: role?.hypothesisId ?? null,
+      deprecated: true,
+      historicalKind: role?.historicalKind ?? null,
+      lineageOf: role?.lineageOf ?? null,
       resolved: role?.resolved === true,
       canonicalName: label.canonicalName,
       authorityLabel: label.authorityLabel,
@@ -321,17 +306,22 @@ function legacyCandidateViews(primaryAdapter) {
   })));
 }
 
+function deprecatedAdapterView(adapter) {
+  if (adapter.ok !== true) return Object.freeze({ ...adapter, deprecated: true });
+  const { roles } = adapter;
+  return Object.freeze({ ...adapter, deprecated: true, candidates: Object.freeze({ A0: roles.BASELINE, DIP10: roles.ARM_A, HOUR: roles.ARM_B }) });
+}
+
 // Per-artifact source identity. Without provenance.byProduct there is no
 // per-product scope and the projection stays UNAVAILABLE instead of attributing
 // one release's hash to every product (SEM-2 T03).
-function projectionSource(exploratory) {
+function projectionSource(exploratory, adapterForProduct) {
   const byProduct = exploratory?.provenance?.byProduct ?? null;
   if (byProduct === null || typeof byProduct !== "object") {
     return Object.freeze({ status: "UNAVAILABLE", kind: null, artifactPath: null, artifactSha256: null, products: Object.freeze({}) });
   }
   const products = Object.freeze(Object.fromEntries(Object.entries(byProduct).map(([product, provenance]) => {
-    const verified = provenance && typeof provenance === "object"
-      && typeof provenance.resultsPath === "string" && typeof provenance.resultsSha256 === "string";
+    const verified = provenance && typeof provenance === "object" && adapterForProduct(product).ok === true;
     return [product, Object.freeze({
       status: verified ? "VERIFIED" : "UNAVAILABLE",
       release: verified ? provenance.release ?? null : null,
@@ -355,6 +345,35 @@ function projectionSource(exploratory) {
 // Development result never flips the hypothesis to TESTED (researchPass stays
 // false in the BT-08 contract itself).
 const MAX_RESULT_STRING = 256;
+const sha256Pattern = /^[a-f0-9]{64}$/;
+const runIdPattern = /^HYP-RUN-[a-f0-9]{64}$/;
+
+function immutableCopy(value) {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return Object.freeze(value.map(immutableCopy));
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, immutableCopy(item)])));
+}
+
+function verifiedExperimentOf(entry) {
+  const binding = entry?.ablation?.experimentBinding;
+  const control = binding?.control;
+  const active = binding?.active;
+  const parity = ["experimentId", "missionId", "runId", "populationId", "campaignId", "obligationId", "calendarVersion", "sizingVersion", "executionVersion", "benchmarkVersion", "constraintsVersion"];
+  if (binding?.hypothesisId !== entry.hypothesisId || binding?.missionId !== entry.missionId
+    || binding?.runId !== entry.runId || control?.ok !== true || control.kind !== IDENTITY.CONTROL
+    || control.hypothesisId !== entry.hypothesisId || control.hypothesisLayer !== null
+    || active?.kind !== IDENTITY.HYPOTHESIS || active.id !== entry.hypothesisId
+    || active.hypothesisLayer !== entry.hypothesisId || binding.experimentId !== active.experimentId
+    || active.missionId !== entry.missionId || active.runId !== entry.runId
+    || control.missionId !== entry.missionId || control.runId !== entry.runId
+    || !sha256Pattern.test(control.artifactSha256 ?? "") || !sha256Pattern.test(active.artifactSha256 ?? "")
+    || parity.some((field) => typeof control[field] !== "string" || !control[field] || control[field] !== active[field])) return null;
+  const canonicalControl = controlFor({ ...control, active });
+  if (canonicalControl.ok !== true
+    || Object.keys(control).length !== Object.keys(canonicalControl).length
+    || Object.keys(canonicalControl).some((key) => control[key] !== canonicalControl[key])) return null;
+  return Object.freeze({ status: "BOUND", experimentId: binding.experimentId, active: immutableCopy(active), control: canonicalControl, ablation: immutableCopy(entry.ablation) });
+}
 
 function hypothesisResultView(entry) {
   const published = HYPOTHESIS_BY_ID[entry?.hypothesisId];
@@ -383,15 +402,29 @@ function hypothesisResultView(entry) {
   });
   if (!published || typeof entry !== "object") return invalid("HYPOTHESIS_RESULT_INVALID");
   if (entry.hypothesisVersion !== published.version) return invalid("HYPOTHESIS_VERSION_MISMATCH");
-  if (typeof entry.runId !== "string" || entry.runId.trim() === "" || entry.runId.length > MAX_RESULT_STRING) {
+  if (typeof entry.runId !== "string" || entry.runId.trim() === "" || entry.runId.length > MAX_RESULT_STRING || !runIdPattern.test(entry.runId)) {
     return invalid("HYPOTHESIS_RUN_ID_INVALID");
   }
   const missionKnown = MISSIONS.some((mission) => mission.id === entry.missionId);
   if (!missionKnown || !published.missions.includes(entry.missionId)) return invalid("HYPOTHESIS_MISSION_NOT_APPLICABLE");
   if (typeof entry.status !== "string" || entry.status.trim() === "") return invalid("HYPOTHESIS_RESULT_STATUS_INVALID");
+  const family = `${entry.hypothesisId}|${entry.missionId}|DEVELOPMENT|${entry.dataMode}`;
+  const attemptRoot = typeof entry.receiptPath === "string" && entry.receiptPath.endsWith("/RUN_RECEIPT.json")
+    ? entry.receiptPath.slice(0, -"/RUN_RECEIPT.json".length) : null;
+  const sourceBound = entry.sourceKind === "HYPOTHESIS_DEVELOPMENT" && entry.phase === "DEVELOPMENT"
+    && ["TOB"].includes(entry.dataMode) && entry.family === family
+    && attemptRoot?.includes(`/${entry.runId}/attempt-`)
+    && /^.+\/attempt-[1-9]\d*$/.test(attemptRoot)
+    && entry.resultPath === `${attemptRoot}/output/output/hypothesis-development-results.json`
+    && entry.manifestPath === `${attemptRoot}/output/output/hypothesis-development-results.MANIFEST.json`
+    && sha256Pattern.test(entry.resultSha256 ?? "") && sha256Pattern.test(entry.manifestSha256 ?? "");
+  if (!sourceBound) return invalid("HYPOTHESIS_RESULT_SOURCE_UNBOUND");
   const validComparison = entry.validComparison === true;
   const retentionState = entry.retention?.state ?? null;
-  const current = entry.status === "SUCCEEDED" && validComparison && retentionState === "CURRENT";
+  const current = entry.status === "SUCCEEDED" && validComparison && retentionState === "CURRENT"
+    && entry.ablation?.paired === true && entry.ablation?.ok === true;
+  const experiment = verifiedExperimentOf(entry);
+  if (current && experiment === null) return invalid("HYPOTHESIS_EXPERIMENT_UNBOUND");
   const resultPointer = typeof entry.resultPath === "string" && entry.resultPath.startsWith("operations/")
     && typeof entry.resultSha256 === "string" && /^[a-f0-9]{64}$/.test(entry.resultSha256)
     ? Object.freeze({ path: entry.resultPath, sha256: entry.resultSha256 })
@@ -412,13 +445,14 @@ function hypothesisResultView(entry) {
     researchPass: false,
     retention: retentionState,
     resultPointer,
+    experiment,
     phase: typeof entry.phase === "string" ? entry.phase : null,
     dataMode: typeof entry.dataMode === "string" ? entry.dataMode : null,
     // UI-08: the backend-produced ablation (CONTROL ↔ active hypothesis) and the
     // CLIENT/BENCHMARK/HYPOTHESIS comparison travel with the result so the final
     // workspace reads the same economics the run produced, with no UI arithmetic.
-    ablation: entry.ablation ?? null,
-    comparison: entry.comparison ?? null,
+    ablation: immutableCopy(entry.ablation ?? null),
+    comparison: immutableCopy(entry.comparison ?? null),
   });
 }
 
@@ -436,10 +470,14 @@ export function buildCanonicalSemanticsProjection({
   const campaigns = backtestReadiness?.results?.campaigns ?? [];
   const byProduct = exploratory?.provenance?.byProduct ?? null;
   const legacyArtifacts = exploratory?.legacyArtifacts ?? null;
+  const adapterCache = new Map();
   const adapterForProduct = (product) => {
+    if (adapterCache.has(product)) return adapterCache.get(product);
     const provenance = byProduct?.[product] ?? null;
     const artifact = legacyArtifacts?.[product] ?? null;
-    return adaptLegacyExploratoryArtifact({ provenance, artifact });
+    const adapter = adaptLegacyExploratoryArtifact({ provenance, artifact });
+    adapterCache.set(product, adapter);
+    return adapter;
   };
   const bt02ProvenancePath = backtestReadiness?.provenance?.artifactPath ?? null;
   const exploratoryWindows = exploratoryWindowIndex(exploratory);
@@ -450,6 +488,8 @@ export function buildCanonicalSemanticsProjection({
   for (const entry of Array.isArray(hypothesisResults) ? hypothesisResults : []) {
     seenResults.push(hypothesisResultView(entry));
   }
+  const hypothesisViews = Object.freeze(Object.values(HYPOTHESIS_BY_ID).map((hypothesis) =>
+    canonicalHypothesisView(hypothesis, { evidenceStatus: hypothesis.missions.length ? "UNTESTED" : "PROVENANCE_ONLY" })));
   const missions = MISSIONS.map((mission) => {
     const product = PRODUCT_BY_MISSION[mission.id];
     const legacyAdapter = adapterForProduct(product);
@@ -467,10 +507,10 @@ export function buildCanonicalSemanticsProjection({
       clientSummary: clientSummaryOf(client),
       benchmark: benchmarkFor(mission.id),
       benchmarkByCampaign,
-      hypotheses: Object.freeze([canonicalHypothesisView(H_S1_01)]),
-      control: controlView(legacyAdapter),
-      legacyAdapter,
+      hypotheses: Object.freeze(hypothesisViews.filter((hypothesis) => hypothesis.missions.includes(mission.id))),
+      legacyAdapter: deprecatedAdapterView(legacyAdapter),
       historicalRuns: historicalRunViews(legacyAdapter),
+      historicalEvidence: Object.freeze({ exploratoryRuns: historicalRunViews(legacyAdapter), source: legacyAdapter.ok ? Object.freeze({ artifactPath: legacyAdapter.artifactPath, artifactSha256: legacyAdapter.artifactSha256, release: legacyAdapter.release, protocolVersion: legacyAdapter.protocolVersion, rawSourceKeys: legacyAdapter.rawSourceKeys }) : null }),
       campaigns: Object.freeze(missionCampaigns(mission.id, campaigns, exploratoryWindows)),
       // UI-08 (review R05): mission results are not pinned to H-S1-01 — every
       // published canonical hypothesis that declares this mission carries its
@@ -483,15 +523,31 @@ export function buildCanonicalSemanticsProjection({
   return Object.freeze({
     ok: true,
     semanticVersion: SEMANTIC_VERSION,
-    source: projectionSource(exploratory),
-    legacyAdapter: adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY),
+    source: projectionSource(exploratory, adapterForProduct),
+    // Deprecated frontend compatibility: these fields are provenance-only and
+    // must never be used as current identities or result inputs.
+    legacyAdapter: deprecatedAdapterView(adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY)),
     legacyCandidates: legacyCandidateViews(adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY)),
     historicalRuns: historicalRunViews(adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY)),
+    historicalEvidence: Object.freeze({ byMission: Object.freeze(Object.fromEntries(missions.map((mission) => [mission.missionId, mission.historicalEvidence]))) }),
+    current: Object.freeze({
+      clientsByMission: Object.freeze(Object.fromEntries(missions.map((mission) => [mission.missionId, mission.client]))),
+      benchmarksByMission: Object.freeze(Object.fromEntries(missions.map((mission) => [mission.missionId, Object.freeze({ unscoped: mission.benchmark, byCampaign: mission.benchmarkByCampaign })]))),
+      hypotheses: hypothesisViews,
+      results: Object.freeze(Object.fromEntries(Object.keys(HYPOTHESIS_BY_ID).map((hypothesisId) => [hypothesisId, Object.freeze(seenResults.filter((result) => result.state === "CURRENT" && result.hypothesisId === hypothesisId))]))),
+      experiments: Object.freeze(Object.fromEntries(missions.map((mission) => [mission.missionId, Object.freeze(Object.fromEntries(
+        hypothesisViews.filter((hypothesis) => hypothesis.missions.includes(mission.missionId)).map((hypothesis) => [
+          hypothesis.hypothesisId,
+          seenResults.find((result) => result.state === "CURRENT" && result.missionId === mission.missionId && result.hypothesisId === hypothesis.hypothesisId)?.experiment
+            ?? Object.freeze({ status: "UNBOUND", active: null, control: null }),
+        ]),
+      ))]))),
+    }),
     labels: CANONICAL_LABELS,
     // HYPOTHESES collection: every canonical hypothesis with its accepted scope.
     // H-RD-01 (Research Discovery) declares missions: [] — it belongs to the
     // hypothesis collection, never to an undeclared mission row (SEM-2 T05).
-    hypotheses: Object.freeze([canonicalHypothesisView(H_S1_01), canonicalHypothesisView(H_RD_01, { evidenceStatus: "PROVENANCE_ONLY" })]),
+    hypotheses: hypothesisViews,
     results: Object.freeze(Object.fromEntries(
       Object.keys(HYPOTHESIS_BY_ID).map((hypothesisId) => [
         hypothesisId,

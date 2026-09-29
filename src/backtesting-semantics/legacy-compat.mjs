@@ -4,20 +4,17 @@
 // The historical producers (operations/exploratory/v*/run-exploratory-backtest.mjs)
 // are immutable: they keep emitting BASELINE / ARM_A / ARM_B / DIP10 / HOUR and the
 // "client practice" wording. This adapter does NOT rewrite their bytes. It reads a
-// verified artifact plus its provenance hash and returns the canonical role of each
-// legacy identifier through the SEM-1 / FIX-07 contract.
+// verified artifact plus its provenance hash and returns historical lineage only.
 //
 // Rules enforced here (SEM-1, FIX-07, audit CS-01/CS-02):
 //   - nothing is resolved without the artifact sha256 and a protocol version;
-//   - BASELINE/A0 is a historical CONTROL comparator, never CLIENT and never the
-//     active CONTROL protocol by equivalence;
-//   - DIP10/ARM_A resolve to H-S1-01 and HOUR/ARM_B to H-RD-01 as PROVENANCE_ONLY,
+//   - BASELINE/A0 is a historical calendar comparator, never CLIENT or CONTROL;
+//   - DIP10/ARM_A and HOUR/ARM_B have source-bound lineage only,
 //     never as a tested/runnable result and never carrying sizing parity;
 //   - an unknown or ambiguous id stays explicitly unresolved (fail-closed).
 import { createHash } from "node:crypto";
 
 import {
-  IDENTITY,
   resolveLegacyAlias,
   resolveLegacyHypothesisAlias,
 } from "./contract.mjs";
@@ -36,10 +33,9 @@ export const LEGACY_EXPLORATORY_RELEASES = Object.freeze(["v2", "v3"]);
 const sha256Pattern = /^[a-f0-9]{64}$/;
 
 // Explicit classification of the legacy exploratory arm identifiers. This table does
-// not claim CLIENT: BASELINE is mapped to the replay CONTROL alias A0, and the two
-// candidate arms map to their canonical hypothesis as provenance only.
+// not claim CLIENT or active CONTROL. Candidate links are provenance only.
 const LEGACY_ARM_TABLE = Object.freeze([
-  Object.freeze({ legacyId: "BASELINE", rule: "CONTROL_ALIAS", alias: "A0" }),
+  Object.freeze({ legacyId: "BASELINE", rule: "CALENDAR_COMPARATOR", alias: "A0" }),
   Object.freeze({ legacyId: "ARM_A", rule: "HYPOTHESIS_ALIAS", alias: "ARM_A" }),
   Object.freeze({ legacyId: "ARM_B", rule: "HYPOTHESIS_ALIAS", alias: "ARM_B" }),
 ]);
@@ -56,9 +52,8 @@ function unresolved(legacyId, code) {
     legacyId,
     resolved: false,
     code,
-    role: null,
-    identity: null,
-    hypothesisId: null,
+    historicalKind: null,
+    lineageOf: null,
     tested: false,
     runnable: false,
     sizingParityClaim: false,
@@ -84,10 +79,13 @@ function provenanceScope(provenance) {
   if (!LEGACY_EXPLORATORY_RELEASES.includes(release)) {
     return { ok: false, code: "LEGACY_RELEASE_UNKNOWN" };
   }
+  if (resultsPath !== `operations/exploratory/${release}/backtest-results.json`) {
+    return { ok: false, code: "LEGACY_RELEASE_PATH_MISMATCH" };
+  }
   return { ok: true, resultsSha256, resultsPath, release };
 }
 
-// Resolve one legacy arm id to its canonical role. Never infers CLIENT.
+// Classify one verified historical arm. Never mint a canonical identity.
 function resolveArm(legacyId, scope) {
   const entry = LEGACY_ARM_TABLE.find((candidate) => candidate.legacyId === legacyId);
   if (entry === undefined) {
@@ -103,12 +101,12 @@ function resolveArm(legacyId, scope) {
     runId,
     provenance: scope.resultsPath,
   };
-  if (entry.rule === "CONTROL_ALIAS") {
+  if (entry.rule === "CALENDAR_COMPARATOR") {
     const resolved = resolveLegacyAlias({
       alias: entry.alias,
       artifactSha256: scope.resultsSha256,
       protocolVersion: LEGACY_EXPLORATORY_PROTOCOL,
-      mapping: { ...mapping, kind: IDENTITY.CONTROL, hypothesisId: "H-S1-01" },
+      mapping,
     });
     if (!resolved.ok) {
       return unresolved(legacyId, resolved.code);
@@ -117,18 +115,19 @@ function resolveArm(legacyId, scope) {
       legacyId,
       resolved: true,
       code: null,
-      role: IDENTITY.CONTROL,
-      identity: IDENTITY.CONTROL,
+      historicalKind: "CALENDAR_COMPARATOR",
+      lineageOf: null,
       alias: entry.alias,
-      hypothesisId: resolved.hypothesisId,
       runId: resolved.runId,
       // A historical calendar comparator is NOT the active CONTROL protocol: the
       // equivalence would need the source-bound mapping and is never claimed here.
       activeProtocolEquivalent: false,
       productionFallbackAuthorized: false,
       tested: false,
+      current: false,
       runnable: false,
       sizingParityClaim: false,
+      clientEquivalent: false,
       provenance: scope.resultsPath,
     });
   }
@@ -145,17 +144,19 @@ function resolveArm(legacyId, scope) {
     legacyId,
     resolved: true,
     code: null,
-    role: IDENTITY.HYPOTHESIS,
-    identity: IDENTITY.HYPOTHESIS,
+    historicalKind: "EXPLORATORY_CANDIDATE",
     alias: entry.alias,
-    hypothesisId: resolved.hypothesisId,
-    hypothesisName: resolved.hypothesisName,
-    hypothesisVersion: resolved.hypothesisVersion,
+    lineageOf: resolved.lineageOf,
+    lineageName: resolved.lineageName,
+    lineageVersion: resolved.lineageVersion,
     runId: resolved.runId,
     evidenceStatus: resolved.evidenceStatus,
     tested: resolved.tested,
+    current: false,
     runnable: resolved.runnable,
     sizingParityClaim: resolved.sizingParityClaim,
+    activeControlEquivalent: false,
+    clientEquivalent: false,
     provenance: scope.resultsPath,
   });
 }
@@ -180,10 +181,27 @@ export function adaptLegacyExploratoryArtifact({ provenance = null, artifact = n
   if (artifactSha256 !== scope.resultsSha256) {
     return failureAdapter("LEGACY_ARTIFACT_HASH_MISMATCH");
   }
+  let parsed;
+  try {
+    parsed = JSON.parse(artifact.toString());
+  } catch {
+    return failureAdapter("LEGACY_ARTIFACT_SCHEMA_INVALID");
+  }
+  const candidates = parsed?.research?.candidates;
+  const declared = [["A0", "BASELINE"], ["DIP10", "ARM_A"], ["HOUR", "ARM_B"]];
+  if (parsed?.artifactKind !== "EXPLORATORY_BACKTEST_RESULTS" || parsed?.status !== "EXPLORATORY"
+    || !Array.isArray(candidates) || declared.some(([id, armId]) => candidates.filter((candidate) => candidate?.id === id && candidate?.armId === armId).length !== 1)
+    || !Array.isArray(parsed.results) || parsed.results.length === 0
+    || parsed.results.some((result) => !result?.arms || typeof result.arms !== "object" || Array.isArray(result.arms))) {
+    return failureAdapter("LEGACY_ARTIFACT_SCHEMA_INVALID");
+  }
+  // These are unmodified keys in verified historical bytes. In particular a
+  // /CLIENT suffix remains a source key, never a canonical client assertion.
+  const rawSourceKeys = Object.freeze([...new Set(parsed.results.flatMap((result) => Object.keys(result.arms)))].sort());
   const roles = Object.freeze(Object.fromEntries(
     LEGACY_ARM_TABLE.map((entry) => [entry.legacyId, resolveArm(entry.legacyId, scope)]),
   ));
-  const candidates = Object.freeze(Object.fromEntries(
+  const candidateRoles = Object.freeze(Object.fromEntries(
     Object.entries(LEGACY_CANDIDATE_TABLE).map(([candidateId, armId]) => [candidateId, roles[armId]]),
   ));
   return Object.freeze({
@@ -193,8 +211,9 @@ export function adaptLegacyExploratoryArtifact({ provenance = null, artifact = n
     artifactSha256: scope.resultsSha256,
     artifactPath: scope.resultsPath,
     release: scope.release,
+    rawSourceKeys,
     roles,
-    candidates,
+    candidates: candidateRoles,
   });
 }
 

@@ -1758,10 +1758,10 @@ function candidateName(candidate, semantics) {
 // id/version stay as a provenance caption. SEM2-T06: it remains untested.
 function canonicalHypothesisOf(candidate, semantics) {
   const legacyView = semantics?.legacyCandidates?.[candidate.id] ?? null;
-  if (!legacyView?.hypothesisId || legacyView.role !== "HYPOTHESIS") {
+  if (legacyView?.resolved !== true || !legacyView.lineageOf || legacyView.historicalKind !== "EXPLORATORY_CANDIDATE") {
     return null;
   }
-  return (semantics?.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === legacyView.hypothesisId) ?? null;
+  return (semantics?.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === legacyView.lineageOf) ?? null;
 }
 
 function candidateVersion(candidate, semantics) {

@@ -101,7 +101,7 @@ export const H_S1_01 = hypothesisRecord({
   },
   aliases: ["DIP10", "ARM_A"],
   legacy: HYP1_H_S1_01.legacy,
-  parameters: { tau: "CONFIGURABLE", N: "CONFIGURABLE", referenceMethod: "VERSIONED", favorabilityRule: "VERSIONED" },
+  parameters: { tau: "CONFIGURABLE", N: "CONFIGURABLE", referenceMethod: HYP1_H_S1_01.referenceMethod, favorabilityRule: HYP1_H_S1_01.favorability },
   hypothesisHash: HYP1_H_S1_01.contentHash,
 });
 
@@ -213,19 +213,21 @@ export function benchmarkFor(missionId, { campaignId = null, obligationId = null
   };
 }
 
-export function controlFor({ hypothesisId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, artifactSha256 } = {}) {
-  const fields = { hypothesisId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, artifactSha256 };
+export function controlFor({ active, hypothesisId, experimentId, missionId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, constraintsVersion, artifactSha256 } = {}) {
+  const fields = { hypothesisId, experimentId, missionId, runId, populationId, campaignId, obligationId, calendarVersion, sizingVersion, executionVersion, benchmarkVersion, constraintsVersion, artifactSha256 };
   if (Object.values(fields).some((value) => typeof value !== "string" || value.trim() === "")) return { ok: false, code: "CONTROL_BINDING_INCOMPLETE" };
   if (!/^[a-f0-9]{64}$/.test(artifactSha256)) return { ok: false, code: "CONTROL_BINDING_INCOMPLETE" };
-  if (!HYPOTHESIS_ID_PATTERN.test(hypothesisId)) return { ok: false, code: "INVALID_HYPOTHESIS_ID" };
-  return {
+  if (!HYPOTHESIS_BY_ID[hypothesisId] || !HYPOTHESIS_BY_ID[hypothesisId].missions.includes(missionId)) return { ok: false, code: "INVALID_HYPOTHESIS_BINDING" };
+  const parity = ["experimentId", "missionId", "runId", "populationId", "campaignId", "obligationId", "calendarVersion", "sizingVersion", "executionVersion", "benchmarkVersion", "constraintsVersion"];
+  if (active?.ok !== true || active.kind !== IDENTITY.HYPOTHESIS || active.id !== hypothesisId
+    || active.hypothesisLayer !== hypothesisId || !isSha256(active.artifactSha256)
+    || parity.some((field) => active[field] !== fields[field])) return { ok: false, code: "CONTROL_ACTIVE_PARITY_MISMATCH" };
+  return deepFreeze({
     ok: true, kind: IDENTITY.CONTROL, ...fields,
-    timing: "CALENDAR_ONLY_PRICE_BLIND",
-    calendar: "DETERMINISTIC_ELIGIBLE_OPPORTUNITIES",
-    requestedQuantity: "remainingVolume / remainingScheduledOpportunities",
+    hypothesisLayer: null,
     productionFallbackAuthorized: false,
     version: SEMANTIC_VERSION,
-  };
+  });
 }
 
 // Aliases are meaningful only for the exact old artifact and protocol. In
@@ -235,23 +237,25 @@ export function resolveLegacyAlias({ alias, artifactSha256, protocolVersion, map
     return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
   }
   if (mapping.alias !== alias || mapping.artifactSha256 !== artifactSha256 || mapping.protocolVersion !== protocolVersion
-    || ![IDENTITY.CONTROL, IDENTITY.HYPOTHESIS].includes(mapping.kind)
-    || (alias === "A0" && mapping.kind !== IDENTITY.CONTROL)
-    || (alias === "A1" && mapping.kind !== IDENTITY.HYPOTHESIS)
-    || (mapping.kind === IDENTITY.HYPOTHESIS && !HYPOTHESIS_ID_PATTERN.test(mapping.hypothesisId ?? ""))
-    || (mapping.kind === IDENTITY.CONTROL && !mapping.hypothesisId)
+    || mapping.kind === IDENTITY.CLIENT || mapping.identity === IDENTITY.CLIENT
+    || (mapping.kind !== undefined && ![IDENTITY.CONTROL, IDENTITY.HYPOTHESIS].includes(mapping.kind))
+    || (["A0", "BASELINE"].includes(alias) && mapping.kind === IDENTITY.HYPOTHESIS)
+    || (alias === "A1" && mapping.kind === IDENTITY.CONTROL)
+    || (alias === "A1" && !HYPOTHESIS_ID_PATTERN.test(mapping.hypothesisId ?? ""))
+    || (LEGACY_HYPOTHESIS_ALIASES[alias] && mapping.hypothesisId !== LEGACY_HYPOTHESIS_ALIASES[alias])
     || !mapping.runId || !mapping.provenance) {
     return { ok: false, code: "UNBOUND_LEGACY_ALIAS" };
   }
-  return { ok: true, kind: mapping.kind, hypothesisId: mapping.hypothesisId, runId: mapping.runId, alias, artifactSha256, protocolVersion, provenance: mapping.provenance };
+  return { ok: true, kind: "LEGACY_PROVENANCE", lineageOf: ["A0", "BASELINE"].includes(alias) ? null : mapping.hypothesisId ?? null, runId: mapping.runId, alias, artifactSha256, protocolVersion, provenance: mapping.provenance, testedAsCanonicalHypothesis: false, activeControlEquivalent: false, clientEquivalent: false };
 }
 
 export function compareAblation({ control, active, controlEconomics, activeEconomics } = {}) {
   if (control?.ok !== true || control.kind !== IDENTITY.CONTROL || active?.kind !== IDENTITY.HYPOTHESIS
-    || active.id !== control.hypothesisId || !active.runId || active.runId !== control.runId) {
+    || active.id !== control.hypothesisId || active.hypothesisLayer !== control.hypothesisId
+    || !active.runId || active.runId !== control.runId) {
     return { ok: false, verdict: "HOLD", code: "PAIR_NOT_BOUND" };
   }
-  const parity = ["populationId", "campaignId", "obligationId", "calendarVersion", "sizingVersion", "executionVersion", "benchmarkVersion"];
+  const parity = ["experimentId", "missionId", "populationId", "campaignId", "obligationId", "calendarVersion", "sizingVersion", "executionVersion", "benchmarkVersion", "constraintsVersion"];
   if (parity.some((field) => !active[field] || active[field] !== control[field])) return { ok: false, verdict: "HOLD", code: "PAIR_NOT_COMPARABLE" };
   if (!/^[a-f0-9]{64}$/.test(control.artifactSha256) || !/^[a-f0-9]{64}$/.test(active.artifactSha256)) {
     return { ok: false, verdict: "HOLD", code: "PAIR_NOT_COMPARABLE" };
@@ -611,7 +615,7 @@ export function resolveLegacyHypothesisAlias({ alias, artifactSha256, protocolVe
   }
   return {
     ok: true, kind: "LEGACY_HYPOTHESIS_PROVENANCE", alias, artifactSha256, protocolVersion,
-    hypothesisId: targetId, hypothesisName: hypothesis.name, hypothesisVersion: hypothesis.version,
+    lineageOf: targetId, lineageName: hypothesis.name, lineageVersion: hypothesis.version,
     evidenceStatus: "PROVENANCE_ONLY", tested: false, runnable: false, sizingParityClaim: false,
     runId: mapping.runId, provenance: mapping.provenance,
   };
@@ -655,10 +659,14 @@ export function createExperimentBinding({ hypothesis, configuration, experimentI
   // schema rejects it instead of minting evidence without an ablation
   // (FIX07-MISSING-CONTROL).
   if (control === undefined || control === null) return { ok: false, code: "MISSING_CONTROL_BINDING" };
-  const missionMismatch = control.missionId !== undefined && control.missionId !== configuration.missionId;
+  const missionMismatch = control.missionId !== configuration.missionId;
   if (control.ok !== true || control.kind !== IDENTITY.CONTROL || control.hypothesisId !== hypothesis.hypothesisId
     || !isSha256(control.artifactSha256) || control.runId !== runId || missionMismatch
-    || control.campaignId !== campaignId) {
+    || control.campaignId !== campaignId || control.experimentId !== experimentId
+    || !isNonEmptyString(control.populationId) || !isNonEmptyString(control.obligationId)
+    || !isNonEmptyString(control.calendarVersion) || !isNonEmptyString(control.sizingVersion)
+    || !isNonEmptyString(control.executionVersion) || !isNonEmptyString(control.benchmarkVersion)
+    || !isNonEmptyString(control.constraintsVersion) || control.hypothesisLayer !== null) {
     return { ok: false, code: "INVALID_CONTROL_BINDING" };
   }
   return {

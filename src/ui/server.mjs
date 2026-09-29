@@ -277,6 +277,11 @@ export function hypothesisResultsFromRunner(runner) {
       const [hypothesisId, missionId, familyPhase, familyDataMode] = String(family?.family ?? "").split("|");
       const job = runner.get?.(family.currentRunId)?.job ?? null;
       return [{
+        sourceKind: job?.jobKind ?? null,
+        family: family?.family ?? null,
+        receiptPath: job?.receiptPath ?? null,
+        manifestPath: job?.result?.manifest?.path ?? null,
+        manifestSha256: job?.result?.manifest?.sha256 ?? null,
         hypothesisId,
         hypothesisVersion: job?.hypothesisVersion ?? null,
         missionId,
