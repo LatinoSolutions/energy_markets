@@ -356,3 +356,29 @@ la rama y reiniciar el servicio. Los `REQUIRES*` de §25.2 son dependencias
 consumidas; `RESOLVES_AUDIT` y `PRODUCES_EVIDENCE` son salidas. Esta prueba
 servida es un criterio de entrega de la fila UI-08, no una evidencia que pueda
 sustituirse con un checkout o un test local.
+
+### Relectura de Cierre · 2026-09-29T05:04:36Z
+
+- Rama UI-08: `run/energy-markets-UI-08-20260928-234414-opencode`,
+  HEAD de la verificación `216daa6d5ca7bdad295dbf7847c8644536f9ceb7`.
+- `node --test $(find test -name '*.test.mjs')`: **2301 pass, 0 fail**.
+- `energy-markets-ui.service`: `active/running`, MainPID `796583`;
+  `WorkingDirectory` y `ExecStart` apuntan a
+  `/srv/hot-data/energy-markets/app`, cuyo checkout está en `main`
+  (`607f426b51638fb3afb993292dbc0ed0743ab7ed`) con archivos de runtime
+  sin seguimiento. No se tocó ese checkout ni la unidad.
+- `node docs/product/ui-08/verify-served-build.mjs
+  http://100.92.44.106:8788/ 216daa6d5ca7bdad295dbf7847c8644536f9ceb7`:
+  **exit 1**. Las seis rutas respondieron 200; sus ocho lecturas HTTP,
+  incluidas las dos lecturas de `/health` y `/api/backtest-jobs`, carecen de
+  identidad de build, revisión de snapshot y versión semántica. El payload
+  antiguo tampoco acredita el PID ni un estado legible de los tres runners.
+
+El hecho técnico no cambió: el verificador y su prueba local ya están en la
+rama, pero UI08-10 requiere el proceso de la unidad realmente servido con el
+SHA integrado. Esta relectura no prueba que hubiese un job activo y no declara
+aceptado UI08-R11. La publicación requiere integrar la rama en `main` y
+reiniciar la unidad; ambas operaciones quedan fuera de la autorización de
+este worktree. Tras la publicación autorizada y con los runners inactivos y
+legibles, el mismo comando debe salir 0 y mostrar identidad compartida en
+las seis respuestas HTTP.
