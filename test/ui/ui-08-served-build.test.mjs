@@ -374,6 +374,22 @@ test("UI08-R11: a route with a different snapshot fails the smoke", async () => 
   });
 });
 
+test("UI08-R11: snapshot identity must be on the served body, not unrelated markup", async () => {
+  await withServer(async (url) => {
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/replay") return response;
+      const html = (await response.text())
+        .replace(/(<body\b[^>]*?) data-snapshot-revision="[0-9a-f]+"/, "$1")
+        .replace('<main id="main"', `<main data-snapshot-revision="${response.headers.get("x-em-snapshot-revision")}" id="main"`);
+      return new Response(html, { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /\/replay: served snapshot\/semantic version differs from backend/);
+  });
+});
+
 test("UI08-R11: each HTTP route must report the loaded build and published revision", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {

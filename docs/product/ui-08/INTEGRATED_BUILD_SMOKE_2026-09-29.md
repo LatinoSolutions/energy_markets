@@ -492,3 +492,24 @@ acredita la inactividad de los tres runners. UI08-R11 sigue abierto hasta la
 publicación por el cauce autorizado y un smoke **exit 0** contra el SHA
 realmente cargado. El gate de acceso registrado sigue ACTO: ACTUAL, sin ID
 `P-` asignado; no se plantea una necesidad nueva.
+
+### Cierre: revisión atada al `<body>` servido · 2026-09-29
+
+El verificador aceptaba una revisión de snapshot situada en cualquier elemento
+del HTML aunque faltara en el `<body>` de `/replay` o un drilldown. El test
+`UI08-R11: snapshot identity must be on the served body, not unrelated markup`
+reprodujo el falso positivo (**falló antes de la corrección**) al trasladar el
+atributo a `<main>`. Ahora las cuatro superficies y los cuatro drilldowns
+exigen la revisión en el `<body>` que entrega el servidor. El test pasa y
+`node --test $(find test -name '*.test.mjs')` terminó **2314 pass, 0 fail**.
+
+La lectura de solo GET del servicio activo contra el HEAD previo a este commit
+(`dfdc5ec5622c2e8c53ccc1e9c18b32a19d033cde`) terminó **exit 1**: diez URL
+distintas respondieron HTTP 200, pero el proceso no declaró SHA cargado, PID,
+versión semántica ni revisión de snapshot. `systemctl --user show` mantuvo
+`energy-markets-ui.service` activo, `MainPID=796583`, en
+`/srv/hot-data/energy-markets/app`; ese checkout continuaba en `main`
+`607f426b51638fb3afb993292dbc0ed0743ab7ed`. Ninguna escritura ni reinicio
+del servicio se hizo desde este worktree. UI08-R11 sigue abierto hasta la
+publicación autorizada y un smoke **exit 0** contra el SHA servido. El gate de
+acceso previamente registrado conserva `ACTO: ACTUAL`, sin ID `P-` asignado.

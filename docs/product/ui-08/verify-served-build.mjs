@@ -26,6 +26,12 @@ function attribute(html, name) {
   return html.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1] ?? null;
 }
 
+function servedBodyRevision(html) {
+  // The revision belongs to the response shell. A matching attribute in
+  // provenance, a hidden element or injected markup does not bind the page.
+  return attribute(html.match(/<body\b[^>]*>/)?.[0] ?? "", "data-snapshot-revision");
+}
+
 export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid = null, readConfiguredPid = null, fetchImpl = fetch }) {
   if (!COMMIT.test(expectedCommit ?? "")) throw new Error("expectedCommit must be a full Git commit SHA");
   if (expectedPid !== null && (!Number.isSafeInteger(expectedPid) || expectedPid <= 0)) throw new Error("expectedPid must be a positive process ID");
@@ -170,7 +176,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
     if (html === null) continue;
     pages[path] = html;
     const versionRendered = html.includes(`data-semantic-version="${version}"`) || html.includes(`data-semantic="${version}"`);
-    if (attribute(html, "data-snapshot-revision") !== revision || !versionRendered) {
+    if (servedBodyRevision(html) !== revision || !versionRendered) {
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
     checkPageShellAndNavigation(html, path);
@@ -243,7 +249,7 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
     checkResponseIdentity(path, "Development drilldown");
     if (html === null) continue;
     const versionRendered = html.includes(`data-semantic-version="${version}"`) || html.includes(`data-semantic="${version}"`);
-    if (attribute(html, "data-snapshot-revision") !== revision || !versionRendered) {
+    if (servedBodyRevision(html) !== revision || !versionRendered) {
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
     checkPageShellAndNavigation(html, path);
