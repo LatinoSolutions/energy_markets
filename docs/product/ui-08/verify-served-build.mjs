@@ -71,11 +71,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
     }
   };
   for (const path of ["/health", "/api/backtest-jobs"]) checkResponseIdentity(path, "initial");
-  const idle = (status) => status?.statusReadable !== false && (
-    status?.configured === false ? status?.running !== true : status?.running === false
-  );
-  if (!idle(health?.backtestJobs) || !idle(jobs) || !idle(jobs?.trades) || !idle(jobs?.hypothesis)) {
-    errors.push("a backtest job is running or its idle state is unreadable");
+  // A server without a launcher cannot attest that its job store is idle.
+  // /health proves the legacy runner is configured and readable; the GET
+  // payload additionally covers the TRADES and hypothesis runners.
+  const idle = (status) => status?.statusReadable !== false && status?.running === false;
+  if (health?.backtestJobs?.configured !== true || !idle(health.backtestJobs)
+    || !idle(jobs) || jobs?.trades?.configured !== true || !idle(jobs.trades)
+    || jobs?.hypothesis?.configured !== true || !idle(jobs.hypothesis)) {
+    errors.push("a backtest job is running, a runner is missing, or its idle state is unreadable");
   }
   const missionIds = new Set(semantics?.missions?.map((mission) => mission.missionId) ?? []);
   // The served backend is the vocabulary source for every page. Check that its
@@ -213,8 +216,10 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
       || JSON.stringify(lastJobs?.canonicalSemantics) !== JSON.stringify(semantics))) {
     errors.push("served build, snapshot or semantic version changed during the smoke; repeat after the process is stable");
   }
-  if (!idle(lastHealth?.backtestJobs) || !idle(lastJobs) || !idle(lastJobs?.trades) || !idle(lastJobs?.hypothesis)) {
-    errors.push("a backtest job started during the smoke or its final idle state is unreadable");
+  if (lastHealth?.backtestJobs?.configured !== true || !idle(lastHealth.backtestJobs)
+    || !idle(lastJobs) || lastJobs?.trades?.configured !== true || !idle(lastJobs.trades)
+    || lastJobs?.hypothesis?.configured !== true || !idle(lastJobs.hypothesis)) {
+    errors.push("a backtest job started during the smoke, a runner is missing, or its final idle state is unreadable");
   }
   return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, loadedCommit: health?.build?.commit ?? null,
     semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, errors };

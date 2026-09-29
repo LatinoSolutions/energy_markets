@@ -213,6 +213,26 @@ corregido** mientras el build integrado no sea publicado con autorización y
 verificado con exit 0 contra el SHA efectivamente cargado. Se conserva la
 dependencia de acceso ya registrada, ACTO: ACTUAL, sin un nuevo pedido.
 
+### Cierre del gate de inactividad · 2026-09-29
+
+El smoke ahora rechaza una respuesta de `/health` sin el runner de backtests
+configurado y cualquier respuesta de `/api/backtest-jobs` sin los runners de
+TRADES e Hypotheses. Repite la comprobación después de leer las cuatro páginas.
+Antes, un servidor de fixture sin ejecutores podía pasar el gate con
+`configured:false` y `running:false` o `null`; ese estado no acredita que el
+almacén de jobs del proceso real esté inactivo. El test
+`UI08-R11: a server without the canonical job runners cannot attest release
+idleness` reproduce el rechazo y el fixture positivo usa tres ejecutores
+explícitos en reposo. `node --test test/ui/ui-08-served-build.test.mjs` pasó
+16/16 y `node --test $(find test -name '*.test.mjs')` pasó 2293/2293.
+
+El servicio activo sigue configurado para arrancar desde
+`/srv/hot-data/energy-markets/app` en `main` `607f426b51638fb3afb993292dbc0ed0743ab7ed`.
+Este cierre del verificador no acredita la publicación: UI08-R11 requiere aún
+el smoke exit 0 del SHA cargado tras la integración autorizada, sin job en
+curso. La dependencia de acceso ya registrada permanece ACTO: ACTUAL y sin ID
+`P-` asignado.
+
 ### Proyección backend estable durante el smoke
 
 El verificador coteja también el contenido de `canonicalSemantics` entre la

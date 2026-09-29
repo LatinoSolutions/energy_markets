@@ -7,9 +7,19 @@ import { verifyServedBuild } from "../../docs/product/ui-08/verify-served-build.
 
 const COMMIT = "a".repeat(40);
 
+function idleRunner() {
+  return {
+    now: () => new Date(),
+    status: () => ({ running: false, current: null, latest: null, currentResult: null, registry: { ok: true } }),
+    readiness: () => ({ readable: false, reason: "fixture has no market inputs" }),
+    launch: () => null,
+  };
+}
+
 async function withServer(run) {
   const { inputs, backend } = loadCanonicalUiInputs();
   const { server, ready } = createUiServer({ port: 0, inputs, backend,
+    jobRunner: idleRunner(), tradesJobRunner: idleRunner(), hypothesisJobRunner: idleRunner(),
     build: { service: "energy-markets-operator-ui", commit: COMMIT, dirty: false, capturedAt: new Date().toISOString() } });
   const { url } = await ready;
   try {
@@ -18,6 +28,19 @@ async function withServer(run) {
     await new Promise((resolve) => server.close(resolve));
   }
 }
+
+test("UI08-R11: a server without the canonical job runners cannot attest release idleness", async () => {
+  const { inputs, backend } = loadCanonicalUiInputs();
+  const { server, ready } = createUiServer({ port: 0, inputs, backend,
+    build: { service: "energy-markets-operator-ui", commit: COMMIT, dirty: false, capturedAt: new Date().toISOString() } });
+  try {
+    const report = await verifyServedBuild({ baseUrl: (await ready).url, expectedCommit: COMMIT });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /runner is missing/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
 
 test("UI08-R11: served-build smoke checks the actual HTTP build and four shared snapshots", async () => {
   await withServer(async (url) => {
