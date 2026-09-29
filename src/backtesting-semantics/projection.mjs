@@ -21,6 +21,7 @@ import {
   HYPOTHESIS_BY_ID,
   clientFor,
   benchmarkFor,
+  controlFor,
 } from "./contract.mjs";
 import { adaptLegacyExploratoryArtifact, LEGACY_RUN_NAMES } from "./legacy-compat.mjs";
 
@@ -296,10 +297,6 @@ function legacyCandidateViews(primaryAdapter) {
       deprecated: true,
       historicalKind: role?.historicalKind ?? null,
       lineageOf: role?.lineageOf ?? null,
-      // Deprecated frontend compatibility. This is a lineage label, never a
-      // current result identity; remove when Claude migrates the consumers.
-      role: role?.historicalKind === "EXPLORATORY_CANDIDATE" ? "HYPOTHESIS" : role?.historicalKind === "CALENDAR_COMPARATOR" ? "CONTROL" : null,
-      hypothesisId: role?.lineageOf ?? null,
       resolved: role?.resolved === true,
       canonicalName: label.canonicalName,
       authorityLabel: label.authorityLabel,
@@ -311,14 +308,8 @@ function legacyCandidateViews(primaryAdapter) {
 
 function deprecatedAdapterView(adapter) {
   if (adapter.ok !== true) return Object.freeze({ ...adapter, deprecated: true });
-  const roles = Object.freeze(Object.fromEntries(Object.entries(adapter.roles).map(([key, role]) => [key, Object.freeze({
-    ...role,
-    // Old renderers read these names inside historical details only. Canonical
-    // current and historicalEvidence never read this compatibility envelope.
-    role: role.historicalKind === "CALENDAR_COMPARATOR" ? "CONTROL" : "HYPOTHESIS",
-    hypothesisId: role.lineageOf,
-  })])));
-  return Object.freeze({ ...adapter, deprecated: true, roles, candidates: Object.freeze({ A0: roles.BASELINE, DIP10: roles.ARM_A, HOUR: roles.ARM_B }) });
+  const { roles } = adapter;
+  return Object.freeze({ ...adapter, deprecated: true, candidates: Object.freeze({ A0: roles.BASELINE, DIP10: roles.ARM_A, HOUR: roles.ARM_B }) });
 }
 
 // Per-artifact source identity. Without provenance.byProduct there is no
@@ -375,7 +366,11 @@ function verifiedExperimentOf(entry) {
     || active.hypothesisLayer !== entry.hypothesisId || binding.experimentId !== active.experimentId
     || !sha256Pattern.test(control.artifactSha256 ?? "") || !sha256Pattern.test(active.artifactSha256 ?? "")
     || parity.some((field) => typeof control[field] !== "string" || !control[field] || control[field] !== active[field])) return null;
-  return Object.freeze({ status: "BOUND", experimentId: binding.experimentId, active: immutableCopy(active), control: immutableCopy(control), ablation: immutableCopy(entry.ablation) });
+  const canonicalControl = controlFor({ ...control, active });
+  if (canonicalControl.ok !== true
+    || Object.keys(control).length !== Object.keys(canonicalControl).length
+    || Object.keys(canonicalControl).some((key) => control[key] !== canonicalControl[key])) return null;
+  return Object.freeze({ status: "BOUND", experimentId: binding.experimentId, active: immutableCopy(active), control: canonicalControl, ablation: immutableCopy(entry.ablation) });
 }
 
 function hypothesisResultView(entry) {

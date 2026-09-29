@@ -27,15 +27,23 @@ cross-bound inputs as `UNAVAILABLE`; they do not enter `current.results`.
 
 The pre-migration renderers still consume `legacyAdapter`, `legacyCandidates`,
 and `historicalRuns` at the old locations. `legacyAdapter` and
-`legacyCandidates` are explicitly marked `deprecated`; their old `role` and
-`hypothesisId` fields are lineage labels for historical detail rendering only.
-They cannot populate `current`, active CONTROL, canonical hypothesis results,
-or tested/runnable state. The source adapter itself exposes `historicalKind` and
-`lineageOf`, with no canonical identity or hypothesis result ID.
+`legacyCandidates` are explicitly marked `deprecated`. They expose
+`historicalKind` and `lineageOf`, with no canonical identity, active CONTROL,
+or hypothesis result ID. They cannot populate `current`, canonical hypothesis
+results, or tested/runnable state.
 
 Claude's later UI task should read `current` for Results/Comparison and nested
 ablation, and `historicalEvidence` for the folded provenance area. It should
 remove reads of `legacyAdapter`, `legacyCandidates`, `historicalRuns`, and any
 hardcoded CONTROL 11:00 or current-looking hypothesis rows from renderers and
-view models. The deprecated fields can then be deleted. Historical artifact
-bytes and their source keys stay immutable.
+view models. The remaining deprecated envelopes can then be deleted. Historical
+artifact bytes and their source keys stay immutable. Research's historical
+candidate lookup now reads `historicalKind`/`lineageOf` from the backend instead
+of the removed semantic identity fields.
+
+The frontend also has raw legacy keys named `CLIENT_ARM` and `DIP_ARM` in
+`src/ui/view-models.mjs:69-70` (`A0@11:00/CLIENT` and
+`DIP10@11:00/CLIENT`). Claude should confine these immutable source keys behind
+names such as `RAW_LEGACY_*_SOURCE_KEY`, and use historical comparator/candidate
+terminology downstream. The `/CLIENT` bytes are source provenance, not CLIENT
+semantics.

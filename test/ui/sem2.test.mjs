@@ -55,11 +55,23 @@ test("SEM-2: legacy ARM_A/DIP10/ARM_B/HOUR stay provenance, never a tested resul
     if (adapter.ok !== true) {
       continue;
     }
-    assert.equal(adapter.roles.ARM_A.hypothesisId, "H-S1-01");
-    assert.equal(adapter.roles.ARM_B.hypothesisId, "H-RD-01");
-    assert.equal(adapter.roles.BASELINE.role, "CONTROL");
+    assert.equal(adapter.roles.ARM_A.lineageOf, "H-S1-01");
+    assert.equal(adapter.roles.ARM_B.lineageOf, "H-RD-01");
+    assert.equal(adapter.roles.BASELINE.historicalKind, "CALENDAR_COMPARATOR");
+    const candidates = vms[surface].canonicalSemantics.legacyCandidates;
+    assert.equal(candidates.A0.historicalKind, "CALENDAR_COMPARATOR");
+    assert.equal(candidates.A0.lineageOf, null);
+    assert.equal(candidates.DIP10.lineageOf, "H-S1-01");
+    assert.equal(candidates.HOUR.lineageOf, "H-RD-01");
+    for (const candidate of Object.values(candidates)) {
+      assert.equal(candidate.role, undefined);
+      assert.equal(candidate.hypothesisId, undefined);
+      assert.equal(candidate.tested, false);
+    }
     for (const role of Object.values(adapter.roles)) {
       assert.notEqual(role.identity, "CLIENT");
+      assert.equal(role.role, undefined);
+      assert.equal(role.hypothesisId, undefined);
       assert.equal(role.tested, false);
     }
   }
@@ -102,4 +114,3 @@ test("SEM-2: health never claims canonical data without a bound backend record",
     await new Promise((resolve) => server.server.close(resolve));
   }
 });
-

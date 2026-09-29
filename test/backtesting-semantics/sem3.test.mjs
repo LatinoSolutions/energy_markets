@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-import { controlFor, H_S1_01, H_RD_01 } from "../../src/backtesting-semantics/contract.mjs";
+import { controlFor, compareAblation, H_S1_01, H_RD_01 } from "../../src/backtesting-semantics/contract.mjs";
 import { adaptLegacyExploratoryArtifact } from "../../src/backtesting-semantics/legacy-compat.mjs";
 import { buildCanonicalSemanticsProjection } from "../../src/backtesting-semantics/projection.mjs";
 import { boundDevelopmentResult } from "./sem3-fixture.mjs";
@@ -65,6 +65,52 @@ test("SEM3-BE05..09: only a complete parity-bound experiment exposes Control; mi
   assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].status, "UNBOUND");
   assert.equal(controlFor({ ...binding.control, active: { ...binding.active, sizingVersion: "other" } }).code, "CONTROL_ACTIVE_PARITY_MISMATCH");
   assert.equal(controlFor({ ...binding.control, active: binding.active, constraintsVersion: null }).code, "CONTROL_BINDING_INCOMPLETE");
+});
+
+const parityFields = [
+  "experimentId", "missionId", "runId", "populationId", "campaignId",
+  "obligationId", "calendarVersion", "sizingVersion", "executionVersion",
+  "benchmarkVersion", "constraintsVersion",
+];
+
+for (const field of parityFields) {
+  for (const variant of ["missing", "mismatched"]) {
+    test(`SEM3-BE05: ${field} ${variant} fails closed in Control, ablation and projection`, () => {
+      const entry = boundDevelopmentResult();
+      const binding = entry.ablation.experimentBinding;
+      const control = { ...binding.control };
+      if (variant === "missing") delete control[field];
+      else control[field] = field === "missionId" ? "POWER_MONTHLY" : `different-${field}`;
+
+      const contract = controlFor({ ...control, active: binding.active });
+      assert.equal(contract.ok, false);
+      assert.equal(contract.code, variant === "missing" ? "CONTROL_BINDING_INCOMPLETE" : "CONTROL_ACTIVE_PARITY_MISMATCH");
+
+      const ablation = compareAblation({ control, active: binding.active });
+      assert.equal(ablation.ok, false);
+      assert.equal(ablation.verdict, "HOLD");
+      assert.equal(ablation.code, field === "runId" ? "PAIR_NOT_BOUND" : "PAIR_NOT_COMPARABLE");
+
+      const tampered = { ...entry, ablation: { ...entry.ablation, experimentBinding: { ...binding, control } } };
+      const projection = buildCanonicalSemanticsProjection({ hypothesisResults: [tampered] });
+      assert.equal(projection.current.results["H-S1-01"].length, 0);
+      assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].status, "UNBOUND");
+      assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].control, null);
+    });
+  }
+}
+
+test("SEM3-BE05/06: forged Control mechanics cannot enter current experiment or result", () => {
+  for (const extra of [{ timing: "11:00" }, { requestedQuantity: 12 }]) {
+    const entry = boundDevelopmentResult();
+    const binding = entry.ablation.experimentBinding;
+    const control = { ...binding.control, ...extra };
+    const tampered = { ...entry, ablation: { ...entry.ablation, experimentBinding: { ...binding, control } } };
+    const projection = buildCanonicalSemanticsProjection({ hypothesisResults: [tampered] });
+    assert.equal(projection.current.results["H-S1-01"].length, 0);
+    assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].status, "UNBOUND");
+    assert.equal(projection.current.experiments.GAS_MONTHLY["H-S1-01"].control, null);
+  }
 });
 
 test("SEM3-BE10..12: legacy or cross-bound jobs cannot increment current results or expose ablation", () => {
