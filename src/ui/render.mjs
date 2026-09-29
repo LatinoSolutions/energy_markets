@@ -1278,7 +1278,7 @@ function canonicalSemanticsStrip(semantics) {
     return `${mission.benchmark.economicReference} · ${mission.benchmark.window} · ${bound.length} campaign reference(s): ${bound.map((benchmark) => `${benchmark.campaignId} ${benchmark.status}`).join(", ")}`;
   };
   const rows = semantics.missions.map((mission) => {
-    const hypotheses = mission.hypotheses.map((hypothesis) => `${hypothesis.hypothesisId} · ${hypothesis.name} <span class="tiny muted">(${esc(hypothesis.role)})</span><div class="tiny muted">${hypothesis.version} · ${hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED}</div>`).join("");
+    const hypotheses = mission.hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${hypothesis.hypothesisId} · ${hypothesis.name} <span class="tiny muted">(${esc(hypothesis.role)})</span><div class="tiny muted">${hypothesis.version} · ${hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED}</div></span>`).join("");
     return `<tr data-mission="${esc(mission.missionId)}">
       <td>${esc(mission.label)}</td>
       ${identityCell(mission, "CLIENT", mission.client.confirmed.purchaseTime
@@ -2226,9 +2226,15 @@ function scopeMissionCard(entry) {
   const obligation = entry.obligation.status === "BOUND"
     ? `<b>${esc(entry.obligation.targetVolumeMw)} ${esc(entry.obligation.unit)}</b> <span class="tiny muted">campaign ${esc(entry.obligation.campaignId)}</span>`
     : `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">${esc(entry.obligation.reason)}</span>`;
-  const window = entry.campaignWindow.status === "BOUND"
-    ? `<span class="mono small">${esc(entry.campaignWindow.campaignId)} · ${esc(entry.campaignWindow.maturity)}</span>`
-    : `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">${esc(entry.campaignWindow.reason)}</span>`;
+  // UI-08 review R01: every campaign keeps its own calendar window, tied to its
+  // source (campaignId + maturity); dates shown when the verified artifacts
+  // carry them, an explicit reason when they do not — never the first campaign
+  // standing in for the rest.
+  const campaignWindows = entry.campaignWindows.length === 0
+    ? `<span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">no campaign reference is bound for this mission in the verified backend artifacts</span>`
+    : entry.campaignWindows.map((window) => (window.status === "BOUND"
+      ? `<span class="mono small" data-campaign-window="${esc(window.campaignId)}">${esc(window.campaignId)} · ${esc(window.maturity)} · ${esc(window.firstDay)} → ${esc(window.lastDay)}</span>`
+      : `<span class="mono small" data-campaign-window="${esc(window.campaignId)}">${esc(window.campaignId)} · ${esc(window.maturity)}</span> <span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">${esc(window.reason)}</span>`)).join("<br>");
   const benchmarkWindow = entry.benchmarkWindow ? esc(entry.benchmarkWindow) : "UNAVAILABLE";
   const restrictions = [
     entry.sizing.status === "BOUND" ? `lot ${esc(entry.sizing.lotSizeMw)} MW · cap ${esc(entry.sizing.dailyCapMw)} MW/day` : null,
@@ -2243,7 +2249,7 @@ function scopeMissionCard(entry) {
       ${kvHtml([
         ["Observed via", esc(entry.observationModes.join(" / "))],
         ["Benchmark window", benchmarkWindow],
-        ["Campaign", window],
+        ["Campaign", campaignWindows],
         ["Obligation", obligation],
         ["Restrictions", restrictions],
       ])}
@@ -2308,10 +2314,21 @@ function hypothesisCard(hypothesis) {
 
 function hypothesesHtml(vm) {
   const hypotheses = vm?.hypotheses ?? [];
-  const runnableMissions = (vm?.hypothesisLaunch?.missions ?? []).filter((entry) => entry.status === "READY").map((entry) => entry.missionId);
-  const runLinks = runnableMissions.length > 0
-    ? `<div class="tr07bar" style="margin-top:8px"><span class="caps muted">Run H-S1-01 Development (select mission)</span>${runnableMissions.map((missionId) => `<a class="tr07btn" data-hypothesis-run-mission="${esc(missionId)}" href="?mode=HYPOTHESIS&mission=${esc(missionId)}">${esc(missionId.replaceAll("_", " "))}</a>`).join("")}</div>`
-    : `<div class="tiny muted" style="margin-top:8px">No mission has a backend-validated Development request yet; the single run control stays disabled with the exact blocker shown in Scope.</div>`;
+  // UI-08 review R06: the path to the single Development run control is always
+  // navigable, also when no mission is READY — each mission keeps its link and
+  // its exact backend state, and the control page shows the disabled button
+  // with that mission's blocker. Hiding the link or defaulting to the legacy
+  // control would hide the gate instead of showing it.
+  const launchMissions = vm?.hypothesisLaunch?.missions ?? null;
+  const runMissionEntries = (launchMissions ?? (vm?.scope ?? []).map((entry) => ({ missionId: entry.missionId, status: entry.readiness.status, blockers: entry.readiness.blockers })))
+    .map((entry) => ({
+      missionId: entry.missionId,
+      status: entry.status ?? "UNAVAILABLE",
+      blockers: entry.blockers ?? [],
+      ready: entry.status === "READY",
+    }));
+  const runLinks = `<div class="tr07bar" style="margin-top:8px"><span class="caps muted">Run Development (select mission)</span>${runMissionEntries.map((entry) => `<a class="tr07btn" data-hypothesis-run-mission="${esc(entry.missionId)}" data-hypothesis-run-status="${esc(entry.status)}" href="?mode=HYPOTHESIS&mission=${esc(entry.missionId)}">${esc(entry.missionId.replaceAll("_", " "))}${entry.ready ? "" : " · blocked"}</a>`).join("")}</div>
+    ${runMissionEntries.some((entry) => entry.ready) ? "" : `<div class="tiny muted" style="margin-top:4px" data-hypothesis-run-blocked="true">No mission has a backend-validated Development request yet; the Development control stays disabled with each mission's exact blocker shown in Scope and on the control page.</div>`}`;
   return `<section data-section="hypotheses" style="margin-top:14px"><div class="card">
     <div class="hd"><h3>Hypotheses</h3><span class="small muted">dynamic canonical collection · identity, version, applicability, configuration and readiness come from the backend</span><span class="grow"></span>${chip("unk", "·", `${hypotheses.length}`)}</div>
     <div class="bd"><div class="grid" style="grid-template-columns:minmax(0,1fr);gap:12px">${hypotheses.map(hypothesisCard).join("")}</div>${runLinks}</div>
@@ -2321,32 +2338,62 @@ function hypothesesHtml(vm) {
 function comparisonRowHtml(comparison) {
   const { mission, client, benchmarkByCampaign, hypotheses, hypothesisResults } = comparison;
   const boundBenchmarks = Object.values(benchmarkByCampaign ?? {});
+  // UI-08 review R03: a bound benchmark keeps its full identity visible —
+  // campaign, status, reference version and provenance source — so a
+  // provisional and an official reference are distinguishable at a glance.
   const benchmarkCell = boundBenchmarks.length === 0
     ? `BENCHMARK <span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">no campaign reference bound · official settlement UNAVAILABLE</span>`
-    : `BENCHMARK <span class="tiny muted">${boundBenchmarks.map((benchmark) => `${esc(benchmark.campaignId)} · ${esc(benchmark.status)}`).join("<br>")}</span>`;
+    : `BENCHMARK <span class="tiny muted">${boundBenchmarks.map((benchmark) => `<span data-benchmark-reference="${esc(benchmark.campaignId)}">${esc(benchmark.campaignId)} · ${esc(benchmark.status)} · version ${esc(benchmark.referenceVersion ?? "UNAVAILABLE")} · source ${esc(benchmark.provenance ?? "UNAVAILABLE")}</span>`).join("<br>")}</span>`;
   const clientCell = `CLIENT <span class="tiny muted">${client.confirmed.purchaseTime ? `${esc(client.confirmed.purchaseTime)} ${esc(client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified` : "purchase timing UNKNOWN for this mission"}; sizing, fills and full cost UNKNOWN</span>`;
   const hypothesisCell = hypotheses.length === 0
     ? `UNAVAILABLE <span class="tiny muted">no canonical hypothesis applies</span>`
     : hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}</span>`).join("");
-  const resultsCell = (hypothesisResults ?? []).length === 0
+  // UI-08 review R04: the primary comparison only carries comparable evidence
+  // (CURRENT with a valid comparison). Runs that are NOT_CURRENT, FAILED or
+  // without a valid comparison stay out of it and appear only as explicitly
+  // labelled technical history, never as hypothesis results.
+  const comparable = (hypothesisResults ?? []).filter((result) => result.state === "CURRENT" && result.validComparison === true);
+  const technical = (hypothesisResults ?? []).filter((result) => !comparable.includes(result));
+  // UI-08 review R03: the result's own evaluation reference (the official BT-08
+  // benchmark when the run published one) travels with the comparable line.
+  const resultBenchmarkOf = (result) => {
+    const benchmark = result.comparison?.active ?? null;
+    return typeof benchmark?.benchmarkVersion === "string" && benchmark.benchmarkVersion.trim() !== ""
+      ? ` · benchmark ${esc(benchmark.benchmarkVersion)} (${esc(benchmark.benchmarkStatus ?? "status UNAVAILABLE")})`
+      : "";
+  };
+  const resultsCell = comparable.length === 0
     ? `<span class="tiny muted">no comparable run published</span>`
-    : hypothesisResults.map((result) => `<span class="tiny" data-hypothesis-run="${esc(result.runId)}">${esc(result.runId.slice(0, 20))}… · ${esc(result.state)} · comparison ${result.validComparison ? "valid" : "not valid"}</span>`).join("<br>");
+    : comparable.map((result) => `<span class="tiny" data-hypothesis-run="${esc(result.runId)}">${esc(result.runId.slice(0, 20))}… · ${esc(result.state)} · ${esc(result.phase ?? "phase UNAVAILABLE")} · ${esc(result.dataMode ?? "mode UNAVAILABLE")} · comparison valid${resultBenchmarkOf(result)}</span>`).join("<br>");
+  const technicalCell = technical.length === 0
+    ? ""
+    : `<div class="tiny muted" data-technical-history="true">Technical run history (not comparable evidence): ${technical.map((result) => `<span data-technical-run="${esc(result.runId)}">${esc(result.runId.slice(0, 20))}… · ${esc(result.status ?? result.state)} · comparison ${result.validComparison ? "valid" : "not valid"}</span>`).join(" · ")}</div>`;
   return `<tr data-mission="${esc(mission.id)}">
     <td>${esc(mission.id.replaceAll("_", " "))}</td>
     <td data-identity="CLIENT">${clientCell}</td>
     <td data-identity="BENCHMARK">${benchmarkCell}</td>
-    <td data-identity="HYPOTHESIS">${hypothesisCell}<div class="tiny muted">${resultsCell}</div></td>
+    <td data-identity="HYPOTHESIS">${hypothesisCell}<div class="tiny muted">${resultsCell}</div>${technicalCell}</td>
   </tr>`;
+}
+
+// UI-08 review R05: the ablation names the hypothesis its result belongs to.
+// The renderer never fixes an ID: a future hypothesis with its own ablation
+// shows its own ID and effect without editing this code, and without a result
+// there is no ID to claim.
+function ablationComparisonLabel(ablation) {
+  return typeof ablation.hypothesisId === "string" && ablation.hypothesisId.trim() !== ""
+    ? `CONTROL ↔ ${ablation.hypothesisId}`
+    : "CONTROL ↔ active hypothesis";
 }
 
 function ablationRowHtml(ablation) {
   const missionLabel = ablation.mission.id.replaceAll("_", " ");
   if (ablation.status === "UNAVAILABLE" || ablation.status === "HOLD") {
-    return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>CONTROL ↔ H-S1-01</td><td><span class="withheld" data-status="${esc(ablation.status)}">${esc(ablation.status)}</span></td><td class="small muted">${esc(ablation.reason ?? "")}</td></tr>`;
+    return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>${ablationComparisonLabel(ablation)}</td><td><span class="withheld" data-status="${esc(ablation.status)}">${esc(ablation.status)}</span></td><td class="small muted">${esc(ablation.reason ?? "")}</td></tr>`;
   }
   const deltaV = ablation.ablation?.deltaV;
   const equivalent = ablation.ablation?.equivalentCostDifference;
-  return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>CONTROL ↔ H-S1-01</td><td>${stateChip(ablation.status)}</td><td class="mono small">ΔV ${typeof deltaV === "number" ? `${deltaV.toFixed(3)} EUR/MWh` : "—"} · equivalent cost ${typeof equivalent === "number" ? equivalent.toFixed(3) : "—"} · same sizing/execution parity</td></tr>`;
+  return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>${ablationComparisonLabel(ablation)}</td><td>${stateChip(ablation.status)}</td><td class="mono small">ΔV ${typeof deltaV === "number" ? `${deltaV.toFixed(3)} EUR/MWh` : "—"} · equivalent cost ${typeof equivalent === "number" ? equivalent.toFixed(3) : "—"} · same sizing/execution parity</td></tr>`;
 }
 
 function resultsComparisonHtml(vm) {
@@ -2358,7 +2405,7 @@ function resultsComparisonHtml(vm) {
     <p class="tiny muted">Client economics and hypothesis PASS stay HOLD until comparable backend evidence exists. No value is inferred from the confirmed 11:00 timing.</p></div>
   </div>`;
   const ablationTable = `<div class="card" style="margin-top:14px">
-    <div class="hd"><h3>Ablation · CONTROL ↔ H-S1-01</h3><span class="small muted">paired experimental counterpart, not CLIENT and not a second benchmark · same sizing/execution within the mission</span></div>
+    <div class="hd"><h3>Ablation · CONTROL ↔ active hypothesis</h3><span class="small muted">paired experimental counterpart, not CLIENT and not a second benchmark · same sizing/execution within the mission</span></div>
     <div class="bd"><table class="t"><thead><tr><th>Mission</th><th>Comparison</th><th>Status</th><th>Effect</th></tr></thead><tbody>${ablations.map(ablationRowHtml).join("")}</tbody></table>
     <p class="tiny muted">CONTROL is the experiment's no-hypothesis counterpart. A future ladder may add named components; unrun ladder steps are never manufactured.</p></div>
   </div>`;

@@ -347,12 +347,15 @@ function launchMissionsById(hypothesisLaunch) {
 // applicable observation modes (TOB/TRADES are universal; a mission is first
 // class even without data), obligation/sizing/execution from the committed
 // Development request when one exists, and the source-bound readiness gate.
+// UI-08 review R01: every campaign of the mission keeps its own calendar window
+// tied to its source (campaignId + maturity); nothing is reduced to the first
+// campaign and dates are never borrowed across campaigns.
 function backtestScopeEntry(mission, launchEntry) {
   const campaigns = mission.campaigns ?? [];
   const request = launchEntry?.request ?? null;
-  const window = campaigns.length > 0
-    ? { status: "BOUND", campaignId: campaigns[0].campaignKey, maturity: campaigns[0].maturity, firstDay: campaigns[0].firstDay ?? null, lastDay: campaigns[0].lastDay ?? null }
-    : { status: "UNAVAILABLE", reason: "no campaign reference is bound for this mission in the verified backend artifacts" };
+  const campaignWindows = campaigns.map((campaign) => (campaign.window
+    ? { status: "BOUND", campaignId: campaign.campaignKey, maturity: campaign.maturity, firstDay: campaign.window.firstDay, lastDay: campaign.window.lastDay }
+    : { status: "UNAVAILABLE", campaignId: campaign.campaignKey, maturity: campaign.maturity, reason: "no calendar window for this campaign in the verified backend artifacts" }));
   const obligation = request?.campaign
     ? { status: "BOUND", targetVolumeMw: request.campaign.targetVolumeMw, unit: "MW", campaignId: request.campaign.campaignId, obligationId: request.campaign.obligationId ?? null }
     : { status: "UNAVAILABLE", reason: "the mission obligation is not evidenced in this workspace; no committed Development request defines it" };
@@ -375,7 +378,7 @@ function backtestScopeEntry(mission, launchEntry) {
     client: mission.client,
     benchmark: mission.benchmark,
     benchmarkByCampaign: mission.benchmarkByCampaign,
-    campaignWindow: window,
+    campaignWindows,
     obligation,
     sizing,
     execution,
@@ -387,7 +390,12 @@ function backtestScopeEntry(mission, launchEntry) {
 // and origin come from the shared projection; applicability, runnable/running/
 // completed state and configuration references come from the backend launch
 // metadata. Adding a hypothesis needs no renderer branch.
-function hypothesisCollectionEntry(hypothesis, { launchByMission, results, runningMissionIds }) {
+// UI-08 review R02: the states are this hypothesis's own — `registered` follows
+// its presence in the backend collection, `scientificallyEvaluated` follows its
+// own results (researchPass), and a state the backend declares for the
+// hypothesis overrides the derivation; nothing is fixed per collection and
+// availability no longer hangs off H-S1-01's launch alone.
+export function backtestHypothesisCollectionEntry(hypothesis, { launchByMission, results, runningMissionIds }) {
   const applicable = (hypothesis.missions ?? []).map((missionId) => {
     const launchEntry = launchByMission[missionId] ?? null;
     const request = launchEntry?.request ?? null;
@@ -406,6 +414,19 @@ function hypothesisCollectionEntry(hypothesis, { launchByMission, results, runni
     };
   });
   const current = (results ?? []).find((result) => result.state === "CURRENT") ?? null;
+  const derivedState = {
+    registered: true,
+    runnable: applicable.some((entry) => entry.status === "READY"),
+    running: applicable.some((entry) => entry.running),
+    completed: current !== null,
+    // A Development result is evidence, never a scientific validation; the
+    // BT-08 contract keeps researchPass false and no PASS is shown here.
+    scientificallyEvaluated: (results ?? []).some((result) => result.researchPass === true),
+  };
+  const declared = hypothesis.state ?? null;
+  const state = declared !== null && typeof declared === "object"
+    ? { ...derivedState, ...Object.fromEntries(Object.entries(declared).filter(([, value]) => typeof value === "boolean")) }
+    : derivedState;
   return {
     kind: "HYPOTHESIS",
     hypothesisId: hypothesis.hypothesisId,
@@ -417,31 +438,25 @@ function hypothesisCollectionEntry(hypothesis, { launchByMission, results, runni
     strategyRefs: hypothesis.strategyRefs,
     applicabilityStatus: hypothesis.applicabilityStatus,
     missions: applicable,
-    state: {
-      registered: true,
-      runnable: applicable.some((entry) => entry.status === "READY"),
-      running: applicable.some((entry) => entry.running),
-      completed: current !== null,
-      // A Development result is evidence, never a scientific validation; the
-      // BT-08 contract keeps researchPass false and no PASS is shown here.
-      scientificallyEvaluated: false,
-    },
+    state,
     results: results ?? [],
   };
 }
 
 // Result identity/history stay scoped per hypothesis/version/mission/phase/mode
 // (UI08-09). A published result's own ablation and comparison travel with it.
+// UI-08 review R05: the ablation names the hypothesis the result belongs to
+// (never a fixed ID in the renderer); without a result there is no ID to show.
 function ablationViewFor(results) {
   const result = (results ?? []).find((entry) => entry.state === "CURRENT") ?? (results ?? [])[0] ?? null;
   if (result === null) {
-    return { status: "UNAVAILABLE", reason: "no comparable Development run is published for this mission", ablation: null, result: null };
+    return { status: "UNAVAILABLE", hypothesisId: null, reason: "no comparable Development run is published for this mission", ablation: null, result: null };
   }
   const ablation = result.ablation ?? null;
   if (result.validComparison !== true || ablation === null) {
-    return { status: "HOLD", reason: ablation?.reason ?? "the paired ablation has no valid comparison for this mission", ablation, result };
+    return { status: "HOLD", hypothesisId: result.hypothesisId ?? null, reason: ablation?.reason ?? "the paired ablation has no valid comparison for this mission", ablation, result };
   }
-  return { status: ablation.ok === true ? "EFFECT" : (ablation.verdict ?? "HOLD"), reason: ablation.reason ?? null, ablation, result };
+  return { status: ablation.ok === true ? "EFFECT" : (ablation.verdict ?? "HOLD"), hypothesisId: result.hypothesisId ?? null, reason: ablation.reason ?? null, ablation, result };
 }
 
 export function buildBacktestsViewModel({ backendIndex = null, rows = [], exploratory = null, backtestReadiness = null, hypothesisResults = [], hypothesisLaunch = null } = {}) {
@@ -489,7 +504,7 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
   const launchByMission = launchMissionsById(hypothesisLaunch);
   const runningMissionIds = typeof hypothesisLaunch?.runningMissionId === "string" ? [hypothesisLaunch.runningMissionId] : [];
   const scope = canonicalSemantics.missions.map((mission) => backtestScopeEntry(mission, launchByMission[mission.missionId] ?? null));
-  const hypotheses = canonicalSemantics.hypotheses.map((hypothesis) => hypothesisCollectionEntry(hypothesis, {
+  const hypotheses = canonicalSemantics.hypotheses.map((hypothesis) => backtestHypothesisCollectionEntry(hypothesis, {
     launchByMission,
     results: canonicalSemantics.results[hypothesis.hypothesisId] ?? [],
     runningMissionIds,

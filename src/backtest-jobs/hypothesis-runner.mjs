@@ -528,6 +528,25 @@ export function hypothesisLaunchRequestForMission(repoRoot, missionId) {
   if (validated.request.missionId !== missionId) {
     return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: "MISSION_REQUEST_MISMATCH", message: `the committed request targets ${validated.request.missionId}, not ${missionId}` }] };
   }
+  // UI-08 review R08: READY also requires the sources on disk to still match
+  // the hashes the request binds. A source altered after the request was
+  // committed stays BLOCKED (INPUT_HASH_MISMATCH / INPUT_MISSING) with the
+  // exact file, so the UI never enables Run on stale bindings.
+  const verified = verifyInputFiles(repoRoot, inputFilesOf(validated.request));
+  if (!verified.ok) {
+    return {
+      ...readiness,
+      status: "BLOCKED",
+      request: null,
+      blockers: [{
+        code: verified.code,
+        message: verified.code === "INPUT_MISSING"
+          ? `the source bound by the request is missing: ${verified.path}`
+          : `the source bound by the request no longer matches its committed hash: ${verified.path}`,
+        ...(verified.code === "INPUT_HASH_MISMATCH" ? { detail: { path: verified.path, expected: verified.expected, actual: verified.actual } } : {}),
+      }],
+    };
+  }
   return { ...readiness, status: "READY", request: raw };
 }
 

@@ -38,13 +38,23 @@ const JOB_CONTROL_SCRIPT = `<script>
   function lineOf(body) { return body && body.display && typeof body.display.line === "string" ? body.display.line : "${NO_STATUS_LINE}"; }
   function viewOf(s) { return mode === "TRADES" ? (s && s.trades) : mode === "HYPOTHESIS" ? (s && s.hypothesis) : s; }
   function locked(s) { var v = viewOf(s); return mode === "TRADES" && !(v && v.gate && v.gate.ok === true); }
+  function hypothesisReady() {
+    var holder = root.querySelector("[data-hypothesis-request]");
+    if (!holder) return false;
+    try { return JSON.parse(holder.textContent) !== null && typeof JSON.parse(holder.textContent) === "object"; } catch (e) { return false; }
+  }
   function refresh() {
     fetch(endpoint, { headers: { "Accept": "application/json" } }).then(function (r) { return r.json(); }).then(function (s) {
       line.textContent = lineOf(viewOf(s)) || (s && s.hypothesis && s.hypothesis.display ? s.hypothesis.display.line : "${NO_STATUS_LINE}");
-      button.disabled = s.running === true || locked(s);
+      // UI-08 review R07: in HYPOTHESIS mode the button stays disabled unless a
+      // backend-validated request is actually embedded; a finished job or a
+      // readable status must never re-enable a blocked control.
+      button.disabled = mode === "HYPOTHESIS"
+        ? s.running === true || !hypothesisReady()
+        : s.running === true || locked(s);
       root.setAttribute("data-running", s.running === true ? "true" : "false");
       if (s.running === true) setTimeout(refresh, 3000);
-    }).catch(function () { line.textContent = "${NO_STATUS_LINE} · status endpoint unreachable"; button.disabled = mode === "TRADES"; });
+    }).catch(function () { line.textContent = "${NO_STATUS_LINE} · status endpoint unreachable"; button.disabled = mode !== "TOB"; });
   }
   function hypothesisBody() {
     var holder = root.querySelector("[data-hypothesis-request]");

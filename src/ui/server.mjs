@@ -268,7 +268,10 @@ export function hypothesisResultsFromRunner(runner) {
   try {
     const status = runner.status();
     return (status?.families ?? []).flatMap((family) => {
-      const [hypothesisId, missionId] = String(family?.family ?? "").split("|");
+      // family = hypothesisId|missionId|phase|dataMode (familyKeyOf). The job
+      // view is the primary source; the family key is the fallback so the
+      // identity stays complete even for reduced runner views.
+      const [hypothesisId, missionId, familyPhase, familyDataMode] = String(family?.family ?? "").split("|");
       const job = runner.get?.(family.currentRunId)?.job ?? null;
       return [{
         hypothesisId,
@@ -276,6 +279,11 @@ export function hypothesisResultsFromRunner(runner) {
         missionId,
         runId: family.currentRunId,
         status: job?.status ?? "UNKNOWN",
+        // UI-08 review R09: phase and data mode are part of the result identity
+        // (family key); without them results of the same hypothesis and mission
+        // that differ in phase or mode cannot be separated or identified.
+        phase: job?.phase ?? familyPhase ?? null,
+        dataMode: job?.dataMode ?? familyDataMode ?? null,
         validComparison: family.tested === true,
         retention: family.retention ?? null,
         resultPath: job?.result?.results?.path ?? null,

@@ -133,7 +133,22 @@ export function pairedBenchmarkDelta(benchmarkA, benchmarkB) {
   return { ok: true, campaignId: benchmarkA.campaignId, referenceVersion: benchmarkA.referenceVersion };
 }
 
-function missionCampaigns(missionId, campaigns) {
+// UI-08 (review R01): the campaign calendar window travels with each campaign,
+// matched by product+maturity from the same verified exploratory artifact that
+// carries firstDay/lastDay (the BT-02 readiness record does not). A campaign
+// without a window in the verified artifacts stays explicit (null), never
+// borrowed from another campaign.
+function exploratoryWindowIndex(exploratory) {
+  const index = new Map();
+  for (const campaign of exploratory?.results?.campaigns ?? []) {
+    if (typeof campaign?.product !== "string" || typeof campaign?.maturity !== "string") continue;
+    if (typeof campaign.firstDay !== "string" || typeof campaign.lastDay !== "string") continue;
+    index.set(`${campaign.product}|${campaign.maturity}`, Object.freeze({ firstDay: campaign.firstDay, lastDay: campaign.lastDay }));
+  }
+  return index;
+}
+
+function missionCampaigns(missionId, campaigns, windowsByProductMaturity) {
   const product = PRODUCT_BY_MISSION[missionId];
   return (campaigns ?? []).filter((campaign) => campaign?.product === product).map((campaign) => Object.freeze({
     campaignKey: campaign.campaignKey,
@@ -141,6 +156,7 @@ function missionCampaigns(missionId, campaigns) {
     maturity: campaign.maturity,
     status: campaign.status ?? null,
     campaignReadiness: campaign.campaignReadiness ?? null,
+    window: windowsByProductMaturity.get(`${campaign.product}|${campaign.maturity}`) ?? null,
     benchmark: campaign.benchmark ? Object.freeze({ ...campaign.benchmark }) : null,
     fees: campaign.fees ? Object.freeze({ ...campaign.fees }) : null,
   }));
@@ -256,6 +272,11 @@ function hypothesisResultView(entry) {
     resultPointer: null,
     ablation: null,
     comparison: null,
+    // UI-08 (review R09): phase and data mode are part of the result identity
+    // (family = hypothesis|mission|phase|mode); without them two results of the
+    // same hypothesis and mission are indistinguishable downstream.
+    phase: typeof entry?.phase === "string" ? entry.phase : null,
+    dataMode: typeof entry?.dataMode === "string" ? entry.dataMode : null,
   });
   if (!published || typeof entry !== "object") return invalid("HYPOTHESIS_RESULT_INVALID");
   if (entry.hypothesisVersion !== published.version) return invalid("HYPOTHESIS_VERSION_MISMATCH");
@@ -288,6 +309,8 @@ function hypothesisResultView(entry) {
     researchPass: false,
     retention: retentionState,
     resultPointer,
+    phase: typeof entry.phase === "string" ? entry.phase : null,
+    dataMode: typeof entry.dataMode === "string" ? entry.dataMode : null,
     // UI-08: the backend-produced ablation (CONTROL ↔ active hypothesis) and the
     // CLIENT/BENCHMARK/HYPOTHESIS comparison travel with the result so the final
     // workspace reads the same economics the run produced, with no UI arithmetic.
@@ -316,6 +339,7 @@ export function buildCanonicalSemanticsProjection({
     return adaptLegacyExploratoryArtifact({ provenance, artifact });
   };
   const bt02ProvenancePath = backtestReadiness?.provenance?.artifactPath ?? null;
+  const exploratoryWindows = exploratoryWindowIndex(exploratory);
   const resultsByHypothesis = Object.freeze(Object.fromEntries(
     Object.keys(HYPOTHESIS_BY_ID).map((hypothesisId) => [hypothesisId, Object.freeze([])]),
   ));
@@ -328,8 +352,7 @@ export function buildCanonicalSemanticsProjection({
     const legacyAdapter = adapterForProduct(product);
     const evidence = clientEvidenceByMission?.[mission.id] ?? undefined;
     const benchmarkByCampaign = Object.freeze(Object.fromEntries(
-      missionCampaigns(mission.id, campaigns)
-        .map((campaign) => [campaign.campaignKey, benchmarkForCampaign(mission.id, campaign, bt02ProvenancePath)]),
+      missionCampaigns(mission.id, campaigns, exploratoryWindows).map((campaign) => [campaign.campaignKey, benchmarkForCampaign(mission.id, campaign, bt02ProvenancePath)]),
     ));
     return Object.freeze({
       missionId: mission.id,
@@ -342,9 +365,13 @@ export function buildCanonicalSemanticsProjection({
       hypotheses: Object.freeze([canonicalHypothesisView(H_S1_01)]),
       control: controlView(legacyAdapter),
       legacyAdapter,
-      campaigns: Object.freeze(missionCampaigns(mission.id, campaigns)),
+      campaigns: Object.freeze(missionCampaigns(mission.id, campaigns, exploratoryWindows)),
+      // UI-08 (review R05): mission results are not pinned to H-S1-01 — every
+      // published canonical hypothesis that declares this mission carries its
+      // own results here (Research Discovery stays in HYPOTHESES/Research, SEM-1).
       hypothesisResults: Object.freeze(seenResults.filter((result) => result.state !== "UNAVAILABLE"
-        && result.hypothesisId === H_S1_01.hypothesisId && result.missionId === mission.id)),
+        && result.missionId === mission.id
+        && HYPOTHESIS_BY_ID[result.hypothesisId]?.originType !== "RESEARCH_DISCOVERY")),
     });
   });
   return Object.freeze({
