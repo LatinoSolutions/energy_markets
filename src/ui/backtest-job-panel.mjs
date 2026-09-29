@@ -23,68 +23,137 @@ const NO_STATUS_LINE = "Backtest status unavailable";
 // running. Copia la línea del backend tal cual; no deriva ni calcula nada.
 // BT-07: en modo TRADES manda mode "TRADES" y copia `trades.display.line`; el botón
 // sigue deshabilitado mientras el backend diga que el gate de TR-04 está cerrado.
+// UI-08: en modo HYPOTHESIS el botón manda el job canónico YA validado por el
+// backend (data-hypothesis-request), con mode "HYPOTHESIS"; nunca manda TOB/TRADES
+// ni abre OOS. Sin request del backend, el botón queda deshabilitado.
 const JOB_CONTROL_SCRIPT = `<script>
 (function () {
   var root = document.querySelector("[data-backtest-job]");
   if (!root) return;
   var endpoint = root.getAttribute("data-endpoint");
-  var mode = root.getAttribute("data-mode") === "TRADES" ? "TRADES" : "TOB";
+  var mode = root.getAttribute("data-mode") === "TRADES" ? "TRADES" : root.getAttribute("data-mode") === "HYPOTHESIS" ? "HYPOTHESIS" : "TOB";
   var button = root.querySelector("[data-job-start]");
   var line = root.querySelector("[data-job-line]");
   var message = root.querySelector("[data-job-message]");
   function lineOf(body) { return body && body.display && typeof body.display.line === "string" ? body.display.line : "${NO_STATUS_LINE}"; }
-  function viewOf(s) { return mode === "TRADES" ? (s && s.trades) : s; }
+  function viewOf(s) { return mode === "TRADES" ? (s && s.trades) : mode === "HYPOTHESIS" ? (s && s.hypothesis) : s; }
   function locked(s) { var v = viewOf(s); return mode === "TRADES" && !(v && v.gate && v.gate.ok === true); }
+  function hypothesisBusyOrUnreadable(s) {
+    var v = s && s.hypothesis;
+    return !v || v.configured !== true || v.statusReadable !== true || v.running !== false;
+  }
+  function hypothesisReady() {
+    var holder = root.querySelector("[data-hypothesis-request]");
+    if (!holder) return false;
+    try { return JSON.parse(holder.textContent) !== null && typeof JSON.parse(holder.textContent) === "object"; } catch (e) { return false; }
+  }
   function refresh() {
     fetch(endpoint, { headers: { "Accept": "application/json" } }).then(function (r) { return r.json(); }).then(function (s) {
-      line.textContent = lineOf(viewOf(s));
-      button.disabled = s.running === true || locked(s);
-      root.setAttribute("data-running", s.running === true ? "true" : "false");
-      if (s.running === true) setTimeout(refresh, 3000);
-    }).catch(function () { line.textContent = "${NO_STATUS_LINE} · status endpoint unreachable"; button.disabled = mode === "TRADES"; });
+      line.textContent = lineOf(viewOf(s)) || (s && s.hypothesis && s.hypothesis.display ? s.hypothesis.display.line : "${NO_STATUS_LINE}");
+      // UI-08 review R07: in HYPOTHESIS mode the button stays disabled unless a
+      // backend-validated request is actually embedded; a finished job or a
+      // readable status must never re-enable a blocked control.
+      button.disabled = mode === "HYPOTHESIS"
+        ? s.running === true || hypothesisBusyOrUnreadable(s) || !hypothesisReady()
+        : s.running === true || locked(s);
+      var running = s.running === true || (mode === "HYPOTHESIS" && s.hypothesis && s.hypothesis.running === true);
+      root.setAttribute("data-running", running ? "true" : "false");
+      if (running) setTimeout(refresh, 3000);
+    }).catch(function () { line.textContent = "${NO_STATUS_LINE} · status endpoint unreachable"; button.disabled = mode !== "TOB"; });
+  }
+  function hypothesisBody() {
+    var holder = root.querySelector("[data-hypothesis-request]");
+    if (!holder) return null;
+    try { return JSON.parse(holder.textContent); } catch (e) { return null; }
   }
   button.addEventListener("click", function () {
     button.disabled = true;
     message.textContent = "";
-    var body = mode === "TRADES" ? { requestedBy: "ui", mode: "TRADES" } : { requestedBy: "ui" };
+    var body;
+    if (mode === "TRADES") body = { requestedBy: "ui", mode: "TRADES" };
+    else if (mode === "HYPOTHESIS") {
+      var request = hypothesisBody();
+      if (!request) { message.textContent = "Not started · no backend-validated Development request for this mission"; button.disabled = true; return; }
+      body = { requestedBy: "ui", mode: "HYPOTHESIS", job: request };
+    } else body = { requestedBy: "ui" };
     fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
       .then(function (body) {
-        if (body.ok === true && body.reused === true) { line.textContent = lineOf(body); button.disabled = false; return; }
-        if (body.ok !== true) message.textContent = lineOf(body);
+        if (body.ok === true && body.reused === true) {
+          line.textContent = lineOf(body) || line.textContent;
+          if (mode !== "HYPOTHESIS") { button.disabled = false; return; }
+          // A reused result does not attest that the hypothesis runner is
+          // currently idle. Read its own status before enabling Development.
+          refresh();
+          return;
+        }
+        if (body.ok !== true) message.textContent = lineOf(body) || (body.message || "Not started");
         refresh();
       })
-      .catch(function () { message.textContent = "Not started · launch endpoint unreachable"; button.disabled = mode === "TRADES"; });
+      .catch(function () { message.textContent = "Not started · launch endpoint unreachable"; button.disabled = mode === "HYPOTHESIS"; });
   });
   if (root.getAttribute("data-running") === "true") setTimeout(refresh, 3000);
 })();
 </script>`;
 
 // `status` = backtestJobStatusPayload(runner) de ../backtest-jobs/http.mjs, con
-// `trades` = tradesJobStatusPayload(tradesRunner) (BT-07). `mode` = el del selector
-// TOB · TRADES de TR-07: el mismo botón, sin paneles nuevos.
-export function renderBacktestJobControl(status, { mode = "TOB" } = {}) {
+// `trades` = tradesJobStatusPayload(tradesRunner) (BT-07) y `hypothesis` =
+// hypothesisJobStatusPayload(hypothesisRunner) (BT-08). `mode` = el del selector
+// TOB · TRADES de TR-07 o HYPOTHESIS (UI-08): el mismo botón, sin paneles nuevos.
+// `launch` = hypothesisLaunchFromRunner(runner): metadata + readiness + el request
+// canónico por misión; `missionId` elige la misión del control.
+export function renderBacktestJobControl(status, { mode = "TOB", launch = null, missionId = null } = {}) {
   const trades = mode === "TRADES";
+  const hypothesis = mode === "HYPOTHESIS";
   const running = status?.running === true;
-  const view = trades ? status?.trades : status;
+  const view = trades ? status?.trades : hypothesis ? status?.hypothesis : status;
   const line = typeof view?.display?.line === "string" ? view.display.line : NO_STATUS_LINE;
   // Fail-closed: en TRADES, sin gate abierto publicado por el backend, no se lanza nada.
   const locked = trades && view?.gate?.ok !== true;
-  const disabled = running || locked;
-  return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="${trades ? "TRADES" : "TOB"}" data-running="${running ? "true" : "false"}"${locked ? ' data-locked="true"' : ""} style="text-align:right">
+  if (!hypothesis) {
+    const disabled = running || locked;
+    return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="${trades ? "TRADES" : "TOB"}" data-running="${running ? "true" : "false"}"${locked ? ' data-locked="true"' : ""} style="text-align:right">
   <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run ${trades ? "TRADES" : "TOB"} backtest</button>
   <div class="mono small muted" style="margin-top:4px" data-job-line>${esc(line)}</div>
   <div class="small" data-job-message></div>
 </div>
 ${JOB_CONTROL_SCRIPT}`;
+  }
+  const missions = launch?.missions ?? [];
+  // A selected mission may be absent from an incomplete backend launch. Never
+  // borrow another mission's validated request for this Development control.
+  const selected = missions.find((entry) => entry.missionId === missionId) ?? null;
+  const candidate = selected?.status === "READY" ? selected.request ?? null : null;
+  const request = candidate?.missionId === missionId && candidate?.phase === "DEVELOPMENT" ? candidate : null;
+  const ready = request !== null;
+  const blockers = selected?.blockers ?? [];
+  // The hypothesis runner has its own active attempt and readable status.
+  // A valid request alone cannot enable another Development launch.
+  const hypothesisAvailable = view?.configured === true && view?.statusReadable === true && view?.running === false;
+  const hypothesisRunning = view?.running === true;
+  const disabled = running || !hypothesisAvailable || !ready;
+  const blockerText = blockers.length > 0
+    ? blockers.map((blocker) => `${esc(blocker.code)}: ${esc(blocker.message ?? "")}`).join(" · ")
+    : "no backend-validated Development request is available for this mission";
+  const requestTag = ready
+    ? `<script type="application/json" data-hypothesis-request>${JSON.stringify(request).replaceAll("<", "\\u003c")}</script>`
+    : "";
+  return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="HYPOTHESIS" data-running="${running || hypothesisRunning ? "true" : "false"}"${ready && hypothesisAvailable ? "" : ' data-locked="true"'} style="text-align:right">
+  <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run H-S1-01 Development</button>
+  <div class="mono small muted" style="margin-top:4px" data-job-line>${esc(line)}</div>
+  ${ready ? "" : `<div class="small muted" data-job-blockers style="max-width:36ch;margin-left:auto">${blockerText}</div>`}
+  <div class="small" data-job-message></div>
+  ${requestTag}
+</div>
+${JOB_CONTROL_SCRIPT}`;
 }
 
 // Zona: la cabecera de la página de Backtests, junto a las etiquetas de brazos.
-export function withBacktestJobControl(html, status, { mode = "TOB" } = {}) {
+export function withBacktestJobControl(html, status, { mode = "TOB", launch = null, missionId = null } = {}) {
   const slot = '<div data-job-control-slot></div>';
-  if (html.includes(slot)) return html.replace(slot, renderBacktestJobControl(status, { mode }));
+  if (html.includes(slot)) return html.replace(slot, renderBacktestJobControl(status, { mode, launch, missionId }));
   const marker = '<div class="armhead">';
   const index = html.indexOf(marker);
   if (index === -1) return html;
-  return `${html.slice(0, index)}${renderBacktestJobControl(status, { mode })}${html.slice(index)}`;
+  return `${html.slice(0, index)}${renderBacktestJobControl(status, { mode, launch, missionId })}${html.slice(index)}`;
 }

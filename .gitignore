@@ -3,3 +3,5 @@ operations/audit/IMP-26/
 operations/patches/
 .claude/settings.local.json
 node_modules/
+# Backtest runner lock generations are runtime state, including released locks.
+operations/backtest-runs/.job.lock.*

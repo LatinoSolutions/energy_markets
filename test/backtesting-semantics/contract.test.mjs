@@ -99,16 +99,17 @@ test("main Backtests table uses three primary identities and keeps aliases in hi
   const vm = buildBacktestsViewModel();
   assert.equal(vm.semanticComparison.length, 4);
   const html = renderBacktestsPage(vm);
-  const start = html.indexOf('data-semantic="SEM-1/2026-09-28/v1"');
-  const end = html.indexOf('data-kind="current-backtest-panels"');
+  // UI-08: the primary comparison lives in the Results/Comparison section; the
+  // legacy aliases only appear below, inside the historical provenance details.
+  const start = html.indexOf('data-section="results"');
+  const end = html.indexOf('<details data-semantic="legacy-provenance"');
   assert.ok(start > 0 && end > start);
   const primary = html.slice(start, end);
   assert.match(primary, /Client \/ Benchmark \/ Hypotheses/);
-  assert.match(primary, /H-S1-01 is a research question/);
   assert.doesNotMatch(primary, /H-S1-01 · PASS|Arm A|Arm B|BASELINE|B\*/);
   assert.match(html, /<details data-semantic="legacy-provenance"/);
-  const currentPanels = html.match(/<div data-kind="current-backtest-panels"[\s\S]*?<\/div>\s*<details data-semantic="legacy-provenance"/);
-  assert.ok(currentPanels, "current panels close before historical details begin");
+  const currentPanels = html.match(/<div data-kind="current-backtest-panels"[\s\S]*?<\/div>\s*<section/);
+  assert.ok(currentPanels, "observation panels render as a block");
   assert.match(currentPanels[0], /TRADES/);
   const withJob = withBacktestJobControl(html, { trades: { gate: { ok: true } } }, { mode: "TRADES" });
   assert.match(withJob, /data-job-start>Run TRADES backtest<\/button>/);

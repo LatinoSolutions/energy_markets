@@ -1,0 +1,771 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Energy Markets — Research / Strategy Lab</title><style data-ui-visual-language="claude-blind">
+:root {
+  --paper: #f3f1eb;
+  --surface: #fbfaf7;
+  --surface-2: #f7f5f0;
+  --ink: #1a1d21;
+  --ink-2: #474a50;
+  --ink-3: #75777c;
+  --rule: #d9d5cb;
+  --rule-2: #e7e3da;
+
+  /* Temporal grammar: colour and texture encode WHEN something was known */
+  --asof: #23476b;          /* decision-time: what was known at T0 */
+  --asof-bg: #e8edf3;
+  --exec: #3d4148;          /* execution window: after T0, before evaluation */
+  --exec-bg: #eeede9;
+  --hind: #8a4b0f;          /* evaluation / hindsight: known only later */
+  --hind-bg: #f6ecdc;
+  --hatch-hind: repeating-linear-gradient(135deg, #f6ecdc 0 6px, #efdfc4 6px 7px);
+
+  /* Epistemic states */
+  --unk: #6b3d7b;
+  --unk-bg: repeating-linear-gradient(45deg, #f3ecf5 0 5px, #e6d8eb 5px 6px);
+  --pass: #2f6b3a;
+  --pass-bg: #e6efe5;
+  --fail: #a3312a;
+  --fail-bg: #f6e3e0;
+  --warn: #8a6100;
+  --warn-bg: #f6edd6;
+
+  /* Arms — validated categorical slots 1–3 (all-pairs PASS, light surface) */
+  --arm-base: #2a78d6;
+  --arm-a: #eb6834;
+  --arm-b: #1baf7a;
+
+  --auth: #2b2a4a;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "DejaVu Serif", serif;
+  --sans: Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 13.5px/1.45 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+a { color: inherit; }
+.mono { font-family: var(--mono); font-size: 12px; letter-spacing: -0.01em; }
+.muted { color: var(--ink-3); }
+.ink2 { color: var(--ink-2); }
+.small { font-size: 12px; }
+.tiny { font-size: 11px; }
+.caps { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+.right { text-align: right; }
+.row { display: flex; gap: 12px; align-items: center; }
+.row.wrap { flex-wrap: wrap; }
+.grow { flex: 1; }
+.sp { height: 16px; }
+
+/* ---------- Data-regime banner (same slot as the DES-01 banner) ---------- */
+.regime {
+  background: repeating-linear-gradient(135deg, #1a1d21 0 14px, #2b2f35 14px 28px);
+  color: #f3f1eb;
+  font: 600 11px/1 var(--mono);
+  letter-spacing: .06em;
+  text-align: center;
+  padding: 6px 12px;
+}
+.regime b { color: #ffd98a; }
+
+/* ---------- Header ---------- */
+header.top {
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: stretch; gap: 24px;
+  padding: 0 20px;
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; flex-direction: column; justify-content: center; padding: 10px 0; min-width: 190px; }
+.brand .name { font: 600 18px/1.1 var(--serif); letter-spacing: -.01em; }
+.brand .sub { font-size: 11px; color: var(--ink-3); letter-spacing: .04em; }
+nav.ws { display: flex; gap: 2px; }
+nav.ws a {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 16px; text-decoration: none; color: var(--ink-2);
+  border-bottom: 3px solid transparent; min-width: 150px; white-space: nowrap;
+}
+nav.ws a .k { font: 11px var(--mono); color: var(--ink-3); }
+nav.ws a .t { font-weight: 600; }
+nav.ws a:hover { background: var(--surface-2); }
+nav.ws a.on { color: var(--ink); border-bottom-color: var(--ink); background: var(--paper); }
+.top .tools { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.btn {
+  white-space: nowrap;
+  border: 1px solid var(--rule); background: var(--surface); border-radius: 4px;
+  padding: 5px 10px; cursor: pointer; font-size: 12.5px;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.link { border-color: transparent; background: none; text-decoration: underline; text-underline-offset: 3px; padding: 2px 4px; }
+.clock { font: 11.5px var(--mono); color: var(--ink-2); text-align: right; line-height: 1.3; white-space: nowrap; }
+
+/* ---------- Context strip ---------- */
+.ctx {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 8px 20px; border-bottom: 1px solid var(--rule);
+  background: var(--surface-2); font-size: 12.5px;
+}
+.ctx .sep { color: var(--ink-3); }
+.ctx a { text-decoration: none; border-bottom: 1px dotted var(--ink-3); }
+
+main { padding: 18px 20px 60px; max-width: 1600px; margin: 0 auto; }
+
+/* ---------- Surfaces ---------- */
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.card > .hd { padding: 10px 14px; border-bottom: 1px solid var(--rule-2); display: flex; align-items: baseline; gap: 10px; }
+.card > .hd h3 { margin: 0; font: 600 14px/1.2 var(--sans); }
+.card > .bd { padding: 12px 14px; }
+h1.page { font: 600 24px/1.15 var(--serif); margin: 0 0 2px; letter-spacing: -.01em; }
+h2.sec { font: 600 16px/1.2 var(--serif); margin: 22px 0 10px; }
+.lede { color: var(--ink-2); max-width: 880px; margin: 0; }
+.grid { display: grid; gap: 14px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.split { display: grid; grid-template-columns: 300px 1fr; gap: 18px; align-items: start; }
+
+table.t { width: 100%; border-collapse: collapse; }
+table.t th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+table.t td { padding: 8px 10px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+table.t th.right, table.t td.right { text-align: right; }
+table.t tr:last-child td { border-bottom: 0; }
+table.t tr.sel td { background: #efece4; }
+table.t tr.click { cursor: pointer; }
+table.t tr.click:hover td { background: var(--surface-2); }
+
+/* ---------- Epistemic chips ---------- */
+.st { display: inline-flex; align-items: center; gap: 5px; border-radius: 3px; padding: 1px 7px 1px 5px; font-size: 11.5px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; line-height: 18px; }
+.st .g { font-family: var(--mono); font-weight: 700; }
+.st.pass { color: var(--pass); background: var(--pass-bg); }
+.st.fail { color: var(--fail); background: var(--fail-bg); }
+.st.warn { color: var(--warn); background: var(--warn-bg); }
+.st.unk  { color: var(--unk); background: var(--unk-bg); border-color: #cdb8d6; }
+.st.open { color: var(--ink-2); background: var(--surface); border: 1px dashed var(--ink-3); }
+.st.na   { color: var(--ink-3); background: transparent; border: 1px solid var(--rule); font-weight: 500; }
+.st.run  { color: var(--asof); background: var(--asof-bg); }
+
+/* Explicit unknown value — never blank, never zero */
+.unkv { display: inline-block; background: var(--unk-bg); color: var(--unk); border: 1px solid #cdb8d6; border-radius: 3px; padding: 0 6px; font: 600 11.5px/18px var(--mono); }
+.openv { display: inline-block; border: 1px dashed var(--ink-3); color: var(--ink-2); border-radius: 3px; padding: 0 6px; font: 600 11.5px/18px var(--mono); }
+
+/* Temporal zone tags */
+.zt { display: inline-flex; gap: 6px; align-items: center; font: 600 10.5px/1 var(--mono); letter-spacing: .05em; padding: 4px 7px; border-radius: 3px; text-transform: uppercase; }
+.zt.asof { background: var(--asof); color: #fff; }
+.zt.exec { background: var(--exec); color: #fff; }
+.zt.hind { background: var(--hind); color: #fff; }
+
+/* Evidence vs authority */
+.ev { white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; font: 600 10.5px/1 var(--mono); letter-spacing: .05em; padding: 3px 6px; border: 1px solid var(--ink-3); color: var(--ink-2); border-radius: 3px; background: var(--surface); }
+.auth-box { border: 3px double var(--auth); border-radius: 4px; padding: 12px 14px; background: #f4f3f8; }
+.auth-box .seal { font: 700 10.5px/1 var(--mono); letter-spacing: .1em; color: var(--auth); }
+
+/* Provenance-bearing values: dotted underline, click to inspect */
+.pv { background: none; border: 0; padding: 0; cursor: pointer; border-bottom: 1px dotted var(--ink-3); font: inherit; color: inherit; text-align: left; }
+.pv:hover { background: #ebe7dc; border-bottom-color: var(--ink); }
+.pv:focus-visible, .btn:focus-visible, nav.ws a:focus-visible { outline: 2px solid var(--asof); outline-offset: 2px; }
+
+/* Arm swatches */
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.arm { display: inline-flex; align-items: center; font-weight: 600; white-space: nowrap; }
+
+/* ---------- Campaigns ---------- */
+.clist .it { display: block; padding: 11px 14px; border-bottom: 1px solid var(--rule-2); text-decoration: none; cursor: pointer; }
+.clist .it:last-child { border-bottom: 0; }
+.clist .it:hover { background: var(--surface-2); }
+.clist .it.on { background: #ece9e1; box-shadow: inset 3px 0 0 var(--ink); }
+.clist .it .ttl { font-weight: 600; margin: 2px 0 4px; }
+/* Rail por misión: Bru 2026-09-25 (P-008), prototipo UI-05-prototipo-2026-09-25 pestaña Campaigns */
+.crail { padding: 8px 0; }
+.crail-title { font: 600 11px var(--mono); color: var(--ink-3); padding: 4px 14px 8px; letter-spacing: .06em; }
+.cgrp > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--rule); padding: 10px 14px; cursor: pointer; }
+.cgrp > summary::-webkit-details-marker { display: none; }
+.cgrp .cname { font: 700 14px var(--serif); }
+.cgrp .csum { display: block; font: 11px var(--mono); color: var(--ink-3); margin-top: 2px; }
+.cgrp .caret { font: 12px var(--mono); color: var(--ink-3); width: 12px; }
+.cgrp .caret::before { content: "▸"; }
+.cgrp[open] .caret::before { content: "▾"; }
+.cgrp .cbody { padding: 2px 0 8px; }
+.crail .crow { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; padding: 5px 14px 5px 22px; font-size: 13px; text-decoration: none; color: inherit; }
+.crail .crow:hover { background: var(--surface-2); }
+.crail .cwin { font: 11px var(--mono); color: var(--ink-3); }
+.crail .cempty { font: 12px var(--mono); color: var(--ink-3); padding: 6px 22px; }
+.cdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.cdot.ok { background: var(--pass); }
+.cdot.insuf { background: var(--unk); }
+.clegend { font: 11px var(--mono); color: var(--ink-3); padding: 10px 14px 4px; border-top: 1px solid var(--rule); display: flex; gap: 14px; }
+.clegend > span { display: inline-flex; align-items: center; gap: 6px; }
+.bar { display: flex; height: 8px; border-radius: 2px; overflow: hidden; gap: 2px; background: transparent; min-width: 140px; }
+.bar > span { display: block; height: 100%; }
+.bar .closed { background: var(--ink-2); }
+.bar .open { background: repeating-linear-gradient(135deg, #fff 0 3px, #9b9da1 3px 4px); border: 1px solid #9b9da1; }
+.bar .notrun { background: var(--unk-bg); border: 1px solid #cdb8d6; }
+.unk-item { border-left: 3px solid var(--unk); padding: 8px 12px; background: #faf7fb; margin-bottom: 8px; border-radius: 0 4px 4px 0; }
+.unk-item .q { font-weight: 600; }
+.drill { display: inline-flex; gap: 4px; }
+.drill a { font-size: 11.5px; padding: 2px 7px; border: 1px solid var(--rule); border-radius: 3px; text-decoration: none; background: var(--surface); white-space: nowrap; }
+.drill a:hover { border-color: var(--ink); }
+.receipt { display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--rule-2); align-items: baseline; }
+.receipt:last-child { border-bottom: 0; }
+
+/* ---------- Replay ---------- */
+.dechead { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.tl { position: relative; height: 74px; margin: 6px 0 2px; }
+.chain { display: grid; grid-template-columns: 1fr 22px 1fr 22px 1fr 34px 1fr; align-items: stretch; margin-top: 12px; }
+.obj { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; }
+.obj .ohd { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--rule-2); }
+.obj .glyph { font: 700 14px/1 var(--mono); width: 22px; height: 22px; border-radius: 3px; display: grid; place-items: center; background: var(--ink); color: #fff; }
+.obj .otype { font-weight: 700; font-size: 12.5px; }
+.obj .obd { padding: 10px 12px; flex: 1; }
+.obj .big { font: 600 17px/1.25 var(--serif); margin: 2px 0 6px; }
+.obj .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+.obj .kv dt { color: var(--ink-3); }
+.obj .kv dd { margin: 0; }
+.obj.z-asof { border-top: 4px solid var(--asof); }
+.obj.z-exec { border-top: 4px solid var(--exec); }
+.obj.z-hind { border-top: 4px solid var(--hind); background: var(--hatch-hind); }
+.obj.z-hind .obd, .obj.z-hind .ohd { background: rgba(251,250,247,.86); }
+.obj.none .obd { color: var(--ink-3); }
+.link { display: grid; place-items: center; color: var(--ink-3); font: 16px var(--mono); }
+.horizon { position: relative; display: grid; place-items: center; }
+.horizon::before { content: ""; position: absolute; top: -8px; bottom: -8px; left: 50%; border-left: 2px dashed var(--hind); }
+.horizon span { position: relative; writing-mode: vertical-rl; transform: rotate(180deg); background: var(--paper); color: var(--hind); font: 700 10px/1 var(--mono); letter-spacing: .1em; padding: 6px 0; }
+.gapnote { margin-top: 8px; font-size: 11.5px; border-left: 2px solid var(--warn); padding: 3px 8px; background: var(--warn-bg); color: #5d4300; border-radius: 0 3px 3px 0; }
+.zones { display: grid; grid-template-columns: minmax(0, 1.45fr) 34px minmax(0, 1fr); margin-top: 18px; align-items: start; }
+.zone { border-radius: 6px; border: 1px solid var(--rule); background: var(--surface); }
+.zone > .zhd { padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule-2); }
+.zone > .zbd { padding: 12px 14px; }
+.zone.asof { box-shadow: inset 0 4px 0 var(--asof); }
+.zone.asof > .zhd { background: var(--asof-bg); }
+.zone.hind { box-shadow: inset 0 4px 0 var(--hind); background: var(--hatch-hind); }
+.zone.hind > .zhd, .zone.hind > .zbd { background: rgba(251,250,247,.9); }
+.sealed { border: 1px dashed var(--hind); border-radius: 4px; padding: 14px; text-align: center; color: var(--hind); background: rgba(251,250,247,.9); }
+.sealed .big { font: 600 16px var(--serif); color: var(--ink); }
+.metric { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; }
+.metric .lbl { color: var(--ink-2); }
+.metric .val { font: 600 15px var(--mono); text-align: right; }
+
+/* ---------- Backtests ---------- */
+.armhead { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.ci { font: 11.5px var(--mono); color: var(--ink-3); }
+.withheld { font: 600 12px var(--mono); color: var(--unk); }
+details.tbl summary { cursor: pointer; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.chk { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 7px 0; border-bottom: 1px solid var(--rule-2); align-items: start; }
+.chk:last-child { border-bottom: 0; }
+.chk .d { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-3); }
+.note-ev { font-size: 12px; border: 1px solid var(--rule); border-left: 3px solid var(--ink-3); padding: 8px 10px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+
+/* ---------- Research ---------- */
+.stack .it { padding: 11px 14px; border-bottom: 1px solid var(--rule-2); cursor: pointer; display: block; text-decoration: none; }
+.stack .it:hover { background: var(--surface-2); }
+.stack .it.on { background: #ece9e1; box-shadow: inset 3px 0 0 var(--ink); }
+.stack .it:last-child { border-bottom: 0; }
+.stage { font: 600 10.5px/1 var(--mono); letter-spacing: .04em; color: var(--ink-2); }
+.hyp { font: 400 17px/1.45 var(--serif); margin: 4px 0 10px; }
+.crit { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 8px 0; border-top: 1px solid var(--rule-2); align-items: start; }
+
+/* ---------- Drawer (provenance) ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(26,29,33,.18); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 40; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+aside.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: var(--surface);
+  border-left: 1px solid var(--rule); box-shadow: -12px 0 30px rgba(0,0,0,.08);
+  transform: translateX(100%); transition: transform .18s ease-out; z-index: 50; display: flex; flex-direction: column;
+}
+aside.drawer.on { transform: none; }
+.drawer .dh { padding: 14px 16px; border-bottom: 1px solid var(--rule); display: flex; gap: 10px; align-items: flex-start; }
+.drawer .db { padding: 14px 16px; overflow: auto; }
+.drawer dl { display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; margin: 0; font-size: 12.5px; }
+.drawer dt { color: var(--ink-3); }
+.drawer dd { margin: 0; word-break: break-word; }
+.bitemp { margin: 14px 0; border: 1px solid var(--rule); border-radius: 4px; padding: 10px; }
+
+/* ---------- Key (legend of the visual grammar) ---------- */
+.key { position: fixed; top: 96px; right: 20px; width: 460px; background: var(--surface); border: 1px solid var(--ink-3); border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.14); z-index: 45; display: none; }
+.key.on { display: block; }
+.key .hd h3 { white-space: nowrap; }
+.key .kr { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 7px 14px; border-bottom: 1px solid var(--rule-2); align-items: center; font-size: 12px; }
+
+/* ---------- Tooltip ---------- */
+#tip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; font: 12px/1.35 var(--sans); padding: 6px 9px; border-radius: 4px; z-index: 60; max-width: 280px; display: none; }
+#tip .m { font-family: var(--mono); }
+
+svg text { font-family: var(--sans); }
+svg .axis text { font-size: 10.5px; fill: var(--ink-3); }
+svg .axis line, svg .axis path { stroke: var(--rule); }
+.foot { margin-top: 30px; font-size: 11.5px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 10px; }
+
+body.em-app { min-width: 1280px; }
+
+/* Zonas temporales del boundary con el tratamiento de .zone.asof / .zone.hind */
+.lane.zone-decision { border-radius: 6px; border: 1px solid var(--rule); background: var(--surface); box-shadow: inset 0 4px 0 var(--asof); }
+.lane.zone-decision > .zhd { background: var(--asof-bg); padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule-2); border-radius: 6px 6px 0 0; }
+.lane.zone-evaluation { border-radius: 6px; border: 1px solid var(--rule); box-shadow: inset 0 4px 0 var(--hind); background: var(--hatch-hind); }
+.lane.zone-evaluation > .zhd, .lane.zone-evaluation > .zbd { background: rgba(251,250,247,.9); }
+.lane.zone-evaluation > .zhd { padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule-2); }
+.lane > .zbd { padding: 12px 14px; }
+.lane .exposure-table { margin-top: 6px; }
+
+/* Tabla de inputs de T0 (exposición §26.2): mismas columnas que la tabla del mockup */
+ul.data-list { list-style: none; margin: 0; padding: 0; }
+.exp-head, ul.exposure-list > li { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.2fr) minmax(0, 1fr) 118px; gap: 0 12px; align-items: start; padding: 8px 10px; border-bottom: 1px solid var(--rule-2); }
+.exp-head { font-weight: 600; color: var(--ink-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+ul.exposure-list > li:last-child { border-bottom: 0; }
+ul.exposure-list > li > .item-label { order: 1; }
+ul.exposure-list > li > .value, ul.exposure-list > li > .reason { order: 2; }
+ul.exposure-list > li > .provenance, ul.exposure-list > li > .condition { order: 3; }
+ul.exposure-list > li > .st { order: 4; justify-self: start; }
+ul.exposure-list .reason { font-size: 11.5px; color: var(--ink-3); }
+ul.exposure-list .condition { font: 11px var(--mono); color: var(--ink-3); margin: 0; }
+ul.exposure-list .value { font: 12px var(--mono); border-bottom: 1px dotted var(--ink-3); justify-self: start; }
+.exposure-list .provenance { justify-self: start; }
+
+/* Puntos de timeline dentro de las zonas */
+ul.ts-points > li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 12px; padding: 7px 0; border-bottom: 1px solid var(--rule-2); align-items: start; font-size: 12.5px; }
+ul.ts-points > li > .point-key { grid-column: 1; grid-row: 1; justify-self: start; }
+ul.ts-points > li > .value { grid-column: 2; grid-row: 1 / span 2; text-align: right; }
+ul.ts-points > li:last-child { border-bottom: 0; }
+ul.ts-points .point-key { font: 600 12px var(--mono); }
+ul.ts-points .value { font: 600 13px var(--mono); }
+ul.ts-points .clock { grid-column: 1; grid-row: 2; font: 11px var(--mono); color: var(--ink-3); text-align: left; }
+.lane-note { font-size: 12px; margin: 10px 0 0; }
+.unk-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px solid var(--rule-2); font-size: 12px; align-items: baseline; }
+
+/* Actuaciones dentro del objeto Execution · fill */
+section.events { display: block; }
+ul.events-list { list-style: none; margin: 0; padding: 0; }
+ul.events-list > li.event { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 6px 0; border-bottom: 1px solid var(--rule-2); align-items: baseline; font-size: 12px; }
+ul.events-list > li.event:last-child { border-bottom: 0; }
+.event .event-class { font: 600 10.5px/18px var(--mono); letter-spacing: .04em; padding: 0 6px; border-radius: 3px; color: var(--warn); background: var(--warn-bg); white-space: nowrap; }
+.event.event-class-HYPOTHETICAL .event-class { color: var(--ink-2); background: var(--surface); border: 1px dashed var(--ink-3); }
+.event.event-class-REAL .event-class { color: var(--auth); background: #f4f3f8; border: 3px double var(--auth); }
+.event.event-class-HUMAN_INTERVENTION .event-class { color: var(--unk); background: #faf7fb; border: 1px solid #cdb8d6; }
+.event .event-id { font: 700 12px var(--mono); }
+.event .event-clock, .event .event-ref { grid-column: 2; font: 11px var(--mono); color: var(--ink-3); }
+.event .attribution { grid-column: 2; font-size: 11.5px; color: var(--unk); }
+.interv { margin-top: 12px; background: var(--surface); border: 1px solid var(--rule); border-top: 4px solid var(--unk); border-radius: 6px; padding: 8px 12px; }
+.interv .ohd { display: flex; gap: 8px; align-items: center; }
+
+/* Gráficos sin serie canónica: el marco se conserva, la ausencia se dibuja */
+.chartwrap .hind-layer { display: none; }
+.chartwrap.hind-on .hind-layer { display: inline; }
+.chartwrap.hind-on .sealed-layer { display: none; }
+.nodata { border: 1px solid #cdb8d6; background: var(--unk-bg); color: var(--unk); border-radius: 4px; padding: 10px 12px; font-size: 12px; }
+.nodata b { font: 700 11px var(--mono); letter-spacing: .05em; }
+
+/* Condición canónica y razón del boundary junto a cada ausencia */
+.withheld { white-space: nowrap; }
+.item-label { font-weight: 600; }
+.condition { font: 600 10.5px/18px var(--mono); color: var(--unk); letter-spacing: .04em; margin: 0 4px; }
+.reason { color: var(--ink-3); font-size: 12px; }
+
+/* Procedencia (registro@revisión · sha) */
+.pv.provenance { font: 11px var(--mono); color: var(--ink-3); }
+.value[data-value] { font-family: var(--mono); }
+.kvline { display: inline; }
+.kvline .k { color: var(--ink-3); font-size: .85em; margin-right: 3px; }
+
+/* Barra de error fail-closed dentro de la misma composición */
+.errbar { border: 1px solid var(--fail); border-left: 4px solid var(--fail); background: var(--fail-bg); border-radius: 0 4px 4px 0; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; }
+.errbar ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.error-code { font: 600 11.5px var(--mono); color: var(--fail); margin-right: 6px; }
+
+/* Portada de navegación */
+.surface-index { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; }
+.nav-card { display: block; text-decoration: none; }
+.nav-card:hover { border-color: var(--ink-3); }
+.nav-card .t { font: 600 18px/1.2 var(--serif); margin: 4px 0 6px; }
+</style></head><body class="em-app" data-visual-language="claude-blind">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <pattern id="emHatchH" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><rect width="7" height="7" fill="#f6ecdc"/><rect width="1" height="7" fill="#e3c9a0"/></pattern>
+  <pattern id="emHatchU" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f3ecf5"/><rect width="1" height="6" fill="#d4c0dc"/></pattern>
+  <marker id="emArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="var(--ink-3)"/></marker>
+</defs></svg>
+<div class="regime">OPERATOR INTERFACE · runs simulated backtests only · no real trading from this UI · unknown stays <b>UNAVAILABLE</b> / <b>NOT CLOSED</b>, never a value</div>
+<header class="top em-top" role="banner">
+  <div class="brand"><div class="name">Energy Markets</div><div class="sub">PROCUREMENT RESEARCH</div></div>
+  <nav class="ws ui-nav" aria-label="Energy Markets"><a href="#campaigns" class="nav-link" data-nav="campaigns"><span class="k">1 · navigate</span><span class="t">Campaigns &amp; Runs</span></a><a href="#replay" class="nav-link" data-nav="replay"><span class="k">2 · decision inspector</span><span class="t">Replay</span></a><a href="#backtests" class="nav-link" data-nav="backtests"><span class="k">3 · economic comparison</span><span class="t">Backtests</span></a><a href="#research" class="nav-link on nav-active" data-nav="research"><span class="k">4 · strategy lab</span><span class="t">Research</span></a></nav>
+  <div class="tools">
+    <button type="button" class="btn" data-key-toggle aria-expanded="false" aria-controls="semantics-key" title="Visual grammar (?)">Semantics key</button>
+    <div class="clock">data as-of <b>2026-07-28</b><br><span class="muted">EEX best-ask snapshot · sha 55a6dd6ca944</span></div>
+  </div>
+</header>
+<div class="ctx" data-context-strip><span class="caps muted">Context</span> <span>Research / Strategy Lab</span> <span class="sep">›</span> <span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span><span class="grow"></span><span class="muted small">Operator Interface Boundary · IMP-29 · §26.5</span></div>
+<main id="main" class="em-main"><style>
+.xsel { display: none; }
+.xsel:target { display: block; }
+.xwrap:not(:has(.xsel:target)) .xsel.xdefault { display: block; }
+.xlist a { text-decoration: none; color: inherit; }
+</style><style>.xwrap:has(#res-A0:target) .it[href="#res-A0"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-DIP10:target) .it[href="#res-DIP10"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-HOUR:target) .it[href="#res-HOUR"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-S2:target) .it[href="#res-S2"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-S3:target) .it[href="#res-S3"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-S4:target) .it[href="#res-S4"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-S5:target) .it[href="#res-S5"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:has(#res-Z:target) .it[href="#res-Z"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }
+.xwrap:not(:has(.xsel:target)) .it[href="#res-DIP10"] { background:#ece9e1;box-shadow:inset 3px 0 0 var(--ink); }</style>
+<section class="surface research" data-surface="research" data-exploratory="true">
+  <div class="card" data-semantic="SEM-2/canonical-projection" data-semantic-version="SEM-1/2026-09-28/v1">
+    <div class="hd"><h3>Client / Benchmark / Hypotheses</h3><span class="small muted">one shared backend projection · Control is experiment metadata</span></div>
+    <div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th><th>Control</th></tr></thead><tbody><tr data-mission="GAS_QUARTERLY">
+      <td>Gas Quarterly</td>
+      <td data-identity="CLIENT">Client<div class="tiny muted">11:00 Europe/Berlin · current Gas Quarterly mandate, campaign not identified; sizing, fills and full cost UNKNOWN</div></td>
+      <td data-identity="BENCHMARK">Benchmark<div class="tiny muted">B · 3-1-3 · 5 campaign reference(s): null UNAVAILABLE, G0BQ-202601 BENCHMARK_PROVISIONAL, G0BQ-202604 BENCHMARK_PROVISIONAL, G0BQ-202607 BENCHMARK_PROVISIONAL, null UNAVAILABLE</div></td>
+      <td data-identity="HYPOTHESIS"><span data-hypothesis-id="H-S1-01">H-S1-01 · Session-Anchored Rolling Reference <span class="tiny muted">(Strategy)</span><div class="tiny muted">H-S1-01/phase-A/v2 · Tested? No — no comparable evidence</div></span></td>
+      <td data-identity="CONTROL">Control<div class="tiny muted">experiment metadata · historical calendar comparator is provenance, not the active protocol</div></td>
+    </tr><tr data-mission="GAS_MONTHLY">
+      <td>Gas Monthly</td>
+      <td data-identity="CLIENT">Client<div class="tiny muted">purchase timing UNKNOWN for this mission; sizing, fills and full cost UNKNOWN</div></td>
+      <td data-identity="BENCHMARK">Benchmark<div class="tiny muted">B · 1-0-1 · 16 campaign reference(s): null UNAVAILABLE, G0BM-202510 BENCHMARK_PROVISIONAL, G0BM-202511 BENCHMARK_PROVISIONAL, G0BM-202512 BENCHMARK_PROVISIONAL, G0BM-202601 BENCHMARK_PROVISIONAL, G0BM-202602 BENCHMARK_PROVISIONAL, G0BM-202603 BENCHMARK_PROVISIONAL, G0BM-202604 BENCHMARK_PROVISIONAL, G0BM-202605 BENCHMARK_PROVISIONAL, G0BM-202606 BENCHMARK_PROVISIONAL, G0BM-202607 BENCHMARK_PROVISIONAL, null UNAVAILABLE, null UNAVAILABLE, null UNAVAILABLE, null UNAVAILABLE, null UNAVAILABLE</div></td>
+      <td data-identity="HYPOTHESIS"><span data-hypothesis-id="H-S1-01">H-S1-01 · Session-Anchored Rolling Reference <span class="tiny muted">(Strategy)</span><div class="tiny muted">H-S1-01/phase-A/v2 · Tested? No — no comparable evidence</div></span></td>
+      <td data-identity="CONTROL">Control<div class="tiny muted">experiment metadata · historical calendar comparator is provenance, not the active protocol</div></td>
+    </tr><tr data-mission="POWER_QUARTERLY">
+      <td>Power Quarterly</td>
+      <td data-identity="CLIENT">Client<div class="tiny muted">purchase timing UNKNOWN for this mission; sizing, fills and full cost UNKNOWN</div></td>
+      <td data-identity="BENCHMARK">Benchmark<div class="tiny muted">B · 3-1-3 · official settlement UNAVAILABLE · no campaign reference bound</div></td>
+      <td data-identity="HYPOTHESIS"><span data-hypothesis-id="H-S1-01">H-S1-01 · Session-Anchored Rolling Reference <span class="tiny muted">(Strategy)</span><div class="tiny muted">H-S1-01/phase-A/v2 · Tested? No — no comparable evidence</div></span></td>
+      <td data-identity="CONTROL">Control<div class="tiny muted">experiment metadata · historical calendar comparator is provenance, not the active protocol</div></td>
+    </tr><tr data-mission="POWER_MONTHLY">
+      <td>Power Monthly</td>
+      <td data-identity="CLIENT">Client<div class="tiny muted">purchase timing UNKNOWN for this mission; sizing, fills and full cost UNKNOWN</div></td>
+      <td data-identity="BENCHMARK">Benchmark<div class="tiny muted">B · 1-0-1 · official settlement UNAVAILABLE · no campaign reference bound</div></td>
+      <td data-identity="HYPOTHESIS"><span data-hypothesis-id="H-S1-01">H-S1-01 · Session-Anchored Rolling Reference <span class="tiny muted">(Strategy)</span><div class="tiny muted">H-S1-01/phase-A/v2 · Tested? No — no comparable evidence</div></span></td>
+      <td data-identity="CONTROL">Control<div class="tiny muted">experiment metadata · historical calendar comparator is provenance, not the active protocol</div></td>
+    </tr></tbody></table></div>
+    <p class="tiny muted" data-hypothesis-id="H-RD-01">H-RD-01 · Execution Hour — Research Discovery · declared mission scope: none (UNDECLARED) · Historical provenance only</p>
+    <p class="tiny muted">Canonical English identities from the backend. Historical ARM_A/DIP10/ARM_B/HOUR and A0/BASELINE remain technical aliases and provenance only; they never establish CLIENT, an active CONTROL protocol or a tested hypothesis.</p></div>
+  </div>
+  <div class="split xwrap">
+    <div class="xlist">
+      <div class="caps muted" style="margin:4px 0 8px">Candidate stack</div>
+      <div class="card stack"><a class="it" href="#res-A0">
+      <div class="row"><span class="stage">REFERENCE BASELINE</span><span class="grow"></span><span class="mono tiny muted">v1</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">Historical calendar comparator (A0)</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st pass"><span class="g">✓</span>Ready (reference)</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 7</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Legacy provenance only — no current client authority</span></div>
+    </a><a class="it" href="#res-DIP10">
+      <div class="row"><span class="stage">EVIDENCE GATHERING</span><span class="grow"></span><span class="mono tiny muted">v1-exp</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">H-S1-01 · Session-Anchored Rolling Reference</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st fail"><span class="g">✕</span>Not ready</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 7</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Provenance only — not a tested result</span></div>
+    </a><a class="it" href="#res-HOUR">
+      <div class="row"><span class="stage">EVIDENCE GATHERING</span><span class="grow"></span><span class="mono tiny muted">v1-exp</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">H-RD-01 · Execution Hour</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st fail"><span class="g">✕</span>Not ready</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 7</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Research Discovery provenance only</span></div>
+    </a><a class="it" href="#res-S2">
+      <div class="row"><span class="stage">HYPOTHESIS ONLY</span><span class="grow"></span><span class="mono tiny muted">—</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">Anomaly Detection</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st open"><span class="g">○</span>No runs yet</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 0</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+    </a><a class="it" href="#res-S3">
+      <div class="row"><span class="stage">HYPOTHESIS ONLY</span><span class="grow"></span><span class="mono tiny muted">—</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">Trajectory / Repricing</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st open"><span class="g">○</span>No runs yet</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 0</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+    </a><a class="it" href="#res-S4">
+      <div class="row"><span class="stage">HYPOTHESIS ONLY</span><span class="grow"></span><span class="mono tiny muted">—</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">Structure / Range Transition</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st open"><span class="g">○</span>No runs yet</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 0</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+    </a><a class="it" href="#res-S5">
+      <div class="row"><span class="stage">HYPOTHESIS ONLY</span><span class="grow"></span><span class="mono tiny muted">—</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">Conditional Pullback Timing</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st open"><span class="g">○</span>No runs yet</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 0</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+    </a><a class="it" href="#res-Z">
+      <div class="row"><span class="stage">HYPOTHESIS ONLY</span><span class="grow"></span><span class="mono tiny muted">—</span></div>
+      <div style="font-weight:600;margin:3px 0 5px">Market state (Z)</div>
+      <div class="row small" style="gap:6px"><span class="muted">Readiness</span><span class="st open"><span class="g">○</span>No runs yet</span></div>
+      <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE 0</span><span class="muted">Authority</span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+    </a></div>
+      <div class="small muted" style="margin-top:8px">Evidence count and authority are separate columns on purpose: more evidence never turns into approval by itself.</div>
+    </div>
+    <div><section class="xsel" id="res-A0" data-candidate="A0">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">A0 v1 · owner Bru</div>
+      <h1 class="page">Historical calendar comparator (A0) <span class="muted">v1</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st pass"><span class="g">✓</span>Ready (reference)</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><div class="chk" data-canonical-evidence="H-S1-01"><span><b>H-S1-01 · Session-Anchored Rolling Reference</b> <span class="tiny muted">(Strategy, H-S1-01/phase-A/v2)</span></span><span class="st unk"><span class="g">?</span>Untested</span><span class="d">Tested? No — no comparable evidence This historical candidate does not test the current hypothesis version.</span></div><p class="hyp">Reference: buy the target on the client calendar at 11:00 Europe/Berlin, price-blind (canonical A0 controller).</p><div class="caps muted" data-historical-provenance="true">Historical success criteria · provenance of the legacy run, not criteria of the canonical hypothesis</div><div class="small muted">No success criteria measured: no run for this candidate.</div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Legacy provenance only — no current client authority</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><rect x="370" y="53" width="160" height="34" rx="4" fill="var(--ink)" stroke="var(--ink-2)"/><text x="450" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="var(--mono)">A0 v1</text><text x="450" y="102" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">historical calendar comparator · provenance</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">7 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td class="mono small">660d14a0f7c5</td><td><span class="ev">BACKTEST RESULT</span></td><td>operations/exploratory/v2/backtest-results.json · sha256 660d14a0f7c5131f…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/backtests">open</a></span></td></tr><tr><td class="mono small">55a6dd6ca944</td><td><span class="ev">DATA SNAPSHOT</span></td><td>EEX THE best-ask slots · sha256 55a6dd6ca9445ae8…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">MANIFEST</td><td><span class="ev">MANIFEST</span></td><td>operations/exploratory/v2/MANIFEST.json</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">3ad9a23457e1</td><td><span class="ev">BACKTEST RESULT</span></td><td>operations/exploratory/v3/backtest-results.json · sha256 3ad9a23457e1e635…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/backtests">open</a></span></td></tr><tr><td class="mono small">59b32310aaa3</td><td><span class="ev">DATA SNAPSHOT</span></td><td>EEX POWER/DE best-ask slots · sha256 59b32310aaa3aeca…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">MANIFEST</td><td><span class="ev">MANIFEST</span></td><td>operations/exploratory/v3/MANIFEST.json</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">EM-SPEC-OWNER-PATCH-2026-09-24-02</td><td><span class="ev">OWNER DECISION</span></td><td>exploratory phase authorised (owner patch 02)</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="muted small">record</span></td></tr></tbody></table></div>
+</section><section class="xsel xdefault" id="res-DIP10" data-candidate="DIP10">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">DIP10 v1-exp · owner Bru</div>
+      <h1 class="page">H-S1-01 · Session-Anchored Rolling Reference <span class="muted">v1-exp</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st fail"><span class="g">✕</span>Not ready</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><div class="chk" data-canonical-evidence="H-S1-01"><span><b>H-S1-01 · Session-Anchored Rolling Reference</b> <span class="tiny muted">(Strategy, H-S1-01/phase-A/v2)</span></span><span class="st unk"><span class="g">?</span>Untested</span><span class="d">Tested? No — no comparable evidence This historical candidate does not test the current hypothesis version.</span></div><p class="hyp">Buying the day's full cap when the 11:00 best ask is below the mean of the previous 10 11:00 asks (otherwise only the feasibility floor) lowers the price paid versus the client's 11:00 calendar.</p><div class="caps muted" data-historical-provenance="true">Historical success criteria · provenance of the legacy run, not criteria of the canonical hypothesis</div><div class="mono tiny muted" style="margin-top:8px">G0BQ</div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV 31.0 k€ over 3 campaigns</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">1 of 3 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 2.47 vs Baseline 5.60</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="mono tiny muted" style="margin-top:8px">G0BM</div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV 60.9 k€ over 10 campaigns</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">5 of 10 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 3.89 vs Baseline 6.85</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="mono tiny muted" style="margin-top:8px">DEBQ</div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV 148.7 k€ over 3 campaigns</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">3 of 3 campaigns</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 0.09 vs Baseline 4.55</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="mono tiny muted" style="margin-top:8px">DEBM</div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV -146.8 k€ over 10 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">5 of 10 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 12.99 vs Baseline 11.85</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Provenance only — not a tested result</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><text x="600" y="30" text-anchor="middle" font-size="10" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · G0BQ · G0BM · DEBQ · DEBM</text><rect x="520" y="53" width="160" height="34" rx="4" fill="var(--ink)" stroke="var(--ink-2)"/><text x="600" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="var(--mono)">DIP10 v1-exp</text><text x="600" y="102" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">exploratory · owner patch 02</text><rect x="140" y="53" width="160" height="34" rx="4" fill="var(--surface)" stroke="var(--ink-2)"/><text x="220" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)" font-family="var(--mono)">A0 v1</text><text x="220" y="102" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">historical calendar comparator · provenance</text><path d="M518 70 L302 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/><text x="410" y="62" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">paired against</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">7 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td class="mono small">660d14a0f7c5</td><td><span class="ev">BACKTEST RESULT</span></td><td>operations/exploratory/v2/backtest-results.json · sha256 660d14a0f7c5131f…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/backtests">open</a></span></td></tr><tr><td class="mono small">55a6dd6ca944</td><td><span class="ev">DATA SNAPSHOT</span></td><td>EEX THE best-ask slots · sha256 55a6dd6ca9445ae8…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">MANIFEST</td><td><span class="ev">MANIFEST</span></td><td>operations/exploratory/v2/MANIFEST.json</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">3ad9a23457e1</td><td><span class="ev">BACKTEST RESULT</span></td><td>operations/exploratory/v3/backtest-results.json · sha256 3ad9a23457e1e635…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/backtests">open</a></span></td></tr><tr><td class="mono small">59b32310aaa3</td><td><span class="ev">DATA SNAPSHOT</span></td><td>EEX POWER/DE best-ask slots · sha256 59b32310aaa3aeca…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">MANIFEST</td><td><span class="ev">MANIFEST</span></td><td>operations/exploratory/v3/MANIFEST.json</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">EM-SPEC-OWNER-PATCH-2026-09-24-02</td><td><span class="ev">OWNER DECISION</span></td><td>exploratory phase authorised (owner patch 02)</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="muted small">record</span></td></tr></tbody></table></div>
+</section><section class="xsel" id="res-HOUR" data-candidate="HOUR">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">HOUR v1-exp · owner Bru</div>
+      <h1 class="page">H-RD-01 · Execution Hour <span class="muted">v1-exp</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st fail"><span class="g">✕</span>Not ready</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><div class="chk" data-canonical-evidence="H-RD-01"><span><b>H-RD-01 · Execution Hour</b> <span class="tiny muted">(Research Discovery, H-RD-01/phase-A/v1)</span></span><span class="st unk"><span class="g">?</span>Provenance only</span><span class="d">Historical provenance only This historical candidate does not test the current hypothesis version.</span></div><p class="hyp">Running the client calendar at the hour that was cheapest on the other campaigns (leave-one-out) lowers the price paid versus 11:00.</p><div class="caps muted" data-historical-provenance="true">Historical success criteria · provenance of the legacy run, not criteria of the canonical hypothesis</div><div class="mono tiny muted" style="margin-top:8px">G0BQ</div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV -22.6 k€ over 3 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">1 of 3 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 5.60 vs Baseline 5.60</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="mono tiny muted" style="margin-top:8px">G0BM</div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV 4.9 k€ over 10 campaigns</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">7 of 10 campaigns</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 5.84 vs Baseline 6.85</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="mono tiny muted" style="margin-top:8px">DEBQ</div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV -21.8 k€ over 3 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">0 of 3 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 4.67 vs Baseline 4.55</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="mono tiny muted" style="margin-top:8px">DEBM</div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">ΔV vs Baseline &gt; 0 over all campaigns</div><div class="small ink2">ΔV -6.1 k€ over 10 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✕</span><div><div style="font-weight:600">Cheaper than Baseline in most campaigns</div><div class="small ink2">3 of 10 campaigns</div></div><span class="st fail"><span class="g">✕</span>Not met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">P95 (H − B*) not worse than Baseline by &gt; 1.00 €/MWh</div><div class="small ink2">P95 arm 10.70 vs Baseline 11.85</div></div><span class="st pass"><span class="g">✓</span>Met</span></div><div class="crit"><span class="mono">✓</span><div><div style="font-weight:600">No look-ahead: every input observed ≤ T₀</div><div class="small ink2">test/exploratory/backtest.test.mjs</div></div><span class="st pass"><span class="g">✓</span>Met</span></div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Research Discovery provenance only</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><text x="600" y="30" text-anchor="middle" font-size="10" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · G0BQ · G0BM · DEBQ · DEBM</text><rect x="520" y="53" width="160" height="34" rx="4" fill="var(--ink)" stroke="var(--ink-2)"/><text x="600" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="var(--mono)">HOUR v1-exp</text><text x="600" y="102" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">exploratory · owner patch 02</text><rect x="140" y="53" width="160" height="34" rx="4" fill="var(--surface)" stroke="var(--ink-2)"/><text x="220" y="74" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)" font-family="var(--mono)">A0 v1</text><text x="220" y="102" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">historical calendar comparator · provenance</text><path d="M518 70 L302 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/><text x="410" y="62" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">paired against</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">7 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td class="mono small">660d14a0f7c5</td><td><span class="ev">BACKTEST RESULT</span></td><td>operations/exploratory/v2/backtest-results.json · sha256 660d14a0f7c5131f…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/backtests">open</a></span></td></tr><tr><td class="mono small">55a6dd6ca944</td><td><span class="ev">DATA SNAPSHOT</span></td><td>EEX THE best-ask slots · sha256 55a6dd6ca9445ae8…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">MANIFEST</td><td><span class="ev">MANIFEST</span></td><td>operations/exploratory/v2/MANIFEST.json</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">3ad9a23457e1</td><td><span class="ev">BACKTEST RESULT</span></td><td>operations/exploratory/v3/backtest-results.json · sha256 3ad9a23457e1e635…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/backtests">open</a></span></td></tr><tr><td class="mono small">59b32310aaa3</td><td><span class="ev">DATA SNAPSHOT</span></td><td>EEX POWER/DE best-ask slots · sha256 59b32310aaa3aeca…</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">MANIFEST</td><td><span class="ev">MANIFEST</span></td><td>operations/exploratory/v3/MANIFEST.json</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="drill"><a href="/campaigns">open</a></span></td></tr><tr><td class="mono small">EM-SPEC-OWNER-PATCH-2026-09-24-02</td><td><span class="ev">OWNER DECISION</span></td><td>exploratory phase authorised (owner patch 02)</td><td><span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span></td><td><span class="muted small">record</span></td></tr></tbody></table></div>
+</section><section class="xsel" id="res-S2" data-candidate="S2">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">S2 — · owner Bru</div>
+      <h1 class="page">Anomaly Detection <span class="muted">—</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st open"><span class="g">○</span>No runs yet</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><p class="hyp">Canonical strategy (SPEC §8). No observables materialised and no run yet.</p><div class="caps muted">Success criteria</div><div class="small muted">No success criteria measured: no run for this candidate.</div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/><text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text><text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">0 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr></tbody></table></div>
+</section><section class="xsel" id="res-S3" data-candidate="S3">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">S3 — · owner Bru</div>
+      <h1 class="page">Trajectory / Repricing <span class="muted">—</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st open"><span class="g">○</span>No runs yet</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><p class="hyp">Canonical strategy (SPEC §8). No observables materialised and no run yet.</p><div class="caps muted">Success criteria</div><div class="small muted">No success criteria measured: no run for this candidate.</div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/><text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text><text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">0 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr></tbody></table></div>
+</section><section class="xsel" id="res-S4" data-candidate="S4">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">S4 — · owner Bru</div>
+      <h1 class="page">Structure / Range Transition <span class="muted">—</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st open"><span class="g">○</span>No runs yet</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><p class="hyp">Canonical strategy (SPEC §8). No observables materialised and no run yet.</p><div class="caps muted">Success criteria</div><div class="small muted">No success criteria measured: no run for this candidate.</div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/><text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text><text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">0 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr></tbody></table></div>
+</section><section class="xsel" id="res-S5" data-candidate="S5">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">S5 — · owner Bru</div>
+      <h1 class="page">Conditional Pullback Timing <span class="muted">—</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st open"><span class="g">○</span>No runs yet</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><p class="hyp">Canonical strategy (SPEC §8). No observables materialised and no run yet.</p><div class="caps muted">Success criteria</div><div class="small muted">No success criteria measured: no run for this candidate.</div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/><text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text><text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">0 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr></tbody></table></div>
+</section><section class="xsel" id="res-Z" data-candidate="Z">
+  <div class="row" style="align-items:flex-end">
+    <div class="grow"><div class="mono muted small">Z — · owner Bru</div>
+      <h1 class="page">Market state (Z) <span class="muted">—</span></h1></div>
+    <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px"><span class="st open"><span class="g">○</span>No runs yet</span></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
+    <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered <span class="mono small muted" style="white-space:nowrap" title="the manifests carry no recording timestamp">not recorded</span> · exploratory phase (EM-SPEC-OWNER-PATCH-2026-09-24-02)</span></div>
+      <div class="bd"><p class="hyp">Canonical strategy (SPEC §8). No observables materialised and no run yet.</p><div class="caps muted">Success criteria</div><div class="small muted">No success criteria measured: no run for this candidate.</div></div></div>
+    <div>
+      <div class="auth-box">
+        <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span><span class="st na"><span class="g">—</span>Authority unavailable — no verified source-bound mapping</span></div>
+        <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
+        <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
+      </div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd"><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v2/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 55a6dd6ca944</span></div><div class="chk"><span>Replay determinism</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">same inputs → same results sha (manifest check in the UI loader)</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 Gas Quarterly + 10 Gas Monthly</span></div><div class="chk"><span>Out-of-sample window</span><span class="st open"><span class="g">○</span>Not closed</span><span class="d">exploratory, in-sample; OOS reserve not sealed (owner patch 02 §4)</span></div><div class="chk"><span>Execution fees</span><span class="st unk"><span class="g">?</span>Unknown</span><span class="d">not provided; requested from the client</span></div><div class="chk"><span>Code pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">generator sha256 in operations/exploratory/v3/MANIFEST.json</span></div><div class="chk"><span>Data snapshot pinned</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">tob-slots sha 59b32310aaa3</span></div><div class="chk"><span>Evidence in ≥ 2 campaigns</span><span class="st pass"><span class="g">✓</span>Pass</span><span class="d">3 DEBQ + 10 DEBM</span></div></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd"><svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage"><rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/><text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text><text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text></svg></div></div>
+  <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">0 items · evidence informs, it does not authorise</span></div>
+    <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody><tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr></tbody></table></div>
+</section></div>
+  </div>
+</section><div class="foot">Energy Markets · Operator Interface · shows what the backend publishes; commands go only through the backend. Every dotted value opens its provenance. Keys: 1–4 workspaces · ? semantics key · Esc close.</div></main>
+<div class="key semantics-key" id="semantics-key" role="dialog" aria-label="Semantics key" aria-hidden="true">
+  <div class="card" style="border:0">
+    <div class="hd"><h3>Semantics key</h3><span class="muted small">one visual grammar, all four workspaces</span><span class="grow"></span><button type="button" class="btn link" data-key-close>close</button></div>
+  </div>
+  <div class="kr"><span><span class="zt asof">T₀ · decision-time</span></span><span>What the system knew at the decision instant. Slate blue, solid.</span></div>
+  <div class="kr"><span><span class="zt exec">Execution</span></span><span>After T₀, before evaluation: actuations and fills. Neutral ink.</span></div>
+  <div class="kr"><span><span class="zt hind">Later · evaluation</span></span><span>Hindsight. Ochre on hatched paper; never drawn inside a T₀ panel.</span></div>
+  <div class="kr"><span><span><span class="unkv">UNKNOWN</span></span></span><span>Value absent. Never shown as blank, zero or a guess. Plum hatch.</span></div>
+  <div class="kr"><span><span><span class="openv">NOT CLOSED</span></span></span><span>Exists but not final yet (e.g. evaluation still open). Dashed.</span></div>
+  <div class="kr"><span><span><span class="ev">EVIDENCE</span></span></span><span>Receipts, results, checks. Informs; never approves.</span></div>
+  <div class="kr"><span><span><span class="auth-box" style="padding:3px 8px;display:inline-block"><span class="seal">AUTHORITY</span></span></span></span><span>A decision owner's recorded act. Double rule. Only place “approved” can appear.</span></div>
+  <div class="kr"><span><span class="mono">◆ ▲ ■ ●</span></span><span>Recommendation · Requested action · Execution/fill · Outcome — four separate objects, never merged.</span></div>
+  <div class="kr" style="border:0"><span><span><span class="pv">record@revision</span></span></span><span>Dotted underline = click for provenance (record, revision, sha, clock).</span></div>
+</div>
+<div class="scrim prov-scrim" id="prov-scrim"></div>
+<aside class="drawer prov-drawer" id="prov-drawer" role="dialog" aria-label="Provenance" aria-hidden="true">
+  <div class="dh"><div class="grow"><div class="caps muted">Provenance</div><div style="font:600 17px var(--serif);margin-top:2px" data-field="label"></div></div><button type="button" class="btn" data-drawer-close>Close</button></div>
+  <div class="db">
+    <div class="mono" style="font-size:20px;margin-bottom:10px;word-break:break-all" data-field="value"></div>
+    <dl>
+      <dt>Record</dt><dd class="mono small" data-field="record"></dd>
+      <dt>Revision</dt><dd class="mono small" data-field="revision"></dd>
+      <dt>sha256</dt><dd class="mono small" data-field="sha"></dd>
+    </dl>
+    <div class="bitemp">
+      <div class="caps muted" style="margin-bottom:8px">Clock · as bound by the boundary</div>
+      <dl>
+        <dt>Clock</dt><dd class="mono small" data-field="clock"></dd>
+        <dt>Clock kind</dt><dd class="mono small" data-field="clock-kind"></dd>
+      </dl>
+    </div>
+    <div class="note-ev"><span class="ev">EVIDENCE</span> Provenance shows where a value came from. It does not make the value authoritative.</div>
+  </div>
+</aside>
+<div id="tip"></div>
+<script>
+(function () {
+  "use strict";
+  var NAV_KEYS = { "1": "campaigns", "2": "replay", "3": "backtests", "4": "research" };
+  function byId(id) { return document.getElementById(id); }
+  function toggleKey(force) {
+    var el = byId("semantics-key"); if (!el) { return; }
+    var on = force === undefined ? !el.classList.contains("on") : force;
+    el.classList.toggle("on", on); el.setAttribute("aria-hidden", String(!on));
+    var btn = document.querySelector("[data-key-toggle]");
+    if (btn) { btn.setAttribute("aria-expanded", String(on)); }
+  }
+  function openDrawer(el) {
+    var d = byId("prov-drawer"); if (!d) { return; }
+    var attr = function (name) { return el.getAttribute("data-" + name) || "\u2014"; };
+    var set = function (id, value) { var node = d.querySelector('[data-field="' + id + '"]'); if (node) { node.textContent = value; } };
+    set("label", el.getAttribute("data-prov-label") || "");
+    set("value", el.getAttribute("data-prov-value") || attr("record-key"));
+    set("record", attr("record-key"));
+    set("revision", attr("revision-id"));
+    set("sha", attr("value-sha"));
+    set("clock", attr("clock"));
+    set("clock-kind", attr("clock-kind"));
+    d.classList.add("on"); d.setAttribute("aria-hidden", "false");
+    var scrim = byId("prov-scrim"); if (scrim) { scrim.classList.add("on"); }
+    var close = d.querySelector("[data-drawer-close]"); if (close) { close.focus(); }
+  }
+  function closeDrawer() {
+    var d = byId("prov-drawer"); if (d) { d.classList.remove("on"); d.setAttribute("aria-hidden", "true"); }
+    var scrim = byId("prov-scrim"); if (scrim) { scrim.classList.remove("on"); }
+  }
+  function goTo(surface) {
+    var link = document.querySelector('nav [data-nav="' + surface + '"]');
+    if (link && link.getAttribute("href").charAt(0) !== "#") { location.href = link.getAttribute("href"); return; }
+    location.hash = "#" + surface;
+  }
+  document.addEventListener("click", function (event) {
+    if (event.target.closest("[data-key-toggle]")) { toggleKey(); return; }
+    if (event.target.closest("[data-key-close]")) { toggleKey(false); return; }
+    var hind = event.target.closest("[data-hind-toggle]");
+    if (hind) {
+      var wrap = (hind.closest(".zones") || document).querySelector(".chartwrap"); if (!wrap) { return; }
+      var on = !wrap.classList.contains("hind-on");
+      wrap.classList.toggle("hind-on", on); hind.classList.toggle("on", on);
+      hind.textContent = "Hindsight overlay: " + (on ? "ON" : "off");
+      return;
+    }
+    var pv = event.target.closest(".pv[data-record-key]");
+    if (pv) { openDrawer(pv); return; }
+    if (event.target.closest("[data-drawer-close]") || event.target.id === "prov-scrim") { closeDrawer(); }
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.target && event.target.matches && event.target.matches("input, textarea")) { return; }
+    if (NAV_KEYS[event.key]) { goTo(NAV_KEYS[event.key]); }
+    if (event.key === "?") { toggleKey(); }
+    if (event.key === "Escape") { toggleKey(false); closeDrawer(); }
+  });
+  var tip = byId("tip");
+  document.addEventListener("mousemove", function (event) {
+    if (!tip) { return; }
+    var el = event.target.closest && event.target.closest("[data-tip]");
+    if (!el) { tip.style.display = "none"; return; }
+    tip.textContent = el.getAttribute("data-tip");
+    tip.style.display = "block";
+    tip.style.left = Math.min(event.clientX + 14, innerWidth - 300) + "px";
+    tip.style.top = (event.clientY + 14) + "px";
+  });
+  var params = new URLSearchParams(location.search);
+  if (params.get("key") === "1") { toggleKey(true); }
+  if (params.get("hind") === "1") { var hindButton = document.querySelector("[data-hind-toggle]"); if (hindButton) { hindButton.click(); } }
+  if (params.has("prov")) {
+    var target = document.querySelectorAll(".pv[data-record-key]")[Number(params.get("prov"))];
+    if (target) { openDrawer(target); }
+  }
+})();
+</script>
+</body></html>
