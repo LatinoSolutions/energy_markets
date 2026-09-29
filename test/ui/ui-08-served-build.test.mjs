@@ -50,3 +50,35 @@ test("UI08-R11: a route with a different snapshot fails the smoke", async () => 
     assert.match(report.errors.join("\n"), /\/replay: served snapshot\/semantic version differs from backend/);
   });
 });
+
+test("UI08-R11: a job starting during the smoke fails final idle verification", async () => {
+  await withServer(async (url) => {
+    let reads = 0;
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/api/backtest-jobs" || ++reads !== 2) return response;
+      const status = await response.json();
+      status.hypothesis = { ...status.hypothesis, running: true };
+      return new Response(JSON.stringify(status), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /job started during the smoke/);
+  });
+});
+
+test("UI08-R11: an unreadable final job status fails closed", async () => {
+  await withServer(async (url) => {
+    let reads = 0;
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/health" || ++reads !== 2) return response;
+      const status = await response.json();
+      status.backtestJobs = { configured: true, statusReadable: false, running: null };
+      return new Response(JSON.stringify(status), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /final idle state is unreadable/);
+  });
+});

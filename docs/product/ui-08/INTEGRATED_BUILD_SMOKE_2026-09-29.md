@@ -66,7 +66,7 @@ encargo de la tarea). Registrado como `NECESITO_DE_BRU [acceso]` en el resumen.
 
 `verify-served-build.mjs` consulta por HTTP el proceso cargado. Requiere el SHA
 completo del commit que la Oficina haya publicado, `dirty:false`, ausencia de
-jobs en ejecución con estado legible, versión semántica y revisión de snapshot
+jobs en ejecución con estado legible al inicio y al final del smoke, versión semántica y revisión de snapshot
 coherentes entre `/health`, `/api/backtest-jobs` y las cuatro superficies. También
 comprueba los nombres y versiones de misión e hipótesis del contrato backend,
 el orden Scope → Hypotheses → Results y el título estable. Solo hace GET; no

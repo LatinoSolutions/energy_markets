@@ -50,7 +50,9 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   if (!SHA256.test(revision ?? "") || !version || semantics?.ok !== true || semantics.semanticVersion !== version) {
     errors.push("/health and /api/backtest-jobs: semantic version or published revision unavailable/mismatched");
   }
-  const idle = (status) => status?.configured === false || status?.running === false;
+  const idle = (status) => status?.statusReadable !== false && (
+    status?.configured === false ? status?.running !== true : status?.running === false
+  );
   if (!idle(health?.backtestJobs) || !idle(jobs) || !idle(jobs?.trades) || !idle(jobs?.hypothesis)) {
     errors.push("a backtest job is running or its idle state is unreadable");
   }
@@ -96,9 +98,13 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
     if (!backtests.includes(`data-scope-mission="${id}"`)) errors.push(`/backtests: Scope omits ${id}`);
   }
   const lastHealth = await read("/health", true);
+  const lastJobs = await read("/api/backtest-jobs", true);
   if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "")
     && (lastHealth?.build?.commit !== expectedCommit || lastHealth?.semanticSnapshot?.revision !== revision)) {
     errors.push("served build or snapshot changed during the smoke; repeat after the process is stable");
+  }
+  if (!idle(lastHealth?.backtestJobs) || !idle(lastJobs) || !idle(lastJobs?.trades) || !idle(lastJobs?.hypothesis)) {
+    errors.push("a backtest job started during the smoke or its final idle state is unreadable");
   }
   return { ok: errors.length === 0, baseUrl: base.href, expectedCommit, loadedCommit: health?.build?.commit ?? null,
     semanticVersion: version ?? null, snapshotRevision: revision ?? null, routes, errors };
