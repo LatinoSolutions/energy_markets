@@ -3,6 +3,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 const ROUTES = ["/campaigns", "/replay", "/backtests", "/research"];
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -30,6 +31,37 @@ function servedBodyRevision(html) {
   // The revision belongs to the response shell. A matching attribute in
   // provenance, a hidden element or injected markup does not bind the page.
   return attribute(html.match(/<body\b[^>]*>/)?.[0] ?? "", "data-snapshot-revision");
+}
+
+export function configuredServiceUrl(commandLine, workingDirectory) {
+  const args = Buffer.isBuffer(commandLine)
+    ? commandLine.toString("utf8").split("\0").filter(Boolean)
+    : [];
+  if (!workingDirectory?.startsWith("/") || !args.includes(`${workingDirectory}/src/ui/serve.mjs`)) {
+    throw new Error("configured service process is not running the Energy Markets UI from its working directory");
+  }
+  const option = (name) => {
+    const at = args.indexOf(name);
+    return at >= 0 && args.indexOf(name, at + 1) < 0 ? args[at + 1] : null;
+  };
+  const host = option("--host");
+  const port = option("--port");
+  if (!host || !/^[1-9][0-9]*$/.test(port ?? "") || Number(port) > 65535) {
+    throw new Error("configured service process has no readable HTTP host and port");
+  }
+  const url = new URL(`http://${host}:${port}/`);
+  if (url.hostname !== host || url.port !== port || url.pathname !== "/") {
+    throw new Error("configured service process has an invalid HTTP endpoint");
+  }
+  return url.href;
+}
+
+export function assertConfiguredServiceTarget(baseUrl, commandLine, workingDirectory) {
+  const configuredUrl = configuredServiceUrl(commandLine, workingDirectory);
+  if (new URL(baseUrl).href !== configuredUrl) {
+    throw new Error("base-url does not match the configured Energy Markets UI process endpoint");
+  }
+  return configuredUrl;
 }
 
 export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid = null, readConfiguredPid = null, fetchImpl = fetch }) {
@@ -356,6 +388,8 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
         return pid;
       };
       const expectedPid = readConfiguredPid();
+      const workingDirectory = execFileSync("systemctl", ["--user", "show", "energy-markets-ui.service", "--property=WorkingDirectory", "--value"], { encoding: "utf8" }).trim();
+      assertConfiguredServiceTarget(baseUrl, readFileSync(`/proc/${expectedPid}/cmdline`), workingDirectory);
       const report = await verifyServedBuild({ baseUrl, expectedCommit, expectedPid, readConfiguredPid });
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 1;

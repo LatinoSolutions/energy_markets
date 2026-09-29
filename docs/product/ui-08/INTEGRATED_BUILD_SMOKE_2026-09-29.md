@@ -513,3 +513,27 @@ versión semántica ni revisión de snapshot. `systemctl --user show` mantuvo
 del servicio se hizo desde este worktree. UI08-R11 sigue abierto hasta la
 publicación autorizada y un smoke **exit 0** contra el SHA servido. El gate de
 acceso previamente registrado conserva `ACTO: ACTUAL`, sin ID `P-` asignado.
+
+### Relectura de Cierre · 2026-09-29T06:59Z
+
+El CLI de entrega ahora liga la URL consultada al `--host` y `--port` de
+`/proc/<MainPID>/cmdline` y comprueba que ese proceso ejecuta
+`src/ui/serve.mjs` desde el `WorkingDirectory` configurado en
+`energy-markets-ui.service`. Un servidor de fixture en otra URL ya no puede
+presentar un PID copiado del servicio y acreditar falsamente el build servido.
+La nueva prueba `UI08-R11: release target comes from the configured service
+process, not an arbitrary URL` pasa; los 35 tests del verificador pasan.
+`node --test $(find test -name '*.test.mjs')` tras la corrección terminó
+**2315 pass, 0 fail**.
+
+La suite anterior a esta corrección pasó **2314/2314**. El smoke posterior
+contra `e7b48b7b4af5340761c6f85b0d99851e8ab1428c` sigue saliendo **1**
+en el servicio Tailscale configurado: responde HTTP 200 en las seis rutas y
+cuatro drilldowns, pero no publica commit cargado, PID, versión semántica ni
+revisión de snapshot. `MainPID=796583`, `WorkingDirectory` y `ExecStart`
+continúan apuntando a `/srv/hot-data/energy-markets/app` (`main` en
+`607f426b51638fb3afb993292dbc0ed0743ab7ed`). La API anterior tampoco
+permite acreditar los tres runners inactivos y legibles. Este cambio fortalece
+la evidencia de entrega, pero **no cierra UI08-R11/UI08-10**. El gate de
+acceso para integrar y reiniciar sigue ACTO: ACTUAL, ya registrado y sin
+ID `P-`; no se repite ni se da por resuelto.

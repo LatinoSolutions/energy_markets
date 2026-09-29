@@ -5,9 +5,19 @@ import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 import { createUiServer } from "../../src/ui/server.mjs";
 import { backtestJobStatusPayload, tradesJobStatusPayload, hypothesisJobStatusPayload } from "../../src/backtest-jobs/http.mjs";
 import { hypothesisMetadata } from "../../src/backtest-jobs/hypothesis-runner.mjs";
-import { verifyServedBuild } from "../../docs/product/ui-08/verify-served-build.mjs";
+import { assertConfiguredServiceTarget, verifyServedBuild } from "../../docs/product/ui-08/verify-served-build.mjs";
 
 const COMMIT = "a".repeat(40);
+
+test("UI08-R11: release target comes from the configured service process, not an arbitrary URL", () => {
+  const root = "/srv/hot-data/energy-markets/app";
+  const commandLine = Buffer.from(["/home/op/.local/bin/node", `${root}/src/ui/serve.mjs`, "--host", "100.92.44.106", "--port", "8788", ""].join("\0"));
+  assert.equal(assertConfiguredServiceTarget("http://100.92.44.106:8788/", commandLine, root), "http://100.92.44.106:8788/");
+  assert.throws(() => assertConfiguredServiceTarget("http://127.0.0.1:8792/", commandLine, root), /does not match/);
+  assert.throws(() => assertConfiguredServiceTarget("http://100.92.44.106:8788/", commandLine, "/tmp/fixture"), /working directory/);
+  const noPort = Buffer.from([`${root}/src/ui/serve.mjs`, "--host", "100.92.44.106", ""].join("\0"));
+  assert.throws(() => assertConfiguredServiceTarget("http://100.92.44.106:8788/", noPort, root), /host and port/);
+});
 
 function idleRunner() {
   return {
