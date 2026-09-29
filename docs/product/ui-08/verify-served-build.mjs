@@ -99,9 +99,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
   }
   const lastHealth = await read("/health", true);
   const lastJobs = await read("/api/backtest-jobs", true);
-  if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "")
-    && (lastHealth?.build?.commit !== expectedCommit || lastHealth?.semanticSnapshot?.revision !== revision)) {
-    errors.push("served build or snapshot changed during the smoke; repeat after the process is stable");
+  if (health?.build?.commit === expectedCommit && SHA256.test(revision ?? "") && version
+    && (lastHealth?.build?.commit !== expectedCommit
+      || lastHealth?.build?.dirty !== false
+      || lastHealth?.semanticSnapshot?.revision !== revision
+      || lastHealth?.semanticSnapshot?.semanticVersion !== version
+      || lastJobs?.canonicalSemantics?.ok !== true
+      || lastJobs?.canonicalSemantics?.semanticVersion !== version)) {
+    errors.push("served build, snapshot or semantic version changed during the smoke; repeat after the process is stable");
   }
   if (!idle(lastHealth?.backtestJobs) || !idle(lastJobs) || !idle(lastJobs?.trades) || !idle(lastJobs?.hypothesis)) {
     errors.push("a backtest job started during the smoke or its final idle state is unreadable");

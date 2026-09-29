@@ -85,3 +85,20 @@ seguía mostrando la pregunta DIP/HOUR global. Este resultado es evidencia de
 **NO publicación**, no de aceptación UI08-10. El commit esperado de entrega
 deberá ser el SHA realmente cargado tras la integración, no el checkout de la
 rama leído por separado.
+
+### Relectura de Cierre · 2026-09-29T01:40:04Z
+
+`main` en `/srv/hot-data/energy-markets/app` sigue en
+`607f426b51638fb3afb993292dbc0ed0743ab7ed`; el proceso
+`energy-markets-ui.service` está `active/running` desde
+`2026-09-26 14:10:22 UTC`. El verificador de esta rama, ejecutado con el HEAD
+`be1bade6136e689827a894e36095536ad48ccfe5` contra
+`http://100.92.44.106:8788/`, terminó **exit 1**: las seis rutas respondieron
+200, pero `/health` no publica commit ni revisión semántica y `/backtests`
+conserva el título DIP/HOUR. La lectura no afirma que haya un job corriendo:
+el endpoint antiguo no permite demostrar el estado legible exigido por el
+verificador. No se hizo merge ni restart. UI08-10 sigue abierto.
+
+La verificación de Cierre también exige que las lecturas finales de `/health`
+y `/api/backtest-jobs` mantengan el mismo build limpio, snapshot y versión
+semántica que las lecturas iniciales; un cambio durante el smoke falla cerrado.
