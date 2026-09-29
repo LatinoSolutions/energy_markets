@@ -7,6 +7,7 @@ const ROUTES = ["/campaigns", "/replay", "/backtests", "/research"];
 const SHA256 = /^[0-9a-f]{64}$/;
 const COMMIT = /^[0-9a-f]{40}$/;
 const MISSION_IDS = ["GAS_MONTHLY", "GAS_QUARTERLY", "POWER_MONTHLY", "POWER_QUARTERLY"];
+const ENGLISH_TABS = Object.freeze({ campaigns: "Campaigns & Runs", replay: "Replay", backtests: "Backtests", research: "Research" });
 
 function htmlText(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -70,6 +71,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
     errors.push("a backtest job is running or its idle state is unreadable");
   }
   const missionIds = new Set(semantics?.missions?.map((mission) => mission.missionId) ?? []);
+  // The served backend is the vocabulary source for every page. Check that its
+  // own primary navigation metadata is complete and uses the owner-approved
+  // English names before comparing each rendered navigation link against it.
+  for (const [route, label] of Object.entries(ENGLISH_TABS)) {
+    if (semantics?.labels?.tabs?.[route] !== label) {
+      errors.push(`backend canonical navigation missing or non-English: ${route}`);
+    }
+  }
   for (const id of MISSION_IDS) {
     if (!missionIds.has(id)) errors.push(`backend canonical projection omits mission ${id}`);
   }

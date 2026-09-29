@@ -80,6 +80,23 @@ test("UI08-R11: English metadata elsewhere cannot hide a stale primary navigatio
   });
 });
 
+test("UI08-R11: a served backend with missing or translated navigation metadata fails closed", async () => {
+  await withServer(async (url) => {
+    for (const tabs of [{}, { campaigns: "Campañas y ejecuciones", replay: "Replay", backtests: "Backtests", research: "Research" }]) {
+      const changedFetch = async (target, options) => {
+        const response = await fetch(target, options);
+        if (new URL(target).pathname !== "/api/backtest-jobs") return response;
+        const jobs = await response.json();
+        jobs.canonicalSemantics.labels.tabs = tabs;
+        return new Response(JSON.stringify(jobs), { status: response.status, headers: response.headers });
+      };
+      const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+      assert.equal(report.ok, false);
+      assert.match(report.errors.join("\n"), /backend canonical navigation missing or non-English: campaigns/);
+    }
+  });
+});
+
 test("UI08-R11: primary mission and identity labels must match the backend projection", async () => {
   await withServer(async (url) => {
     const changedFetch = async (target, options) => {
