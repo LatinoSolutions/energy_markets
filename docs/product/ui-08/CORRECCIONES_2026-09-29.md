@@ -63,3 +63,22 @@ discordante tampoco confiere disponibilidad. El test `UI08-R14` reproduce esos
 casos y el render del card. `node --test $(find test -name '*.test.mjs')`
 terminó **2292 pass / 0 fail**. UI08-R11 conserva por separado su gate de
 publicación y smoke del proceso realmente servido; esta corrección no lo cierra.
+
+## Cierre · control Development y gate servido (turno Cierre, 2026-09-29)
+
+El control Development ahora usa `hypothesis.running` y
+`hypothesis.statusReadable` tanto en el HTML inicial como tras cada GET de
+estado. Un request validado no habilita el botón si ese runner está activo,
+ausente o ilegible; una respuesta POST `reused` vuelve a consultar el estado
+antes de habilitarlo. Dos tests UI08-R07 reproducen los casos de runner activo,
+ilegible y respuesta reutilizada. `node --test test/ui/ui-08.test.mjs` pasó
+37/37 y `node --test $(find test -name '*.test.mjs')` pasó 2307/2307.
+
+UI08-R11 permanece abierto: el smoke de lectura del servicio Tailscale contra
+el HEAD anterior `a1b42a2` terminó con salida 1. Las 12 respuestas HTTP fueron
+200, pero ninguna declaró commit, revisión de snapshot o versión semántica;
+`/health` tampoco declaró el PID cargado. La unidad activa seguía sirviendo
+`/srv/hot-data/energy-markets/app` desde `main` `607f426`. Este resultado
+no acredita UI08-10. El gate de acceso ya registrado, ACTO ACTUAL y sin ID
+`P-` asignado, conserva su estado; la publicación y el smoke con salida 0
+siguen pendientes por el cauce autorizado.

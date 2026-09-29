@@ -38,6 +38,10 @@ const JOB_CONTROL_SCRIPT = `<script>
   function lineOf(body) { return body && body.display && typeof body.display.line === "string" ? body.display.line : "${NO_STATUS_LINE}"; }
   function viewOf(s) { return mode === "TRADES" ? (s && s.trades) : mode === "HYPOTHESIS" ? (s && s.hypothesis) : s; }
   function locked(s) { var v = viewOf(s); return mode === "TRADES" && !(v && v.gate && v.gate.ok === true); }
+  function hypothesisBusyOrUnreadable(s) {
+    var v = s && s.hypothesis;
+    return !v || v.configured !== true || v.statusReadable !== true || v.running !== false;
+  }
   function hypothesisReady() {
     var holder = root.querySelector("[data-hypothesis-request]");
     if (!holder) return false;
@@ -50,10 +54,11 @@ const JOB_CONTROL_SCRIPT = `<script>
       // backend-validated request is actually embedded; a finished job or a
       // readable status must never re-enable a blocked control.
       button.disabled = mode === "HYPOTHESIS"
-        ? s.running === true || !hypothesisReady()
+        ? s.running === true || hypothesisBusyOrUnreadable(s) || !hypothesisReady()
         : s.running === true || locked(s);
-      root.setAttribute("data-running", s.running === true ? "true" : "false");
-      if (s.running === true) setTimeout(refresh, 3000);
+      var running = s.running === true || (mode === "HYPOTHESIS" && s.hypothesis && s.hypothesis.running === true);
+      root.setAttribute("data-running", running ? "true" : "false");
+      if (running) setTimeout(refresh, 3000);
     }).catch(function () { line.textContent = "${NO_STATUS_LINE} · status endpoint unreachable"; button.disabled = mode !== "TOB"; });
   }
   function hypothesisBody() {
@@ -74,7 +79,14 @@ const JOB_CONTROL_SCRIPT = `<script>
     fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
       .then(function (body) {
-        if (body.ok === true && body.reused === true) { line.textContent = lineOf(body) || line.textContent; button.disabled = false; return; }
+        if (body.ok === true && body.reused === true) {
+          line.textContent = lineOf(body) || line.textContent;
+          if (mode !== "HYPOTHESIS") { button.disabled = false; return; }
+          // A reused result does not attest that the hypothesis runner is
+          // currently idle. Read its own status before enabling Development.
+          refresh();
+          return;
+        }
         if (body.ok !== true) message.textContent = lineOf(body) || (body.message || "Not started");
         refresh();
       })
@@ -112,14 +124,18 @@ ${JOB_CONTROL_SCRIPT}`;
   const request = selected?.status === "READY" ? selected.request ?? null : null;
   const ready = request !== null;
   const blockers = selected?.blockers ?? [];
-  const disabled = running || !ready;
+  // The hypothesis runner has its own active attempt and readable status.
+  // A valid request alone cannot enable another Development launch.
+  const hypothesisAvailable = view?.configured === true && view?.statusReadable === true && view?.running === false;
+  const hypothesisRunning = view?.running === true;
+  const disabled = running || !hypothesisAvailable || !ready;
   const blockerText = blockers.length > 0
     ? blockers.map((blocker) => `${esc(blocker.code)}: ${esc(blocker.message ?? "")}`).join(" · ")
     : "no backend-validated Development request is available for this mission";
   const requestTag = ready
     ? `<script type="application/json" data-hypothesis-request>${JSON.stringify(request).replaceAll("<", "\\u003c")}</script>`
     : "";
-  return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="HYPOTHESIS" data-running="${running ? "true" : "false"}"${ready ? "" : ' data-locked="true"'} style="text-align:right">
+  return `<div class="jobctl" data-backtest-job data-endpoint="${esc(BACKTEST_JOBS_PATH)}" data-mode="HYPOTHESIS" data-running="${running || hypothesisRunning ? "true" : "false"}"${ready && hypothesisAvailable ? "" : ' data-locked="true"'} style="text-align:right">
   <button type="button" class="btn" data-job-start${disabled ? " disabled" : ""}>Run H-S1-01 Development</button>
   <div class="mono small muted" style="margin-top:4px" data-job-line>${esc(line)}</div>
   ${ready ? "" : `<div class="small muted" data-job-blockers style="max-width:36ch;margin-left:auto">${blockerText}</div>`}

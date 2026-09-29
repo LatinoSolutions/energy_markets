@@ -12,6 +12,7 @@ import { buildUiViewModels, createUiServer, hypothesisResultsFromRunner } from "
 import { buildBacktestsViewModel, backtestHypothesisCollectionEntry } from "../../src/ui/view-models.mjs";
 import { renderSurfacePage } from "../../src/ui/render.mjs";
 import { BACKTEST_JOBS_PATH } from "../../src/backtest-jobs/http.mjs";
+import { renderBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
 import { TRADES_ACCESS_REGISTRY_PATH } from "../../src/backtest-jobs/trades-runner.mjs";
 import {
   HYPOTHESIS_DEVELOPMENT_DATA_ROOT,
@@ -648,6 +649,43 @@ test("UI08-R06: without READY missions every mission keeps its Development link 
 });
 
 // UI08-R07 · the client refresh never re-enables a blocked control
+test("UI08-R07: a validated Development request stays locked while its own runner is active or unreadable", async () => {
+  const launch = { missions: [{ missionId: "GAS_MONTHLY", status: "READY", request: { missionId: "GAS_MONTHLY", phase: "DEVELOPMENT" } }] };
+  const status = { running: false, hypothesis: { configured: true, statusReadable: true, running: true, display: { line: "running" } } };
+  const page = renderBacktestJobControl(status, { mode: "HYPOTHESIS", missionId: "GAS_MONTHLY", launch });
+  assert.match(page, /data-running="true" data-locked="true"/);
+  assert.match(page, /data-job-start disabled/);
+
+  const harness = controlHarness(page, {
+    runningAttr: "true",
+    requestJson: JSON.stringify(launch.missions[0].request),
+    fetchQueue: [
+      { ...status, hypothesis: { ...status.hypothesis, statusReadable: false, running: null } },
+    ],
+  });
+  await flush();
+  assert.equal(harness.button.disabled, true, "an unreadable hypothesis status cannot enable Development");
+  assert.equal(harness.root.attrs["data-running"], "false");
+});
+
+test("UI08-R07: a reused result never enables Development without a readable idle hypothesis runner", async () => {
+  const request = { missionId: "GAS_MONTHLY", phase: "DEVELOPMENT" };
+  const launch = { missions: [{ missionId: "GAS_MONTHLY", status: "READY", request }] };
+  const page = renderBacktestJobControl({ running: false, hypothesis: { configured: true, statusReadable: true, running: false } },
+    { mode: "HYPOTHESIS", missionId: "GAS_MONTHLY", launch });
+  const harness = controlHarness(page, {
+    requestJson: JSON.stringify(request),
+    fetchQueue: [
+      { ok: true, reused: true, display: { line: "Result reused" } },
+      { running: false, hypothesis: { configured: true, statusReadable: false, running: null } },
+    ],
+  });
+  harness.click();
+  await flush();
+  assert.equal(harness.calls.length, 2, "the reused POST must be followed by a fresh status read");
+  assert.equal(harness.button.disabled, true);
+});
+
 test("UI08-R07: a finished job does not re-enable the Development button without a validated request", async () => {
   const repo = makeHypothesisFixtureRepo({ missions: ["GAS_MONTHLY"], deliveryOptions: { GAS_MONTHLY: { requiresFreeze: true } } });
   const runner = createHypothesisJobRunner({ repoRoot: repo.root });
@@ -659,8 +697,8 @@ test("UI08-R07: a finished job does not re-enable the Development button without
     const harness = controlHarness(page, {
       runningAttr: "true",
       fetchQueue: [
-        { running: true, hypothesis: { display: { line: "running" } } },
-        { running: false, hypothesis: { display: { line: "idle" } } },
+        { running: true, hypothesis: { configured: true, statusReadable: true, running: true, display: { line: "running" } } },
+        { running: false, hypothesis: { configured: true, statusReadable: true, running: false, display: { line: "idle" } } },
       ],
     });
     await flush();
