@@ -104,7 +104,7 @@ test("UI-05 Campaigns: rail en una tarjeta, tabla de runs de 7 columnas con barr
   assert.equal(count(html, /<a class="it crow" href="#cmp-/g), results.campaigns.length);
   assert.equal(count(html, /<div class="card crail">/g), 1);
   const withRuns = results.campaigns.filter((campaign) => campaign.runs.length > 0);
-  assert.equal(count(html, /<th>Run<\/th><th>Arm<\/th><th>Status<\/th><th>Decisions · evaluation<\/th><th>Determinism<\/th><th>Receipts<\/th><th>Drill down<\/th>/g), withRuns.length);
+  assert.equal(count(html, /<th>Run<\/th><th>Historical run<\/th><th>Status<\/th><th>Decisions · evaluation<\/th><th>Determinism<\/th><th>Receipts<\/th><th>Drill down<\/th>/g), withRuns.length);
   const runs = withRuns.reduce((sum, campaign) => sum + campaign.runs.length, 0);
   assert.equal(count(html, /<div class="bar" title="closed \/ open \/ not run">/g), runs);
   assert.equal(count(html, /class="unk-item"/g), results.campaigns.length * results.campaignUnknowns.length);
@@ -189,8 +189,9 @@ test("FIX-04: campañas y Replay Power muestran identidad de Power DE del artifa
     const replaySection = replayHtml.split(`id="rep-${product}-${replay.maturity}"`)[1].split("</section>")[0];
     // SEM2-T07: el run mostrado es el source-bound del mapping verificado del
     // release del producto (Power v3), no un EXP-…-ARM_A fabricado.
-    assert.ok(replaySection.includes(`${replayCampaign.id} · run LEGACY_EXPLORATORY/`));
-    assert.ok(replaySection.includes(`run LEGACY_EXPLORATORY/v3/`));
+    // UI-10: the run id is a technical alias line inside the historical card.
+    assert.ok(replaySection.includes(`${replayCampaign.id} · run <span class="alias" data-provenance="alias">LEGACY_EXPLORATORY/`));
+    assert.ok(replaySection.includes(`data-provenance="alias">LEGACY_EXPLORATORY/v3/`));
     assert.ok(replaySection.includes(`DE ${product} `));
     assert.equal(replaySection.includes(`THE ${product}`), false);
     assert.ok(replayHtml.includes(`${title} ${replay.maturity.slice(0, 4)}-${replay.maturity.slice(4, 6)}`));
@@ -233,12 +234,15 @@ test("UI-05 Research: pila en una tarjeta con recuento de evidencia, criterios, 
     assert.match(html, new RegExp(`href="#res-${candidate.id}">[\\s\\S]*?EVIDENCE ${expected}<`));
   }
   const criteria = candidates.reduce((sum, candidate) => sum + candidate.criteria.reduce((inner, group) => inner + group.items.length, 0), 0);
-  assert.equal(count(html, /<div class="crit">/g), criteria);
+  // UI-10: historical criteria render as a criterion × product matrix, one cell per item.
+  assert.equal(count(html, /<td data-criterion="/g), criteria);
+  // UI-10: each legacy run has its "paired against" arrow plus its "lineage of"
+  // arrow to the canonical hypothesis version it belongs to.
   const exploratoryArms = candidates.filter((candidate) => candidate.armId && candidate.armId !== "BASELINE").length;
-  assert.equal(count(html, /marker-end="url\(#emArr\)"/g), exploratoryArms);
+  assert.equal(count(html, /marker-end="url\(#emArr\)"/g), 2 * exploratoryArms);
   assert.match(html, /<marker id="emArr"/);
   assert.equal(count(html, /<th>Receipt<\/th><th>Kind<\/th><th>What<\/th><th>Recorded<\/th><th><\/th>/g), candidates.length);
-  assert.equal(count(html, /NO VERSION RUN · hypothesis only/g), candidates.filter((candidate) => !candidate.armId).length);
+  assert.equal(count(html, /NO VERSION RUN · strategy without a defined hypothesis/g), candidates.filter((candidate) => !candidate.armId).length);
 });
 
 test("UI-05 Backtests: leyenda de brazos, tabla de datos, histogramas con eje y forest plot por producto", () => {
@@ -248,7 +252,10 @@ test("UI-05 Backtests: leyenda de brazos, tabla de datos, histogramas con eje y 
   const missionIds = Object.values(EXPLORATORY_MISSIONS).filter((mission) => products.includes(mission.product)).map((mission) => mission.missionId);
   assert.equal(missionIds.length, products.length);
   const html = missionIds.map((missionId) => renderSurfacePage("backtests", vms.backtests, { missionId })).join("");
-  assert.match(html, /<div class="armhead"><span class="arm"><span class="sw" style="background:var\(--arm-base\)"><\/span>Baseline<\/span><span class="arm">[^]*?Arm A<\/span><span class="arm">[^]*?Arm B<\/span><\/div>/);
+  // UI-10: the run legend sits inside the paired-effect card and names the
+  // historical runs from the backend projection, never Baseline / Arm A / Arm B.
+  assert.match(html, /<div class="legend small"><span class="arm" data-historical-run="ARM_A">[^]*?DIP10 11:00<\/span> <span class="arm" data-historical-run="ARM_B">[^]*?Out-of-episode hour<\/span><\/div>/);
+  assert.doesNotMatch(html, /Baseline<\/span>|Arm A<\/span>|Arm B<\/span>/);
   // UI-08: the workspace defines no global DIP/HOUR/11:00 question; the legacy
   // exploratory question lives only as source-bound provenance, and the canonical
   // research questions come from the backend hypothesis cards.
@@ -256,13 +263,13 @@ test("UI-05 Backtests: leyenda de brazos, tabla de datos, histogramas con eje y 
   assert.match(html, /Legacy exploratory evidence is preserved as source-bound historical provenance only/);
   assert.equal(count(html, /<details class="tbl"><summary>Show data table/g), products.length);
   for (const product of products) {
-    assert.ok(html.includes(`Show data table (${results.comparison[product].perEpisode.length} episodes, every arm)`));
+    assert.ok(html.includes(`Show data table (${results.comparison[product].perEpisode.length} episodes, every historical run)`));
   }
-  assert.equal(count(html, /aria-label="ΔV per episode vs Baseline, k€"/g), products.length);
+  assert.equal(count(html, /aria-label="ΔV vs comparator \(A0\) per episode, k€"/g), products.length);
   assert.equal(count(html, /aria-label="H minus B\* per decision"><g class="axis">/g), 2 * products.length);
   // Las secciones nuevas de UI-04/BT-03 siguen presentes.
   assert.match(html, /data-kind="backend-measurements"/);
-  assert.match(html, /Exploratory backtest · real EEX best ask/);
+  assert.match(html, /Historical exploratory backtest · real EEX best ask/);
 });
 
 test("UI-05: el reloj del shell muestra el último día del snapshot EEX en las páginas exploratorias", () => {

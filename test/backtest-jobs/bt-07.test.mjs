@@ -487,7 +487,7 @@ test("BT-07 endpoint: POST mode TRADES sin freeze aprobado responde el motivo; G
     assert.ok(tradesPage.includes(`TRADES runs locked · ${FAILURE_WORDS.TRADES_FREEZE_NOT_APPROVED}`));
     const tobPage = await (await fetch(`${base}/backtests`)).text();
     assert.match(tobPage, /data-mode="TOB"/);
-    assert.match(tobPage, /<button type="button" class="btn" data-job-start>Run TOB backtest<\/button>/);
+    assert.match(tobPage, /<button type="button" class="btn" data-job-start>Run legacy TOB backtest<\/button>/);
   });
   assert.equal(repo.calls().length, 0);
 });
@@ -530,7 +530,7 @@ test("BT-07 UI: el control es el mismo botón; en TRADES copia la línea del bac
   // Sin estado TRADES publicado, fail-closed.
   assert.match(renderBacktestJobControl({ running: false }, { mode: "TRADES" }), /data-job-start disabled/);
   // TOB sigue igual que en BT-05.
-  assert.match(renderBacktestJobControl(status), /data-mode="TOB"[\s\S]*data-job-start>Run TOB backtest/);
+  assert.match(renderBacktestJobControl(status), /data-mode="TOB"[\s\S]*data-job-start>Run legacy TOB backtest/);
 });
 
 test("BT-07 endpoint: sin ejecutor TRADES configurado el modo TRADES queda bloqueado con motivo", async () => {

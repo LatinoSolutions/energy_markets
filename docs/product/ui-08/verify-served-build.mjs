@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { legacyTextFindings } from "../../../src/ui/primary-text.mjs";
 
 const ROUTES = ["/campaigns", "/replay", "/backtests", "/research"];
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -201,6 +202,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       if (nav?.[1] !== htmlText(label)) errors.push(`${path}: navigation differs from backend tab ${route}`);
     }
   };
+  // UI-10 (PLAN_UI §4.D step 19): the served primary text carries no legacy
+  // identity (Baseline / Arm A/B / DIP10), no raw enum or code, and CONTROL only
+  // inside the ablation; legacy history stays inside its provenance containers.
+  const checkPrimaryText = (html, path) => {
+    for (const finding of legacyTextFindings(html)) {
+      errors.push(`${path}: ${finding.check} legacy text in ${finding.kind} content: ${finding.text}`);
+    }
+  };
   const pages = {};
   for (const path of ROUTES) {
     const html = await read(path);
@@ -212,10 +221,23 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
     checkPageShellAndNavigation(html, path);
-    const stripStart = html.indexOf('data-semantic="SEM-2/canonical-projection"');
-    const strip = stripStart >= 0 ? html.slice(stripStart) : "";
-    if (path !== "/backtests" && stripStart < 0) {
-      errors.push(`${path}: shared canonical projection missing`);
+    checkPrimaryText(html, path);
+    // UI-10 (PLAN_UI §3, §4.B.12): Campaigns, Replay and Research carry the
+    // shared projection as a compact block for one mission at a time
+    // (data-mission-context), never a table of the four missions.
+    const contexts = [...html.matchAll(/data-mission-context="([A-Z_]+)">([\s\S]*?)<\/dl>/g)].map((match) => ({ missionId: match[1], body: match[2] }));
+    if (path !== "/backtests") {
+      if (contexts.length === 0) {
+        errors.push(`${path}: shared canonical projection missing`);
+      }
+      if (/<tr data-mission="/.test(html.slice(html.indexOf('data-semantic="SEM-2/canonical-projection"')))) {
+        errors.push(`${path}: shared projection is a table of missions instead of the active mission context`);
+      }
+      for (const { missionId } of contexts) {
+        if (!semantics?.missions?.some((mission) => mission.missionId === missionId)) {
+          errors.push(`${path}: mission context outside the backend projection: ${missionId}`);
+        }
+      }
     }
     for (const mission of semantics?.missions ?? []) {
       if (path === "/backtests") {
@@ -236,22 +258,28 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
         }
         continue;
       }
-      const row = strip.match(new RegExp(`<tr data-mission="${mission.missionId}">([\\s\\S]*?)<\\/tr>`))?.[1] ?? "";
-      if (row.match(/<td>([^<]*)<\/td>/)?.[1] !== htmlText(mission.label)) {
-        errors.push(`${path}: primary mission label differs from backend: ${mission.missionId}`);
-      }
-      for (const identity of ["CLIENT", "BENCHMARK", "CONTROL"]) {
-        const visible = row.match(new RegExp(`<td data-identity="${identity}">([^<]*)`))?.[1];
-        if (visible !== htmlText(semantics.labels.identities[identity])) {
-          errors.push(`${path}: primary ${identity} label differs from backend: ${mission.missionId}`);
+      for (const { body } of contexts.filter((context) => context.missionId === mission.missionId)) {
+        if (body.match(/<h3>([^<]*)<\/h3>/)?.[1] !== htmlText(mission.label)) {
+          errors.push(`${path}: primary mission label differs from backend: ${mission.missionId}`);
         }
-      }
-      for (const hypothesis of mission.hypotheses ?? []) {
-        const statusLabel = hypothesis.evidenceStatus === "PROVENANCE_ONLY"
-          ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED;
-        if (!row.includes(`data-hypothesis-id="${hypothesis.hypothesisId}"`) || !row.includes(htmlText(hypothesis.name))
-          || !row.includes(htmlText(hypothesis.version)) || !row.includes(htmlText(statusLabel))) {
-          errors.push(`${path}: backend hypothesis identity/name/version missing: ${hypothesis.hypothesisId}`);
+        for (const identity of ["CLIENT", "BENCHMARK"]) {
+          const visible = body.match(new RegExp(`<dt data-identity="${identity}">([^<]*)`))?.[1];
+          if (visible !== htmlText(semantics.labels.identities[identity])) {
+            errors.push(`${path}: primary ${identity} label differs from backend: ${mission.missionId}`);
+          }
+        }
+        // UI-10 (decisión de Bru 29-sep-2026, PLAN_STATUS.md fila UI-10): CONTROL is
+        // the ablation comparator, never an identity of the mission context.
+        if (body.includes('data-identity="CONTROL"')) {
+          errors.push(`${path}: CONTROL shown as a primary identity outside the ablation: ${mission.missionId}`);
+        }
+        for (const hypothesis of mission.hypotheses ?? []) {
+          const statusLabel = hypothesis.evidenceStatus === "PROVENANCE_ONLY"
+            ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED;
+          if (!body.includes(`data-hypothesis-id="${hypothesis.hypothesisId}"`) || !body.includes(htmlText(hypothesis.name))
+            || !body.includes(htmlText(hypothesis.version)) || !body.includes(htmlText(statusLabel))) {
+            errors.push(`${path}: backend hypothesis identity/name/version missing: ${hypothesis.hypothesisId}`);
+          }
         }
       }
     }
@@ -285,11 +313,14 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
       errors.push(`${path}: served snapshot/semantic version differs from backend`);
     }
     checkPageShellAndNavigation(html, path);
+    checkPrimaryText(html, path);
     const control = html.match(/<div class="jobctl" data-backtest-job[^>]*>/)?.[0] ?? "";
     const button = html.match(/<button\b[^>]*\bdata-job-start[^>]*>[^<]*<\/button>/)?.[0] ?? "";
     const requestTag = html.match(/<script type="application\/json" data-hypothesis-request>([^<]*)<\/script>/)?.[1] ?? null;
+    // UI-10 (PLAN_UI §4.B.8): the control reads "Run Development · <H> · <mission>".
+    const missionLabel = htmlText(semantics?.missions?.find((mission) => mission.missionId === id)?.label ?? id);
     if (attribute(control, "data-mode") !== "HYPOTHESIS" || attribute(control, "data-endpoint") !== "/api/backtest-jobs"
-      || !button.includes("Development")) {
+      || !button.includes("Run Development · ") || !button.includes(` · ${missionLabel}</button>`)) {
       errors.push(`${path}: canonical Development control missing`);
     }
     if (status === "READY") {
@@ -303,18 +334,23 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, expectedPid =
         || request?.missionId !== id || request?.phase !== "DEVELOPMENT"
         || !launchMetadata?.runnablePhases?.includes(request?.phase)
         || !launchMetadata?.dataModes?.includes(request?.dataMode)
-        || !button.includes(`Run ${hypothesis.hypothesisId} Development`)) {
+        || !button.includes(`Run Development · ${hypothesis.hypothesisId} · ${missionLabel}`)) {
         errors.push(`${path}: READY control lacks a validated mission-bound Development request`);
       }
     } else {
-      const blockerText = html.match(/<div class="small muted" data-job-blockers[^>]*>([^<]*)<\/div>/)?.[1] ?? "";
+      // UI-10 (PLAN_UI §4.B.11): the control shows a brief blocked line whose
+      // detail carries one line per backend blocker (code + userMessage + path).
+      const blockerStart = html.indexOf(">", html.indexOf("data-job-blockers")) + 1;
+      const blockerHtml = html.includes("data-job-blockers") ? html.slice(blockerStart, html.indexOf('<div class="small" data-job-message', blockerStart)) : "";
+      const controlBlockers = [...blockerHtml.matchAll(/data-job-blocker="([^"]+)">([^<]*)</g)].map((match) => `${match[1]}|${match[2]}`);
       const scopeStart = backtests.indexOf(`data-scope-mission="${id}"`);
       const nextScope = backtests.indexOf('data-scope-mission="', scopeStart + 1);
       const scope = scopeStart < 0 ? "" : backtests.slice(scopeStart, nextScope < 0 ? backtests.indexOf('data-section="hypotheses"', scopeStart) : nextScope);
-      const scopeBlockers = [...scope.matchAll(/data-scope-blocker="[^"]+">([^<]*)<\/div>/g)].map((match) => match[1]);
+      const scopeBlockers = [...scope.matchAll(/data-scope-blocker="([^"]+)">([^<]*)</g)].map((match) => `${match[1]}|${match[2]}`);
+      const blockerText = blockerHtml.replace(/<[^>]*>/g, " ").trim();
       if (attribute(control, "data-locked") !== "true" || !/\bdisabled\b/.test(button)
-        || requestTag !== null || blockerText.trim() === ""
-        || scopeBlockers.some((blocker) => !blockerText.includes(blocker))) {
+        || requestTag !== null || blockerText === ""
+        || scopeBlockers.some((blocker) => !controlBlockers.includes(blocker))) {
         errors.push(`${path}: blocked Development control is enabled or omits its backend reason`);
       }
     }

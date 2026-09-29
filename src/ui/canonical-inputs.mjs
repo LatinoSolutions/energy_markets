@@ -147,7 +147,7 @@ export function loadExploratoryBacktestAt(repoRoot) {
   if (!power.ok) {
     return { ok: true, results: gas.results, provenance: gasProvenance, legacyArtifacts: gasLegacyArtifacts, power: { loaded: false, code: power.code } };
   }
-  const merged = mergeExploratoryResults(gas.results, power.results);
+  const merged = mergeExploratoryResults(gas.results, power.results, { baseRelease: gas.provenance?.release ?? null, extraRelease: power.provenance?.release ?? null });
   if (!merged.ok) {
     return { ok: false, code: merged.code };
   }

@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 
 import { canonicalValueSha256 } from "../pit-views/pit-record.mjs";
 import { MISSIONS as SEM_MISSIONS, MISSION_LABELS } from "../backtesting-semantics/contract.mjs";
+import { blockerUserMessage } from "../backtesting-semantics/projection.mjs";
 import { contentHashOf } from "../sizing-controller/versioning.mjs";
 import {
   DEVELOPMENT_PHASE,
@@ -392,8 +393,21 @@ function readJsonOrNull(repoRoot, relativePath) {
   }
 }
 
-// Readiness de UNA misión en modo lectura: nunca corre el backtest ni consume
-const hypothesisReadinessBlockerShape = (adapterBlockers) => adapterBlockers.map(({ ok, ...blocker }) => blocker);
+const hypothesisReadinessBlockerShape = (adapterBlockers, source, sourcePath) => adapterBlockers.map(({ ok, ...blocker }) => ({ ...blocker, source, path: sourcePath }));
+
+// UI-10 (PLAN_UI §4.A.3): every preflight blocker carries `code`, the English
+// `userMessage` (no file path) and the technical `path` (null when the blocker
+// is not about one file); `message` stays the technical diagnosis.
+function withUserMessage(blocker) {
+  return { ...blocker, path: blocker.path ?? null, userMessage: blockerUserMessage(blocker) };
+}
+
+const DEVELOPMENT_SOURCE_FILES = Object.freeze([
+  ["availability", "availability.json"],
+  ["observations", "observations.json"],
+  ["benchmark", "benchmark.json"],
+  ["deliveryHours", "delivery-hours.json"],
+]);
 
 // Readiness de UNA misión en modo lectura: nunca corre el backtest ni consume
 // nada. Códigos en inglés para UI-08; el estado real del repo manda. Ya no
@@ -403,15 +417,16 @@ const hypothesisReadinessBlockerShape = (adapterBlockers) => adapterBlockers.map
 export function hypothesisReadinessForMission(repoRoot, missionId) {
   const missionLabel = missionLabelOf(missionId);
   if (!missionLabel) {
-    return { missionId, missionLabel: null, status: "BLOCKED", blockers: [{ code: "UNKNOWN_MISSION", message: `"${String(missionId)}" is not a canonical mission` }] };
+    return { missionId, missionLabel: null, status: "BLOCKED", blockers: [withUserMessage({ code: "UNKNOWN_MISSION", message: `"${String(missionId)}" is not a canonical mission` })] };
   }
   const blockers = [];
   const base = `${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/${missionId}`;
   const loaded = new Map();
-  for (const [field, file] of [["availability", "availability.json"], ["observations", "observations.json"], ["benchmark", "benchmark.json"], ["deliveryHours", "delivery-hours.json"]]) {
-    const document = readJsonOrNull(repoRoot, `${base}/${file}`);
+  const sourcePath = (field) => `${base}/${DEVELOPMENT_SOURCE_FILES.find(([name]) => name === field)[1]}`;
+  for (const [field] of DEVELOPMENT_SOURCE_FILES) {
+    const document = readJsonOrNull(repoRoot, sourcePath(field));
     if (document === null) {
-      blockers.push({ code: "SOURCE_MISSING", message: `no ${field} source is committed under ${base}/${file}` });
+      blockers.push({ code: "SOURCE_MISSING", message: `no ${field} source is committed under ${sourcePath(field)}`, source: field, path: sourcePath(field) });
     } else {
       loaded.set(field, document);
     }
@@ -423,16 +438,16 @@ export function hypothesisReadinessForMission(repoRoot, missionId) {
     const document = loaded.get("availability");
     if (Array.isArray(document?.availability)) {
       const assessment = assessAvailabilityRows({ session: document.session, availability: document.availability });
-      if (!assessment.ok) blockers.push({ code: assessment.code, message: assessment.message });
+      if (!assessment.ok) blockers.push({ code: assessment.code, message: assessment.message, source: "availability", path: sourcePath("availability") });
     }
     availabilityOutcome = adaptAvailabilitySource(document, missionId);
     if (!availabilityOutcome.ok) {
-      blockers.push(...hypothesisReadinessBlockerShape(availabilityOutcome.blockers));
+      blockers.push(...hypothesisReadinessBlockerShape(availabilityOutcome.blockers, "availability", sourcePath("availability")));
     } else {
       const warmUp = warmUpBlocker(document);
-      if (warmUp) blockers.push(warmUp);
+      if (warmUp) blockers.push({ ...warmUp, source: "availability", path: sourcePath("availability") });
       if (document.availability?.some?.((row) => row.requiresFreeze === true) && !isHash(document.freezeArtifactSha256)) {
-        blockers.push({ code: "FREEZE_PENDING", message: "the availability source declares a required freeze that is not bound" });
+        blockers.push({ code: "FREEZE_PENDING", message: "the availability source declares a required freeze that is not bound", source: "availability", path: sourcePath("availability") });
       }
     }
   }
@@ -445,7 +460,7 @@ export function hypothesisReadinessForMission(repoRoot, missionId) {
         ? adaptBenchmarkSource(loaded.get(field), missionId)
         : adaptObservationsSource(loaded.get(field), missionId);
     adaptedOk.set(field, outcome.ok);
-    if (!outcome.ok) blockers.push(...hypothesisReadinessBlockerShape(outcome.blockers));
+    if (!outcome.ok) blockers.push(...hypothesisReadinessBlockerShape(outcome.blockers, field, sourcePath(field)));
   }
   // Contenido completo (hallazgo BT08-T05): con las cuatro fuentes presentes,
   // adaptadas y la disponibilidad con filas válidas, el mismo gate del child
@@ -466,7 +481,7 @@ export function hypothesisReadinessForMission(repoRoot, missionId) {
     missionId,
     missionLabel,
     status: blockers.length === 0 ? "RUNNABLE" : "BLOCKED",
-    blockers,
+    blockers: blockers.map(withUserMessage),
   };
 }
 
@@ -517,16 +532,16 @@ export function hypothesisLaunchRequestForMission(repoRoot, missionId) {
   const relativePath = `${HYPOTHESIS_DEVELOPMENT_DATA_ROOT}/${missionId}/${HYPOTHESIS_LAUNCH_REQUEST_FILE}`;
   const raw = readJsonOrNull(repoRoot, relativePath);
   if (raw === null) {
-    return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: "LAUNCH_REQUEST_MISSING", message: `no canonical Development request is committed under ${relativePath}` }] };
+    return { ...readiness, status: "BLOCKED", request: null, blockers: [withUserMessage({ code: "LAUNCH_REQUEST_MISSING", message: `no canonical Development request is committed under ${relativePath}`, path: relativePath })] };
   }
   const validated = validateHypothesisJobRequest(raw);
   if (!validated.ok) {
-    return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: validated.code, message: validated.message ?? "the committed Development request is invalid" }] };
+    return { ...readiness, status: "BLOCKED", request: null, blockers: [withUserMessage({ code: validated.code, message: validated.message ?? "the committed Development request is invalid", path: relativePath })] };
   }
   // The request must target the mission it is stored under; a request file that
   // resolves to another mission is not a launchable request for this mission.
   if (validated.request.missionId !== missionId) {
-    return { ...readiness, status: "BLOCKED", request: null, blockers: [{ code: "MISSION_REQUEST_MISMATCH", message: `the committed request targets ${validated.request.missionId}, not ${missionId}` }] };
+    return { ...readiness, status: "BLOCKED", request: null, blockers: [withUserMessage({ code: "MISSION_REQUEST_MISMATCH", message: `the committed request targets ${validated.request.missionId}, not ${missionId}`, path: relativePath })] };
   }
   // UI-08 review R08: READY also requires the sources on disk to still match
   // the hashes the request binds. A source altered after the request was
@@ -538,13 +553,14 @@ export function hypothesisLaunchRequestForMission(repoRoot, missionId) {
       ...readiness,
       status: "BLOCKED",
       request: null,
-      blockers: [{
+      blockers: [withUserMessage({
         code: verified.code,
+        path: verified.path,
         message: verified.code === "INPUT_MISSING"
           ? `the source bound by the request is missing: ${verified.path}`
           : `the source bound by the request no longer matches its committed hash: ${verified.path}`,
         ...(verified.code === "INPUT_HASH_MISMATCH" ? { detail: { path: verified.path, expected: verified.expected, actual: verified.actual } } : {}),
-      }],
+      })],
     };
   }
   return { ...readiness, status: "READY", request: raw };
@@ -1000,7 +1016,7 @@ export function createHypothesisJobRunner({
     const files = inputFilesOf(validated.request);
     const verified = verifyInputFiles(repoRoot, files);
     if (!verified.ok) {
-      return { ok: false, code: verified.code, message: `${verified.code === "INPUT_MISSING" ? "missing verified input" : "verified input does not match its hash"}: ${verified.path}`, detail: verified };
+      return { ok: false, code: verified.code, message: `${verified.code === "INPUT_MISSING" ? "missing verified input" : "verified input does not match its hash"}: ${verified.path}`, path: verified.path, userMessage: blockerUserMessage({ code: verified.code }), detail: verified };
     }
     const specSha256 = sha256Of(Buffer.from(canonicalSpecOf(validated.request)));
     const { runId, identity } = computeHypothesisRunIdentity({ codeCommit: code.commit, files: verified.files, specSha256, request: validated.request });

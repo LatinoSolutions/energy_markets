@@ -24,7 +24,7 @@ import {
   clientFor,
   benchmarkFor,
 } from "./contract.mjs";
-import { adaptLegacyExploratoryArtifact } from "./legacy-compat.mjs";
+import { adaptLegacyExploratoryArtifact, LEGACY_RUN_NAMES } from "./legacy-compat.mjs";
 
 // Canonical English product vocabulary. The owner (2026-09-28) requires every
 // canonical domain name, enum and status in English and produced by the backend;
@@ -37,7 +37,71 @@ export const CANONICAL_LABELS = Object.freeze({
     UNTESTED: "Tested? No — no comparable evidence",
     PROVENANCE_ONLY: "Historical provenance only",
   }),
+  // UI-10 (PLAN_UI §1 row "All 4"): benchmark reference statuses as words, never
+  // the raw enum; an unbound campaign reference reads "campaign not bound".
+  benchmarkStatuses: Object.freeze({
+    BENCHMARK_PROVISIONAL: "Provisional",
+    RECONCILED_OFFICIAL: "Official",
+    UNAVAILABLE: "Unavailable",
+    CAMPAIGN_NOT_BOUND: "campaign not bound",
+  }),
+  // UI-10 (PLAN_UI §1 row "Raw codes SOURCE_MISSING", BT08-10): user-facing
+  // titles of the Development readiness codes. The code and the backend message
+  // stay attached; an unlisted code falls back to the generic title.
+  blockers: Object.freeze({
+    SOURCE_MISSING: "Development source missing",
+    SOURCE_ARTIFACT_INVALID: "Development source invalid",
+    PROVENANCE_INVALID: "Source provenance invalid",
+    INPUT_PROVENANCE_INVALID: "Source provenance invalid",
+    BINDING_INVALID: "Source binding invalid",
+    FREEZE_PENDING: "Required freeze not bound",
+    FRESHNESS_BLOCKED: "Source not point-in-time valid",
+    WARM_UP_BLOCKED: "Not enough Development history",
+    RESERVATION_INVALID: "Out-of-sample reservation invalid",
+    MISSING_DELIVERY_HOURS: "Delivery hours missing",
+    COVERAGE_MISMATCH: "Source coverage mismatch",
+    LAUNCH_REQUEST_MISSING: "Development request missing",
+    MISSION_REQUEST_MISMATCH: "Development request targets another mission",
+    INVALID_HYPOTHESIS_REQUEST: "Development request invalid",
+    INPUT_MISSING: "Bound source missing",
+    INPUT_HASH_MISMATCH: "Bound source changed since the request",
+    UNKNOWN_MISSION: "Unknown mission",
+    DEFAULT: "Development blocker",
+  }),
+  // UI-10 (PLAN_UI §3 "never raw enums"): hypothesis applicability as words.
+  applicability: Object.freeze({ DECLARED: "declared", UNDECLARED: "not declared" }),
+  // UI-10 (PLAN_UI §4.A.3 "Development source missing: availability"): the
+  // English name of each Development input source in a blocker's userMessage.
+  blockerSources: Object.freeze({
+    availability: "availability",
+    observations: "observations",
+    benchmark: "benchmark",
+    deliveryHours: "delivery hours",
+  }),
+  // UI-10 (PLAN_UI §3 direction): historical data is shown in a card labelled
+  // "Historical · provenance only"; the comparator of legacy runs is the
+  // calendar comparator (A0). CONTROL is named only inside the ablation
+  // (decisión de Bru 29-sep-2026, PLAN_STATUS.md fila UI-10).
+  historical: Object.freeze({
+    badge: "Historical · provenance only",
+    notEvidence: "Not current hypothesis evidence",
+    comparator: LEGACY_RUN_NAMES.BASELINE,
+    deltaVsComparator: "ΔV vs comparator (A0)",
+    technicalAlias: "technical alias",
+    lineageOf: "legacy lineage of",
+  }),
 });
+
+// UI-10 (PLAN_UI §4.A.3): the user-facing sentence of a Development blocker —
+// English title plus the input source it concerns, never a file path. The
+// producer (hypothesis-runner.mjs) publishes it as `userMessage` next to `code`
+// and `path`.
+export function blockerUserMessage(blocker) {
+  const title = CANONICAL_LABELS.blockers[blocker?.code] ?? CANONICAL_LABELS.blockers.DEFAULT;
+  const source = CANONICAL_LABELS.blockerSources[blocker?.source];
+  return source ? `${title}: ${source}` : title;
+}
+
 
 // Product code -> canonical mission. Kept here as the backend projection's own
 // mapping so a standalone consumer does not import the exploratory mission file.
@@ -198,6 +262,45 @@ const LEGACY_CANDIDATE_LABELS = Object.freeze({
   HOUR: Object.freeze({ canonicalName: "H-RD-01 · Execution Hour", authorityLabel: "Research Discovery provenance only" }),
 });
 
+// UI-10 (PLAN_UI §4.A.1): one visible identity per historical exploratory run.
+// The lineage hypothesis comes only from the source-bound adapter of the same
+// artifact; without a verified mapping the lineage stays null (fail-closed) and
+// the run keeps its historical name. None of these is a tested result.
+function historicalRunViews(legacyAdapter) {
+  return Object.freeze(Object.fromEntries(Object.entries(LEGACY_RUN_NAMES).map(([technicalAlias, displayName]) => {
+    const role = legacyAdapter?.ok === true ? legacyAdapter.roles?.[technicalAlias] ?? null : null;
+    const comparator = technicalAlias === "BASELINE";
+    const lineageOf = !comparator && role?.resolved === true ? role.hypothesisId ?? null : null;
+    const caption = comparator
+      ? `${CANONICAL_LABELS.historical.technicalAlias} ${technicalAlias} · historical calendar comparator`
+      : `${CANONICAL_LABELS.historical.technicalAlias} ${technicalAlias} · ${lineageOf === null ? "lineage unavailable — no verified source-bound mapping" : `${CANONICAL_LABELS.historical.lineageOf} ${lineageOf}`}`;
+    return [technicalAlias, Object.freeze({
+      technicalAlias,
+      displayName,
+      label: comparator || lineageOf === null ? displayName : `${displayName} · ${CANONICAL_LABELS.historical.lineageOf} ${lineageOf}`,
+      caption,
+      comparator,
+      lineageOf,
+      resolved: role?.resolved === true,
+      tested: false,
+    })];
+  })));
+}
+
+// UI-10 (PLAN_UI §1 row "All 4", §4.A.1): the Client summary is produced here
+// from the contract's confirmed/unknown fields, not written in the view.
+function clientSummaryOf(client) {
+  const confirmed = client?.confirmed ?? {};
+  const unknownTail = "sizing, fills and full cost unknown";
+  if (confirmed.scope === "CURRENT_MANDATE_UNSCOPED") {
+    return `${confirmed.purchaseTime} ${confirmed.timezone} known · current mandate, campaign not identified · ${unknownTail}`;
+  }
+  if (confirmed.scope === "CAMPAIGN_EVIDENCE") {
+    return `${confirmed.purchaseTime} ${confirmed.timezone} · campaign ${client.campaignId} · ${unknownTail}`;
+  }
+  return `purchase timing unknown for this mission · ${unknownTail}`;
+}
+
 // Candidate views exist regardless of adapter state, so the UI never falls back
 // to the artifact's own Spanish/client-practice labels when the mapping is
 // unavailable: an unverified mapping still gets its canonical label with
@@ -354,17 +457,20 @@ export function buildCanonicalSemanticsProjection({
     const benchmarkByCampaign = Object.freeze(Object.fromEntries(
       missionCampaigns(mission.id, campaigns, exploratoryWindows).map((campaign) => [campaign.campaignKey, benchmarkForCampaign(mission.id, campaign, bt02ProvenancePath)]),
     ));
+    const client = clientFor(mission.id, evidence ?? {});
     return Object.freeze({
       missionId: mission.id,
       label: MISSION_LABELS[mission.id],
       product,
       cadence: mission.cadence,
-      client: clientFor(mission.id, evidence ?? {}),
+      client,
+      clientSummary: clientSummaryOf(client),
       benchmark: benchmarkFor(mission.id),
       benchmarkByCampaign,
       hypotheses: Object.freeze([canonicalHypothesisView(H_S1_01)]),
       control: controlView(legacyAdapter),
       legacyAdapter,
+      historicalRuns: historicalRunViews(legacyAdapter),
       campaigns: Object.freeze(missionCampaigns(mission.id, campaigns, exploratoryWindows)),
       // UI-08 (review R05): mission results are not pinned to H-S1-01 — every
       // published canonical hypothesis that declares this mission carries its
@@ -380,6 +486,7 @@ export function buildCanonicalSemanticsProjection({
     source: projectionSource(exploratory),
     legacyAdapter: adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY),
     legacyCandidates: legacyCandidateViews(adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY)),
+    historicalRuns: historicalRunViews(adapterForProduct(PRODUCT_BY_MISSION.GAS_QUARTERLY)),
     labels: CANONICAL_LABELS,
     // HYPOTHESES collection: every canonical hypothesis with its accepted scope.
     // H-RD-01 (Research Discovery) declares missions: [] — it belongs to the

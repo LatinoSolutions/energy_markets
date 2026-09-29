@@ -190,7 +190,7 @@ test("UI-FIDELITY: Backtests reproduce tabla de medidas, efecto emparejado, mét
   inOrder(html, [
     '<h1 class="page">',
     "Economic measures",
-    "<th class=\"right\">B</th>", "<th class=\"right\">H</th>", "<th class=\"right\">V</th>", "ΔV vs baseline",
+    "<th class=\"right\">B</th>", "<th class=\"right\">H</th>", "<th class=\"right\">V</th>", "ΔV vs comparator",
     "Paired effect over the campaign",
     "Method &amp; integrity",
     'data-kind="distribution"', 'data-kind="distribution"',

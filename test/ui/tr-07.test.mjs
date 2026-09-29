@@ -18,6 +18,7 @@ import {
   TRADES_PANEL_ARTIFACTS,
   loadTradesPanelsAt,
   projectTradesPanels,
+  tradesLabel,
 } from "../../src/ui/trades-panels.mjs";
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
 import { buildUiViewModels, createUiServer, selectionFromSearchParams } from "../../src/ui/server.mjs";
@@ -61,7 +62,9 @@ test("DATA-02: la UI muestra los días del lago de una campaign verificada", () 
   assert.deepEqual(row.sourcePeriod.patch.days.map((day) => day.source), ["EEX_LAKE_PATCH", "CLIENT_SEALED_ARCHIVE"]);
   const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: projected },
     { mode: "TRADES", missionId: "GAS_QUARTERLY", period: "DEVELOPMENT" });
-  assert.match(html, /EEX_LAKE_PATCH 1 d: 2021-03-04/);
+  // UI-10 (PLAN_UI §3): the source code reads as its backend English word.
+  assert.match(html, /EEX lake patch 1 d: 2021-03-04/);
+  assert.doesNotMatch(html, />[^<]*EEX_LAKE_PATCH/);
   assert.match(html, /data-tr07-period-sha="a{64}"/);
   const unavailable = projectTradesPanels({ ...loaded, sourcePeriodCoverage: { ok: false, code: "DATA02_COVERAGE_STALE" } });
   assert.equal(unavailable.coverage.missions[0].zones[0].campaigns[0].sourcePeriod.status, "UNAVAILABLE");
@@ -78,7 +81,8 @@ test("DATA-02: la UI expone la fecha del hueco de TOB Power como DATA_INCOMPLETE
   assert.deepEqual(row.sourcePeriod.patch.days, fixture.json.campaigns[0].patch.days);
   const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: projected },
     { mode: "TRADES", missionId: "POWER_QUARTERLY", period: "PUENTE" });
-  assert.match(html, /DATA_INCOMPLETE 1 d: 2026-04-17/);
+  assert.match(html, /data incomplete 1 d: 2026-04-17/);
+  assert.doesNotMatch(html, />[^<]*DATA_INCOMPLETE/);
   assert.match(html, /data-tr07-period-sha="b{64}"/);
 });
 
@@ -92,7 +96,7 @@ test("DATA-02: la UI proyecta la selección medida de Power con procedencia liga
   assert.deepEqual(row.sourcePeriod.patch.days.find((entry) => entry.day === "2026-04-17"), measuredDay);
   const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: panels },
     { mode: "TRADES", missionId: "POWER_QUARTERLY", period: "PUENTE" });
-  assert.match(html, new RegExp(`${measuredDay.source} [^<]*2026-04-17`));
+  assert.match(html, new RegExp(`${tradesLabel("sources", measuredDay.source)} [^<]*2026-04-17`));
   assert.match(html, /data-tr07-period-sha="[0-9a-f]{64}"/);
 });
 
@@ -199,7 +203,7 @@ test("TR-09 UI muestra grilla, elección y contraste verificado por misión y br
   const withWinner = { ...reported, frozenContract: { ...reported.frozenContract, candidate: { ...reported.frozenContract.candidate, freshnessSelection: { ...reported.frozenContract.candidate.freshnessSelection, results: { GAS_QUARTERLY: { missionKey: "GAS_QUARTERLY", selectedSeconds: 1800 } } } } } };
   const html = renderSurfacePage("backtests", { ...canonicalVms.backtests, tradesPanels: withWinner }, { mode: "TRADES", missionId: "GAS_QUARTERLY", period: "PUENTE" });
   assert.match(html, /900 \/ 1800 \/ 3600 \/ 14400 \/ 86400/);
-  assert.match(html, /GAS_QUARTERLY 1800/);
+  assert.match(html, /Gas Quarterly 1800/);
   assert.match(html, /data-tr09-contrast="GAS_QUARTERLY\|LAST_TRADE\|BASELINE\|FILL_PRICE"/);
   assert.match(html, /TOB 100.*TRADES 101/);
 });
@@ -310,8 +314,9 @@ test("TR-07 UI: cada resultado de cobertura lleva su zona y su estado de artifac
   const html = renderBacktests({ mode: "TRADES", missionId: "POWER_MONTHLY" });
   assert.match(html, /data-tr07="coverage" data-mission="POWER_MONTHLY"/);
   assert.ok(html.includes('data-tr07-campaign="POW-M-2020-12"'));
-  assert.ok(html.includes(">DEVELOPMENT<"));
-  assert.ok(html.includes("OBSERVED"));
+  // UI-10 (PLAN_UI §3): zone and status read in English; the codes stay in data attributes.
+  assert.ok(html.includes('<td data-zone="DEVELOPMENT">Development</td>'));
+  assert.ok(html.includes('<span data-state="OBSERVED"><span class="st run"><span class="g">◆</span>Observed</span></span>'));
 });
 
 test("TR-07 UI: sin view model de paneles la sección TR-07 queda fuera (fail-closed)", () => {
@@ -429,7 +434,9 @@ test("TR-07 UI: en TRADES salen la tabla de brazos NOT RUN YET y el efecto parea
   assert.ok(html.includes("NOT RUN YET"));
 
   const start = html.indexOf('data-tr07="trades-paired"');
-  const end = html.indexOf('data-kind="backend-measurements"', start);
+  // UI-10: the BT-02 measurements moved to the historical card; the paired box
+  // ends where the next TRADES panel (coverage) starts.
+  const end = html.indexOf('data-tr07="coverage"', start);
   const paired = html.slice(start, end === -1 ? undefined : end);
   assert.equal(/€\/MWh|k€/.test(paired), false, "el recuadro pareado no lleva valores inventados");
 });

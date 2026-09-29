@@ -23,10 +23,12 @@
 //   - procedencia (recordKey, revisionId, valueSha256) y relojes visibles.
 
 import { SURFACES } from "./view-models.mjs";
-import { H_S1_01, H_RD_01 } from "../backtesting-semantics/contract.mjs";
+import { H_S1_01, H_RD_01, MISSION_LABELS } from "../backtesting-semantics/contract.mjs";
 import { CANONICAL_LABELS } from "../backtesting-semantics/projection.mjs";
+import { blockerBriefHtml } from "./backtest-job-panel.mjs";
+import { LEGACY_RUN_NAMES } from "../backtesting-semantics/legacy-compat.mjs";
 import { EXPLORATORY_MISSIONS } from "../exploratory/missions.mjs";
-import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor } from "./trades-panels.mjs";
+import { TRADES_MODES, TRADES_ZONE_PLAN, observationFor, tradesLabel, tradesZoneLabel } from "./trades-panels.mjs";
 import { EXPOSURE_FIELDS } from "../operator-interface/exposure.mjs";
 import {
   PROVENANCE_INTERACTION_SCRIPT,
@@ -200,8 +202,8 @@ function noEstimateFrameSvg({ width, height, label, reason }) {
   }
   svg += `<line x1="${left}" x2="${left}" y1="${top}" y2="${top + plotH}"/></g>`;
   svg += `<rect x="${left}" y="${top}" width="${plotW}" height="${plotH}" fill="url(#hatchU-${width}-${height})" rx="2"/>`;
-  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 - 4}" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
-  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 + 13}" text-anchor="middle" font-size="10.5" fill="var(--unk)">not produced by a canonical producer · not zero</text>`;
+  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 - 4}" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
+  svg += `<text x="${left + plotW / 2}" y="${top + plotH / 2 + 13}" text-anchor="middle" font-size="14" fill="var(--unk)">not produced by a canonical producer · not zero</text>`;
   svg += "</svg>";
   return `${svg}<div class="small muted" style="margin-top:4px" data-status="UNAVAILABLE">${esc(reason)}</div>`;
 }
@@ -278,7 +280,7 @@ function timelineSvg(vm) {
   svg += `<line x1="${left}" x2="${width - right}" y1="34" y2="34" stroke="var(--rule)"/>`;
   if (times.length === 0) {
     svg += `<rect x="${left}" y="10" width="${width - left - right}" height="48" fill="url(#tlHatchU)"/>`;
-    svg += `<text x="${width / 2}" y="38" text-anchor="middle" font-size="11" fill="var(--unk)" font-weight="700">TIMELINE UNAVAILABLE · nothing is drawn</text>`;
+    svg += `<text x="${width / 2}" y="38" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">TIMELINE UNAVAILABLE · nothing is drawn</text>`;
     return `${svg}</svg>`;
   }
   const minMs = Math.min(...times);
@@ -289,7 +291,7 @@ function timelineSvg(vm) {
   const x = (ms) => left + ((ms - from) / (to - from)) * (width - left - right);
   if (t0 !== null && asOf !== null && asOf > t0) {
     svg += `<rect x="${x(t0)}" y="42" width="${x(asOf) - x(t0)}" height="8" fill="url(#tlHatchH)" stroke="var(--hind)" stroke-width="1"/>`;
-    svg += `<text x="${x(t0) + 4}" y="61" font-size="10" fill="var(--hind)" font-weight="600">T₀ → evaluation as-of ${esc(vm.evaluation.asOf)}</text>`;
+    svg += `<text x="${x(t0) + 4}" y="61" font-size="14" fill="var(--hind)" font-weight="600">T₀ → evaluation as-of ${esc(vm.evaluation.asOf)}</text>`;
   }
   if (asOf !== null) {
     svg += `<rect x="${x(asOf)}" y="8" width="${width - right - x(asOf)}" height="52" fill="url(#tlHatchU)" opacity=".7"/>`;
@@ -297,12 +299,12 @@ function timelineSvg(vm) {
     const nearRightEdge = x(asOf) > width - right - 150;
     const labelX = nearRightEdge ? x(asOf) - 5 : x(asOf) + 5;
     const anchor = nearRightEdge ? "end" : "start";
-    svg += `<text x="${labelX}" y="14" text-anchor="${anchor}" font-size="10.5" fill="var(--ink)" font-weight="600">evaluation as-of</text>`;
-    svg += `<text x="${labelX}" y="26" text-anchor="${anchor}" font-size="10" fill="var(--ink-3)">beyond · nothing known</text>`;
+    svg += `<text x="${labelX}" y="14" text-anchor="${anchor}" font-size="14" fill="var(--ink)" font-weight="600">evaluation as-of</text>`;
+    svg += `<text x="${labelX}" y="26" text-anchor="${anchor}" font-size="14" fill="var(--ink-3)">beyond · nothing known</text>`;
   }
   if (t0 !== null) {
     svg += `<line x1="${x(t0)}" x2="${x(t0)}" y1="4" y2="64" stroke="var(--asof)" stroke-width="2"/>`;
-    svg += `<text x="${x(t0) - 5}" y="14" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">T₀</text>`;
+    svg += `<text x="${x(t0) - 5}" y="14" text-anchor="end" font-size="14" fill="var(--asof)" font-weight="700">T₀</text>`;
   }
   const shapes = {
     decision: (cx) => `<rect x="${cx - 3.5}" y="27" width="7" height="7" rx="1" fill="var(--asof)" stroke="var(--asof)"/>`,
@@ -314,8 +316,8 @@ function timelineSvg(vm) {
     const cx = x(toMs(mark.clock));
     svg += `<g data-tip="${esc(mark.label)} · ${esc(mark.clock)}"><rect x="${cx - 6}" y="20" width="12" height="28" fill="transparent"/>${shapes[mark.kind](cx)}</g>`;
   }
-  svg += `<text x="${left}" y="72" font-size="10" fill="var(--ink-3)">${esc(new Date(from).toISOString().slice(0, 10))}</text>`;
-  svg += `<text x="${width - right}" y="72" font-size="10" fill="var(--ink-3)" text-anchor="end">${esc(new Date(to).toISOString().slice(0, 10))}</text>`;
+  svg += `<text x="${left}" y="72" font-size="14" fill="var(--ink-3)">${esc(new Date(from).toISOString().slice(0, 10))}</text>`;
+  svg += `<text x="${width - right}" y="72" font-size="14" fill="var(--ink-3)" text-anchor="end">${esc(new Date(to).toISOString().slice(0, 10))}</text>`;
   return `${svg}</svg>`;
 }
 
@@ -351,14 +353,14 @@ function decisionChartSvg(vm) {
   svg += `<text x="${left}" y="${height - 8}" text-anchor="middle">−${days}d</text><text x="${x0}" y="${height - 8}" text-anchor="middle">T₀</text><text x="${width - right}" y="${height - 8}" text-anchor="middle">+${days}d</text>`;
   svg += "</g>";
   svg += `<rect x="${left}" y="${top + 34}" width="${x0 - left - 8}" height="${plotBottom - top - 78}" fill="url(#chHatchU)" rx="2"/>`;
-  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 - 4}" text-anchor="middle" font-size="11.5" fill="var(--unk)" font-weight="700">NO CANONICAL SERIES</text>`;
-  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 + 12}" text-anchor="middle" font-size="10.5" fill="var(--unk)">the boundary exposes no price series · no line is drawn</text>`;
-  svg += `<g class="sealed-layer"><text x="${(x0 + width - right) / 2}" y="${height / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
-  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
-  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 25}" text-anchor="middle" font-size="11" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
+  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 - 4}" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO CANONICAL SERIES</text>`;
+  svg += `<text x="${(left + x0) / 2}" y="${top + 34 + (plotBottom - top - 78) / 2 + 12}" text-anchor="middle" font-size="14" fill="var(--unk)">the boundary exposes no price series · no line is drawn</text>`;
+  svg += `<g class="sealed-layer"><text x="${(x0 + width - right) / 2}" y="${height / 2 - 8}" text-anchor="middle" font-size="14" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
+  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 10}" text-anchor="middle" font-size="14" fill="var(--ink-3)">Not known at decision time.</text>`;
+  svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2 + 25}" text-anchor="middle" font-size="14" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
   svg += `<line x1="${x0}" x2="${x0}" y1="${top - 6}" y2="${plotBottom}" stroke="var(--hind)" stroke-width="2" stroke-dasharray="4 3"/>`;
-  svg += `<text x="${x0 - 5}" y="${top + 4}" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
-  svg += `<text x="${x0 + 5}" y="${top + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
+  svg += `<text x="${x0 - 5}" y="${top + 4}" text-anchor="end" font-size="14" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
+  svg += `<text x="${x0 + 5}" y="${top + 4}" font-size="14" fill="var(--hind)" font-weight="700">LATER</text>`;
   const markY = plotBottom - 16;
   // Etiquetas escalonadas cuando dos relojes caen casi en la misma x.
   let previousX = null;
@@ -370,17 +372,17 @@ function decisionChartSvg(vm) {
   };
   for (const mark of decisionMarks) {
     const cx = x(mark.ms);
-    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · known at T₀"><rect x="${cx - 5}" y="${markY - 5}" width="10" height="10" rx="1" fill="var(--asof)" stroke="var(--surface)" stroke-width="2"/><text x="${cx - 8}" y="${labelY(cx)}" text-anchor="end" font-size="10" fill="var(--asof)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
+    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · known at T₀"><rect x="${cx - 5}" y="${markY - 5}" width="10" height="10" rx="1" fill="var(--asof)" stroke="var(--surface)" stroke-width="2"/><text x="${cx - 8}" y="${labelY(cx)}" text-anchor="end" font-size="14" fill="var(--asof)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
   }
   previousX = null;
   stagger = 0;
   svg += '<g class="hind-layer">';
   if (laterMarks.length === 0) {
-    svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2}" text-anchor="middle" font-size="11" fill="var(--hind)" font-weight="600">no evaluation point after T₀ exposed</text>`;
+    svg += `<text x="${(x0 + width - right) / 2}" y="${height / 2}" text-anchor="middle" font-size="14" fill="var(--hind)" font-weight="600">no evaluation point after T₀ exposed</text>`;
   }
   for (const mark of laterMarks) {
     const cx = x(mark.ms);
-    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · realised later"><circle cx="${cx}" cy="${markY}" r="5" fill="var(--hind)" stroke="var(--surface)" stroke-width="2"/><text x="${cx}" y="${labelY(cx)}" text-anchor="middle" font-size="10" fill="var(--hind)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
+    svg += `<g data-tip="${esc(mark.point.key)} · ${esc(mark.point.clock)} · realised later"><circle cx="${cx}" cy="${markY}" r="5" fill="var(--hind)" stroke="var(--surface)" stroke-width="2"/><text x="${cx}" y="${labelY(cx)}" text-anchor="middle" font-size="14" fill="var(--hind)" font-family="var(--mono)">${esc(mark.point.key)}</text></g>`;
   }
   svg += "</g></svg>";
   return svg;
@@ -473,7 +475,7 @@ function replayBody(vm, { errors = null } = {}) {
   </div>`;
 
   const interventions = validated
-    ? `<div class="interv"><div class="ohd"><span class="glyph" style="background:var(--unk);color:#fff;width:22px;height:22px;display:grid;place-items:center;border-radius:3px;font:700 13px var(--mono)">◆</span><b style="font-size:12.5px">Human intervention</b><span class="muted small">never listed as a fill; attribution kept</span></div><section class="events intervention-events" data-view-scope="intervention" data-zone="intervention" data-events-kind="intervention">${vm.interventions.length > 0 ? `<ul class="data-list events-list">${vm.interventions.map(eventClassHtml).join("")}</ul>` : `<p class="small muted" style="margin:6px 0 0">${chip("na", "—", "None exposed")} no human intervention in this boundary</p>`}</section></div>`
+    ? `<div class="interv"><div class="ohd"><span class="glyph" style="background:var(--unk);color:#fff;width:22px;height:22px;display:grid;place-items:center;border-radius:3px;font:700 14px var(--mono)">◆</span><b style="font-size:14px">Human intervention</b><span class="muted small">never listed as a fill; attribution kept</span></div><section class="events intervention-events" data-view-scope="intervention" data-zone="intervention" data-events-kind="intervention">${vm.interventions.length > 0 ? `<ul class="data-list events-list">${vm.interventions.map(eventClassHtml).join("")}</ul>` : `<p class="small muted" style="margin:6px 0 0">${chip("na", "—", "None exposed")} no human intervention in this boundary</p>`}</section></div>`
     : "";
 
   const exposureRows = validated
@@ -511,7 +513,7 @@ function replayBody(vm, { errors = null } = {}) {
     evaluationInner = `
       <div class="zhd"><span class="zt hind">Later · evaluation</span><b>not visible to the decision</b></div>
       <div class="zbd">
-        <div class="metric"><span class="lbl"><b>Evaluation view</b> · as-of</span><span class="val" style="font-size:13px">${esc(vm.evaluation.asOf ?? "—")}</span><span class="lbl">Clock</span><span class="mono small">evaluation-effective</span></div>
+        <div class="metric"><span class="lbl"><b>Evaluation view</b> · as-of</span><span class="val" style="font-size:14px">${esc(vm.evaluation.asOf ?? "—")}</span><span class="lbl">Clock</span><span class="mono small">evaluation-effective</span></div>
         <div class="sp"></div>
         ${points}${pending}
         <div class="sp"></div>
@@ -592,7 +594,7 @@ function hourProfileSvg(profile, width = 380) {
     return `<rect x="${x}" y="${y}" width="${barWidth - 4}" height="${Math.max(1, h)}" fill="${fill}"><title>${esc(slot.slot)} Berlin: ${slot.meanDiffEurMwh.toFixed(3)} EUR/MWh vs 11:00 (n=${slot.episodes})</title></rect>`;
   });
   const labels = profile.slots
-    .map((slot, index) => (index % 4 === 0 ? `<text x="${index * barWidth + 2}" y="${height - 2}" font-size="9" fill="var(--ink-3)">${esc(slot.slot)}</text>` : ""))
+    .map((slot, index) => (index % 4 === 0 ? `<text x="${index * barWidth + 2}" y="${height - 2}" font-size="14" fill="var(--ink-3)">${esc(slot.slot)}</text>` : ""))
     .join("");
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Mean price difference by hour vs 11:00, ${esc(profile.product)}"><line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="var(--rule)"/>${bars.join("")}${labels}</svg>`;
 }
@@ -600,7 +602,55 @@ function hourProfileSvg(profile, width = 380) {
 // Paneles del mockup DES-01 (Backtests) poblados con la comparación exploratoria que
 // calcula src/exploratory/comparison.mjs. La UI no calcula: dibuja lo que llega.
 const EXP_ARM_SWATCH = { BASELINE: "var(--arm-base)", ARM_A: "var(--arm-a)", ARM_B: "var(--arm-b)" };
-const EXP_ARM_SHORT = { BASELINE: "Baseline", ARM_A: "Arm A", ARM_B: "Arm B" };
+
+// UI-10 (PLAN_UI §1, §4.B.6): the visible name of a historical run comes from
+// the backend projection of the SAME product's artifact (SEM-2 T03); the
+// technical alias is only a secondary provenance line. Without a projection the
+// adapter's own names are used and the lineage stays unavailable (fail-closed).
+function historicalRunsFor(semantics, product = null) {
+  const mission = product === null ? null : semantics?.missions?.find((entry) => entry.product === product) ?? null;
+  const runs = mission?.historicalRuns ?? semantics?.historicalRuns ?? null;
+  if (runs) {
+    return runs;
+  }
+  return Object.fromEntries(Object.entries(LEGACY_RUN_NAMES).map(([technicalAlias, displayName]) => [technicalAlias, {
+    technicalAlias,
+    displayName,
+    label: displayName,
+    caption: `technical alias ${technicalAlias} · lineage unavailable — no verified source-bound mapping`,
+    comparator: technicalAlias === "BASELINE",
+    lineageOf: null,
+  }]));
+}
+
+function historicalLabels(semantics) {
+  return semantics?.labels?.historical ?? CANONICAL_LABELS.historical;
+}
+
+// Secondary provenance line (technical alias, verbatim artifact label). The
+// marker keeps these lines distinguishable from primary product text.
+function aliasHtml(text, tag = "div") {
+  return `<${tag} class="alias small muted" data-provenance="alias">${esc(text)}</${tag}>`;
+}
+
+// PLAN_UI.md:28 (intake D-20260929T103404-2ec5, review UI10-ALIAS-01): in a
+// Campaigns row the run id and its technical alias are acceptable only in a
+// collapsed detail, never in the primary row.
+function runTechnicalIdHtml(runExpId, aliasLine) {
+  return `<details class="refs" data-provenance="alias"><summary>Technical id</summary><div class="mono small">${esc(runExpId)}</div><div class="small muted">${esc(aliasLine)}</div></details>`;
+}
+
+// Verbatim historical text kept with its provenance, collapsed (UI10-07).
+function historicalQuoteHtml(quote, source = null) {
+  if (!quote) {
+    return "";
+  }
+  const parts = [quote.label, quote.detail].filter((part) => typeof part === "string" && part !== "");
+  if (parts.length === 0) {
+    return "";
+  }
+  return `<details class="quote" data-provenance="quote"><summary>Historical quote</summary><span class="mono small">“${esc(parts.join(" — "))}”</span>${source ? `<span class="tiny muted"> · ${esc(source)}</span>` : ""}</details>`;
+}
 // La identidad de producto, mercado y cadencia sale del registro canónico de
 // misiones; el release Power no hereda el hub THE ni los títulos de Gas.
 const PRODUCT_META = Object.fromEntries(Object.values(EXPLORATORY_MISSIONS).map((mission) => {
@@ -618,8 +668,8 @@ const CHECK_CHIP = {
   FAIL: ["fail", "✕", "Fail"],
 };
 
-function expArmTag(armId) {
-  return `<span class="arm"><span class="sw" style="background:${EXP_ARM_SWATCH[armId]}"></span>${esc(EXP_ARM_SHORT[armId])}</span>`;
+function expArmTag(armId, runs) {
+  return `<span class="arm" data-historical-run="${esc(armId)}"><span class="sw" style="background:${EXP_ARM_SWATCH[armId]}"></span>${esc(runs[armId]?.displayName ?? armId)}</span>`;
 }
 
 function kEur(value) {
@@ -627,14 +677,17 @@ function kEur(value) {
   return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
 }
 
-function comparisonTableHtml(block) {
+function comparisonTableHtml(block, runs, labels) {
   const rows = block.table.map((row) => {
     const statusChip = row.status === "COMPLETE" ? chip("pass", "✓", "Complete") : row.status === "PARTIAL" ? chip("open", "○", "Partial") : chip("fail", "✕", "Not comparable");
     const delta = row.armId === "BASELINE" ? "reference" : kEur(row.deltaVKeur);
     const range = row.deltaRangeKeur ? `episodes [${kEur(row.deltaRangeKeur[0])}, ${kEur(row.deltaRangeKeur[1])}]` : "—";
-    return `<tr data-status="EXPLORATORY" data-arm="${esc(row.armId)}"><td>${expArmTag(row.armId)}<div class="small muted">${esc(row.label)}</div></td><td class="mono">${row.closed} / ${row.total}${row.notRun > 0 ? ` <span class="st unk">${row.notRun} NOT RUN</span>` : ""}</td><td class="mono num right">${eur(row.bEurMwh)}</td><td class="mono num right">${eur(row.hEurMwh)}</td><td class="mono num right">${kEur(row.vKeur)}</td><td class="mono num right">${delta}</td><td class="mono small">${range}</td><td>${statusChip}</td></tr>`;
+    return `<tr data-status="EXPLORATORY" data-arm="${esc(row.armId)}"><td>${expArmTag(row.armId, runs)}${aliasHtml(runs[row.armId]?.caption ?? row.armId)}</td><td class="mono">${row.closed} / ${row.total}${row.notRun > 0 ? ` <span class="st unk">${row.notRun} NOT RUN</span>` : ""}</td><td class="mono num right">${eur(row.bEurMwh)}</td><td class="mono num right">${eur(row.hEurMwh)}</td><td class="mono num right">${kEur(row.vKeur)}</td><td class="mono num right">${delta}</td><td class="mono small">${range}</td><td>${statusChip}</td></tr>`;
   });
-  return `<table class="t"><thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B* · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">ΔV vs baseline · k€</th><th>Range (paired)</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  // The artifact's own run labels stay available verbatim, as provenance only.
+  const quotes = block.table.map((row) => `<div><span class="mono small">${esc(row.armId)}</span> “${esc(row.label)}”</div>`).join("");
+  return `<table class="t"><thead><tr><th>Historical run</th><th>n (closed / total)</th><th class="right">B* · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · k€</th><th class="right">${esc(labels.deltaVsComparator)} · k€</th><th>Range (paired)</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table>
+  <details class="quote" data-provenance="quote"><summary>Historical run labels (verbatim from the artifact)</summary>${quotes}</details>`;
 }
 
 // Sin chip "Official": el registro BT-02 es EXPLORATORY_PROVISIONAL y el loader
@@ -683,7 +736,13 @@ function withheldReason(value, reason) {
   return !hasValue && reason ? `<div class="tiny muted">${esc(reason)}</div>` : "";
 }
 
-function backtestMeasurementHtml(readiness, productFilter = null) {
+// UI-10 (PLAN_UI §3 direction): a backend status word inside running text, not
+// the raw enum (INSUFFICIENT_DATA -> "insufficient data").
+function enumWords(value) {
+  return String(value ?? "").toLowerCase().replaceAll("_", " ");
+}
+
+function backtestMeasurementHtml(readiness, productFilter = null, semantics = null) {
   if (readiness?.status === "STALE") {
     return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="STALE"><div class="hd"><h3>Campaign measurements · stale source</h3>${chip("warn", "!", "Stale")}</div><div class="bd"><span class="small muted">${esc(readiness.reason)}. ${esc(readiness.staleArtifacts.join(", "))}. B, V and ΔV are withheld pending FIX-03 reconstruction.</span></div></section>`;
   }
@@ -706,7 +765,7 @@ function backtestMeasurementHtml(readiness, productFilter = null) {
       const bStatus = benchmark?.status ?? "UNAVAILABLE";
       return `<tr data-campaign="${esc(campaign.campaignKey)}" data-status="${esc(campaign.status)}" data-arm="${esc(arm?.armId ?? "UNAVAILABLE")}" data-artifact-sha="${esc(provenance.artifactSha256)}">
         <td style="white-space:nowrap"><span class="mono">${esc(campaign.campaignKey)}</span><div class="tiny muted">${esc(campaign.product ?? "product unavailable")} · ${esc(campaign.maturity ?? "maturity unavailable")}</div></td>
-        <td>${esc(arm?.armId ?? "UNAVAILABLE")}<div class="tiny muted">${esc(arm ? `run ${arm.runStatus ?? "UNAVAILABLE"}` : campaign.campaignReadiness ?? campaign.status)}</div></td>
+        <td>${arm ? `${esc(arm.run?.displayName ?? "name unavailable")}${aliasHtml(`${historicalLabels(semantics).technicalAlias} ${arm.armId}`)}` : "UNAVAILABLE"}<div class="tiny muted">${esc(arm ? `run ${enumWords(arm.runStatus ?? "UNAVAILABLE")}` : enumWords(campaign.campaignReadiness ?? campaign.status))}</div></td>
         <td>${coverageCell(arm)}</td>
         <td class="right" style="white-space:nowrap">${measurementCell(bValue, bStatus, " €/MWh", readiness)}<div class="tiny muted" data-artifact-sha="${esc(provenance.artifactSha256)}">coverage ${esc(benchmark?.coverage ?? "UNAVAILABLE")}</div></td>
         <td class="right" style="white-space:nowrap" title="${esc(arm?.hCostReason ?? "")}">${measurementCell(arm?.hEurMwh, arm?.hCostCompleteness, " €/MWh", readiness)}${arm?.coverageCompleteness === "PARTIAL" ? `<div class="tiny muted" data-coverage="PARTIAL">over ${esc(arm.boughtMw ?? "?")} / ${esc(arm.targetMw ?? "?")} MW only</div>` : ""}</td>
@@ -717,19 +776,24 @@ function backtestMeasurementHtml(readiness, productFilter = null) {
     });
   });
   const official = readiness.official;
+  const reasonQuotes = [...new Set(readiness.campaigns.flatMap((campaign) => campaign.arms.flatMap((arm) => arm.historicalQuotes ?? [])))];
+  const quotesHtml = reasonQuotes.length === 0 ? "" : `<details class="quote" data-provenance="quote"><summary>Historical reason texts (verbatim from the artifact)</summary>${reasonQuotes.map((quote) => `<div class="small">“${esc(quote)}”</div>`).join("")}</details>`;
   return `<section class="card" style="margin-top:14px" data-kind="backend-measurements" data-status="${esc(readiness.status)}">
     <div class="hd"><h3>Campaign measurements · backend readiness</h3>${measurementStatusChip(readiness.status)}<span class="grow"></span><span class="tiny muted">BT-02 · verified artifact</span></div>
     <div class="bd"><p class="tiny muted">Values and statuses are projected from ${esc(provenance.artifactPath)}; no economic calculation is performed in the UI. Provisional and partial measurements retain their backend blockers.</p>
-      <div style="overflow:auto"><table class="t"><thead><tr><th>Campaign</th><th>Arm</th><th>Coverage (bought / target)</th><th class="right">B · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · €/MWh</th><th class="right">ΔV · €/MWh</th><th>Readiness / blockers</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+      <div style="overflow:auto"><table class="t"><thead><tr><th>Campaign</th><th>Historical run</th><th>Coverage (bought / target)</th><th class="right">B · €/MWh</th><th class="right">H · €/MWh</th><th class="right">V · €/MWh</th><th class="right">ΔV · €/MWh</th><th>Readiness / blockers</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>${quotesHtml}
       <div class="chk" data-status="${esc(official.status)}"><span><b>Official / canonical</b></span>${measurementStatusChip(official.status)}<span class="d">${esc(official.reason)}</span><span class="tiny muted">manifest sha256 ${esc(provenance.manifestSha256)}</span></div>
     </div>
   </section>`;
 }
 
-function pairedEffectSvg(block, pointDetails = null) {
-  const width = 800;
+function pairedEffectSvg(block, pointDetails = null, runs = historicalRunsFor(null), labels = CANONICAL_LABELS.historical) {
+  // UI-10 (PLAN_UI §3 "Minimum 14 px anywhere (including SVG)"): the viewBox is
+  // narrower than its card at 1440 px, so the fluid chart never scales its SVG
+  // labels below the floor there.
+  const width = 760;
   const height = 330;
-  const pad = { left: 50, right: 20, top: 20, bottom: 40 };
+  const pad = { left: 70, right: 20, top: 20, bottom: 40 };
   const series = Object.entries(block.paired).filter(([, value]) => value.points.length > 0);
   const all = series.flatMap(([, value]) => value.points).concat([0]);
   const maxAbs = Math.max(1, ...all.map((value) => Math.abs(value)));
@@ -737,14 +801,14 @@ function pairedEffectSvg(block, pointDetails = null) {
   const x = (index) => pad.left + (index / Math.max(1, count - 1)) * (width - pad.left - pad.right);
   const y = (value) => pad.top + ((maxAbs - value) / (2 * maxAbs)) * (height - pad.top - pad.bottom);
   const grid = `<g class="axis">${[-maxAbs, -maxAbs / 2, 0, maxAbs / 2, maxAbs].map((value) => `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y(value)}" y2="${y(value)}" ${value === 0 ? 'stroke="var(--ink-3)"' : 'stroke-dasharray="2 3"'}/><text x="${pad.left - 6}" y="${y(value) + 3.5}" text-anchor="end">${value === 0 ? "0" : kEur(value)}</text>`).join("")}</g>`;
-  const boundaries = (series[0]?.[1].boundaries ?? []).map((boundary) => `<line x1="${x(boundary.index)}" x2="${x(boundary.index)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--rule)" stroke-dasharray="3 3"/><text x="${x(boundary.index) + 3}" y="${height - pad.bottom + 14}" font-size="9" fill="var(--ink-3)">${esc(boundary.maturity)}</text>`).join("");
+  const boundaries = (series[0]?.[1].boundaries ?? []).map((boundary) => `<line x1="${x(boundary.index)}" x2="${x(boundary.index)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--rule)" stroke-dasharray="3 3"/><text x="${x(boundary.index) + 3}" y="${height - pad.bottom + 14}" font-size="14" fill="var(--ink-3)">${esc(boundary.maturity)}</text>`).join("");
   const lines = series.map(([armId, value]) => {
     const path = value.points.map((point, index) => `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point).toFixed(1)}`).join(" ");
     const last = value.points.length - 1;
-    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="4" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2"/><text x="${x(last) - 8}" y="${y(value.points[last]) - 8}" font-size="11" text-anchor="end" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${esc(EXP_ARM_SHORT[armId])} ${kEur(value.finalKeur)}</text>`;
+    return `<path d="${path}" fill="none" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2"/><circle cx="${x(last)}" cy="${y(value.points[last])}" r="4" fill="${EXP_ARM_SWATCH[armId]}" stroke="var(--surface)" stroke-width="2"/><text x="${x(last) - 8}" y="${y(value.points[last]) - 8}" font-size="14" text-anchor="end" fill="var(--ink)" font-weight="600" paint-order="stroke" stroke="var(--surface)" stroke-width="4">${esc(runs[armId]?.displayName ?? armId)} ${kEur(value.finalKeur)}</text>`;
   }).join("");
   const hover = pairedHoverLayerSvg({ series, pointDetails, count, x, y, top: pad.top, bottom: height - pad.bottom, step: (width - pad.left - pad.right) / Math.max(1, count - 1) });
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ΔV vs baseline by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="10" fill="var(--ink-3)">k€</text>${hover}</svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Cumulative ${esc(labels.deltaVsComparator)} by decision, k€">${grid}${boundaries}${lines}<text x="${pad.left}" y="12" font-size="14" fill="var(--ink-3)">k€</text>${hover}</svg>`;
 }
 
 // UI-06 (owner request 25-sep-2026, PLAN_STATUS UI-06; prototipo aprobado
@@ -778,8 +842,8 @@ function kEurDecision(valueEur) {
   return `${keur > 0 ? "+" : ""}${keur.toFixed(2)} k€`;
 }
 
-function pairedTipArmRow(armId, arm, detail) {
-  const label = EXP_ARM_SHORT[armId];
+function pairedTipArmRow(armId, arm, detail, runs) {
+  const label = runs[armId]?.displayName ?? armId;
   if (armId === "ARM_B") {
     return { arm: armId, label, unavailable: `per-day ledger ${UNAVAILABLE_TEXT} (slot ${detail.armBSlot ?? UNAVAILABLE_TEXT}; not emitted by the backtest)` };
   }
@@ -796,7 +860,7 @@ function pairedTipArmRow(armId, arm, detail) {
 
 // Textos del tooltip formateados en el servidor desde la proyección del view-model
 // (projectPairedPoints). Campo ausente = UNAVAILABLE, nunca un valor supuesto.
-function pairedTipModel(detail, product, provenance) {
+function pairedTipModel(detail, product, provenance, runs) {
   const deltaA = kEurDecision(detail.decisionDeltaVEur.ARM_A);
   const cumulative = (armId) => (typeof detail.cumulativeKeur[armId] === "number" ? `${kEur(detail.cumulativeKeur[armId])} k€` : UNAVAILABLE_TEXT);
   const slot = detail.bestAsk?.slot ?? "11:00";
@@ -804,20 +868,20 @@ function pairedTipModel(detail, product, provenance) {
     head: `${detail.day ?? UNAVAILABLE_TEXT} · decision ${detail.decisionNumber} of ${detail.decisionsInCampaign}`,
     sub: `${detail.campaignId ?? UNAVAILABLE_TEXT} · ${PRODUCT_TITLE[product] ?? product} · delivery ${detail.deliveryLabel} · target ${mwText(detail.targetMw)}`,
     rows: detail.ledgerAvailable
-      ? ["BASELINE", "ARM_A", "ARM_B"].map((armId) => pairedTipArmRow(armId, detail.arms[armId], detail))
-      : [{ arm: "ALL", label: "All arms", unavailable: `daily ledger ${UNAVAILABLE_TEXT}: the artifact does not align this campaign's decisions with the chart` }],
+      ? ["BASELINE", "ARM_A", "ARM_B"].map((armId) => pairedTipArmRow(armId, detail.arms[armId], detail, runs))
+      : [{ arm: "ALL", label: "All historical runs", unavailable: `daily ledger ${UNAVAILABLE_TEXT}: the artifact does not align this campaign's decisions with the chart` }],
     facts: [
       [`best ask ${slot} Berlin`, detail.bestAsk ? `${eur3(detail.bestAsk.eurMwh)} €/MWh${detail.bestAsk.quoteTm ? ` · quote ${detail.bestAsk.quoteTm}` : ""}` : UNAVAILABLE_TEXT],
-      ["ΔV this decision", `A ${deltaA ?? `${UNAVAILABLE_TEXT} (emitted only on Arm A buy days)`} · B ${UNAVAILABLE_TEXT}`],
-      ["ΔV cumulative", `A ${cumulative("ARM_A")} · B ${cumulative("ARM_B")}`],
+      ["ΔV this decision", `${runs.ARM_A.displayName} ${deltaA ?? `${UNAVAILABLE_TEXT} (emitted only on ${runs.ARM_A.displayName} buy days)`} · ${runs.ARM_B.displayName} ${UNAVAILABLE_TEXT}`],
+      ["ΔV cumulative", `${runs.ARM_A.displayName} ${cumulative("ARM_A")} · ${runs.ARM_B.displayName} ${cumulative("ARM_B")}`],
     ],
     foot: `EXPLORATORY · B* proxy · fees UNKNOWN (excluded, not zero) · ${provenance?.resultsPath ?? "artifact"} sha256 ${(provenance?.resultsSha256 ?? UNAVAILABLE_TEXT).slice(0, 12)}…`,
   };
 }
 
-function pairedTipDataScript(pointDetails, product, provenance) {
+function pairedTipDataScript(pointDetails, product, provenance, runs) {
   if (!Array.isArray(pointDetails) || pointDetails.length === 0) return "";
-  const models = pointDetails.map((detail) => pairedTipModel(detail, product, provenance));
+  const models = pointDetails.map((detail) => pairedTipModel(detail, product, provenance, runs));
   // "<" escapado: el JSON no puede cerrar el <script> que lo contiene.
   const json = JSON.stringify(models).replaceAll("<", "\\u003c");
   return `<script type="application/json" class="ppdata">${json}</script>`;
@@ -837,15 +901,15 @@ function distributionSvg(dist, armId) {
   }).join("");
   const xOf = (value) => pad.left + ((value - dist.min) / (dist.max - dist.min)) * (width - pad.left - pad.right);
   const zero = `<line x1="${xOf(0)}" x2="${xOf(0)}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="var(--ink-3)" stroke-dasharray="2 2"/>`;
-  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)" stroke-width="1.5"/><text x="${xOf(dist.mean) + 4}" y="${pad.top + 4}" font-size="10.5" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
-  const ticks = [dist.min, dist.min / 2, 0, dist.max / 2, dist.max].map((value) => `<text x="${xOf(value)}" y="${height - 6}" font-size="9" text-anchor="middle" fill="var(--ink-3)">${value > 0 ? "+" : ""}${value}</text>`).join("");
+  const mean = typeof dist.mean === "number" ? `<line x1="${xOf(dist.mean)}" x2="${xOf(dist.mean)}" y1="${pad.top - 4}" y2="${height - pad.bottom}" stroke="var(--ink)" stroke-width="1.5"/><text x="${xOf(dist.mean) + 4}" y="${pad.top + 4}" font-size="14" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">mean ${dist.mean > 0 ? "+" : ""}${dist.mean.toFixed(2)}</text>` : "";
+  const ticks = [dist.min, dist.min / 2, 0, dist.max / 2, dist.max].map((value) => `<text x="${xOf(value)}" y="${height - 6}" font-size="14" text-anchor="middle" fill="var(--ink-3)">${value > 0 ? "+" : ""}${value}</text>`).join("");
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="H minus B* per decision">${yAxis}${bars}${zero}${mean}${ticks}</svg><div class="tiny muted">n = ${dist.n} decisions with a fill${dist.outside > 0 ? ` · ${dist.outside} outside ±${dist.max}` : ""} · P95 ${eur(dist.p95)}</div>`;
 }
 
 // Forest plot del mockup (forestSvg): una fila por episodio, un rombo por brazo.
 // Todos los episodios exploratorios están cerrados, así que los rombos van llenos;
 // no hay intervalo por episodio en el artifact y no se dibuja ninguno.
-function acrossCampaignsHtml(block) {
+function acrossCampaignsHtml(block, runs, labels) {
   const values = block.acrossCampaigns.flatMap((entry) => Object.values(entry.arms)).filter((value) => typeof value === "number");
   const maxAbs = Math.max(1, ...values.map((value) => Math.abs(value)));
   const width = 380;
@@ -855,7 +919,7 @@ function acrossCampaignsHtml(block) {
   const right = 16;
   const height = top + block.acrossCampaigns.length * rowH + 24;
   const x = (value) => left + ((value + maxAbs) / (2 * maxAbs)) * (width - left - right);
-  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="ΔV per episode vs Baseline, k€">`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${esc(labels.deltaVsComparator)} per episode, k€">`;
   svg += `<g class="axis"><line x1="${x(0)}" x2="${x(0)}" y1="${top}" y2="${height - 20}" stroke="var(--ink-3)"/>`;
   for (const value of [-maxAbs, 0, maxAbs]) {
     svg += `<text x="${x(value)}" y="${height - 6}" text-anchor="${value < 0 ? "start" : value > 0 ? "end" : "middle"}">${value === 0 ? "0" : kEur(Math.round(value))}</text>`;
@@ -863,38 +927,38 @@ function acrossCampaignsHtml(block) {
   svg += "</g>";
   block.acrossCampaigns.forEach((entry, index) => {
     const cy = top + index * rowH + rowH / 2;
-    svg += `<text x="0" y="${cy + 4}" font-size="11" fill="var(--ink)" font-family="var(--mono)">${esc(entry.maturity)}</text>`;
+    svg += `<text x="0" y="${cy + 4}" font-size="14" fill="var(--ink)" font-family="var(--mono)">${esc(entry.maturity)}</text>`;
     const armValues = Object.entries(entry.arms);
     if (armValues.every(([, value]) => value === null)) {
-      svg += `<rect x="${left}" y="${cy - 8}" width="${width - left - right}" height="16" fill="url(#emHatchU)" rx="2"/><text x="${(left + width - right) / 2}" y="${cy + 4}" text-anchor="middle" font-size="10.5" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
+      svg += `<rect x="${left}" y="${cy - 8}" width="${width - left - right}" height="16" fill="url(#emHatchU)" rx="2"/><text x="${(left + width - right) / 2}" y="${cy + 4}" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO ESTIMATE</text>`;
       return;
     }
     for (const [armId, value] of armValues) {
       if (typeof value !== "number") continue;
-      svg += `<rect x="${x(value) - 5}" y="${cy - 5}" width="10" height="10" fill="${EXP_ARM_SWATCH[armId]}" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2" transform="rotate(45 ${x(value)} ${cy})" data-tip="${esc(`${entry.maturity} · ${EXP_ARM_SHORT[armId]} ΔV ${kEur(value)} k€`)}"/>`;
+      svg += `<rect x="${x(value) - 5}" y="${cy - 5}" width="10" height="10" fill="${EXP_ARM_SWATCH[armId]}" stroke="${EXP_ARM_SWATCH[armId]}" stroke-width="2" transform="rotate(45 ${x(value)} ${cy})" data-tip="${esc(`${entry.maturity} · ${runs[armId]?.displayName ?? armId} ΔV ${kEur(value)} k€`)}"/>`;
     }
   });
   svg += "</svg>";
-  return `${svg}<div class="tiny muted">◆ closed episode · ${Object.keys(block.paired).map((armId) => expArmTag(armId)).join(" ")} · hatched = no estimate (not zero)</div>`;
+  return `${svg}<div class="tiny muted">◆ closed episode · ${Object.keys(block.paired).map((armId) => expArmTag(armId, runs)).join(" ")} · hatched = no estimate (not zero)</div>`;
 }
 
 // Tabla desplegable del mockup bajo el efecto emparejado ("Show data table"), por
 // episodio: B*, H y V tal como los publica el artifact (comparison.perEpisode).
-function pairedDataTableHtml(block) {
+function pairedDataTableHtml(block, runs) {
   const armIds = ["BASELINE", "ARM_A", "ARM_B"].filter((armId) => block.perEpisode.some((episode) => episode.arms?.[armId]));
   const vKeur = (arm) => (typeof arm?.vEur === "number" ? kEur(arm.vEur / 1000) : "—");
   const rows = block.perEpisode.map((episode) => `<tr><td class="mono">${esc(episode.maturity)}</td><td class="mono right">${eur(episode.benchmark)}</td>${armIds.map((armId) => `<td class="mono right">${eur(episode.arms[armId]?.h)}</td>`).join("")}${armIds.map((armId) => `<td class="mono right">${vKeur(episode.arms[armId])}</td>`).join("")}</tr>`).join("");
-  const head = `<th>Delivery</th><th class="right">B*</th>${armIds.map((armId) => `<th class="right">H ${esc(EXP_ARM_SHORT[armId])}</th>`).join("")}${armIds.map((armId) => `<th class="right">V ${esc(EXP_ARM_SHORT[armId])} k€</th>`).join("")}`;
-  return `<details class="tbl"><summary>Show data table (${block.perEpisode.length} episodes, every arm)</summary><table class="t small"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></details>`;
+  const head = `<th>Delivery</th><th class="right">B*</th>${armIds.map((armId) => `<th class="right">H ${esc(runs[armId]?.displayName ?? armId)}</th>`).join("")}${armIds.map((armId) => `<th class="right">V ${esc(runs[armId]?.displayName ?? armId)} k€</th>`).join("")}`;
+  return `<details class="tbl"><summary>Show data table (${block.perEpisode.length} episodes, every historical run)</summary><table class="t small"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
-function pairedChartHtml(block, product, pointDetails, provenance) {
-  const svg = pairedEffectSvg(block, pointDetails);
+function pairedChartHtml(block, product, pointDetails, provenance, runs, labels) {
+  const svg = pairedEffectSvg(block, pointDetails, runs, labels);
   const interactive = Array.isArray(pointDetails) && pointDetails.length > 0;
   if (!interactive) {
     return `${svg}<div class="tiny muted" data-paired-detail="UNAVAILABLE">Per-decision detail ${UNAVAILABLE_TEXT}: the verified artifact does not carry it.</div>`;
   }
-  return `<div class="ppwrap" data-paired-product="${esc(product)}">${svg}<div class="pptip" role="status" aria-live="polite"></div>${pairedTipDataScript(pointDetails, product, provenance)}</div><div class="tiny muted">Hover a point to read the decision. Click or tap to pin the tooltip; click again to release.</div>`;
+  return `<div class="ppwrap" data-paired-product="${esc(product)}">${svg}<div class="pptip" role="status" aria-live="polite"></div>${pairedTipDataScript(pointDetails, product, provenance, runs)}</div><div class="tiny muted">Hover a point to read the decision. Click or tap to pin the tooltip; click again to release.</div>`;
 }
 
 // TR-07 (TRADES_MODE_PLAN.md TR-07): el texto fijo "real EEX best ask" se
@@ -904,32 +968,36 @@ function observationSourceLabel(mode) {
   return observationFor(mode).source;
 }
 
-function comparisonBlockHtml(block, product, pointDetails = null, provenance = null, mode = "TOB") {
+function comparisonBlockHtml(block, product, pointDetails = null, provenance = null, mode = "TOB", semantics = null) {
+  const runs = historicalRunsFor(semantics, product);
+  const labels = historicalLabels(semantics);
   const checks = block.checks.map((check) => {
     const [kind, glyph, label] = CHECK_CHIP[check.status] ?? ["unk", "?", check.status];
-    return `<div class="chk"><span><b>${esc(check.label)}</b></span>${chip(kind, glyph, label)}<span class="d">${esc(check.detail)}</span></div>`;
+    return `<div class="chk"><span><b>${esc(check.label)}</b></span>${chip(kind, glyph, label)}<span class="d">${esc(check.detail)}${historicalQuoteHtml(check.historicalQuote)}</span></div>`;
   }).join("");
+  // Legend inside the card (PLAN_UI §3 item 9): each line names its run.
+  const legend = Object.keys(block.paired).map((armId) => expArmTag(armId, runs)).join(" ");
   return `
-  <div class="exp-product" data-product="${esc(product)}" style="margin-top:22px">
+  <div class="exp-product" data-product="${esc(product)}" style="margin-top:18px">
     <div class="mono muted small">${esc(product)} · exploratory paired comparison · ${esc(observationSourceLabel(mode))}</div>
     <h2 class="sec">${esc(PRODUCT_TITLE[product] ?? product)}</h2>
     <div class="card" style="margin-top:10px">
-      <div class="hd"><h3>Economic measures</h3><span class="small muted">B* proxy benchmark · H achieved price · V = (B* − H) × MWh · ΔV = V<sub>arm</sub> − V<sub>baseline</sub></span><span class="grow"></span>${chip("warn", "!", "EXPLORATORY · B* is a proxy")}</div>
-      ${comparisonTableHtml(block)}
+      <div class="hd"><h3>Historical economic measures</h3><span class="small muted">B* proxy benchmark · H achieved price · V = (B* − H) × MWh · ΔV = V<sub>run</sub> − V<sub>comparator (A0)</sub></span><span class="grow"></span>${chip("warn", "!", "EXPLORATORY · B* is a proxy")}</div>
+      ${comparisonTableHtml(block, runs, labels)}
     </div>
     <div class="grid" style="grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); margin-top:14px">
-      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ΔV vs Baseline, k€, by decision</span></div><div class="bd" data-kind="paired">${pairedChartHtml(block, product, pointDetails, provenance)}${pairedDataTableHtml(block)}</div></div>
-      <div class="card"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend</span></div><div class="bd">${checks}<div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
+      <div class="card"><div class="hd"><h3>Paired effect over the campaigns</h3><span class="small muted">cumulative ${esc(labels.deltaVsComparator)}, k€, by decision</span></div><div class="bd" data-kind="paired"><div class="legend small">${legend}</div>${pairedChartHtml(block, product, pointDetails, provenance, runs, labels)}${pairedDataTableHtml(block, runs)}</div></div>
+      <div class="card"><div class="hd"><h3>Method &amp; integrity</h3><span class="small muted">from backend · historical run</span></div><div class="bd">${checks}<div class="sp"></div><div class="note-ev"><span class="ev">EVIDENCE</span> Exploratory, in-sample, ${block.table[0].total} episodes. It does not approve a strategy.</div></div></div>
     </div>
     <div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); margin-top:14px">
-      <div class="card"><div class="hd"><h3>${expArmTag("BASELINE")}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.BASELINE, "BASELINE")}</div></div>
-      <div class="card"><div class="hd"><h3>${expArmTag("ARM_A")}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.ARM_A, "ARM_A")}</div></div>
-      <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">ΔV vs Baseline, k€</span></div><div class="bd" data-kind="campaign-effects">${acrossCampaignsHtml(block)}</div></div>
+      <div class="card"><div class="hd"><h3>${expArmTag("BASELINE", runs)}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.BASELINE, "BASELINE")}</div></div>
+      <div class="card"><div class="hd"><h3>${expArmTag("ARM_A", runs)}</h3><span class="small muted">H − B* per decision, €/MWh (lower is better)</span></div><div class="bd" data-kind="distribution">${distributionSvg(block.distributions.ARM_A, "ARM_A")}</div></div>
+      <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">${esc(labels.deltaVsComparator)}, k€</span></div><div class="bd" data-kind="campaign-effects">${acrossCampaignsHtml(block, runs, labels)}</div></div>
     </div>
   </div>`;
 }
 
-function exploratoryComparisonHtml(exploratory, mode = "TOB", productFilter = null) {
+function exploratoryComparisonHtml(exploratory, mode = "TOB", productFilter = null, semantics = null) {
   if (!exploratory?.comparison) {
     return "";
   }
@@ -938,25 +1006,25 @@ function exploratoryComparisonHtml(exploratory, mode = "TOB", productFilter = nu
   // (TRADES_MODE_PLAN.md TR-07:72-73).
   const blocks = Object.entries(exploratory.comparison)
     .filter(([product]) => productFilter === null || product === productFilter)
-    .map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance, mode)).join("");
+    .map(([product, block]) => comparisonBlockHtml(block, product, exploratory.pairedPoints?.[product] ?? null, exploratory.provenance, mode, semantics)).join("");
   return `${PAIRED_TIP_CSS}${blocks}${PAIRED_TIP_SCRIPT}`;
 }
 
 const PAIRED_TIP_CSS = `<style>
 .ppwrap { position: relative; }
 .ppwrap .pphit { cursor: crosshair; }
-.pptip { position: absolute; top: 8px; display: none; z-index: 5; min-width: 320px; max-width: 460px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 9px 11px; font-size: 12px; line-height: 1.5; pointer-events: none; }
+.pptip { position: absolute; top: 8px; display: none; z-index: 5; min-width: 320px; max-width: 460px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.12); padding: 9px 11px; font-size: 14px; line-height: 1.5; pointer-events: none; }
 .pptip.on { display: block; }
 .pptip.pinned { pointer-events: auto; border-color: var(--ink); }
-.pptip .t-head { font: 700 13px var(--serif); }
-.pptip .t-sub { font: 11px var(--mono); color: var(--ink-3); margin-bottom: 6px; }
-.pptip table { border-collapse: collapse; width: 100%; font: 11px var(--mono); }
+.pptip .t-head { font: 700 14px var(--serif); }
+.pptip .t-sub { font: 14px var(--mono); color: var(--ink-3); margin-bottom: 6px; }
+.pptip table { border-collapse: collapse; width: 100%; font: 14px var(--mono); }
 .pptip th { text-align: left; color: var(--ink-3); font-weight: 400; padding: 2px 6px 2px 0; }
 .pptip td { padding: 2px 6px 2px 0; }
 .pptip td:first-child, .pptip th { white-space: nowrap; }
 .pptip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
 .pptip .unav { color: var(--unk); }
-.pptip .foot { margin-top: 6px; font: 10px var(--mono); color: var(--ink-3); }
+.pptip .foot { margin-top: 6px; font: 14px var(--mono); color: var(--ink-3); }
 </style>`;
 
 // Solo presentación: lee los textos ya formateados del JSON y las posiciones de data-*.
@@ -1122,6 +1190,7 @@ function campaignRailRowHtml(row) {
         <span class="cdot ${dot}" aria-label="${esc(row.readinessLabel)}"></span>
         <span class="cdel">${esc(row.deliveryLabel)}</span>
         <span class="cwin">${window}</span>
+        <span class="cready">${esc(row.readinessLabel)}</span>
       </a>`;
 }
 
@@ -1160,7 +1229,7 @@ function decisionsBarHtml(run, campaign) {
   const allRun = run.decisions === campaign.tradingDays;
   const segment = closed ? '<span class="closed" style="width:100%"></span>' : '<span class="open" style="width:100%"></span>';
   const counts = closed ? `${run.decisions} closed · 0 open` : `0 closed · ${run.decisions} open`;
-  const notRun = allRun ? "0 not run" : '<span class="unkv" style="font-size:10.5px;line-height:15px">NOT RUN count UNKNOWN</span>';
+  const notRun = allRun ? "0 not run" : '<span class="unkv" style="font-size:14px;line-height:20px">NOT RUN count UNKNOWN</span>';
   return `<div class="bar" title="closed / open / not run">${segment}</div>
         <div class="small num" style="margin-top:4px">${counts} · ${notRun}</div>
         <div class="tiny muted mono">${run.boughtMw}/${campaign.targetMw} MW · H ${eur(run.hEurMwh)} €/MWh</div>`;
@@ -1175,13 +1244,15 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
   const receipts = campaignReceipts(campaign, provenance);
   const gates = campaign.gates.map((gate) => {
     const [kind, glyph, label] = GATE_CHIP[gate.status] ?? ["unk", "?", gate.status];
-    return `<div class="chk"><span>${esc(gate.label)}</span>${chip(kind, glyph, label)}<span class="d">${esc(gate.detail)}</span></div>`;
+    return `<div class="chk"><span>${esc(gate.label)}</span>${chip(kind, glyph, label)}<span class="d">${esc(gate.detail)}${historicalQuoteHtml(gate.historicalQuote)}</span></div>`;
   }).join("");
+  const historicalRuns = historicalRunsFor(semantics, campaign.product);
+  const labels = historicalLabels(semantics);
   const unknownItems = unknowns.map((unknown) => `
       <div class="unk-item">
         <div class="row"><span class="mono small">${esc(unknown.id)}</span>${unknown.blocking ? chip("fail", "✕", "Blocks final economics") : chip("warn", "!", "Non-blocking")}</div>
         <div class="q">${esc(unknown.title)}</div>
-        <div class="small ink2">${esc(unknown.detail)}</div>
+        <div class="small ink2">${esc(unknown.detail)}${historicalQuoteHtml(unknown.historicalQuote)}</div>
         <div class="small"><span class="muted">Blocks:</span> ${esc(unknown.blocks)}</div>
       </div>`).join("");
   const replayEpisode = pages.replay.find((episode) => episode.product === campaign.product && episode.maturity === campaign.maturity);
@@ -1200,10 +1271,11 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
   const runs = campaign.runs.map((run) => {
     const [kind, glyph, label] = RUN_CHIP[run.status] ?? ["unk", "?", run.status];
     const candidate = candidateByArm(research, run.armId);
-    // SEM2-T04: la identidad primaria de la fila es canónica (del mapping
-    // source-bound); el brazo técnico queda como provenance, nunca como identidad.
+    // SEM2-T04 / UI-10: the row is a historical run, named by the backend
+    // projection (lineage of its canonical hypothesis, never its result); the
+    // technical alias stays a secondary provenance line.
     const legacyView = candidate ? semantics?.legacyCandidates?.[candidate.id] ?? null : null;
-    const identity = legacyView?.canonicalName ?? "UNAVAILABLE";
+    const identity = historicalRuns[run.armId]?.label ?? "UNAVAILABLE";
     const identityEvidence = legacyView
       ? legacyView.authorityLabel
       : "canonical identity unavailable — no verified source-bound mapping";
@@ -1221,8 +1293,8 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
         : '<span class="muted small">no candidate</span>',
     ].join("");
     return `<tr data-status="EXPLORATORY" data-run="${esc(runExpId)}">
-        <td><div class="mono">${esc(runExpId)}</div><div class="small muted">slot ${esc(run.slot ?? "—")} Berlin</div></td>
-        <td><span data-canonical-identity="${esc(run.armId)}">${esc(identity)}</span><div class="small muted">${esc(identityEvidence)}</div><div class="small muted">technical arm ${esc(run.armId)} · provenance</div></td>
+        <td><div class="small">slot ${esc(run.slot ?? "—")} Berlin</div>${runTechnicalIdHtml(runExpId, `${labels.technicalAlias} ${run.armId} · provenance`)}</td>
+        <td><span data-canonical-identity="${esc(run.armId)}">${esc(identity)}</span><div class="small muted">${esc(identityEvidence)}</div></td>
         <td>${chip(kind, glyph, label)}</td>
         <td style="min-width:190px">${decisionsBarHtml(run, campaign)}</td>
         <td title="the artifact carries no per-run determinism; the only check is global (Research · Replay determinism)">${chip("unk", "?", "UNKNOWN")}</td>
@@ -1232,7 +1304,7 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
   }).join("");
   const runsTable = campaign.runs.length === 0
     ? `<div class="bd"><span class="withheld">NO RUNS</span> <span class="small muted">the procurement window is not fully inside the data period; nothing is imputed</span></div>`
-    : `<div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Run</th><th>Arm</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table></div>`;
+    : `<div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Run</th><th>Historical run</th><th>Status</th><th>Decisions · evaluation</th><th>Determinism</th><th>Receipts</th><th>Drill down</th></tr></thead><tbody>${runs}</tbody></table></div>`;
   const legend = (cls, text) => `<span><span class="bar" style="display:inline-flex;min-width:24px;width:24px;vertical-align:-1px"><span class="${cls}" style="width:100%"></span></span> ${text}</span>`;
   // Receipts bind runs; a campaign without runs has nothing they could back (review UI05-RCP-01, same rule as Research NO RECEIPTS).
   const ledger = campaign.runs.length === 0
@@ -1246,65 +1318,93 @@ function campaignDetailHtml(campaign, pages, isDefault, semantics = null) {
         <div class="mono muted small">${esc(campaign.id)} · ${esc(productArea(campaign.product))} ${esc(campaign.product)} · target ${campaign.targetMw} MW</div>
         <h1 class="page">${esc(missionTitle(campaign.product))} · delivery ${esc(deliveryLabel(campaign.maturity))}</h1>
         <p class="lede">${campaign.firstDay
-          ? `Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, historical calendar rule), paying the real best ask. Which historical arm bought cheaper than the calendar comparator?`
+          ? `Procure ${campaign.targetMw} MW between ${esc(campaign.firstDay)} and ${esc(campaign.lastDay)} (${campaign.tradingDays} EEX exchange days, historical calendar rule), paying the real best ask.`
           : `Procure ${campaign.targetMw} MW on the client calendar. No quoted day of this window is inside the data period.`}</p>
       </div>
       <div style="text-align:right"><div class="caps muted">Campaign readiness</div><div style="margin-top:4px">${campaignReadinessChip(campaign, { detail: true })}</div></div>
     </div>
+    ${missionContextHtml(semantics, missionIdOfProduct(semantics, campaign.product))}
     <div class="grid g2" style="margin-top:16px">
-      <div class="card"><div class="hd"><h3>Readiness gates</h3><span class="muted small">from backend · exploratory manifest</span></div><div class="bd">${gates}</div></div>
+      <div class="card hist" data-provenance="historical"><div class="hd"><span class="histbadge">${esc(labels.badge)}</span><h3>Readiness gates</h3><span class="muted small">from backend · exploratory manifest of the historical runs</span></div><div class="bd">${gates}</div></div>
       <div class="card"><div class="hd"><h3>What we don't know</h3><span class="muted small">${unknowns.length} explicit unknowns · fail-closed</span></div><div class="bd">${unknownItems}</div></div>
     </div>
-    <h2 class="sec">Runs</h2>
-    <div class="card">${runsTable}</div>
-    <div class="row small muted" style="margin-top:6px;gap:16px">${legend("closed", "evaluation closed")}${legend("open", "evaluation not closed")}${legend("notrun", "decision not run (unknown, not zero)")}</div>
+    <div class="card hist" data-provenance="historical" style="margin-top:18px">
+      <div class="hd"><span class="histbadge">${esc(labels.badge)}</span><h3>Historical runs</h3><span class="small muted">legacy exploratory runs of this campaign · original identities and values unchanged</span><span class="grow"></span>${chip("warn", "!", labels.notEvidence)}</div>
+      ${runsTable}
+      <div class="row small muted" style="padding:8px 14px;gap:16px">${legend("closed", "evaluation closed")}${legend("open", "evaluation not closed")}${legend("notrun", "decision not run (unknown, not zero)")}</div>
+    </div>
     <h2 class="sec">Receipts</h2>
     <div class="card"><div class="bd">${ledger}</div></div>
   </section>`;
 }
 
-// SEM-2: tira de identidades canónicas compartida por las cuatro superficies. Se
-// dibuja desde la proyección backend (view-models.mjs → projection.mjs): ningún
-// label sale de strings de presentación ni de un segundo registro. Los aliases
-// históricos quedan como provenance, nunca como identidad primaria.
-function canonicalSemanticsStrip(semantics) {
+// SEM-2: the canonical identities come from the backend projection
+// (view-models.mjs → projection.mjs), never from presentation strings or a
+// second registry; historical aliases stay provenance, never primary identity.
+function benchmarkSummary(mission, labels) {
+  const references = Object.values(mission.benchmarkByCampaign ?? {});
+  const statusLabels = labels.benchmarkStatuses ?? CANONICAL_LABELS.benchmarkStatuses;
+  const base = `${mission.benchmark.economicReference} · ${mission.benchmark.window} window`;
+  if (references.length === 0) {
+    return `${base} · ${statusLabels.CAMPAIGN_NOT_BOUND} · official settlement ${statusLabels.UNAVAILABLE.toLowerCase()}`;
+  }
+  const byStatus = new Map();
+  for (const reference of references) {
+    const label = statusLabels[reference.status] ?? statusLabels.UNAVAILABLE;
+    byStatus.set(label, (byStatus.get(label) ?? 0) + 1);
+  }
+  const counts = [...byStatus.entries()].map(([label, count]) => `${count} ${label.toLowerCase()}`).join(", ");
+  return `${base} · ${references.length} campaign reference${references.length === 1 ? "" : "s"} (${counts})`;
+}
+
+// UI-10 (PLAN_UI §3 "the C/B/H projection appears once per route, compact and
+// contextual (the current mission), not as a table of 4 missions × 5 columns";
+// §4.B.12): one mission — Client, Benchmark and Hypotheses from the shared
+// backend projection. CONTROL is only named in a note pointing to the ablation
+// (decisión de Bru 29-sep-2026, PLAN_STATUS.md fila UI-10). An unknown mission
+// renders nothing (fail-closed): no other mission stands in for it.
+function missionContextHtml(semantics, missionId) {
   if (semantics?.ok !== true || !Array.isArray(semantics.missions)) {
     return "";
   }
-  const identityCell = (mission, identity, detail) => `<td data-identity="${esc(identity)}">${esc(semantics.labels.identities[identity === "HYPOTHESIS" ? "HYPOTHESES" : identity])}<div class="tiny muted">${esc(detail)}</div></td>`;
-  const benchmarkDetail = (mission) => {
-    const bound = Object.values(mission.benchmarkByCampaign ?? {});
-    if (bound.length === 0) {
-      return `${mission.benchmark.economicReference} · ${mission.benchmark.window} · official settlement UNAVAILABLE · no campaign reference bound`;
-    }
-    return `${mission.benchmark.economicReference} · ${mission.benchmark.window} · ${bound.length} campaign reference(s): ${bound.map((benchmark) => `${benchmark.campaignId} ${benchmark.status}`).join(", ")}`;
-  };
-  const rows = semantics.missions.map((mission) => {
-    const hypotheses = mission.hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${hypothesis.hypothesisId} · ${hypothesis.name} <span class="tiny muted">(${esc(hypothesis.role)})</span><div class="tiny muted">${hypothesis.version} · ${hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED}</div></span>`).join("");
-    return `<tr data-mission="${esc(mission.missionId)}">
-      <td>${esc(mission.label)}</td>
-      ${identityCell(mission, "CLIENT", mission.client.confirmed.purchaseTime
-        ? `${esc(mission.client.confirmed.purchaseTime)} ${esc(mission.client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified; sizing, fills and full cost UNKNOWN`
-        : "purchase timing UNKNOWN for this mission; sizing, fills and full cost UNKNOWN")}
-      ${identityCell(mission, "BENCHMARK", benchmarkDetail(mission))}
-      <td data-identity="HYPOTHESIS">${hypotheses}</td>
-      ${identityCell(mission, "CONTROL", mission.control.historicalComparator
-        ? "experiment metadata · historical calendar comparator is provenance, not the active protocol"
-        : "experiment metadata · no active CONTROL is claimed on this surface")}
-    </tr>`;
-  }).join("");
-  // H-RD-01 (Research Discovery) belongs to the HYPOTHESES collection, not to any
-  // mission row: it declares no mission scope (SEM2-T05).
-  const rd = (semantics.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === "H-RD-01");
-  const rdNote = rd
-    ? `<p class="tiny muted" data-hypothesis-id="H-RD-01">${esc(rd.hypothesisId)} · ${esc(rd.name)} — ${esc(rd.role)} · declared mission scope: none (UNDECLARED) · ${esc(semantics.labels.statuses.PROVENANCE_ONLY)}</p>`
-    : "";
-  return `<div class="card" data-semantic="SEM-2/canonical-projection" data-semantic-version="${esc(semantics.semanticVersion)}">
-    <div class="hd"><h3>${esc(semantics.labels.identities.CLIENT)} / ${esc(semantics.labels.identities.BENCHMARK)} / ${esc(semantics.labels.identities.HYPOTHESES)}</h3><span class="small muted">one shared backend projection · ${esc(semantics.labels.identities.CONTROL)} is experiment metadata</span></div>
-    <div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>${esc(semantics.labels.identities.CLIENT)}</th><th>${esc(semantics.labels.identities.BENCHMARK)}</th><th>${esc(semantics.labels.identities.HYPOTHESES)}</th><th>${esc(semantics.labels.identities.CONTROL)}</th></tr></thead><tbody>${rows}</tbody></table></div>
-    ${rdNote}
-    <p class="tiny muted">Canonical English identities from the backend. Historical ARM_A/DIP10/ARM_B/HOUR and A0/BASELINE remain technical aliases and provenance only; they never establish CLIENT, an active CONTROL protocol or a tested hypothesis.</p></div>
+  const mission = semantics.missions.find((entry) => entry.missionId === missionId);
+  if (!mission) {
+    return "";
+  }
+  const labels = semantics.labels;
+  const hypotheses = mission.hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)} <span class="small muted">(${esc(hypothesis.role)} · ${esc(hypothesis.version)} · ${esc(hypothesis.evidenceStatus === "PROVENANCE_ONLY" ? labels.statuses.PROVENANCE_ONLY : labels.statuses.UNTESTED)})</span></span>`).join("<br>");
+  // H-RD-01 (Research Discovery) belongs to the HYPOTHESES collection, not to
+  // any mission: it declares no mission scope (SEM2-T05), so it is listed apart.
+  const unscoped = (semantics.hypotheses ?? []).filter((hypothesis) => (hypothesis.missions ?? []).length === 0).map((hypothesis) => `<p class="small muted" data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)} — ${esc(hypothesis.role)} · declared mission scope: none · ${esc(labels.statuses.PROVENANCE_ONLY)}</p>`).join("");
+  return `<div class="card mctx" data-provenance="primary" data-semantic="SEM-2/canonical-projection" data-semantic-version="${esc(semantics.semanticVersion)}" data-mission-context="${esc(mission.missionId)}">
+    <div class="hd"><h3>${esc(mission.label)}</h3><span class="small muted">mission context · shared backend projection</span></div>
+    <div class="bd"><dl class="kvgrid">
+      <dt data-identity="CLIENT">${esc(labels.identities.CLIENT)}</dt><dd>${esc(mission.clientSummary ?? "")}</dd>
+      <dt data-identity="BENCHMARK">${esc(labels.identities.BENCHMARK)}</dt><dd>${esc(benchmarkSummary(mission, labels))}</dd>
+      <dt data-identity="HYPOTHESIS">${esc(labels.identities.HYPOTHESES)}</dt><dd>${hypotheses}</dd>
+    </dl>
+    ${unscoped}
+    <p class="small muted" data-context="ablation">${esc(labels.identities.CONTROL)} is the paired comparator of each hypothesis; it is shown only in the <a href="#backtests">Backtests</a> ablation.</p></div>
   </div>`;
+}
+
+function missionIdOfProduct(semantics, product) {
+  return semantics?.missions?.find((mission) => mission.product === product)?.missionId ?? null;
+}
+
+// Research has no mission of its own: the context follows the mission chosen in
+// the link (?mission=, validated by the server) and defaults to the first
+// backend mission, with the other missions one click away.
+function researchMissionContextHtml(semantics, selection) {
+  const missions = semantics?.ok === true ? semantics.missions ?? [] : [];
+  if (missions.length === 0) {
+    return "";
+  }
+  const missionId = missions.some((mission) => mission.missionId === selection?.missionId) ? selection.missionId : missions[0].missionId;
+  const switcher = missions.map((mission) => mission.missionId === missionId
+    ? `<b aria-current="true">${esc(mission.label)}</b>`
+    : `<a href="?mission=${esc(mission.missionId)}" data-mission-link="${esc(mission.missionId)}">${esc(mission.label)}</a>`).join(" ");
+  return `<div class="row wrap" style="gap:6px;margin-bottom:8px" data-mission-switch><span class="caps muted">Mission</span>${switcher}</div>${missionContextHtml(semantics, missionId)}`;
 }
 
 export function exploratoryCampaignsBody(exploratory, semantics = null) {
@@ -1314,7 +1414,6 @@ export function exploratoryCampaignsBody(exploratory, semantics = null) {
   const details = campaigns.map((campaign) => campaignDetailHtml(campaign, exploratory, campaign === firstComplete, semantics)).join("");
   return `${TARGET_SWITCH_CSS}${railSelectionCss(campaigns.map((campaign) => `cmp-${campaign.id}`), `cmp-${firstComplete.id}`)}
 <section class="surface campaigns" data-surface="campaigns" data-exploratory="true">
-  ${canonicalSemanticsStrip(semantics)}
   <div class="split xwrap">
     <div class="xlist">
       <div class="card crail">
@@ -1345,23 +1444,24 @@ function evaluationCloses(episode) {
 
 // Tira de decisiones del mockup (timelineSvg): una marca por día hábil del brazo A,
 // llena si compró; la seleccionada más alta; el punto negro marca las que tienen detalle.
-function runTimelineSvg(episode, item) {
+function runTimelineSvg(episode, item, runName = "Selected historical run") {
   const width = 1200;
-  const height = 74;
+  // UI-10: room for two rows of 16 px labels (evaluation window, months).
+  const height = 96;
   const left = 20;
   const right = 20;
   const days = episode.decisions?.ARM_A ?? [];
   const count = days.length;
   const x = (index) => left + (index / Math.max(1, count - 1)) * (width - left - right);
   const inspected = new Map(episode.inspector.map((entry) => [entry.index, entry]));
-  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Arm A decisions over the campaign window">`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="${esc(runName)} decisions over the campaign window">`;
   svg += `<line x1="${left}" x2="${width - right}" y1="34" y2="34" stroke="var(--rule)"/>`;
   const closes = evaluationCloses(episode);
   if (count > 0) {
     const cx = x(item.index);
     svg += `<rect x="${cx}" y="42" width="${Math.max(2, x(count - 1) - cx)}" height="8" fill="var(--hind)" stroke="var(--hind)" stroke-width="1" opacity=".75"/>`;
     const labelRight = cx > width / 2;
-    svg += `<text x="${labelRight ? cx - 6 : cx + 6}" y="61" text-anchor="${labelRight ? "end" : "start"}" font-size="10" fill="var(--hind)" font-weight="600">evaluation closed ${esc(closes)}</text>`;
+    svg += `<text x="${labelRight ? cx - 6 : cx + 6}" y="68" text-anchor="${labelRight ? "end" : "start"}" font-size="14" fill="var(--hind)" font-weight="600">evaluation closed ${esc(closes)}</text>`;
   }
   days.forEach((day, index) => {
     const cx = x(index);
@@ -1379,7 +1479,7 @@ function runTimelineSvg(episode, item) {
   });
   days.forEach((day, index) => {
     if (index > 0 && days[index - 1].day.slice(0, 7) === day.day.slice(0, 7)) return;
-    svg += `<text x="${x(index)}" y="72" font-size="10" fill="var(--ink-3)" text-anchor="${index === 0 ? "start" : "middle"}">${esc(day.day.slice(0, 7))}</text>`;
+    svg += `<text x="${x(index)}" y="90" font-size="14" fill="var(--ink-3)" text-anchor="${index === 0 ? "start" : "middle"}">${esc(day.day.slice(0, 7))}</text>`;
   });
   return `${svg}</svg>`;
 }
@@ -1392,7 +1492,8 @@ function knownAtT0Svg(episode, item, slot = "11:00") {
   const height = 250;
   const L = 44;
   const R = 26;
-  const T = 16;
+  // UI-10: the KNOWN AT T₀ / LATER labels sit above the plot, clear of the axis.
+  const T = 34;
   const B = 26;
   const points = episode.ask11;
   const values = points.map((point) => point.ask).filter((value) => typeof value === "number");
@@ -1419,9 +1520,9 @@ function knownAtT0Svg(episode, item, slot = "11:00") {
   const midLater = (cut + x(count - 1)) / 2;
   let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${esc(slot)} best ask as known at decision time">`;
   svg += `<g class="sealed-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="var(--surface-2)"/>`;
-  svg += `<text x="${midLater}" y="${height / 2 - 8}" text-anchor="middle" font-size="12.5" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
-  svg += `<text x="${midLater}" y="${height / 2 + 10}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Not known at decision time.</text>`;
-  svg += `<text x="${midLater}" y="${height / 2 + 25}" text-anchor="middle" font-size="11" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
+  svg += `<text x="${midLater}" y="${height / 2 - 8}" text-anchor="middle" font-size="14" fill="var(--hind)" font-weight="600">Sealed: after T₀</text>`;
+  svg += `<text x="${midLater}" y="${height / 2 + 10}" text-anchor="middle" font-size="14" fill="var(--ink-3)">Not known at decision time.</text>`;
+  svg += `<text x="${midLater}" y="${height / 2 + 25}" text-anchor="middle" font-size="14" fill="var(--ink-3)">“Hindsight overlay” draws it here only.</text></g>`;
   svg += `<g class="hind-layer"><rect x="${cut}" y="${T}" width="${x(count - 1) - cut}" height="${height - T - B}" fill="url(#emHatchH)"/></g>`;
   svg += '<g class="axis">';
   const step = Math.max(1, Math.round((hi - lo) / 5));
@@ -1433,10 +1534,10 @@ function knownAtT0Svg(episode, item, slot = "11:00") {
   svg += `<text x="${width - R}" y="${height - 8}" text-anchor="end">${esc(points.at(-1).day)}</text></g>`;
   svg += `<path d="${pathOf(0, item.index)}" fill="none" stroke="var(--asof)" stroke-width="2"/>`;
   svg += `<g class="hind-layer"><path d="${pathOf(item.index, count - 1)}" fill="none" stroke="var(--hind)" stroke-width="2" stroke-dasharray="5 3"/>`;
-  svg += `<text x="${x(count - 1) - 4}" y="${height - B - 8}" text-anchor="end" font-size="10.5" fill="var(--hind)" font-weight="600">realised later</text></g>`;
+  svg += `<text x="${x(count - 1) - 4}" y="${height - B - 8}" text-anchor="end" font-size="14" fill="var(--hind)" font-weight="600">realised later</text></g>`;
   svg += `<line x1="${cut}" x2="${cut}" y1="${T - 6}" y2="${height - B}" stroke="var(--hind)" stroke-width="2" stroke-dasharray="4 3"/>`;
-  svg += `<text x="${cut - 5}" y="${T + 4}" text-anchor="end" font-size="10.5" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
-  svg += `<text x="${cut + 5}" y="${T + 4}" font-size="10.5" fill="var(--hind)" font-weight="700">LATER</text>`;
+  svg += `<text x="${cut - 5}" y="${T - 12}" text-anchor="end" font-size="14" fill="var(--asof)" font-weight="700">KNOWN AT T₀</text>`;
+  svg += `<text x="${cut + 5}" y="${T - 12}" font-size="14" fill="var(--hind)" font-weight="700">LATER</text>`;
   const selectedAsk = points[item.index]?.ask;
   if (typeof selectedAsk === "number") {
     svg += `<circle cx="${cut}" cy="${y(selectedAsk)}" r="4.5" fill="var(--asof)" stroke="var(--surface)" stroke-width="2" data-tip="${esc(`${slot} best ask ${eur(selectedAsk)} €/MWh · known at T₀`)}"/>`;
@@ -1454,6 +1555,8 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
   const runLabel = context.runId ?? UNAVAILABLE_TEXT;
   const producerLabel = context.producerLabel ?? UNAVAILABLE_TEXT;
   const identityLabel = context.identityLabel ?? UNAVAILABLE_TEXT;
+  const selectedRun = context.selectedRun ?? { displayName: UNAVAILABLE_TEXT };
+  const comparatorRun = context.comparatorRun ?? { displayName: UNAVAILABLE_TEXT };
   const others = episode.inspector.map((other) => {
     const active = other.index === item.index;
     return `<a class="btn${active ? " on" : ""}" href="#${esc(replaySectionId(episode, other))}">${decisionNumber(other.index)} · BUY ${other.filledMw} MW</a>`;
@@ -1463,7 +1566,7 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
   const quoteClock = `${esc(item.quoteTm.slice(11, 19))}Z`;
 
   const rec = objCard("asof", "◆", "Recommendation", `T₀ ${esc(slot)}`, `
-    <div class="big">BUY ${item.requestedMw} MW <span class="muted" style="font-size:13px">${contract}</span></div>
+    <div class="big">BUY ${item.requestedMw} MW <span class="muted" style="font-size:14px">${contract}</span></div>
     <dl class="kv"><dt>Produced by</dt><dd class="mono">${esc(producerLabel)}</dd>
       <dt>${esc(slot)} best ask</dt><dd class="mono">${eur(item.ask)} €/MWh</dd>
       <dt>Trigger mean</dt><dd>${unknownValue()} <span class="tiny muted">mean of previous ${item.pastAsksUsed} asks not emitted</span></dd></dl>
@@ -1477,13 +1580,13 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
     : "";
   const fill = objCard("exec", "■", "Execution · fill", `quote ${quoteClock}`, `
     <div class="row" style="margin-bottom:4px"><span class="st warn"><span class="g">⚙</span>SIMULATED · ask + 0.15</span></div>
-    <div class="big">${item.filledMw} of ${item.requestedMw} MW <span class="muted" style="font-size:13px">avg ${eur(item.priceEurMwh)}</span></div>
+    <div class="big">${item.filledMw} of ${item.requestedMw} MW <span class="muted" style="font-size:14px">avg ${eur(item.priceEurMwh)}</span></div>
     <table class="t small"><tbody><tr><td class="mono">${quoteClock}</td><td class="num">${item.filledMw} MW</td><td class="num right mono">${eur(item.priceEurMwh)}</td></tr></tbody></table>
     ${depthNote}`);
   const out = objCard("hind", "●", "Outcome · evaluation", "window end", `
     <div class="row" style="margin-bottom:4px">${chip("pass", "✓", `Evaluation closed ${esc(closes)}`)}</div>
-    <div class="big">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="muted" style="font-size:13px">vs Baseline</span></div>
-    <dl class="kv"><dt>B* benchmark</dt><dd class="mono">${eur(episode.benchmark)}</dd><dt>H this fill</dt><dd class="mono">${eur(item.priceEurMwh)}</dd><dt>Baseline same day</dt><dd class="mono">${item.baseline.filledMw} MW${item.baseline.priceEurMwh === null ? "" : ` at ${eur(item.baseline.priceEurMwh)}`}</dd></dl>
+    <div class="big">ΔV ${kEur(item.deltaVEur / 1000)} k€ <span class="muted" style="font-size:14px">vs ${esc(comparatorRun.displayName)}</span></div>
+    <dl class="kv"><dt>B* benchmark</dt><dd class="mono">${eur(episode.benchmark)}</dd><dt>H this fill</dt><dd class="mono">${eur(item.priceEurMwh)}</dd><dt>${esc(comparatorRun.displayName)} same day</dt><dd class="mono">${item.baseline.filledMw} MW${item.baseline.priceEurMwh === null ? "" : ` at ${eur(item.baseline.priceEurMwh)}`}</dd></dl>
     <div class="tiny muted" style="margin-top:6px">Computed after the window closed. B* is a proxy (U-EM-2).</div>`);
 
   const inputRow = (label, value, observed, age, state) => `<tr><td>${label}</td><td class="mono num">${value}</td><td class="mono small">${observed}</td><td class="small">${age}</td><td>${state}</td></tr>`;
@@ -1501,17 +1604,18 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="${esc(replaySectionId(episode, item))}" data-decision="${esc(product)}-${esc(episode.maturity)}-${item.index}">
   <div class="dechead">
     <div class="grow">
-      <div class="mono muted small">${esc(campaignLabel)} · run ${esc(runLabel)} · <span data-canonical-identity="ARM_A">${esc(identityLabel)}</span> · ${esc(slot)} Europe/Berlin</div>
+      <div class="mono muted small">${esc(campaignLabel)} · run <span class="alias" data-provenance="alias">${esc(runLabel)}</span> · <span data-canonical-identity="ARM_A">${esc(identityLabel)}</span> · ${esc(slot)} Europe/Berlin</div>
       <h1 class="page">Decision ${decisionNumber(item.index)} — BUY at ${esc(item.day)} ${esc(slot)} Berlin</h1>
       <p class="lede">Read left to right: what was known, what was recommended, what was asked for, what was filled, and — separately, later — how it turned out.</p>
     </div>
     <div class="row">${others}</div>
   </div>
+  ${context.missionContext ?? ""}
 
   <div class="card" style="margin-top:14px;padding:4px 14px 0">
     <div class="row small" style="padding-top:6px"><span class="caps muted">Run timeline · ${(episode.decisions?.ARM_A ?? []).length} decisions</span><span class="grow"></span>
-      <span class="muted">■ BUY (Arm A) &nbsp; □ WAIT &nbsp; • opens in this inspector &nbsp; <span style="color:var(--hind)">▬ evaluation window</span></span></div>
-    <div class="tl">${runTimelineSvg(episode, item)}</div>
+      <span class="muted">■ BUY (${esc(selectedRun.displayName)}) &nbsp; □ WAIT &nbsp; • opens in this inspector &nbsp; <span style="color:var(--hind)">▬ evaluation window</span></span></div>
+    <div class="tl">${runTimelineSvg(episode, item, selectedRun.displayName)}</div>
   </div>
 
   <div class="chain">
@@ -1544,8 +1648,8 @@ function decisionSectionHtml(episode, item, isDefault, campaignId, context = {})
         <div class="metric">
           <span class="lbl">Evaluation window</span><span class="mono">${esc(episode.ask11[0].day)} → ${esc(closes)}</span>
           <span class="lbl">Benchmark B* (window mean ${esc(slot)} ask)</span><span class="val">${eur(episode.benchmark)}</span>
-          <span class="lbl">Hedge price H · ${expArmTag("ARM_A")}</span><span class="val">${eur(episode.hArmA)}</span>
-          <span class="lbl">Hedge price H · ${expArmTag("BASELINE")}</span><span class="val">${eur(episode.hBaseline)}</span>
+          <span class="lbl">Hedge price H · ${expArmTag("ARM_A", context.runs)}</span><span class="val">${eur(episode.hArmA)}</span>
+          <span class="lbl">Hedge price H · ${expArmTag("BASELINE", context.runs)}</span><span class="val">${eur(episode.hBaseline)}</span>
           <span class="lbl"><b>ΔV this decision</b></span><span class="val">${kEur(item.deltaVEur / 1000)} k€</span>
         </div>
         <div class="sp"></div>
@@ -1560,8 +1664,11 @@ export function exploratoryReplayBody(exploratory, semantics = null) {
   const episodes = exploratory.replay.filter((episode) => episode.inspector.length > 0);
   const firstQuarterly = episodes.find((episode) => episode.product === "G0BQ") ?? episodes[0];
   const campaigns = new Map(exploratory.campaigns.map((campaign) => [`${campaign.product}|${campaign.maturity}`, campaign]));
+  const labels = historicalLabels(semantics);
   // SEM2-T07: run/producer/anchor source-bound por episodio, desde el mapping
   // verificado y el run del artifact; nunca un EXP-…-ARM_A ni un 11:00 fijo.
+  // UI-10 (PLAN_UI §1 Replay rows): the selected run and its comparator are
+  // named by the backend projection of the SAME product (no "Arm A"/"Baseline").
   const contextFor = (episode) => {
     const campaign = campaigns.get(`${episode.product}|${episode.maturity}`) ?? null;
     const armARun = campaign?.runs?.find((run) => run.armId === "ARM_A") ?? null;
@@ -1569,26 +1676,38 @@ export function exploratoryReplayBody(exploratory, semantics = null) {
     // nunca del adaptador primario de otro release.
     const mission = semantics?.missions?.find((entry) => entry.product === episode.product) ?? null;
     const role = mission?.legacyAdapter?.roles?.ARM_A ?? null;
+    const runs = historicalRunsFor(semantics, episode.product);
     return {
+      runs,
+      selectedRun: runs.ARM_A,
+      comparatorRun: runs.BASELINE,
       runId: role?.runId ?? `EXP-${campaign?.id ?? "UNAVAILABLE"}`,
       runSlot: armARun?.slot ?? exploratory.rules?.clientSlotBerlin ?? null,
       producerLabel: role
-        ? `${role.hypothesisId} ${role.hypothesisVersion} · legacy arm DIP10 (provenance only)`
+        ? `${runs.ARM_A.label} (provenance only)`
         : "producer unavailable — no verified source-bound mapping",
-      identityLabel: role ? `${role.hypothesisId} · ${semantics?.legacyCandidates?.DIP10?.canonicalName ?? "provenance only"}` : "identity unavailable",
+      identityLabel: runs.ARM_A.label,
     };
   };
-  const picker = episodes.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(missionTitle(episode.product))} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ");
+  // PLAN_UI §3 item 4 / §4.B.13: a compact picker grouped by mission instead of
+  // a wall of campaign buttons above the decision.
+  const byMission = new Map();
+  for (const episode of episodes) {
+    const title = missionTitle(episode.product);
+    byMission.set(title, [...(byMission.get(title) ?? []), episode]);
+  }
+  const pickerGroups = [...byMission.entries()].map(([title, members]) => `<div class="pgrp"><span class="caps muted">${esc(title)}</span>${members.map((episode) => `<a class="btn" href="#rep-${esc(episode.product)}-${esc(episode.maturity)}">${esc(title)} ${esc(deliveryLabel(episode.maturity))} · ${episode.inspector.length} ${episode.inspector.length === 1 ? "buy" : "buys"}</a>`).join(" ")}</div>`).join("");
+  const picker = `<details class="picker"><summary><span class="caps muted">Campaign</span> <b>${episodes.length} campaigns with historical purchases</b> · choose</summary>${pickerGroups}</details>`;
   const sections = episodes.flatMap((episode) => {
-    const context = contextFor(episode);
+    const context = { ...contextFor(episode), missionContext: missionContextHtml(semantics, missionIdOfProduct(semantics, episode.product)) };
     const campaignId = campaigns.get(`${episode.product}|${episode.maturity}`)?.id ?? null;
     return episode.inspector.map((item, position) => decisionSectionHtml(episode, item, position === 0 && episode === firstQuarterly, campaignId, context));
   }).join("");
   return `${TARGET_SWITCH_CSS}
 <section class="surface replay" data-surface="replay" data-exploratory="true">
-  ${canonicalSemanticsStrip(semantics)}
-  <div class="row small" style="gap:6px;flex-wrap:wrap;margin-bottom:10px"><span class="caps muted">Campaigns with historical candidate-arm purchases</span>${picker}</div>
-  <div class="xwrap">${sections}</div>
+  <div class="histnote" data-historical-note="replay"><span class="histbadge">${esc(labels.badge)}</span> Decisions below belong to legacy exploratory runs, named by their backend lineage. ${esc(labels.notEvidence)}.</div>
+  <div class="row small" style="gap:6px;flex-wrap:wrap;margin:10px 0">${picker}</div>
+  <div class="xwrap" data-provenance="historical">${sections}</div>
 </section>`;
 }
 
@@ -1633,9 +1752,30 @@ function candidateName(candidate, semantics) {
   return semantics?.legacyCandidates?.[candidate.id]?.canonicalName ?? candidate.name;
 }
 
+// UI-10 (PLAN_UI §1 Research rows, §4.B.14): a legacy candidate mapped to a
+// canonical hypothesis (DIP10 → H-S1-01, HOUR → H-RD-01) is headed by that
+// hypothesis' identity and version from the backend projection; the legacy
+// id/version stay as a provenance caption. SEM2-T06: it remains untested.
+function canonicalHypothesisOf(candidate, semantics) {
+  const legacyView = semantics?.legacyCandidates?.[candidate.id] ?? null;
+  if (!legacyView?.hypothesisId || legacyView.role !== "HYPOTHESIS") {
+    return null;
+  }
+  return (semantics?.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === legacyView.hypothesisId) ?? null;
+}
+
+function candidateVersion(candidate, semantics) {
+  return canonicalHypothesisOf(candidate, semantics)?.version ?? candidate.version;
+}
+
+function candidateStage(candidate, semantics) {
+  const hypothesis = canonicalHypothesisOf(candidate, semantics);
+  return hypothesis ? `${hypothesis.role} hypothesis`.toUpperCase() : candidate.stage;
+}
+
 function candidateListHtml(candidates, provenance, semantics = null) {
   return candidates.map((candidate) => `<a class="it" href="#res-${esc(candidate.id)}">
-      <div class="row"><span class="stage">${esc(candidate.stage)}</span><span class="grow"></span><span class="mono tiny muted">${esc(candidate.version)}</span></div>
+      <div class="row"><span class="stage">${esc(candidateStage(candidate, semantics))}</span><span class="grow"></span><span class="mono tiny muted">${esc(candidateVersion(candidate, semantics))}</span></div>
       <div style="font-weight:600;margin:3px 0 5px">${esc(candidateName(candidate, semantics))}</div>
       <div class="row small" style="gap:6px"><span class="muted">Readiness</span>${chipFrom(READINESS_CHIP, candidate.readiness)}</div>
       <div class="row small" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="ev">EVIDENCE ${candidateReceipts(candidate, provenance).length}</span><span class="muted">Authority</span>${authorityChip(candidate, semantics?.legacyCandidates?.[candidate.id] ?? null)}</div>
@@ -1644,86 +1784,130 @@ function candidateListHtml(candidates, provenance, semantics = null) {
 
 // Linaje del mockup (lineageSvg) con lo que el artifact declara: una sola versión por
 // candidato y, para los brazos exploratorios, la referencia A0 contra la que se emparejan.
-// No hay versiones previas registradas, así que no se dibuja ninguna.
-function candidateLineageSvg(candidate) {
-  const node = (cx, cy, label, current) => `<rect x="${cx - 80}" y="${cy - 17}" width="160" height="34" rx="4" fill="${current ? "var(--ink)" : "var(--surface)"}" stroke="var(--ink-2)"/><text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${current ? "#fff" : "var(--ink)"}" font-family="var(--mono)">${esc(label)}</text>`;
-  const caption = (cx, cy, text) => `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">${esc(text)}</text>`;
-  let svg = '<svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage">';
+// UI-10: the current node is the canonical hypothesis version (untested, no run);
+// the legacy run is its lineage, drawn as provenance with its alias as caption.
+function candidateLineageSvg(candidate, semantics = null) {
+  const node = (cx, cy, label, current) => `<rect x="${cx - 95}" y="${cy - 18}" width="190" height="36" rx="5" fill="${current ? "var(--ink)" : "var(--surface)"}" stroke="var(--ink-2)"/><text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="${current ? "#fff" : "var(--ink)"}" font-family="var(--mono)">${esc(label)}</text>`;
+  const caption = (cx, cy, text) => `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="14" fill="var(--ink-2)">${esc(text)}</text>`;
+  let svg = '<svg viewBox="0 0 900 160" width="100%" role="img" aria-label="Version lineage">';
   if (!candidate.armId) {
-    svg += '<rect x="0" y="10" width="900" height="130" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/>';
-    svg += '<text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">NO VERSION RUN · hypothesis only</text>';
-    svg += '<text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no experiment is recorded for this candidate; nothing is drawn</text>';
+    svg += '<rect x="0" y="10" width="900" height="140" rx="4" fill="url(#emHatchU)" stroke="#cdb8d6"/>';
+    svg += '<text x="450" y="76" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">NO VERSION RUN · strategy without a defined hypothesis</text>';
+    svg += '<text x="450" y="98" text-anchor="middle" font-size="14" fill="var(--unk)">no experiment is recorded for this entry; nothing is drawn</text>';
     return `${svg}</svg>`;
   }
+  const comparator = historicalRunsFor(semantics).BASELINE.displayName;
   if (candidate.armId === "BASELINE") {
-    svg += node(450, 70, `${candidate.id} ${candidate.version}`, true) + caption(450, 102, "historical calendar comparator · provenance");
+    svg += node(450, 70, `${candidate.id} ${candidate.version}`, false) + caption(450, 106, `${comparator} · provenance`);
     return `${svg}</svg>`;
   }
+  const hypothesis = canonicalHypothesisOf(candidate, semantics);
   const products = candidate.criteria.map((group) => group.product).join(" · ");
-  svg += `<text x="600" y="30" text-anchor="middle" font-size="10" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · ${esc(products)}</text>`;
-  svg += node(600, 70, `${candidate.id} ${candidate.version}`, true) + caption(600, 102, "exploratory · owner patch 02");
-  svg += node(220, 70, "A0 v1", false) + caption(220, 102, "historical calendar comparator · provenance");
-  svg += '<path d="M518 70 L302 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
-  svg += '<text x="410" y="62" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">paired against</text>';
+  svg += `<text x="450" y="24" text-anchor="middle" font-size="14" fill="var(--ink-2)" font-family="var(--mono)">⧉ exploratory backtest · ${esc(products)}</text>`;
+  svg += node(150, 70, "A0 v1", false) + caption(150, 106, `${comparator} · provenance`);
+  svg += node(450, 70, `${candidate.id} ${candidate.version}`, false) + caption(450, 106, "legacy run · owner patch 02");
+  svg += '<path d="M353 70 L247 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
+  svg += '<text x="300" y="60" text-anchor="middle" font-size="14" fill="var(--ink-2)">paired against</text>';
+  if (hypothesis) {
+    svg += node(750, 70, hypothesis.version, true) + caption(750, 106, "current version · untested · no run");
+    svg += '<path d="M547 70 L653 70" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#emArr)"/>';
+    svg += '<text x="600" y="60" text-anchor="middle" font-size="14" fill="var(--ink-2)">lineage of</text>';
+  }
   return `${svg}</svg>`;
+}
+
+// UI-10 (PLAN_UI §3 item 5): historical criteria as a criterion × product
+// matrix instead of 16 vertical rows. Labels come canonical from the view model;
+// each verbatim original stays as a collapsed quote.
+function criteriaMatrixHtml(candidate) {
+  const products = candidate.criteria.map((group) => group.product);
+  const rowLabels = [...new Set(candidate.criteria.flatMap((group) => group.items.map((item) => item.label)))];
+  const head = `<th>Criterion</th>${products.map((product) => `<th>${esc(product)}</th>`).join("")}`;
+  const rows = rowLabels.map((label) => {
+    const items = candidate.criteria.map((group) => group.items.find((item) => item.label === label) ?? null);
+    const labelQuote = items.find((item) => item?.historicalQuote?.label && item.historicalQuote.label !== label)?.historicalQuote ?? null;
+    const cells = items.map((item) => (item === null
+      ? '<td><span class="muted small">—</span></td>'
+      : `<td data-criterion="${esc(item.status)}">${chipFrom(CRITERION_CHIP, item.status)}<div class="small ink2">${esc(item.detail)}</div>${item.historicalQuote?.detail && item.historicalQuote.detail !== item.detail ? historicalQuoteHtml({ detail: item.historicalQuote.detail }) : ""}</td>`)).join("");
+    return `<tr><td><b>${esc(label)}</b>${labelQuote ? historicalQuoteHtml({ label: labelQuote.label }) : ""}</td>${cells}</tr>`;
+  }).join("");
+  return `<div style="overflow-x:auto" data-overflow-container><table class="t crit-matrix"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// UI-10 (PLAN_UI §3 item 5): one heading per release manifest, no repetition.
+function integrityHtml(integrity) {
+  const releases = [...new Set(integrity.map((item) => item.release ?? null))];
+  return releases.map((release) => {
+    const items = integrity.filter((item) => (item.release ?? null) === release)
+      .map((item) => `<div class="chk"><span>${esc(item.label)}</span>${chipFrom(INTEGRITY_CHIP, item.status)}<span class="d">${esc(item.detail)}${historicalQuoteHtml(item.historicalQuote)}</span></div>`).join("");
+    return `${release === null ? "" : `<div class="caps muted" style="margin-top:8px">Release ${esc(release)}</div>`}${items}`;
+  }).join("");
 }
 
 function candidateDetailHtml(candidate, research, provenance, isDefault, semantics = null) {
   const legacyView = semantics?.legacyCandidates?.[candidate.id] ?? null;
+  const labels = historicalLabels(semantics);
   // SEM2-T06: sin evidencia de la versión nueva, la hipótesis canónica sigue
   // UNTESTED; los criterios históricos (DIP10/HOUR v1-exp) son procedencia,
   // no criterios de la hipótesis canónica.
-  const canonicalHypothesis = legacyView?.hypothesisId
-    ? (semantics?.hypotheses ?? []).find((hypothesis) => hypothesis.hypothesisId === legacyView.hypothesisId) ?? null
-    : null;
+  const canonicalHypothesis = canonicalHypothesisOf(candidate, semantics);
   const canonicalEvidenceNote = canonicalHypothesis
-    ? `<div class="chk" data-canonical-evidence="${esc(canonicalHypothesis.hypothesisId)}"><span><b>${esc(canonicalHypothesis.hypothesisId)} · ${esc(canonicalHypothesis.name)}</b> <span class="tiny muted">(${esc(canonicalHypothesis.role)}, ${esc(canonicalHypothesis.version)})</span></span>${chip("unk", "?", canonicalHypothesis.evidenceStatus === "PROVENANCE_ONLY" ? "Provenance only" : "Untested")}<span class="d">${esc(canonicalHypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED)} This historical candidate does not test the current hypothesis version.</span></div>`
+    ? `<div class="chk" data-canonical-evidence="${esc(canonicalHypothesis.hypothesisId)}"><span><b>${esc(canonicalHypothesis.hypothesisId)} · ${esc(canonicalHypothesis.name)}</b> <span class="small muted">(${esc(canonicalHypothesis.role)}, ${esc(canonicalHypothesis.version)})</span></span>${chip("unk", "?", canonicalHypothesis.evidenceStatus === "PROVENANCE_ONLY" ? "Provenance only" : "Untested")}<span class="d">${esc(canonicalHypothesis.evidenceStatus === "PROVENANCE_ONLY" ? semantics.labels.statuses.PROVENANCE_ONLY : semantics.labels.statuses.UNTESTED)} This historical candidate does not test the current hypothesis version.</span></div>`
     : "";
+  // The canonical question is primary; the legacy candidate text is a quote.
+  const primaryStatement = canonicalHypothesis
+    ? `<p class="hyp" data-context="hypothesis-definition">${esc(canonicalHypothesis.question)}</p>${historicalQuoteHtml({ label: candidate.hypothesis }, `legacy ${candidate.id} ${candidate.version}`)}`
+    : legacyView
+      ? `<p class="hyp">${esc(legacyView.canonicalName)} — ${esc(legacyView.authorityLabel)}</p>${historicalQuoteHtml({ label: candidate.hypothesis }, `legacy ${candidate.id} ${candidate.version}`)}`
+      : `<p class="hyp">${esc(candidate.hypothesis)}</p>`;
   const criteria = candidate.criteria.length === 0
-    ? '<div class="small muted">No success criteria measured: no run for this candidate.</div>'
-    : candidate.criteria.map((group) => `<div class="mono tiny muted" style="margin-top:8px">${esc(group.product)}</div>${group.items.map((item) => {
-      const [, glyph] = CRITERION_CHIP[item.status] ?? ["unk", "?"];
-      return `<div class="crit"><span class="mono">${glyph}</span><div><div style="font-weight:600">${esc(item.label)}</div><div class="small ink2">${esc(item.detail)}</div></div>${chipFrom(CRITERION_CHIP, item.status)}</div>`;
-    }).join("")}`).join("");
-  const criteriaHeader = legacyView
-    ? '<div class="caps muted" data-historical-provenance="true">Historical success criteria · provenance of the legacy run, not criteria of the canonical hypothesis</div>'
-    : '<div class="caps muted">Success criteria</div>';
-  const integrity = research.integrity.map((item) => `<div class="chk"><span>${esc(item.label)}</span>${chipFrom(INTEGRITY_CHIP, item.status)}<span class="d">${esc(item.detail)}</span></div>`).join("");
+    ? '<div class="small muted">No success criteria measured: no run for this entry.</div>'
+    : criteriaMatrixHtml(candidate);
+  const criteriaBlock = candidate.criteria.length === 0
+    ? `<div class="caps muted">Success criteria</div>${criteria}`
+    : `<div class="histblock" data-provenance="historical" data-historical-provenance="true"><div class="caps muted"><span class="histbadge">${esc(labels.badge)}</span> Historical success criteria of the legacy run · not criteria of the canonical hypothesis</div>${criteria}</div>`;
   const receipts = candidateReceipts(candidate, provenance);
   const receiptRows = receipts.length === 0
-    ? '<tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this candidate</span></td></tr>'
+    ? '<tr><td colspan="5"><span class="withheld">NO RECEIPTS</span> <span class="small muted">no run exists for this entry</span></td></tr>'
     : receipts.map((receipt) => `<tr><td class="mono small">${esc(receipt.id)}</td><td><span class="ev">${esc(receipt.kind)}</span></td><td>${esc(receipt.what)}</td><td>${NOT_RECORDED}</td><td>${receipt.href ? `<span class="drill"><a href="${esc(receipt.href)}">open</a></span>` : '<span class="muted small">record</span>'}</td></tr>`).join("");
+  const identityLine = canonicalHypothesis
+    ? `${esc(canonicalHypothesis.version)} · owner Bru ${aliasHtml(`legacy ${candidate.id} ${candidate.version} · provenance`, "span")}`
+    : candidate.armId
+      ? `${esc(candidate.id)} ${esc(candidate.version)} · owner Bru`
+      : `${esc(candidate.id)} · ${esc(CANONICAL_LABELS.hypotheses.strategy)} · no hypothesis defined · owner Bru`;
+  const version = candidateVersion(candidate, semantics);
   return `<section class="xsel${isDefault ? " xdefault" : ""}" id="res-${esc(candidate.id)}" data-candidate="${esc(candidate.id)}">
   <div class="row" style="align-items:flex-end">
-    <div class="grow"><div class="mono muted small">${esc(candidate.id)} ${esc(candidate.version)} · owner Bru</div>
-      <h1 class="page">${esc(candidateName(candidate, semantics))} <span class="muted">${esc(candidate.version)}</span></h1></div>
+    <div class="grow"><div class="mono muted small">${identityLine}</div>
+      <h1 class="page">${esc(candidateName(candidate, semantics))}${version && version !== "—" ? ` <span class="muted">${esc(version)}</span>` : ""}</h1></div>
     <div style="text-align:right"><div class="caps muted">Readiness (backend)</div><div style="margin-top:4px">${chipFrom(READINESS_CHIP, candidate.readiness)}</div></div>
   </div>
   <div class="grid" style="grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); margin-top:14px">
     <div class="card"><div class="hd"><h3>Hypothesis</h3><span class="small muted">registered ${NOT_RECORDED} · exploratory phase (${OWNER_PATCH_02})</span></div>
-      <div class="bd">${canonicalEvidenceNote}<p class="hyp">${esc(candidate.hypothesis)}</p>${criteriaHeader}${criteria}</div></div>
+      <div class="bd">${canonicalEvidenceNote}${primaryStatement}${candidate.criteria.length === 0 ? criteriaBlock : ""}</div></div>
     <div>
       <div class="auth-box">
         <div class="row"><span class="seal">AUTHORITY</span><span class="grow"></span>${authorityChip(candidate, legacyView)}</div>
         <div style="font:600 16px var(--serif);margin:8px 0 4px">No adoption decision exists</div>
         <div class="small ink2">Authority to adopt: <b>Bru</b>. Evidence does not change this state; only a recorded owner decision can.</div>
       </div>
-      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd">${integrity}</div></div>
+      <div class="card" style="margin-top:14px"><div class="hd"><h3>Readiness &amp; integrity</h3></div><div class="bd">${integrityHtml(research.integrity)}</div></div>
     </div>
   </div>
-  <div class="card" style="margin-top:14px"><div class="hd"><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison</span></div><div class="bd">${candidateLineageSvg(candidate)}</div></div>
+  ${candidate.criteria.length === 0 ? "" : criteriaBlock}
+  <div class="card hist" data-provenance="historical" style="margin-top:14px"><div class="hd"><span class="histbadge">${esc(labels.badge)}</span><h3>Version lineage</h3><span class="small muted">versions → experiments · dashed = paired comparison or lineage</span></div><div class="bd">${candidateLineageSvg(candidate, semantics)}</div></div>
   <div class="card" style="margin-top:14px"><div class="hd"><h3>Evidence &amp; receipts</h3><span class="small muted">${receipts.length} items · evidence informs, it does not authorise</span></div>
     <table class="t"><thead><tr><th>Receipt</th><th>Kind</th><th>What</th><th>Recorded</th><th></th></tr></thead><tbody>${receiptRows}</tbody></table></div>
 </section>`;
 }
 
-export function exploratoryResearchBody(exploratory, semantics = null) {
+export function exploratoryResearchBody(exploratory, semantics = null, selection = {}) {
   const research = exploratory.research;
   const firstEvidence = research.candidates.find((candidate) => candidate.stage === "EVIDENCE GATHERING") ?? research.candidates[0];
   const details = research.candidates.map((candidate) => candidateDetailHtml(candidate, research, exploratory.provenance, candidate === firstEvidence, semantics)).join("");
   return `${TARGET_SWITCH_CSS}${railSelectionCss(research.candidates.map((candidate) => `res-${candidate.id}`), `res-${firstEvidence.id}`)}
 <section class="surface research" data-surface="research" data-exploratory="true">
-  ${canonicalSemanticsStrip(semantics)}
+  ${researchMissionContextHtml(semantics, selection)}
   <div class="split xwrap">
     <div class="xlist">
       <div class="caps muted" style="margin:4px 0 8px">Candidate stack</div>
@@ -1735,29 +1919,30 @@ export function exploratoryResearchBody(exploratory, semantics = null) {
 </section>`;
 }
 
-function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null) {
+function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null, semantics = null) {
   if (!exploratory) {
     return "";
   }
+  const runs = historicalRunsFor(semantics, productFilter);
   const inFilter = (product) => productFilter === null || product === productFilter;
   const rows = exploratory.episodes.filter((episode) => inFilter(episode.product)).map((episode) => {
     const dipDiff = episode.a0?.complete && episode.dip?.complete ? episode.dip.avgPriceEurMwh - episode.a0.avgPriceEurMwh : null;
     const loo = episode.leaveOneOut;
     return `<tr data-status="EXPLORATORY" data-product="${esc(episode.product)}" data-maturity="${esc(episode.maturity)}"><td class="mono">${esc(episode.product)}</td><td class="mono">${esc(episode.maturity)}</td><td class="mono small" style="white-space:nowrap">${esc(episode.firstDay)} → ${esc(episode.lastDay)} · ${episode.tradingDays} d</td><td class="mono num right">${armResultHtml(episode.a0)}</td><td class="mono num right">${armResultHtml(episode.dip)}</td><td class="mono num right">${signedEur(dipDiff)}</td><td class="mono num right">${armResultHtml(episode.dipDepth)}</td><td class="mono">${esc(loo?.slotChosenOnOtherEpisodes ?? "—")}</td><td class="mono num right">${signedEur(loo?.diffOnThisEpisodeEurMwh)}</td></tr>`;
   });
-  const summaries = Object.entries(exploratory.summary).filter(([product]) => inFilter(product)).map(([product, summary]) => `<div class="chk"><span><b>${esc(product)}</b> · ${summary.episodes} episodes</span><span class="d">DIP10 vs A0: ${signedEur(summary.dipVsA0.meanDiffEurMwh)} EUR/MWh mean, cheaper in ${summary.dipVsA0.episodesCheaper}/${summary.dipVsA0.pairedEpisodes} · hour chosen out-of-episode vs 11:00: ${signedEur(summary.leaveOneOutHour.meanDiffEurMwh)} EUR/MWh over ${summary.leaveOneOutHour.evaluatedEpisodes}</span></div>`);
+  const summaries = Object.entries(exploratory.summary).filter(([product]) => inFilter(product)).map(([product, summary]) => `<div class="chk"><span><b>${esc(product)}</b> · ${summary.episodes} episodes</span><span class="d">${esc(runs.ARM_A.displayName)} vs ${esc(runs.BASELINE.displayName)}: ${signedEur(summary.dipVsA0.meanDiffEurMwh)} EUR/MWh mean, cheaper in ${summary.dipVsA0.episodesCheaper}/${summary.dipVsA0.pairedEpisodes} · ${esc(runs.ARM_B.displayName.toLowerCase())} vs 11:00: ${signedEur(summary.leaveOneOutHour.meanDiffEurMwh)} EUR/MWh over ${summary.leaveOneOutHour.evaluatedEpisodes}</span></div>`);
   const shownProfiles = exploratory.hourProfiles.filter((profile) => inFilter(profile.product));
   const profileWidth = shownProfiles.length === 1 ? 1100 : 380;
-  const profiles = shownProfiles.map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">A0 at each hour minus A0 at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile, profileWidth)}</div></div>`);
+  const profiles = shownProfiles.map((profile) => `<div class="card"><div class="hd"><h3>Hour profile · ${esc(profile.product)}</h3><span class="small muted">${esc(runs.BASELINE.displayName)} at each hour minus at 11:00 · green = cheaper</span></div><div class="bd" data-kind="hour-profile">${hourProfileSvg(profile, profileWidth)}</div></div>`);
   const rules = exploratory.rules;
   // BT-06: la fuente que se muestra es la del release que respalda el producto
   // filtrado (gas v2 o Power v3), no siempre la del release primario.
   const provenance = (productFilter !== null && exploratory.provenance?.byProduct?.[productFilter]) || exploratory.provenance;
   return `
   <div class="card" style="margin-top:14px" data-exploratory="true">
-    <div class="hd"><h3>Exploratory backtest · ${esc(observationSourceLabel(mode))}</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span><span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
+    <div class="hd"><h3>Historical exploratory backtest · ${esc(observationSourceLabel(mode))}</h3><span class="small muted">data ${esc(exploratory.dataPeriod.firstDataDay)} → ${esc(exploratory.dataPeriod.lastDataDay)} · target ${esc(JSON.stringify(rules.targetsMw))} MW · ask + ${rules.slippageEurMwh} EUR/MWh · cap ${rules.dailyCapMw} MW/day · fees ${esc(rules.feesEurMwh)}</span>${historicalQuoteHtml(rules.feesHistoricalQuote ? { detail: rules.feesHistoricalQuote } : null)}<span class="grow"></span>${chip("warn", "◇", "EXPLORATORY")}</div>
     <div style="overflow-x:auto"><table class="t">
-      <thead><tr><th>Product</th><th>Delivery</th><th>Window</th><th class="right">A0 · 11:00 (client)</th><th class="right">DIP10 · 11:00</th><th class="right">DIP − A0</th><th class="right">DIP10 · depth-capped</th><th>Hour (out-of-episode)</th><th class="right">Δ vs 11:00</th></tr></thead>
+      <thead><tr><th>Product</th><th>Delivery</th><th>Window</th><th class="right">${esc(runs.BASELINE.displayName)}</th><th class="right">${esc(runs.ARM_A.displayName)}</th><th class="right">Δ vs comparator</th><th class="right">${esc(runs.ARM_A.displayName)} · depth-capped</th><th>${esc(runs.ARM_B.displayName)}</th><th class="right">Δ vs 11:00</th></tr></thead>
       <tbody>${rows.join("")}</tbody>
     </table></div>
     <div class="bd">${summaries.join("")}
@@ -1767,16 +1952,13 @@ function exploratoryBacktestHtml(exploratory, mode = "TOB", productFilter = null
   <div class="grid" style="grid-template-columns: repeat(${Math.min(profiles.length, 2)}, minmax(0,1fr)); margin-top:14px">${profiles.join("")}</div>`;
 }
 
-// Leyenda de brazos del mockup: los canónicos atados, o los brazos de la comparación exploratoria.
-function armHeadHtml(canonicalArms, comparison) {
+// Leyenda de los brazos canónicos atados. Con comparación exploratoria la
+// leyenda vive dentro de su tarjeta histórica (UI-10, PLAN_UI §3 item 9).
+function armHeadHtml(canonicalArms) {
   if (canonicalArms.length > 0) {
     return canonicalArms.map(armTag).join("");
   }
-  const exploratoryArms = comparison ? [...new Set(Object.values(comparison).flatMap((block) => block.table.map((row) => row.armId)))] : [];
-  if (exploratoryArms.length > 0) {
-    return exploratoryArms.map(expArmTag).join("");
-  }
-  return `<span class="small muted">arms</span> ${unknownValue()}`;
+  return `<span class="small muted">runs</span> ${unknownValue()}`;
 }
 
 // ---------- TR-07: paneles TRADES de la pantalla de Backtests ----------
@@ -1787,7 +1969,7 @@ function armHeadHtml(canonicalArms, comparison) {
 
 const TR07_CSS = `<style>
 .tr07bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-.tr07btn { display:inline-block; border:1px solid var(--rule); border-radius:4px; padding:4px 10px; font:600 12px var(--sans); color:var(--ink-2); text-decoration:none; }
+.tr07btn { display:inline-block; border:1px solid var(--rule); border-radius:4px; padding:4px 10px; font:600 14px var(--sans); color:var(--ink-2); text-decoration:none; }
 .tr07btn.on { background:var(--ink); color:#fff; border-color:var(--ink); }
 .tr07zones { display:flex; gap:3px; margin:8px 0 2px; }
 .tr07zone { flex:1; border:1px solid var(--rule); border-radius:3px; padding:3px 6px; background:var(--surface-2); opacity:.5; }
@@ -1798,11 +1980,11 @@ const TR07_CSS = `<style>
 .tr07side { border-left:3px solid var(--arm-b); }
 .tr07empty { min-height:170px; border:2px dashed var(--rule); border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; color:var(--ink-3); padding:12px; margin-top:8px; background:repeating-linear-gradient(135deg, transparent 0 10px, var(--surface-2) 10px 20px); }
 .tr07empty b { display:block; color:var(--ink); font-family:var(--serif); }
-.tr07arm { width:100%; border-collapse:collapse; font-size:12px; }
-.tr07arm th { text-align:left; font:10px var(--mono); color:var(--ink-3); padding:6px 8px; border-bottom:1px solid var(--rule); }
+.tr07arm { width:100%; border-collapse:collapse; font-size:14px; }
+.tr07arm th { text-align:left; font:14px var(--mono); color:var(--ink-3); padding:6px 8px; border-bottom:1px solid var(--rule); }
 .tr07arm td { padding:7px 8px; border-bottom:1px solid var(--rule); font-family:var(--mono); }
 .tr07sw { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; }
-.tr07unav { display:inline-block; font:10px var(--mono); color:var(--unk); background:var(--surface-2); border:1px solid var(--rule); border-radius:3px; padding:0 5px; }
+.tr07unav { display:inline-block; font:14px var(--mono); color:var(--unk); background:var(--surface-2); border:1px solid var(--rule); border-radius:3px; padding:0 5px; }
 .tr07expand { display:inline-block; margin-top:14px; }
 </style>`;
 
@@ -1857,12 +2039,21 @@ function tr07Query(selection, overrides = {}) {
   return `?${params.toString()}`;
 }
 
+// UI-10 (PLAN_UI §3): the chip shows the backend English word
+// (trades-panels.mjs TRADES_PANEL_LABELS); the code stays in data-state only.
 function tr07StatusChip(status) {
-  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION" || status === "PENDING_OWNER_APPROVAL") return chip("warn", "!", esc(status));
-  if (status === "LOW_COVERAGE" || status === "PARTIAL_SOURCE_RANGE") return chip("warn", "!", esc(status));
-  if (status === "NO_COVERAGE" || status === "BEFORE_SOURCE_START") return chip("unk", "?", esc(status));
-  if (status === "SEALED" || status === "RESERVED" || status === "MEASURED" || status === "OBSERVED" || status === "DECIDED" || status === "FROZEN") return chip("run", "◆", esc(status));
-  return chip("unk", "?", esc(status));
+  const label = esc(tradesLabel("statuses", status));
+  const tagged = (html) => `<span data-state="${esc(status ?? "UNAVAILABLE")}">${html}</span>`;
+  if (status === "PENDING_SCAN_JOB" || status === "PENDING_ARCHIVE_VERIFICATION" || status === "PENDING_OWNER_APPROVAL") return tagged(chip("warn", "!", label));
+  if (status === "LOW_COVERAGE" || status === "PARTIAL_SOURCE_RANGE") return tagged(chip("warn", "!", label));
+  if (status === "NO_COVERAGE" || status === "BEFORE_SOURCE_START") return tagged(chip("unk", "?", label));
+  if (status === "SEALED" || status === "RESERVED" || status === "MEASURED" || status === "OBSERVED" || status === "DECIDED" || status === "FROZEN") return tagged(chip("run", "◆", label));
+  return tagged(chip("unk", "?", label));
+}
+
+// Canonical English mission name (backend contract), never the mission id.
+function missionName(missionId) {
+  return MISSION_LABELS[missionId] ?? tradesLabel("statuses", null);
 }
 
 // Presentación de valores que el backend ya trae; nunca se derivan aquí.
@@ -1932,15 +2123,15 @@ function tr07CoverageHtml(panels, missionId) {
       ? (incompleteDays.length ? `: ${esc(incompleteDays.join(", "))}` : "")
       : `: ${esc(incompleteDays.slice(0, 5).join(", "))} <details><summary>${esc(incompleteDays.length - 5)} more days</summary>${esc(incompleteDays.slice(5).join(", "))}</details>`;
     const sourceNote = patch
-      ? `<div class="tiny muted" data-tr07-period-sha="${esc(campaign.sourcePeriod.provenance.sha256)}">CLIENT_SEALED_ARCHIVE base · EEX_LAKE_PATCH ${esc(lakeDays.length)} d${lakeDays.length ? `: ${esc(lakeDays.join(", "))}` : ""} · DATA_INCOMPLETE ${esc(incompleteDays.length)} d${incompleteDetail}</div>`
-      : `<div class="tiny muted">Source period unavailable: ${esc(campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING")}</div>`;
-    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td>${esc(zone.zone)}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}${rangeNote}${sourceNote}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td><td class="right mono" data-tr07-eligible-trades="${esc(trades)}">${esc(trades)}</td></tr>`;
+      ? `<div class="tiny muted" data-tr07-period-sha="${esc(campaign.sourcePeriod.provenance.sha256)}">${esc(tradesLabel("sources", "CLIENT_SEALED_ARCHIVE"))} base · ${esc(tradesLabel("sources", "EEX_LAKE_PATCH"))} ${esc(lakeDays.length)} d${lakeDays.length ? `: ${esc(lakeDays.join(", "))}` : ""} · ${esc(tradesLabel("sources", "DATA_INCOMPLETE"))} ${esc(incompleteDays.length)} d${incompleteDetail}</div>`
+      : `<div class="tiny muted" data-code="${esc(campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING")}">Source period unavailable: ${esc(tradesLabel("sourcePeriodReasons", campaign.sourcePeriod?.reason ?? "DATA02_COVERAGE_MISSING"))}</div>`;
+    return `<tr data-tr07-campaign="${esc(campaign.campaignId)}"><td class="mono small">${esc(campaign.campaignId)}</td><td data-zone="${esc(zone.zone)}">${esc(tradesZoneLabel(zone.zone))}</td><td class="mono small">${esc(campaign.windowStart)} → ${esc(campaign.windowEnd ?? "—")}</td><td>${tr07StatusChip(cell.status)}${rangeNote}${sourceNote}</td><td class="right mono">${esc(days)} / ${esc(cell.windowDays)} d</td><td class="right mono" data-tr07-eligible-trades="${esc(trades)}">${esc(trades)}</td></tr>`;
   })).join("");
   const sources = (coverage.measurements ?? []).filter((entry) => entry.market === mission.market).map((entry) =>
-    `<div class="tiny muted" data-tr07-source-sha="${esc(entry.sha256)}">TR-01 measurement ${esc(entry.market)} · trades ${esc(entry.dateMin)} → ${esc(entry.dateMax)} · sha ${esc(tr07ShortHash(entry.sha256))} · broken spread ${esc(coverage.brokenSpreadPolicy ?? "—")}</div>`).join("");
-  const zoneSummary = mission.zones.map((zone) => `${esc(zone.zone)} ${zone.campaigns.length}`).join(" · ");
+    `<div class="tiny muted" data-tr07-source-sha="${esc(entry.sha256)}">TR-01 measurement ${esc(tradesLabel("markets", entry.market))} · trades ${esc(entry.dateMin)} → ${esc(entry.dateMax)} · sha ${esc(tr07ShortHash(entry.sha256))} · broken spread ${esc(coverage.brokenSpreadPolicy ? tradesLabel("brokenSpread", coverage.brokenSpreadPolicy) : "—")}</div>`).join("");
+  const zoneSummary = mission.zones.map((zone) => `${esc(tradesZoneLabel(zone.zone))} ${zone.campaigns.length}`).join(" · ");
   return `<div class="card" style="margin-top:14px" data-tr07="coverage" data-mission="${esc(mission.missionId)}">
-    <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(mission.market)} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
+    <div class="hd"><h3>Data coverage</h3><span class="small muted">TR-01 · ${esc(tradesLabel("markets", mission.market))} · ${esc(mission.shortCode)} · per instrument, per day</span><span class="grow"></span>${tr07StatusChip(coverage.status)}</div>
     <div class="bd">
       <div class="small muted">${esc(coverage.reason)}</div>
       <div class="small muted" style="margin-top:6px">TR-01 source decision: ${tr07StatusChip(coverage.sourceDecisionStatus)}</div>
@@ -1960,14 +2151,14 @@ function tr07ZonesHtml(panels, missionId) {
   const rows = (zones.missions ?? []).map((mission) => {
     const byZone = Object.fromEntries((mission.zones ?? []).map((zone) => [zone.zone, zone.count]));
     const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
-    return `<tr data-tr07-zone-mission="${esc(mission.missionId)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td>${esc(mission.market)}</td>${TRADES_ZONE_PLAN.map((zone) => `<td class="right mono">${esc(byZone[zone.id] ?? 0)}</td>`).join("")}</tr>`;
+    return `<tr data-tr07-zone-mission="${esc(mission.missionId)}"${highlight}><td>${esc(missionName(mission.missionId))}</td><td>${esc(tradesLabel("markets", mission.market))}</td>${TRADES_ZONE_PLAN.map((zone) => `<td class="right mono">${esc(byZone[zone.id] ?? 0)}</td>`).join("")}</tr>`;
   }).join("");
-  const openings = Object.entries(registry.oosOpeningsByMission ?? {}).map(([mission, count]) => `${mission} ${count}`).join(" · ");
+  const openings = Object.entries(registry.oosOpeningsByMission ?? {}).map(([mission, count]) => `${missionName(mission)} ${count}`).join(" · ");
   return `<div class="card" style="margin-top:14px" data-tr07="zones">
     <div class="hd"><h3>Evidence zones &amp; OOS access</h3><span class="small muted">TR-02 · reservation ${esc(zones.reservationId)}</span><span class="grow"></span>${tr07StatusChip(registry.oosStatus)}</div>
     <div class="bd">
       <table class="t"><thead><tr><th>Mission</th><th>Market</th>${TRADES_ZONE_PLAN.map((zone) => `<th class="right">${esc(zone.label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>
-      <div class="row small muted" style="gap:16px;margin-top:8px"><span>OOS ${esc(registry.oosStatus)}</span><span>openings ${esc(openings)}</span><span>purge ${esc(zones.purge?.length ?? 0)} campaign(s)</span><span>forward ${esc(zones.forward?.status)} · from ${esc(zones.forward?.fromIso ?? "UNAVAILABLE")}</span></div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>OOS ${esc(tradesLabel("statuses", registry.oosStatus).toLowerCase())}</span><span>openings ${esc(openings)}</span><span>purge ${esc(zones.purge?.length ?? 0)} campaign(s)</span><span data-state="${esc(zones.forward?.status ?? "UNAVAILABLE")}">forward ${esc(tradesLabel("statuses", zones.forward?.status).toLowerCase())} · from ${esc(zones.forward?.fromIso ?? "date not set")}</span></div>
     </div>
   </div>`;
 }
@@ -1978,12 +2169,12 @@ function tr07ZonesHtml(panels, missionId) {
 function tr07CalibrationRowsHtml(calibration, missionId) {
   const parameters = calibration.parameters;
   if (parameters?.status !== "MEASURED") {
-    return calibration.status === "MEASURED" ? `<div class="small muted" style="margin-top:6px">TR-04 parameters: ${tr07StatusChip(parameters?.status ?? "UNAVAILABLE")} ${esc(parameters?.code ?? "")}</div>` : "";
+    return calibration.status === "MEASURED" ? `<div class="small muted" style="margin-top:6px" data-code="${esc(parameters?.code ?? "")}">TR-04 parameters: ${tr07StatusChip(parameters?.status ?? "UNAVAILABLE")}</div>` : "";
   }
   const rows = parameters.missions.flatMap((mission) => mission.rules.map((entry) => {
     const highlight = mission.missionId === missionId ? ' style="font-weight:700"' : "";
     const groups = entry.penalty.byAggressor.map((group) => `${group.aggressor} ${tr07Value(group.penaltyEurMwh)} (${group.count})`).join(" · ");
-    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td class="mono small">${esc(mission.missionId)}</td><td class="mono small">${esc(entry.rule)}</td><td class="right mono">${esc((entry.freshness.gridSeconds ?? []).join(" / "))} s<div class="tiny muted">selected: ${esc(entry.freshness.limitSeconds ?? "PENDING DEVELOPMENT")} ${tr07StatusChip(entry.freshness.status)}</div></td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
+    return `<tr data-tr07-calibration="${esc(mission.missionId)}|${esc(entry.rule)}"${highlight}><td>${esc(missionName(mission.missionId))}</td><td>${esc(tradesLabel("rules", entry.rule))}</td><td class="right mono">${esc((entry.freshness.gridSeconds ?? []).join(" / "))} s<div class="tiny muted">selected: ${esc(entry.freshness.limitSeconds ?? "pending Development")} ${tr07StatusChip(entry.freshness.status)}</div></td><td class="right mono">${esc(tr07Value(entry.freshness.coverage))}</td><td class="right mono">${esc(tr07Value(entry.penalty.valueEurMwh))} €/MWh ${tr07StatusChip(entry.penalty.status)}<div class="tiny muted">n ${esc(entry.penalty.observations ?? "—")} · ${esc(groups)}</div></td></tr>`;
   })).join("");
   return `<table class="t" style="margin-top:8px"><thead><tr><th>Mission</th><th>Rule</th><th class="right">Freshness limit</th><th class="right">Coverage (calibration half)</th><th class="right">Penalty trade→ask</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -1992,8 +2183,8 @@ function tr07GateHtml(gate) {
   if (!gate) {
     return "";
   }
-  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}"><span class="mono small">${esc(metric.id)}</span> · ${esc(metric.description ?? "—")}</li>`).join("");
-  return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted">${esc(gate.independence)}</span>
+  const metrics = gate.metrics.map((metric) => `<li data-tr07-gate-metric="${esc(metric.id)}">${esc(metric.description ?? "—")} <span class="alias" data-provenance="alias">technical id ${esc(metric.id)}</span></li>`).join("");
+  return `<div class="small" style="margin-top:8px" data-tr07="bridge-gate"><b>Bridge gate (declared before any TRADES run)</b> ${tr07StatusChip(gate.thresholdStatus)} <span class="tiny muted" data-code="${esc(gate.independence ?? "")}">${esc(gate.independence ? tradesLabel("independence", gate.independence) : "—")}</span>
     <ul class="small" style="margin:4px 0 0 16px">${metrics}</ul>
     <div class="tiny muted" data-tr07-gate-declaration>${esc(gate.declaration)}</div></div>`;
 }
@@ -2009,7 +2200,7 @@ function tr07CalibrationHtml(panels, missionId) {
   return `<div class="card" style="margin-top:14px" data-tr07="calibration">
     <div class="hd"><h3>Calibration TOB vs TRADES</h3><span class="small muted">TR-03 · bridge ${esc(window.startIso ?? "—")} → ${esc(window.endIso ?? "—")}</span><span class="grow"></span>${tr07StatusChip(calibration.status)}</div>
     <div class="bd"><div class="small muted">${esc(calibration.reason)}</div>
-      <div class="row small muted" style="gap:16px;margin-top:8px"><span>measured freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))} · ${tr07StatusChip(calibration.gridStatus)}</span><span>observation rules: ${esc((calibration.observationRules ?? []).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "UNAVAILABLE")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
+      <div class="row small muted" style="gap:16px;margin-top:8px"><span>measured freshness limits (s): ${esc((calibration.freshnessLimitsSeconds ?? []).join(", "))} · ${tr07StatusChip(calibration.gridStatus)}</span><span>observation rules: ${esc((calibration.observationRules ?? []).map((rule) => tradesLabel("rules", rule)).join(", "))}</span><span>bridge campaigns: ${esc(calibration.bridgeCampaigns?.count ?? "unavailable")}</span><span>measurement: ${tr07StatusChip(calibration.measurement?.status)}${measurementSha}</span>${halves}</div>
       ${tr07CalibrationRowsHtml(calibration, missionId)}
       ${tr07GateHtml(calibration.gate)}
     </div>
@@ -2024,9 +2215,9 @@ function tr07FrozenContractHtml(panels) {
   const parameters = (candidate?.sharedParameters ?? []).map((entry) => `<span>${esc(entry.key)} ${esc(entry.value === null ? "—" : `${entry.value} ${entry.unit ?? ""}`)} ${tr07StatusChip(entry.status)}</span>`).join("");
   const details = candidate
     ? `<div class="row small muted" style="gap:16px;margin-top:8px"><span class="mono">${esc(candidate.contractId)} · ${esc(candidate.versionLabel)} · ${esc(candidate.contractVersion)}</span><span>configHash <span class="mono" data-tr07-config-hash="${esc(candidate.configHash)}">${esc(candidate.configHash)}</span></span></div>
-      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ?? "—")} · ${esc(candidate.observationRules?.secondary ?? "—")}</span><span>freshness grid ${(candidate.freshnessSelection?.gridSeconds ?? []).map((value) => esc(value)).join(" / ")} s</span><span>selection: ${esc(Object.values(candidate.freshnessSelection?.results ?? {}).map((item) => `${item.missionKey} ${item.selectedSeconds ?? "PENDING"}`).join(" · ") || "PENDING DEVELOPMENT")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ?? "—")}</span>${parameters}</div>`
+      <div class="row small muted" style="gap:16px;margin-top:4px"><span>observation ${esc(candidate.observationRules?.primary ? tradesLabel("rules", candidate.observationRules.primary) : "—")} · ${esc(candidate.observationRules?.secondary ? tradesLabel("rules", candidate.observationRules.secondary) : "—")}</span><span>freshness grid ${(candidate.freshnessSelection?.gridSeconds ?? []).map((value) => esc(value)).join(" / ")} s</span><span>selection: ${esc(Object.values(candidate.freshnessSelection?.results ?? {}).map((item) => `${missionName(item.missionKey)} ${item.selectedSeconds ?? "pending"}`).join(" · ") || "pending Development")}</span><span>broken spread ${esc(candidate.brokenSpreadPolicy ? tradesLabel("brokenSpread", candidate.brokenSpreadPolicy) : "—")}</span>${parameters}</div>`
     : "";
-  const blocked = (contract.blockedBy ?? []).length > 0 ? `<div class="tiny muted" style="margin-top:4px">blocked by ${esc(contract.blockedBy.join(", "))}</div>` : "";
+  const blocked = (contract.blockedBy ?? []).length > 0 ? `<div class="tiny muted" style="margin-top:4px" data-code="${esc(contract.blockedBy.join(" "))}">blocked: ${esc(contract.blockedBy.map((code) => tradesLabel("blockedBy", code)).join(", "))}</div>` : "";
   return `<div class="card" style="margin-top:14px" data-tr07="frozenContract" data-state="${esc(contract.status)}">
     <div class="hd"><h3>Frozen contract</h3><span class="small muted">TR-04 · TRADES-v1 execution contract · gate: Bru approves the freeze</span><span class="grow"></span>${tr07StatusChip(contract.status)}</div>
     <div class="bd"><div class="small muted">${esc(contract.reason)}</div>${details}${blocked}</div>
@@ -2051,8 +2242,9 @@ function tr07ContrastHtml(panels, missionId) {
     const details = metric.status === "REPORTED"
       ? metric.id === "BUY_WAIT_AGREEMENT" ? `agreement ${tr07Value(metric.observed)} · n ${metric.compared}`
         : `TOB ${tr07Value(metric.tob)} · TRADES ${tr07Value(metric.trades)} · Δ ${tr07Value(metric.delta)}`
-      : "UNAVAILABLE";
-    return `<tr data-tr09-contrast="${esc(missionId)}|${esc(run.observationRule)}|${esc(arm)}|${esc(metric.id)}"><td>${esc(run.observationRule)} · ${esc(arm)} · ${esc(metric.id)}</td><td class="mono small">${esc(details)}</td><td>${tr07StatusChip(metric.status)}</td></tr>`;
+      : "unavailable";
+    const measure = metrics.find((entry) => entry.id === metric.id)?.description ?? tradesLabel("statuses", "UNKNOWN");
+    return `<tr data-tr09-contrast="${esc(missionId)}|${esc(run.observationRule)}|${esc(arm)}|${esc(metric.id)}"><td>${esc(tradesLabel("rules", run.observationRule))} · <span class="alias" data-provenance="alias">technical arm ${esc(arm)}</span> · ${esc(measure)}</td><td class="mono small">${esc(details)}</td><td>${tr07StatusChip(metric.status)}</td></tr>`;
   })));
   const rows = reportedRows.length > 0 ? reportedRows.join("") : metrics.length > 0
     ? metrics.map((metric) => `<tr data-tr07-contrast-metric="${esc(metric.id)}"><td>${esc(metric.description ?? "—")}</td><td>${chip("unk", "?", "NOT RUN YET")}</td><td class="mono small">report by mission and arm</td></tr>`).join("")
@@ -2079,14 +2271,14 @@ function tr07GapDistributionHtml(panels, missionId) {
   if (calibration?.status !== "MEASURED" || !mission) {
     return `<div class="tr07empty"><b>Not measured yet</b>Distribution of (last trade − ask); this is what freezes the fill penalty in TR-04</div>`;
   }
-  const line = (rule, label, stats) => `<tr data-tr07-gap="${esc(missionId)}|${esc(rule)}|${esc(label)}"><td class="mono small">${esc(rule)}</td><td>${esc(label)}</td><td class="right mono">${esc(stats?.count ?? "—")}</td>${["p10", "p50", "mean", "p90"].map((key) => `<td class="right mono">${esc(tr07Value(stats?.[key]))}</td>`).join("")}<td class="right mono">${esc(tr07Value(stats?.shareNegative))}</td></tr>`;
+  const line = (rule, label, stats) => `<tr data-tr07-gap="${esc(missionId)}|${esc(rule)}|${esc(label)}"><td>${esc(tradesLabel("rules", rule))}</td><td>${esc(label)}</td><td class="right mono">${esc(stats?.count ?? "—")}</td>${["p10", "p50", "mean", "p90"].map((key) => `<td class="right mono">${esc(tr07Value(stats?.[key]))}</td>`).join("")}<td class="right mono">${esc(tr07Value(stats?.shareNegative))}</td></tr>`;
   const rows = mission.rules.flatMap((entry) => [
     line(entry.rule, "bridge", entry.overall),
-    ...(entry.byHalf ?? []).map((stats) => line(entry.rule, String(stats.half).toLowerCase(), stats)),
+    ...(entry.byHalf ?? []).map((stats) => line(entry.rule, tradesLabel("halves", stats.half), stats)),
     ...(entry.byAgeBucket ?? []).map((stats) => line(entry.rule, String(stats.ageBucket), stats)),
   ]).join("");
   return `<table class="t" style="margin-top:8px"><thead><tr><th>Rule</th><th>Period</th><th class="right">n</th><th class="right">p10</th><th class="right">p50</th><th class="right">mean</th><th class="right">p90</th><th class="right">share &lt; 0</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="tiny muted">(observation − ask) in €/MWh at decision time, ${esc(missionId)} · TR-03 measurement ${esc(tr07ShortHash(calibration.measurement?.sha256))}</div>`;
+    <div class="tiny muted">(observation − ask) in €/MWh at decision time, ${esc(missionName(missionId))} · TR-03 measurement ${esc(tr07ShortHash(calibration.measurement?.sha256))}</div>`;
 }
 
 // Vista a ancho completo al expandir (prototipo contrastCharts): superposición TOB/
@@ -2127,7 +2319,7 @@ const TR07_ARMS = [
 function tr07ArmsHtml() {
   const notRun = '<span class="tr07unav">NOT RUN YET</span>';
   const rows = TR07_ARMS.map((arm) => `<tr><td><span class="tr07sw" style="background:${arm.color}"></span>${esc(arm.label)}</td><td>${notRun}</td><td>${notRun}</td></tr>`).join("");
-  return `<table class="tr07arm" data-tr07="arms"><thead><tr><th>Arm</th><th>Campaigns</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<div class="small muted" data-context="ablation">Ablation runs · CONTROL is the paired comparator of each hypothesis within the mission</div><table class="tr07arm" data-tr07="arms" data-context="ablation"><thead><tr><th>Run</th><th>Campaigns</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // Cuerpo de observación TRADES (prototipo tradesView): tabla de brazos NOT RUN YET y
@@ -2168,15 +2360,39 @@ function tr07PanelsHtml(panels, selection) {
 // Vista del modo que ocupa la columna izquierda del prototipo aprobado (opción B):
 // la comparación/backtest exploratorio en TOB (o su estado no disponible para Power)
 // y la observación TRADES en TRADES.
+// UI-10 (PLAN_UI §4.B.6): in TOB the only observation data is the legacy
+// exploratory run, which now lives in the historical provenance card below the
+// Results; the mode view keeps the explicit Power unavailability.
 function tr07ModeViewHtml(vm, mode, hasTobData, selectedMission) {
   if (mode === "TOB") {
-    if (!hasTobData) {
-      return tr07TobUnavailableHtml(selectedMission);
-    }
-    const productFilter = selectedMission?.shortCode ?? null;
-    return `${exploratoryComparisonHtml(vm.exploratory, mode, productFilter)}${exploratoryBacktestHtml(vm.exploratory, mode, productFilter)}`;
+    return hasTobData ? "" : tr07TobUnavailableHtml(selectedMission);
   }
   return vm.tradesPanels?.ok === true ? tr07TradesObservationHtml(vm.tradesPanels, selectedMission) : "";
+}
+
+// UI-10 (PLAN_UI §3 direction, §4.B.6/8): every legacy exploratory figure sits
+// in one dashed card labelled "Historical · provenance only", after Results.
+// The legacy TOB job control (BT-05: runs the exploratory generator
+// run-exploratory-backtest.mjs of the current release, src/backtest-jobs/runner.mjs:51-57) lives here
+// too, so the page head carries no legacy action (UI08-06).
+function historicalBacktestHtml(vm, { mode, selectedMission, hasTobData, legacyFrames }) {
+  const semantics = vm?.canonicalSemantics ?? null;
+  const labels = historicalLabels(semantics);
+  const productFilter = selectedMission?.shortCode ?? null;
+  const exploratory = mode === "TOB" && hasTobData
+    ? `${exploratoryComparisonHtml(vm?.exploratory, mode, productFilter, semantics)}${exploratoryBacktestHtml(vm?.exploratory, mode, productFilter, semantics)}`
+    : "";
+  const legacyControl = mode === "TOB"
+    ? `<div class="row" style="margin-top:12px"><span class="small muted">Legacy route · re-runs the historical exploratory TOB backtest; not a Development run</span><span class="grow"></span><div data-job-control-slot></div></div>`
+    : "";
+  return `<details data-semantic="legacy-provenance" data-provenance="historical" class="hist" open style="margin-top:18px">
+  <summary><span class="histbadge">${esc(labels.badge)}</span> <b>Historical exploratory runs and technical aliases</b><span class="grow"></span>${chip("warn", "!", labels.notEvidence)}</summary>
+  <p class="small muted">Legacy exploratory evidence is preserved as source-bound historical provenance only, with its original identities and values unchanged; it is not evidence for the canonical hypotheses above and no primary product question is defined here.</p>
+  ${legacyControl}
+  ${exploratory}
+  ${backtestMeasurementHtml(vm?.measurementReadiness, productFilter, semantics)}
+  ${legacyFrames}
+  </details>`;
 }
 
 // Grilla del prototipo (opción B): a la izquierda la vista del modo, a la derecha el
@@ -2212,16 +2428,28 @@ function tr07ScopeHtml(panels, selection) {
 // BT-08 launch metadata. Nothing is recalculated or fabricated here; unknown
 // states keep their reason and a mission is never hidden for lack of data.
 
+// UI-10 (PLAN_UI §3 direction): statuses as glyph + word, never the raw enum.
+const STATE_CHIP = {
+  READY: ["pass", "✓", "Ready"],
+  EFFECT: ["pass", "✓", "Effect"],
+  CURRENT: ["pass", "✓", "Current"],
+  HOLD: ["warn", "!", "Hold"],
+  RUNNABLE: ["run", "◆", "Runnable"],
+  RUNNING: ["run", "◆", "Running"],
+  REGISTERED: ["na", "○", "Registered"],
+  BLOCKED: ["fail", "×", "Blocked"],
+  UNAVAILABLE: ["unk", "?", "Unavailable"],
+};
+
 function stateChip(status) {
-  if (status === "READY" || status === "EFFECT" || status === "CURRENT") return chip("run", "✓", status);
-  if (status === "HOLD") return chip("warn", "!", status);
-  if (status === "RUNNABLE") return chip("run", "◆", status);
-  if (status === "RUNNING") return chip("run", "◆", status);
-  return chip("unk", "?", status ?? "UNAVAILABLE");
+  const [kind, glyph, label] = STATE_CHIP[status ?? "UNAVAILABLE"] ?? ["unk", "?", "Unknown"];
+  return `<span data-state="${esc(status ?? "UNAVAILABLE")}">${chip(kind, glyph, label)}</span>`;
 }
 
+// UI-10 (PLAN_UI §3 item 3): a real key/value grid, so keys and values never
+// run together as one string.
 function kvHtml(rows) {
-  return rows.map(([key, value]) => `<div class="kvline"><span class="k">${esc(key)}</span>${value}</div>`).join("");
+  return `<dl class="kvgrid">${rows.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${value}</dd>`).join("")}</dl>`;
 }
 
 function scopeMissionCard(entry) {
@@ -2237,26 +2465,30 @@ function scopeMissionCard(entry) {
     : entry.campaignWindows.map((window) => (window.status === "BOUND"
       ? `<span class="mono small" data-campaign-window="${esc(window.campaignId)}">${esc(window.campaignId)} · ${esc(window.maturity)} · ${esc(window.firstDay)} → ${esc(window.lastDay)}</span>`
       : `<span class="mono small" data-campaign-window="${esc(window.campaignId)}">${esc(window.campaignId)} · ${esc(window.maturity)}</span> <span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">${esc(window.reason)}</span>`)).join("<br>");
+  // UI-10 (PLAN_UI §3 items 2/4): a long campaign list collapses behind its count.
+  const campaignCell = entry.campaignWindows.length > 5
+    ? `<details class="refs"><summary>${entry.campaignWindows.length} campaigns · show windows</summary>${campaignWindows}</details>`
+    : campaignWindows;
   const benchmarkWindow = entry.benchmarkWindow ? esc(entry.benchmarkWindow) : "UNAVAILABLE";
   const restrictions = [
     entry.sizing.status === "BOUND" ? `lot ${esc(entry.sizing.lotSizeMw)} MW · cap ${esc(entry.sizing.dailyCapMw)} MW/day` : null,
     entry.execution.status === "BOUND" ? `${esc(entry.execution.model)} · slippage ${esc(entry.execution.slippageEurMwh)} EUR/MWh` : null,
   ].filter(Boolean).join(" · ") || `<span class="tiny muted">no committed Development sizing/execution contract</span>`;
-  const blockers = entry.readiness.blockers.length > 0
-    ? entry.readiness.blockers.map((blocker) => `<div class="tiny muted" data-scope-blocker="${esc(blocker.code)}">${esc(blocker.code)}: ${esc(blocker.message ?? "")}</div>`).join("")
-    : `<div class="tiny muted">no blocker reported by the backend</div>`;
+  const blockerList = entry.readiness.blockers;
+  const blockers = blockerList.length > 0
+    ? blockerBriefHtml(blockerList, "data-scope-blocker")
+    : `<div class="small muted">no blocker reported by the backend</div>`;
   return `<div class="card" data-scope-mission="${esc(entry.missionId)}">
     <div class="hd"><h3>${esc(entry.label)}</h3><span class="small muted">${esc(entry.product)} · ${esc(entry.cadence)}</span><span class="grow"></span>${stateChip(entry.readiness.status)}</div>
     <div class="bd small">
       ${kvHtml([
         ["Observed via", esc(entry.observationModes.join(" / "))],
         ["Benchmark window", benchmarkWindow],
-        ["Campaign", campaignWindows],
+        ["Campaign", campaignCell],
         ["Obligation", obligation],
         ["Restrictions", restrictions],
       ])}
-      <div class="sp"></div>
-      <div class="tiny muted">Data readiness (backend)</div>
+      <div class="caps muted" style="margin-top:12px">Development readiness (backend)</div>
       ${blockers}
     </div>
   </div>`;
@@ -2273,7 +2505,8 @@ function backtestScopeHtml(vm) {
 
 function hypothesisConfigurationHtml(missionEntry) {
   if (missionEntry.configuration === null) {
-    return `<div class="tiny muted">configuration/search-space references UNAVAILABLE · ${esc((missionEntry.blockers[0]?.code) ?? "no committed Development request")}</div>`;
+    const firstBlocker = missionEntry.blockers[0] ?? null;
+    return `<div class="tiny muted">configuration/search-space references UNAVAILABLE · ${esc(firstBlocker ? CANONICAL_LABELS.blockers[firstBlocker.code] ?? CANONICAL_LABELS.blockers.DEFAULT : "no committed Development request")}</div>`;
   }
   const configuration = missionEntry.configuration;
   return `<div class="tiny mono" data-hypothesis-configuration="${esc(missionEntry.missionId)}">candidate ${esc((configuration.candidateHash ?? "").slice(0, 12))}… · search space ${esc((configuration.searchSpaceHash ?? "").slice(0, 12))}… · config ${esc((configuration.configurationHash ?? "").slice(0, 12))}… · tau ${esc(configuration.tau ?? "—")} · N ${esc(configuration.N ?? "—")}</div>`;
@@ -2281,9 +2514,9 @@ function hypothesisConfigurationHtml(missionEntry) {
 
 function hypothesisApplicabilityHtml(hypothesis) {
   if (hypothesis.applicabilityStatus === "UNDECLARED" || hypothesis.missions.length === 0) {
-    return `<div class="small muted" data-hypothesis-applicability="${esc(hypothesis.hypothesisId)}">applicability ${esc(hypothesis.applicabilityStatus)} · belongs to Hypotheses, not to a mission result row</div>`;
+    return `<div class="small muted" data-hypothesis-applicability="${esc(hypothesis.hypothesisId)}">applicability ${esc(CANONICAL_LABELS.applicability[hypothesis.applicabilityStatus] ?? CANONICAL_LABELS.applicability.UNDECLARED)} · belongs to Hypotheses, not to a mission result row</div>`;
   }
-  const rows = hypothesis.missions.map((missionEntry) => `<div class="tiny" data-hypothesis-mission="${esc(missionEntry.missionId)}">${esc(missionEntry.missionId)} ${stateChip(missionEntry.running ? "RUNNING" : missionEntry.status)} ${hypothesisConfigurationHtml(missionEntry)}</div>`).join("");
+  const rows = hypothesis.missions.map((missionEntry) => `<div class="tiny" data-hypothesis-mission="${esc(missionEntry.missionId)}">${esc(missionEntry.label ?? missionEntry.missionId)} ${stateChip(missionEntry.running ? "RUNNING" : missionEntry.status)} ${hypothesisConfigurationHtml(missionEntry)}</div>`).join("");
   return `<div data-hypothesis-applicability="${esc(hypothesis.hypothesisId)}">${rows}</div>`;
 }
 
@@ -2307,7 +2540,7 @@ function hypothesisCard(hypothesis) {
   return `<div class="card" data-hypothesis-id="${esc(hypothesis.hypothesisId)}" data-hypothesis-origin="${esc(hypothesis.originType)}">
     <div class="hd"><h3>${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}</h3><span class="small muted">${esc(origin)} · ${esc(hypothesis.version)}</span><span class="grow"></span>${stateChip(hypothesis.state.running ? "RUNNING" : hypothesis.state.runnable ? "RUNNABLE" : "REGISTERED")}</div>
     <div class="bd">
-      <div class="small" data-hypothesis-question="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.question)}</div>
+      <div class="small" data-hypothesis-question="${esc(hypothesis.hypothesisId)}" data-context="hypothesis-definition">${esc(hypothesis.question)}</div>
       <div class="tiny muted">Strategy refs: ${esc(strategyRefs)}</div>
       <div class="sp"></div>
       ${hypothesisApplicabilityHtml(hypothesis)}
@@ -2325,6 +2558,7 @@ function hypothesesHtml(vm) {
   // with that mission's blocker. Hiding the link or defaulting to the legacy
   // control would hide the gate instead of showing it.
   const launchMissions = vm?.hypothesisLaunch?.missions ?? null;
+  const missionLabels = Object.fromEntries((vm?.scope ?? []).map((entry) => [entry.missionId, entry.label]));
   const runMissionEntries = (launchMissions ?? (vm?.scope ?? []).map((entry) => ({ missionId: entry.missionId, status: entry.readiness.status, blockers: entry.readiness.blockers })))
     .map((entry) => ({
       missionId: entry.missionId,
@@ -2332,7 +2566,7 @@ function hypothesesHtml(vm) {
       blockers: entry.blockers ?? [],
       ready: entry.status === "READY",
     }));
-  const runLinks = `<div class="tr07bar" style="margin-top:8px"><span class="caps muted">Run Development (select mission)</span>${runMissionEntries.map((entry) => `<a class="tr07btn" data-hypothesis-run-mission="${esc(entry.missionId)}" data-hypothesis-run-status="${esc(entry.status)}" href="?mode=HYPOTHESIS&mission=${esc(entry.missionId)}">${esc(entry.missionId.replaceAll("_", " "))}${entry.ready ? "" : " · blocked"}</a>`).join("")}</div>
+  const runLinks = `<div class="tr07bar" style="margin-top:8px"><span class="caps muted">Run Development (select mission)</span>${runMissionEntries.map((entry) => `<a class="tr07btn" data-hypothesis-run-mission="${esc(entry.missionId)}" data-hypothesis-run-status="${esc(entry.status)}" href="?mode=HYPOTHESIS&mission=${esc(entry.missionId)}">${esc(missionLabels[entry.missionId] ?? entry.missionId)}${entry.ready ? "" : " · blocked"}</a>`).join("")}</div>
     ${runMissionEntries.some((entry) => entry.ready) ? "" : `<div class="tiny muted" style="margin-top:4px" data-hypothesis-run-blocked="true">No mission has a backend-validated Development request yet; the Development control stays disabled with each mission's exact blocker shown in Scope and on the control page.</div>`}`;
   return `<section data-section="hypotheses" style="margin-top:14px"><div class="card">
     <div class="hd"><h3>Hypotheses</h3><span class="small muted">dynamic canonical collection · identity, version, applicability, configuration and readiness come from the backend</span><span class="grow"></span>${chip("unk", "·", `${hypotheses.length}`)}</div>
@@ -2341,15 +2575,16 @@ function hypothesesHtml(vm) {
 }
 
 function comparisonRowHtml(comparison) {
-  const { mission, client, benchmarkByCampaign, hypotheses, hypothesisResults } = comparison;
+  const { mission, clientSummary, benchmarkByCampaign, hypotheses, hypothesisResults } = comparison;
+  const statusLabels = CANONICAL_LABELS.benchmarkStatuses;
   const boundBenchmarks = Object.values(benchmarkByCampaign ?? {});
   // UI-08 review R03: a bound benchmark keeps its full identity visible —
   // campaign, status, reference version and provenance source — so a
   // provisional and an official reference are distinguishable at a glance.
   const benchmarkCell = boundBenchmarks.length === 0
-    ? `BENCHMARK <span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span> <span class="tiny muted">no campaign reference bound · official settlement UNAVAILABLE</span>`
-    : `BENCHMARK <span class="tiny muted">${boundBenchmarks.map((benchmark) => `<span data-benchmark-reference="${esc(benchmark.campaignId)}">${esc(benchmark.campaignId)} · ${esc(benchmark.status)} · version ${esc(benchmark.referenceVersion ?? "UNAVAILABLE")} · source ${esc(benchmark.provenance ?? "UNAVAILABLE")}</span>`).join("<br>")}</span>`;
-  const clientCell = `CLIENT <span class="tiny muted">${client.confirmed.purchaseTime ? `${esc(client.confirmed.purchaseTime)} ${esc(client.confirmed.timezone)} · current Gas Quarterly mandate, campaign not identified` : "purchase timing UNKNOWN for this mission"}; sizing, fills and full cost UNKNOWN</span>`;
+    ? `BENCHMARK ${chip("unk", "?", statusLabels.UNAVAILABLE)} <span class="small muted">${esc(statusLabels.CAMPAIGN_NOT_BOUND)} · official settlement ${esc(statusLabels.UNAVAILABLE.toLowerCase())}</span>`
+    : `BENCHMARK <details class="refs"><summary>${boundBenchmarks.length} campaign reference${boundBenchmarks.length === 1 ? "" : "s"} · ${esc([...new Set(boundBenchmarks.map((benchmark) => statusLabels[benchmark.status] ?? statusLabels.UNAVAILABLE))].join(", "))}</summary><span class="small muted">${boundBenchmarks.map((benchmark) => `<span data-benchmark-reference="${esc(benchmark.campaignId)}">${esc(benchmark.campaignId)} · ${esc(statusLabels[benchmark.status] ?? statusLabels.UNAVAILABLE)} · version ${esc(benchmark.referenceVersion ?? "UNAVAILABLE")} · source ${esc(benchmark.provenance ?? "UNAVAILABLE")}</span>`).join("<br>")}</span></details>`;
+  const clientCell = `CLIENT <span class="small muted">${esc(clientSummary ?? "")}</span>`;
   const hypothesisCell = hypotheses.length === 0
     ? `UNAVAILABLE <span class="tiny muted">no canonical hypothesis applies</span>`
     : hypotheses.map((hypothesis) => `<span data-hypothesis-id="${esc(hypothesis.hypothesisId)}">${esc(hypothesis.hypothesisId)} · ${esc(hypothesis.name)}</span>`).join("");
@@ -2364,7 +2599,7 @@ function comparisonRowHtml(comparison) {
   const resultBenchmarkOf = (result) => {
     const benchmark = result.comparison?.active ?? null;
     return typeof benchmark?.benchmarkVersion === "string" && benchmark.benchmarkVersion.trim() !== ""
-      ? ` · benchmark ${esc(benchmark.benchmarkVersion)} (${esc(benchmark.benchmarkStatus ?? "status UNAVAILABLE")})`
+      ? ` · benchmark ${esc(benchmark.benchmarkVersion)} (${esc(statusLabels[benchmark.benchmarkStatus] ?? "status unavailable")})`
       : "";
   };
   const resultsCell = comparable.length === 0
@@ -2374,7 +2609,7 @@ function comparisonRowHtml(comparison) {
     ? ""
     : `<div class="tiny muted" data-technical-history="true">Technical run history (not comparable evidence): ${technical.map((result) => `<span data-technical-run="${esc(result.runId)}">${esc(result.runId.slice(0, 20))}… · ${esc(result.status ?? result.state)} · comparison ${result.validComparison ? "valid" : "not valid"}</span>`).join(" · ")}</div>`;
   return `<tr data-mission="${esc(mission.id)}">
-    <td>${esc(mission.id.replaceAll("_", " "))}</td>
+    <td>${esc(mission.label ?? mission.id)}</td>
     <td data-identity="CLIENT">${clientCell}</td>
     <td data-identity="BENCHMARK">${benchmarkCell}</td>
     <td data-identity="HYPOTHESIS">${hypothesisCell}<div class="tiny muted">${resultsCell}</div>${technicalCell}</td>
@@ -2392,9 +2627,9 @@ function ablationComparisonLabel(ablation) {
 }
 
 function ablationRowHtml(ablation) {
-  const missionLabel = ablation.mission.id.replaceAll("_", " ");
+  const missionLabel = ablation.mission.label ?? ablation.mission.id;
   if (ablation.status === "UNAVAILABLE" || ablation.status === "HOLD") {
-    return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>${ablationComparisonLabel(ablation)}</td><td><span class="withheld" data-status="${esc(ablation.status)}">${esc(ablation.status)}</span></td><td class="small muted">${esc(ablation.reason ?? "")}</td></tr>`;
+    return `<tr data-ablation-mission="${esc(ablation.mission.id)}"><td>${esc(missionLabel)}</td><td>${ablationComparisonLabel(ablation)}</td><td><span class="withheld" data-status="${esc(ablation.status)}">${stateChip(ablation.status)}</span></td><td class="small muted">${esc(ablation.reason ?? "")}</td></tr>`;
   }
   const deltaV = ablation.ablation?.deltaV;
   const equivalent = ablation.ablation?.equivalentCostDifference;
@@ -2409,7 +2644,7 @@ function resultsComparisonHtml(vm) {
     <div class="bd"><div style="overflow-x:auto" data-overflow-container><table class="t"><thead><tr><th>Mission</th><th>Client</th><th>Benchmark</th><th>Hypotheses</th></tr></thead><tbody>${comparisons.map(comparisonRowHtml).join("")}</tbody></table></div>
     <p class="tiny muted">Client economics and hypothesis PASS stay HOLD until comparable backend evidence exists. No value is inferred from the confirmed 11:00 timing.</p></div>
   </div>`;
-  const ablationTable = `<div class="card" style="margin-top:14px">
+  const ablationTable = `<div class="card" style="margin-top:14px" data-context="ablation">
     <div class="hd"><h3>Ablation · CONTROL ↔ active hypothesis</h3><span class="small muted">paired experimental counterpart, not CLIENT and not a second benchmark · same sizing/execution within the mission</span></div>
     <div class="bd"><table class="t"><thead><tr><th>Mission</th><th>Comparison</th><th>Status</th><th>Effect</th></tr></thead><tbody>${ablations.map(ablationRowHtml).join("")}</tbody></table>
     <p class="tiny muted">CONTROL is the experiment's no-hypothesis counterpart. A future ladder may add named components; unrun ladder steps are never manufactured.</p></div>
@@ -2451,7 +2686,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
     : '<span class="muted small">—</span>');
   const tableRows = rows.map((row) => {
     if (row.status === "BOUND") {
-      const armCell = row.arm ? `${armTag(row.arm)}` : '<span class="muted small">arm not declared</span>';
+      const armCell = row.arm ? `${armTag(row.arm)}` : '<span class="muted small">run not declared</span>';
       return `<tr class="data-item data-bound" data-status="BOUND"${row.arm !== undefined && row.arm !== null ? ` data-arm="${esc(row.arm)}"` : ""}${row.measure !== undefined && row.measure !== null ? ` data-measure="${esc(row.measure)}"` : ""}><td>${armCell}<div class="small muted">${esc(row.label)}</div></td><td>${unknownValue()}</td>${measureColumns.map((measure) => `<td class="mono num right">${cellFor(row, measure)}</td>`).join("")}<td>${unknownValue()}</td><td>${chip("run", "✓", "canonical")}</td></tr>`;
     }
     return `<tr class="data-item data-unavailable" data-status="UNAVAILABLE"><td>${unavailableReasonHtml(row)}</td><td>${unknownValue()}</td>${measureColumns.map(() => '<td class="right"><span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span></td>').join("")}<td>${unknownValue()}</td><td>${chip("unk", "?", "Unavailable")}</td></tr>`;
@@ -2459,7 +2694,7 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   const bhvRow = `<tr class="data-item data-unavailable pending-comparison" data-status="UNAVAILABLE"><td><span class="item-label">${esc(bhv.label)}</span> <span class="withheld" data-status="UNAVAILABLE">UNAVAILABLE</span><div class="reason small muted">${esc(bhv.reason)}</div></td><td>${unknownValue()}</td>${measureColumns.map(() => '<td class="right"><span class="withheld">NO ESTIMATE</span></td>').join("")}<td>${unknownValue()}</td><td>${chip("unk", "?", "Not produced")}</td></tr>`;
 
   const table = `<table class="t">
-      <thead><tr><th>Arm</th><th>n (closed / total)</th><th class="right">B</th><th class="right">H</th><th class="right">V</th><th class="right">ΔV vs baseline</th><th>Interval (paired)</th><th>Status</th></tr></thead>
+      <thead><tr><th>Run</th><th>n (closed / total)</th><th class="right">B</th><th class="right">H</th><th class="right">V</th><th class="right">ΔV vs comparator</th><th>Interval (paired)</th><th>Status</th></tr></thead>
       <tbody>${tableRows.join("")}${bhvRow}</tbody>
     </table>`;
 
@@ -2472,24 +2707,12 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
   // backend; no global DIP/HOUR/11:00 question is hardcoded here.
   const observationPanels = validated ? `<div data-kind="current-backtest-panels" aria-label="Current Backtests observation scope and TRADES results">
   ${tr07ScopeHtml(vm.tradesPanels, selection)}
-  ${tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission), backtestMeasurementHtml(vm.measurementReadiness, selectedMission?.shortCode ?? null))}
+  ${tr07GridHtml(vm.tradesPanels, selection, tr07ModeViewHtml(vm, mode, hasTobData, selectedMission))}
   ${tr07PanelsHtml(vm.tradesPanels, selection)}
   </div>` : "";
 
-  return `
-<section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${vm?.sourceFreshness ? ` data-source-status="${esc(vm.sourceFreshness.status)}"` : ""}${validated ? "" : ' data-state="ERROR"'}>
-  ${validated ? "" : errorBarHtml(errors)}
-  ${vm?.sourceFreshness?.status === "STALE" ? `<div class="card" data-status="STALE"><div class="hd"><h3>Source stale · FIX-03</h3>${chip("warn", "!", "Stale")}</div><div class="bd">${esc(vm.sourceFreshness.reason)}. Historical exploratory figures below are stale and must not be treated as current. ${esc(vm.sourceFreshness.staleArtifacts.join(", "))}.</div></div>` : ""}
-  <div class="row" style="align-items:flex-end"><div class="grow"><div class="mono muted small">backtesting workspace · canonical research contract</div><h1 class="page">Backtesting</h1><p class="lede">Backtest Scope → Hypotheses → Results. Four missions evaluated separately; Results appear only with comparable backend evidence.</p></div><div data-job-control-slot></div></div>
-  ${validated ? backtestScopeHtml(vm) : ""}
-  ${observationPanels}
-  ${validated ? hypothesesHtml(vm) : ""}
-  ${validated ? resultsComparisonHtml(vm) : ""}
-  <details data-semantic="legacy-provenance" style="margin-top:14px"><summary>Historical exploratory replay and technical aliases · provenance</summary>
-  <p class="tiny muted">Legacy exploratory evidence is preserved as source-bound historical provenance only; it is not evidence for the canonical hypotheses above and no primary product question is defined here.</p>
-  <div class="armhead">${armHeadHtml(arms, hasExploratory ? vm.exploratory.comparison : null)}</div>
-
-  ${hasExploratory ? "" : `
+  const legacyFrames = hasExploratory ? "" : `
+  <div class="armhead">${armHeadHtml(arms)}</div>
   <div class="card" style="margin-top:14px">
     <div class="hd"><h3>Economic measures</h3><span class="small muted">B · H · V · ΔV as published by the canonical producer; definitions belong to the backend method</span><span class="grow"></span>${boundRows.length > 0 ? chip("run", "✓", `${boundRows.length} canonical row(s)`) : chip("unk", "?", "No canonical producer")}</div>
     <div style="overflow-x:auto" data-overflow-container>${table}</div>
@@ -2516,8 +2739,21 @@ function backtestsBody(vm, { errors = null, selection = {} } = {}) {
     <div class="card"><div class="hd"><h3>Across campaigns</h3><span class="small muted">paired ΔV by campaign</span></div><div class="bd" data-kind="campaign-effects">${noEstimateFrameSvg({ width: 380, height: 150, label: paired.label, reason: `${paired.label}: ${paired.reason}` })}
       <div class="tiny muted" style="margin-top:4px">◆ closed · ◇ interim · hatched = no estimate (not zero)</div></div></div>
   </div>
-`}
-  </details>
+`;
+
+  // UI-10: the page head holds the single current action; in TOB the legacy
+  // job control moves into the historical card (PLAN_UI §4.B.8).
+  const headControl = mode === "TOB" ? "" : "<div data-job-control-slot></div>";
+  return `
+<section class="surface backtests${validated ? "" : " state-error"}" data-surface="backtests"${vm?.sourceFreshness ? ` data-source-status="${esc(vm.sourceFreshness.status)}"` : ""}${validated ? "" : ' data-state="ERROR"'}>
+  ${validated ? "" : errorBarHtml(errors)}
+  ${vm?.sourceFreshness?.status === "STALE" ? `<div class="card" data-status="STALE"><div class="hd"><h3>Source stale · FIX-03</h3>${chip("warn", "!", "Stale")}</div><div class="bd">${esc(vm.sourceFreshness.reason)}. Historical exploratory figures below are stale and must not be treated as current. ${esc(vm.sourceFreshness.staleArtifacts.join(", "))}.</div></div>` : ""}
+  <div class="row" style="align-items:flex-end"><div class="grow"><div class="mono muted small">backtesting workspace · Scope → Hypotheses → Results</div><h1 class="page">Backtesting</h1><p class="lede">Four missions evaluated separately. Results appear only with comparable backend evidence.</p></div>${headControl}</div>
+  ${validated ? backtestScopeHtml(vm) : ""}
+  ${observationPanels}
+  ${validated ? hypothesesHtml(vm) : ""}
+  ${validated ? resultsComparisonHtml(vm) : ""}
+  ${historicalBacktestHtml(validated ? vm : null, { mode, selectedMission, hasTobData, legacyFrames })}
 </section>`;
 }
 
@@ -2529,8 +2765,8 @@ function lineageFrameSvg() {
   let svg = '<svg viewBox="0 0 900 150" width="100%" role="img" aria-label="Version lineage: unavailable">';
   svg += '<defs><pattern id="lnHatchU" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f3ecf5"/><rect width="1" height="6" fill="#d4c0dc"/></pattern></defs>';
   svg += '<rect x="0" y="10" width="900" height="130" rx="4" fill="url(#lnHatchU)" stroke="#cdb8d6"/>';
-  svg += '<text x="450" y="72" text-anchor="middle" font-size="12" fill="var(--unk)" font-weight="700">LINEAGE UNAVAILABLE</text>';
-  svg += '<text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--unk)">no version or experiment is exposed by the boundary · no node is drawn</text>';
+  svg += '<text x="450" y="72" text-anchor="middle" font-size="14" fill="var(--unk)" font-weight="700">LINEAGE UNAVAILABLE</text>';
+  svg += '<text x="450" y="90" text-anchor="middle" font-size="14" fill="var(--unk)">no version or experiment is exposed by the boundary · no node is drawn</text>';
   return `${svg}</svg>`;
 }
 
@@ -2656,7 +2892,7 @@ function campaignsBody(vm, { errors = null } = {}) {
 
   const runRow = (run) => (run.status === "BOUND"
     ? `<tr class="data-item data-bound" data-status="BOUND"><td><div class="mono">${provenanceHtml(run.provenance, run.label, run.value)}</div><div class="small muted item-label">${esc(run.label)}</div></td><td>${unknownValue()}</td><td>${chip("run", "✓", "canonical")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="value" data-value="${esc(valueText(run.value))}">${valueHtml(run.value)}</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td>${drilldownHtml(run)}</td></tr>`
-    : `<tr class="data-item data-unavailable" data-status="UNAVAILABLE"><td>${unavailableReasonHtml(run)}</td><td>${unknownValue()}</td><td>${chip("unk", "?", "Unavailable")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="unkv" style="font-size:10.5px;line-height:15px">NOT EXPOSED</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td><span class="muted small">no handoff on unbound data</span></td></tr>`);
+    : `<tr class="data-item data-unavailable" data-status="UNAVAILABLE"><td>${unavailableReasonHtml(run)}</td><td>${unknownValue()}</td><td>${chip("unk", "?", "Unavailable")}</td><td style="min-width:190px"><div class="bar"><span class="notrun" style="width:100%"></span></div><div class="small" style="margin-top:4px"><span class="unkv" style="font-size:14px;line-height:15px">NOT EXPOSED</span></div></td><td>${unknownValue()}</td><td>${unknownValue()}</td><td><span class="muted small">no handoff on unbound data</span></td></tr>`);
   const runRows = runs.length > 0
     ? runs.map(runRow).join("")
     : `<tr class="empty-state" data-empty="true"><td colspan="7"><div class="row">${unknownValue("UNAVAILABLE")}<span class="small muted">no canonical runs exposed by the backend in this scope; none is fabricated</span></div><div class="bar" style="margin-top:8px"><span class="notrun" style="width:100%"></span></div></td></tr>`;
@@ -2754,7 +2990,8 @@ function scopeBannerHtml(selection) {
   if (entries.length === 0) {
     return "";
   }
-  const chips = entries.map(([key, value]) => `<span class="mono">${esc(labels[key] ?? key)}: ${esc(value)}</span>`).join(" · ");
+  // UI-10: a mission reads by its canonical English name, never its id.
+  const chips = entries.map(([key, value]) => `<span class="mono" data-scope-${esc(key)}="${esc(value)}">${esc(labels[key] ?? key)}: ${esc(key === "mission" ? MISSION_LABELS[value] ?? value : value)}</span>`).join(" · ");
   return `<div class="card" data-scope-banner data-scope-state="BOUND" style="margin-bottom:10px"><b>Cross-tab scope</b> · ${chips}</div>`;
 }
 
@@ -2805,7 +3042,7 @@ function renderExploratory(surface, vm, selection = {}) {
   // SEM2-T12: the cross-tab scope survives in the production exploratory state
   // too — the server validates it (canonical mission vocabulary) and the banner
   // declares it BOUND or fails closed as UNAVAILABLE, on every path.
-  const body = scopeBannerHtml(selection) + canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null);
+  const body = scopeBannerHtml(selection) + canonicalUnavailableBanner(surface, vm) + EXPLORATORY_BODIES[surface](vm.exploratory, vm.canonicalSemantics ?? null, selection);
   return renderDocument({ active: surface, title: `Energy Markets — ${SURFACE_TITLES[surface]}`, body, clock: exploratoryClock(vm.exploratory), semantics: vm.canonicalSemantics, context: [`<span>${esc(SURFACE_TITLES[surface])}</span>`, '<span class="st warn"><span class="g">◇</span>EXPLORATORY · real EEX best ask</span>'] });
 }
 

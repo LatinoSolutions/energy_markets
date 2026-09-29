@@ -18,6 +18,8 @@ import { bindRecord } from "./binding.mjs";
 import { parseBackendRef, resolveBackendRecord } from "../operator-interface/backend-records.mjs";
 import { containsOfficialStatus } from "./canonical-inputs.mjs";
 import { buildCanonicalSemanticsProjection } from "../backtesting-semantics/projection.mjs";
+import { canonicalHistoricalText, legacyRunIdentity } from "../backtesting-semantics/legacy-compat.mjs";
+import { MISSION_LABELS } from "../backtesting-semantics/contract.mjs";
 import {
   EXPOSURE_CONDITION,
   EXPOSURE_FIELD_KEYS,
@@ -185,6 +187,41 @@ export function projectPairedPoints(results) {
   return Object.fromEntries(Object.entries(results.comparison).map(([product, block]) => [product, projectPairedPointsFor(product, block, results)]));
 }
 
+// UI-10 (PLAN_UI §4.A.2): the immutable historical labels (gates, checks,
+// criteria, stages) are shown through the legacy compatibility adapter. The
+// verbatim original travels with the item as `historicalQuote` so the surface
+// keeps the quote as provenance instead of relabelling evidence (UI10-07).
+function historicalItem(item) {
+  const label = canonicalHistoricalText(item?.label);
+  const detail = canonicalHistoricalText(item?.detail);
+  const changed = label.historicalQuote !== null || detail.historicalQuote !== null;
+  return {
+    ...item,
+    label: label.text,
+    detail: detail.text,
+    historicalQuote: changed ? { label: item.label ?? null, detail: item.detail ?? null } : null,
+  };
+}
+
+function historicalResearch(research) {
+  if (research === null || research === undefined) {
+    return null;
+  }
+  return {
+    ...research,
+    candidates: (research.candidates ?? []).map((candidate) => {
+      const stage = canonicalHistoricalText(candidate.stage);
+      return {
+        ...candidate,
+        stage: stage.text,
+        legacyStage: candidate.stage,
+        criteria: (candidate.criteria ?? []).map((group) => ({ ...group, items: (group.items ?? []).map(historicalItem) })),
+      };
+    }),
+    integrity: (research.integrity ?? []).map(historicalItem),
+  };
+}
+
 export function projectExploratoryBacktest(exploratory) {
   const results = exploratory?.results;
   if (results?.status !== "EXPLORATORY" || !Array.isArray(results.results)) {
@@ -201,14 +238,17 @@ export function projectExploratoryBacktest(exploratory) {
     dipDepth: entry.arms[DIP_DEPTH_ARM],
     leaveOneOut: entry.leaveOneOutHour,
   }));
+  const fees = canonicalHistoricalText(results.rules?.feesEurMwh ?? null);
   return {
     status: "EXPLORATORY",
     provenance: exploratory.provenance,
-    rules: results.rules,
+    rules: results.rules ? { ...results.rules, feesEurMwh: fees.text, feesHistoricalQuote: fees.historicalQuote } : results.rules,
     dataPeriod: results.inputs.dataPeriod,
     skipped: results.episodesSkippedIncomplete,
     summary: results.summary,
-    comparison: results.comparison ?? null,
+    comparison: results.comparison
+      ? Object.fromEntries(Object.entries(results.comparison).map(([product, block]) => [product, { ...block, checks: (block.checks ?? []).map(historicalItem) }]))
+      : null,
     pairedPoints: projectPairedPoints(results),
     episodes,
     hourProfiles: Object.keys(results.summary).map((product) => ({ product, slots: hourProfileFor(results.results, product) })),
@@ -242,7 +282,18 @@ export function projectBacktestReadiness(readiness) {
       campaignReadiness: campaign.campaignReadiness,
       benchmark: campaign.benchmark,
       fees: campaign.fees,
-      arms: Object.entries(campaign.arms ?? {}).map(([armId, arm]) => ({ armId, ...arm })),
+      // UI-10: each legacy run keeps its id and gets its adapter name; the
+      // immutable reason texts are shown canonical with the verbatim quote kept.
+      arms: Object.entries(campaign.arms ?? {}).map(([armId, arm]) => {
+        const reasons = Object.fromEntries(["hCostReason", "vReason", "deltaVReason"].map((field) => [field, canonicalHistoricalText(arm?.[field] ?? null)]));
+        return {
+          armId,
+          ...arm,
+          run: legacyRunIdentity(armId),
+          ...Object.fromEntries(Object.entries(reasons).map(([field, text]) => [field, arm?.[field] === undefined ? undefined : text.text])),
+          historicalQuotes: Object.values(reasons).map((text) => text.historicalQuote).filter((quote) => quote !== null),
+        };
+      }),
     })),
   };
 }
@@ -326,10 +377,10 @@ export function projectExploratoryPages(exploratory) {
     provenance: exploratory.provenance,
     dataPeriod: results.inputs?.dataPeriod ?? null,
     replay: results.replay,
-    campaigns: results.campaigns,
+    campaigns: results.campaigns.map((campaign) => ({ ...campaign, gates: (campaign.gates ?? []).map(historicalItem) })),
     campaignGroups: projectCampaignGroups(results.campaigns),
-    campaignUnknowns: results.campaignUnknowns ?? [],
-    research: results.research ?? null,
+    campaignUnknowns: (results.campaignUnknowns ?? []).map(historicalItem),
+    research: historicalResearch(results.research),
   };
 }
 
@@ -415,6 +466,7 @@ export function backtestHypothesisCollectionEntry(hypothesis, { hypothesisLaunch
     const request = launchEntry?.request ?? null;
     return {
       missionId,
+      label: MISSION_LABELS[missionId] ?? null,
       status: launchEntry?.status ?? "UNAVAILABLE",
       blockers: launchEntry?.blockers ?? [],
       running: runningForHypothesis && runningJob.missionId === missionId,
@@ -546,8 +598,9 @@ export function buildBacktestsViewModel({ backendIndex = null, rows = [], explor
     // con CLIENT/BENCHMARK; Research Discovery (H-RD-01) viaja en canonicalSemantics
     // y en la superficie Research, no como segundo resultado en Results (SEM-1).
     semanticComparison: canonicalSemantics.missions.map((mission) => ({
-      mission: { id: mission.missionId, cadence: mission.cadence },
+      mission: { id: mission.missionId, label: mission.label, cadence: mission.cadence },
       client: mission.client,
+      clientSummary: mission.clientSummary,
       benchmark: mission.benchmark,
       benchmarkByCampaign: mission.benchmarkByCampaign,
       hypotheses: mission.hypotheses.filter((hypothesis) => hypothesis.originType !== "RESEARCH_DISCOVERY"),

@@ -120,7 +120,7 @@ test("SEM2-T12: run drilldowns preserve run/campaign/mission/version, and destin
   try {
     const bound = await (await fetch(`${served.url.slice(0, -1)}/replay?run=RUN.SCOPE.1&campaign=G0BQ-202604&mission=GAS_QUARTERLY&version=H-S1-01%2Fphase-A%2Fv2`)).text();
     assert.match(bound, /data-scope-banner data-scope-state="BOUND"/);
-    assert.match(bound, /mission: GAS_QUARTERLY/);
+    assert.match(bound, /data-scope-mission="GAS_QUARTERLY">mission: Gas Quarterly</);
     assert.match(bound, /run: RUN\.SCOPE\.1/);
     for (const surface of ["backtests", "research", "campaigns"]) {
       const html = await (await fetch(`${served.url.slice(0, -1)}/${surface}?campaign=G0BQ-202604&mission=GAS_QUARTERLY&run=RUN.SCOPE.1`)).text();
@@ -155,7 +155,7 @@ test("SEM2-T12: with the exploratory state loaded, cross-tab scope survives or f
     // A declared scope is kept and announced (BOUND) on the exploratory path.
     const bound = await (await fetch(`${served.url.slice(0, -1)}/replay?mission=GAS_QUARTERLY&campaign=G0BQ-202604&run=LEGACY_EXPLORATORY/G0BQ-202604&version=H-S1-01%2Fphase-A%2Fv2`)).text();
     assert.match(bound, /data-scope-banner data-scope-state="BOUND"/);
-    assert.match(bound, /mission: GAS_QUARTERLY/);
+    assert.match(bound, /data-scope-mission="GAS_QUARTERLY">mission: Gas Quarterly</);
     assert.match(bound, /campaign: G0BQ-202604/);
     assert.match(bound, /run: LEGACY_EXPLORATORY\/G0BQ-202604/);
     for (const surface of ["campaigns", "research"]) {
@@ -297,11 +297,12 @@ test("SEM2-T07: the inspector shows the source-bound run, producer and anchor; a
   };
   const html = exploratoryReplayBody(patched, semantics);
   // The source-bound run id, never a fabricated EXP-…-ARM_A and never a fixed DIP10/11:00 identity.
-  assert.match(html, /run LEGACY_EXPLORATORY\//);
+  assert.match(html, /run <span class="alias" data-provenance="alias">LEGACY_EXPLORATORY\//);
   assert.doesNotMatch(html, /run EXP-[^<]*ARM_A/);
   assert.match(html, /BUY at [^<]*09:30 Berlin/);
   assert.doesNotMatch(html, /BUY at [^<]* 11:00 Berlin/);
-  assert.match(html, /legacy arm DIP10 \(provenance only\)/);
+  // UI-10: the producer is the historical run named by its backend lineage.
+  assert.match(html, /DIP10 11:00 · legacy lineage of H-S1-01 \(provenance only\)/);
   // Recommendation/request/fill stay separate objects with their own quantities.
   const episode = patched.replay.find((entry) => entry.inspector.length > 0);
   const item = episode.inspector[0];
@@ -335,7 +336,7 @@ test("SEM2-T09: without new-version evidence H-S1-01 stays UNTESTED and DIP10/HO
   assert.match(html, /Untested/);
   assert.doesNotMatch(html, /TESTED/);
   assert.match(html, /data-historical-provenance="true"/);
-  assert.match(html, /provenance of the legacy run, not criteria of the canonical hypothesis/);
+  assert.match(html, /Historical success criteria of the legacy run · not criteria of the canonical hypothesis/);
   // The canonical H-RD-01 stays Research Discovery provenance only.
   assert.match(html, /data-hypothesis-id="H-RD-01"/);
   // No client-practice authority anywhere.
@@ -456,11 +457,16 @@ test("SEM2-T15: canonical tables live in overflow containers and the composition
     // No dark dashboard from the unapproved mockup.
     assert.doesNotMatch(html, /dark-dashboard|theme: dark/i);
   }
-  // The canonical strip and the runs/economic tables scroll horizontally instead
-  // of overflowing the iPad width.
+  // UI-10 (PLAN_UI §3, §4.B.12): the shared projection is a compact block for
+  // the active mission (a key/value grid that wraps, no table to overflow); the
+  // runs/economic tables scroll horizontally instead of overflowing the iPad width.
   for (const surface of ["replay", "research", "campaigns"]) {
     const html = pages[surface];
-    assert.match(html, /data-semantic="SEM-2\/canonical-projection"[\s\S]*?data-overflow-container/, `${surface}: canonical strip overflow container`);
+    const start = html.indexOf('data-semantic="SEM-2/canonical-projection"');
+    assert.ok(start > 0, `${surface}: mission context`);
+    const block = html.slice(start, html.indexOf("</dl>", start));
+    assert.match(block, /<dl class="kvgrid">/, `${surface}: mission context grid`);
+    assert.doesNotMatch(block, /<table/, `${surface}: no mission table`);
   }
   const backtestsHtml = pages.backtests;
   assert.match(backtestsHtml, /data-semantic="SEM-1\/2026-09-28\/v1"[\s\S]*?data-overflow-container/, "backtests: semantic table overflow container");
@@ -473,11 +479,12 @@ test("SEM2-T15: canonical tables live in overflow containers and the composition
   // Without exploratory panels the economic measures table renders and stays
   // horizontally scrollable too.
   const economicHtml = renderSurfacePage("backtests", buildBacktestsViewModel({ backendIndex: null, rows: [] }));
-  assert.match(economicHtml, /data-overflow-container>\s*<table class="t">\s*<thead><tr><th>Arm<\/th>/, "economic table overflow container");
-  // The canonical strip renders all four missions at both reference widths.
+  assert.match(economicHtml, /data-overflow-container>\s*<table class="t">\s*<thead><tr><th>Run<\/th>/, "economic table overflow container");
+  // Every mission keeps its context: each campaign detail carries the block of
+  // its own mission, so the four missions are reachable one campaign at a time.
   const strip = exploratoryCampaignsBody(projectExploratoryPages(inputs.exploratoryBacktest), vms.campaigns.canonicalSemantics);
   for (const missionId of ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"]) {
-    assert.match(strip, new RegExp(`data-mission="${missionId}"`), missionId);
+    assert.match(strip, new RegExp(`data-mission-context="${missionId}"`), missionId);
   }
 });
 

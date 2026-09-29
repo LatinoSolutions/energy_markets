@@ -126,7 +126,8 @@ test("UI-06: Arm B sin ledger diario queda UNAVAILABLE en el tooltip, con su slo
       assert.match(armB.unavailable, /per-day ledger UNAVAILABLE/);
       assert.ok(armB.unavailable.includes(`slot ${pairedPoints[product][index].armBSlot}`));
       assert.equal(armB.cells, undefined);
-      assert.match(model.facts[1][1], /B UNAVAILABLE$/);
+      // UI-10: tooltip facts name the historical runs from the backend projection.
+      assert.match(model.facts[1][1], /Out-of-episode hour UNAVAILABLE$/);
     });
   }
 });
@@ -147,7 +148,7 @@ test("UI-06: el tooltip pinta los valores del artifact sin aritmética nueva", (
   const waitDay = pairedPoints.G0BQ.find((item) => item.arms.ARM_A.status === "WAIT");
   const waitModel = models.G0BQ[waitDay.index];
   assert.equal(waitModel.rows.find((row) => row.arm === "ARM_A").cells[2], "— (no fill)");
-  assert.match(waitModel.facts[1][1], /^A UNAVAILABLE \(emitted only on Arm A buy days\)/);
+  assert.match(waitModel.facts[1][1], /^DIP10 11:00 UNAVAILABLE \(emitted only on DIP10 11:00 buy days\)/);
 });
 
 test("UI-06: una franja de hover por decisión, marcadores y script de click persistente", () => {

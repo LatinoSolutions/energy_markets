@@ -113,5 +113,5 @@ test("main Backtests table uses three primary identities and keeps aliases in hi
   assert.match(currentPanels[0], /TRADES/);
   const withJob = withBacktestJobControl(html, { trades: { gate: { ok: true } } }, { mode: "TRADES" });
   assert.match(withJob, /data-job-start>Run TRADES backtest<\/button>/);
-  assert.match(withBacktestJobControl(html, {}, { mode: "TOB" }), /data-job-start>Run TOB backtest<\/button>/);
+  assert.match(withBacktestJobControl(html, {}, { mode: "TOB" }), /data-job-start>Run legacy TOB backtest<\/button>/);
 });

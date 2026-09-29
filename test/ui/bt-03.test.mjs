@@ -121,7 +121,7 @@ test("BT-03: PARTIAL without value renders as Partial and partial coverage is re
   assert.match(coverage, /Partial coverage/);
   assert.match(h, /data-value="35\.7125"/);
   assert.match(h, /data-coverage="PARTIAL">over 2 \/ 10 MW only/);
-  assert.match(arm, /run INCOMPLETE/);
+  assert.match(arm, /run incomplete/);
   assert.doesNotMatch(arm, /EXPLORATORY_COMPLETE/);
   assert.match(deltaV, /data-status="UNAVAILABLE"/);
 
