@@ -185,7 +185,8 @@ export async function verifyServedBuild({ baseUrl, expectedCommit, fetchImpl = f
       || lastHealth?.semanticSnapshot?.revision !== revision
       || lastHealth?.semanticSnapshot?.semanticVersion !== version
       || lastJobs?.canonicalSemantics?.ok !== true
-      || lastJobs?.canonicalSemantics?.semanticVersion !== version)) {
+      || lastJobs?.canonicalSemantics?.semanticVersion !== version
+      || JSON.stringify(lastJobs?.canonicalSemantics) !== JSON.stringify(semantics))) {
     errors.push("served build, snapshot or semantic version changed during the smoke; repeat after the process is stable");
   }
   if (!idle(lastHealth?.backtestJobs) || !idle(lastJobs) || !idle(lastJobs?.trades) || !idle(lastJobs?.hypothesis)) {

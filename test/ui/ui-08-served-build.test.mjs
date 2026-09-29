@@ -208,3 +208,19 @@ test("UI08-R11: a semantic version changing during the smoke fails closed", asyn
     assert.match(report.errors.join("\n"), /semantic version changed during the smoke/);
   });
 });
+
+test("UI08-R11: backend projection changing without a version change fails the served smoke", async () => {
+  await withServer(async (url) => {
+    let reads = 0;
+    const changedFetch = async (target, options) => {
+      const response = await fetch(target, options);
+      if (new URL(target).pathname !== "/api/backtest-jobs" || ++reads !== 2) return response;
+      const status = await response.json();
+      status.canonicalSemantics.missions[0].label = "Gas Mensual";
+      return new Response(JSON.stringify(status), { status: response.status, headers: response.headers });
+    };
+    const report = await verifyServedBuild({ baseUrl: url, expectedCommit: COMMIT, fetchImpl: changedFetch });
+    assert.equal(report.ok, false);
+    assert.match(report.errors.join("\n"), /served build, snapshot or semantic version changed during the smoke/);
+  });
+});

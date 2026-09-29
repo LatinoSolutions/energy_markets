@@ -212,3 +212,13 @@ La mejora del verificador es ingeniería de la rama; **UI08-R11 no está
 corregido** mientras el build integrado no sea publicado con autorización y
 verificado con exit 0 contra el SHA efectivamente cargado. Se conserva la
 dependencia de acceso ya registrada, ACTO: ACTUAL, sin un nuevo pedido.
+
+### Proyección backend estable durante el smoke
+
+El verificador coteja también el contenido de `canonicalSemantics` entre la
+primera y la última lectura de `/api/backtest-jobs`. Una misión que cambia de
+etiqueta conservando `semanticVersion` y los headers de revisión debe fallar:
+lo cubre el test `UI08-R11: backend projection changing without a version
+change fails the served smoke`. Este control sólo mejora la comprobación de la
+publicación; la aceptación UI08-10 sigue pendiente del smoke con exit 0 en el
+proceso activo tras la publicación autorizada y sin job en curso.
