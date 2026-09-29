@@ -20,7 +20,8 @@ test("SEM-2: one backend projection feeds English canonical identities to all fo
     for (const mission of semantics.missions) {
       assert.equal(mission.client.kind, "CLIENT");
       assert.equal(mission.benchmark.kind, "BENCHMARK");
-      assert.equal(mission.control.kind, "CONTROL");
+      assert.equal(mission.control, undefined);
+      assert.equal(semantics.current.experiments[mission.missionId]["H-S1-01"].status, "UNBOUND");
       // SEM2-T05: only hypotheses that declare the mission sit on its row.
       assert.ok(mission.hypotheses.some((hypothesis) => hypothesis.hypothesisId === "H-S1-01"));
       assert.ok(mission.hypotheses.every((hypothesis) => hypothesis.hypothesisId !== "H-RD-01"));

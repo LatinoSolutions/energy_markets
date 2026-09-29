@@ -5,6 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
 import { loadCanonicalUiInputs } from "../../src/ui/canonical-inputs.mjs";
@@ -23,6 +24,7 @@ import {
 } from "../../src/backtest-jobs/hypothesis-runner.mjs";
 import { H_S1_01 } from "../../src/s1-strategy/h-s1-01.mjs";
 import { makeHypothesisFixtureRepo, hypothesisJobRequest } from "../backtest-jobs/hypothesis-fixture-repo.mjs";
+import { boundDevelopmentResult } from "../backtesting-semantics/sem3-fixture.mjs";
 
 const sha256 = (value) => value.repeat(64 / value.length);
 
@@ -175,18 +177,7 @@ test("UI08-04: absent runs and unknown client economics are unavailable, not zer
 // ---------- UI08-05 · CONTROL as the ablation comparison ----------
 
 test("UI08-05: ablation renders the paired effect and parity when a valid run exists", () => {
-  const result = {
-    hypothesisId: H_S1_01.hypothesisId,
-    hypothesisVersion: H_S1_01.version,
-    missionId: "GAS_MONTHLY",
-    runId: `HYP-RUN-${sha256("a")}`,
-    status: "SUCCEEDED",
-    validComparison: true,
-    retention: { state: "CURRENT" },
-    resultPath: "operations/hypothesis/runs/result.json",
-    resultSha256: sha256("b"),
-    ablation: { paired: true, ok: true, verdict: "HOLD", deltaV: 1.234, equivalentCostDifference: 1.234, absolutePass: false },
-  };
+  const result = boundDevelopmentResult({ runId: `HYP-RUN-${sha256("a")}` });
   const vm = buildBacktestsViewModel({ hypothesisResults: [result] });
   const row = vm.ablation.find((entry) => entry.mission.id === "GAS_MONTHLY");
   assert.equal(row.status, "EFFECT");
@@ -294,18 +285,7 @@ test("UI08-08: the hypothesis control never dispatches the legacy TOB/TRADES cha
 // ---------- UI08-09 · scoped result identity/history ----------
 
 test("UI08-09: results stay scoped per hypothesis/version/mission and Gas/Power never overwrite", () => {
-  const resultFor = (missionId, letter) => ({
-    hypothesisId: H_S1_01.hypothesisId,
-    hypothesisVersion: H_S1_01.version,
-    missionId,
-    runId: `HYP-RUN-${sha256(letter)}`,
-    status: "SUCCEEDED",
-    validComparison: true,
-    retention: { state: "CURRENT" },
-    resultPath: `operations/hypothesis/runs/${missionId}.json`,
-    resultSha256: sha256(letter === "a" ? "b" : "c"),
-    ablation: { paired: true, ok: true, verdict: "HOLD", deltaV: 1, equivalentCostDifference: 1 },
-  });
+  const resultFor = (missionId, letter) => boundDevelopmentResult({ missionId, runId: `HYP-RUN-${sha256(letter)}` });
   const vm = buildBacktestsViewModel({ hypothesisResults: [resultFor("GAS_MONTHLY", "a"), resultFor("POWER_MONTHLY", "d")] });
   const gas = vm.canonicalSemantics.missions.find((mission) => mission.missionId === "GAS_MONTHLY");
   const power = vm.canonicalSemantics.missions.find((mission) => mission.missionId === "POWER_MONTHLY");
@@ -413,21 +393,7 @@ function controlHarness(html, { requestJson = null, runningAttr = null, fetchQue
 }
 
 function comparableResultFixture(letter, overrides = {}) {
-  return {
-    hypothesisId: H_S1_01.hypothesisId,
-    hypothesisVersion: H_S1_01.version,
-    missionId: "GAS_MONTHLY",
-    runId: `HYP-RUN-${sha256(letter)}`,
-    status: "SUCCEEDED",
-    validComparison: true,
-    retention: { state: "CURRENT" },
-    resultPath: `operations/hypothesis/runs/${letter}.json`,
-    resultSha256: sha256(letter.repeat(2)),
-    phase: "DEVELOPMENT",
-    dataMode: "TOB",
-    ablation: { paired: true, ok: true, verdict: "HOLD", deltaV: 1.234, equivalentCostDifference: 1.234, absolutePass: false },
-    ...overrides,
-  };
+  return boundDevelopmentResult({ runId: `HYP-RUN-${createHash("sha256").update(letter).digest("hex")}`, overrides });
 }
 
 // UI08-R01 · Scope shows every campaign window tied to its source
@@ -787,28 +753,30 @@ test("UI08-R08: a source altered after the request keeps the mission blocked wit
 
 // UI08-R09 · phase and data mode travel with the published result identity
 test("UI08-R09: results of one hypothesis and mission with different modes stay separated and identified", () => {
-  const runIdA = `HYP-RUN-${sha256("p")}`;
-  const runIdB = `HYP-RUN-${sha256("q")}`;
-  // The family key carries phase/mode; today BT-08 only launches
-  // DEVELOPMENT|TOB, so the second family exercises the generic transport that
-  // keeps future modes from collapsing into one indistinguishable result.
+  const runIdA = `HYP-RUN-${sha256("a")}`;
+  const runIdB = `HYP-RUN-${sha256("b")}`;
+  // BT-08 currently admits only Development/TOB. An invented TRADES family
+  // travels through the transport but cannot become current evidence.
   const runner = {
     status: () => ({ running: false, current: null, latest: null, families: [
       { family: "H-S1-01|GAS_MONTHLY|DEVELOPMENT|TOB", currentRunId: runIdA, tested: true, retention: { state: "CURRENT", supersededBy: null } },
       { family: "H-S1-01|GAS_MONTHLY|DEVELOPMENT|TRADES", currentRunId: runIdB, tested: true, retention: { state: "CURRENT", supersededBy: null } },
     ] }),
-    get: (runId) => ({ job: { runId, hypothesisVersion: H_S1_01.version, status: "SUCCEEDED", result: { results: { path: "operations/backtest-runs/x/output/r.json", sha256: sha256("x") } } } }),
+    get: (runId) => {
+      const fixture = boundDevelopmentResult({ runId });
+      return { job: { runId, jobKind: fixture.sourceKind, hypothesisVersion: H_S1_01.version, phase: fixture.phase, dataMode: runId === runIdB ? "TRADES" : "TOB", status: "SUCCEEDED", receiptPath: fixture.receiptPath, result: { results: { path: fixture.resultPath, sha256: fixture.resultSha256 }, manifest: { path: fixture.manifestPath, sha256: fixture.manifestSha256 }, ablation: fixture.ablation } } };
+    },
   };
   const entries = hypothesisResultsFromRunner(runner);
   assert.equal(entries.length, 2);
   assert.deepEqual(entries.map((entry) => `${entry.phase}|${entry.dataMode}`).sort(), ["DEVELOPMENT|TOB", "DEVELOPMENT|TRADES"]);
   const vm = buildBacktestsViewModel({ hypothesisResults: entries });
   const monthly = vm.canonicalSemantics.missions.find((mission) => mission.missionId === "GAS_MONTHLY");
-  assert.equal(monthly.hypothesisResults.length, 2, "both results stay separated in the mission");
-  assert.notEqual(monthly.hypothesisResults[0].runId, monthly.hypothesisResults[1].runId);
+  assert.equal(monthly.hypothesisResults.length, 1, "only the declared BT-08 mode is current");
+  assert.equal(vm.canonicalSemantics.results["H-S1-01"].find((result) => result.dataMode === "TRADES").state, "UNAVAILABLE");
   const html = renderSurfacePage("backtests", vm, {});
   assert.match(html, new RegExp(`data-hypothesis-run="${runIdA}"[\\s\\S]*?DEVELOPMENT · TOB · comparison valid`));
-  assert.match(html, new RegExp(`data-hypothesis-run="${runIdB}"[\\s\\S]*?DEVELOPMENT · TRADES · comparison valid`));
+  assert.doesNotMatch(html, new RegExp(`data-hypothesis-run="${runIdB}"`));
 });
 
 // UI08-R10 · E2E through the real button, payload, handler, ledger and result

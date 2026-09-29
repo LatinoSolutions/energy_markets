@@ -7,6 +7,11 @@ import {
 import { buildBacktestsViewModel } from "../../src/ui/view-models.mjs";
 import { renderBacktestsPage } from "../../src/ui/render.mjs";
 import { withBacktestJobControl } from "../../src/ui/backtest-job-panel.mjs";
+function boundControl(fields) {
+  const active = { ok: true, kind: IDENTITY.HYPOTHESIS, id: fields.hypothesisId, ...fields, hypothesisLayer: fields.hypothesisId, artifactSha256: "d".repeat(64) };
+  return controlFor({ ...fields, active });
+}
+
 
 test("four obligations retain separate client and benchmark identities without invented economics", () => {
   assert.deepEqual(MISSIONS.map(({ id }) => id), ["GAS_QUARTERLY", "GAS_MONTHLY", "POWER_QUARTERLY", "POWER_MONTHLY"]);
@@ -49,13 +54,13 @@ test("one benchmark identity retains provisional/official status under it", () =
 });
 
 test("CONTROL is run-bound, price-blind and cannot become client or production fallback", () => {
-  const pair = { hypothesisId: "H-S1-01", runId: "r1", populationId: "p1", campaignId: "camp1", obligationId: "gq1", calendarVersion: "c1", sizingVersion: "s1", executionVersion: "e1", benchmarkVersion: "b1", artifactSha256: "c".repeat(64) };
-  const control = controlFor(pair);
+  const pair = { hypothesisId: "H-S1-01", experimentId: "exp-1", missionId: "GAS_QUARTERLY", constraintsVersion: "constraints-1", runId: "r1", populationId: "p1", campaignId: "camp1", obligationId: "gq1", calendarVersion: "c1", sizingVersion: "s1", executionVersion: "e1", benchmarkVersion: "b1", artifactSha256: "c".repeat(64) };
+  const control = boundControl(pair);
   assert.equal(control.kind, IDENTITY.CONTROL);
-  assert.equal(control.timing, "CALENDAR_ONLY_PRICE_BLIND");
-  assert.equal(control.requestedQuantity, "remainingVolume / remainingScheduledOpportunities");
+  assert.equal(control.hypothesisLayer, null);
+  assert.equal(control.requestedQuantity, undefined);
   assert.equal(control.productionFallbackAuthorized, false);
-  assert.equal(controlFor({ ...pair, executionVersion: null }).code, "CONTROL_BINDING_INCOMPLETE");
+  assert.equal(boundControl({ ...pair, executionVersion: null }).code, "CONTROL_BINDING_INCOMPLETE");
   assert.equal(H_S1_01.strategy, "S1");
   assert.equal(H_S1_01.result, null);
   assert.equal(H_S1_01.parameters.tau, "CONFIGURABLE");
@@ -65,8 +70,8 @@ test("CONTROL is run-bound, price-blind and cannot become client or production f
 test("legacy alias needs artifact, protocol, run and explicit mapping", () => {
   const artifactSha256 = "b".repeat(64);
   assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1" }).code, "UNBOUND_LEGACY_ALIAS");
-  const mapping = { alias: "A0", artifactSha256, protocolVersion: "P5-v1", kind: "CONTROL", hypothesisId: "H-S1-01", runId: "r1", provenance: "receipt" };
-  assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping }).kind, "CONTROL");
+  const mapping = { alias: "A0", artifactSha256, protocolVersion: "P5-v1", kind: "CONTROL", hypothesisId: "H-S1-01", experimentId: "exp-1", missionId: "GAS_QUARTERLY", constraintsVersion: "constraints-1", runId: "r1", provenance: "receipt" };
+  assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping }).kind, "LEGACY_PROVENANCE");
   assert.equal(resolveLegacyAlias({ alias: "A0", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, kind: "HYPOTHESIS" } }).ok, false);
   assert.equal(resolveLegacyAlias({ alias: "A1", artifactSha256, protocolVersion: "P5-v1", mapping: { ...mapping, alias: "A1", kind: "CONTROL" } }).ok, false);
   assert.equal(resolveLegacyAlias({ alias: "ARM_A", artifactSha256, protocolVersion: "P5-v1", mapping }).ok, false);
@@ -74,9 +79,9 @@ test("legacy alias needs artifact, protocol, run and explicit mapping", () => {
 });
 
 test("Delta V requires comparable pair and valid complete economics; relative improvement is not PASS", () => {
-  const fields = { hypothesisId: "H-S1-01", runId: "r1", populationId: "p1", campaignId: "camp1", obligationId: "gq1", calendarVersion: "c1", sizingVersion: "s1", executionVersion: "e1", benchmarkVersion: "b1", artifactSha256: "c".repeat(64) };
-  const control = controlFor(fields);
-  const active = { kind: "HYPOTHESIS", id: "H-S1-01", ...Object.fromEntries(Object.entries(fields).filter(([key]) => key !== "hypothesisId")), artifactSha256: "d".repeat(64) };
+  const fields = { hypothesisId: "H-S1-01", experimentId: "exp-1", missionId: "GAS_QUARTERLY", constraintsVersion: "constraints-1", runId: "r1", populationId: "p1", campaignId: "camp1", obligationId: "gq1", calendarVersion: "c1", sizingVersion: "s1", executionVersion: "e1", benchmarkVersion: "b1", artifactSha256: "c".repeat(64) };
+  const control = boundControl(fields);
+  const active = { kind: "HYPOTHESIS", id: "H-S1-01", hypothesisLayer: "H-S1-01", ...Object.fromEntries(Object.entries(fields).filter(([key]) => key !== "hypothesisId")), artifactSha256: "d".repeat(64) };
   const economy = (arm, H, status = "RECONCILED_OFFICIAL") => ({ status: "VALID_RUN", benchmarkStatus: status, costCompleteness: "FULL", campaignId: arm.campaignId, obligationId: arm.obligationId, runId: arm.runId, artifactSha256: arm.artifactSha256, benchmarkVersion: arm.benchmarkVersion, benchmarkArtifactSha256: "e".repeat(64), unit: "EUR/MWh", B: 100, H, V: 100 - H });
   assert.equal(compareAblation({ control, active: { ...active, executionVersion: "other" } }).code, "PAIR_NOT_COMPARABLE");
   const c = economy(control, 92);

@@ -12,14 +12,19 @@ import {
   pairedBenchmarkDelta,
   CANONICAL_LABELS,
 } from "../../src/backtesting-semantics/projection.mjs";
-import { IDENTITY, SEMANTIC_VERSION } from "../../src/backtesting-semantics/contract.mjs";
+import { IDENTITY, SEMANTIC_VERSION, controlFor } from "../../src/backtesting-semantics/contract.mjs";
 
 const sha256Of = (value) => createHash("sha256").update(value).digest("hex");
 
 // Two REAL legacy exploratory releases: Gas v2 and Power v3 (the only ones the
 // loader accepts; canonical-inputs.mjs). Each has its own artifact bytes/hash.
-const GAS_BYTES = JSON.stringify({ artifactKind: "EXPLORATORY_RESULTS", release: "v2" });
-const POWER_BYTES = JSON.stringify({ artifactKind: "EXPLORATORY_RESULTS", release: "v3" });
+const exploratoryBytes = (release) => JSON.stringify({
+  artifactKind: "EXPLORATORY_BACKTEST_RESULTS", status: "EXPLORATORY", release,
+  research: { candidates: [{ id: "A0", armId: "BASELINE" }, { id: "DIP10", armId: "ARM_A" }, { id: "HOUR", armId: "ARM_B" }] },
+  results: [{ arms: { "A0@11:00/CLIENT": {}, "DIP10@11:00/CLIENT": {} } }],
+});
+const GAS_BYTES = exploratoryBytes("v2");
+const POWER_BYTES = exploratoryBytes("v3");
 const GAS_HASH = sha256Of(GAS_BYTES);
 const POWER_HASH = sha256Of(POWER_BYTES);
 
@@ -80,6 +85,9 @@ test("legacy adapter is source/version scoped and never invents a role without v
   const badLocator = adaptLegacyExploratoryArtifact({ provenance: releaseProvenance({ release: "v2", resultsSha256: GAS_HASH, resultsPath: "" }) });
   assert.equal(badLocator.code, "LEGACY_ARTIFACT_LOCATOR_MISSING");
 
+  const wrongReleasePath = adaptLegacyExploratoryArtifact({ provenance: releaseProvenance({ release: "v2", resultsSha256: GAS_HASH, resultsPath: "operations/exploratory/v3/backtest-results.json" }), artifact: GAS_BYTES });
+  assert.equal(wrongReleasePath.code, "LEGACY_RELEASE_PATH_MISMATCH");
+
   // SEM2-T02: a syntactically valid sha256 that does not match the artifact
   // bytes resolves nothing (the mapping is bound to the verified source).
   const wrongBytes = adaptLegacyExploratoryArtifact({
@@ -107,7 +115,7 @@ test("legacy adapter is source/version scoped and never invents a role without v
   assert.equal(unknownRelease.code, "LEGACY_RELEASE_UNKNOWN");
 });
 
-test("BASELINE/A0 is a historical CONTROL comparator, never CLIENT and never equivalent to the active protocol", () => {
+test("BASELINE/A0 is a historical calendar comparator, never CLIENT and never equivalent to the active protocol", () => {
   const adapter = adaptLegacyExploratoryArtifact({
     provenance: releaseProvenance({ release: "v2", resultsSha256: GAS_HASH, resultsPath: "operations/exploratory/v2/backtest-results.json" }),
     artifact: GAS_BYTES,
@@ -116,15 +124,16 @@ test("BASELINE/A0 is a historical CONTROL comparator, never CLIENT and never equ
   assert.equal(adapter.protocolVersion, LEGACY_EXPLORATORY_PROTOCOL);
   assert.equal(adapter.artifactSha256, GAS_HASH);
   const baseline = legacyRoleOf(adapter, "BASELINE");
-  assert.equal(baseline.role, IDENTITY.CONTROL);
-  assert.equal(baseline.identity, IDENTITY.CONTROL);
+  assert.equal(baseline.historicalKind, "CALENDAR_COMPARATOR");
+  assert.equal(baseline.lineageOf, null);
+  assert.equal(baseline.identity, undefined);
   assert.equal(baseline.activeProtocolEquivalent, false);
   assert.equal(baseline.productionFallbackAuthorized, false);
   assert.equal(baseline.tested, false);
   // No legacy id may ever resolve to CLIENT.
   for (const role of Object.values(adapter.roles)) {
-    assert.notEqual(role.identity, IDENTITY.CLIENT);
-    assert.equal(role.alias === "A0" ? role.role : null, role.alias === "A0" ? IDENTITY.CONTROL : null);
+    assert.equal(role.identity, undefined);
+    assert.equal(role.clientEquivalent, false);
   }
 });
 
@@ -134,13 +143,14 @@ test("DIP10/ARM_A resolves to H-S1-01 and HOUR/ARM_B to H-RD-01 as provenance on
     artifact: GAS_BYTES,
   });
   const dip = legacyRoleOf(adapter, "ARM_A");
-  assert.equal(dip.hypothesisId, "H-S1-01");
+  assert.equal(dip.lineageOf, "H-S1-01");
+  assert.equal(dip.identity, undefined);
   assert.equal(dip.evidenceStatus, "PROVENANCE_ONLY");
   assert.equal(dip.tested, false);
   assert.equal(dip.runnable, false);
   assert.equal(dip.sizingParityClaim, false);
   const hour = legacyRoleOf(adapter, "ARM_B");
-  assert.equal(hour.hypothesisId, "H-RD-01");
+  assert.equal(hour.lineageOf, "H-RD-01");
   assert.equal(hour.tested, false);
   assert.equal(adapter.candidates.DIP10, dip);
   assert.equal(adapter.candidates.HOUR, hour);
@@ -165,8 +175,9 @@ test("one shared projection carries English canonical identities and typed roles
   for (const mission of projection.missions) {
     assert.equal(mission.client.kind, IDENTITY.CLIENT);
     assert.equal(mission.benchmark.kind, IDENTITY.BENCHMARK);
-    assert.equal(mission.control.kind, IDENTITY.CONTROL);
-    assert.equal(mission.control.activeProtocolEquivalent, false);
+    assert.equal(mission.control, undefined);
+    assert.equal(projection.current.experiments[mission.missionId]["H-S1-01"].status, "UNBOUND");
+    assert.equal(mission.current, undefined);
     // Only hypotheses that declare the mission appear on its row (SEM2-T05):
     // H-RD-01 declares no missions, so it never claims mission applicability.
     assert.deepEqual(mission.hypotheses.map((hypothesis) => hypothesis.hypothesisId), ["H-S1-01"]);
@@ -193,11 +204,11 @@ test("SEM2-T03: each mission's legacy mapping is scoped to its own verified arti
   const power = projection.missions.find((mission) => mission.missionId === "POWER_QUARTERLY");
   const powerMonthly = projection.missions.find((mission) => mission.missionId === "POWER_MONTHLY");
   // DEBQ and DEBM are bound to the Power v3 hash, never to the Gas v2 hash.
-  assert.equal(gas.control.historicalComparator.artifactSha256, GAS_HASH);
-  assert.equal(gasMonthly.control.historicalComparator.artifactSha256, GAS_HASH);
-  assert.equal(power.control.historicalComparator.artifactSha256, POWER_HASH);
-  assert.equal(powerMonthly.control.historicalComparator.artifactSha256, POWER_HASH);
-  assert.equal(power.control.historicalComparator.release, "v3");
+  assert.equal(gas.historicalEvidence.source.artifactSha256, GAS_HASH);
+  assert.equal(gasMonthly.historicalEvidence.source.artifactSha256, GAS_HASH);
+  assert.equal(power.historicalEvidence.source.artifactSha256, POWER_HASH);
+  assert.equal(powerMonthly.historicalEvidence.source.artifactSha256, POWER_HASH);
+  assert.equal(power.historicalEvidence.source.release, "v3");
 
   // Mixing bytes across releases fails closed: DEBQ with the Gas bytes stays
   // unresolved instead of borrowing another artifact's mapping.
@@ -205,9 +216,9 @@ test("SEM2-T03: each mission's legacy mapping is scoped to its own verified arti
     exploratory: verifiedExploratory({ powerBytes: GAS_BYTES }),
   });
   const mixedPower = mixed.missions.find((mission) => mission.missionId === "POWER_QUARTERLY");
-  assert.equal(mixedPower.control.historicalComparator, null);
+  assert.equal(mixedPower.historicalEvidence.source, null);
   // Gas keeps its own verified mapping.
-  assert.equal(mixed.missions.find((mission) => mission.missionId === "GAS_QUARTERLY").control.historicalComparator !== null, true);
+  assert.equal(mixed.missions.find((mission) => mission.missionId === "GAS_QUARTERLY").historicalEvidence.source !== null, true);
 
   // Source identity reports the per-product releases truthfully.
   assert.equal(projection.source.products.G0BQ.release, "v2");
@@ -284,23 +295,32 @@ test("projection exposes a provisional BENCHMARK truthfully and never promotes i
 });
 
 test("SEM2-T01: completed BT-08 results bind the published hypothesis identity and never flip it to TESTED", () => {
-  const valid = {
+  const validFor = (missionId) => {
+    const runId = "HYP-RUN-" + "a1".repeat(32);
+    const parity = { hypothesisId: "H-S1-01", experimentId: `exp-${missionId}`, missionId, runId, populationId: `pop-${missionId}`, campaignId: `campaign-${missionId}`, obligationId: `obligation-${missionId}`, calendarVersion: "calendar-v1", sizingVersion: "sizing-v1", executionVersion: "execution-v1", benchmarkVersion: "benchmark-v1", constraintsVersion: "constraints-v1" };
+    return {
+    sourceKind: "HYPOTHESIS_DEVELOPMENT", family: `H-S1-01|${missionId}|DEVELOPMENT|TOB`, phase: "DEVELOPMENT", dataMode: "TOB",
     hypothesisId: "H-S1-01",
     hypothesisVersion: "H-S1-01/phase-A/v2",
-    missionId: "GAS_QUARTERLY",
-    runId: "HYP-RUN-" + "a1".repeat(32),
+    missionId,
+    runId,
     status: "SUCCEEDED",
     validComparison: true,
     retention: { state: "CURRENT" },
-    resultPath: "operations/backtest-runs/x/output/results.json",
+    receiptPath: `operations/backtest-runs/${runId}/attempt-1/RUN_RECEIPT.json`,
+    resultPath: `operations/backtest-runs/${runId}/attempt-1/output/output/hypothesis-development-results.json`,
     resultSha256: "d4".repeat(32),
-  };
+    manifestPath: `operations/backtest-runs/${runId}/attempt-1/output/output/hypothesis-development-results.MANIFEST.json`,
+    manifestSha256: "e5".repeat(32),
+    ablation: { paired: true, ok: true, experimentBinding: { hypothesisId: "H-S1-01", missionId, experimentId: parity.experimentId, runId, control: controlFor({ ...parity, active: { ok: true, kind: "HYPOTHESIS", id: "H-S1-01", ...parity, hypothesisLayer: "H-S1-01", artifactSha256: "b2".repeat(32) }, artifactSha256: "c3".repeat(32) }), active: { ok: true, kind: "HYPOTHESIS", id: "H-S1-01", ...parity, hypothesisLayer: "H-S1-01", artifactSha256: "b2".repeat(32) } } },
+  };};
+  const valid = validFor("GAS_QUARTERLY");
   const projection = buildCanonicalSemanticsProjection({
     exploratory: verifiedExploratory(),
     hypothesisResults: [
       valid,
       { ...valid, hypothesisVersion: "H-S1-01/phase-A/v1" },
-      { ...valid, missionId: "GAS_MONTHLY" },
+      validFor("GAS_MONTHLY"),
       { ...valid, runId: "" },
       { ...valid, hypothesisId: "H-RD-01" },
     ],
@@ -336,7 +356,8 @@ test("projection without a verified exploratory artifact keeps CLIENT scoped and
   assert.equal(projection.source.status, "UNAVAILABLE");
   assert.equal(projection.legacyAdapter.ok, false);
   for (const mission of projection.missions) {
-    assert.equal(mission.control.historicalComparator, null);
+    assert.equal(mission.control, undefined);
+    assert.equal(projection.current.experiments[mission.missionId]["H-S1-01"].status, "UNBOUND");
     assert.equal(mission.client.scopeStatus, "UNAVAILABLE");
     // CLIENT purchase time is only confirmed for the current Gas Quarterly mandate.
     if (mission.missionId !== "GAS_QUARTERLY") {

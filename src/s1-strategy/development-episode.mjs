@@ -397,6 +397,8 @@ export function runHS1DevelopmentEpisode(spec) {
 export function pairedAblation({ runId, campaign, missionId, controllerHash, calendarHash, executionHash, benchmark, controlEpisode, activeEpisode }) {
   const parity = {
     hypothesisId: H_S1_01.hypothesisId,
+    experimentId: `${H_S1_01.hypothesisId}|${missionId}|${runId}`,
+    missionId,
     runId,
     populationId: campaign.populationId ?? campaign.campaignId,
     campaignId: campaign.campaignId,
@@ -405,13 +407,16 @@ export function pairedAblation({ runId, campaign, missionId, controllerHash, cal
     sizingVersion: controllerHash,
     executionVersion: executionHash,
     benchmarkVersion: benchmark.version,
+    constraintsVersion: contentHashOf({ campaignId: campaign.campaignId, obligationId: campaign.obligationId ?? campaign.campaignId, targetVolumeMw: campaign.targetVolumeMw, tradingDates: campaign.tradingDates }),
   };
-  const controlBinding = controlFor({ ...parity, artifactSha256: controlEpisode.artifactSha256 });
-  if (!controlBinding.ok) return { paired: false, code: controlBinding.code };
   const activeBinding = {
     ok: true, kind: "HYPOTHESIS", id: H_S1_01.hypothesisId, ...parity,
+    hypothesisLayer: H_S1_01.hypothesisId,
     artifactSha256: activeEpisode.artifactSha256,
   };
+  const controlBinding = controlFor({ ...parity, active: activeBinding, artifactSha256: controlEpisode.artifactSha256 });
+  if (!controlBinding.ok) return { paired: false, code: controlBinding.code };
+  const experimentBinding = { hypothesisId: H_S1_01.hypothesisId, missionId, experimentId: parity.experimentId, runId, active: activeBinding, control: controlBinding };
   const economicsOf = (episode) => ({
     // Estado honesto por brazo (hallazgos BT08-T10/T11): un brazo que no sirve
     // la obligación completa no es VALID_RUN para la comparación económica.
@@ -443,6 +448,7 @@ export function pairedAblation({ runId, campaign, missionId, controllerHash, cal
   if (!equalCoverage) {
     return {
       paired: true, ok: false, verdict: "HOLD", code: "COVERAGE_MISMATCH",
+      experimentBinding,
       reason: "the paired ablation requires both arms to serve the same campaign obligation; no delta is published",
       controlBoughtMw: controlEpisode.summary.boughtMw,
       activeBoughtMw: activeEpisode.summary.boughtMw,
@@ -455,5 +461,5 @@ export function pairedAblation({ runId, campaign, missionId, controllerHash, cal
     controlEconomics: economicsOf(controlEpisode),
     activeEconomics: economicsOf(activeEpisode),
   });
-  return { paired: true, code: outcome.code ?? null, ...outcome };
+  return { paired: true, code: outcome.code ?? null, ...outcome, experimentBinding };
 }
